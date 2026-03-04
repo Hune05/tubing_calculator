@@ -342,7 +342,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
 }
 
 // ============================================================================
-// 🔥 3D 물리엔진 업그레이드 완료: 가상 후단(Phantom Tail) 시스템 탑재
+// 🔥 3D 물리엔진 V3: 레이어 렌더링 분리(마커 겹침 해결) 및 파이프 롤링 지시 탑재
 // ============================================================================
 class DetailedAutoFitIsoPainter extends CustomPainter {
   final List<dynamic> bendList;
@@ -379,12 +379,36 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
     return Offset(screenX, screenY);
   }
 
-  // 🚀 점선 그리기 도구 (가상 파이프용)
+  // 방향 텍스트 헬퍼
+  String _getDirName(double rot) {
+    if (rot == 0.0) return "UP"; if (rot == 90.0) return "RIGHT";
+    if (rot == 180.0) return "DOWN"; if (rot == 270.0) return "LEFT";
+    if (rot == 360.0) return "FRONT"; if (rot == 450.0) return "BACK";
+    return "${rot.toInt()}°";
+  }
+
+  // 🚀 핵심: 롤링 각도(상대 회전) 계산기
+  String _getRollingText(double prevRot, double currRot) {
+    if (prevRot == currRot) return ""; // 꺾는 방향이 같으면 회전 없음
+    
+    // 일반적인 평면 방향(UP, RIGHT, DOWN, LEFT) 간의 회전일 경우
+    if (prevRot < 360 && currRot < 360) {
+      double diff = currRot - prevRot;
+      while (diff > 180) diff -= 360;
+      while (diff <= -180) diff += 360;
+
+      if (diff > 0) return "↻ 파이프 시계 ${diff.toInt()}°";
+      if (diff < 0) return "↺ 파이프 반시계 ${diff.abs().toInt()}°";
+      if (diff == 180 || diff == -180) return "↻ 파이프 180° 반전";
+    }
+    // FRONT, BACK 등 특수 축으로 틀어질 경우
+    return "➡ ${_getDirName(currRot)} 방향 셋팅";
+  }
+
   void _drawDashedLine(Canvas canvas, Offset p1, Offset p2, Color color) {
     final paint = Paint()..color = color..strokeWidth = 3.0..style = PaintingStyle.stroke;
     var path = Path();
-    double dashWidth = 8.0, dashSpace = 6.0;
-    double distance = (p2 - p1).distance;
+    double dashWidth = 8.0, dashSpace = 6.0, distance = (p2 - p1).distance;
     double dx = (p2.dx - p1.dx) / distance, dy = (p2.dy - p1.dy) / distance;
     double i = 0;
     while (i < distance) {
@@ -431,13 +455,10 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
     }
 
     List<double>? tail3D, endFit3D, phantom3D;
-    
-    // 🚀 핵심: 기장이 0인데 마지막 각도가 살아있다면 "가상 후단(Phantom Tail)" 생성
     if (tail > 0) {
       currPos[0] += currDir[0] * tail; currPos[1] += currDir[1] * tail; currPos[2] += currDir[2] * tail;
       tail3D = [...currPos];
     } else if (bendList.isNotEmpty && (bendList.last['angle'] ?? 0).toDouble() > 0) {
-      // 꼬리가 없어도 방향을 보여주기 위해 50mm짜리 투명 파이프 연장
       phantom3D = [currPos[0] + currDir[0] * 50.0, currPos[1] + currDir[1] * 50.0, currPos[2] + currDir[2] * 50.0];
     }
 
@@ -458,7 +479,7 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
     for (var p in pts2D) updateBounds(p);
     if (tail2D != null) updateBounds(tail2D);
     if (endFit2D != null) updateBounds(endFit2D);
-    if (phantom2D != null) updateBounds(phantom2D); // 가상 후단도 화면에 들어오게 계산
+    if (phantom2D != null) updateBounds(phantom2D);
 
     double bWidth = maxX - minX, bHeight = maxY - minY;
     if (bWidth == 0) bWidth = 100; if (bHeight == 0) bHeight = 100;
@@ -466,86 +487,127 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
     double centerX = minX + (bWidth / 2), centerY = minY + (bHeight / 2);
     Offset transform(Offset p) => Offset((p.dx - centerX) * drawScale + size.width / 2, (p.dy - centerY) * drawScale + size.height / 2);
 
-    final pipePaint = Paint()..color = slate900..strokeWidth = 5.0..strokeCap = StrokeCap.round..style = PaintingStyle.stroke;
-    final fittingPaint = Paint()..color = makitaTeal.withOpacity(0.6)..strokeWidth = 12.0..strokeCap = StrokeCap.square..style = PaintingStyle.stroke;
-
     List<Offset> finalPts2D = pts2D.map((p) => transform(p)).toList();
     Offset? finalStartFit2D = startFit2D != null ? transform(startFit2D) : null;
     Offset? finalTail2D = tail2D != null ? transform(tail2D) : null;
     Offset? finalEndFit2D = endFit2D != null ? transform(endFit2D) : null;
     Offset? finalPhantom2D = phantom2D != null ? transform(phantom2D) : null;
 
-    if (startFit && finalStartFit2D != null) { canvas.drawLine(finalStartFit2D, finalPts2D[0], fittingPaint); _drawNodeBadge(canvas, "S", finalStartFit2D, slate900, pureWhite); } 
-    else { _drawNodeBadge(canvas, "S", finalPts2D[0], slate900, pureWhite); }
+    final pipePaint = Paint()..color = slate900..strokeWidth = 6.0..strokeCap = StrokeCap.round..style = PaintingStyle.stroke;
+    final fittingPaint = Paint()..color = makitaTeal.withOpacity(0.6)..strokeWidth = 14.0..strokeCap = StrokeCap.square..style = PaintingStyle.stroke;
 
+    // ==========================================
+    // 🎨 LAYER 1: 뼈대 (선, 점선, 화살표) 먼저 그리기
+    // ==========================================
+    if (startFit && finalStartFit2D != null) canvas.drawLine(finalStartFit2D, finalPts2D[0], fittingPaint);
+    
     for (int i = 0; i < bendList.length; i++) {
       double l = (bendList[i]['length'] ?? 0).toDouble();
       if (l > 0) {
         canvas.drawLine(finalPts2D[i], finalPts2D[i + 1], pipePaint);
         Offset delta = finalPts2D[i + 1] - finalPts2D[i];
-        double dist = math.sqrt(delta.dx * delta.dx + delta.dy * delta.dy);
-        if (dist > 0.1) {
-          Offset dir2D = Offset(delta.dx / dist, delta.dy / dist);
+        if (delta.distance > 0.1) {
+          Offset dir2D = Offset(delta.dx / delta.distance, delta.dy / delta.distance);
           Offset mid = Offset((finalPts2D[i].dx + finalPts2D[i + 1].dx) / 2, (finalPts2D[i].dy + finalPts2D[i + 1].dy) / 2);
           _drawDirectionArrow(canvas, mid, dir2D, makitaTeal);
-          Offset normal = Offset(-dir2D.dy, dir2D.dx); if (normal.dy > 0) normal = Offset(-normal.dx, -normal.dy);
-          _drawSimpleLength(canvas, "${l.toInt()}", mid + Offset(normal.dx * 18, normal.dy * 18), slate600);
         }
       }
-      _drawNodeBadge(canvas, "${i + 1}", finalPts2D[i + 1], makitaTeal, pureWhite);
     }
 
     Offset lastPt = finalPts2D.last;
-    
     if (tail > 0 && finalTail2D != null) {
       canvas.drawLine(lastPt, finalTail2D, pipePaint);
       Offset delta = finalTail2D - lastPt;
-      double dist = math.sqrt(delta.dx * delta.dx + delta.dy * delta.dy);
-      if (dist > 0.1) {
-        Offset dir2D = Offset(delta.dx / dist, delta.dy / dist);
+      if (delta.distance > 0.1) {
         Offset mid = Offset((lastPt.dx + finalTail2D.dx) / 2, (lastPt.dy + finalTail2D.dy) / 2);
-        _drawDirectionArrow(canvas, mid, dir2D, slate600);
-        Offset normal = Offset(-dir2D.dy, dir2D.dx); if (normal.dy > 0) normal = Offset(-normal.dx, -normal.dy);
-        _drawSimpleLength(canvas, "${tail.toInt()}", mid + Offset(normal.dx * 18, normal.dy * 18), slate600);
+        _drawDirectionArrow(canvas, mid, Offset(delta.dx / delta.distance, delta.dy / delta.distance), slate600);
       }
       lastPt = finalTail2D;
-    } 
-    // 🚀 [해결] 꼬리가 0이어도 꺾였으면 점선과 화살표로 방향 표시!
-    else if (finalPhantom2D != null) {
+    } else if (finalPhantom2D != null) {
       _drawDashedLine(canvas, lastPt, finalPhantom2D, makitaTeal.withOpacity(0.5));
-      Offset delta = finalPhantom2D - lastPt;
-      _drawDirectionArrow(canvas, Offset((lastPt.dx + finalPhantom2D.dx)/2, (lastPt.dy + finalPhantom2D.dy)/2), delta, makitaTeal);
+      _drawDirectionArrow(canvas, Offset((lastPt.dx + finalPhantom2D.dx)/2, (lastPt.dy + finalPhantom2D.dy)/2), finalPhantom2D - lastPt, makitaTeal);
     }
 
-    if (endFit && finalEndFit2D != null) {
-      canvas.drawLine(lastPt, finalEndFit2D, fittingPaint);
-      _drawNodeBadge(canvas, "E", finalEndFit2D, Colors.red.shade700, pureWhite);
-    } else {
-      _drawNodeBadge(canvas, "E", lastPt, Colors.red.shade700, pureWhite);
+    if (endFit && finalEndFit2D != null) canvas.drawLine(lastPt, finalEndFit2D, fittingPaint);
+
+    // ==========================================
+    // 🎨 LAYER 2: 마커(배지)와 텍스트를 맨 위에 덮어쓰기 (겹침 방지)
+    // ==========================================
+    // 기장(Length) 텍스트 쓰기
+    for (int i = 0; i < bendList.length; i++) {
+      double l = (bendList[i]['length'] ?? 0).toDouble();
+      if (l > 0) {
+        Offset delta = finalPts2D[i + 1] - finalPts2D[i];
+        Offset dir2D = Offset(delta.dx / delta.distance, delta.dy / delta.distance);
+        Offset mid = Offset((finalPts2D[i].dx + finalPts2D[i + 1].dx) / 2, (finalPts2D[i].dy + finalPts2D[i + 1].dy) / 2);
+        Offset normal = Offset(-dir2D.dy, dir2D.dx); if (normal.dy > 0) normal = Offset(-normal.dx, -normal.dy);
+        _drawSimpleLength(canvas, "${l.toInt()}", mid + Offset(normal.dx * 20, normal.dy * 20), slate600);
+      }
     }
+    if (tail > 0 && finalTail2D != null) {
+      Offset delta = finalTail2D - finalPts2D.last;
+      Offset dir2D = Offset(delta.dx / delta.distance, delta.dy / delta.distance);
+      Offset mid = Offset((finalPts2D.last.dx + finalTail2D.dx) / 2, (finalPts2D.last.dy + finalTail2D.dy) / 2);
+      Offset normal = Offset(-dir2D.dy, dir2D.dx); if (normal.dy > 0) normal = Offset(-normal.dx, -normal.dy);
+      _drawSimpleLength(canvas, "${tail.toInt()}", mid + Offset(normal.dx * 20, normal.dy * 20), slate600);
+    }
+
+    // 노드 마커 및 롤링 지시 띄우기
+    if (startFit && finalStartFit2D != null) _drawNodeBadge(canvas, "S", finalStartFit2D, slate900, pureWhite); 
+    else _drawNodeBadge(canvas, "S", finalPts2D[0], slate900, pureWhite);
+
+    for (int i = 0; i < bendList.length; i++) {
+      Offset nodePos = finalPts2D[i + 1];
+      _drawNodeBadge(canvas, "${i + 1}", nodePos, makitaTeal, pureWhite);
+
+      // 💡 파이프 롤링 각도 표시!
+      if (i == 0) {
+        _drawRollingBadge(canvas, "[기준 평면]", nodePos + const Offset(15, -25), slate600);
+      } else {
+        double prevRot = bendList[i-1]['rotation'] ?? 0.0;
+        double currRot = bendList[i]['rotation'] ?? 0.0;
+        String rollText = _getRollingText(prevRot, currRot);
+        if (rollText.isNotEmpty) {
+          _drawRollingBadge(canvas, rollText, nodePos + const Offset(20, -25), Colors.orange.shade800);
+        }
+      }
+    }
+
+    if (endFit && finalEndFit2D != null) _drawNodeBadge(canvas, "E", finalEndFit2D, Colors.red.shade700, pureWhite); 
+    else _drawNodeBadge(canvas, "E", lastPt, Colors.red.shade700, pureWhite);
   }
 
   void _drawDirectionArrow(Canvas canvas, Offset center, Offset direction, Color color) {
     final paint = Paint()..color = color..style = PaintingStyle.fill;
-    final double arrowLength = 14.0, arrowWidth = 8.0;
+    final double arrowLength = 16.0, arrowWidth = 10.0;
     final angle = math.atan2(direction.dy, direction.dx);
     final tip = center + Offset(math.cos(angle) * (arrowLength * 0.5), math.sin(angle) * (arrowLength * 0.5));
     final back = center - Offset(math.cos(angle) * (arrowLength * 0.5), math.sin(angle) * (arrowLength * 0.5));
     final p2 = back + Offset(math.cos(angle + math.pi / 2) * arrowWidth, math.sin(angle + math.pi / 2) * arrowWidth);
     final p3 = back + Offset(math.cos(angle - math.pi / 2) * arrowWidth, math.sin(angle - math.pi / 2) * arrowWidth);
-    final path = Path()..moveTo(tip.dx, tip.dy)..lineTo(p2.dx, p2.dy)..lineTo(p3.dx, p3.dy)..close();
-    canvas.drawPath(path, paint);
+    canvas.drawPath(Path()..moveTo(tip.dx, tip.dy)..lineTo(p2.dx, p2.dy)..lineTo(p3.dx, p3.dy)..close(), paint);
   }
 
   void _drawSimpleLength(Canvas canvas, String text, Offset center, Color color) {
-    final textPainter = TextPainter(text: TextSpan(text: text, style: TextStyle(color: color, fontSize: 14, fontFamily: 'monospace', fontWeight: FontWeight.bold, backgroundColor: pureWhite.withOpacity(0.8))), textDirection: TextDirection.ltr, textAlign: TextAlign.center)..layout();
+    final textPainter = TextPainter(text: TextSpan(text: text, style: TextStyle(color: color, fontSize: 15, fontFamily: 'monospace', fontWeight: FontWeight.bold, backgroundColor: pureWhite.withOpacity(0.8))), textDirection: TextDirection.ltr, textAlign: TextAlign.center)..layout();
     textPainter.paint(canvas, center - Offset(textPainter.width / 2, textPainter.height / 2));
   }
 
   void _drawNodeBadge(Canvas canvas, String text, Offset center, Color bgColor, Color textColor) {
-    canvas.drawCircle(center, 12, Paint()..color = pureWhite); canvas.drawCircle(center, 10, Paint()..color = bgColor);
-    final textPainter = TextPainter(text: TextSpan(text: text, style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w900)), textDirection: TextDirection.ltr, textAlign: TextAlign.center)..layout();
+    // 마커 뒤에 흰색 그림자를 살짝 줘서 선이랑 더 확실히 분리되게 만듦
+    canvas.drawCircle(center, 14, Paint()..color = pureWhite); 
+    canvas.drawCircle(center, 11, Paint()..color = bgColor);
+    final textPainter = TextPainter(text: TextSpan(text: text, style: TextStyle(color: textColor, fontSize: 13, fontWeight: FontWeight.w900)), textDirection: TextDirection.ltr, textAlign: TextAlign.center)..layout();
     textPainter.paint(canvas, center - Offset(textPainter.width / 2, textPainter.height / 2));
+  }
+
+  // 💡 새로 추가된 롤링 각도 말풍선 그리기
+  void _drawRollingBadge(Canvas canvas, String text, Offset center, Color textColor) {
+    final textPainter = TextPainter(
+      text: TextSpan(text: text, style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.bold, backgroundColor: pureWhite.withOpacity(0.9))),
+      textDirection: TextDirection.ltr, textAlign: TextAlign.left,
+    )..layout();
+    textPainter.paint(canvas, center);
   }
 
   @override
