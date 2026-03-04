@@ -7,7 +7,6 @@ import 'package:tubing_calculator/src/presentation/settings/screens/settings_scr
 import 'package:tubing_calculator/src/presentation/calculator/screens/marking_page.dart';
 import 'package:tubing_calculator/src/presentation/history/screens/history_screen.dart';
 import 'package:tubing_calculator/src/presentation/inventory/pages/inventory_page.dart';
-// 🔥 신규 추가: 프로젝트 관리 페이지 임포트 (경로는 생성하신 폴더에 맞게 맞춰주세요)
 import 'package:tubing_calculator/src/presentation/project/project_management_page.dart';
 
 void main() {
@@ -36,7 +35,6 @@ class MyApp extends StatelessWidget {
         '/settings': (context) => const SettingsScreen(),
         '/history': (context) => const HistoryScreen(),
         '/inventory': (context) => const InventoryPage(),
-        // 🔥 신규 추가: 프로젝트 관리 라우터 등록
         '/projects': (context) => const ProjectManagementPage(),
       },
     );
@@ -44,7 +42,7 @@ class MyApp extends StatelessWidget {
 }
 
 // ---------------------------------------------------------
-// [1] 로딩 스크린 (유지)
+// [1] 로딩 스크린
 // ---------------------------------------------------------
 class LoadingScreen extends StatefulWidget {
   const LoadingScreen({super.key});
@@ -124,79 +122,81 @@ class _LoadingScreenState extends State<LoadingScreen>
 }
 
 // ---------------------------------------------------------
-// [2] 메뉴 스크린 (프로젝트 관리 메뉴 추가)
+// [2] 메뉴 스크린 (태블릿 맞춤형 6개 꽉 차는 UI)
 // ---------------------------------------------------------
 class MenuScreen extends StatelessWidget {
   const MenuScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // 🔥 기기 화면 넓이를 감지해서 스마트폰이면 2칸, 태블릿이면 3칸으로 자동 조절!
+    var screenWidth = MediaQuery.of(context).size.width;
+    int crossAxisCount = screenWidth > 600 ? 3 : 2; 
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         title: const Text(
           'Tubing Calculator',
-          style: TextStyle(fontWeight: FontWeight.w900),
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+            letterSpacing: 1,
+          ),
         ),
         backgroundColor: const Color(0xFF007580),
         foregroundColor: Colors.white,
         elevation: 0,
+        centerTitle: false,
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+        child: GridView.count(
+          padding: const EdgeInsets.all(24),
+          crossAxisCount: crossAxisCount, // 한 줄에 3칸 배치
+          crossAxisSpacing: 24,
+          mainAxisSpacing: 24,
+          childAspectRatio: 1.2, // 태블릿에 맞는 가로가 살짝 긴 황금 비율
           children: [
-            _buildListTile(
+            _buildGridCard(
               context,
-              icon: Icons.calculate,
-              title: '벤딩 계산기 (작업 화면)',
-              subtitle: '단일/다중 벤딩 및 마킹 포인트 계산',
+              icon: Icons.calculate_outlined,
+              title: '벤딩 계산기',
+              subtitle: '단일/다중 벤딩 작업',
               onTap: () => Navigator.pushNamed(context, '/calculator'),
             ),
-            const Divider(color: Colors.black12, height: 1),
-
-            _buildListTile(
+            _buildGridCard(
               context,
-              icon: Icons.format_list_numbered,
-              title: '마킹 및 컷팅 결과',
-              subtitle: '계산된 최종 컷팅 길이와 마킹 지점 바로 확인',
+              icon: Icons.straighten,
+              title: '마킹 및 컷팅',
+              subtitle: '최종 컷팅 길이 확인',
               onTap: () => Navigator.pushNamed(context, '/marking'),
             ),
-            const Divider(color: Colors.black12, height: 1),
-
-            _buildListTile(
+            _buildGridCard(
               context,
-              icon: Icons.history,
-              title: '작업 기록 보관함',
-              subtitle: '저장해둔 이전 계산 내역 및 도면 확인',
+              icon: Icons.folder_special_outlined,
+              title: '기록 보관함',
+              subtitle: '이전 도면 및 내역',
               onTap: () => Navigator.pushNamed(context, '/history'),
             ),
-            const Divider(color: Colors.black12, height: 1),
-
-            // 🔥 신규 추가: 프로젝트 관리 (BOM) 버튼
-            _buildListTile(
+            _buildGridCard(
               context,
-              icon: Icons.assignment, // 현장 서류 느낌의 아이콘
-              title: '프로젝트 관리 (BOM)',
-              subtitle: '프로젝트별 소모 튜브 본수 및 피팅 집계',
+              icon: Icons.assignment_outlined,
+              title: '프로젝트 관리',
+              subtitle: 'BOM 및 소모량 집계',
               onTap: () => Navigator.pushNamed(context, '/projects'),
             ),
-            const Divider(color: Colors.black12, height: 1),
-
-            _buildListTile(
+            _buildGridCard(
               context,
-              icon: Icons.inventory_2,
-              title: '자재 관리 (Inventory)',
-              subtitle: '튜브, 피팅, 밸브 등 재고 수량 확인 및 관리',
+              icon: Icons.inventory_2_outlined,
+              title: '자재 관리',
+              subtitle: '튜브 및 피팅 재고',
               onTap: () => Navigator.pushNamed(context, '/inventory'),
             ),
-            const Divider(color: Colors.black12, height: 1),
-
-            _buildListTile(
+            _buildGridCard(
               context,
-              icon: Icons.settings,
-              title: '장비 및 배관 설정',
-              subtitle: '벤더 제원, 삽입 깊이, 여유장 설정',
+              icon: Icons.settings_suggest_outlined,
+              title: '장비 및 설정',
+              subtitle: '벤더 제원 및 배관 설정',
               onTap: () => Navigator.pushNamed(context, '/settings'),
             ),
           ],
@@ -205,25 +205,61 @@ class MenuScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildListTile(
+  Widget _buildGridCard(
     BuildContext context, {
     required IconData icon,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
   }) {
-    return ListTile(
-      leading: Icon(icon, color: const Color(0xFF007580), size: 36),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: Colors.black87,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF007580).withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: const Color(0xFF007580), size: 56), // 큼직한 아이콘
+            ),
+            const SizedBox(height: 20),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 20, // 큼직한 제목
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14, // 큼직한 부제목
+                color: Colors.black54,
+              ),
+            ),
+          ],
         ),
       ),
-      subtitle: Text(subtitle, style: const TextStyle(color: Colors.black54)),
-      onTap: onTap,
     );
   }
 }
