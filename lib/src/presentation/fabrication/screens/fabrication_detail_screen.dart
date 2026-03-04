@@ -36,10 +36,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
   void initState() {
     super.initState();
     currentData = Map<String, dynamic>.from(widget.itemData);
-
-    // 💡 여기서 설정 화면에 저장된 피팅값을 불러옵니다. (설정에서 24로 바꾸면 여기서 24를 가져옵니다)
     fittingDepth = BendDataManager().fittingDepth;
-
     _parsePtoP();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -107,120 +104,37 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
         return Container(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-            left: 20,
-            right: 20,
-            top: 24,
+            left: 20, right: 20, top: 24,
           ),
-          decoration: BoxDecoration(
-            color: pureWhite,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            border: Border.all(color: makitaTeal, width: 2),
-          ),
+          decoration: BoxDecoration(color: pureWhite, borderRadius: const BorderRadius.vertical(top: Radius.circular(16)), border: Border.all(color: makitaTeal, width: 2)),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  "도면 정보 수정",
-                  style: TextStyle(
-                    color: slate900,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                Text("도면 정보 수정", style: TextStyle(color: slate900, fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: projCtrl,
-                  style: TextStyle(color: slate900),
-                  decoration: InputDecoration(
-                    labelText: "PROJECT",
-                    filled: true,
-                    fillColor: slate100,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
+                TextField(controller: projCtrl, decoration: InputDecoration(labelText: "PROJECT", filled: true, fillColor: slate100, border: OutlineInputBorder(borderSide: BorderSide.none))),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: fromCtrl,
-                        style: TextStyle(color: slate900),
-                        decoration: InputDecoration(
-                          labelText: "FROM",
-                          filled: true,
-                          fillColor: slate100,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                      ),
-                    ),
+                    Expanded(child: TextField(controller: fromCtrl, decoration: InputDecoration(labelText: "FROM", filled: true, fillColor: slate100, border: OutlineInputBorder(borderSide: BorderSide.none)))),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: toCtrl,
-                        style: TextStyle(color: slate900),
-                        decoration: InputDecoration(
-                          labelText: "TO",
-                          filled: true,
-                          fillColor: slate100,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                      ),
-                    ),
+                    Expanded(child: TextField(controller: toCtrl, decoration: InputDecoration(labelText: "TO", filled: true, fillColor: slate100, border: OutlineInputBorder(borderSide: BorderSide.none)))),
                   ],
                 ),
                 const SizedBox(height: 24),
                 SizedBox(
-                  width: double.infinity,
-                  height: 48,
+                  width: double.infinity, height: 48,
                   child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: makitaTeal,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
+                    style: ElevatedButton.styleFrom(backgroundColor: makitaTeal),
                     onPressed: () async {
-                      Map<String, dynamic> newPtoP = {
-                        "project": projCtrl.text,
-                        "from": fromCtrl.text,
-                        "to": toCtrl.text,
-                        "start_fit": startFit,
-                        "end_fit": endFit,
-                        "tail": tail,
-                      };
-                      await DatabaseHelper.instance.updateHistory(
-                        currentData['id'],
-                        {
-                          'p_to_p': jsonEncode(newPtoP),
-                          'pipe_size': selectedSize,
-                        },
-                      );
-                      setState(() {
-                        currentData['p_to_p'] = jsonEncode(newPtoP);
-                        currentData['pipe_size'] = selectedSize;
-                        _parsePtoP();
-                      });
-                      if (!mounted) return;
-                      Navigator.pop(context);
+                      Map<String, dynamic> newPtoP = {"project": projCtrl.text, "from": fromCtrl.text, "to": toCtrl.text, "start_fit": startFit, "end_fit": endFit, "tail": tail};
+                      await DatabaseHelper.instance.updateHistory(currentData['id'], {'p_to_p': jsonEncode(newPtoP), 'pipe_size': selectedSize});
+                      setState(() { currentData['p_to_p'] = jsonEncode(newPtoP); currentData['pipe_size'] = selectedSize; _parsePtoP(); });
+                      if (!mounted) return; Navigator.pop(context);
                     },
-                    child: const Text(
-                      "수정 완료",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    child: const Text("수정 완료", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -241,163 +155,32 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     }
 
     double lastMarkingPoint = 0.0;
-    final double absoluteTotalCut =
-        double.tryParse(currentData['total_length']?.toString() ?? '0') ?? 0.0;
+    final double absoluteTotalCut = double.tryParse(currentData['total_length']?.toString() ?? '0') ?? 0.0;
     final int displayTotalCut = absoluteTotalCut.round();
 
     return Scaffold(
       backgroundColor: slate100,
       appBar: AppBar(
-        title: Text(
-          'ISO DWG: $project',
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-            letterSpacing: 1,
-          ),
-        ),
-        backgroundColor: makitaTeal,
-        foregroundColor: pureWhite,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_note, size: 28),
-            onPressed: _editInfo,
-          ),
-        ],
+        title: Text('ISO DWG: $project', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 1)),
+        backgroundColor: makitaTeal, foregroundColor: pureWhite, elevation: 0,
+        actions: [IconButton(icon: const Icon(Icons.edit_note, size: 28), onPressed: _editInfo)],
       ),
       body: SafeArea(
         child: Column(
           children: [
+            // 상단 정보 패널
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: BoxDecoration(
-                color: pureWhite,
-                border: Border(
-                  bottom: BorderSide(color: Colors.grey.shade300, width: 1),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
+              decoration: BoxDecoration(color: pureWhite, border: Border(bottom: BorderSide(color: Colors.grey.shade300, width: 1)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))]),
               child: Row(
                 children: [
-                  Expanded(
-                    flex: 2,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "LINE",
-                          style: TextStyle(
-                            color: slate600,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          "$from  ➔  $to",
-                          style: TextStyle(
-                            color: slate900,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  Expanded(flex: 2, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("LINE", style: TextStyle(color: slate600, fontSize: 11, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Text("$from  ➔  $to", style: TextStyle(color: slate900, fontSize: 18, fontWeight: FontWeight.w900))])),
                   Container(width: 1, height: 40, color: Colors.grey.shade200),
-                  Expanded(
-                    flex: 1,
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "TUBE SIZE",
-                            style: TextStyle(
-                              color: slate600,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "${currentData['pipe_size']}",
-                            style: TextStyle(
-                              color: makitaTeal,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  Expanded(flex: 1, child: Padding(padding: const EdgeInsets.only(left: 16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("TUBE SIZE", style: TextStyle(color: slate600, fontSize: 11, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Text("${currentData['pipe_size']}", style: TextStyle(color: makitaTeal, fontSize: 16, fontWeight: FontWeight.bold))]))),
                   Container(width: 1, height: 40, color: Colors.grey.shade200),
-                  Expanded(
-                    flex: 1,
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "FITTING",
-                            style: TextStyle(
-                              color: slate600,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _getFittingStatusText(),
-                            style: TextStyle(
-                              color: slate900,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  Expanded(flex: 1, child: Padding(padding: const EdgeInsets.only(left: 16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("FITTING", style: TextStyle(color: slate600, fontSize: 11, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Text(_getFittingStatusText(), style: TextStyle(color: slate900, fontSize: 14, fontWeight: FontWeight.bold))]))),
                   Container(width: 1, height: 40, color: Colors.grey.shade200),
-                  Expanded(
-                    flex: 1,
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "TOTAL CUT",
-                            style: TextStyle(
-                              color: slate600,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "$displayTotalCut mm",
-                            style: TextStyle(
-                              color: Colors.red.shade700,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  Expanded(flex: 1, child: Padding(padding: const EdgeInsets.only(left: 16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("TOTAL CUT", style: TextStyle(color: slate600, fontSize: 11, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Text("$displayTotalCut mm", style: TextStyle(color: Colors.red.shade700, fontSize: 16, fontWeight: FontWeight.w900))]))),
                 ],
               ),
             ),
@@ -405,45 +188,24 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
             Expanded(
               child: Row(
                 children: [
+                  // 🎨 [왼쪽] 3D 형상도 (화가 녀석 수술 완료)
                   Expanded(
                     flex: 7,
                     child: Container(
                       margin: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: pureWhite,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 4,
-                          ),
-                        ],
-                      ),
+                      decoration: BoxDecoration(color: pureWhite, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)]),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: InteractiveViewer(
                           transformationController: _viewController,
-                          boundaryMargin: const EdgeInsets.all(3000),
-                          minScale: 0.1,
-                          maxScale: 5.0,
-                          constrained: false,
+                          boundaryMargin: const EdgeInsets.all(3000), minScale: 0.1, maxScale: 5.0, constrained: false,
                           child: Container(
-                            width: 2000,
-                            height: 2000,
-                            color: pureWhite,
+                            width: 2000, height: 2000, color: pureWhite,
                             child: CustomPaint(
                               size: const Size(2000, 2000),
                               painter: DetailedAutoFitIsoPainter(
-                                bendList: bendList,
-                                tail: tail,
-                                startFit: startFit,
-                                endFit: endFit,
-                                fittingDepth: fittingDepth,
-                                makitaTeal: makitaTeal,
-                                slate900: slate900,
-                                slate600: slate600,
-                                pureWhite: pureWhite,
+                                bendList: bendList, tail: tail, startFit: startFit, endFit: endFit, fittingDepth: fittingDepth,
+                                makitaTeal: makitaTeal, slate900: slate900, slate600: slate600, pureWhite: pureWhite,
                               ),
                             ),
                           ),
@@ -452,70 +214,24 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                     ),
                   ),
 
+                  // 📝 [오른쪽] 구간 및 마킹 리스트
                   Expanded(
                     flex: 3,
                     child: Container(
-                      margin: const EdgeInsets.only(
-                        top: 12,
-                        bottom: 12,
-                        right: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: pureWhite,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 4,
-                          ),
-                        ],
-                      ),
+                      margin: const EdgeInsets.only(top: 12, bottom: 12, right: 12),
+                      decoration: BoxDecoration(color: pureWhite, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)]),
                       child: bendList.isEmpty
-                          ? Center(
-                              child: Text(
-                                "NO DATA",
-                                style: TextStyle(color: slate600),
-                              ),
-                            )
+                          ? Center(child: Text("NO DATA", style: TextStyle(color: slate600)))
                           : Column(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                    horizontal: 16,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: slate100,
-                                    borderRadius: const BorderRadius.vertical(
-                                      top: Radius.circular(8),
-                                    ),
-                                    border: Border(
-                                      bottom: BorderSide(
-                                        color: Colors.grey.shade300,
-                                      ),
-                                    ),
-                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                  decoration: BoxDecoration(color: slate100, borderRadius: const BorderRadius.vertical(top: Radius.circular(8)), border: Border(bottom: BorderSide(color: Colors.grey.shade300))),
                                   child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(
-                                        "구간 정보",
-                                        style: TextStyle(
-                                          color: slate600,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      Text(
-                                        "마킹 포인트",
-                                        style: TextStyle(
-                                          color: slate600,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
+                                      Text("구간 정보", style: TextStyle(color: slate600, fontSize: 13, fontWeight: FontWeight.bold)),
+                                      Text("마킹 포인트", style: TextStyle(color: slate600, fontSize: 13, fontWeight: FontWeight.bold)),
                                     ],
                                   ),
                                 ),
@@ -523,201 +239,87 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                                   child: ListView.separated(
                                     padding: EdgeInsets.zero,
                                     itemCount: bendList.length + 1,
-                                    separatorBuilder: (context, index) =>
-                                        Divider(
-                                          color: Colors.grey.shade200,
-                                          height: 1,
-                                        ),
+                                    separatorBuilder: (context, index) => Divider(color: Colors.grey.shade200, height: 1),
                                     itemBuilder: (context, index) {
                                       if (index < bendList.length) {
                                         final bend = bendList[index];
-                                        final double rawLength =
-                                            (bend['length'] ?? 0).toDouble();
-                                        final double rotation =
-                                            (bend['rotation'] ?? 0.0)
-                                                .toDouble();
-                                        final String angle =
-                                            bend['angle']?.toString() ?? '0';
+                                        final double rawLength = (bend['length'] ?? 0).toDouble();
+                                        final double rotation = (bend['rotation'] ?? 0.0).toDouble();
+                                        final String angle = bend['angle']?.toString() ?? '0';
 
-                                        lastMarkingPoint =
-                                            bend['marking_point'] != null
-                                            ? bend['marking_point'].toDouble()
-                                            : (lastMarkingPoint + rawLength);
+                                        lastMarkingPoint = bend['marking_point'] != null ? bend['marking_point'].toDouble() : (lastMarkingPoint + rawLength);
                                         int displayLength = rawLength.round();
-                                        int displayMarking = lastMarkingPoint
-                                            .round();
+                                        int displayMarking = lastMarkingPoint.round();
 
                                         return Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 16,
-                                            horizontal: 16,
-                                          ),
+                                          padding: const EdgeInsets.all(16),
                                           child: Row(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.center,
+                                            crossAxisAlignment: CrossAxisAlignment.center,
                                             children: [
                                               Expanded(
                                                 child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
                                                     Row(
                                                       children: [
-                                                        Container(
-                                                          padding:
-                                                              const EdgeInsets.all(
-                                                                4,
-                                                              ),
-                                                          decoration:
-                                                              BoxDecoration(
-                                                                color:
-                                                                    makitaTeal,
-                                                                shape: BoxShape
-                                                                    .circle,
-                                                              ),
-                                                          child: Text(
-                                                            "${index + 1}",
-                                                            style: TextStyle(
-                                                              color: pureWhite,
-                                                              fontSize: 10,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 6,
-                                                        ),
-                                                        Text(
-                                                          "MK-${(index + 1).toString().padLeft(2, '0')}",
-                                                          style: TextStyle(
-                                                            color: slate900,
-                                                            fontSize: 15,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
-                                                        ),
+                                                        Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: makitaTeal, shape: BoxShape.circle), child: Text("${index + 1}", style: TextStyle(color: pureWhite, fontSize: 10, fontWeight: FontWeight.bold))),
+                                                        const SizedBox(width: 6),
+                                                        Text("MK-${(index + 1).toString().padLeft(2, '0')}", style: TextStyle(color: slate900, fontSize: 15, fontWeight: FontWeight.bold)),
                                                       ],
                                                     ),
                                                     const SizedBox(height: 4),
                                                     Row(
                                                       children: [
-                                                        Text(
-                                                          "L: $displayLength mm",
-                                                          style: TextStyle(
-                                                            color: slate600,
-                                                            fontSize: 12,
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 8,
-                                                        ),
-                                                        Text(
-                                                          "${_getDirectionTextShort(rotation)} $angle°",
-                                                          style: TextStyle(
-                                                            color: makitaTeal,
-                                                            fontSize: 12,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
-                                                        ),
+                                                        Text("L: $displayLength mm", style: TextStyle(color: slate600, fontSize: 12)),
+                                                        const SizedBox(width: 8),
+                                                        Text("${_getDirectionTextShort(rotation)} $angle°", style: TextStyle(color: makitaTeal, fontSize: 12, fontWeight: FontWeight.bold)),
                                                       ],
                                                     ),
                                                   ],
                                                 ),
                                               ),
-                                              Text(
-                                                "$displayMarking",
-                                                style: TextStyle(
-                                                  color: slate900,
-                                                  fontSize: 24,
-                                                  fontFamily: 'monospace',
-                                                  fontWeight: FontWeight.w900,
-                                                ),
-                                              ),
+                                              Text("$displayMarking", style: TextStyle(color: slate900, fontSize: 24, fontFamily: 'monospace', fontWeight: FontWeight.w900)),
                                             ],
                                           ),
                                         );
                                       } else {
+                                        // 🚀 UI 수정: 기장이 0이라도 마지막 각도가 살아있으면 방향 표기!
                                         int displayTail = tail.round();
+                                        String extraInfo = "";
+                                        if (displayTail == 0 && bendList.isNotEmpty) {
+                                            double lastAngle = (bendList.last['angle'] ?? 0).toDouble();
+                                            double lastRot = (bendList.last['rotation'] ?? 0).toDouble();
+                                            if (lastAngle > 0) {
+                                                extraInfo = " (방향: ${_getDirectionTextShort(lastRot)} $lastAngle° 유지)";
+                                            }
+                                        }
+
                                         return Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 16,
-                                            horizontal: 16,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: makitaTeal.withOpacity(0.05),
-                                          ),
+                                          padding: const EdgeInsets.all(16),
+                                          decoration: BoxDecoration(color: makitaTeal.withOpacity(0.05)),
                                           child: Row(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.center,
+                                            crossAxisAlignment: CrossAxisAlignment.center,
                                             children: [
                                               Expanded(
                                                 child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
                                                     Row(
                                                       children: [
-                                                        Container(
-                                                          padding:
-                                                              const EdgeInsets.all(
-                                                                4,
-                                                              ),
-                                                          decoration:
-                                                              BoxDecoration(
-                                                                color: Colors
-                                                                    .red
-                                                                    .shade700,
-                                                                shape: BoxShape
-                                                                    .circle,
-                                                              ),
-                                                          child: Text(
-                                                            "E",
-                                                            style: TextStyle(
-                                                              color: pureWhite,
-                                                              fontSize: 10,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 6,
-                                                        ),
-                                                        Text(
-                                                          "TAIL (END)",
-                                                          style: TextStyle(
-                                                            color: slate900,
-                                                            fontSize: 15,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
-                                                        ),
+                                                        Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.red.shade700, shape: BoxShape.circle), child: Text("E", style: TextStyle(color: pureWhite, fontSize: 10, fontWeight: FontWeight.bold))),
+                                                        const SizedBox(width: 6),
+                                                        Text("TAIL (END)", style: TextStyle(color: slate900, fontSize: 15, fontWeight: FontWeight.bold)),
                                                       ],
                                                     ),
                                                     const SizedBox(height: 4),
                                                     Text(
-                                                      "L: $displayTail mm ${endFit ? '(+Fit: ${fittingDepth.round()})' : ''}",
-                                                      style: TextStyle(
-                                                        color: slate600,
-                                                        fontSize: 12,
-                                                      ),
+                                                      "L: $displayTail mm ${endFit ? '(+Fit: ${fittingDepth.round()})' : ''}$extraInfo",
+                                                      style: TextStyle(color: slate600, fontSize: 12, fontWeight: extraInfo.isNotEmpty ? FontWeight.bold : FontWeight.normal),
                                                     ),
                                                   ],
                                                 ),
                                               ),
-                                              Text(
-                                                "$displayTotalCut",
-                                                style: TextStyle(
-                                                  color: Colors.red.shade700,
-                                                  fontSize: 26,
-                                                  fontFamily: 'monospace',
-                                                  fontWeight: FontWeight.w900,
-                                                ),
-                                              ),
+                                              Text("$displayTotalCut", style: TextStyle(color: Colors.red.shade700, fontSize: 26, fontFamily: 'monospace', fontWeight: FontWeight.w900)),
                                             ],
                                           ),
                                         );
@@ -740,7 +342,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
 }
 
 // ============================================================================
-// 🔥 진짜 3D 벡터 물리엔진이 탑재된 궁극의 ISO 화가 (각도/방향/피팅 완벽 반영)
+// 🔥 3D 물리엔진 업그레이드 완료: 가상 후단(Phantom Tail) 시스템 탑재
 // ============================================================================
 class DetailedAutoFitIsoPainter extends CustomPainter {
   final List<dynamic> bendList;
@@ -754,371 +356,196 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
   final Color pureWhite;
 
   DetailedAutoFitIsoPainter({
-    required this.bendList,
-    required this.tail,
-    required this.startFit,
-    required this.endFit,
-    required this.fittingDepth,
-    required this.makitaTeal,
-    required this.slate900,
-    required this.slate600,
-    required this.pureWhite,
+    required this.bendList, required this.tail, required this.startFit, required this.endFit,
+    required this.fittingDepth, required this.makitaTeal, required this.slate900, required this.slate600, required this.pureWhite,
   });
 
-  // 💡 3D 수학 연산 헬퍼 함수
-  double _dotProduct(List<double> v1, List<double> v2) =>
-      v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
-
+  double _dotProduct(List<double> v1, List<double> v2) => v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
   List<double> _normalize(List<double> v) {
     double mag = math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
     if (mag == 0) return [0, 0, 0];
     return [v[0] / mag, v[1] / mag, v[2] / mag];
   }
-
   List<double> _getTargetVector(double rot) {
-    if (rot == 360.0) return [0, 0, 1]; // FRONT
-    if (rot == 450.0) return [0, 0, -1]; // BACK
+    if (rot == 360.0) return [0, 0, 1];
+    if (rot == 450.0) return [0, 0, -1];
     double rad = rot * math.pi / 180.0;
     return [math.sin(rad), -math.cos(rad), 0.0];
   }
-
-  // 💡 3D를 2D 화면 좌표로 투영 (등각 투영법)
   Offset _projectTo2D(List<double> p) {
-    const double isoAngle = math.pi / 6; // 30도
+    const double isoAngle = math.pi / 6;
     double screenX = (p[0] - p[2]) * math.cos(isoAngle);
     double screenY = (p[0] + p[2]) * math.sin(isoAngle) + p[1];
     return Offset(screenX, screenY);
+  }
+
+  // 🚀 점선 그리기 도구 (가상 파이프용)
+  void _drawDashedLine(Canvas canvas, Offset p1, Offset p2, Color color) {
+    final paint = Paint()..color = color..strokeWidth = 3.0..style = PaintingStyle.stroke;
+    var path = Path();
+    double dashWidth = 8.0, dashSpace = 6.0;
+    double distance = (p2 - p1).distance;
+    double dx = (p2.dx - p1.dx) / distance, dy = (p2.dy - p1.dy) / distance;
+    double i = 0;
+    while (i < distance) {
+      path.moveTo(p1.dx + dx * i, p1.dy + dy * i);
+      i += dashWidth;
+      if (i > distance) i = distance;
+      path.lineTo(p1.dx + dx * i, p1.dy + dy * i);
+      i += dashSpace;
+    }
+    canvas.drawPath(path, paint);
   }
 
   @override
   void paint(Canvas canvas, Size size) {
     if (bendList.isEmpty && tail <= 0) return;
 
-    // 1. 실제 3D 공간의 절대 좌표들을 모두 계산
     List<List<double>> points3D = [];
     List<double> currPos = [0.0, 0.0, 0.0];
-    List<double> currDir = [1.0, 0.0, 0.0]; // 출발 방향 (오른쪽)
+    List<double> currDir = [1.0, 0.0, 0.0];
 
     List<double>? startFit3D;
     if (startFit && fittingDepth > 0) {
-      startFit3D = [
-        currPos[0] - currDir[0] * fittingDepth,
-        currPos[1] - currDir[1] * fittingDepth,
-        currPos[2] - currDir[2] * fittingDepth,
-      ];
+      startFit3D = [currPos[0] - currDir[0] * fittingDepth, currPos[1] - currDir[1] * fittingDepth, currPos[2] - currDir[2] * fittingDepth];
     }
-
-    points3D.add([...currPos]); // S 지점 (첫 번째 노드)
+    points3D.add([...currPos]);
 
     for (var bend in bendList) {
       double l = (bend['length'] ?? 0).toDouble();
       double a = (bend['angle'] ?? 0).toDouble();
       double rot = (bend['rotation'] ?? 0.0).toDouble();
 
-      // 전진
-      if (l > 0) {
-        currPos[0] += currDir[0] * l;
-        currPos[1] += currDir[1] * l;
-        currPos[2] += currDir[2] * l;
-      }
+      if (l > 0) { currPos[0] += currDir[0] * l; currPos[1] += currDir[1] * l; currPos[2] += currDir[2] * l; }
       points3D.add([...currPos]);
 
-      // 3D 벡터 각도 회전
       if (a > 0) {
         double radA = a * math.pi / 180.0;
         List<double> targetVec = _getTargetVector(rot);
         double dot = _dotProduct(targetVec, currDir);
-        List<double> u = _normalize([
-          targetVec[0] - dot * currDir[0],
-          targetVec[1] - dot * currDir[1],
-          targetVec[2] - dot * currDir[2],
-        ]);
-
+        List<double> u = _normalize([targetVec[0] - dot * currDir[0], targetVec[1] - dot * currDir[1], targetVec[2] - dot * currDir[2]]);
         if (u[0] != 0 || u[1] != 0 || u[2] != 0) {
-          currDir = _normalize([
-            currDir[0] * math.cos(radA) + u[0] * math.sin(radA),
-            currDir[1] * math.cos(radA) + u[1] * math.sin(radA),
-            currDir[2] * math.cos(radA) + u[2] * math.sin(radA),
-          ]);
+          currDir = _normalize([currDir[0] * math.cos(radA) + u[0] * math.sin(radA), currDir[1] * math.cos(radA) + u[1] * math.sin(radA), currDir[2] * math.cos(radA) + u[2] * math.sin(radA)]);
         }
       }
     }
 
-    // 꼬리(Tail) 및 종료 피팅(End Fit) 연산
-    List<double>? tail3D;
-    List<double>? endFit3D;
-
+    List<double>? tail3D, endFit3D, phantom3D;
+    
+    // 🚀 핵심: 기장이 0인데 마지막 각도가 살아있다면 "가상 후단(Phantom Tail)" 생성
     if (tail > 0) {
-      currPos[0] += currDir[0] * tail;
-      currPos[1] += currDir[1] * tail;
-      currPos[2] += currDir[2] * tail;
+      currPos[0] += currDir[0] * tail; currPos[1] += currDir[1] * tail; currPos[2] += currDir[2] * tail;
       tail3D = [...currPos];
+    } else if (bendList.isNotEmpty && (bendList.last['angle'] ?? 0).toDouble() > 0) {
+      // 꼬리가 없어도 방향을 보여주기 위해 50mm짜리 투명 파이프 연장
+      phantom3D = [currPos[0] + currDir[0] * 50.0, currPos[1] + currDir[1] * 50.0, currPos[2] + currDir[2] * 50.0];
     }
 
     if (endFit && fittingDepth > 0) {
-      endFit3D = [
-        currPos[0] + currDir[0] * fittingDepth,
-        currPos[1] + currDir[1] * fittingDepth,
-        currPos[2] + currDir[2] * fittingDepth,
-      ];
+      endFit3D = [currPos[0] + currDir[0] * fittingDepth, currPos[1] + currDir[1] * fittingDepth, currPos[2] + currDir[2] * fittingDepth];
     }
 
-    // 2. 2D 좌표 변환 및 바운딩 박스 추적 (화면 중앙 정렬용)
-    double minX = double.infinity, maxX = -double.infinity;
-    double minY = double.infinity, maxY = -double.infinity;
-
-    void updateBounds(Offset p) {
-      if (p.dx < minX) minX = p.dx;
-      if (p.dx > maxX) maxX = p.dx;
-      if (p.dy < minY) minY = p.dy;
-      if (p.dy > maxY) maxY = p.dy;
-    }
+    double minX = double.infinity, maxX = -double.infinity, minY = double.infinity, maxY = -double.infinity;
+    void updateBounds(Offset p) { if (p.dx < minX) minX = p.dx; if (p.dx > maxX) maxX = p.dx; if (p.dy < minY) minY = p.dy; if (p.dy > maxY) maxY = p.dy; }
 
     Offset? startFit2D = startFit3D != null ? _projectTo2D(startFit3D) : null;
     List<Offset> pts2D = points3D.map((p) => _projectTo2D(p)).toList();
     Offset? tail2D = tail3D != null ? _projectTo2D(tail3D) : null;
     Offset? endFit2D = endFit3D != null ? _projectTo2D(endFit3D) : null;
+    Offset? phantom2D = phantom3D != null ? _projectTo2D(phantom3D) : null;
 
     if (startFit2D != null) updateBounds(startFit2D);
     for (var p in pts2D) updateBounds(p);
     if (tail2D != null) updateBounds(tail2D);
     if (endFit2D != null) updateBounds(endFit2D);
+    if (phantom2D != null) updateBounds(phantom2D); // 가상 후단도 화면에 들어오게 계산
 
-    double bWidth = maxX - minX;
-    double bHeight = maxY - minY;
-    if (bWidth == 0) bWidth = 100;
-    if (bHeight == 0) bHeight = 100;
+    double bWidth = maxX - minX, bHeight = maxY - minY;
+    if (bWidth == 0) bWidth = 100; if (bHeight == 0) bHeight = 100;
+    double drawScale = math.min(size.width * 0.7 / bWidth, size.width * 0.7 / bHeight).clamp(0.1, 5.0);
+    double centerX = minX + (bWidth / 2), centerY = minY + (bHeight / 2);
+    Offset transform(Offset p) => Offset((p.dx - centerX) * drawScale + size.width / 2, (p.dy - centerY) * drawScale + size.height / 2);
 
-    double targetSize = size.width * 0.7; // 화면 크기 대비 70%
-    double drawScale = math.min(targetSize / bWidth, targetSize / bHeight);
-    if (drawScale > 5.0) drawScale = 5.0;
-    if (drawScale < 0.1) drawScale = 0.1;
+    final pipePaint = Paint()..color = slate900..strokeWidth = 5.0..strokeCap = StrokeCap.round..style = PaintingStyle.stroke;
+    final fittingPaint = Paint()..color = makitaTeal.withOpacity(0.6)..strokeWidth = 12.0..strokeCap = StrokeCap.square..style = PaintingStyle.stroke;
 
-    double centerX = minX + (bWidth / 2);
-    double centerY = minY + (bHeight / 2);
-    double screenCenterX = size.width / 2;
-    double screenCenterY = size.height / 2;
-
-    Offset transform(Offset p) {
-      return Offset(
-        (p.dx - centerX) * drawScale + screenCenterX,
-        (p.dy - centerY) * drawScale + screenCenterY,
-      );
-    }
-
-    final pipePaint = Paint()
-      ..color = slate900
-      ..strokeWidth = 5.0
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-
-    final fittingPaint = Paint()
-      ..color = makitaTeal.withOpacity(0.6)
-      ..strokeWidth = 12.0
-      ..strokeCap = StrokeCap.square
-      ..style = PaintingStyle.stroke;
-
-    // 3. 실제 캔버스 드로잉 시작!
     List<Offset> finalPts2D = pts2D.map((p) => transform(p)).toList();
     Offset? finalStartFit2D = startFit2D != null ? transform(startFit2D) : null;
     Offset? finalTail2D = tail2D != null ? transform(tail2D) : null;
     Offset? finalEndFit2D = endFit2D != null ? transform(endFit2D) : null;
+    Offset? finalPhantom2D = phantom2D != null ? transform(phantom2D) : null;
 
-    // 시작 피팅 그리기
-    if (startFit && finalStartFit2D != null) {
-      canvas.drawLine(finalStartFit2D, finalPts2D[0], fittingPaint);
-      _drawNodeBadge(canvas, "S", finalStartFit2D, slate900, pureWhite);
-    } else {
-      _drawNodeBadge(canvas, "S", finalPts2D[0], slate900, pureWhite);
-    }
+    if (startFit && finalStartFit2D != null) { canvas.drawLine(finalStartFit2D, finalPts2D[0], fittingPaint); _drawNodeBadge(canvas, "S", finalStartFit2D, slate900, pureWhite); } 
+    else { _drawNodeBadge(canvas, "S", finalPts2D[0], slate900, pureWhite); }
 
-    // 본선 (파이프) 구간 그리기
     for (int i = 0; i < bendList.length; i++) {
-      final bend = bendList[i];
-      double l = (bend['length'] ?? 0).toDouble();
-
-      Offset pA = finalPts2D[i];
-      Offset pB = finalPts2D[i + 1];
-
+      double l = (bendList[i]['length'] ?? 0).toDouble();
       if (l > 0) {
-        canvas.drawLine(pA, pB, pipePaint);
-
-        Offset delta = pB - pA;
+        canvas.drawLine(finalPts2D[i], finalPts2D[i + 1], pipePaint);
+        Offset delta = finalPts2D[i + 1] - finalPts2D[i];
         double dist = math.sqrt(delta.dx * delta.dx + delta.dy * delta.dy);
-
         if (dist > 0.1) {
           Offset dir2D = Offset(delta.dx / dist, delta.dy / dist);
-          Offset mid = Offset((pA.dx + pB.dx) / 2, (pA.dy + pB.dy) / 2);
-
+          Offset mid = Offset((finalPts2D[i].dx + finalPts2D[i + 1].dx) / 2, (finalPts2D[i].dy + finalPts2D[i + 1].dy) / 2);
           _drawDirectionArrow(canvas, mid, dir2D, makitaTeal);
-
-          Offset normal = Offset(-dir2D.dy, dir2D.dx);
-          if (normal.dy > 0) normal = Offset(-normal.dx, -normal.dy);
-
-          _drawSimpleLength(
-            canvas,
-            "${l.toInt()}",
-            mid + Offset(normal.dx * 18, normal.dy * 18),
-            slate600,
-          );
+          Offset normal = Offset(-dir2D.dy, dir2D.dx); if (normal.dy > 0) normal = Offset(-normal.dx, -normal.dy);
+          _drawSimpleLength(canvas, "${l.toInt()}", mid + Offset(normal.dx * 18, normal.dy * 18), slate600);
         }
       }
-      _drawNodeBadge(canvas, "${i + 1}", pB, makitaTeal, pureWhite);
+      _drawNodeBadge(canvas, "${i + 1}", finalPts2D[i + 1], makitaTeal, pureWhite);
     }
 
-    // 꼬리 (Tail) 구간 그리기
     Offset lastPt = finalPts2D.last;
+    
     if (tail > 0 && finalTail2D != null) {
-      Offset pA = lastPt;
-      Offset pB = finalTail2D;
-      canvas.drawLine(pA, pB, pipePaint);
-
-      Offset delta = pB - pA;
+      canvas.drawLine(lastPt, finalTail2D, pipePaint);
+      Offset delta = finalTail2D - lastPt;
       double dist = math.sqrt(delta.dx * delta.dx + delta.dy * delta.dy);
-
       if (dist > 0.1) {
         Offset dir2D = Offset(delta.dx / dist, delta.dy / dist);
-        Offset mid = Offset((pA.dx + pB.dx) / 2, (pA.dy + pB.dy) / 2);
-
+        Offset mid = Offset((lastPt.dx + finalTail2D.dx) / 2, (lastPt.dy + finalTail2D.dy) / 2);
         _drawDirectionArrow(canvas, mid, dir2D, slate600);
-
-        Offset normal = Offset(-dir2D.dy, dir2D.dx);
-        if (normal.dy > 0) normal = Offset(-normal.dx, -normal.dy);
-
-        _drawSimpleLength(
-          canvas,
-          "${tail.toInt()}",
-          mid + Offset(normal.dx * 18, normal.dy * 18),
-          slate600,
-        );
+        Offset normal = Offset(-dir2D.dy, dir2D.dx); if (normal.dy > 0) normal = Offset(-normal.dx, -normal.dy);
+        _drawSimpleLength(canvas, "${tail.toInt()}", mid + Offset(normal.dx * 18, normal.dy * 18), slate600);
       }
-      lastPt = pB;
+      lastPt = finalTail2D;
+    } 
+    // 🚀 [해결] 꼬리가 0이어도 꺾였으면 점선과 화살표로 방향 표시!
+    else if (finalPhantom2D != null) {
+      _drawDashedLine(canvas, lastPt, finalPhantom2D, makitaTeal.withOpacity(0.5));
+      Offset delta = finalPhantom2D - lastPt;
+      _drawDirectionArrow(canvas, Offset((lastPt.dx + finalPhantom2D.dx)/2, (lastPt.dy + finalPhantom2D.dy)/2), delta, makitaTeal);
     }
 
-    // 종료 피팅 그리기
     if (endFit && finalEndFit2D != null) {
       canvas.drawLine(lastPt, finalEndFit2D, fittingPaint);
-      _drawNodeBadge(
-        canvas,
-        "E",
-        finalEndFit2D,
-        Colors.red.shade700,
-        pureWhite,
-      );
+      _drawNodeBadge(canvas, "E", finalEndFit2D, Colors.red.shade700, pureWhite);
     } else {
       _drawNodeBadge(canvas, "E", lastPt, Colors.red.shade700, pureWhite);
     }
   }
 
-  // 💡 파이프 진행 방향 화살표 그리기
-  void _drawDirectionArrow(
-    Canvas canvas,
-    Offset center,
-    Offset direction,
-    Color color,
-  ) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final double arrowLength = 14.0;
-    final double arrowWidth = 8.0;
+  void _drawDirectionArrow(Canvas canvas, Offset center, Offset direction, Color color) {
+    final paint = Paint()..color = color..style = PaintingStyle.fill;
+    final double arrowLength = 14.0, arrowWidth = 8.0;
     final angle = math.atan2(direction.dy, direction.dx);
-
-    final tip =
-        center +
-        Offset(
-          math.cos(angle) * (arrowLength * 0.5),
-          math.sin(angle) * (arrowLength * 0.5),
-        );
-    final back =
-        center -
-        Offset(
-          math.cos(angle) * (arrowLength * 0.5),
-          math.sin(angle) * (arrowLength * 0.5),
-        );
-
-    final p1 = tip;
-    final p2 =
-        back +
-        Offset(
-          math.cos(angle + math.pi / 2) * arrowWidth,
-          math.sin(angle + math.pi / 2) * arrowWidth,
-        );
-    final p3 =
-        back +
-        Offset(
-          math.cos(angle - math.pi / 2) * arrowWidth,
-          math.sin(angle - math.pi / 2) * arrowWidth,
-        );
-
-    final path = Path()
-      ..moveTo(p1.dx, p1.dy)
-      ..lineTo(p2.dx, p2.dy)
-      ..lineTo(p3.dx, p3.dy)
-      ..close();
-
+    final tip = center + Offset(math.cos(angle) * (arrowLength * 0.5), math.sin(angle) * (arrowLength * 0.5));
+    final back = center - Offset(math.cos(angle) * (arrowLength * 0.5), math.sin(angle) * (arrowLength * 0.5));
+    final p2 = back + Offset(math.cos(angle + math.pi / 2) * arrowWidth, math.sin(angle + math.pi / 2) * arrowWidth);
+    final p3 = back + Offset(math.cos(angle - math.pi / 2) * arrowWidth, math.sin(angle - math.pi / 2) * arrowWidth);
+    final path = Path()..moveTo(tip.dx, tip.dy)..lineTo(p2.dx, p2.dy)..lineTo(p3.dx, p3.dy)..close();
     canvas.drawPath(path, paint);
   }
 
-  // 💡 심플 길이 표기
-  void _drawSimpleLength(
-    Canvas canvas,
-    String text,
-    Offset center,
-    Color color,
-  ) {
-    final textSpan = TextSpan(
-      text: text,
-      style: TextStyle(
-        color: color,
-        fontSize: 14,
-        fontFamily: 'monospace',
-        fontWeight: FontWeight.bold,
-        backgroundColor: pureWhite.withOpacity(0.8),
-      ),
-    );
-    final textPainter = TextPainter(
-      text: textSpan,
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    );
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      center - Offset(textPainter.width / 2, textPainter.height / 2),
-    );
+  void _drawSimpleLength(Canvas canvas, String text, Offset center, Color color) {
+    final textPainter = TextPainter(text: TextSpan(text: text, style: TextStyle(color: color, fontSize: 14, fontFamily: 'monospace', fontWeight: FontWeight.bold, backgroundColor: pureWhite.withOpacity(0.8))), textDirection: TextDirection.ltr, textAlign: TextAlign.center)..layout();
+    textPainter.paint(canvas, center - Offset(textPainter.width / 2, textPainter.height / 2));
   }
 
-  // 💡 벤딩 배지 (동그라미 마커)
-  void _drawNodeBadge(
-    Canvas canvas,
-    String text,
-    Offset center,
-    Color bgColor,
-    Color textColor,
-  ) {
-    canvas.drawCircle(center, 12, Paint()..color = pureWhite);
-    canvas.drawCircle(center, 10, Paint()..color = bgColor);
-
-    final textSpan = TextSpan(
-      text: text,
-      style: TextStyle(
-        color: textColor,
-        fontSize: 12,
-        fontWeight: FontWeight.w900,
-      ),
-    );
-    final textPainter = TextPainter(
-      text: textSpan,
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    );
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      center - Offset(textPainter.width / 2, textPainter.height / 2),
-    );
+  void _drawNodeBadge(Canvas canvas, String text, Offset center, Color bgColor, Color textColor) {
+    canvas.drawCircle(center, 12, Paint()..color = pureWhite); canvas.drawCircle(center, 10, Paint()..color = bgColor);
+    final textPainter = TextPainter(text: TextSpan(text: text, style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w900)), textDirection: TextDirection.ltr, textAlign: TextAlign.center)..layout();
+    textPainter.paint(canvas, center - Offset(textPainter.width / 2, textPainter.height / 2));
   }
 
   @override
