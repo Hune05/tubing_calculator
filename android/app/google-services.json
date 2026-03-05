@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "289974993415",
+    "project_id": "tubing-calculator",
+    "storage_bucket": "tubing-calculator.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:289974993415:android:3ed9f1e59ff92663d9e0a2",
+        "android_client_info": {
+          "package_name": "com.example.tubing_calculator"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDVYtwiAByafUd1JbxcQYIgA-N7dWeIm8U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

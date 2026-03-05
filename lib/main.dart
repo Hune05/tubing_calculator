@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+// 🔥 파이어베이스 연동을 위한 패키지 임포트 추가
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart'; // flutterfire CLI가 자동으로 만들어준 파일
+
 // 💡 필요한 화면들 임포트
 import 'package:tubing_calculator/src/presentation/calculator/widgets/main_calculator_screen.dart';
 import 'package:tubing_calculator/src/presentation/settings/screens/settings_screen.dart';
@@ -9,8 +13,14 @@ import 'package:tubing_calculator/src/presentation/history/screens/history_scree
 import 'package:tubing_calculator/src/presentation/inventory/pages/inventory_page.dart';
 import 'package:tubing_calculator/src/presentation/project/project_management_page.dart';
 
-void main() {
+// 🔥 main 함수에 async 키워드 추가 (서버 연결을 기다려야 하기 때문)
+void main() async {
+  // 플러터 엔진 초기화 (가장 먼저 실행되어야 함)
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 🔥 파이어베이스 서버 연결 초기화 (이 두 줄이 핵심입니다!)
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
   // 풀스크린 모드
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   runApp(const MyApp());
@@ -131,7 +141,7 @@ class MenuScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // 🔥 기기 화면 넓이를 감지해서 스마트폰이면 2칸, 태블릿이면 3칸으로 자동 조절!
     var screenWidth = MediaQuery.of(context).size.width;
-    int crossAxisCount = screenWidth > 600 ? 3 : 2; 
+    int crossAxisCount = screenWidth > 600 ? 3 : 2;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
@@ -236,7 +246,11 @@ class MenuScreen extends StatelessWidget {
                 color: const Color(0xFF007580).withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: const Color(0xFF007580), size: 56), // 큼직한 아이콘
+              child: Icon(
+                icon,
+                color: const Color(0xFF007580),
+                size: 56,
+              ), // 큼직한 아이콘
             ),
             const SizedBox(height: 20),
             Text(
