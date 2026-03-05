@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -10,178 +9,144 @@ class MobileRemotePage extends StatefulWidget {
 }
 
 class _MobileRemotePageState extends State<MobileRemotePage> {
-  // 스와이프를 위한 페이지 컨트롤러
   final PageController _pageController = PageController();
+
   int _currentMode = 0;
-  bool _isInputFinished = false; // 수치 입력 ↔ 방향 설정 스위칭 용도
-  String _selectedDir = "UP"; // 기본 방향
+  int _innerTab = 0;
+  bool _isInputFinished = false;
+  String _selectedDir = "UP";
 
-  // 모드별 정보 세팅 (색상으로 시인성 극대화)
+  // 고급스러운 다크/무광 톤 설정
+  final Color darkBg = const Color(0xFF1E2124);
+  final Color inputBg = const Color(0xFF2A2E33);
+  final Color mutedWhite = const Color(0xFFD0D4D9);
+
   final List<Map<String, dynamic>> _modes = [
-    {
-      "name": "90° 벤딩",
-      "color": const Color(0xFF0055BB),
-      "l1": "L1 길이 (mm)",
-      "l2": "반경 R (mm)",
-    },
-    {
-      "name": "오프셋",
-      "color": const Color(0xFFCC8800),
-      "l1": "높이 H (mm)",
-      "l2": "각도 θ (deg)",
-    },
-    {
-      "name": "직관 (Straight)",
-      "color": const Color(0xFF007744),
-      "l1": "전체 길이 (mm)",
-      "l2": "",
-    },
+    {"name": "직관 (Straight)", "color": const Color(0xFF4A5D66)},
+    {"name": "90° 벤딩", "color": const Color(0xFF00606B)},
+    {"name": "오프셋", "color": const Color(0xFF8A6345)},
+    {"name": "새들", "color": const Color(0xFF635666)},
+    {"name": "롤링 오프셋", "color": const Color(0xFF3B5E52)},
   ];
 
-  // 데이터 오염 방지: 모드별로 독립적인 입력창 할당
-  final List<List<TextEditingController>> _ctrls = [
-    [
-      TextEditingController(),
-      TextEditingController(text: "30"),
-    ], // 90도 (기본 반경 30)
-    [
-      TextEditingController(),
-      TextEditingController(text: "45"),
-    ], // 오프셋 (기본 각도 45)
-    [TextEditingController()], // 직관
-  ];
+  final TextEditingController _val1Ctrl = TextEditingController();
+  final TextEditingController _val2Ctrl = TextEditingController();
+  final TextEditingController _val3Ctrl = TextEditingController();
+  final TextEditingController _angleCtrl = TextEditingController();
 
-  // 🔥 태블릿으로 최종 발사!
-  Future<void> _sendToTablet() async {
-    HapticFeedback.heavyImpact(); // 전송 시 묵직한 진동 (손맛)
+  void _resetState(int modeIndex) {
+    setState(() {
+      _currentMode = modeIndex;
+      _innerTab = 0;
+      _isInputFinished = false;
+      _val1Ctrl.clear();
+      _val2Ctrl.clear();
+      _val3Ctrl.clear();
+      _angleCtrl.clear();
+    });
+  }
 
-    var currentInputs = _ctrls[_currentMode];
-    String val1 = currentInputs[0].text;
-    String val2 = currentInputs.length > 1 ? currentInputs[1].text : "0";
+  // 데이터 전송 (이모티콘 제거)
+  void _sendData() {
+    HapticFeedback.heavyImpact();
 
-    try {
-      await FirebaseFirestore.instance
-          .collection('bending_results')
-          .doc('current_work')
-          .set({
-            'command': 'SAVE_AND_DRAW',
-            'mode': _modes[_currentMode]['name'],
-            'val1': val1.isEmpty ? "0" : val1,
-            'val2': val2.isEmpty ? "0" : val2,
-            'direction': _selectedDir,
-            'timestamp': FieldValue.serverTimestamp(),
-          });
+    String finalAngle = (_currentMode == 1) ? "90" : _angleCtrl.text;
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("✅ ${_modes[_currentMode]['name']} 전송 완료!"),
-            backgroundColor: _modes[_currentMode]['color'],
-            duration: const Duration(seconds: 1),
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          "전송 완료: ${_modes[_currentMode]['name']} (각도: $finalAngle°)",
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
           ),
-        );
-      }
-
-      // 전송 후 다시 수치 입력 상태로 리셋
-      setState(() => _isInputFinished = false);
-    } catch (e) {
-      debugPrint("전송 실패: $e");
-    }
+        ),
+        backgroundColor: _modes[_currentMode]['color'],
+        duration: const Duration(seconds: 1),
+      ),
+    );
+    setState(() => _isInputFinished = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    var mode = _modes[_currentMode];
+    var modeColor = _modes[_currentMode]['color'];
 
     return Scaffold(
-      // [키보드 올라올 때 레이아웃 찌그러짐 방지]
+      backgroundColor: darkBg,
       resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: Column(
           children: [
-            // 🟥 [1단: 상단] 모드 인지 구역 (20%)
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
+            // [1단: 상단 모드 표시 바]
+            Container(
+              height: 90,
               width: double.infinity,
-              height: 100,
-              color: mode['color'],
+              color: modeColor,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
-                    "◀ 좌우로 밀어서 모드 변경 ▶",
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  Text(
+                    "좌우로 스와이프하여 모드 변경",
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.6),
+                      fontSize: 12,
+                    ),
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    mode['name'],
+                    _modes[_currentMode]['name'],
                     style: const TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.w900,
                       color: Colors.white,
+                      letterSpacing: 1.5,
                     ),
                   ),
                 ],
               ),
             ),
 
-            // 🟨 [2단: 중단] 입력 및 스위칭 구역 (스와이프 가능)
+            // [2단: 메인 입력 구역]
             Expanded(
               child: PageView.builder(
                 controller: _pageController,
-                onPageChanged: (index) {
-                  setState(() {
-                    _currentMode = index;
-                    _isInputFinished = false; // 모드 바뀌면 무조건 첫 단계로
-                  });
-                  HapticFeedback.lightImpact(); // 스와이프 시 가벼운 진동
-                },
+                onPageChanged: _resetState,
                 itemCount: _modes.length,
                 itemBuilder: (context, index) {
                   return AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
                     child: _isInputFinished
-                        ? _buildDirectionStep() // 2단계: 방향 설정
-                        : _buildInputStep(index), // 1단계: 수치 입력
+                        ? _buildDirectionStep()
+                        : _buildInputStep(index),
                   );
                 },
               ),
             ),
 
-            // 🟦 [3단: 하단] 최종 할당 및 전송 구역 (20%) - 항상 고정됨
+            // [3단: 하단 고정 액션 버튼]
             Container(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-              color: Colors.black87,
+              padding: const EdgeInsets.all(20),
+              color: darkBg,
               child: ElevatedButton(
-                onPressed: _isInputFinished
-                    ? _sendToTablet
-                    : null, // 입력 안 끝났으면 비활성화
+                onPressed: _isInputFinished ? _sendData : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: mode['color'],
-                  disabledBackgroundColor: Colors.grey.shade800,
-                  minimumSize: const Size.fromHeight(80),
+                  backgroundColor: modeColor,
+                  disabledBackgroundColor: inputBg,
+                  minimumSize: const Size.fromHeight(70),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.send,
-                      color: _isInputFinished ? Colors.white : Colors.white30,
-                      size: 28,
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      _isInputFinished ? "전광판으로 쏘기" : "수치를 먼저 완료하세요",
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: _isInputFinished ? Colors.white : Colors.white30,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  _isInputFinished ? "데이터 전송" : "수치를 입력하세요",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: _isInputFinished
+                        ? Colors.white
+                        : Colors.grey.shade600,
+                  ),
                 ),
               ),
             ),
@@ -191,41 +156,97 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     );
   }
 
-  // 👉 [중단 - 1단계] 수치 입력 화면
+  // ==========================================
+  // 1단계: 수치 및 탭 입력 (가이드 포함)
+  // ==========================================
   Widget _buildInputStep(int index) {
-    var inputs = _ctrls[index];
-    var m = _modes[index];
-
+    var modeColor = _modes[_currentMode]['color'];
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(30),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildTextField(m['l1'], inputs[0], m['color']),
-          if (m['l2'] != "") ...[
-            const SizedBox(height: 30),
-            _buildTextField(m['l2'], inputs[1], m['color']),
+          if (index == 2) _buildInnerTabs(["일반 오프셋", "역산 (관 간격)"], modeColor),
+          if (index == 3) _buildInnerTabs(["3 포인트 새들", "4 포인트 새들"], modeColor),
+
+          if (index == 2 || index == 3 || index == 4) ...[
+            const SizedBox(height: 16),
+            _buildMiniGuide(index, modeColor),
           ],
+
+          const SizedBox(height: 16),
+          ..._buildDynamicInputs(index, modeColor),
+
           const SizedBox(height: 40),
-          // 다음 단계(방향 설정)로 넘어가는 버튼
           ElevatedButton(
             onPressed: () {
-              FocusScope.of(context).unfocus(); // 키보드 내리기
+              FocusScope.of(context).unfocus();
               setState(() => _isInputFinished = true);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white12,
+              backgroundColor: inputBg,
+              side: BorderSide(color: modeColor, width: 1.5),
               minimumSize: const Size.fromHeight(60),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  "방향 설정",
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: mutedWhite,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(Icons.arrow_forward, color: mutedWhite, size: 20),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 미니 가이드 박스 생성 위젯
+  Widget _buildMiniGuide(int mode, Color themeColor) {
+    String guideText = "";
+    if (mode == 2) {
+      guideText = _innerTab == 0
+          ? "배관이 이동할 수직 단차(H)와 꺾일 각도(θ)를 입력하세요."
+          : "두 배관 사이의 평행 간격(T)과 벤딩 각도(θ)를 입력하세요.";
+    } else if (mode == 3) {
+      guideText = _innerTab == 0
+          ? "장애물의 최고 높이(H)와 꺾일 각도(θ)를 입력하세요."
+          : "장애물의 높이(H) 및 전체 폭(W), 꺾일 각도(θ)를 모두 입력하세요.";
+    } else if (mode == 4) {
+      guideText = "수직 단차(H)와 수평으로 틀어지는 롤(Roll) 값을 측정하여 입력하세요.";
+    }
+
+    if (guideText.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, color: themeColor, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
             child: Text(
-              "방향 설정하기 ➡️",
+              guideText,
               style: TextStyle(
-                fontSize: 20,
-                color: m['color'],
-                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade400,
+                fontSize: 13,
+                height: 1.4,
               ),
             ),
           ),
@@ -234,30 +255,202 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     );
   }
 
-  // 👉 [중단 - 2단계] 방향 설정 화면
+  Widget _buildInnerTabs(List<String> tabs, Color activeColor) {
+    return Row(
+      children: List.generate(tabs.length, (i) {
+        bool isSelected = _innerTab == i;
+        return Expanded(
+          child: GestureDetector(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() {
+                _innerTab = i;
+                _val1Ctrl.clear();
+                _val2Ctrl.clear();
+                _val3Ctrl.clear();
+              });
+            },
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: isSelected ? inputBg : Colors.transparent,
+                border: Border(
+                  bottom: BorderSide(
+                    color: isSelected ? activeColor : Colors.transparent,
+                    width: 3,
+                  ),
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                tabs[i],
+                style: TextStyle(
+                  color: isSelected ? activeColor : Colors.grey,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  List<Widget> _buildDynamicInputs(int mode, Color focusColor) {
+    List<Widget> inputs = [];
+
+    if (mode == 0) {
+      inputs.add(_buildTextField("직관 기장 (L)", _val1Ctrl, focusColor));
+    } else if (mode == 1) {
+      inputs.add(_buildTextField("첫단 기장 (L1) - 생략가능", _val1Ctrl, focusColor));
+      inputs.add(const SizedBox(height: 20));
+      inputs.add(_buildTextField("벤딩 반경 (R)", _val2Ctrl, focusColor));
+    } else if (mode == 2) {
+      inputs.add(
+        _buildTextField(
+          _innerTab == 0 ? "단차 높이 (H)" : "관 간격 (T)",
+          _val1Ctrl,
+          focusColor,
+        ),
+      );
+      inputs.add(const SizedBox(height: 20));
+      inputs.add(
+        _buildTextField(
+          "벤딩 각도 (θ)",
+          _angleCtrl,
+          focusColor,
+          showQuickAngles: true,
+        ),
+      );
+    } else if (mode == 3) {
+      inputs.add(_buildTextField("장애물 높이 (H)", _val1Ctrl, focusColor));
+      inputs.add(const SizedBox(height: 20));
+      if (_innerTab == 1) {
+        inputs.add(_buildTextField("장애물 폭 (W)", _val2Ctrl, focusColor));
+        inputs.add(const SizedBox(height: 20));
+      }
+      inputs.add(
+        _buildTextField(
+          "벤딩 각도 (θ)",
+          _angleCtrl,
+          focusColor,
+          showQuickAngles: true,
+        ),
+      );
+    } else if (mode == 4) {
+      inputs.add(_buildTextField("수직 단차 (H)", _val1Ctrl, focusColor));
+      inputs.add(const SizedBox(height: 20));
+      inputs.add(_buildTextField("수평 롤 (Roll)", _val2Ctrl, focusColor));
+      inputs.add(const SizedBox(height: 20));
+      inputs.add(
+        _buildTextField(
+          "벤딩 각도 (θ)",
+          _angleCtrl,
+          focusColor,
+          showQuickAngles: true,
+        ),
+      );
+    }
+    return inputs;
+  }
+
+  Widget _buildTextField(
+    String label,
+    TextEditingController ctrl,
+    Color focusColor, {
+    bool showQuickAngles = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: ctrl,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          style: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+            color: mutedWhite,
+          ),
+          decoration: InputDecoration(
+            labelText: label,
+            labelStyle: const TextStyle(fontSize: 14, color: Colors.grey),
+            filled: true,
+            fillColor: inputBg,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: Colors.white.withValues(alpha: 0.05),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: focusColor, width: 2),
+            ),
+          ),
+        ),
+        if (showQuickAngles) ...[
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [30, 45, 60, 90]
+                .map(
+                  (angle) => Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: OutlinedButton(
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          ctrl.text = angle.toString();
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: mutedWhite,
+                          side: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.1),
+                          ),
+                          backgroundColor: inputBg,
+                        ),
+                        child: Text("$angle°"),
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // ==========================================
+  // 2단계: 6축 방향 설정 화면
+  // ==========================================
   Widget _buildDirectionStep() {
-    var color = _modes[_currentMode]['color'];
+    var modeColor = _modes[_currentMode]['color'];
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text(
-          "꺾을 방향을 선택하세요",
+        Text(
+          "벤딩 방향축 (6-Axis)",
           style: TextStyle(
-            fontSize: 22,
-            color: Colors.white,
+            fontSize: 20,
+            color: mutedWhite,
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 30),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           child: GridView.count(
             shrinkWrap: true,
-            crossAxisCount: 2,
-            mainAxisSpacing: 15,
-            crossAxisSpacing: 15,
-            childAspectRatio: 1.5,
-            children: ["UP", "DOWN", "LEFT", "RIGHT"].map((dir) {
+            crossAxisCount: 3,
+            mainAxisSpacing: 16,
+            crossAxisSpacing: 16,
+            childAspectRatio: 1.2,
+            children: ["UP", "DOWN", "LEFT", "RIGHT", "FRONT", "BACK"].map((
+              dir,
+            ) {
               bool isSelected = _selectedDir == dir;
               return InkWell(
                 onTap: () {
@@ -265,22 +458,30 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                   setState(() => _selectedDir = dir);
                 },
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
+                  duration: const Duration(milliseconds: 150),
                   decoration: BoxDecoration(
-                    color: isSelected ? color : Colors.white10,
-                    borderRadius: BorderRadius.circular(15),
+                    color: isSelected ? modeColor : inputBg,
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isSelected ? Colors.white : Colors.transparent,
-                      width: 3,
+                      color: isSelected ? modeColor : Colors.transparent,
+                      width: 2,
                     ),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: modeColor.withValues(alpha: 0.3),
+                              blurRadius: 10,
+                            ),
+                          ]
+                        : [],
                   ),
                   alignment: Alignment.center,
                   child: Text(
                     dir,
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: isSelected ? Colors.white : Colors.white54,
+                      color: isSelected ? Colors.white : Colors.grey,
                     ),
                   ),
                 ),
@@ -288,49 +489,19 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
             }).toList(),
           ),
         ),
-        const SizedBox(height: 30),
+        const SizedBox(height: 40),
         TextButton.icon(
           onPressed: () => setState(() => _isInputFinished = false),
-          icon: const Icon(Icons.refresh, color: Colors.white54),
+          icon: const Icon(
+            Icons.edit,
+            color: Colors.grey,
+          ), // 복구 아이콘도 정갈한 edit으로 변경
           label: const Text(
-            "수치 다시 수정하기",
-            style: TextStyle(color: Colors.white54, fontSize: 16),
+            "수치 입력으로 돌아가기",
+            style: TextStyle(color: Colors.grey, fontSize: 16),
           ),
         ),
       ],
-    );
-  }
-
-  // 공통 텍스트 필드 위젯 (큼직하게!)
-  Widget _buildTextField(
-    String label,
-    TextEditingController ctrl,
-    Color focusColor,
-  ) {
-    return TextField(
-      controller: ctrl,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      style: const TextStyle(
-        fontSize: 45,
-        fontWeight: FontWeight.bold,
-        color: Colors.white,
-      ),
-      textAlign: TextAlign.center,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(fontSize: 18, color: Colors.white54),
-        floatingLabelAlignment: FloatingLabelAlignment.center,
-        filled: true,
-        fillColor: Colors.white.withOpacity(0.05),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: BorderSide(color: focusColor, width: 2),
-        ),
-      ),
     );
   }
 }
