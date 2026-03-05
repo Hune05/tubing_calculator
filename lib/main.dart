@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-// 🔥 파이어베이스 연동을 위한 패키지 임포트 추가
+// 🔥 파이어베이스 연동
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart'; // flutterfire CLI가 자동으로 만들어준 파일
+import 'firebase_options.dart';
 
-// 💡 필요한 화면들 임포트
+// 💡 기존 화면들 임포트
 import 'package:tubing_calculator/src/presentation/calculator/widgets/main_calculator_screen.dart';
 import 'package:tubing_calculator/src/presentation/settings/screens/settings_screen.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/marking_page.dart';
@@ -13,12 +13,14 @@ import 'package:tubing_calculator/src/presentation/history/screens/history_scree
 import 'package:tubing_calculator/src/presentation/inventory/pages/inventory_page.dart';
 import 'package:tubing_calculator/src/presentation/project/project_management_page.dart';
 
-// 🔥 main 함수에 async 키워드 추가 (서버 연결을 기다려야 하기 때문)
+// ✅ 수정된 코드 (이걸로 바꾸세요)
+import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_remote_page.dart';
+
 void main() async {
-  // 플러터 엔진 초기화 (가장 먼저 실행되어야 함)
+  // 플러터 엔진 초기화
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 🔥 파이어베이스 서버 연결 초기화 (이 두 줄이 핵심입니다!)
+  // 🔥 파이어베이스 서버 연결
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // 풀스크린 모드
@@ -36,9 +38,11 @@ class MyApp extends StatelessWidget {
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF121212),
       ),
-      initialRoute: '/',
+      // 🔥 initialRoute 대신 기기 크기에 따라 화면을 나눠주는 '문지기(DeviceRouter)'를 홈으로 설정!
+      home: const DeviceRouter(),
       routes: {
-        '/': (context) => const LoadingScreen(),
+        // 기존 태블릿 화면용 라우트들은 그대로 유지합니다.
+        '/loading': (context) => const LoadingScreen(),
         '/menu': (context) => const MenuScreen(),
         '/calculator': (context) => const MainCalculatorScreen(),
         '/marking': (context) => const MarkingPage(),
@@ -52,7 +56,30 @@ class MyApp extends StatelessWidget {
 }
 
 // ---------------------------------------------------------
-// [1] 로딩 스크린
+// [핵심] 기기 판별 라우터 (스마트폰 vs 태블릿 자동 분기)
+// ---------------------------------------------------------
+class DeviceRouter extends StatelessWidget {
+  const DeviceRouter({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // LayoutBuilder를 통해 현재 실행된 기기의 가로 넓이를 잽니다.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 600) {
+          // 가로가 600픽셀 미만이면 (반장님 S20 등 스마트폰) -> 🚀 리모컨 화면 띄움
+          return const MobileRemotePage();
+        } else {
+          // 가로가 600픽셀 이상이면 (태블릿) -> 🖥️ 기존 로딩/메뉴 화면 띄움
+          return const LoadingScreen();
+        }
+      },
+    );
+  }
+}
+
+// ---------------------------------------------------------
+// [1] 로딩 스크린 (태블릿 전용)
 // ---------------------------------------------------------
 class LoadingScreen extends StatefulWidget {
   const LoadingScreen({super.key});
@@ -132,14 +159,13 @@ class _LoadingScreenState extends State<LoadingScreen>
 }
 
 // ---------------------------------------------------------
-// [2] 메뉴 스크린 (태블릿 맞춤형 6개 꽉 차는 UI)
+// [2] 메뉴 스크린 (태블릿 맞춤형)
 // ---------------------------------------------------------
 class MenuScreen extends StatelessWidget {
   const MenuScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // 🔥 기기 화면 넓이를 감지해서 스마트폰이면 2칸, 태블릿이면 3칸으로 자동 조절!
     var screenWidth = MediaQuery.of(context).size.width;
     int crossAxisCount = screenWidth > 600 ? 3 : 2;
 
@@ -162,10 +188,10 @@ class MenuScreen extends StatelessWidget {
       body: SafeArea(
         child: GridView.count(
           padding: const EdgeInsets.all(24),
-          crossAxisCount: crossAxisCount, // 한 줄에 3칸 배치
+          crossAxisCount: crossAxisCount,
           crossAxisSpacing: 24,
           mainAxisSpacing: 24,
-          childAspectRatio: 1.2, // 태블릿에 맞는 가로가 살짝 긴 황금 비율
+          childAspectRatio: 1.2,
           children: [
             _buildGridCard(
               context,
@@ -246,18 +272,14 @@ class MenuScreen extends StatelessWidget {
                 color: const Color(0xFF007580).withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                icon,
-                color: const Color(0xFF007580),
-                size: 56,
-              ), // 큼직한 아이콘
+              child: Icon(icon, color: const Color(0xFF007580), size: 56),
             ),
             const SizedBox(height: 20),
             Text(
               title,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 20, // 큼직한 제목
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
               ),
@@ -266,10 +288,7 @@ class MenuScreen extends StatelessWidget {
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14, // 큼직한 부제목
-                color: Colors.black54,
-              ),
+              style: const TextStyle(fontSize: 14, color: Colors.black54),
             ),
           ],
         ),
