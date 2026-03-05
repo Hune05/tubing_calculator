@@ -13,8 +13,8 @@ import 'package:tubing_calculator/src/presentation/history/screens/history_scree
 import 'package:tubing_calculator/src/presentation/inventory/pages/inventory_page.dart';
 import 'package:tubing_calculator/src/presentation/project/project_management_page.dart';
 
-// ✅ 수정된 코드 (이걸로 바꾸세요)
-import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_remote_page.dart';
+// 🚀 [추가됨] 모바일 메뉴 페이지 임포트
+import 'package:tubing_calculator/src/presentation/menu/page/mobile_menu_page.dart';
 
 void main() async {
   // 플러터 엔진 초기화
@@ -63,14 +63,13 @@ class DeviceRouter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // LayoutBuilder를 통해 현재 실행된 기기의 가로 넓이를 잽니다.
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < 600) {
-          // 가로가 600픽셀 미만이면 (반장님 S20 등 스마트폰) -> 🚀 리모컨 화면 띄움
-          return const MobileRemotePage();
+          // ✅ 가로가 600 미만인 스마트폰은 무조건 '모바일 메뉴 페이지'로 보냅니다!
+          return const MobileMenuPage();
         } else {
-          // 가로가 600픽셀 이상이면 (태블릿) -> 🖥️ 기존 로딩/메뉴 화면 띄움
+          // 태블릿이면 기존 로딩/메뉴 화면 띄움
           return const LoadingScreen();
         }
       },
@@ -257,7 +256,9 @@ class MenuScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(
+                alpha: 0.05,
+              ), // 경고 수정 (withOpacity -> withValues)
               blurRadius: 10,
               offset: const Offset(0, 5),
             ),
@@ -269,7 +270,7 @@ class MenuScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF007580).withOpacity(0.1),
+                color: const Color(0xFF007580).withValues(alpha: 0.1), // 경고 수정
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: const Color(0xFF007580), size: 56),
