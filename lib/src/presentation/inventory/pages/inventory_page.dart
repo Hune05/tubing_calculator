@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-// 💡 일관된 테마 컬러 적용
+// 일관된 테마 컬러 적용
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
 const Color slate600 = Color(0xFF475569);
@@ -20,22 +22,39 @@ class InventoryPage extends StatefulWidget {
 class _InventoryPageState extends State<InventoryPage> {
   bool _showDeadStock = false;
 
-  // 💡 테스트용 더미 데이터 (튜브 단위를 '본'으로 변경, 수량도 본 단위에 맞게 조절)
+  // 검색 기능용 상태 변수
+  bool _isSearching = false;
+  String _searchQuery = "";
+  final TextEditingController _searchController = TextEditingController();
+
+  // 드롭다운 필터용 변수 및 카테고리 목록
+  String _selectedFilterCategory = "ALL";
+  final List<String> _categories = [
+    "ALL",
+    "TUBE",
+    "FITTING",
+    "VALVE",
+    "FLANGE",
+    "GASKET",
+    "기타",
+  ];
+
+  // 초기 더미 데이터 (데이터가 없을 때만 사용)
   List<Map<String, dynamic>> materials = [
     {
       "name": "Seamless Tube (SUS316L)",
       "size": "1/2\"",
       "category": "TUBE",
-      "qty": 25, // 25본
-      "min_qty": 10, // 10본 미만이면 경고
+      "qty": 25,
+      "min_qty": 10,
       "is_dead_stock": false,
-      "unit": "본", // 🔥 'M' 대신 '본'으로 수정
+      "unit": "본",
     },
     {
       "name": "Seamless Tube (SUS316L)",
       "size": "3/8\"",
       "category": "TUBE",
-      "qty": 4, // 4본 (재고 부족 뜸!)
+      "qty": 4,
       "min_qty": 10,
       "is_dead_stock": false,
       "unit": "본",
@@ -50,24 +69,6 @@ class _InventoryPageState extends State<InventoryPage> {
       "unit": "EA",
     },
     {
-      "name": "Union Elbow",
-      "size": "1/2\"",
-      "category": "FITTING",
-      "qty": 12,
-      "min_qty": 15,
-      "is_dead_stock": false,
-      "unit": "EA",
-    },
-    {
-      "name": "Union Cross (특수 현장용)",
-      "size": "1/4\"",
-      "category": "FITTING",
-      "qty": 4,
-      "min_qty": 0,
-      "is_dead_stock": true,
-      "unit": "EA",
-    },
-    {
       "name": "Ball Valve",
       "size": "1/2\"",
       "category": "VALVE",
@@ -76,8 +77,55 @@ class _InventoryPageState extends State<InventoryPage> {
       "is_dead_stock": false,
       "unit": "EA",
     },
+    {
+      "name": "Slip-on Flange (10K)",
+      "size": "50A",
+      "category": "FLANGE",
+      "qty": 8,
+      "min_qty": 10,
+      "is_dead_stock": false,
+      "unit": "EA",
+    },
+    {
+      "name": "Teflon Gasket (PTFE)",
+      "size": "50A",
+      "category": "GASKET",
+      "qty": 150,
+      "min_qty": 50,
+      "is_dead_stock": false,
+      "unit": "EA",
+    },
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadMaterials(); // 앱 켤 때 저장된 데이터 불러오기
+  }
+
+  // 💾 데이터 불러오기 함수
+  Future<void> _loadMaterials() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? materialsJson = prefs.getString('materials_data');
+
+    if (materialsJson != null) {
+      final List<dynamic> decodedData = jsonDecode(materialsJson);
+      setState(() {
+        materials = decodedData
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      });
+    }
+  }
+
+  // 💾 데이터 저장하기 함수
+  Future<void> _saveMaterials() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String materialsJson = jsonEncode(materials);
+    await prefs.setString('materials_data', materialsJson);
+  }
+
+  // 수량 업데이트 및 자동 저장
   void _updateQuantity(int index, int amount) {
     setState(() {
       int currentQty = materials[index]['qty'];
@@ -85,15 +133,18 @@ class _InventoryPageState extends State<InventoryPage> {
         materials[index]['qty'] = currentQty + amount;
       }
     });
+    _saveMaterials(); // 🔥 변경 시 자동 저장
   }
 
+  // 재고 상태 토글 및 자동 저장
   void _toggleDeadStockStatus(int index) {
     setState(() {
       materials[index]['is_dead_stock'] = !materials[index]['is_dead_stock'];
     });
+    _saveMaterials(); // 🔥 변경 시 자동 저장
   }
 
-  // 🔥 자재 추가 팝업 띄우기
+  // 신규 자재 추가 팝업
   void _showAddMaterialSheet() {
     final TextEditingController nameCtrl = TextEditingController();
     final TextEditingController sizeCtrl = TextEditingController();
@@ -102,6 +153,10 @@ class _InventoryPageState extends State<InventoryPage> {
 
     String selectedCategory = "FITTING";
     String selectedUnit = "EA";
+
+    final List<String> addCategories = _categories
+        .where((c) => c != "ALL")
+        .toList();
 
     showModalBottomSheet(
       context: context,
@@ -166,18 +221,20 @@ class _InventoryPageState extends State<InventoryPage> {
                                     child: DropdownButton<String>(
                                       value: selectedCategory,
                                       isExpanded: true,
-                                      items: ["TUBE", "FITTING", "VALVE", "기타"]
-                                          .map((String value) {
-                                            return DropdownMenuItem<String>(
-                                              value: value,
-                                              child: Text(value),
-                                            );
-                                          })
-                                          .toList(),
+                                      dropdownColor: pureWhite, // 🔥 배경색 강제 지정
+                                      style: const TextStyle(
+                                        color: slate900,
+                                        fontSize: 14,
+                                      ), // 🔥 글자색 강제 지정
+                                      items: addCategories.map((String value) {
+                                        return DropdownMenuItem<String>(
+                                          value: value,
+                                          child: Text(value),
+                                        );
+                                      }).toList(),
                                       onChanged: (val) {
                                         setSheetState(() {
                                           selectedCategory = val!;
-                                          // 🔥 튜브 선택 시 단위를 '본'으로 자동 변경
                                           selectedUnit = val == "TUBE"
                                               ? "본"
                                               : "EA";
@@ -218,7 +275,11 @@ class _InventoryPageState extends State<InventoryPage> {
                                     child: DropdownButton<String>(
                                       value: selectedUnit,
                                       isExpanded: true,
-                                      // 🔥 단위 옵션에 '본' 추가
+                                      dropdownColor: pureWhite, // 🔥 배경색 강제 지정
+                                      style: const TextStyle(
+                                        color: slate900,
+                                        fontSize: 14,
+                                      ), // 🔥 글자색 강제 지정
                                       items: ["EA", "본", "BOX", "M", "SET"].map(
                                         (String value) {
                                           return DropdownMenuItem<String>(
@@ -275,7 +336,7 @@ class _InventoryPageState extends State<InventoryPage> {
                       TextField(
                         controller: sizeCtrl,
                         decoration: InputDecoration(
-                          hintText: "예: 1/2\", 3/8\" x 1/4\" 등",
+                          hintText: "예: 1/2\", 50A 등",
                           filled: true,
                           fillColor: slate50,
                           border: OutlineInputBorder(
@@ -324,7 +385,7 @@ class _InventoryPageState extends State<InventoryPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
-                                  "안전 재고 (경고 기준)",
+                                  "안전 재고 (경고)",
                                   style: TextStyle(
                                     color: slate900,
                                     fontSize: 12,
@@ -390,7 +451,6 @@ class _InventoryPageState extends State<InventoryPage> {
                                   );
                                   return;
                                 }
-
                                 setState(() {
                                   materials.insert(0, {
                                     "name": nameCtrl.text.trim(),
@@ -403,6 +463,7 @@ class _InventoryPageState extends State<InventoryPage> {
                                     "unit": selectedUnit,
                                   });
                                 });
+                                _saveMaterials(); // 🔥 자재 추가 후 자동 저장
                                 Navigator.pop(context);
                               },
                               child: const Text(
@@ -430,84 +491,140 @@ class _InventoryPageState extends State<InventoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 4,
-      child: Scaffold(
-        backgroundColor: slate50,
-        appBar: AppBar(
-          title: const Text(
-            'INVENTORY',
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 18,
-              letterSpacing: 1.5,
-            ),
-          ),
-          backgroundColor: makitaTeal,
-          foregroundColor: pureWhite,
-          elevation: 0,
-          actions: [
-            IconButton(
-              icon: const Icon(LucideIcons.search, size: 24),
-              onPressed: () {},
-            ),
-          ],
-          bottom: const TabBar(
-            indicatorColor: pureWhite,
-            indicatorWeight: 3,
-            labelColor: pureWhite,
-            unselectedLabelColor: Colors.white60,
-            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            tabs: [
-              Tab(text: "ALL"),
-              Tab(text: "TUBE"),
-              Tab(text: "FITTING"),
-              Tab(text: "VALVE"),
-            ],
-          ),
-        ),
-        body: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: pureWhite,
-                border: Border(
-                  bottom: BorderSide(color: Colors.grey.shade300, width: 1),
+    return Scaffold(
+      backgroundColor: slate50,
+      appBar: AppBar(
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: const TextStyle(color: pureWhite),
+                decoration: const InputDecoration(
+                  hintText: '자재명, 규격 검색...',
+                  hintStyle: TextStyle(color: Colors.white70),
+                  border: InputBorder.none,
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value.toLowerCase();
+                  });
+                },
+              )
+            : const Text(
+                'INVENTORY',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                  letterSpacing: 1.5,
                 ),
               ),
-              child: Row(
-                children: [
-                  _buildFilterChip("📦 활성 자재", !_showDeadStock, () {
-                    setState(() => _showDeadStock = false);
-                  }),
-                  const SizedBox(width: 8),
-                  _buildFilterChip("⚠️ 악성/장기 재고", _showDeadStock, () {
-                    setState(() => _showDeadStock = true);
-                  }),
-                ],
-              ),
+        backgroundColor: makitaTeal,
+        foregroundColor: pureWhite,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(
+              _isSearching ? Icons.close : LucideIcons.search,
+              size: 24,
             ),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _buildMaterialList("ALL"),
-                  _buildMaterialList("TUBE"),
-                  _buildMaterialList("FITTING"),
-                  _buildMaterialList("VALVE"),
-                ],
-              ),
-            ),
-          ],
-        ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: _showAddMaterialSheet,
-          backgroundColor: makitaTeal,
-          icon: const Icon(Icons.add, color: pureWhite),
-          label: const Text(
-            "자재 등록",
-            style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
+            onPressed: () {
+              setState(() {
+                _isSearching = !_isSearching;
+                if (!_isSearching) {
+                  _searchController.clear();
+                  _searchQuery = "";
+                }
+              });
+            },
           ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // 필터 및 카테고리 영역
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: pureWhite,
+              border: Border(
+                bottom: BorderSide(color: Colors.grey.shade300, width: 1),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    height: 40,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: slate50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedFilterCategory,
+                        isExpanded: true,
+                        dropdownColor: pureWhite, // 🔥 배경색 흰색 고정
+                        icon: const Icon(
+                          Icons.keyboard_arrow_down,
+                          color: slate600,
+                          size: 20,
+                        ),
+                        style: const TextStyle(
+                          color: slate900,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ), // 🔥 글자색 진한 남색 고정
+                        items: _categories.map((String category) {
+                          return DropdownMenuItem<String>(
+                            value: category,
+                            child: Text(category),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          setState(() {
+                            _selectedFilterCategory = val!;
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 3,
+                  child: Row(
+                    children: [
+                      _buildFilterChip(
+                        "활성",
+                        !_showDeadStock,
+                        () => setState(() => _showDeadStock = false),
+                      ),
+                      const SizedBox(width: 4),
+                      _buildFilterChip(
+                        "장기",
+                        _showDeadStock,
+                        () => setState(() => _showDeadStock = true),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Expanded(child: _buildMaterialList()),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showAddMaterialSheet,
+        backgroundColor: makitaTeal,
+        icon: const Icon(Icons.add, color: pureWhite),
+        label: const Text(
+          "자재 등록",
+          style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
         ),
       ),
     );
@@ -519,7 +636,7 @@ class _InventoryPageState extends State<InventoryPage> {
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          height: 40,
           decoration: BoxDecoration(
             color: isSelected ? makitaTeal : slate100,
             borderRadius: BorderRadius.circular(8),
@@ -541,11 +658,18 @@ class _InventoryPageState extends State<InventoryPage> {
     );
   }
 
-  Widget _buildMaterialList(String category) {
+  Widget _buildMaterialList() {
     final filteredList = materials.where((m) {
-      bool categoryMatch = category == "ALL" || m['category'] == category;
+      bool categoryMatch =
+          _selectedFilterCategory == "ALL" ||
+          m['category'] == _selectedFilterCategory;
       bool statusMatch = m['is_dead_stock'] == _showDeadStock;
-      return categoryMatch && statusMatch;
+      bool searchMatch =
+          _searchQuery.isEmpty ||
+          m['name'].toString().toLowerCase().contains(_searchQuery) ||
+          m['size'].toString().toLowerCase().contains(_searchQuery);
+
+      return categoryMatch && statusMatch && searchMatch;
     }).toList();
 
     if (filteredList.isEmpty) {
@@ -556,7 +680,9 @@ class _InventoryPageState extends State<InventoryPage> {
             Icon(LucideIcons.packageOpen, size: 60, color: slate200),
             const SizedBox(height: 16),
             Text(
-              _showDeadStock ? "등록된 악성 재고가 없습니다." : "해당 분류에 자재가 없습니다.",
+              _searchQuery.isNotEmpty
+                  ? "검색 결과가 없습니다."
+                  : (_showDeadStock ? "등록된 악성 재고가 없습니다." : "해당 분류에 자재가 없습니다."),
               style: const TextStyle(
                 color: slate600,
                 fontWeight: FontWeight.bold,
@@ -616,7 +742,6 @@ class _InventoryPageState extends State<InventoryPage> {
                 ),
               ),
               const SizedBox(width: 16),
-
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -705,7 +830,6 @@ class _InventoryPageState extends State<InventoryPage> {
                   ],
                 ),
               ),
-
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -738,7 +862,6 @@ class _InventoryPageState extends State<InventoryPage> {
               ),
             ],
           ),
-
           const SizedBox(height: 12),
           const Divider(height: 1),
           Row(
@@ -795,9 +918,13 @@ class _InventoryPageState extends State<InventoryPage> {
       case "TUBE":
         return Icons.line_weight;
       case "FITTING":
-        return LucideIcons.gitMerge;
+        return Icons.device_hub;
       case "VALVE":
-        return LucideIcons.power;
+        return Icons.settings_input_component;
+      case "FLANGE":
+        return Icons.album;
+      case "GASKET":
+        return Icons.radio_button_unchecked;
       default:
         return LucideIcons.box;
     }
