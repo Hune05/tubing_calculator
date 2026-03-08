@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:async';
 
 class MobileRemotePage extends StatefulWidget {
   const MobileRemotePage({super.key});
@@ -31,8 +32,12 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
 
   final TextEditingController _val1Ctrl = TextEditingController();
   final TextEditingController _val2Ctrl = TextEditingController();
-  final TextEditingController _val3Ctrl = TextEditingController();
+  final TextEditingController _val3Ctrl =
+      TextEditingController(); // 현재 미사용, 확장 대비
   final TextEditingController _angleCtrl = TextEditingController();
+
+  // ★ 추가됨: 오프라인 대비 전송 기록을 담아둘 리스트
+  final List<Map<String, dynamic>> _historyLogs = [];
 
   void _resetState(int modeIndex) {
     setState(() {
@@ -46,26 +51,158 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     });
   }
 
-  // 데이터 전송 (이모티콘 제거)
+  // ★ 추가됨: 필수 입력값이 비어있는지 확인하는 로직
+  bool _validateInputs() {
+    if (_val1Ctrl.text.isEmpty) return false;
+
+    if (_currentMode == 1 && _val2Ctrl.text.isEmpty) return false; // 90도 벤딩 반경
+    if (_currentMode == 2 && _angleCtrl.text.isEmpty) return false; // 오프셋 각도
+    if (_currentMode == 3) {
+      // 새들
+      if (_innerTab == 1 && _val2Ctrl.text.isEmpty) return false; // 4포인트 폭
+      if (_angleCtrl.text.isEmpty) return false;
+    }
+    if (_currentMode == 4 &&
+        (_val2Ctrl.text.isEmpty || _angleCtrl.text.isEmpty))
+      return false; // 롤링
+
+    return true;
+  }
+
+  // ★ 수정됨: 데이터 전송 시 기록장에 저장하고 통신 상태를 시뮬레이션
   void _sendData() {
     HapticFeedback.heavyImpact();
 
     String finalAngle = (_currentMode == 1) ? "90" : _angleCtrl.text;
+    String finalVal1 = _val1Ctrl.text;
+    String finalVal2 = _val2Ctrl.text;
+    String modeName = _modes[_currentMode]['name'];
+    Color modeColor = _modes[_currentMode]['color'];
+
+    // 1. 전송할 데이터를 Map으로 생성 (초기 상태: pending)
+    final newRecord = {
+      "id": DateTime.now().millisecondsSinceEpoch.toString(),
+      "time":
+          "${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}",
+      "mode": modeName,
+      "color": modeColor,
+      "val1": finalVal1,
+      "val2": finalVal2,
+      "angle": finalAngle,
+      "dir": _selectedDir,
+      "status": "pending", // pending(대기) -> completed(성공)
+    };
+
+    setState(() {
+      _historyLogs.insert(0, newRecord); // 최신 기록을 맨 위에 추가
+      _isInputFinished = false; // 입력창으로 복귀
+      _val1Ctrl.clear();
+      _val2Ctrl.clear();
+      _angleCtrl.clear();
+    });
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          "전송 완료: ${_modes[_currentMode]['name']} (각도: $finalAngle°)",
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+        content: const Text(
+          "데이터를 전송 큐에 담았습니다.",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: _modes[_currentMode]['color'],
+        backgroundColor: Colors.grey.shade800,
         duration: const Duration(seconds: 1),
       ),
     );
-    setState(() => _isInputFinished = false);
+
+    // 2. 파이어베이스 서버 전송 시뮬레이션 (실제로는 여기서 Firebase 연동 코드가 들어감)
+    Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      setState(() {
+        // 서버에서 성공 응답을 받으면 해당 기록의 상태를 완료로 변경
+        var target = _historyLogs.firstWhere(
+          (log) => log['id'] == newRecord['id'],
+        );
+        target['status'] = "completed";
+      });
+      HapticFeedback.mediumImpact();
+    });
+  }
+
+  // ★ 추가됨: 전송 기록 확인 바텀 시트
+  void _showHistorySheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: inputBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade600,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const Text(
+                "전송 기록 (대조용)",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: _historyLogs.isEmpty
+                    ? Center(
+                        child: Text(
+                          "기록이 없습니다.",
+                          style: TextStyle(color: Colors.grey.shade500),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: _historyLogs.length,
+                        itemBuilder: (context, index) {
+                          var log = _historyLogs[index];
+                          bool isCompleted = log['status'] == 'completed';
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: log['color'],
+                              radius: 12,
+                            ),
+                            title: Text(
+                              "${log['mode']} (${log['dir']})",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            subtitle: Text(
+                              "수치: ${log['val1']} / 각도: ${log['angle']}°  •  ${log['time']}",
+                              style: TextStyle(
+                                color: Colors.grey.shade400,
+                                fontSize: 13,
+                              ),
+                            ),
+                            trailing: Icon(
+                              isCompleted ? Icons.check_circle : Icons.schedule,
+                              color: isCompleted
+                                  ? Colors.greenAccent
+                                  : Colors.orangeAccent,
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -139,7 +276,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                   ),
                 ),
                 child: Text(
-                  _isInputFinished ? "데이터 전송" : "수치를 입력하세요",
+                  _isInputFinished ? "태블릿으로 데이터 전송" : "수치를 입력하세요",
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -152,6 +289,12 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
             ),
           ],
         ),
+      ),
+      // ★ 추가됨: 기록장 호출용 플로팅 버튼
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showHistorySheet,
+        backgroundColor: inputBg,
+        child: const Icon(Icons.history, color: Colors.white),
       ),
     );
   }
@@ -179,7 +322,18 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
           const SizedBox(height: 40),
           ElevatedButton(
             onPressed: () {
+              // ★ 수정됨: 검증 로직 통과 시에만 다음 단계로
               FocusScope.of(context).unfocus();
+              if (!_validateInputs()) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text("필수 수치를 모두 입력해주세요!"),
+                    backgroundColor: Colors.redAccent.shade700,
+                  ),
+                );
+                HapticFeedback.lightImpact();
+                return;
+              }
               setState(() => _isInputFinished = true);
             },
             style: ElevatedButton.styleFrom(
@@ -194,7 +348,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  "방향 설정",
+                  "방향 설정으로 이동",
                   style: TextStyle(
                     fontSize: 18,
                     color: mutedWhite,
@@ -267,7 +421,6 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                 _innerTab = i;
                 _val1Ctrl.clear();
                 _val2Ctrl.clear();
-                _val3Ctrl.clear();
               });
             },
             child: Container(
@@ -304,7 +457,14 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     if (mode == 0) {
       inputs.add(_buildTextField("직관 기장 (L)", _val1Ctrl, focusColor));
     } else if (mode == 1) {
-      inputs.add(_buildTextField("첫단 기장 (L1) - 생략가능", _val1Ctrl, focusColor));
+      inputs.add(
+        _buildTextField(
+          "첫단 기장 (L1) - 생략가능",
+          _val1Ctrl,
+          focusColor,
+          isOptional: true,
+        ),
+      );
       inputs.add(const SizedBox(height: 20));
       inputs.add(_buildTextField("벤딩 반경 (R)", _val2Ctrl, focusColor));
     } else if (mode == 2) {
@@ -361,6 +521,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     TextEditingController ctrl,
     Color focusColor, {
     bool showQuickAngles = false,
+    bool isOptional = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -374,7 +535,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
             color: mutedWhite,
           ),
           decoration: InputDecoration(
-            labelText: label,
+            labelText: isOptional ? label : "$label *", // 필수는 * 표시
             labelStyle: const TextStyle(fontSize: 14, color: Colors.grey),
             filled: true,
             fillColor: inputBg,
@@ -492,10 +653,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         const SizedBox(height: 40),
         TextButton.icon(
           onPressed: () => setState(() => _isInputFinished = false),
-          icon: const Icon(
-            Icons.edit,
-            color: Colors.grey,
-          ), // 복구 아이콘도 정갈한 edit으로 변경
+          icon: const Icon(Icons.edit, color: Colors.grey),
           label: const Text(
             "수치 입력으로 돌아가기",
             style: TextStyle(color: Colors.grey, fontSize: 16),
