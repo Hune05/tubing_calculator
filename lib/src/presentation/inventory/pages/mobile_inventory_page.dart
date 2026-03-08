@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:async';
 
-// ★ 추가됨: 수량과 히트 넘버를 함께 관리하기 위한 데이터 클래스
+// ★ 업그레이드됨: 수량, 히트넘버, 메이커, 재질을 통합 관리하는 클래스
 class ItemData {
   int qty;
   String heatNo;
+  String maker;
+  String material;
 
-  ItemData({this.qty = 0, this.heatNo = ""});
+  ItemData({
+    this.qty = 0,
+    this.heatNo = "",
+    this.maker = "",
+    this.material = "",
+  });
 }
 
 class MobileInventoryPage extends StatefulWidget {
@@ -20,12 +28,10 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
   final PageController _pageController = PageController();
   int _currentCategory = 0;
 
-  // 🎨 [무광 다크 테마 유지]
   final Color darkBg = const Color(0xFF1E2124);
   final Color cardBg = const Color(0xFF2A2E33);
   final Color mutedWhite = const Color(0xFFD0D4D9);
 
-  // 카테고리 정의
   final List<Map<String, dynamic>> _categories = [
     {"name": "튜브 (Tube)", "color": const Color(0xFF4A5D66)},
     {"name": "피팅류 (Fitting)", "color": const Color(0xFF8A6345)},
@@ -34,128 +40,166 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     {"name": "볼트 / 너트", "color": const Color(0xFF3B5E52)},
   ];
 
-  // ★ 수정됨: int 대신 ItemData 객체로 수량과 히트넘버 동시 관리
   final Map<int, Map<String, ItemData>> _inventoryData = {
     0: {
-      "1/4 inch (6.35mm)": ItemData(qty: 0),
-      "3/8 inch (9.52mm)": ItemData(qty: 0),
-      "1/2 inch (12.7mm)": ItemData(qty: 0),
-      "3/4 inch (19.05mm)": ItemData(qty: 0),
+      "1/4 inch (6.35mm)": ItemData(),
+      "3/8 inch (9.52mm)": ItemData(),
+      "1/2 inch (12.7mm)": ItemData(),
+      "3/4 inch (19.05mm)": ItemData(),
     },
     1: {
-      "Union (유니온)": ItemData(qty: 0),
-      "Elbow (엘보우)": ItemData(qty: 0),
-      "Tee (티)": ItemData(qty: 0),
-      "Male Connector": ItemData(qty: 0),
+      "Union (유니온)": ItemData(),
+      "Elbow (엘보우)": ItemData(),
+      "Tee (티)": ItemData(),
+      "Male Connector": ItemData(),
     },
     2: {
-      "Ball Valve (볼밸브)": ItemData(qty: 0),
-      "Needle Valve (니들밸브)": ItemData(qty: 0),
-      "Check Valve (체크밸브)": ItemData(qty: 0),
+      "Ball Valve (볼밸브)": ItemData(),
+      "Needle Valve (니들밸브)": ItemData(),
+      "Check Valve (체크밸브)": ItemData(),
     },
     3: {
-      "10K 15A 가스켓": ItemData(qty: 0),
-      "10K 20A 가스켓": ItemData(qty: 0),
-      "10K 15A 후렌지 (RF)": ItemData(qty: 0),
+      "10K 15A 가스켓": ItemData(),
+      "10K 20A 가스켓": ItemData(),
+      "10K 15A 후렌지 (RF)": ItemData(),
     },
     4: {
-      "M6 x 20 볼트세트": ItemData(qty: 0),
-      "M8 x 25 볼트세트": ItemData(qty: 0),
-      "M10 x 30 볼트세트": ItemData(qty: 0),
-      "M12 너트 단품": ItemData(qty: 0),
+      "M6 x 20 볼트세트": ItemData(),
+      "M8 x 25 볼트세트": ItemData(),
+      "M10 x 30 볼트세트": ItemData(),
+      "M12 너트 단품": ItemData(),
     },
   };
 
-  // 수량 증감 로직 (+1, -1)
+  final List<Map<String, dynamic>> _historyLogs = []; // 오프라인 기록장 큐
+
   void _updateQuantity(int categoryIndex, String item, int delta) {
     HapticFeedback.lightImpact();
     setState(() {
       int current = _inventoryData[categoryIndex]![item]!.qty;
       int next = current + delta;
-      if (next >= 0) {
-        _inventoryData[categoryIndex]![item]!.qty = next;
-      }
+      if (next >= 0) _inventoryData[categoryIndex]![item]!.qty = next;
     });
   }
 
-  // 수량 직접 입력 다이얼로그
-  void _showQuantityInputDialog(
-    int categoryIndex,
-    String item,
-    int currentQty,
-  ) {
-    TextEditingController qtyController = TextEditingController(
-      text: currentQty.toString(),
-    );
+  // ★ 강력해진 유효성 검증 (수량 입력 시 필수 항목 체크)
+  bool _validateSync() {
+    var currentItems = _inventoryData[_currentCategory]!;
+    bool hasData = currentItems.values.any((item) => item.qty > 0);
 
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: cardBg,
-          title: Text(
-            "$item 수량 입력",
-            style: const TextStyle(color: Colors.white, fontSize: 18),
-          ),
-          content: TextField(
-            controller: qtyController,
-            keyboardType: TextInputType.number,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-            autofocus: true,
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: darkBg,
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.1),
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(
-                  color: _categories[_currentCategory]['color'],
-                ),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("취소", style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _categories[_currentCategory]['color'],
-              ),
-              onPressed: () {
-                int? newQty = int.tryParse(qtyController.text);
-                if (newQty != null && newQty >= 0) {
-                  setState(() {
-                    _inventoryData[categoryIndex]![item]!.qty = newQty;
-                  });
-                }
-                Navigator.pop(context);
-              },
-              child: const Text(
-                "확인",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
+    if (!hasData) {
+      _showErrorSnackBar("전송할 자재 수량이 0입니다.");
+      return false;
+    }
+
+    for (var entry in currentItems.entries) {
+      if (entry.value.qty > 0) {
+        if (_currentCategory == 0 &&
+            (entry.value.heatNo.isEmpty || entry.value.maker.isEmpty)) {
+          _showErrorSnackBar("${entry.key}의 히트 넘버와 제조사를 모두 입력해주세요.");
+          return false;
+        }
+        if ((_currentCategory == 1 || _currentCategory == 2) &&
+            entry.value.maker.isEmpty) {
+          _showErrorSnackBar("${entry.key}의 제조사(Maker)를 선택해주세요.");
+          return false;
+        }
+        if ((_currentCategory == 3 || _currentCategory == 4) &&
+            entry.value.material.isEmpty) {
+          _showErrorSnackBar("${entry.key}의 재질(Material)을 선택해주세요.");
+          return false;
+        }
+      }
+    }
+    return true;
   }
 
-  // ★ 추가됨: 히트 넘버(Heat No) 입력 다이얼로그
-  void _showHeatNoDialog(String item, String currentHeatNo) {
-    TextEditingController heatCtrl = TextEditingController(text: currentHeatNo);
+  void _showErrorSnackBar(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.redAccent.shade700,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+    HapticFeedback.lightImpact();
+  }
+
+  // ★ 데이터 전송 및 초기화 (연산기 로직 이식 완료)
+  void _syncToServer() {
+    FocusScope.of(context).unfocus();
+    if (!_validateSync()) return;
+
+    HapticFeedback.heavyImpact();
+    var currentItems = _inventoryData[_currentCategory]!;
+
+    Map<String, dynamic> snapshot = {};
+    currentItems.forEach((key, value) {
+      if (value.qty > 0) {
+        snapshot[key] = {
+          'qty': value.qty,
+          'heatNo': value.heatNo,
+          'maker': value.maker,
+          'material': value.material,
+        };
+      }
+    });
+
+    final newRecord = {
+      "id": DateTime.now().millisecondsSinceEpoch.toString(),
+      "time":
+          "${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}",
+      "category": _categories[_currentCategory]['name'],
+      "color": _categories[_currentCategory]['color'],
+      "items": snapshot,
+      "status": "pending",
+    };
+
+    setState(() {
+      _historyLogs.insert(0, newRecord);
+
+      // 전송 후 입력칸 깔끔하게 초기화
+      currentItems.forEach((key, value) {
+        value.qty = 0;
+        value.heatNo = "";
+        value.maker = "";
+        value.material = "";
+      });
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text("데이터를 전송 큐에 담았습니다."),
+        backgroundColor: Colors.grey.shade800,
+        duration: const Duration(seconds: 1),
+      ),
+    );
+
+    // 서버 전송 시뮬레이션
+    Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      setState(
+        () => _historyLogs.firstWhere(
+          (log) => log['id'] == newRecord['id'],
+        )['status'] = "completed",
+      );
+      HapticFeedback.mediumImpact();
+    });
+  }
+
+  // ★ 부가 정보 입력 다이얼로그 (히트넘버, 메이커, 재질 통합)
+  void _showExtraInfoDialog(String item, ItemData data, String infoType) {
+    TextEditingController ctrl = TextEditingController(
+      text: infoType == 'HeatNo'
+          ? data.heatNo
+          : (infoType == 'Maker' ? data.maker : data.material),
+    );
+
+    List<String> quickOptions = [];
+    if (infoType == 'Maker')
+      quickOptions = ["Swagelok", "Parker", "Hy-Lok", "DK-Lok", "Sandvik"];
+    if (infoType == 'Material')
+      quickOptions = ["SS316L", "SS304", "Carbon Steel", "Brass", "Teflon"];
 
     showDialog(
       context: context,
@@ -163,34 +207,63 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
         return AlertDialog(
           backgroundColor: cardBg,
           title: Text(
-            "히트 넘버 (Heat No.) 입력",
+            "$infoType 입력",
             style: const TextStyle(color: Colors.white, fontSize: 18),
           ),
-          content: TextField(
-            controller: heatCtrl,
-            textCapitalization: TextCapitalization.characters, // 영문 대문자 자동 변환
-            style: const TextStyle(
-              color: Colors.greenAccent,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-            autofocus: true,
-            decoration: InputDecoration(
-              hintText: "예: HT-12345",
-              hintStyle: TextStyle(color: Colors.grey.shade600, fontSize: 16),
-              filled: true,
-              fillColor: darkBg,
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.1),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: ctrl,
+                textCapitalization: TextCapitalization.characters,
+                style: const TextStyle(
+                  color: Colors.greenAccent,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: darkBg,
+                  hintText: "직접 입력",
+                  hintStyle: TextStyle(color: Colors.grey.shade600),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: _categories[_currentCategory]['color'],
+                    ),
+                  ),
                 ),
               ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(
-                  color: _categories[_currentCategory]['color'],
+              if (quickOptions.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: quickOptions
+                      .map(
+                        (opt) => ActionChip(
+                          label: Text(
+                            opt,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
+                          ),
+                          backgroundColor: darkBg,
+                          side: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.1),
+                          ),
+                          onPressed: () => ctrl.text = opt,
+                        ),
+                      )
+                      .toList(),
                 ),
-              ),
-            ),
+              ],
+            ],
           ),
           actions: [
             TextButton(
@@ -203,9 +276,12 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
               ),
               onPressed: () {
                 setState(() {
-                  _inventoryData[0]![item]!.heatNo = heatCtrl.text
-                      .trim()
-                      .toUpperCase(); // 저장 시 무조건 대문자
+                  if (infoType == 'HeatNo')
+                    data.heatNo = ctrl.text.trim().toUpperCase();
+                  if (infoType == 'Maker')
+                    data.maker = ctrl.text.trim().toUpperCase();
+                  if (infoType == 'Material')
+                    data.material = ctrl.text.trim().toUpperCase();
                 });
                 Navigator.pop(context);
               },
@@ -223,89 +299,103 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     );
   }
 
-  // 신규 자재 추가 다이얼로그
-  void _showAddNewItemDialog() {
-    TextEditingController nameController = TextEditingController();
-
-    showDialog(
+  // ★ 짤렸던 기록장(History) 바텀 시트 완벽 복구
+  void _showHistorySheet() {
+    showModalBottomSheet(
       context: context,
+      backgroundColor: cardBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) {
-        return AlertDialog(
-          backgroundColor: cardBg,
-          title: const Text(
-            "신규 자재 등록",
-            style: TextStyle(color: Colors.white, fontSize: 18),
-          ),
-          content: TextField(
-            controller: nameController,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
-            autofocus: true,
-            decoration: InputDecoration(
-              hintText: "자재명 및 규격 입력",
-              hintStyle: TextStyle(color: Colors.grey.shade600),
-              filled: true,
-              fillColor: darkBg,
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.1),
+        return SafeArea(
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade600,
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(
-                  color: _categories[_currentCategory]['color'],
-                ),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("취소", style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _categories[_currentCategory]['color'],
-              ),
-              onPressed: () {
-                if (nameController.text.trim().isNotEmpty) {
-                  setState(() {
-                    _inventoryData[_currentCategory]![nameController.text
-                        .trim()] = ItemData(
-                      qty: 0,
-                    );
-                  });
-                }
-                Navigator.pop(context);
-              },
-              child: const Text(
-                "추가",
+              const Text(
+                "자재 전송 기록",
                 style: TextStyle(
                   color: Colors.white,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 10),
+              Expanded(
+                child: _historyLogs.isEmpty
+                    ? Center(
+                        child: Text(
+                          "기록이 없습니다.",
+                          style: TextStyle(color: Colors.grey.shade500),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: _historyLogs.length,
+                        itemBuilder: (context, index) {
+                          var log = _historyLogs[index];
+                          bool isCompleted = log['status'] == 'completed';
+                          Map<String, dynamic> items = log['items'];
+
+                          return ExpansionTile(
+                            leading: CircleAvatar(
+                              backgroundColor: log['color'],
+                              radius: 12,
+                            ),
+                            title: Text(
+                              "${log['category']} • ${log['time']}",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            trailing: Icon(
+                              isCompleted ? Icons.check_circle : Icons.schedule,
+                              color: isCompleted
+                                  ? Colors.greenAccent
+                                  : Colors.orangeAccent,
+                            ),
+                            children: items.entries.map((e) {
+                              String detail = "수량: ${e.value['qty']}";
+                              if (e.value['heatNo'] != "")
+                                detail += " | Heat: ${e.value['heatNo']}";
+                              if (e.value['maker'] != "")
+                                detail += " | Maker: ${e.value['maker']}";
+                              if (e.value['material'] != "")
+                                detail += " | Mat: ${e.value['material']}";
+
+                              return ListTile(
+                                title: Text(
+                                  e.key,
+                                  style: TextStyle(
+                                    color: Colors.grey.shade300,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  detail,
+                                  style: TextStyle(
+                                    color: Colors.grey.shade500,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
         );
       },
-    );
-  }
-
-  // 데이터 전송
-  void _syncToServer() {
-    HapticFeedback.heavyImpact();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          "서버 동기화 완료: ${_categories[_currentCategory]['name']}",
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: _categories[_currentCategory]['color'],
-        duration: const Duration(seconds: 1),
-      ),
     );
   }
 
@@ -318,7 +408,6 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // [1단: 상단 카테고리 스와이프]
             Container(
               height: 90,
               width: double.infinity,
@@ -346,21 +435,15 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                 ],
               ),
             ),
-
-            // [2단: 자재 리스트]
             Expanded(
               child: PageView.builder(
                 controller: _pageController,
                 onPageChanged: (index) =>
                     setState(() => _currentCategory = index),
                 itemCount: _categories.length,
-                itemBuilder: (context, index) {
-                  return _buildInventoryList(index);
-                },
+                itemBuilder: (context, index) => _buildInventoryList(index),
               ),
             ),
-
-            // [3단: 하단 고정 액션 버튼]
             Container(
               padding: const EdgeInsets.all(20),
               color: darkBg,
@@ -393,39 +476,36 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
           ],
         ),
       ),
-      // 신규 자재 추가 플로팅 버튼
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 90.0),
-        child: FloatingActionButton.extended(
-          onPressed: _showAddNewItemDialog,
-          backgroundColor: catColor,
-          icon: const Icon(Icons.add, color: Colors.white),
-          label: const Text(
-            "자재 추가",
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            heroTag: "history_btn",
+            onPressed: _showHistorySheet,
+            backgroundColor: cardBg,
+            child: const Icon(Icons.history, color: Colors.white),
           ),
-        ),
+          const SizedBox(height: 12),
+          FloatingActionButton.extended(
+            heroTag: "add_item_btn",
+            onPressed: () {}, // 신규 자재 추가 로직 연결
+            backgroundColor: catColor,
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text(
+              "자재 추가",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  // 자재 리스트 렌더링
   Widget _buildInventoryList(int categoryIndex) {
     var items = _inventoryData[categoryIndex]!.keys.toList();
-
-    if (items.isEmpty) {
-      return Center(
-        child: Text(
-          "등록된 자재가 없습니다.\n우측 하단 버튼을 눌러 추가해주세요.",
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.grey.shade600,
-            fontSize: 16,
-            height: 1.5,
-          ),
-        ),
-      );
-    }
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
@@ -433,6 +513,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
       itemBuilder: (context, i) {
         String itemName = items[i];
         ItemData data = _inventoryData[categoryIndex]![itemName]!;
+        bool hasQty = data.qty > 0;
 
         return Container(
           margin: const EdgeInsets.only(bottom: 16),
@@ -440,12 +521,16 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
           decoration: BoxDecoration(
             color: cardBg,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+            border: Border.all(
+              color: hasQty
+                  ? _categories[_currentCategory]['color']
+                  : Colors.white.withValues(alpha: 0.05),
+              width: hasQty ? 2 : 1,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 메인 행 (이름 + 수량 조절)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -465,23 +550,15 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                         Icons.remove,
                         () => _updateQuantity(categoryIndex, itemName, -1),
                       ),
-                      GestureDetector(
-                        onTap: () => _showQuantityInputDialog(
-                          categoryIndex,
-                          itemName,
-                          data.qty,
-                        ),
-                        child: Container(
-                          width: 60,
-                          alignment: Alignment.center,
-                          color: Colors.transparent,
-                          child: Text(
-                            data.qty.toString(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w900,
-                            ),
+                      Container(
+                        width: 50,
+                        alignment: Alignment.center,
+                        child: Text(
+                          data.qty.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
                       ),
@@ -495,56 +572,40 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                 ],
               ),
 
-              // ★ 추가됨: 튜브(카테고리 0)일 경우에만 히트 넘버 입력 UI 표시
-              if (categoryIndex == 0) ...[
+              // 수량이 1개 이상일 때만 부가 정보(메이커, 재질, 히트넘버) 입력 UI 노출
+              if (hasQty) ...[
                 const SizedBox(height: 12),
-                InkWell(
-                  onTap: () => _showHeatNoDialog(itemName, data.heatNo),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: darkBg,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: data.heatNo.isEmpty
-                            ? Colors.white.withValues(alpha: 0.1)
-                            : Colors.greenAccent.withValues(alpha: 0.3),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (categoryIndex == 0)
+                      _buildInfoBadge(
+                        itemName,
+                        data,
+                        'HeatNo',
+                        Icons.tag,
+                        data.heatNo,
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.tag,
-                          color: data.heatNo.isEmpty
-                              ? Colors.grey
-                              : Colors.greenAccent,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            data.heatNo.isEmpty
-                                ? "제조사 히트 넘버(Heat No) 입력"
-                                : "Heat No: ${data.heatNo}",
-                            style: TextStyle(
-                              color: data.heatNo.isEmpty
-                                  ? Colors.grey.shade500
-                                  : Colors.greenAccent,
-                              fontSize: 14,
-                              fontWeight: data.heatNo.isEmpty
-                                  ? FontWeight.normal
-                                  : FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                    if (categoryIndex == 0 ||
+                        categoryIndex == 1 ||
+                        categoryIndex == 2)
+                      _buildInfoBadge(
+                        itemName,
+                        data,
+                        'Maker',
+                        Icons.factory,
+                        data.maker,
+                      ),
+                    if (categoryIndex == 3 || categoryIndex == 4)
+                      _buildInfoBadge(
+                        itemName,
+                        data,
+                        'Material',
+                        Icons.category,
+                        data.material,
+                      ),
+                  ],
                 ),
               ],
             ],
@@ -554,7 +615,51 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     );
   }
 
-  // 둥근 버튼 (+, -)
+  Widget _buildInfoBadge(
+    String itemName,
+    ItemData data,
+    String infoType,
+    IconData icon,
+    String value,
+  ) {
+    bool isEmpty = value.isEmpty;
+    return InkWell(
+      onTap: () => _showExtraInfoDialog(itemName, data, infoType),
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: darkBg,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isEmpty
+                ? Colors.redAccent.withValues(alpha: 0.5)
+                : Colors.greenAccent.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: isEmpty ? Colors.redAccent : Colors.greenAccent,
+              size: 14,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              isEmpty ? "$infoType 필요" : value,
+              style: TextStyle(
+                color: isEmpty ? Colors.redAccent : Colors.greenAccent,
+                fontSize: 12,
+                fontWeight: isEmpty ? FontWeight.normal : FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildRoundButton(
     IconData icon,
     VoidCallback onPressed, {
@@ -565,7 +670,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
       onTap: onPressed,
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
           color: isAdd ? themeColor : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
@@ -573,7 +678,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
             color: isAdd ? themeColor : Colors.white.withValues(alpha: 0.2),
           ),
         ),
-        child: Icon(icon, color: isAdd ? Colors.white : mutedWhite, size: 24),
+        child: Icon(icon, color: isAdd ? Colors.white : mutedWhite, size: 20),
       ),
     );
   }
