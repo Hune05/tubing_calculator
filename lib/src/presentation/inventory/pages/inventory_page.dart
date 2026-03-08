@@ -26,14 +26,11 @@ class _InventoryPageState extends State<InventoryPage> {
   // ---------------------------------------------------------
   bool _showDeadStock = false; // 악성(장기) 재고만 볼 것인지 여부
 
-  // 검색 기능 관련 변수
-  bool _isSearching = false; // 현재 검색 모드인지 아닌지
-  String _searchQuery = ""; // 사용자가 입력한 검색어
-  final TextEditingController _searchController =
-      TextEditingController(); // 검색창 텍스트 컨트롤러
+  bool _isSearching = false;
+  String _searchQuery = "";
+  final TextEditingController _searchController = TextEditingController();
 
-  // 카테고리 필터 관련 변수
-  String _selectedFilterCategory = "ALL"; // 현재 선택된 카테고리 (초기값: ALL)
+  String _selectedFilterCategory = "ALL";
   final List<String> _categories = [
     "ALL",
     "TUBE",
@@ -44,8 +41,7 @@ class _InventoryPageState extends State<InventoryPage> {
     "기타",
   ];
 
-  // 🔥 [핵심] 파이어베이스 서버의 'inventory' 창고(컬렉션)로 가는 직통 연결 고리입니다.
-  // 이제부터 모든 데이터는 폰이 아니라 이 '_inventoryDb'를 통해 구글 서버로 직접 들어갑니다.
+  // 🔥 [핵심] 파이어베이스 서버의 'inventory' 창고(컬렉션) 연결 고리
   final CollectionReference _inventoryDb = FirebaseFirestore.instance
       .collection('inventory');
 
@@ -53,50 +49,42 @@ class _InventoryPageState extends State<InventoryPage> {
   // 💾 [3] 파이어베이스 서버의 데이터를 수정하는 함수들
   // ---------------------------------------------------------
 
-  // 3-1. 수량 업데이트 함수 (서버의 숫자 직접 변경)
   void _updateQuantity(String docId, int currentQty, int amount) {
     if (currentQty + amount >= 0) {
-      // 폰에서 +나 -를 누르면, 해당 자재의 고유번호(docId)를 찾아가서 수량을 덮어씌웁니다.
       _inventoryDb.doc(docId).update({'qty': currentQty + amount});
     }
   }
 
-  // 3-2. 재고 상태 토글 함수 (정상 재고 <-> 장기/악성 재고)
   void _toggleDeadStockStatus(String docId, bool currentStatus) {
-    // 현재 상태의 반대값(!currentStatus)으로 서버에 업데이트 명령을 내립니다.
     _inventoryDb.doc(docId).update({'is_dead_stock': !currentStatus});
   }
 
   // ---------------------------------------------------------
-  // 📝 [4] 신규 자재 추가 팝업 (바텀 시트) 띄우기 함수
+  // 📝 [4] 신규 자재 추가 팝업 (바텀 시트)
   // ---------------------------------------------------------
   void _showAddMaterialSheet() {
-    // 팝업 안에서 사용자가 글씨를 입력할 빈 칸(컨트롤러)들을 준비합니다.
     final TextEditingController nameCtrl = TextEditingController();
     final TextEditingController sizeCtrl = TextEditingController();
     final TextEditingController qtyCtrl = TextEditingController(text: "0");
     final TextEditingController minQtyCtrl = TextEditingController(text: "10");
 
-    String selectedCategory = "FITTING"; // 초기 카테고리 세팅
-    String selectedUnit = "EA"; // 초기 단위 세팅
+    String selectedCategory = "FITTING";
+    String selectedUnit = "EA";
 
-    // "ALL"이라는 카테고리는 조회용이므로, 자재 추가할 때는 뺍니다.
     final List<String> addCategories = _categories
         .where((c) => c != "ALL")
         .toList();
 
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // 키보드가 올라올 때 팝업이 위로 밀려 올라가도록 설정
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             return Padding(
               padding: EdgeInsets.only(
-                bottom: MediaQuery.of(
-                  context,
-                ).viewInsets.bottom, // 키보드 높이만큼 패딩 주기
+                bottom: MediaQuery.of(context).viewInsets.bottom,
               ),
               child: Container(
                 padding: const EdgeInsets.all(24),
@@ -119,7 +107,7 @@ class _InventoryPageState extends State<InventoryPage> {
                       ),
                       const SizedBox(height: 24),
 
-                      // --- [카테고리 & 단위 선택 영역] ---
+                      // 카테고리 & 단위 선택
                       Row(
                         children: [
                           Expanded(
@@ -150,8 +138,7 @@ class _InventoryPageState extends State<InventoryPage> {
                                     child: DropdownButton<String>(
                                       value: selectedCategory,
                                       isExpanded: true,
-                                      dropdownColor:
-                                          pureWhite, // 드롭다운 배경이 까맣게 되는 현상 방지
+                                      dropdownColor: pureWhite,
                                       style: const TextStyle(
                                         color: slate900,
                                         fontSize: 14,
@@ -165,7 +152,6 @@ class _InventoryPageState extends State<InventoryPage> {
                                       onChanged: (val) {
                                         setSheetState(() {
                                           selectedCategory = val!;
-                                          // TUBE를 고르면 단위를 자동으로 '본'으로 바꿔주는 센스!
                                           selectedUnit = val == "TUBE"
                                               ? "본"
                                               : "EA";
@@ -234,7 +220,7 @@ class _InventoryPageState extends State<InventoryPage> {
                       ),
                       const SizedBox(height: 16),
 
-                      // --- [자재명 입력 영역] ---
+                      // 자재명 입력
                       const Text(
                         "자재명",
                         style: TextStyle(
@@ -258,7 +244,7 @@ class _InventoryPageState extends State<InventoryPage> {
                       ),
                       const SizedBox(height: 16),
 
-                      // --- [규격 입력 영역] ---
+                      // 규격 입력
                       const Text(
                         "규격 (Size)",
                         style: TextStyle(
@@ -282,7 +268,7 @@ class _InventoryPageState extends State<InventoryPage> {
                       ),
                       const SizedBox(height: 16),
 
-                      // --- [수량 및 안전 재고 입력 영역] ---
+                      // 수량 및 안전 재고 입력
                       Row(
                         children: [
                           Expanded(
@@ -350,7 +336,7 @@ class _InventoryPageState extends State<InventoryPage> {
                       ),
                       const SizedBox(height: 32),
 
-                      // --- [취소 및 등록 버튼 영역] ---
+                      // 취소 및 등록 버튼
                       Row(
                         children: [
                           Expanded(
@@ -377,10 +363,7 @@ class _InventoryPageState extends State<InventoryPage> {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                               ),
-                              // 🔥🔥🔥 [집중!] 서버 전송 및 에러 낚아채기 구역입니다! 🔥🔥🔥
                               onPressed: () async {
-                                // 서버 통신을 위해 async를 달아줍니다.
-                                // 1. 필수 입력값(이름, 규격)을 안 적었으면 경고 띄우고 중단
                                 if (nameCtrl.text.trim().isEmpty ||
                                     sizeCtrl.text.trim().isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -392,13 +375,7 @@ class _InventoryPageState extends State<InventoryPage> {
                                   return;
                                 }
 
-                                // 2. 에러 잡는 그물망(try-catch) 시작
-                                debugPrint(
-                                  "🚀 [테스트] 등록 버튼 눌림! 서버로 데이터 전송 시도 중...",
-                                );
-
                                 try {
-                                  // 구글 서버(파이어베이스)에 데이터를 쏘아보냅니다.
                                   await _inventoryDb.add({
                                     "name": nameCtrl.text.trim(),
                                     "size": sizeCtrl.text.trim(),
@@ -408,20 +385,15 @@ class _InventoryPageState extends State<InventoryPage> {
                                         int.tryParse(minQtyCtrl.text) ?? 0,
                                     "is_dead_stock": false,
                                     "unit": selectedUnit,
-                                    "createdAt":
-                                        FieldValue.serverTimestamp(), // 서버에 생성된 시간 기준으로 정렬하기 위함
+                                    // ★ 모바일 리모트와 데이터 구조를 맞추기 위해 빈 칸 세팅
+                                    "heatNo": "",
+                                    "maker": "",
+                                    "material": "",
+                                    "createdAt": FieldValue.serverTimestamp(),
                                   });
 
-                                  debugPrint("✅ [테스트] 서버 전송 완벽하게 성공!!");
-
-                                  // 3. 통신이 끝날 때까지 기다렸다가, 창이 아직 열려있으면 팝업을 닫습니다. (노란색 경고 해결 코드)
-                                  if (context.mounted) {
-                                    Navigator.pop(context);
-                                  }
+                                  if (context.mounted) Navigator.pop(context);
                                 } catch (e) {
-                                  // 서버 문이 잠겨있거나 통신 에러가 나면 이 구역으로 떨어집니다.
-                                  debugPrint("❌ [테스트] 에러 발생!!! 범인은 바로: $e");
-                                  // 사용자에게도 에러가 났다고 알려줍니다.
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
@@ -462,8 +434,6 @@ class _InventoryPageState extends State<InventoryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: slate50,
-
-      // 상단 앱바 (검색창 포함)
       appBar: AppBar(
         title: _isSearching
             ? TextField(
@@ -475,11 +445,8 @@ class _InventoryPageState extends State<InventoryPage> {
                   hintStyle: TextStyle(color: Colors.white70),
                   border: InputBorder.none,
                 ),
-                onChanged: (value) {
-                  setState(() {
-                    _searchQuery = value.toLowerCase();
-                  });
-                },
+                onChanged: (value) =>
+                    setState(() => _searchQuery = value.toLowerCase()),
               )
             : const Text(
                 'INVENTORY',
@@ -510,10 +477,9 @@ class _InventoryPageState extends State<InventoryPage> {
           ),
         ],
       ),
-
       body: Column(
         children: [
-          // 카테고리 및 활성/장기 재고 필터 영역
+          // 카테고리 필터 영역
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
@@ -538,7 +504,7 @@ class _InventoryPageState extends State<InventoryPage> {
                       child: DropdownButton<String>(
                         value: _selectedFilterCategory,
                         isExpanded: true,
-                        dropdownColor: pureWhite, // 드롭다운 배경 까매짐 방지
+                        dropdownColor: pureWhite,
                         icon: const Icon(
                           Icons.keyboard_arrow_down,
                           color: slate600,
@@ -549,17 +515,16 @@ class _InventoryPageState extends State<InventoryPage> {
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
-                        items: _categories.map((String category) {
-                          return DropdownMenuItem<String>(
-                            value: category,
-                            child: Text(category),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          setState(() {
-                            _selectedFilterCategory = val!;
-                          });
-                        },
+                        items: _categories
+                            .map(
+                              (String category) => DropdownMenuItem<String>(
+                                value: category,
+                                child: Text(category),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (val) =>
+                            setState(() => _selectedFilterCategory = val!),
                       ),
                     ),
                   ),
@@ -587,48 +552,33 @@ class _InventoryPageState extends State<InventoryPage> {
             ),
           ),
 
-          // 🔥 [제일 중요] 서버 데이터를 실시간으로 보여주는 StreamBuilder 구역
+          // 🔥 실시간 서버 데이터 렌더링 구역
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              // 서버의 'inventory' 폴더를 최신 생성순으로 감시합니다.
               stream: _inventoryDb
                   .orderBy('createdAt', descending: true)
                   .snapshots(),
               builder: (context, snapshot) {
-                // 1. 에러가 나면 띄워줄 화면
-                if (snapshot.hasError) {
+                if (snapshot.hasError)
                   return const Center(
                     child: Text(
                       "서버 데이터를 불러오는데 실패했습니다.",
                       style: TextStyle(color: Colors.red),
                     ),
                   );
-                }
-
-                // 2. 서버 연결 기다리는 중 (로딩 화면)
-                if (snapshot.connectionState == ConnectionState.waiting) {
+                if (snapshot.connectionState == ConnectionState.waiting)
                   return const Center(
                     child: CircularProgressIndicator(color: makitaTeal),
                   );
-                }
 
-                // 3. 서버에서 가져온 전체 문서 리스트
                 final docs = snapshot.data!.docs;
-
-                // 4. 내가 선택한 필터와 검색어에 맞게 데이터 걸러내기
                 final filteredDocs = docs.where((doc) {
-                  // 데이터를 맵(Map) 형태로 꺼냄
                   final data = doc.data() as Map<String, dynamic>;
-
-                  // 카테고리 일치 여부 확인
                   bool categoryMatch =
                       _selectedFilterCategory == "ALL" ||
                       data['category'] == _selectedFilterCategory;
-                  // 장기/활성 재고 상태 일치 여부 확인
                   bool statusMatch = data['is_dead_stock'] == _showDeadStock;
-
-                  // 검색어 일치 여부 확인 (이름 또는 규격)
-                  bool searchMatch = true; // 기본값 참
+                  bool searchMatch = true;
                   if (_searchQuery.isNotEmpty) {
                     final nameMatch =
                         data['name']?.toString().toLowerCase().contains(
@@ -642,11 +592,9 @@ class _InventoryPageState extends State<InventoryPage> {
                         false;
                     searchMatch = nameMatch || sizeMatch;
                   }
-
                   return categoryMatch && statusMatch && searchMatch;
                 }).toList();
 
-                // 5. 필터링 했는데 아무 데이터도 없으면 띄워줄 화면
                 if (filteredDocs.isEmpty) {
                   return Center(
                     child: Column(
@@ -674,7 +622,6 @@ class _InventoryPageState extends State<InventoryPage> {
                   );
                 }
 
-                // 6. 무사히 데이터가 있으면 카드 리스트로 예쁘게 그려주기
                 return ListView.separated(
                   padding: const EdgeInsets.only(
                     top: 16,
@@ -688,7 +635,6 @@ class _InventoryPageState extends State<InventoryPage> {
                   itemBuilder: (context, index) {
                     final doc = filteredDocs[index];
                     final data = doc.data() as Map<String, dynamic>;
-                    // 폰에서 수정을 명령하기 위해 고유 문서 번호(doc.id)도 같이 넘겨줍니다.
                     return _buildMaterialCard(doc.id, data);
                   },
                 );
@@ -697,8 +643,6 @@ class _InventoryPageState extends State<InventoryPage> {
           ),
         ],
       ),
-
-      // 화면 우측 하단의 떠있는 [+] 버튼
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddMaterialSheet,
         backgroundColor: makitaTeal,
@@ -711,7 +655,6 @@ class _InventoryPageState extends State<InventoryPage> {
     );
   }
 
-  // 필터 버튼 (활성/장기) 만드는 함수
   Widget _buildFilterChip(String label, bool isSelected, VoidCallback onTap) {
     return Expanded(
       child: GestureDetector(
@@ -740,16 +683,14 @@ class _InventoryPageState extends State<InventoryPage> {
     );
   }
 
-  // 자재 1개 정보(카드)를 화면에 그리는 함수
+  // ★ 모바일 리모트의 히트넘버/메이커/재질을 수용하도록 카드 UI 강화
   Widget _buildMaterialCard(String docId, Map<String, dynamic> item) {
-    // 수량이 안전재고(min_qty) 밑으로 떨어졌는지 계산
     bool isLowStock = false;
     if (item['qty'] != null && item['min_qty'] != null) {
       isLowStock =
           (item['qty'] < item['min_qty']) && (item['is_dead_stock'] == false);
     }
 
-    // 혹시 모를 null 에러 방지를 위한 기본값 세팅
     final bool isDeadStock = item['is_dead_stock'] ?? false;
     final String category = item['category'] ?? "기타";
     final String name = item['name'] ?? "이름 없음";
@@ -757,6 +698,11 @@ class _InventoryPageState extends State<InventoryPage> {
     final int minQty = item['min_qty'] ?? 0;
     final int qty = item['qty'] ?? 0;
     final String unit = item['unit'] ?? "EA";
+
+    // 🔥 모바일 리모트에서 보낸 새 데이터 캐치
+    final String heatNo = item['heatNo'] ?? "";
+    final String maker = item['maker'] ?? "";
+    final String material = item['material'] ?? "";
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -769,7 +715,6 @@ class _InventoryPageState extends State<InventoryPage> {
         ),
         boxShadow: [
           BoxShadow(
-            // 🔥 노란색 경고 해결: withOpacity 대신 withValues 사용
             color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 6,
             offset: const Offset(0, 3),
@@ -781,7 +726,6 @@ class _InventoryPageState extends State<InventoryPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 아이콘 표시 구역
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -795,13 +739,10 @@ class _InventoryPageState extends State<InventoryPage> {
                 ),
               ),
               const SizedBox(width: 16),
-
-              // 자재 정보 글씨 구역
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 카테고리 태그 및 발주요망 태그
                     Row(
                       children: [
                         Container(
@@ -875,20 +816,51 @@ class _InventoryPageState extends State<InventoryPage> {
                         fontWeight: FontWeight.bold,
                         decoration: isDeadStock
                             ? TextDecoration.lineThrough
-                            : null, // 장기재고면 취소선 긋기
+                            : null,
                       ),
                     ),
                     const SizedBox(height: 2),
-                    // 🔥 노란색 경고 해결: 문자열 결합은 '+' 기호 대신 $기호 사용
                     Text(
                       "규격: $size  |  안전재고: $minQty",
                       style: const TextStyle(color: slate600, fontSize: 12),
                     ),
+
+                    // 🔥 부가 정보(히트넘버, 제조사, 재질)가 DB에 존재하면 표시하는 구역
+                    if (heatNo.isNotEmpty ||
+                        maker.isNotEmpty ||
+                        material.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          if (heatNo.isNotEmpty)
+                            _buildInfoBadge(
+                              Icons.tag,
+                              "Heat: $heatNo",
+                              Colors.green.shade700,
+                              Colors.green.shade50,
+                            ),
+                          if (maker.isNotEmpty)
+                            _buildInfoBadge(
+                              Icons.factory,
+                              maker,
+                              Colors.blue.shade700,
+                              Colors.blue.shade50,
+                            ),
+                          if (material.isNotEmpty)
+                            _buildInfoBadge(
+                              Icons.category,
+                              material,
+                              Colors.orange.shade800,
+                              Colors.orange.shade50,
+                            ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
-
-              // 우측 수량 조절 버튼 구역
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -905,13 +877,11 @@ class _InventoryPageState extends State<InventoryPage> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      // 마이너스 버튼 누르면 서버의 수량을 -1 깎음
                       _buildQtyBtn(
                         Icons.remove,
                         () => _updateQuantity(docId, qty, -1),
                       ),
                       const SizedBox(width: 8),
-                      // 플러스 버튼 누르면 서버의 수량을 +1 올림
                       _buildQtyBtn(
                         Icons.add,
                         () => _updateQuantity(docId, qty, 1),
@@ -925,7 +895,6 @@ class _InventoryPageState extends State<InventoryPage> {
           ),
           const SizedBox(height: 12),
           const Divider(height: 1),
-          // 하단 악성재고 편입/복구 버튼 구역
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -955,7 +924,38 @@ class _InventoryPageState extends State<InventoryPage> {
     );
   }
 
-  // + / - 작고 네모난 버튼 만드는 함수
+  // 부가 정보 뱃지 UI 생성기
+  Widget _buildInfoBadge(
+    IconData icon,
+    String text,
+    Color textColor,
+    Color bgColor,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: textColor.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 10, color: textColor),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: textColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildQtyBtn(IconData icon, VoidCallback onTap, {bool isAdd = false}) {
     return InkWell(
       onTap: onTap,
@@ -963,7 +963,6 @@ class _InventoryPageState extends State<InventoryPage> {
       child: Container(
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          // 🔥 노란색 경고 해결: withOpacity 대신 withValues 사용
           color: isAdd ? makitaTeal.withValues(alpha: 0.1) : slate100,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
@@ -975,7 +974,6 @@ class _InventoryPageState extends State<InventoryPage> {
     );
   }
 
-  // 카테고리 글씨를 받아서 예쁜 아이콘으로 매칭해주는 함수
   IconData _getCategoryIcon(String category) {
     switch (category) {
       case "TUBE":
