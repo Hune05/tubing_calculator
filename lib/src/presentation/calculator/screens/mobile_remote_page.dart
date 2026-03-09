@@ -17,7 +17,9 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
   bool _isInputFinished = false;
   String _selectedDir = "UP";
 
-  // 고급스러운 다크/무광 톤 설정
+  // ★ 추가됨: 서버/태블릿에서 읽어온 설정값을 시뮬레이션하는 변수
+  final String _serverRadius = "45.0";
+
   final Color darkBg = const Color(0xFF1E2124);
   final Color inputBg = const Color(0xFF2A2E33);
   final Color mutedWhite = const Color(0xFFD0D4D9);
@@ -30,14 +32,29 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     {"name": "롤링 오프셋", "color": const Color(0xFF3B5E52)},
   ];
 
+  // 입력 컨트롤러
   final TextEditingController _val1Ctrl = TextEditingController();
   final TextEditingController _val2Ctrl = TextEditingController();
-  final TextEditingController _val3Ctrl =
-      TextEditingController(); // 현재 미사용, 확장 대비
   final TextEditingController _angleCtrl = TextEditingController();
 
-  // ★ 추가됨: 오프라인 대비 전송 기록을 담아둘 리스트
+  // 포커스 노드 (자동 포커스 이동용)
+  final FocusNode _val1Focus = FocusNode();
+  final FocusNode _val2Focus = FocusNode();
+  final FocusNode _angleFocus = FocusNode();
+
   final List<Map<String, dynamic>> _historyLogs = [];
+
+  @override
+  void dispose() {
+    _val1Ctrl.dispose();
+    _val2Ctrl.dispose();
+    _angleCtrl.dispose();
+    _val1Focus.dispose();
+    _val2Focus.dispose();
+    _angleFocus.dispose();
+    _pageController.dispose();
+    super.dispose();
+  }
 
   void _resetState(int modeIndex) {
     setState(() {
@@ -46,56 +63,50 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
       _isInputFinished = false;
       _val1Ctrl.clear();
       _val2Ctrl.clear();
-      _val3Ctrl.clear();
       _angleCtrl.clear();
     });
   }
 
-  // ★ 추가됨: 필수 입력값이 비어있는지 확인하는 로직
   bool _validateInputs() {
+    // 모든 모드에서 val1(기장, 단차, 높이 등)은 필수
     if (_val1Ctrl.text.isEmpty) return false;
 
-    if (_currentMode == 1 && _val2Ctrl.text.isEmpty) return false; // 90도 벤딩 반경
-    if (_currentMode == 2 && _angleCtrl.text.isEmpty) return false; // 오프셋 각도
+    // ★ 수정됨: 90도 벤딩(mode == 1)일 때는 반경(val2) 검증을 생략함
+    if (_currentMode == 2 && _angleCtrl.text.isEmpty) return false;
     if (_currentMode == 3) {
-      // 새들
-      if (_innerTab == 1 && _val2Ctrl.text.isEmpty) return false; // 4포인트 폭
+      if (_innerTab == 1 && _val2Ctrl.text.isEmpty) return false;
       if (_angleCtrl.text.isEmpty) return false;
     }
     if (_currentMode == 4 &&
-        (_val2Ctrl.text.isEmpty || _angleCtrl.text.isEmpty))
-      return false; // 롤링
-
+        (_val2Ctrl.text.isEmpty || _angleCtrl.text.isEmpty)) {
+      return false;
+    }
     return true;
   }
 
-  // ★ 수정됨: 데이터 전송 시 기록장에 저장하고 통신 상태를 시뮬레이션
   void _sendData() {
     HapticFeedback.heavyImpact();
 
     String finalAngle = (_currentMode == 1) ? "90" : _angleCtrl.text;
-    String finalVal1 = _val1Ctrl.text;
-    String finalVal2 = _val2Ctrl.text;
-    String modeName = _modes[_currentMode]['name'];
-    Color modeColor = _modes[_currentMode]['color'];
+    // 90도 벤딩의 경우, 서버 연동 반경값을 기록에 남기도록 처리
+    String finalVal2 = (_currentMode == 1) ? _serverRadius : _val2Ctrl.text;
 
-    // 1. 전송할 데이터를 Map으로 생성 (초기 상태: pending)
     final newRecord = {
       "id": DateTime.now().millisecondsSinceEpoch.toString(),
       "time":
           "${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}",
-      "mode": modeName,
-      "color": modeColor,
-      "val1": finalVal1,
+      "mode": _modes[_currentMode]['name'],
+      "color": _modes[_currentMode]['color'],
+      "val1": _val1Ctrl.text,
       "val2": finalVal2,
       "angle": finalAngle,
       "dir": _selectedDir,
-      "status": "pending", // pending(대기) -> completed(성공)
+      "status": "pending",
     };
 
     setState(() {
-      _historyLogs.insert(0, newRecord); // 최신 기록을 맨 위에 추가
-      _isInputFinished = false; // 입력창으로 복귀
+      _historyLogs.insert(0, newRecord);
+      _isInputFinished = false;
       _val1Ctrl.clear();
       _val2Ctrl.clear();
       _angleCtrl.clear();
@@ -103,20 +114,15 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text(
-          "데이터를 전송 큐에 담았습니다.",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
+        content: const Text("데이터를 전송 큐에 담았습니다."),
         backgroundColor: Colors.grey.shade800,
         duration: const Duration(seconds: 1),
       ),
     );
 
-    // 2. 파이어베이스 서버 전송 시뮬레이션 (실제로는 여기서 Firebase 연동 코드가 들어감)
     Future.delayed(const Duration(seconds: 2), () {
       if (!mounted) return;
       setState(() {
-        // 서버에서 성공 응답을 받으면 해당 기록의 상태를 완료로 변경
         var target = _historyLogs.firstWhere(
           (log) => log['id'] == newRecord['id'],
         );
@@ -126,7 +132,6 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     });
   }
 
-  // ★ 추가됨: 전송 기록 확인 바텀 시트
   void _showHistorySheet() {
     showModalBottomSheet(
       context: context,
@@ -182,7 +187,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                               ),
                             ),
                             subtitle: Text(
-                              "수치: ${log['val1']} / 각도: ${log['angle']}°  •  ${log['time']}",
+                              "수치1: ${log['val1']} / 수치2: ${log['val2']} / 각도: ${log['angle']}°  •  ${log['time']}",
                               style: TextStyle(
                                 color: Colors.grey.shade400,
                                 fontSize: 13,
@@ -237,11 +242,16 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                       fontSize: 32,
                       fontWeight: FontWeight.w900,
                       color: Colors.white,
-                      letterSpacing: 1.5,
                     ),
                   ),
                 ],
               ),
+            ),
+
+            // [아이솔 형상 미리보기]
+            AnimatedBuilder(
+              animation: Listenable.merge([_val1Ctrl, _val2Ctrl, _angleCtrl]),
+              builder: (context, child) => _buildIsoPreview(modeColor),
             ),
 
             // [2단: 메인 입력 구역]
@@ -290,7 +300,6 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
           ],
         ),
       ),
-      // ★ 추가됨: 기록장 호출용 플로팅 버튼
       floatingActionButton: FloatingActionButton(
         onPressed: _showHistorySheet,
         backgroundColor: inputBg,
@@ -299,9 +308,59 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     );
   }
 
-  // ==========================================
-  // 1단계: 수치 및 탭 입력 (가이드 포함)
-  // ==========================================
+  Widget _buildIsoPreview(Color modeColor) {
+    return Container(
+      height: 140,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: inputBg,
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.black.withValues(alpha: 0.5),
+            width: 2,
+          ),
+        ),
+      ),
+      child: Stack(
+        children: [
+          CustomPaint(
+            size: const Size(double.infinity, 140),
+            painter: GridPainter(),
+          ),
+          CustomPaint(
+            size: const Size(double.infinity, 140),
+            painter: PipeIsoPainter(
+              mode: _currentMode,
+              innerTab: _innerTab,
+              val1: double.tryParse(_val1Ctrl.text) ?? 0,
+              val2:
+                  double.tryParse(_val2Ctrl.text) ??
+                  double.tryParse(_serverRadius) ??
+                  0,
+              angle: double.tryParse(_angleCtrl.text) ?? 0,
+              themeColor: modeColor,
+            ),
+          ),
+          Positioned(
+            top: 10,
+            left: 10,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                "아이솔 형상 미리보기",
+                style: TextStyle(color: Colors.white, fontSize: 10),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildInputStep(int index) {
     var modeColor = _modes[_currentMode]['color'];
     return SingleChildScrollView(
@@ -310,19 +369,11 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         children: [
           if (index == 2) _buildInnerTabs(["일반 오프셋", "역산 (관 간격)"], modeColor),
           if (index == 3) _buildInnerTabs(["3 포인트 새들", "4 포인트 새들"], modeColor),
-
-          if (index == 2 || index == 3 || index == 4) ...[
-            const SizedBox(height: 16),
-            _buildMiniGuide(index, modeColor),
-          ],
-
           const SizedBox(height: 16),
           ..._buildDynamicInputs(index, modeColor),
-
           const SizedBox(height: 40),
           ElevatedButton(
             onPressed: () {
-              // ★ 수정됨: 검증 로직 통과 시에만 다음 단계로
               FocusScope.of(context).unfocus();
               if (!_validateInputs()) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -358,50 +409,6 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                 const SizedBox(width: 8),
                 Icon(Icons.arrow_forward, color: mutedWhite, size: 20),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 미니 가이드 박스 생성 위젯
-  Widget _buildMiniGuide(int mode, Color themeColor) {
-    String guideText = "";
-    if (mode == 2) {
-      guideText = _innerTab == 0
-          ? "배관이 이동할 수직 단차(H)와 꺾일 각도(θ)를 입력하세요."
-          : "두 배관 사이의 평행 간격(T)과 벤딩 각도(θ)를 입력하세요.";
-    } else if (mode == 3) {
-      guideText = _innerTab == 0
-          ? "장애물의 최고 높이(H)와 꺾일 각도(θ)를 입력하세요."
-          : "장애물의 높이(H) 및 전체 폭(W), 꺾일 각도(θ)를 모두 입력하세요.";
-    } else if (mode == 4) {
-      guideText = "수직 단차(H)와 수평으로 틀어지는 롤(Roll) 값을 측정하여 입력하세요.";
-    }
-
-    if (guideText.isEmpty) return const SizedBox.shrink();
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.info_outline, color: themeColor, size: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              guideText,
-              style: TextStyle(
-                color: Colors.grey.shade400,
-                fontSize: 13,
-                height: 1.4,
-              ),
             ),
           ),
         ],
@@ -453,26 +460,56 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
 
   List<Widget> _buildDynamicInputs(int mode, Color focusColor) {
     List<Widget> inputs = [];
-
     if (mode == 0) {
-      inputs.add(_buildTextField("직관 기장 (L)", _val1Ctrl, focusColor));
-    } else if (mode == 1) {
       inputs.add(
         _buildTextField(
-          "첫단 기장 (L1) - 생략가능",
+          "직관 기장 (L)",
           _val1Ctrl,
+          _val1Focus,
           focusColor,
-          isOptional: true,
+          nextFocus: null,
+        ),
+      );
+    } else if (mode == 1) {
+      // ★ 수정됨: 90도 벤딩일 경우 L값만 필수 입력, R값은 연동된 데이터 표기
+      inputs.add(
+        _buildTextField(
+          "기장 (L)",
+          _val1Ctrl,
+          _val1Focus,
+          focusColor,
+          nextFocus: null,
         ),
       );
       inputs.add(const SizedBox(height: 20));
-      inputs.add(_buildTextField("벤딩 반경 (R)", _val2Ctrl, focusColor));
+      inputs.add(
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.black26,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.link, color: focusColor, size: 20),
+              const SizedBox(width: 10),
+              Text(
+                "태블릿 연동 반경(R): $_serverRadius mm",
+                style: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      );
     } else if (mode == 2) {
       inputs.add(
         _buildTextField(
           _innerTab == 0 ? "단차 높이 (H)" : "관 간격 (T)",
           _val1Ctrl,
+          _val1Focus,
           focusColor,
+          nextFocus: _angleFocus,
         ),
       );
       inputs.add(const SizedBox(height: 20));
@@ -480,36 +517,74 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         _buildTextField(
           "벤딩 각도 (θ)",
           _angleCtrl,
+          _angleFocus,
           focusColor,
           showQuickAngles: true,
+          nextFocus: null,
         ),
       );
     } else if (mode == 3) {
-      inputs.add(_buildTextField("장애물 높이 (H)", _val1Ctrl, focusColor));
+      inputs.add(
+        _buildTextField(
+          "장애물 높이 (H)",
+          _val1Ctrl,
+          _val1Focus,
+          focusColor,
+          nextFocus: _innerTab == 1 ? _val2Focus : _angleFocus,
+        ),
+      );
       inputs.add(const SizedBox(height: 20));
       if (_innerTab == 1) {
-        inputs.add(_buildTextField("장애물 폭 (W)", _val2Ctrl, focusColor));
+        inputs.add(
+          _buildTextField(
+            "장애물 폭 (W)",
+            _val2Ctrl,
+            _val2Focus,
+            focusColor,
+            nextFocus: _angleFocus,
+          ),
+        );
         inputs.add(const SizedBox(height: 20));
       }
       inputs.add(
         _buildTextField(
           "벤딩 각도 (θ)",
           _angleCtrl,
+          _angleFocus,
           focusColor,
           showQuickAngles: true,
+          nextFocus: null,
         ),
       );
     } else if (mode == 4) {
-      inputs.add(_buildTextField("수직 단차 (H)", _val1Ctrl, focusColor));
+      inputs.add(
+        _buildTextField(
+          "수직 단차 (H)",
+          _val1Ctrl,
+          _val1Focus,
+          focusColor,
+          nextFocus: _val2Focus,
+        ),
+      );
       inputs.add(const SizedBox(height: 20));
-      inputs.add(_buildTextField("수평 롤 (Roll)", _val2Ctrl, focusColor));
+      inputs.add(
+        _buildTextField(
+          "수평 롤 (Roll)",
+          _val2Ctrl,
+          _val2Focus,
+          focusColor,
+          nextFocus: _angleFocus,
+        ),
+      );
       inputs.add(const SizedBox(height: 20));
       inputs.add(
         _buildTextField(
           "벤딩 각도 (θ)",
           _angleCtrl,
+          _angleFocus,
           focusColor,
           showQuickAngles: true,
+          nextFocus: null,
         ),
       );
     }
@@ -519,23 +594,39 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
   Widget _buildTextField(
     String label,
     TextEditingController ctrl,
+    FocusNode currentFocus,
     Color focusColor, {
     bool showQuickAngles = false,
     bool isOptional = false,
+    FocusNode? nextFocus,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextField(
           controller: ctrl,
+          focusNode: currentFocus,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+          ],
+          textInputAction: nextFocus != null
+              ? TextInputAction.next
+              : TextInputAction.done,
+          onSubmitted: (_) {
+            if (nextFocus != null) {
+              FocusScope.of(context).requestFocus(nextFocus);
+            } else {
+              FocusScope.of(context).unfocus();
+            }
+          },
           style: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.bold,
             color: mutedWhite,
           ),
           decoration: InputDecoration(
-            labelText: isOptional ? label : "$label *", // 필수는 * 표시
+            labelText: isOptional ? label : "$label *",
             labelStyle: const TextStyle(fontSize: 14, color: Colors.grey),
             filled: true,
             fillColor: inputBg,
@@ -564,6 +655,8 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                         onPressed: () {
                           HapticFeedback.selectionClick();
                           ctrl.text = angle.toString();
+                          if (nextFocus == null)
+                            FocusScope.of(context).unfocus();
                         },
                         style: OutlinedButton.styleFrom(
                           foregroundColor: mutedWhite,
@@ -584,9 +677,6 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     );
   }
 
-  // ==========================================
-  // 2단계: 6축 방향 설정 화면
-  // ==========================================
   Widget _buildDirectionStep() {
     var modeColor = _modes[_currentMode]['color'];
     return Column(
@@ -627,14 +717,6 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                       color: isSelected ? modeColor : Colors.transparent,
                       width: 2,
                     ),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: modeColor.withValues(alpha: 0.3),
-                              blurRadius: 10,
-                            ),
-                          ]
-                        : [],
                   ),
                   alignment: Alignment.center,
                   child: Text(
@@ -661,5 +743,109 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         ),
       ],
     );
+  }
+}
+
+class GridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.05)
+      ..strokeWidth = 1;
+    for (double i = 0; i < size.width; i += 20) {
+      canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
+    }
+    for (double i = 0; i < size.height; i += 20) {
+      canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class PipeIsoPainter extends CustomPainter {
+  final int mode;
+  final int innerTab;
+  final double val1;
+  final double val2;
+  final double angle;
+  final Color themeColor;
+
+  PipeIsoPainter({
+    required this.mode,
+    required this.innerTab,
+    required this.val1,
+    required this.val2,
+    required this.angle,
+    required this.themeColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path();
+    final paint = Paint()
+      ..color = themeColor
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    final double startX = size.width * 0.1;
+    final double midY = size.height * 0.5;
+    double dynamicH = (val1 > 0 ? val1 : 50).clamp(20, 80).toDouble();
+    double dynamicAngleX = (angle > 0 ? angle : 45).clamp(10, 80).toDouble();
+
+    path.moveTo(startX, midY);
+
+    if (mode == 0) {
+      path.lineTo(size.width * 0.9, midY);
+    } else if (mode == 1) {
+      path.lineTo(size.width * 0.5, midY);
+      path.arcToPoint(
+        Offset(size.width * 0.5 + 40, midY - 40),
+        radius: const Radius.circular(40),
+        clockwise: false,
+      );
+      path.lineTo(size.width * 0.5 + 40, size.height * 0.1);
+    } else if (mode == 2) {
+      path.lineTo(size.width * 0.4, midY);
+      path.lineTo(size.width * 0.4 + dynamicAngleX, midY - dynamicH);
+      path.lineTo(size.width * 0.9, midY - dynamicH);
+    } else if (mode == 3) {
+      path.lineTo(size.width * 0.3, midY);
+      if (innerTab == 0) {
+        path.lineTo(size.width * 0.5, midY - dynamicH);
+        path.lineTo(size.width * 0.7, midY);
+      } else {
+        double w = (val2 > 0 ? val2 : 30).clamp(10, 50).toDouble();
+        path.lineTo(size.width * 0.4, midY - dynamicH);
+        path.lineTo(size.width * 0.4 + w, midY - dynamicH);
+        path.lineTo(size.width * 0.4 + w + (size.width * 0.1), midY);
+      }
+      path.lineTo(size.width * 0.9, midY);
+    } else if (mode == 4) {
+      path.lineTo(size.width * 0.3, midY);
+      path.lineTo(size.width * 0.6, midY - dynamicH + 20);
+      path.lineTo(size.width * 0.9, midY - dynamicH + 20);
+    }
+
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = themeColor.withValues(alpha: 0.3)
+        ..strokeWidth = 14
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke,
+    );
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant PipeIsoPainter oldDelegate) {
+    return oldDelegate.val1 != val1 ||
+        oldDelegate.val2 != val2 ||
+        oldDelegate.angle != angle ||
+        oldDelegate.mode != mode ||
+        oldDelegate.innerTab != innerTab;
   }
 }
