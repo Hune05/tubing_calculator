@@ -75,7 +75,6 @@ class _MainCalculatorScreenState extends State<MainCalculatorScreen> {
           children: [
             CalculatorPage(
               pageController: _pageController,
-              // 🔥 에러 해결: CalculatorPage에 타입이 맞도록 캐스팅해서 전달
               bendList: _dataManager.bendList
                   .map((e) => e.cast<String, double>())
                   .toList(),
@@ -84,6 +83,16 @@ class _MainCalculatorScreenState extends State<MainCalculatorScreen> {
               onUpdateBend: (i, l, a, r) =>
                   setState(() => _dataManager.updateBend(i, l, a, r)),
               onClear: () => setState(() => _dataManager.clearBends()),
+              // 🔥 에러 해결: 부모 위젯에서 순서 변경 로직 주입!
+              onReorderBend: (oldIndex, newIndex) {
+                setState(() {
+                  // 기존 항목을 빼서 새 위치에 끼워 넣음
+                  final item = _dataManager.bendList.removeAt(oldIndex);
+                  _dataManager.bendList.insert(newIndex, item);
+                });
+                // (선택) 만약 BendDataManager에 저장 기능이 있다면 여기서 호출해서 바뀐 순서를 저장해 주세요.
+                // _dataManager.saveSettings();
+              },
             ),
             MarkingPage(pageController: _pageController),
           ],

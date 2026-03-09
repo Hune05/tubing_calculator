@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/saddle_bottom_sheet.dart';
@@ -6,7 +7,7 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/rolling_of
 import 'package:tubing_calculator/src/presentation/calculator/widgets/pipe_visualizer.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-// 💡 [테마 컬러 변경] 다른 페이지와 동일한 라이트/슬레이트 테마 적용
+// [테마 컬러]
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
 const Color slate600 = Color(0xFF475569);
@@ -18,6 +19,8 @@ class CalculatorPage extends StatefulWidget {
   final List<Map<String, double>> bendList;
   final Function(double, double, double) onAddBend;
   final Function(int, double, double, double) onUpdateBend;
+  // ★ 추가: 순서 변경(드래그 앤 드롭)을 부모에게 알리는 콜백
+  final Function(int oldIndex, int newIndex) onReorderBend;
   final VoidCallback onClear;
 
   const CalculatorPage({
@@ -26,6 +29,7 @@ class CalculatorPage extends StatefulWidget {
     required this.bendList,
     required this.onAddBend,
     required this.onUpdateBend,
+    required this.onReorderBend, // ★ 필수 파라미터로 추가됨
     required this.onClear,
   });
 
@@ -41,9 +45,100 @@ class _CalculatorPageState extends State<CalculatorPage>
   final TextEditingController _tempController = TextEditingController();
   int? _editingIndex;
 
-  // 🔥 기본 각도 0.0(직관)
   double _currentAngle = 0.0;
   double _currentRotation = 0.0;
+
+  // 매크로 동작 잠금 락(Lock)
+  bool _isAutoProcessing = false;
+
+  // ==========================================
+  // 📡 [모바일 리모컨 수신부 & 매크로 자동 입력]
+  // ==========================================
+  void receiveRemoteData(Map<String, dynamic> data) async {
+    if (!mounted || _isAutoProcessing) return;
+
+    setState(() => _isAutoProcessing = true);
+
+    String mode = data['mode'] ?? "";
+    double val1 = double.tryParse(data['val1'].toString()) ?? 0;
+    double val2 = double.tryParse(data['val2'].toString()) ?? 0;
+    double angle = double.tryParse(data['angle'].toString()) ?? 0;
+    String dirStr = data['dir'] ?? "UP";
+
+    double targetRot = _parseDirectionToRotation(dirStr);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("📲 리모컨 수신: [$mode] 연산 및 자동 입력 중..."),
+        backgroundColor: makitaTeal,
+        duration: const Duration(milliseconds: 1500),
+      ),
+    );
+
+    await Future.delayed(const Duration(milliseconds: 400));
+
+    if (mode == "직관 (Straight)") {
+      _executeMacro(val1, 0.0, targetRot);
+    } else if (mode == "90° 벤딩") {
+      _executeMacro(val1, 90.0, targetRot);
+    } else if (mode == "오프셋") {
+      double d = 0;
+      double finalAngle = angle;
+      if (angle > 0) {
+        d = val1 / math.sin(angle * (math.pi / 180));
+      } else if (val2 > 0) {
+        d = val2;
+        finalAngle = math.asin(val1 / val2) * (180 / math.pi);
+      }
+      _executeMacro(d, finalAngle, targetRot);
+    } else if (mode == "새들") {
+      double d = (angle > 0)
+          ? (val1 / math.sin(angle * (math.pi / 180)))
+          : val1;
+      _executeMacro(d, angle, targetRot);
+    } else if (mode == "롤링 오프셋") {
+      double trueH = math.sqrt((val1 * val1) + (val2 * val2));
+      double d = (angle > 0)
+          ? (trueH / math.sin(angle * (math.pi / 180)))
+          : trueH;
+      _executeMacro(d, angle, targetRot);
+    } else {
+      setState(() => _isAutoProcessing = false);
+    }
+  }
+
+  double _parseDirectionToRotation(String dir) {
+    switch (dir) {
+      case "UP":
+        return 0.0;
+      case "RIGHT":
+        return 90.0;
+      case "DOWN":
+        return 180.0;
+      case "LEFT":
+        return 270.0;
+      case "FRONT":
+        return 360.0;
+      case "BACK":
+        return 450.0;
+      default:
+        return 0.0;
+    }
+  }
+
+  void _executeMacro(double length, double angle, double rot) async {
+    setState(() {
+      _tempController.text = length.toStringAsFixed(1);
+      _currentAngle = angle;
+      _currentRotation = rot;
+    });
+
+    await Future.delayed(const Duration(milliseconds: 600));
+    _handleApply();
+
+    setState(() => _isAutoProcessing = false);
+  }
+  // ==========================================
 
   String _getDirectionText(double rot) {
     if (rot == 0.0) return "UP";
@@ -98,315 +193,365 @@ class _CalculatorPageState extends State<CalculatorPage>
     super.build(context);
 
     return Scaffold(
-      backgroundColor: slate100, // 전체 배경 화이트 톤으로 변경
-      body: Row(
-        children: [
-          // 🔹 [왼쪽] 실시간 배관 형상 시각화
-          Expanded(
-            flex: 5,
-            child: Container(
-              margin: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: pureWhite, // 화이트 배경
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.grey.shade300,
-                  width: 2,
-                ), // 밝은 테두리
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05), // 부드러운 그림자
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Stack(
-                children: [
-                  Opacity(
-                    opacity: 0.3,
-                    child: Center(
-                      child: Icon(
-                        Icons.grid_4x4,
-                        size: 500,
-                        color: slate100,
-                      ), // 그리드 아이콘 밝게
+      backgroundColor: slate100,
+      body: AbsorbPointer(
+        absorbing: _isAutoProcessing,
+        child: Row(
+          children: [
+            // 🔹 [왼쪽] 실시간 배관 형상 시각화
+            Expanded(
+              flex: 5,
+              child: Container(
+                margin: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: pureWhite,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
-                  PipeVisualizer(bendList: widget.bendList),
-                  Positioned(
-                    top: 20,
-                    left: 20,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "ISO 3D VIEW",
-                          style: TextStyle(
-                            color: makitaTeal,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 16,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
-                        Text(
-                          "TOTAL BENDS: ${widget.bendList.length}",
-                          style: TextStyle(
-                            color: Colors.orange.shade700, // 호박색보다 시인성 좋은 오렌지
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 20,
-                    left: 20,
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.circle,
-                          color: Colors.red.shade600,
-                          size: 12,
-                        ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          "START POINT",
-                          style: TextStyle(
-                            color: slate600, // 라이트 테마에 맞는 슬레이트 컬러
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // 🔹 [오른쪽] 조작반
-          Expanded(
-            flex: 5,
-            child: Container(
-              margin: const EdgeInsets.only(top: 12, bottom: 12, right: 12),
-              child: Column(
-                children: [
-                  // 1. 인풋 리스트 및 특수 공구 버튼 영역
-                  Expanded(
-                    flex: 4,
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: pureWhite, // 화이트 패널
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.03),
-                            blurRadius: 4,
-                          ),
-                        ],
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    Opacity(
+                      opacity: 0.3,
+                      child: Center(
+                        child: Icon(Icons.grid_4x4, size: 500, color: slate100),
                       ),
+                    ),
+                    PipeVisualizer(bendList: widget.bendList),
+                    Positioned(
+                      top: 20,
+                      left: 20,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Expanded(
-                                child: Text(
-                                  "INPUT LIST",
-                                  style: TextStyle(
-                                    color: makitaTeal,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 1.0,
-                                  ),
-                                ),
-                              ),
-                              SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Row(
-                                  children: [
-                                    _buildToolChip("오프셋", null, () {
-                                      OffsetBottomSheet.show(
-                                        context,
-                                        onAddBend: widget.onAddBend,
-                                      );
-                                    }),
-                                    const SizedBox(width: 6),
-                                    _buildToolChip("새들", null, () {
-                                      SaddleBottomSheet.show(
-                                        context,
-                                        onAddBend: widget.onAddBend,
-                                      );
-                                    }),
-                                    const SizedBox(width: 6),
-                                    _buildToolChip("롤링", LucideIcons.orbit, () {
-                                      RollingOffsetBottomSheet.show(
-                                        context,
-                                        onAddBend: widget.onAddBend,
-                                      );
-                                    }),
-                                    const SizedBox(width: 8),
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.delete_sweep,
-                                        color: slate600, // 라이트 테마 휴지통
-                                        size: 24,
-                                      ),
-                                      constraints: const BoxConstraints(),
-                                      padding: EdgeInsets.zero,
-                                      onPressed: () {
-                                        setState(() {
-                                          _editingIndex = null;
-                                          _tempController.clear();
-                                        });
-                                        widget.onClear();
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                          const Text(
+                            "ISO 3D VIEW",
+                            style: TextStyle(
+                              color: makitaTeal,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
+                              letterSpacing: 1.0,
+                            ),
                           ),
-                          Divider(color: Colors.grey.shade200, thickness: 1.5),
-                          Expanded(
-                            child: widget.bendList.isEmpty
-                                ? const Center(
-                                    child: Text(
-                                      "치수와 방향을 셋팅하세요",
-                                      style: TextStyle(color: slate600),
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    itemCount: widget.bendList.length,
-                                    itemBuilder: (context, index) {
-                                      bool isEditing = _editingIndex == index;
-                                      final bend = widget.bendList[index];
-                                      return GestureDetector(
-                                        onTap: () => _startEdit(index),
-                                        child: Container(
-                                          margin: const EdgeInsets.only(
-                                            bottom: 8,
-                                          ),
-                                          padding: const EdgeInsets.all(12),
-                                          decoration: BoxDecoration(
-                                            color: isEditing
-                                                ? makitaTeal.withOpacity(0.08)
-                                                : slate100, // 슬레이트 100 배경
-                                            borderRadius: BorderRadius.circular(
-                                              6,
-                                            ),
-                                            border: Border.all(
-                                              color: isEditing
-                                                  ? makitaTeal
-                                                  : Colors.transparent,
-                                              width: isEditing ? 2 : 1,
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                                                "#${index + 1}",
-                                                style: TextStyle(
-                                                  color: isEditing
-                                                      ? makitaTeal
-                                                      : slate600,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              Text(
-                                                "L: ${bend['length']} | A: ${bend['angle']}° | DIR: ${_getDirectionText(bend['rotation']!)}",
-                                                style: TextStyle(
-                                                  color: isEditing
-                                                      ? makitaTeal
-                                                      : slate900,
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
+                          Text(
+                            "TOTAL BENDS: ${widget.bendList.length}",
+                            style: TextStyle(
+                              color: Colors.orange.shade700,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // 2. 입력 패널
-                  Expanded(
-                    flex: 6,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: pureWhite, // 화이트 패널
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.03),
-                            blurRadius: 4,
+                    Positioned(
+                      bottom: 20,
+                      left: 20,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.circle,
+                            color: Colors.red.shade600,
+                            size: 12,
+                          ),
+                          const SizedBox(width: 6),
+                          const Text(
+                            "START POINT",
+                            style: TextStyle(
+                              color: slate600,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
-                      child: DefaultTabController(
-                        length: 2,
-                        child: Column(
-                          children: [
-                            TabBar(
-                              indicatorColor: makitaTeal,
-                              labelColor: makitaTeal, // 선택된 탭 텍스트 색상
-                              unselectedLabelColor: slate600, // 비선택 탭 텍스트 색상
-                              labelStyle: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                              tabs: const [
-                                Tab(text: "치수 입력 (L)"),
-                                Tab(text: "공간 방향 (6축)"),
-                              ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // 🔹 [오른쪽] 조작반
+            Expanded(
+              flex: 5,
+              child: Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 12, right: 12),
+                child: Column(
+                  children: [
+                    // 1. 인풋 리스트 및 특수 공구 버튼 영역
+                    Expanded(
+                      flex: 4,
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: pureWhite,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade300),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.03),
+                              blurRadius: 4,
                             ),
-                            Expanded(
-                              child: TabBarView(
-                                physics: const NeverScrollableScrollPhysics(),
-                                children: [
-                                  Transform.scale(
-                                    scale: 0.9,
-                                    child: MakitaNumpad(
-                                      controller: _tempController,
-                                      onApply: _handleApply,
-                                      title: _editingIndex != null
-                                          ? "#${_editingIndex! + 1} 적용"
-                                          : "적용 (L, A, DIR 세트)",
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Expanded(
+                                  child: Text(
+                                    "INPUT LIST",
+                                    style: TextStyle(
+                                      color: makitaTeal,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1.0,
                                     ),
                                   ),
-                                  _buildAngleRotationPanel(),
-                                ],
-                              ),
+                                ),
+                                SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    children: [
+                                      _buildToolChip("오프셋", null, () {
+                                        OffsetBottomSheet.show(
+                                          context,
+                                          onAddBend: widget.onAddBend,
+                                        );
+                                      }),
+                                      const SizedBox(width: 6),
+                                      _buildToolChip("새들", null, () {
+                                        SaddleBottomSheet.show(
+                                          context,
+                                          onAddBend: widget.onAddBend,
+                                        );
+                                      }),
+                                      const SizedBox(width: 6),
+                                      _buildToolChip(
+                                        "롤링",
+                                        LucideIcons.orbit,
+                                        () {
+                                          RollingOffsetBottomSheet.show(
+                                            context,
+                                            onAddBend: widget.onAddBend,
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.delete_sweep,
+                                          color: slate600,
+                                          size: 24,
+                                        ),
+                                        constraints: const BoxConstraints(),
+                                        padding: EdgeInsets.zero,
+                                        onPressed: () {
+                                          setState(() {
+                                            _editingIndex = null;
+                                            _tempController.clear();
+                                          });
+                                          widget.onClear();
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Divider(
+                              color: Colors.grey.shade200,
+                              thickness: 1.5,
+                            ),
+                            Expanded(
+                              child: widget.bendList.isEmpty
+                                  ? const Center(
+                                      child: Text(
+                                        "치수와 방향을 셋팅하세요",
+                                        style: TextStyle(color: slate600),
+                                      ),
+                                    )
+                                  // ★ 드래그 앤 드롭 순서 변경이 가능한 ReorderableListView 로 교체!
+                                  : ReorderableListView.builder(
+                                      itemCount: widget.bendList.length,
+                                      onReorder: (int oldIndex, int newIndex) {
+                                        setState(() {
+                                          if (oldIndex < newIndex) {
+                                            newIndex -= 1;
+                                          }
+                                          // 순서를 바꿀 때 혹시 수정 중이었다면 초기화
+                                          _editingIndex = null;
+                                          _tempController.clear();
+                                        });
+                                        // 부모 위젯에 순서 변경 요청
+                                        widget.onReorderBend(
+                                          oldIndex,
+                                          newIndex,
+                                        );
+                                      },
+                                      itemBuilder: (context, index) {
+                                        bool isEditing = _editingIndex == index;
+                                        final bend = widget.bendList[index];
+
+                                        // ReorderableListView는 반드시 Unique Key가 필요함
+                                        return GestureDetector(
+                                          key: ValueKey(
+                                            'bend_${index}_${bend.hashCode}',
+                                          ),
+                                          onTap: () => _startEdit(index),
+                                          child: Container(
+                                            margin: const EdgeInsets.only(
+                                              bottom: 8,
+                                            ),
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: isEditing
+                                                  ? makitaTeal.withOpacity(0.08)
+                                                  : slate100,
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                              border: Border.all(
+                                                color: isEditing
+                                                    ? makitaTeal
+                                                    : Colors.transparent,
+                                                width: isEditing ? 2 : 1,
+                                              ),
+                                            ),
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    // ★ 드래그 핸들 (작업자에게 드래그 가능함을 알림)
+                                                    const Icon(
+                                                      Icons.drag_indicator,
+                                                      color: Colors.grey,
+                                                      size: 20,
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Text(
+                                                      "#${index + 1}",
+                                                      style: TextStyle(
+                                                        color: isEditing
+                                                            ? makitaTeal
+                                                            : slate600,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                Text(
+                                                  "L: ${bend['length']} | A: ${bend['angle']}° | DIR: ${_getDirectionText(bend['rotation']!)}",
+                                                  style: TextStyle(
+                                                    color: isEditing
+                                                        ? makitaTeal
+                                                        : slate900,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+
+                    // 2. 입력 패널
+                    Expanded(
+                      flex: 6,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: pureWhite,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade300),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.03),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: DefaultTabController(
+                          length: 2,
+                          child: Column(
+                            children: [
+                              const TabBar(
+                                indicatorColor: makitaTeal,
+                                labelColor: makitaTeal,
+                                unselectedLabelColor: slate600,
+                                labelStyle: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                tabs: [
+                                  Tab(text: "치수 입력 (L)"),
+                                  Tab(text: "공간 방향 (6축)"),
+                                ],
+                              ),
+                              Expanded(
+                                child: TabBarView(
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  children: [
+                                    Transform.scale(
+                                      scale: 0.9,
+                                      child: MakitaNumpad(
+                                        controller: _tempController,
+                                        onApply: _handleApply,
+                                        title: _editingIndex != null
+                                            ? "#${_editingIndex! + 1} 적용"
+                                            : "적용 (L, A, DIR 세트)",
+                                      ),
+                                    ),
+                                    _buildAngleRotationPanel(),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
+      ),
+      // 개발/테스트용 플로팅 버튼 (수신 시뮬레이션)
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          receiveRemoteData({
+            "mode": "오프셋",
+            "val1": "100",
+            "val2": "",
+            "angle": "30",
+            "dir": "RIGHT",
+          });
+        },
+        backgroundColor: Colors.orange,
+        icon: const Icon(Icons.wifi_tethering),
+        label: const Text("수신 테스트"),
       ),
     );
   }
 
-  // 💡 라이트 테마용 툴 칩 빌더
   Widget _buildToolChip(String label, IconData? icon, VoidCallback onPressed) {
     return ActionChip(
       backgroundColor: pureWhite,
@@ -558,7 +703,7 @@ class _CalculatorPageState extends State<CalculatorPage>
                             Expanded(
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: slate100, // 중앙 상태 표시창 라이트 테마
+                                  color: slate100,
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
                                     color: Colors.grey.shade300,
@@ -722,7 +867,6 @@ class _CalculatorPageState extends State<CalculatorPage>
   }
 }
 
-// 🔥 라이트 테마에 맞춘 쫀득한 버튼 (BoxShadow 네온 효과 최적화)
 class _GlowingActionBtn extends StatefulWidget {
   final IconData icon;
   final String label;
@@ -743,19 +887,15 @@ class _GlowingActionBtn extends StatefulWidget {
 class _GlowingActionBtnState extends State<_GlowingActionBtn> {
   bool _isPressed = false;
 
-  void _handleTapDown(TapDownDetails details) {
-    setState(() => _isPressed = true);
-  }
-
+  void _handleTapDown(TapDownDetails details) =>
+      setState(() => _isPressed = true);
   void _handleTapUp(TapUpDetails details) async {
     await Future.delayed(const Duration(milliseconds: 100));
     if (mounted) setState(() => _isPressed = false);
     widget.onTap();
   }
 
-  void _handleTapCancel() {
-    setState(() => _isPressed = false);
-  }
+  void _handleTapCancel() => setState(() => _isPressed = false);
 
   @override
   Widget build(BuildContext context) {
