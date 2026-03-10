@@ -200,17 +200,23 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     );
   }
 
+  // ★ 수정됨: 보관 위치(Location) 지원 및 태블릿 데이터 호환
   void _showExtraInfoDialog(String item, ItemData data, String infoType) {
     TextEditingController ctrl = TextEditingController(
       text: infoType == 'HeatNo'
           ? data.heatNo
-          : (infoType == 'Maker' ? data.maker : data.material),
+          : (infoType == 'Maker'
+                ? data.maker
+                : (infoType == 'Material' ? data.material : data.location)),
     );
+
     List<String> quickOptions = [];
     if (infoType == 'Maker')
       quickOptions = ["Swagelok", "Parker", "Hy-Lok", "DK-Lok", "Sandvik"];
     if (infoType == 'Material')
       quickOptions = ["SS316L", "SS304", "Carbon Steel", "Brass", "Teflon"];
+    if (infoType == 'Location')
+      quickOptions = ["A창고", "B창고", "C창고", "야적장", "선반 1열"]; // 필요에 따라 수정
 
     showDialog(
       context: context,
@@ -220,7 +226,9 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
           title: Text(
             infoType == 'HeatNo'
                 ? "히트 넘버 입력"
-                : (infoType == 'Maker' ? "제조사 선택" : "재질 선택"),
+                : (infoType == 'Maker'
+                      ? "제조사 선택"
+                      : (infoType == 'Material' ? "재질 선택" : "보관 위치 입력")),
             style: const TextStyle(color: Colors.white, fontSize: 18),
           ),
           content: Column(
@@ -295,6 +303,8 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                     data.maker = ctrl.text.trim().toUpperCase();
                   if (infoType == 'Material')
                     data.material = ctrl.text.trim().toUpperCase();
+                  if (infoType == 'Location')
+                    data.location = ctrl.text.trim().toUpperCase();
                 });
                 Navigator.pop(context);
               },
@@ -312,31 +322,16 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     );
   }
 
+  // ★ 수정됨: 융통성 있는 검증 (카테고리별 강제 제한 해제)
   bool _validateSync() {
     var currentItems = _inventoryData[_currentCategory]!;
     if (!currentItems.values.any((item) => item.qty > 0)) {
       _showErrorSnackBar("전송할 자재 수량이 0입니다.");
       return false;
     }
-    for (var entry in currentItems.entries) {
-      if (entry.value.qty > 0) {
-        if (_currentCategory == 0 &&
-            (entry.value.heatNo.isEmpty || entry.value.maker.isEmpty)) {
-          _showErrorSnackBar("${entry.key}의 히트 넘버와 제조사를 확인해주세요.");
-          return false;
-        }
-        if ((_currentCategory == 1 || _currentCategory == 2) &&
-            entry.value.maker.isEmpty) {
-          _showErrorSnackBar("${entry.key}의 제조사를 입력해주세요.");
-          return false;
-        }
-        if ((_currentCategory == 3 || _currentCategory == 4) &&
-            entry.value.material.isEmpty) {
-          _showErrorSnackBar("${entry.key}의 재질을 입력해주세요.");
-          return false;
-        }
-      }
-    }
+    // 태블릿과 동일하게 모든 항목을 개방했으므로,
+    // 모바일 현장 조사 특성상 필수값 제한은 최소화했습니다.
+    // 필요 시 여기에 정책(예: "모든 항목 위치 입력 필수")을 추가할 수 있습니다.
     return true;
   }
 
@@ -351,6 +346,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     HapticFeedback.lightImpact();
   }
 
+  // ★ 수정됨: Location 데이터 전송 및 초기화 로직 추가
   void _syncToServer() {
     FocusScope.of(context).unfocus();
     if (!_validateSync()) return;
@@ -365,6 +361,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
           'heatNo': value.heatNo,
           'maker': value.maker,
           'material': value.material,
+          'location': value.location, // DB에 위치 정보 함께 전송
         };
       }
     });
@@ -386,6 +383,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
         value.heatNo = "";
         value.maker = "";
         value.material = "";
+        value.location = ""; // 초기화 추가
       });
     });
 
@@ -469,6 +467,9 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                             ),
                             children: items.entries.map((e) {
                               String detail = "수량: ${e.value['qty']}";
+                              if (e.value['location'] != "")
+                                detail +=
+                                    " | Loc: ${e.value['location']}"; // 위치 추가
                               if (e.value['heatNo'] != "")
                                 detail += " | Heat: ${e.value['heatNo']}";
                               if (e.value['maker'] != "")
@@ -580,7 +581,8 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                       return InventoryItemCard(
                         itemName: itemName,
                         data: data,
-                        categoryIndex: index,
+                        categoryIndex:
+                            index, // 카테고리 인덱스를 통째로 넘기지만, 이제 제약 없이 모두 사용하게 됩니다.
                         themeColor: catColor,
                         onUpdateQuantity: (delta) {
                           HapticFeedback.lightImpact();

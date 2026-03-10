@@ -86,39 +86,45 @@ class InventoryItemCard extends StatelessWidget {
             ],
           ),
 
+          // 수량이 1개 이상일 때만 추가 정보 입력창 표시
           if (hasQty) ...[
             const SizedBox(height: 16),
-            if (categoryIndex == 0) ...[
-              _buildFullWidthInputBtn(
-                'HeatNo',
-                "히트 넘버(Heat No) 입력",
-                data.heatNo,
-                Icons.tag,
-              ),
-              const SizedBox(height: 8),
-              _buildFullWidthInputBtn(
-                'Maker',
-                "제조사(Maker) 선택",
-                data.maker,
-                Icons.factory,
-              ),
-            ],
-            if (categoryIndex == 1 || categoryIndex == 2) ...[
-              _buildFullWidthInputBtn(
-                'Maker',
-                "제조사(Maker) 선택",
-                data.maker,
-                Icons.factory,
-              ),
-            ],
-            if (categoryIndex == 3 || categoryIndex == 4) ...[
-              _buildFullWidthInputBtn(
-                'Material',
-                "재질(Material) 선택",
-                data.material,
-                Icons.category,
-              ),
-            ],
+
+            // ★ 변경됨: 카테고리(categoryIndex) 제한을 없애고 모든 속성을 개방
+            // 1. 보관 위치 (신규 추가)
+            _buildFullWidthInputBtn(
+              'Location',
+              "보관 위치(Location) 입력",
+              data.location,
+              Icons.location_on,
+            ),
+            const SizedBox(height: 8),
+
+            // 2. 재질
+            _buildFullWidthInputBtn(
+              'Material',
+              "재질(Material) 선택",
+              data.material,
+              Icons.category,
+            ),
+            const SizedBox(height: 8),
+
+            // 3. 제조사
+            _buildFullWidthInputBtn(
+              'Maker',
+              "제조사(Maker) 선택",
+              data.maker,
+              Icons.factory,
+            ),
+            const SizedBox(height: 8),
+
+            // 4. 히트 넘버
+            _buildFullWidthInputBtn(
+              'HeatNo',
+              "히트 넘버(Heat No) 입력",
+              data.heatNo,
+              Icons.tag,
+            ),
           ],
         ],
       ),
@@ -143,8 +149,8 @@ class InventoryItemCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isEmpty
-                ? Colors.redAccent.withValues(alpha: 0.4)
-                : Colors.greenAccent.withValues(alpha: 0.4),
+                ? Colors.redAccent.withValues(alpha: 0.4) // 미입력 시 붉은 테두리
+                : Colors.greenAccent.withValues(alpha: 0.4), // 입력 완료 시 녹색 테두리
           ),
         ),
         child: Row(

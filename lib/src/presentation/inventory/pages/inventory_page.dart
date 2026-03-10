@@ -2,9 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-// ---------------------------------------------------------
-// 💡 [1] 일관된 테마 컬러 적용 (전역 변수)
-// ---------------------------------------------------------
+// 테마 컬러 전역 변수 동일 유지
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
 const Color slate600 = Color(0xFF475569);
@@ -21,11 +19,7 @@ class InventoryPage extends StatefulWidget {
 }
 
 class _InventoryPageState extends State<InventoryPage> {
-  // ---------------------------------------------------------
-  // 💡 [2] 화면 상태 관리를 위한 변수들
-  // ---------------------------------------------------------
-  bool _showDeadStock = false; // 악성(장기) 재고만 볼 것인지 여부
-
+  bool _showDeadStock = false;
   bool _isSearching = false;
   String _searchQuery = "";
   final TextEditingController _searchController = TextEditingController();
@@ -41,13 +35,8 @@ class _InventoryPageState extends State<InventoryPage> {
     "기타",
   ];
 
-  // 🔥 [핵심] 파이어베이스 서버의 'inventory' 창고(컬렉션) 연결 고리
   final CollectionReference _inventoryDb = FirebaseFirestore.instance
       .collection('inventory');
-
-  // ---------------------------------------------------------
-  // 💾 [3] 파이어베이스 서버의 데이터를 수정하는 함수들
-  // ---------------------------------------------------------
 
   void _updateQuantity(String docId, int currentQty, int amount) {
     if (currentQty + amount >= 0) {
@@ -60,7 +49,7 @@ class _InventoryPageState extends State<InventoryPage> {
   }
 
   // ---------------------------------------------------------
-  // 📝 [4] 신규 자재 추가 팝업 (바텀 시트)
+  // 📝 [수정됨] 신규 자재 등록 팝업 (보관 위치 필드 추가)
   // ---------------------------------------------------------
   void _showAddMaterialSheet() {
     final TextEditingController nameCtrl = TextEditingController();
@@ -68,12 +57,28 @@ class _InventoryPageState extends State<InventoryPage> {
     final TextEditingController qtyCtrl = TextEditingController(text: "0");
     final TextEditingController minQtyCtrl = TextEditingController(text: "10");
 
+    // 추가된 필드 컨트롤러
+    final TextEditingController heatNoCtrl = TextEditingController();
+    final TextEditingController makerCtrl = TextEditingController();
+
+    // ★ 신규: 보관 위치 컨트롤러 추가
+    final TextEditingController locationCtrl = TextEditingController();
+
     String selectedCategory = "FITTING";
     String selectedUnit = "EA";
+    String selectedMaterial = "SS316"; // 기본 재질 설정
 
     final List<String> addCategories = _categories
         .where((c) => c != "ALL")
         .toList();
+    final List<String> materials = [
+      "SS304",
+      "SS316",
+      "SS316L",
+      "CARBON",
+      "PVC",
+      "기타",
+    ];
 
     showModalBottomSheet(
       context: context,
@@ -107,58 +112,87 @@ class _InventoryPageState extends State<InventoryPage> {
                       ),
                       const SizedBox(height: 24),
 
-                      // 카테고리 & 단위 선택
+                      // 카테고리 & 재질 선택
+                      Row(
+                        children: [
+                          _buildPopupDropdown(
+                            "카테고리",
+                            selectedCategory,
+                            addCategories,
+                            (val) {
+                              setSheetState(() {
+                                selectedCategory = val!;
+                                selectedUnit = val == "TUBE" ? "본" : "EA";
+                              });
+                            },
+                          ),
+                          const SizedBox(width: 12),
+                          _buildPopupDropdown(
+                            "재질 (Material)",
+                            selectedMaterial,
+                            materials,
+                            (val) {
+                              setSheetState(() => selectedMaterial = val!);
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // 자재명
+                      _buildPopupLabel("자재명 (Description)"),
+                      _buildPopupTextField(
+                        nameCtrl,
+                        "예: Union Tee, Ball Valve 등",
+                      ),
+                      const SizedBox(height: 16),
+
+                      // ★ 신규 추가: 보관 위치
+                      _buildPopupLabel("보관 위치 (Location)"),
+                      _buildPopupTextField(
+                        locationCtrl,
+                        "예: A창고-1열-3단, 선반 2번 등",
+                      ),
+                      const SizedBox(height: 16),
+
+                      // 규격 & 단위
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildPopupLabel("규격 (Size)"),
+                                _buildPopupTextField(sizeCtrl, "예: 1/2\", 50A"),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          _buildPopupDropdown(
+                            "단위",
+                            selectedUnit,
+                            ["EA", "본", "BOX", "M", "SET"],
+                            (val) {
+                              setSheetState(() => selectedUnit = val!);
+                            },
+                            isSmall: true,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // 제조사 & 히트넘버
                       Row(
                         children: [
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  "카테고리",
-                                  style: TextStyle(
-                                    color: slate900,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: slate50,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: Colors.grey.shade300,
-                                    ),
-                                  ),
-                                  child: DropdownButtonHideUnderline(
-                                    child: DropdownButton<String>(
-                                      value: selectedCategory,
-                                      isExpanded: true,
-                                      dropdownColor: pureWhite,
-                                      style: const TextStyle(
-                                        color: slate900,
-                                        fontSize: 14,
-                                      ),
-                                      items: addCategories.map((String value) {
-                                        return DropdownMenuItem(
-                                          value: value,
-                                          child: Text(value),
-                                        );
-                                      }).toList(),
-                                      onChanged: (val) {
-                                        setSheetState(() {
-                                          selectedCategory = val!;
-                                          selectedUnit = val == "TUBE"
-                                              ? "본"
-                                              : "EA";
-                                        });
-                                      },
-                                    ),
-                                  ),
+                                _buildPopupLabel("제조사 (Maker)"),
+                                _buildPopupTextField(
+                                  makerCtrl,
+                                  "예: Swagelok, DK-Lok",
                                 ),
                               ],
                             ),
@@ -168,51 +202,8 @@ class _InventoryPageState extends State<InventoryPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  "단위",
-                                  style: TextStyle(
-                                    color: slate900,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: slate50,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: Colors.grey.shade300,
-                                    ),
-                                  ),
-                                  child: DropdownButtonHideUnderline(
-                                    child: DropdownButton<String>(
-                                      value: selectedUnit,
-                                      isExpanded: true,
-                                      dropdownColor: pureWhite,
-                                      style: const TextStyle(
-                                        color: slate900,
-                                        fontSize: 14,
-                                      ),
-                                      items: ["EA", "본", "BOX", "M", "SET"].map(
-                                        (String value) {
-                                          return DropdownMenuItem(
-                                            value: value,
-                                            child: Text(value),
-                                          );
-                                        },
-                                      ).toList(),
-                                      onChanged: (val) {
-                                        setSheetState(
-                                          () => selectedUnit = val!,
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ),
+                                _buildPopupLabel("히트 번호 (Heat No)"),
+                                _buildPopupTextField(heatNoCtrl, "예: H123456"),
                               ],
                             ),
                           ),
@@ -220,83 +211,18 @@ class _InventoryPageState extends State<InventoryPage> {
                       ),
                       const SizedBox(height: 16),
 
-                      // 자재명 입력
-                      const Text(
-                        "자재명",
-                        style: TextStyle(
-                          color: slate900,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: nameCtrl,
-                        decoration: InputDecoration(
-                          hintText: "예: Union Tee 등",
-                          filled: true,
-                          fillColor: slate50,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // 규격 입력
-                      const Text(
-                        "규격 (Size)",
-                        style: TextStyle(
-                          color: slate900,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: sizeCtrl,
-                        decoration: InputDecoration(
-                          hintText: "예: 1/2\", 50A 등",
-                          filled: true,
-                          fillColor: slate50,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // 수량 및 안전 재고 입력
+                      // 수량 및 안전 재고
                       Row(
                         children: [
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  "초기 수량",
-                                  style: TextStyle(
-                                    color: slate900,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                TextField(
-                                  controller: qtyCtrl,
-                                  keyboardType: TextInputType.number,
-                                  decoration: InputDecoration(
-                                    filled: true,
-                                    fillColor: slate50,
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                      borderSide: BorderSide(
-                                        color: Colors.grey.shade300,
-                                      ),
-                                    ),
-                                  ),
+                                _buildPopupLabel("초기 수량"),
+                                _buildPopupTextField(
+                                  qtyCtrl,
+                                  "0",
+                                  isNumber: true,
                                 ),
                               ],
                             ),
@@ -306,28 +232,11 @@ class _InventoryPageState extends State<InventoryPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  "안전 재고 (경고)",
-                                  style: TextStyle(
-                                    color: slate900,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                TextField(
-                                  controller: minQtyCtrl,
-                                  keyboardType: TextInputType.number,
-                                  decoration: InputDecoration(
-                                    filled: true,
-                                    fillColor: slate50,
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                      borderSide: BorderSide(
-                                        color: Colors.grey.shade300,
-                                      ),
-                                    ),
-                                  ),
+                                _buildPopupLabel("안전 재고"),
+                                _buildPopupTextField(
+                                  minQtyCtrl,
+                                  "10",
+                                  isNumber: true,
                                 ),
                               ],
                             ),
@@ -336,7 +245,7 @@ class _InventoryPageState extends State<InventoryPage> {
                       ),
                       const SizedBox(height: 32),
 
-                      // 취소 및 등록 버튼
+                      // 등록 버튼
                       Row(
                         children: [
                           Expanded(
@@ -365,15 +274,8 @@ class _InventoryPageState extends State<InventoryPage> {
                               ),
                               onPressed: () async {
                                 if (nameCtrl.text.trim().isEmpty ||
-                                    sizeCtrl.text.trim().isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text("자재명과 규격을 모두 입력해주세요!"),
-                                      backgroundColor: Colors.redAccent,
-                                    ),
-                                  );
+                                    sizeCtrl.text.trim().isEmpty)
                                   return;
-                                }
 
                                 try {
                                   await _inventoryDb.add({
@@ -385,23 +287,21 @@ class _InventoryPageState extends State<InventoryPage> {
                                         int.tryParse(minQtyCtrl.text) ?? 0,
                                     "is_dead_stock": false,
                                     "unit": selectedUnit,
-                                    // ★ 모바일 리모트와 데이터 구조를 맞추기 위해 빈 칸 세팅
-                                    "heatNo": "",
-                                    "maker": "",
-                                    "material": "",
+                                    // 데이터 필드 저장
+                                    "heatNo": heatNoCtrl.text
+                                        .trim()
+                                        .toUpperCase(),
+                                    "maker": makerCtrl.text
+                                        .trim()
+                                        .toUpperCase(),
+                                    "material": selectedMaterial,
+                                    // ★ 신규 추가: DB에 보관 위치 저장
+                                    "location": locationCtrl.text.trim(),
                                     "createdAt": FieldValue.serverTimestamp(),
                                   });
-
                                   if (context.mounted) Navigator.pop(context);
                                 } catch (e) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text("서버 전송 실패: $e"),
-                                        backgroundColor: Colors.red,
-                                      ),
-                                    );
-                                  }
+                                  debugPrint("Error: $e");
                                 }
                               },
                               child: const Text(
@@ -427,9 +327,81 @@ class _InventoryPageState extends State<InventoryPage> {
     );
   }
 
-  // ---------------------------------------------------------
-  // 📱 [5] 화면 뼈대 (UI) 그리기
-  // ---------------------------------------------------------
+  // --- 팝업용 헬퍼 위젯 ---
+  Widget _buildPopupLabel(String label) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(
+      label,
+      style: const TextStyle(
+        color: slate900,
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  );
+
+  Widget _buildPopupTextField(
+    TextEditingController ctrl,
+    String hint, {
+    bool isNumber = false,
+  }) {
+    return TextField(
+      controller: ctrl,
+      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+        filled: true,
+        fillColor: slate50,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPopupDropdown(
+    String label,
+    String value,
+    List<String> items,
+    Function(String?) onChanged, {
+    bool isSmall = false,
+  }) {
+    return Expanded(
+      flex: isSmall ? 1 : 1,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildPopupLabel(label),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: slate50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: value,
+                isExpanded: true,
+                items: items
+                    .map(
+                      (s) => DropdownMenuItem(
+                        value: s,
+                        child: Text(s, style: const TextStyle(fontSize: 13)),
+                      ),
+                    )
+                    .toList(),
+                onChanged: onChanged,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -465,21 +437,18 @@ class _InventoryPageState extends State<InventoryPage> {
               _isSearching ? Icons.close : LucideIcons.search,
               size: 24,
             ),
-            onPressed: () {
-              setState(() {
-                _isSearching = !_isSearching;
-                if (!_isSearching) {
-                  _searchController.clear();
-                  _searchQuery = "";
-                }
-              });
-            },
+            onPressed: () => setState(() {
+              _isSearching = !_isSearching;
+              if (!_isSearching) {
+                _searchController.clear();
+                _searchQuery = "";
+              }
+            }),
           ),
         ],
       ),
       body: Column(
         children: [
-          // 카테고리 필터 영역
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
@@ -535,13 +504,13 @@ class _InventoryPageState extends State<InventoryPage> {
                   child: Row(
                     children: [
                       _buildFilterChip(
-                        "활성",
+                        "가용 자재",
                         !_showDeadStock,
                         () => setState(() => _showDeadStock = false),
                       ),
                       const SizedBox(width: 4),
                       _buildFilterChip(
-                        "장기",
+                        "장기 미사용",
                         _showDeadStock,
                         () => setState(() => _showDeadStock = true),
                       ),
@@ -551,8 +520,6 @@ class _InventoryPageState extends State<InventoryPage> {
               ],
             ),
           ),
-
-          // 🔥 실시간 서버 데이터 렌더링 구역
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: _inventoryDb
@@ -560,16 +527,9 @@ class _InventoryPageState extends State<InventoryPage> {
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.hasError)
-                  return const Center(
-                    child: Text(
-                      "서버 데이터를 불러오는데 실패했습니다.",
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  );
+                  return const Center(child: Text("에러 발생"));
                 if (snapshot.connectionState == ConnectionState.waiting)
-                  return const Center(
-                    child: CircularProgressIndicator(color: makitaTeal),
-                  );
+                  return const Center(child: CircularProgressIndicator());
 
                 final docs = snapshot.data!.docs;
                 final filteredDocs = docs.where((doc) {
@@ -577,66 +537,27 @@ class _InventoryPageState extends State<InventoryPage> {
                   bool categoryMatch =
                       _selectedFilterCategory == "ALL" ||
                       data['category'] == _selectedFilterCategory;
-                  bool statusMatch = data['is_dead_stock'] == _showDeadStock;
-                  bool searchMatch = true;
-                  if (_searchQuery.isNotEmpty) {
-                    final nameMatch =
-                        data['name']?.toString().toLowerCase().contains(
-                          _searchQuery,
-                        ) ??
-                        false;
-                    final sizeMatch =
-                        data['size']?.toString().toLowerCase().contains(
-                          _searchQuery,
-                        ) ??
-                        false;
-                    searchMatch = nameMatch || sizeMatch;
-                  }
+                  bool statusMatch =
+                      (data['is_dead_stock'] ?? false) == _showDeadStock;
+                  bool searchMatch =
+                      data['name'].toString().toLowerCase().contains(
+                        _searchQuery,
+                      ) ||
+                      data['size'].toString().toLowerCase().contains(
+                        _searchQuery,
+                      );
                   return categoryMatch && statusMatch && searchMatch;
                 }).toList();
 
-                if (filteredDocs.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          LucideIcons.packageOpen,
-                          size: 60,
-                          color: slate200,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _searchQuery.isNotEmpty
-                              ? "검색 결과가 없습니다."
-                              : (_showDeadStock
-                                    ? "등록된 악성 재고가 없습니다."
-                                    : "해당 분류에 등록된 자재가 없습니다."),
-                          style: const TextStyle(
-                            color: slate600,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
                 return ListView.separated(
-                  padding: const EdgeInsets.only(
-                    top: 16,
-                    left: 16,
-                    right: 16,
-                    bottom: 80,
-                  ),
+                  padding: const EdgeInsets.all(16),
                   itemCount: filteredDocs.length,
                   separatorBuilder: (context, index) =>
                       const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final doc = filteredDocs[index];
-                    final data = doc.data() as Map<String, dynamic>;
-                    return _buildMaterialCard(doc.id, data);
-                  },
+                  itemBuilder: (context, index) => _buildMaterialCard(
+                    filteredDocs[index].id,
+                    filteredDocs[index].data() as Map<String, dynamic>,
+                  ),
                 );
               },
             ),
@@ -683,26 +604,12 @@ class _InventoryPageState extends State<InventoryPage> {
     );
   }
 
-  // ★ 모바일 리모트의 히트넘버/메이커/재질을 수용하도록 카드 UI 강화
+  // ---------------------------------------------------------
+  // 📝 [수정됨] 자재 카드 위젯 (보관 위치 뱃지 추가)
+  // ---------------------------------------------------------
   Widget _buildMaterialCard(String docId, Map<String, dynamic> item) {
-    bool isLowStock = false;
-    if (item['qty'] != null && item['min_qty'] != null) {
-      isLowStock =
-          (item['qty'] < item['min_qty']) && (item['is_dead_stock'] == false);
-    }
-
+    final bool isLowStock = (item['qty'] ?? 0) < (item['min_qty'] ?? 10);
     final bool isDeadStock = item['is_dead_stock'] ?? false;
-    final String category = item['category'] ?? "기타";
-    final String name = item['name'] ?? "이름 없음";
-    final String size = item['size'] ?? "-";
-    final int minQty = item['min_qty'] ?? 0;
-    final int qty = item['qty'] ?? 0;
-    final String unit = item['unit'] ?? "EA";
-
-    // 🔥 모바일 리모트에서 보낸 새 데이터 캐치
-    final String heatNo = item['heatNo'] ?? "";
-    final String maker = item['maker'] ?? "";
-    final String material = item['material'] ?? "";
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -715,7 +622,7 @@ class _InventoryPageState extends State<InventoryPage> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withOpacity(0.03),
             blurRadius: 6,
             offset: const Offset(0, 3),
           ),
@@ -733,7 +640,7 @@ class _InventoryPageState extends State<InventoryPage> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
-                  _getCategoryIcon(category),
+                  _getCategoryIcon(item['category'] ?? ""),
                   color: isDeadStock ? slate600 : makitaTeal,
                   size: 28,
                 ),
@@ -743,121 +650,46 @@ class _InventoryPageState extends State<InventoryPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: slate200,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            category,
-                            style: const TextStyle(
-                              color: slate600,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        if (isLowStock) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade50,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              "발주 요망",
-                              style: TextStyle(
-                                color: Colors.red.shade700,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                        if (isDeadStock) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.shade50,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              "장기 재고",
-                              style: TextStyle(
-                                color: Colors.orange.shade800,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 6),
                     Text(
-                      name,
-                      style: TextStyle(
-                        color: isDeadStock ? slate600 : slate900,
+                      item['name'] ?? "이름 없음",
+                      style: const TextStyle(
+                        color: slate900,
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
-                        decoration: isDeadStock
-                            ? TextDecoration.lineThrough
-                            : null,
                       ),
                     ),
-                    const SizedBox(height: 2),
                     Text(
-                      "규격: $size  |  안전재고: $minQty",
+                      "규격: ${item['size']} | 재질: ${item['material'] ?? '-'}",
                       style: const TextStyle(color: slate600, fontSize: 12),
                     ),
-
-                    // 🔥 부가 정보(히트넘버, 제조사, 재질)가 DB에 존재하면 표시하는 구역
-                    if (heatNo.isNotEmpty ||
-                        maker.isNotEmpty ||
-                        material.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          if (heatNo.isNotEmpty)
-                            _buildInfoBadge(
-                              Icons.tag,
-                              "Heat: $heatNo",
-                              Colors.green.shade700,
-                              Colors.green.shade50,
-                            ),
-                          if (maker.isNotEmpty)
-                            _buildInfoBadge(
-                              Icons.factory,
-                              maker,
-                              Colors.blue.shade700,
-                              Colors.blue.shade50,
-                            ),
-                          if (material.isNotEmpty)
-                            _buildInfoBadge(
-                              Icons.category,
-                              material,
-                              Colors.orange.shade800,
-                              Colors.orange.shade50,
-                            ),
-                        ],
-                      ),
-                    ],
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        // ★ 신규 추가: 보관 위치 뱃지
+                        if ((item['location'] ?? "").isNotEmpty)
+                          _buildBadge(
+                            Icons.location_on,
+                            item['location'],
+                            Colors.orange.shade700,
+                          ),
+                        // 제조사 뱃지
+                        if ((item['maker'] ?? "").isNotEmpty)
+                          _buildBadge(
+                            Icons.factory,
+                            item['maker'],
+                            Colors.blue,
+                          ),
+                        // 히트번호 뱃지
+                        if ((item['heatNo'] ?? "").isNotEmpty)
+                          _buildBadge(
+                            Icons.tag,
+                            "Heat: ${item['heatNo']}",
+                            Colors.green,
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -865,12 +697,10 @@ class _InventoryPageState extends State<InventoryPage> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    "$qty $unit",
+                    "${item['qty']} ${item['unit']}",
                     style: TextStyle(
-                      color: isDeadStock
-                          ? slate600
-                          : (isLowStock ? Colors.red.shade700 : makitaTeal),
-                      fontSize: 22,
+                      color: isLowStock ? Colors.red.shade700 : makitaTeal,
+                      fontSize: 20,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -879,12 +709,12 @@ class _InventoryPageState extends State<InventoryPage> {
                     children: [
                       _buildQtyBtn(
                         Icons.remove,
-                        () => _updateQuantity(docId, qty, -1),
+                        () => _updateQuantity(docId, item['qty'], -1),
                       ),
                       const SizedBox(width: 8),
                       _buildQtyBtn(
                         Icons.add,
-                        () => _updateQuantity(docId, qty, 1),
+                        () => _updateQuantity(docId, item['qty'], 1),
                         isAdd: true,
                       ),
                     ],
@@ -893,86 +723,53 @@ class _InventoryPageState extends State<InventoryPage> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          const Divider(height: 1),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton.icon(
-                onPressed: () => _toggleDeadStockStatus(docId, isDeadStock),
-                icon: Icon(
-                  isDeadStock ? Icons.restore : Icons.archive_outlined,
-                  size: 16,
-                  color: slate600,
-                ),
-                label: Text(
-                  isDeadStock ? "정상 재고로 복구" : "악성 재고로 격리",
-                  style: const TextStyle(color: slate600, fontSize: 12),
-                ),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 0,
-                  ),
-                  minimumSize: const Size(0, 30),
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
   }
 
-  // 부가 정보 뱃지 UI 생성기
-  Widget _buildInfoBadge(
-    IconData icon,
-    String text,
-    Color textColor,
-    Color bgColor,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: textColor.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 10, color: textColor),
-          const SizedBox(width: 4),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: textColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQtyBtn(IconData icon, VoidCallback onTap, {bool isAdd = false}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: isAdd ? makitaTeal.withValues(alpha: 0.1) : slate100,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: isAdd ? makitaTeal.withValues(alpha: 0.3) : slate200,
+  Widget _buildBadge(IconData icon, String text, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(4),
+      border: Border.all(color: color.withOpacity(0.3)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 10, color: color),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            color: color,
           ),
         ),
-        child: Icon(icon, size: 18, color: isAdd ? makitaTeal : slate600),
+      ],
+    ),
+  );
+
+  Widget _buildQtyBtn(
+    IconData icon,
+    VoidCallback onTap, {
+    bool isAdd = false,
+  }) => InkWell(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: isAdd ? makitaTeal.withOpacity(0.1) : slate100,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isAdd ? makitaTeal.withOpacity(0.3) : slate200,
+        ),
       ),
-    );
-  }
+      child: Icon(icon, size: 18, color: isAdd ? makitaTeal : slate600),
+    ),
+  );
 
   IconData _getCategoryIcon(String category) {
     switch (category) {
