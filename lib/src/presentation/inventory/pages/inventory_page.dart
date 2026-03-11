@@ -45,6 +45,7 @@ class _InventoryPageState extends State<InventoryPage> {
   }
 
   void _toggleDeadStockStatus(String docId, bool currentStatus) {
+    //
     _inventoryDb.doc(docId).update({'is_dead_stock': !currentStatus});
   }
 
