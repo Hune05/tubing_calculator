@@ -24,7 +24,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _tubeMaterial = "SUS";
   String _benderBrand = "Swagelok";
 
-  // 💡 빈 문자열 등으로 둬도 무방합니다. initState에서 즉시 안전한 값으로 덮어쓸 예정입니다.
   String _currentOD = "";
 
   String _measurementMode = "C-to-C";
@@ -58,10 +57,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    // 💡 [수정 포인트 1] 화면이 처음 그려질 때 참조할 _currentOD 값을 '무조건 리스트에 있는 값'으로 세팅
-    // 12.7이 리스트에 있으면 12.7을 쓰고, 없으면 냅다 리스트의 첫 번째 값을 씁니다.
     _currentOD = _odList.contains("12.7") ? "12.7" : _odList.first;
-
     _loadData();
   }
 
@@ -96,18 +92,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _markThicknessController.text = (data['markThickness'] ?? 0.0).toString();
       _offsetShrinkController.text = (data['offsetShrink'] ?? 0.0).toString();
 
-      if (_autoStates['radius'] == false)
+      if (_autoStates['radius'] == false) {
         _rController.text = (data['bendRadius'] ?? 0.0).toString();
-      if (_autoStates['takeUp'] == false)
+      }
+      if (_autoStates['takeUp'] == false) {
         _takeUpController.text = (data['takeUp'] ?? 0.0).toString();
-      if (_autoStates['gain'] == false)
+      }
+      if (_autoStates['gain'] == false) {
         _gainController.text = (data['gain'] ?? 0.0).toString();
-      if (_autoStates['minStraight'] == false)
+      }
+      if (_autoStates['minStraight'] == false) {
         _minStraightController.text = (data['minStraight'] ?? 0.0).toString();
-      if (_autoStates['offset'] == false)
+      }
+      if (_autoStates['offset'] == false) {
         _benderOffsetController.text = (data['benderOffset'] ?? 0.0).toString();
-      if (_autoStates['fittingDepth'] == false)
+      }
+      if (_autoStates['fittingDepth'] == false) {
         _fittingDepthController.text = (data['fittingDepth'] ?? 0.0).toString();
+      }
     });
 
     _onSpecsChanged(isInitialLoad: true);
@@ -166,16 +168,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     setState(() {
       if (specs != null) {
-        if (_autoStates['radius'] == true)
+        if (_autoStates['radius'] == true) {
           _rController.text = specs.bendRadius.toString();
-        if (_autoStates['takeUp'] == true)
+        }
+        if (_autoStates['takeUp'] == true) {
           _takeUpController.text = specs.takeUp.toString();
-        if (_autoStates['gain'] == true)
+        }
+        if (_autoStates['gain'] == true) {
           _gainController.text = specs.gain.toString();
-        if (_autoStates['minStraight'] == true)
+        }
+        if (_autoStates['minStraight'] == true) {
           _minStraightController.text = specs.minStraight.toString();
-        if (_autoStates['offset'] == true)
+        }
+        if (_autoStates['offset'] == true) {
           _benderOffsetController.text = specs.benderOffset.toString();
+        }
       }
 
       if (_autoStates['fittingDepth'] == true) {
@@ -264,6 +271,137 @@ class _SettingsScreenState extends State<SettingsScreen> {
           MakitaNumpad.show(context, controller: controller, title: label);
         }
       },
+    );
+  }
+
+  // 🚀 [완전 개편] 현장 실무 가이드 (외경 기준 연신율 도표 추가)
+  Widget _buildFieldGuideTip() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: makitaTeal.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: makitaTeal.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.construction, color: makitaTeal, size: 22),
+              SizedBox(width: 8),
+              Text(
+                "현장 실무 수동 입력 가이드 (Swagelok 기준)",
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 15,
+                  color: makitaTeal,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            "• 적용 규격: [Inch] 1/4\" ~ 1\"  /  [mm] 8mm ~ 25mm\n"
+            "• 테이크업 (Take-Up): 센터라인 기준이 아닌, 튜브 두께(WT)를 적용하여 보정하세요.",
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.5,
+              color: Colors.blueGrey[800],
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          // 🚀 외경(OD) 기준 연신율 실측 도표
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Table(
+              columnWidths: const {
+                0: FlexColumnWidth(1),
+                1: FlexColumnWidth(1.2),
+              },
+              border: TableBorder.symmetric(
+                inside: BorderSide(color: Colors.grey.shade200),
+              ),
+              children: [
+                TableRow(
+                  decoration: BoxDecoration(color: Colors.grey.shade50),
+                  children: const [
+                    Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Text(
+                        "규격 (OD)",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Text(
+                        "연신율 (Gain) 외경 기준",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          color: makitaTeal,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                _buildTableRow("1/4\" (6.35mm)", "approx. 8.5 mm"),
+                _buildTableRow("3/8\" (9.52mm)", "approx. 12.5 mm"),
+                _buildTableRow("1/2\" (12.7mm)", "approx. 20.0 mm"),
+                _buildTableRow("3/4\" (19.05mm)", "approx. 28.5 mm"),
+                _buildTableRow("1\" (25.4mm)", "approx. 38.0 mm"),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 테이블 내부 Row 생성 헬퍼
+  TableRow _buildTableRow(String od, String gain) {
+    return TableRow(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 8.0),
+          child: Text(
+            od,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade800,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 8.0),
+          child: Text(
+            gain,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.redAccent,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -366,6 +504,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   List<Widget> _buildRightGroup() {
     return [
+      // 🚀 우측 영역 최상단에 현장 실무 가이드 (연신율 도표) 배치
+      _buildFieldGuideTip(),
+
       SettingSection(
         title: "3. 벤더 장비 제원",
         icon: Icons.build,
@@ -521,8 +662,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       onTap: () {
         setState(() {
           _isInch = (text == "inch");
-          // 💡 [수정 포인트 2] 단위 변환 시 강제로 하드코딩된 값을 넣지 않고,
-          // 무조건 새 단위 리스트에 존재하는 안전한 값으로 덮어씌움
           String targetOD = _isInch ? "0.5" : "12.0";
           _currentOD = _odList.contains(targetOD) ? targetOD : _odList.first;
         });

@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:wakelock_plus/wakelock_plus.dart'; // ★ 화면 꺼짐 방지 패키지 추가
+
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/saddle_bottom_sheet.dart';
@@ -19,7 +23,6 @@ class CalculatorPage extends StatefulWidget {
   final List<Map<String, double>> bendList;
   final Function(double, double, double) onAddBend;
   final Function(int, double, double, double) onUpdateBend;
-  // ★ 추가: 순서 변경(드래그 앤 드롭)을 부모에게 알리는 콜백
   final Function(int oldIndex, int newIndex) onReorderBend;
   final VoidCallback onClear;
 
@@ -29,7 +32,7 @@ class CalculatorPage extends StatefulWidget {
     required this.bendList,
     required this.onAddBend,
     required this.onUpdateBend,
-    required this.onReorderBend, // ★ 필수 파라미터로 추가됨
+    required this.onReorderBend,
     required this.onClear,
   });
 
@@ -48,8 +51,50 @@ class _CalculatorPageState extends State<CalculatorPage>
   double _currentAngle = 0.0;
   double _currentRotation = 0.0;
 
-  // 매크로 동작 잠금 락(Lock)
   bool _isAutoProcessing = false;
+
+  // 🚀 파이어베이스 데이터 수신용 스트림 리스너
+  StreamSubscription<QuerySnapshot>? _remoteSubscription;
+  late int _listenerStartTime;
+
+  @override
+  void initState() {
+    super.initState();
+    // 화면이 켜진 시점의 시간을 기록 (과거 기록 중복 실행 방지)
+    _listenerStartTime = DateTime.now().millisecondsSinceEpoch;
+    _startRemoteListener();
+
+    // 🚀 [추가] 앱이 켜져 있는 동안 화면이 절대 꺼지지 않게 설정
+    WakelockPlus.enable();
+  }
+
+  void _startRemoteListener() {
+    _remoteSubscription = FirebaseFirestore.instance
+        .collection('remote_commands')
+        .where('timestamp', isGreaterThan: _listenerStartTime)
+        .orderBy('timestamp', descending: false)
+        .snapshots()
+        .listen((snapshot) {
+          for (var change in snapshot.docChanges) {
+            if (change.type == DocumentChangeType.added) {
+              final data = change.doc.data();
+              if (data != null) {
+                receiveRemoteData(data); // 데이터가 들어오면 기존 연산 함수로 던짐
+              }
+            }
+          }
+        });
+  }
+
+  @override
+  void dispose() {
+    // 🚀 [추가] 화면 상시 점등 해제 (앱을 끄거나 다른 화면으로 나갈 때 배터리 보호)
+    WakelockPlus.disable();
+
+    _remoteSubscription?.cancel(); // 리스너 해제
+    _tempController.dispose();
+    super.dispose();
+  }
 
   // ==========================================
   // 📡 [모바일 리모컨 수신부 & 매크로 자동 입력]
@@ -180,12 +225,6 @@ class _CalculatorPageState extends State<CalculatorPage>
       _currentAngle = widget.bendList[index]['angle']!;
       _currentRotation = widget.bendList[index]['rotation']!;
     });
-  }
-
-  @override
-  void dispose() {
-    _tempController.dispose();
-    super.dispose();
   }
 
   @override
@@ -374,11 +413,11 @@ class _CalculatorPageState extends State<CalculatorPage>
                               child: widget.bendList.isEmpty
                                   ? const Center(
                                       child: Text(
-                                        "치수와 방향을 셋팅하세요",
+                                        "치수와 방향을 셋팅하세요\n또는 리모컨으로 데이터를 전송하세요",
+                                        textAlign: TextAlign.center,
                                         style: TextStyle(color: slate600),
                                       ),
                                     )
-                                  // ★ 드래그 앤 드롭 순서 변경이 가능한 ReorderableListView 로 교체!
                                   : ReorderableListView.builder(
                                       itemCount: widget.bendList.length,
                                       onReorder: (int oldIndex, int newIndex) {
@@ -386,11 +425,9 @@ class _CalculatorPageState extends State<CalculatorPage>
                                           if (oldIndex < newIndex) {
                                             newIndex -= 1;
                                           }
-                                          // 순서를 바꿀 때 혹시 수정 중이었다면 초기화
                                           _editingIndex = null;
                                           _tempController.clear();
                                         });
-                                        // 부모 위젯에 순서 변경 요청
                                         widget.onReorderBend(
                                           oldIndex,
                                           newIndex,
@@ -400,7 +437,6 @@ class _CalculatorPageState extends State<CalculatorPage>
                                         bool isEditing = _editingIndex == index;
                                         final bend = widget.bendList[index];
 
-                                        // ReorderableListView는 반드시 Unique Key가 필요함
                                         return GestureDetector(
                                           key: ValueKey(
                                             'bend_${index}_${bend.hashCode}',
@@ -431,7 +467,6 @@ class _CalculatorPageState extends State<CalculatorPage>
                                               children: [
                                                 Row(
                                                   children: [
-                                                    // ★ 드래그 핸들 (작업자에게 드래그 가능함을 알림)
                                                     const Icon(
                                                       Icons.drag_indicator,
                                                       color: Colors.grey,
@@ -533,21 +568,6 @@ class _CalculatorPageState extends State<CalculatorPage>
             ),
           ],
         ),
-      ),
-      // 개발/테스트용 플로팅 버튼 (수신 시뮬레이션)
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          receiveRemoteData({
-            "mode": "오프셋",
-            "val1": "100",
-            "val2": "",
-            "angle": "30",
-            "dir": "RIGHT",
-          });
-        },
-        backgroundColor: Colors.orange,
-        icon: const Icon(Icons.wifi_tethering),
-        label: const Text("수신 테스트"),
       ),
     );
   }

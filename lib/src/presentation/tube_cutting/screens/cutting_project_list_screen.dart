@@ -1,13 +1,11 @@
-// lib/src/presentation/tube_cutting/screens/cutting_project_list_screen.dart
-
 import 'package:flutter/material.dart';
 import '../../../data/models/cutting_project_model.dart';
 import 'cutting_main_screen.dart';
 
-const Color darkBg = Color(0xFF1E2124);
-const Color cardBg = Color(0xFF2A2E33);
+const Color lightBg = Color(0xFFF0F3F5); // 화이트/그레이 배경
+const Color whiteCard = Colors.white;
 const Color makitaTeal = Color(0xFF007580);
-const Color mutedWhite = Color(0xFFD0D4D9);
+const Color textPrimary = Color(0xFF1A1A1A);
 
 class CuttingProjectListScreen extends StatefulWidget {
   const CuttingProjectListScreen({super.key});
@@ -26,31 +24,50 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: cardBg,
+          backgroundColor: whiteCard,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Text(
             "새 컷팅 작업 생성",
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
           ),
           content: TextField(
             controller: nameCtrl,
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: textPrimary),
             decoration: InputDecoration(
               hintText: "작업명 (예: A구역 1층 라인)",
-              hintStyle: TextStyle(color: Colors.grey.shade600),
+              hintStyle: TextStyle(color: Colors.grey.shade500),
               filled: true,
-              fillColor: darkBg,
+              fillColor: Colors.grey.shade100,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: makitaTeal, width: 2),
               ),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("취소", style: TextStyle(color: Colors.grey)),
+              child: const Text(
+                "취소",
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: makitaTeal),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: makitaTeal,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
               onPressed: () {
                 if (nameCtrl.text.trim().isNotEmpty) {
                   setState(() {
@@ -66,7 +83,13 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
                   Navigator.pop(context);
                 }
               },
-              child: const Text("생성", style: TextStyle(color: Colors.white)),
+              child: const Text(
+                "생성",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         );
@@ -88,9 +111,9 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: darkBg,
+      backgroundColor: lightBg,
       appBar: AppBar(
-        backgroundColor: darkBg,
+        backgroundColor: makitaTeal, // 마키타 색상 헤더
         elevation: 0,
         title: const Text(
           "튜브 컷팅 작업 보관함",
@@ -102,7 +125,7 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
               child: Text(
                 "등록된 작업이 없습니다.\n우측 하단의 + 버튼을 눌러 새 작업을 생성하세요.",
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 18),
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 18),
               ),
             )
           : GridView.builder(
@@ -122,9 +145,16 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: cardBg,
+                      color: whiteCard,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withOpacity(0.05)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                      border: Border.all(color: Colors.grey.shade200),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -132,19 +162,26 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
                       children: [
                         Row(
                           children: [
-                            const Icon(
-                              Icons.folder,
-                              color: makitaTeal,
-                              size: 32,
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: makitaTeal.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.folder_outlined,
+                                color: makitaTeal,
+                                size: 28,
+                              ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 project.name,
                                 style: const TextStyle(
-                                  color: Colors.white,
+                                  color: textPrimary,
                                   fontSize: 20,
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w900,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -158,17 +195,18 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
                             Text(
                               "총 절단 횟수: ${project.cutCount} 회",
                               style: TextStyle(
-                                color: Colors.grey.shade400,
+                                color: Colors.grey.shade600,
                                 fontSize: 14,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               "예상 소모량: ${project.estimatedMeters} m",
                               style: const TextStyle(
-                                color: Colors.greenAccent,
+                                color: makitaTeal,
                                 fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w900,
                               ),
                             ),
                           ],

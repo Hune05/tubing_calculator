@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:cloud_firestore/cloud_firestore.dart'; // ★ 파이어베이스 추가
 
-// ★ screens 폴더에서 widgets 폴더로 접근하는 상대 경로 적용!
 import '../widgets/pipe_iso_painter.dart';
 import '../widgets/remote_widgets.dart';
 
@@ -101,21 +101,24 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         if (h > 0 && angle > 0 && angle < 90) {
           _val2Ctrls[m].text = (h / math.sin(angle * (math.pi / 180)))
               .toStringAsFixed(1);
-        } else if (angle == 0)
+        } else if (angle == 0) {
           _val2Ctrls[m].text = "";
+        }
       } else {
         if (h > 0 && val2 > 0 && val2 >= h) {
           _angleCtrls[m].text = (math.asin(h / val2) * (180 / math.pi))
               .toStringAsFixed(1);
-        } else
+        } else {
           _angleCtrls[m].text = "";
+        }
       }
     } else if (m == 3) {
       if (h > 0 && angle > 0 && angle < 90) {
         _result1Ctrls[m].text = (h / math.sin(angle * (math.pi / 180)))
             .toStringAsFixed(1);
-      } else
+      } else {
         _result1Ctrls[m].text = "";
+      }
     } else if (m == 4) {
       if (h > 0 && val2 > 0) {
         double trueH = math.sqrt((h * h) + (val2 * val2));
@@ -123,8 +126,9 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         if (angle > 0 && angle < 90) {
           _result2Ctrls[m].text = (trueH / math.sin(angle * (math.pi / 180)))
               .toStringAsFixed(1);
-        } else
+        } else {
           _result2Ctrls[m].text = "";
+        }
       } else {
         _result1Ctrls[m].text = "";
         _result2Ctrls[m].text = "";
@@ -153,7 +157,8 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     return true;
   }
 
-  void _sendData() {
+  // 🚀 [핵심 추가] 파이어베이스 서버로 데이터 전송
+  Future<void> _sendData() async {
     if (_isTransmitting) return;
     HapticFeedback.heavyImpact();
     setState(() => _isTransmitting = true);
@@ -172,32 +177,42 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
               ? _angleCtrls[m].text
               : "");
 
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+
     final newRecord = {
-      "id": DateTime.now().millisecondsSinceEpoch.toString(),
+      "id": timestamp.toString(),
       "time":
           "${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}",
       "mode": _modes[m]['name'],
-      "color": _modes[m]['color'],
+      "color": _modes[m]['color'].value, // 서버 저장용 색상 int 변환
       "val1": sendVal1,
       "val2": sendVal2,
       "angle": sendAngle,
       "dir": _selectedDirs[m],
       "status": "pending",
+      "timestamp": timestamp, // 태블릿에서 시간순 정렬 및 필터링을 위한 타임스탬프
     };
 
     setState(() => _historyLogs.insert(0, newRecord));
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text("데이터 전송 중..."),
+        content: const Text("서버로 데이터 전송 중..."),
         backgroundColor: Colors.blueAccent.shade700,
-        duration: const Duration(seconds: 2),
+        duration: const Duration(seconds: 1),
       ),
     );
 
-    Future.delayed(const Duration(seconds: 2), () {
+    try {
+      // ★ Firestore 'remote_commands' 컬렉션에 데이터 업로드
+      await FirebaseFirestore.instance
+          .collection('remote_commands')
+          .doc(timestamp.toString())
+          .set(newRecord);
+
       if (!mounted) return;
       HapticFeedback.mediumImpact();
+
       setState(() {
         _historyLogs.firstWhere(
           (log) => log['id'] == newRecord['id'],
@@ -212,14 +227,28 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         _result1Ctrls[m].clear();
         _result2Ctrls[m].clear();
       });
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text("태블릿 입력 완료!"),
+          content: const Text("태블릿 전송 완료!"),
           backgroundColor: Colors.green.shade700,
           duration: const Duration(seconds: 1),
         ),
       );
-    });
+    } catch (e) {
+      setState(() {
+        _isTransmitting = false;
+        _historyLogs.firstWhere(
+          (log) => log['id'] == newRecord['id'],
+        )['status'] = "failed";
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("전송 실패: $e"),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    }
   }
 
   @override
@@ -271,6 +300,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                   color: Colors.black.withValues(alpha: 0.4),
                   width: double.infinity,
                   height: double.infinity,
+                  child: const Center(child: CircularProgressIndicator()),
                 ),
             ],
           ),
@@ -759,7 +789,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                           subtitleText += "  •  ${log['time']}";
                           return ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: log['color'],
+                              backgroundColor: Color(log['color']),
                               radius: 12,
                             ),
                             title: Text(
