@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:wakelock_plus/wakelock_plus.dart'; // ★ 화면 꺼짐 방지 패키지 추가
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/offset_bottom_sheet.dart';
@@ -11,7 +11,6 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/rolling_of
 import 'package:tubing_calculator/src/presentation/calculator/widgets/pipe_visualizer.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-// [테마 컬러]
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
 const Color slate600 = Color(0xFF475569);
@@ -23,6 +22,7 @@ class CalculatorPage extends StatefulWidget {
   final List<Map<String, double>> bendList;
   final Function(double, double, double) onAddBend;
   final Function(int, double, double, double) onUpdateBend;
+  final Function(int index) onDeleteBend; // 🚀 삭제 콜백 추가
   final Function(int oldIndex, int newIndex) onReorderBend;
   final VoidCallback onClear;
 
@@ -32,6 +32,7 @@ class CalculatorPage extends StatefulWidget {
     required this.bendList,
     required this.onAddBend,
     required this.onUpdateBend,
+    required this.onDeleteBend, // 🚀
     required this.onReorderBend,
     required this.onClear,
   });
@@ -53,18 +54,14 @@ class _CalculatorPageState extends State<CalculatorPage>
 
   bool _isAutoProcessing = false;
 
-  // 🚀 파이어베이스 데이터 수신용 스트림 리스너
   StreamSubscription<QuerySnapshot>? _remoteSubscription;
   late int _listenerStartTime;
 
   @override
   void initState() {
     super.initState();
-    // 화면이 켜진 시점의 시간을 기록 (과거 기록 중복 실행 방지)
     _listenerStartTime = DateTime.now().millisecondsSinceEpoch;
     _startRemoteListener();
-
-    // 🚀 [추가] 앱이 켜져 있는 동안 화면이 절대 꺼지지 않게 설정
     WakelockPlus.enable();
   }
 
@@ -79,7 +76,7 @@ class _CalculatorPageState extends State<CalculatorPage>
             if (change.type == DocumentChangeType.added) {
               final data = change.doc.data();
               if (data != null) {
-                receiveRemoteData(data); // 데이터가 들어오면 기존 연산 함수로 던짐
+                receiveRemoteData(data);
               }
             }
           }
@@ -88,17 +85,12 @@ class _CalculatorPageState extends State<CalculatorPage>
 
   @override
   void dispose() {
-    // 🚀 [추가] 화면 상시 점등 해제 (앱을 끄거나 다른 화면으로 나갈 때 배터리 보호)
     WakelockPlus.disable();
-
-    _remoteSubscription?.cancel(); // 리스너 해제
+    _remoteSubscription?.cancel();
     _tempController.dispose();
     super.dispose();
   }
 
-  // ==========================================
-  // 📡 [모바일 리모컨 수신부 & 매크로 자동 입력]
-  // ==========================================
   void receiveRemoteData(Map<String, dynamic> data) async {
     if (!mounted || _isAutoProcessing) return;
 
@@ -183,7 +175,6 @@ class _CalculatorPageState extends State<CalculatorPage>
 
     setState(() => _isAutoProcessing = false);
   }
-  // ==========================================
 
   String _getDirectionText(double rot) {
     if (rot == 0.0) return "UP";
@@ -237,7 +228,7 @@ class _CalculatorPageState extends State<CalculatorPage>
         absorbing: _isAutoProcessing,
         child: Row(
           children: [
-            // 🔹 [왼쪽] 실시간 배관 형상 시각화
+            // 🔹 [왼쪽] 3D 뷰어
             Expanded(
               flex: 5,
               child: Container(
@@ -248,7 +239,7 @@ class _CalculatorPageState extends State<CalculatorPage>
                   border: Border.all(color: Colors.grey.shade300, width: 2),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -289,28 +280,6 @@ class _CalculatorPageState extends State<CalculatorPage>
                         ],
                       ),
                     ),
-                    Positioned(
-                      bottom: 20,
-                      left: 20,
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.circle,
-                            color: Colors.red.shade600,
-                            size: 12,
-                          ),
-                          const SizedBox(width: 6),
-                          const Text(
-                            "START POINT",
-                            style: TextStyle(
-                              color: slate600,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -323,7 +292,6 @@ class _CalculatorPageState extends State<CalculatorPage>
                 margin: const EdgeInsets.only(top: 12, bottom: 12, right: 12),
                 child: Column(
                   children: [
-                    // 1. 인풋 리스트 및 특수 공구 버튼 영역
                     Expanded(
                       flex: 4,
                       child: Container(
@@ -334,7 +302,7 @@ class _CalculatorPageState extends State<CalculatorPage>
                           border: Border.all(color: Colors.grey.shade300),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
+                              color: Colors.black.withValues(alpha: 0.03),
                               blurRadius: 4,
                             ),
                           ],
@@ -362,14 +330,46 @@ class _CalculatorPageState extends State<CalculatorPage>
                                       _buildToolChip("오프셋", null, () {
                                         OffsetBottomSheet.show(
                                           context,
-                                          onAddBend: widget.onAddBend,
+                                          currentRotation: _currentRotation,
+                                          onAddBend: (val, angle, rot) {
+                                            if (_editingIndex != null) {
+                                              widget.onUpdateBend(
+                                                _editingIndex!,
+                                                val,
+                                                angle,
+                                                rot,
+                                              );
+                                              setState(() {
+                                                _editingIndex = null;
+                                                _tempController.clear();
+                                              });
+                                            } else {
+                                              widget.onAddBend(val, angle, rot);
+                                            }
+                                          },
                                         );
                                       }),
                                       const SizedBox(width: 6),
                                       _buildToolChip("새들", null, () {
                                         SaddleBottomSheet.show(
                                           context,
-                                          onAddBend: widget.onAddBend,
+                                          currentRotation: _currentRotation,
+                                          onAddBend: (val, angle, rot) {
+                                            if (_editingIndex != null) {
+                                              widget.onUpdateBend(
+                                                _editingIndex!,
+                                                val,
+                                                angle,
+                                                rot,
+                                              );
+                                              setState(() {
+                                                _editingIndex = null;
+                                                _tempController.clear();
+                                              });
+                                            } else {
+                                              widget.onAddBend(val, angle, rot);
+                                            }
+                                          },
                                         );
                                       }),
                                       const SizedBox(width: 6),
@@ -379,7 +379,27 @@ class _CalculatorPageState extends State<CalculatorPage>
                                         () {
                                           RollingOffsetBottomSheet.show(
                                             context,
-                                            onAddBend: widget.onAddBend,
+                                            currentRotation: _currentRotation,
+                                            onAddBend: (val, angle, rot) {
+                                              if (_editingIndex != null) {
+                                                widget.onUpdateBend(
+                                                  _editingIndex!,
+                                                  val,
+                                                  angle,
+                                                  rot,
+                                                );
+                                                setState(() {
+                                                  _editingIndex = null;
+                                                  _tempController.clear();
+                                                });
+                                              } else {
+                                                widget.onAddBend(
+                                                  val,
+                                                  angle,
+                                                  rot,
+                                                );
+                                              }
+                                            },
                                           );
                                         },
                                       ),
@@ -422,9 +442,8 @@ class _CalculatorPageState extends State<CalculatorPage>
                                       itemCount: widget.bendList.length,
                                       onReorder: (int oldIndex, int newIndex) {
                                         setState(() {
-                                          if (oldIndex < newIndex) {
+                                          if (oldIndex < newIndex)
                                             newIndex -= 1;
-                                          }
                                           _editingIndex = null;
                                           _tempController.clear();
                                         });
@@ -449,7 +468,9 @@ class _CalculatorPageState extends State<CalculatorPage>
                                             padding: const EdgeInsets.all(12),
                                             decoration: BoxDecoration(
                                               color: isEditing
-                                                  ? makitaTeal.withOpacity(0.08)
+                                                  ? makitaTeal.withValues(
+                                                      alpha: 0.08,
+                                                    )
                                                   : slate100,
                                               borderRadius:
                                                   BorderRadius.circular(6),
@@ -508,7 +529,6 @@ class _CalculatorPageState extends State<CalculatorPage>
                     ),
                     const SizedBox(height: 12),
 
-                    // 2. 입력 패널
                     Expanded(
                       flex: 6,
                       child: Container(
@@ -518,7 +538,7 @@ class _CalculatorPageState extends State<CalculatorPage>
                           border: Border.all(color: Colors.grey.shade300),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
+                              color: Colors.black.withValues(alpha: 0.03),
                               blurRadius: 4,
                             ),
                           ],
@@ -594,7 +614,6 @@ class _CalculatorPageState extends State<CalculatorPage>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 🔹 [왼쪽] 각도 패널
           Expanded(
             flex: 4,
             child: Container(
@@ -677,7 +696,6 @@ class _CalculatorPageState extends State<CalculatorPage>
           ),
           const SizedBox(width: 12),
 
-          // 🔹 [오른쪽] 6축 방향 패널
           Expanded(
             flex: 6,
             child: Column(
@@ -763,16 +781,86 @@ class _CalculatorPageState extends State<CalculatorPage>
                       Expanded(
                         child: Row(
                           children: [
+                            // 🚀 [핵심] "취소" 버튼을 "라인 삭제" 버튼으로 완벽하게 교체!
                             _GlowingActionBtn(
-                              icon: Icons.close,
-                              label: "취소",
-                              color: Colors.red.shade500,
+                              icon: Icons.delete_outline,
+                              label: "라인 삭제",
+                              color: Colors.red.shade600,
                               onTap: () {
-                                setState(() {
-                                  _editingIndex = null;
-                                  _tempController.clear();
-                                });
-                                FocusScope.of(context).unfocus();
+                                if (_editingIndex == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        "삭제할 라인을 위 리스트에서 먼저 선택해주세요.",
+                                      ),
+                                      backgroundColor: slate600,
+                                      duration: Duration(milliseconds: 1500),
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                // 🚀 삭제 전 경고 팝업 띄우기
+                                showDialog(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    title: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.warning_amber_rounded,
+                                          color: Colors.red.shade600,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const Text(
+                                          "라인 삭제",
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    content: Text(
+                                      "선택하신 #${_editingIndex! + 1} 구간을 목록에서 완전히 삭제하시겠습니까?",
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(ctx),
+                                        child: const Text(
+                                          "취소",
+                                          style: TextStyle(
+                                            color: slate600,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.red.shade600,
+                                        ),
+                                        onPressed: () {
+                                          widget.onDeleteBend(
+                                            _editingIndex!,
+                                          ); // 부모에게 삭제 요청!
+                                          setState(() {
+                                            _editingIndex = null;
+                                            _tempController.clear();
+                                          });
+                                          Navigator.pop(ctx);
+                                        },
+                                        child: const Text(
+                                          "삭제",
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
                               },
                             ),
                             const SizedBox(width: 8),
@@ -819,7 +907,7 @@ class _CalculatorPageState extends State<CalculatorPage>
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: makitaTeal.withOpacity(0.3),
+                      color: makitaTeal.withValues(alpha: 0.3),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
@@ -859,7 +947,7 @@ class _CalculatorPageState extends State<CalculatorPage>
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: makitaTeal.withOpacity(0.3),
+                      color: makitaTeal.withValues(alpha: 0.3),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
@@ -927,7 +1015,7 @@ class _GlowingActionBtnState extends State<_GlowingActionBtn> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 80),
           decoration: BoxDecoration(
-            color: _isPressed ? widget.color.withOpacity(0.1) : pureWhite,
+            color: _isPressed ? widget.color.withValues(alpha: 0.1) : pureWhite,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: widget.color,
@@ -936,7 +1024,7 @@ class _GlowingActionBtnState extends State<_GlowingActionBtn> {
             boxShadow: _isPressed
                 ? [
                     BoxShadow(
-                      color: widget.color.withOpacity(0.3),
+                      color: widget.color.withValues(alpha: 0.3),
                       blurRadius: 10,
                       spreadRadius: 1,
                       offset: const Offset(0, 2),

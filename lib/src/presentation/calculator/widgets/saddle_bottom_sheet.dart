@@ -1,27 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:math' as math;
-
-// 💡 새롭게 만든 반투명 글래스 패드를 임포트합니다.
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color panelBg = Color(0xFF2A2A2A);
 
 class SaddleBottomSheet extends StatefulWidget {
+  final double currentRotation;
   final Function(double length, double angle, double rotation) onAddBend;
 
-  const SaddleBottomSheet({super.key, required this.onAddBend});
+  const SaddleBottomSheet({
+    super.key,
+    required this.currentRotation,
+    required this.onAddBend,
+  });
 
   static void show(
     BuildContext context, {
+    required double currentRotation,
     required Function(double, double, double) onAddBend,
   }) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => SaddleBottomSheet(onAddBend: onAddBend),
+      builder: (context) => SaddleBottomSheet(
+        currentRotation: currentRotation,
+        onAddBend: onAddBend,
+      ),
     );
   }
 
@@ -32,13 +39,12 @@ class SaddleBottomSheet extends StatefulWidget {
 class _SaddleBottomSheetState extends State<SaddleBottomSheet>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
   final TextEditingController _heightCtrl = TextEditingController(text: "100");
   final TextEditingController _widthCtrl = TextEditingController(text: "200");
   final TextEditingController _angle3PtCtrl = TextEditingController(text: "45");
   final TextEditingController _angle4PtCtrl = TextEditingController(text: "30");
 
-  final double _baseDirection = 0.0;
+  bool _isInverted = false; // 🚀 방향 반전 스위치
 
   @override
   void initState() {
@@ -70,26 +76,18 @@ class _SaddleBottomSheetState extends State<SaddleBottomSheet>
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-
     double h = double.tryParse(_heightCtrl.text) ?? 0;
     double w = double.tryParse(_widthCtrl.text) ?? 0;
     double a3 = double.tryParse(_angle3PtCtrl.text) ?? 0;
     double a4 = double.tryParse(_angle4PtCtrl.text) ?? 0;
 
-    double travel3Pt = 0;
-    if (a3 > 0) {
-      travel3Pt = h / math.sin((a3 / 2) * math.pi / 180.0);
-    }
-
-    double travel4Pt = 0;
-    if (a4 > 0) {
-      travel4Pt = h / math.sin(a4 * math.pi / 180.0);
-    }
+    double travel3Pt = (a3 > 0) ? h / math.sin((a3 / 2) * math.pi / 180.0) : 0;
+    double travel4Pt = (a4 > 0) ? h / math.sin(a4 * math.pi / 180.0) : 0;
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: Container(
-        height: 520,
+        height: 560,
         padding: const EdgeInsets.all(24),
         decoration: const BoxDecoration(
           color: panelBg,
@@ -107,7 +105,7 @@ class _SaddleBottomSheetState extends State<SaddleBottomSheet>
                     Icon(LucideIcons.rainbow, color: makitaTeal, size: 28),
                     SizedBox(width: 12),
                     Text(
-                      "새들(Saddle) 계산기",
+                      "새들(Saddle)",
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -133,18 +131,17 @@ class _SaddleBottomSheetState extends State<SaddleBottomSheet>
               ],
             ),
             const SizedBox(height: 16),
-
             Expanded(
               child: TabBarView(
                 controller: _tabController,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  // 1번 탭 (3-Point 새들)
+                  // 3-Point
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        "높이 (H)",
+                        "장애물 높이/깊이 (H)",
                         style: TextStyle(color: Colors.white70, fontSize: 13),
                       ),
                       const SizedBox(height: 8),
@@ -155,7 +152,7 @@ class _SaddleBottomSheetState extends State<SaddleBottomSheet>
                       ),
                       const SizedBox(height: 20),
                       const Text(
-                        "각도 (∠)",
+                        "센터 각도 (∠)",
                         style: TextStyle(color: Colors.white70, fontSize: 13),
                       ),
                       const SizedBox(height: 8),
@@ -172,43 +169,38 @@ class _SaddleBottomSheetState extends State<SaddleBottomSheet>
                         ],
                       ),
                       const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [_buildInvertToggle()],
+                      ),
+                      const SizedBox(height: 8),
                       _buildResultBox(
                         title: "빗변 길이 (Travel)",
                         value: travel3Pt,
-                        btnText: "3-Point 추가",
+                        btnText: "추가",
                         onPressed: () {
                           if (travel3Pt > 0 && a3 > 0) {
                             double roundedTravel = double.parse(
                               travel3Pt.toStringAsFixed(1),
                             );
                             double sideAngle = a3 / 2;
+                            double r1 = _isInverted
+                                ? (widget.currentRotation + 180.0) % 360.0
+                                : widget.currentRotation;
+                            double r2 = _isInverted
+                                ? widget.currentRotation
+                                : (widget.currentRotation + 180.0) % 360.0;
 
-                            // 🔥 핵심 수정: 3-Point 벤딩 순서 및 각도 상쇄
-                            // 1. 제자리에서 첫 번째 사이드 꺾음 (위로 올라가기 시작)
-                            widget.onAddBend(0.0, sideAngle, _baseDirection);
-
-                            // 2. 빗변 전진 후 산꼭대기(센터)에서 반대 방향으로 크게 꺾음 (아래로 내려감)
-                            widget.onAddBend(
-                              roundedTravel,
-                              a3,
-                              (_baseDirection + 180.0) % 360.0,
-                            );
-
-                            // 3. 빗변 전진 후 원래 방향으로 다시 꺾어 바닥 평행 복귀
-                            widget.onAddBend(
-                              roundedTravel,
-                              sideAngle,
-                              _baseDirection,
-                            );
-
+                            widget.onAddBend(0.0, sideAngle, r1);
+                            widget.onAddBend(roundedTravel, a3, r2);
+                            widget.onAddBend(roundedTravel, sideAngle, r1);
                             Navigator.pop(context);
                           }
                         },
                       ),
                     ],
                   ),
-
-                  // 2번 탭 (4-Point 새들)
+                  // 4-Point
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -219,7 +211,7 @@ class _SaddleBottomSheetState extends State<SaddleBottomSheet>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
-                                  "장애물 높이 (H)",
+                                  "높이/깊이 (H)",
                                   style: TextStyle(
                                     color: Colors.white70,
                                     fontSize: 13,
@@ -236,7 +228,7 @@ class _SaddleBottomSheetState extends State<SaddleBottomSheet>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
-                                  "장애물 넓이 (W)",
+                                  "넓이 (W)",
                                   style: TextStyle(
                                     color: Colors.white70,
                                     fontSize: 13,
@@ -268,10 +260,15 @@ class _SaddleBottomSheetState extends State<SaddleBottomSheet>
                         ],
                       ),
                       const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [_buildInvertToggle()],
+                      ),
+                      const SizedBox(height: 8),
                       _buildResultBox(
                         title: "빗변 길이 (Travel)",
                         value: travel4Pt,
-                        btnText: "4-Point 추가",
+                        btnText: "추가",
                         onPressed: () {
                           if (travel4Pt > 0 && w > 0 && a4 > 0) {
                             double roundedTravel = double.parse(
@@ -280,28 +277,17 @@ class _SaddleBottomSheetState extends State<SaddleBottomSheet>
                             double roundedW = double.parse(
                               w.toStringAsFixed(1),
                             );
+                            double r1 = _isInverted
+                                ? (widget.currentRotation + 180.0) % 360.0
+                                : widget.currentRotation;
+                            double r2 = _isInverted
+                                ? widget.currentRotation
+                                : (widget.currentRotation + 180.0) % 360.0;
 
-                            // 🔥 핵심 수정: 4-Point 벤딩 순서 및 각도 상쇄
-                            // 1. 제자리에서 첫 번째 꺾음 (위로 올라가기 시작)
-                            widget.onAddBend(0.0, a4, _baseDirection);
-
-                            // 2. 빗변 전진 후 반대 방향으로 꺾어 평행하게 만듦 (장애물 위 올라탐)
-                            widget.onAddBend(
-                              roundedTravel,
-                              a4,
-                              (_baseDirection + 180.0) % 360.0,
-                            );
-
-                            // 3. 장애물 넓이(W) 전진 후 다시 반대로 꺾음 (아래로 내려가기 시작)
-                            widget.onAddBend(
-                              roundedW,
-                              a4,
-                              (_baseDirection + 180.0) % 360.0,
-                            );
-
-                            // 4. 빗변 전진 후 원래 방향으로 꺾어 바닥 평행 완전 복귀
-                            widget.onAddBend(roundedTravel, a4, _baseDirection);
-
+                            widget.onAddBend(0.0, a4, r1);
+                            widget.onAddBend(roundedTravel, a4, r2);
+                            widget.onAddBend(roundedW, a4, r2);
+                            widget.onAddBend(roundedTravel, a4, r1);
                             Navigator.pop(context);
                           }
                         },
@@ -317,17 +303,55 @@ class _SaddleBottomSheetState extends State<SaddleBottomSheet>
     );
   }
 
-  // 💡 [핵심] 글래스 패드 호출 적용 (+/- 버튼 포함된 필드)
+  Widget _buildInvertToggle() {
+    return InkWell(
+      onTap: () => setState(() => _isInverted = !_isInverted),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: _isInverted
+              ? Colors.redAccent.withOpacity(0.2)
+              : Colors.black45,
+          border: Border.all(
+            color: _isInverted ? Colors.redAccent : Colors.white24,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.swap_vert,
+              color: _isInverted ? Colors.redAccent : Colors.white54,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              _isInverted ? "반전 (아래로 파기)" : "정방향 (위로 넘기)",
+              style: TextStyle(
+                color: _isInverted ? Colors.white : Colors.white54,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // _buildInputRow, _buildAngleField, _buildQuickAngleBtn, _buildResultBox는 기존과 동일하게 유지하시면 됩니다. (분량 상 생략)
+  // --- 기존 코드의 아래 부분들(TextField 등)을 그대로 유지하세요 ---
   Widget _buildInputRow(TextEditingController ctrl, String hint) {
     return Row(
       children: [
         Expanded(
           child: TextField(
             controller: ctrl,
-            readOnly: true, // 시스템 키보드 차단
-            onTap: () {
-              MakitaNumpadGlass.show(context, controller: ctrl, title: hint);
-            },
+            readOnly: true,
+            onTap: () =>
+                MakitaNumpadGlass.show(context, controller: ctrl, title: hint),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
@@ -376,14 +400,12 @@ class _SaddleBottomSheetState extends State<SaddleBottomSheet>
     );
   }
 
-  // 💡 [핵심] 글래스 패드 호출 적용 (각도 입력 필드)
   Widget _buildAngleField(TextEditingController ctrl, String hint) {
     return TextField(
       controller: ctrl,
-      readOnly: true, // 시스템 키보드 차단
-      onTap: () {
-        MakitaNumpadGlass.show(context, controller: ctrl, title: hint);
-      },
+      readOnly: true,
+      onTap: () =>
+          MakitaNumpadGlass.show(context, controller: ctrl, title: hint),
       style: const TextStyle(
         color: Colors.white,
         fontSize: 18,

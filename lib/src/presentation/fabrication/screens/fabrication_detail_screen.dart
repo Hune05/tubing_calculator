@@ -4,6 +4,13 @@ import 'dart:math' as math;
 import 'package:tubing_calculator/src/core/database/database_helper.dart';
 import 'package:tubing_calculator/src/data/bend_data_manager.dart';
 
+// 🚀 [해결 1] 색상 변수들을 전역 상수(const)로 분리하여 invalid_constant 에러 완전 해결!
+const Color makitaTeal = Color(0xFF007580);
+const Color slate900 = Color(0xFF0F172A);
+const Color slate600 = Color(0xFF475569);
+const Color slate100 = Color(0xFFF1F5F9);
+const Color pureWhite = Color(0xFFFFFFFF);
+
 class FabricationDetailScreen extends StatefulWidget {
   final Map<String, dynamic> itemData;
   const FabricationDetailScreen({super.key, required this.itemData});
@@ -26,27 +33,58 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
 
   final TransformationController _viewController = TransformationController();
 
-  final Color makitaTeal = const Color(0xFF007580);
-  final Color slate900 = const Color(0xFF0F172A);
-  final Color slate600 = const Color(0xFF475569);
-  final Color slate100 = const Color(0xFFF1F5F9);
-  final Color pureWhite = const Color(0xFFFFFFFF);
+  final double _defaultRotX = math.pi / 6;
+  final double _defaultRotY = math.pi / 4;
+  late double _rotationX;
+  late double _rotationY;
+
+  final double _minRotX = 0.0;
+  final double _maxRotX = math.pi / 3;
+  final double _minRotY = -math.pi / 2;
+  final double _maxRotY = math.pi;
 
   @override
   void initState() {
     super.initState();
     currentData = Map<String, dynamic>.from(widget.itemData);
     fittingDepth = BendDataManager().fittingDepth;
+
+    _rotationX = _defaultRotX;
+    _rotationY = _defaultRotY;
+
     _parsePtoP();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final screenWidth = MediaQuery.of(context).size.width;
-      final screenHeight = MediaQuery.of(context).size.height;
-      final dx = 1000.0 - (screenWidth * 0.7 / 2);
-      final dy = 1000.0 - (screenHeight / 2) + 100;
-      _viewController.value = Matrix4.identity()
-        ..translate(-dx, -dy)
-        ..scale(1.0);
+      _centerView();
+    });
+  }
+
+  void _centerView() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final dx = 1000.0 - (screenWidth * 0.7 / 2);
+    final dy = 1000.0 - (screenHeight / 2) + 100;
+
+    // 🚀 [해결 2] deprecated_member_use 경고 해결 (translate, scale 대신 최신 API 사용)
+    _viewController.value = Matrix4.identity()
+      ..setTranslationRaw(-dx, -dy, 0.0);
+  }
+
+  void _resetView() {
+    setState(() {
+      _rotationX = _defaultRotX;
+      _rotationY = _defaultRotY;
+      _centerView();
+    });
+  }
+
+  void _onPanUpdate(DragUpdateDetails details) {
+    setState(() {
+      _rotationY -= details.delta.dx * 0.01;
+      _rotationX -= details.delta.dy * 0.01;
+
+      _rotationX = _rotationX.clamp(_minRotX, _maxRotX);
+      _rotationY = _rotationY.clamp(_minRotY, _maxRotY);
     });
   }
 
@@ -118,7 +156,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   "도면 정보 수정",
                   style: TextStyle(
                     color: slate900,
@@ -129,7 +167,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: projCtrl,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: "PROJECT",
                     filled: true,
                     fillColor: slate100,
@@ -142,7 +180,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                     Expanded(
                       child: TextField(
                         controller: fromCtrl,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           labelText: "FROM",
                           filled: true,
                           fillColor: slate100,
@@ -156,7 +194,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                     Expanded(
                       child: TextField(
                         controller: toCtrl,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           labelText: "TO",
                           filled: true,
                           fillColor: slate100,
@@ -197,7 +235,9 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                         currentData['pipe_size'] = selectedSize;
                         _parsePtoP();
                       });
-                      if (!mounted) return;
+
+                      // 🚀 [해결 3] use_build_context_synchronously 경고 해결
+                      if (!context.mounted) return;
                       Navigator.pop(context);
                     },
                     child: const Text(
@@ -255,7 +295,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // 상단 정보 패널
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
@@ -265,7 +304,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -278,7 +317,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           "LINE",
                           style: TextStyle(
                             color: slate600,
@@ -289,7 +328,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                         const SizedBox(height: 4),
                         Text(
                           "$from  ➔  $to",
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: slate900,
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
@@ -306,7 +345,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             "TUBE SIZE",
                             style: TextStyle(
                               color: slate600,
@@ -317,7 +356,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                           const SizedBox(height: 4),
                           Text(
                             "${currentData['pipe_size']}",
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: makitaTeal,
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -335,7 +374,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             "FITTING",
                             style: TextStyle(
                               color: slate600,
@@ -346,7 +385,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                           const SizedBox(height: 4),
                           Text(
                             _getFittingStatusText(),
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: slate900,
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -364,7 +403,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             "TOTAL CUT",
                             style: TextStyle(
                               color: slate600,
@@ -392,7 +431,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
             Expanded(
               child: Row(
                 children: [
-                  // 🎨 [왼쪽] 3D 형상도 (화가 녀석 수술 완료)
                   Expanded(
                     flex: 7,
                     child: Container(
@@ -403,44 +441,103 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                         border: Border.all(color: Colors.grey.shade300),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 4,
                           ),
                         ],
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: InteractiveViewer(
-                          transformationController: _viewController,
-                          boundaryMargin: const EdgeInsets.all(3000),
-                          minScale: 0.1,
-                          maxScale: 5.0,
-                          constrained: false,
-                          child: Container(
-                            width: 2000,
-                            height: 2000,
-                            color: pureWhite,
-                            child: CustomPaint(
-                              size: const Size(2000, 2000),
-                              painter: DetailedAutoFitIsoPainter(
-                                bendList: bendList,
-                                tail: tail,
-                                startFit: startFit,
-                                endFit: endFit,
-                                fittingDepth: fittingDepth,
-                                makitaTeal: makitaTeal,
-                                slate900: slate900,
-                                slate600: slate600,
-                                pureWhite: pureWhite,
+                        child: Stack(
+                          children: [
+                            GestureDetector(
+                              onPanUpdate: _onPanUpdate,
+                              child: InteractiveViewer(
+                                transformationController: _viewController,
+                                panEnabled: false,
+                                boundaryMargin: const EdgeInsets.all(3000),
+                                minScale: 0.1,
+                                maxScale: 5.0,
+                                constrained: false,
+                                child: Container(
+                                  width: 2000,
+                                  height: 2000,
+                                  color: pureWhite,
+                                  child: CustomPaint(
+                                    size: const Size(2000, 2000),
+                                    painter: DetailedAutoFitIsoPainter(
+                                      bendList: bendList,
+                                      tail: tail,
+                                      startFit: startFit,
+                                      endFit: endFit,
+                                      fittingDepth: fittingDepth,
+                                      rotationX: _rotationX,
+                                      rotationY: _rotationY,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
+                            Positioned(
+                              top: 16,
+                              left: 16,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: slate900.withValues(alpha: 0.7),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(
+                                      Icons.touch_app,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      "화면을 드래그하여 3D 회전",
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              bottom: 20,
+                              right: 20,
+                              child: FloatingActionButton.extended(
+                                heroTag: "reset_view_btn",
+                                backgroundColor: makitaTeal,
+                                elevation: 4,
+                                onPressed: _resetView,
+                                icon: const Icon(
+                                  Icons.home,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                label: const Text(
+                                  "원점",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
 
-                  // 📝 [오른쪽] 구간 및 마킹 리스트
                   Expanded(
                     flex: 3,
                     child: Container(
@@ -455,13 +552,13 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                         border: Border.all(color: Colors.grey.shade300),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 4,
                           ),
                         ],
                       ),
                       child: bendList.isEmpty
-                          ? Center(
+                          ? const Center(
                               child: Text(
                                 "NO DATA",
                                 style: TextStyle(color: slate600),
@@ -485,7 +582,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                                       ),
                                     ),
                                   ),
-                                  child: Row(
+                                  child: const Row(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                     children: [
@@ -555,7 +652,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                                                                 4,
                                                               ),
                                                           decoration:
-                                                              BoxDecoration(
+                                                              const BoxDecoration(
                                                                 color:
                                                                     makitaTeal,
                                                                 shape: BoxShape
@@ -563,13 +660,15 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                                                               ),
                                                           child: Text(
                                                             "${index + 1}",
-                                                            style: TextStyle(
-                                                              color: pureWhite,
-                                                              fontSize: 10,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                            ),
+                                                            style:
+                                                                const TextStyle(
+                                                                  color:
+                                                                      pureWhite,
+                                                                  fontSize: 10,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                ),
                                                           ),
                                                         ),
                                                         const SizedBox(
@@ -577,12 +676,14 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                                                         ),
                                                         Text(
                                                           "MK-${(index + 1).toString().padLeft(2, '0')}",
-                                                          style: TextStyle(
-                                                            color: slate900,
-                                                            fontSize: 15,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
+                                                          style:
+                                                              const TextStyle(
+                                                                color: slate900,
+                                                                fontSize: 15,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                              ),
                                                         ),
                                                       ],
                                                     ),
@@ -591,22 +692,26 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                                                       children: [
                                                         Text(
                                                           "L: $displayLength mm",
-                                                          style: TextStyle(
-                                                            color: slate600,
-                                                            fontSize: 12,
-                                                          ),
+                                                          style:
+                                                              const TextStyle(
+                                                                color: slate600,
+                                                                fontSize: 12,
+                                                              ),
                                                         ),
                                                         const SizedBox(
                                                           width: 8,
                                                         ),
                                                         Text(
                                                           "${_getDirectionTextShort(rotation)} $angle°",
-                                                          style: TextStyle(
-                                                            color: makitaTeal,
-                                                            fontSize: 12,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
+                                                          style:
+                                                              const TextStyle(
+                                                                color:
+                                                                    makitaTeal,
+                                                                fontSize: 12,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                              ),
                                                         ),
                                                       ],
                                                     ),
@@ -615,7 +720,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                                               ),
                                               Text(
                                                 "$displayMarking",
-                                                style: TextStyle(
+                                                style: const TextStyle(
                                                   color: slate900,
                                                   fontSize: 24,
                                                   fontFamily: 'monospace',
@@ -626,7 +731,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                                           ),
                                         );
                                       } else {
-                                        // 🚀 UI 수정: 기장이 0이라도 마지막 각도가 살아있으면 방향 표기!
                                         int displayTail = tail.round();
                                         String extraInfo = "";
                                         if (displayTail == 0 &&
@@ -646,7 +750,9 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                                         return Container(
                                           padding: const EdgeInsets.all(16),
                                           decoration: BoxDecoration(
-                                            color: makitaTeal.withOpacity(0.05),
+                                            color: makitaTeal.withValues(
+                                              alpha: 0.05,
+                                            ),
                                           ),
                                           child: Row(
                                             crossAxisAlignment:
@@ -672,7 +778,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                                                                 shape: BoxShape
                                                                     .circle,
                                                               ),
-                                                          child: Text(
+                                                          child: const Text(
                                                             "E",
                                                             style: TextStyle(
                                                               color: pureWhite,
@@ -686,7 +792,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                                                         const SizedBox(
                                                           width: 6,
                                                         ),
-                                                        Text(
+                                                        const Text(
                                                           "TAIL (END)",
                                                           style: TextStyle(
                                                             color: slate900,
@@ -743,7 +849,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
 }
 
 /// ============================================================================
-// 🔥 3D 물리엔진 최종 진화: 3D 공간 롤링(회전각) 완벽 계산 탑재
+// 🔥 3D 물리엔진 최종 진화: 3D 공간 롤링 + 제스처 회전 완벽 호환!
 // ============================================================================
 class DetailedAutoFitIsoPainter extends CustomPainter {
   final List<dynamic> bendList;
@@ -751,25 +857,23 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
   final bool startFit;
   final bool endFit;
   final double fittingDepth;
-  final Color makitaTeal;
-  final Color slate900;
-  final Color slate600;
-  final Color pureWhite;
+  final double rotationX;
+  final double rotationY;
 
+  // 💡 색상 변수들은 전역 const를 사용하므로 더 이상 생성자에서 받지 않습니다.
   DetailedAutoFitIsoPainter({
     required this.bendList,
     required this.tail,
     required this.startFit,
     required this.endFit,
     required this.fittingDepth,
-    required this.makitaTeal,
-    required this.slate900,
-    required this.slate600,
-    required this.pureWhite,
+    required this.rotationX,
+    required this.rotationY,
   });
 
   double _dotProduct(List<double> v1, List<double> v2) =>
       v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
+
   List<double> _normalize(List<double> v) {
     double mag = math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
     if (mag == 0) return [0, 0, 0];
@@ -783,14 +887,29 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
     return [math.sin(rad), -math.cos(rad), 0.0];
   }
 
-  Offset _projectTo2D(List<double> p) {
-    const double isoAngle = math.pi / 6;
-    double screenX = (p[0] - p[2]) * math.cos(isoAngle);
-    double screenY = (p[0] + p[2]) * math.sin(isoAngle) + p[1];
-    return Offset(screenX, screenY);
+  List<double> _rotate3D(List<double> point, double rx, double ry) {
+    double x = point[0];
+    double y = point[1];
+    double z = point[2];
+
+    double tempX = x * math.cos(ry) + z * math.sin(ry);
+    double tempZ = -x * math.sin(ry) + z * math.cos(ry);
+    x = tempX;
+    z = tempZ;
+
+    double tempY = y * math.cos(rx) - z * math.sin(rx);
+    tempZ = y * math.sin(rx) + z * math.cos(rx);
+    y = tempY;
+    z = tempZ;
+
+    return [x, y, z];
   }
 
-  // 방향 텍스트 헬퍼
+  Offset _projectTo2D(List<double> p) {
+    List<double> rotP = _rotate3D(p, rotationX, rotationY);
+    return Offset(rotP[0], rotP[1]);
+  }
+
   String _getDirName(double rot) {
     if (rot == 0.0) return "UP";
     if (rot == 90.0) return "RIGHT";
@@ -801,33 +920,47 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
     return "${rot.toInt()}°";
   }
 
-  // 🚀 벤더 작업자용 롤링 지시 계산기 (핵심 수술 부위)
   String _getRollingText(double prevRot, double currRot) {
-    if (prevRot == currRot) return ""; // 방향 같으면 회전 없음
+    if (prevRot == currRot) return "";
 
-    // 1. 3D 벡터를 이용해 정확한 회전 각도(이면각) 추출
     List<double> v1 = _getTargetVector(prevRot);
     List<double> v2 = _getTargetVector(currRot);
 
     double dot = _dotProduct(v1, v2);
-    if (dot > 1.0) dot = 1.0;
-    if (dot < -1.0) dot = -1.0;
-    int angleDeg = (math.acos(dot) * 180 / math.pi).round(); // 두 평면 사이의 절대 각도
+    // 🚀 [해결 4] 단일 라인 if문에 중괄호 {} 추가
+    if (dot > 1.0) {
+      dot = 1.0;
+    }
+    if (dot < -1.0) {
+      dot = -1.0;
+    }
+    int angleDeg = (math.acos(dot) * 180 / math.pi).round();
 
-    if (angleDeg == 0) return "";
-    if (angleDeg == 180) return "↻ 180° 파이프 반전 (뒤집기)";
-
-    // 2. 평면 내부(UP, DOWN, LEFT, RIGHT) 회전은 시계/반시계로 명확하게!
-    if (prevRot < 360 && currRot < 360) {
-      double diff = currRot - prevRot;
-      while (diff > 180) diff -= 360;
-      while (diff <= -180) diff += 360;
-      if (diff > 0) return "↻ 시계 ${diff.toInt()}° 롤링";
-      if (diff < 0) return "↺ 반시계 ${diff.abs().toInt()}° 롤링";
+    if (angleDeg == 0) {
+      return "";
+    }
+    if (angleDeg == 180) {
+      return "↻ 180° 파이프 반전 (뒤집기)";
     }
 
-    // 3. FRONT, BACK 등 입체(Z축)로 틀어질 때는 각도와 목표 방향을 함께 제시
-    return "⟳ ${angleDeg}° 롤링 ➔ ${_getDirName(currRot)}";
+    if (prevRot < 360 && currRot < 360) {
+      double diff = currRot - prevRot;
+      while (diff > 180) {
+        diff -= 360;
+      }
+      while (diff <= -180) {
+        diff += 360;
+      }
+      if (diff > 0) {
+        return "↻ 시계 ${diff.toInt()}° 롤링";
+      }
+      if (diff < 0) {
+        return "↺ 반시계 ${diff.abs().toInt()}° 롤링";
+      }
+    }
+
+    // 🚀 [해결 5] 불필요한 보간 괄호 제거
+    return "⟳ $angleDeg° 롤링 ➔ ${_getDirName(currRot)}";
   }
 
   void _drawDashedLine(Canvas canvas, Offset p1, Offset p2, Color color) {
@@ -842,7 +975,9 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
     while (i < distance) {
       path.moveTo(p1.dx + dx * i, p1.dy + dy * i);
       i += dashWidth;
-      if (i > distance) i = distance;
+      if (i > distance) {
+        i = distance;
+      }
       path.lineTo(p1.dx + dx * i, p1.dy + dy * i);
       i += dashSpace;
     }
@@ -925,11 +1060,20 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
         maxX = -double.infinity,
         minY = double.infinity,
         maxY = -double.infinity;
+
     void updateBounds(Offset p) {
-      if (p.dx < minX) minX = p.dx;
-      if (p.dx > maxX) maxX = p.dx;
-      if (p.dy < minY) minY = p.dy;
-      if (p.dy > maxY) maxY = p.dy;
+      if (p.dx < minX) {
+        minX = p.dx;
+      }
+      if (p.dx > maxX) {
+        maxX = p.dx;
+      }
+      if (p.dy < minY) {
+        minY = p.dy;
+      }
+      if (p.dy > maxY) {
+        maxY = p.dy;
+      }
     }
 
     Offset? startFit2D = startFit3D != null ? _projectTo2D(startFit3D) : null;
@@ -938,19 +1082,35 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
     Offset? endFit2D = endFit3D != null ? _projectTo2D(endFit3D) : null;
     Offset? phantom2D = phantom3D != null ? _projectTo2D(phantom3D) : null;
 
-    if (startFit2D != null) updateBounds(startFit2D);
-    for (var p in pts2D) updateBounds(p);
-    if (tail2D != null) updateBounds(tail2D);
-    if (endFit2D != null) updateBounds(endFit2D);
-    if (phantom2D != null) updateBounds(phantom2D);
+    if (startFit2D != null) {
+      updateBounds(startFit2D);
+    }
+    for (var p in pts2D) {
+      updateBounds(p);
+    }
+    if (tail2D != null) {
+      updateBounds(tail2D);
+    }
+    if (endFit2D != null) {
+      updateBounds(endFit2D);
+    }
+    if (phantom2D != null) {
+      updateBounds(phantom2D);
+    }
 
     double bWidth = maxX - minX, bHeight = maxY - minY;
-    if (bWidth == 0) bWidth = 100;
-    if (bHeight == 0) bHeight = 100;
+    if (bWidth == 0) {
+      bWidth = 100;
+    }
+    if (bHeight == 0) {
+      bHeight = 100;
+    }
+
     double drawScale = math
         .min(size.width * 0.7 / bWidth, size.width * 0.7 / bHeight)
         .clamp(0.1, 5.0);
     double centerX = minX + (bWidth / 2), centerY = minY + (bHeight / 2);
+
     Offset transform(Offset p) => Offset(
       (p.dx - centerX) * drawScale + size.width / 2,
       (p.dy - centerY) * drawScale + size.height / 2,
@@ -968,16 +1128,14 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
     final fittingPaint = Paint()
-      ..color = makitaTeal.withOpacity(0.6)
+      ..color = makitaTeal.withValues(alpha: 0.6)
       ..strokeWidth = 14.0
       ..strokeCap = StrokeCap.square
       ..style = PaintingStyle.stroke;
 
-    // ==========================================
-    // LAYER 1: 선 먼저 그리기
-    // ==========================================
-    if (startFit && finalStartFit2D != null)
+    if (startFit && finalStartFit2D != null) {
       canvas.drawLine(finalStartFit2D, finalPts2D[0], fittingPaint);
+    }
 
     for (int i = 0; i < bendList.length; i++) {
       double l = (bendList[i]['length'] ?? 0).toDouble();
@@ -1020,7 +1178,7 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
         canvas,
         lastPt,
         finalPhantom2D,
-        makitaTeal.withOpacity(0.5),
+        makitaTeal.withValues(alpha: 0.5),
       );
       _drawDirectionArrow(
         canvas,
@@ -1033,12 +1191,10 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
       );
     }
 
-    if (endFit && finalEndFit2D != null)
+    if (endFit && finalEndFit2D != null) {
       canvas.drawLine(lastPt, finalEndFit2D, fittingPaint);
+    }
 
-    // ==========================================
-    // LAYER 2: 길이, 마커, 롤링 텍스트 그리기 (선 위로 올라옴)
-    // ==========================================
     for (int i = 0; i < bendList.length; i++) {
       double l = (bendList[i]['length'] ?? 0).toDouble();
       if (l > 0) {
@@ -1052,7 +1208,9 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
           (finalPts2D[i].dy + finalPts2D[i + 1].dy) / 2,
         );
         Offset normal = Offset(-dir2D.dy, dir2D.dx);
-        if (normal.dy > 0) normal = Offset(-normal.dx, -normal.dy);
+        if (normal.dy > 0) {
+          normal = Offset(-normal.dx, -normal.dy);
+        }
         _drawSimpleLength(
           canvas,
           "${l.toInt()}",
@@ -1061,6 +1219,7 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
         );
       }
     }
+
     if (tail > 0 && finalTail2D != null) {
       Offset delta = finalTail2D - finalPts2D.last;
       Offset dir2D = Offset(
@@ -1072,7 +1231,9 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
         (finalPts2D.last.dy + finalTail2D.dy) / 2,
       );
       Offset normal = Offset(-dir2D.dy, dir2D.dx);
-      if (normal.dy > 0) normal = Offset(-normal.dx, -normal.dy);
+      if (normal.dy > 0) {
+        normal = Offset(-normal.dx, -normal.dy);
+      }
       _drawSimpleLength(
         canvas,
         "${tail.toInt()}",
@@ -1081,16 +1242,16 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
       );
     }
 
-    if (startFit && finalStartFit2D != null)
+    if (startFit && finalStartFit2D != null) {
       _drawNodeBadge(canvas, "S", finalStartFit2D, slate900, pureWhite);
-    else
+    } else {
       _drawNodeBadge(canvas, "S", finalPts2D[0], slate900, pureWhite);
+    }
 
     for (int i = 0; i < bendList.length; i++) {
       Offset nodePos = finalPts2D[i + 1];
       _drawNodeBadge(canvas, "${i + 1}", nodePos, makitaTeal, pureWhite);
 
-      // 💡 여기서 FRONT, BACK 롤링 계산 결과가 표시됩니다!
       if (i == 0) {
         _drawRollingBadge(
           canvas,
@@ -1113,7 +1274,7 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
       }
     }
 
-    if (endFit && finalEndFit2D != null)
+    if (endFit && finalEndFit2D != null) {
       _drawNodeBadge(
         canvas,
         "E",
@@ -1121,8 +1282,9 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
         Colors.red.shade700,
         pureWhite,
       );
-    else
+    } else {
       _drawNodeBadge(canvas, "E", lastPt, Colors.red.shade700, pureWhite);
+    }
   }
 
   void _drawDirectionArrow(
@@ -1184,7 +1346,7 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
           fontSize: 15,
           fontFamily: 'monospace',
           fontWeight: FontWeight.bold,
-          backgroundColor: pureWhite.withOpacity(0.8),
+          backgroundColor: pureWhite.withValues(alpha: 0.8),
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -1236,7 +1398,7 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
           color: textColor,
           fontSize: 13,
           fontWeight: FontWeight.w900,
-          backgroundColor: pureWhite.withOpacity(0.9),
+          backgroundColor: pureWhite.withValues(alpha: 0.9),
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -1246,5 +1408,8 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant DetailedAutoFitIsoPainter oldDelegate) {
+    return oldDelegate.rotationX != rotationX ||
+        oldDelegate.rotationY != rotationY;
+  }
 }

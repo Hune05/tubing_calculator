@@ -21,11 +21,25 @@ class _MainCalculatorScreenState extends State<MainCalculatorScreen> {
   final BendDataManager _dataManager = BendDataManager();
   late PageController _pageController;
   bool _isLoading = true;
+  int _currentIndex = 0; // 🚀 현재 페이지 인덱스를 추적하는 변수 추가!
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
+
+    // 🚀 스와이프할 때마다 현재 페이지 번호를 감지하여 앱바 타이틀을 바꾸기 위한 리스너
+    _pageController.addListener(() {
+      if (_pageController.hasClients) {
+        int next = _pageController.page?.round() ?? 0;
+        if (_currentIndex != next) {
+          setState(() {
+            _currentIndex = next;
+          });
+        }
+      }
+    });
+
     _initSettings();
   }
 
@@ -57,9 +71,10 @@ class _MainCalculatorScreenState extends State<MainCalculatorScreen> {
       backgroundColor: const Color(0xFF1E1E1E),
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
-        title: const Text(
-          "BENDING WORKSPACE",
-          style: TextStyle(
+        // 🚀 현재 페이지가 0이면 계산기, 1이면 마킹 가이드로 타이틀 자동 변경!
+        title: Text(
+          _currentIndex == 0 ? "BENDING WORKSPACE" : "MARKING GUIDE",
+          style: const TextStyle(
             fontWeight: FontWeight.w900,
             fontSize: 16,
             letterSpacing: 1.0,
@@ -82,16 +97,18 @@ class _MainCalculatorScreenState extends State<MainCalculatorScreen> {
                   setState(() => _dataManager.addBend(l, a, r)),
               onUpdateBend: (i, l, a, r) =>
                   setState(() => _dataManager.updateBend(i, l, a, r)),
+
+              // 🚀 [추가된 부분] 라인 삭제 배관 연결!
+              onDeleteBend: (index) => setState(() {
+                _dataManager.bendList.removeAt(index);
+              }),
+
               onClear: () => setState(() => _dataManager.clearBends()),
-              // 🔥 에러 해결: 부모 위젯에서 순서 변경 로직 주입!
               onReorderBend: (oldIndex, newIndex) {
                 setState(() {
-                  // 기존 항목을 빼서 새 위치에 끼워 넣음
                   final item = _dataManager.bendList.removeAt(oldIndex);
                   _dataManager.bendList.insert(newIndex, item);
                 });
-                // (선택) 만약 BendDataManager에 저장 기능이 있다면 여기서 호출해서 바뀐 순서를 저장해 주세요.
-                // _dataManager.saveSettings();
               },
             ),
             MarkingPage(pageController: _pageController),

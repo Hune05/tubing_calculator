@@ -26,7 +26,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _currentOD = "";
 
-  String _measurementMode = "C-to-C";
+  // 🚀 측정 기준은 이제 C-to-C로 영구 고정됩니다.
+  final String _measurementMode = "C-to-C";
   String _defaultRotation = "CW (시계방향)";
   String _fittingType = "Twin Ferrule";
   String _benderMark = "0 (기본/다양한 각도)";
@@ -69,7 +70,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _saveHistory = data['saveHistory'] ?? true;
       _tubeMaterial = data['tubeMaterial'] ?? "SUS";
       _benderBrand = data['benderBrand'] ?? "Swagelok";
-      _measurementMode = data['measurementMode'] ?? "C-to-C";
+
+      // 🚀 로드할 때도 강제로 C-to-C를 유지합니다.
+      // _measurementMode = data['measurementMode'] ?? "C-to-C";
       _defaultRotation = data['defaultRotation'] ?? "CW (시계방향)";
       _fittingType = data['fittingType'] ?? "Twin Ferrule";
       _benderMark = data['benderMark'] ?? "0 (기본/다양한 각도)";
@@ -124,7 +127,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       saveHistory: _saveHistory,
       tubeMaterial: _tubeMaterial,
       benderBrand: _benderBrand,
-      measurementMode: _measurementMode,
+      measurementMode: _measurementMode, // 항상 C-to-C 저장
       defaultRotation: _defaultRotation,
       fittingType: _fittingType,
       benderMark: _benderMark,
@@ -247,6 +250,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // 🚀 [추가] 선택 불가한 "측정 기준 락(Lock)" UI
+  Widget _buildLockedMeasurementMode() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "측정 기준 (Fixed Mode)",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.lock_outline, size: 16, color: makitaTeal),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "C-to-C (Center Line) 고정",
+                      style: TextStyle(
+                        color: toolGripBlack,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "가상 센터라인 기준",
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.blueGrey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          "※ 모든 계산은 중심선 기준입니다.\n끝단 측정 시 우측 보정표(OD/2) 참조",
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.redAccent,
+            fontWeight: FontWeight.bold,
+            height: 1.4,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildNumpadInput(
     String label,
     TextEditingController controller, {
@@ -274,7 +343,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // 🚀 [완전 개편] 현장 실무 가이드 (외경 기준 연신율 도표 추가)
+  // 🚀 [완전 개편] 현장 실무 가이드 (연신율 도표 + OD/2 보정 참조표 병합)
   Widget _buildFieldGuideTip() {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -295,7 +364,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Icon(Icons.construction, color: makitaTeal, size: 22),
               SizedBox(width: 8),
               Text(
-                "현장 실무 수동 입력 가이드 (Swagelok 기준)",
+                "현장 실무 수동 입력 가이드 (Swagelok)",
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
                   fontSize: 15,
@@ -316,7 +385,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          // 🚀 외경(OD) 기준 연신율 실측 도표
+          // 기존 연신율 실측 도표
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -349,7 +418,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Padding(
                       padding: EdgeInsets.all(8.0),
                       child: Text(
-                        "연신율 (Gain) 외경 기준",
+                        "연신율 (Gain)",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
@@ -368,13 +437,123 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           ),
+
+          const Divider(height: 32, color: Colors.black12),
+
+          // 🚀 [추가됨] 측정 기준 안내 및 보정표 (OD/2)
+          const Row(
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.redAccent,
+                size: 22,
+              ),
+              SizedBox(width: 8),
+              Text(
+                "측정 기준 안내 및 보정표",
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 15,
+                  color: Colors.redAccent,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            "본 계산기는 C-to-C(가상 센터라인) 전용입니다.\n"
+            "도면이 끝단(Face) 또는 바깥쪽(Back) 기준이라면, 아래의 보정 참조표(OD/2)를 보고 치수를 직접 가감하여 입력하십시오.\n"
+            "※ 잘못된 기준 적용으로 인한 오차는 전적으로 작업자의 책임입니다.",
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.5,
+              color: Colors.blueGrey[800],
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Table(
+              columnWidths: const {
+                0: FlexColumnWidth(1),
+                1: FlexColumnWidth(1.2),
+              },
+              border: TableBorder.symmetric(
+                inside: BorderSide(color: Colors.grey.shade200),
+              ),
+              children: [
+                TableRow(
+                  decoration: BoxDecoration(color: Colors.grey.shade50),
+                  children: const [
+                    Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Text(
+                        "규격 (OD)",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Text(
+                        "측정 보정값 (OD/2)",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          color: Colors.redAccent,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                _buildTableRow(
+                  "1/4\" (6.35mm)",
+                  "3.17 mm",
+                  color: Colors.redAccent,
+                ),
+                _buildTableRow(
+                  "3/8\" (9.52mm)",
+                  "4.76 mm",
+                  color: Colors.redAccent,
+                ),
+                _buildTableRow(
+                  "1/2\" (12.7mm)",
+                  "6.35 mm",
+                  color: Colors.redAccent,
+                ),
+                _buildTableRow(
+                  "3/4\" (19.05mm)",
+                  "9.52 mm",
+                  color: Colors.redAccent,
+                ),
+                _buildTableRow(
+                  "1\" (25.4mm)",
+                  "12.7 mm",
+                  color: Colors.redAccent,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  // 테이블 내부 Row 생성 헬퍼
-  TableRow _buildTableRow(String od, String gain) {
+  // 테이블 내부 Row 생성 헬퍼 (color 파라미터 추가)
+  TableRow _buildTableRow(
+    String od,
+    String valText, {
+    Color color = makitaTeal,
+  }) {
     return TableRow(
       children: [
         Padding(
@@ -392,11 +571,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 8.0),
           child: Text(
-            gain,
+            valText,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: Colors.redAccent,
+              color: color,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -464,14 +643,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           children: [
             TwoColumnRow(
-              left: _buildDropdownWithHelper(
-                label: "측정 기준",
-                value: _measurementMode,
-                items: const ["C-to-C", "F-to-C", "B-to-B"],
-                onChanged: (val) => setState(() => _measurementMode = val!),
-                helperText:
-                    "• C-to-C : 중심~중심\n• F-to-C : 끝단~중심\n• B-to-B : 바깥쪽 전체",
-              ),
+              // 🚀 [수정됨] 드롭다운 제거 후 Locked UI 배치
+              left: _buildLockedMeasurementMode(),
               right: _buildDropdownWithHelper(
                 label: "마커 정렬 (Marking)",
                 value: _benderMark,
@@ -504,7 +677,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   List<Widget> _buildRightGroup() {
     return [
-      // 🚀 우측 영역 최상단에 현장 실무 가이드 (연신율 도표) 배치
+      // 🚀 우측 영역 최상단에 현장 실무 가이드 (연신율 + OD/2 참조표) 배치
       _buildFieldGuideTip(),
 
       SettingSection(
