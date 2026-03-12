@@ -24,9 +24,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _tubeMaterial = "SUS";
   String _benderBrand = "Swagelok";
 
+  // 🚀 [추가됨] 벤더 타입 (수동/전동) 상태 변수
+  String _benderType = "수동 (Hand)";
+
   String _currentOD = "";
 
-  // 🚀 측정 기준은 이제 C-to-C로 영구 고정됩니다.
+  // 측정 기준은 C-to-C로 영구 고정
   final String _measurementMode = "C-to-C";
   String _defaultRotation = "CW (시계방향)";
   String _fittingType = "Twin Ferrule";
@@ -71,8 +74,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _tubeMaterial = data['tubeMaterial'] ?? "SUS";
       _benderBrand = data['benderBrand'] ?? "Swagelok";
 
-      // 🚀 로드할 때도 강제로 C-to-C를 유지합니다.
-      // _measurementMode = data['measurementMode'] ?? "C-to-C";
+      // 🚀 로컬 저장소에서 벤더 타입 불러오기 (기본값 수동)
+      _benderType = data['benderType'] ?? "수동 (Hand)";
+
       _defaultRotation = data['defaultRotation'] ?? "CW (시계방향)";
       _fittingType = data['fittingType'] ?? "Twin Ferrule";
       _benderMark = data['benderMark'] ?? "0 (기본/다양한 각도)";
@@ -95,24 +99,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _markThicknessController.text = (data['markThickness'] ?? 0.0).toString();
       _offsetShrinkController.text = (data['offsetShrink'] ?? 0.0).toString();
 
-      if (_autoStates['radius'] == false) {
+      if (_autoStates['radius'] == false)
         _rController.text = (data['bendRadius'] ?? 0.0).toString();
-      }
-      if (_autoStates['takeUp'] == false) {
+      if (_autoStates['takeUp'] == false)
         _takeUpController.text = (data['takeUp'] ?? 0.0).toString();
-      }
-      if (_autoStates['gain'] == false) {
+      if (_autoStates['gain'] == false)
         _gainController.text = (data['gain'] ?? 0.0).toString();
-      }
-      if (_autoStates['minStraight'] == false) {
+      if (_autoStates['minStraight'] == false)
         _minStraightController.text = (data['minStraight'] ?? 0.0).toString();
-      }
-      if (_autoStates['offset'] == false) {
+      if (_autoStates['offset'] == false)
         _benderOffsetController.text = (data['benderOffset'] ?? 0.0).toString();
-      }
-      if (_autoStates['fittingDepth'] == false) {
+      if (_autoStates['fittingDepth'] == false)
         _fittingDepthController.text = (data['fittingDepth'] ?? 0.0).toString();
-      }
     });
 
     _onSpecsChanged(isInitialLoad: true);
@@ -127,7 +125,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       saveHistory: _saveHistory,
       tubeMaterial: _tubeMaterial,
       benderBrand: _benderBrand,
-      measurementMode: _measurementMode, // 항상 C-to-C 저장
+      // 🚀 저장소에 벤더 타입 값도 같이 저장할 수 있도록 준비
+      // benderType: _benderType,
+      measurementMode: _measurementMode,
       defaultRotation: _defaultRotation,
       fittingType: _fittingType,
       benderMark: _benderMark,
@@ -171,21 +171,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     setState(() {
       if (specs != null) {
-        if (_autoStates['radius'] == true) {
+        if (_autoStates['radius'] == true)
           _rController.text = specs.bendRadius.toString();
-        }
-        if (_autoStates['takeUp'] == true) {
+        if (_autoStates['takeUp'] == true)
           _takeUpController.text = specs.takeUp.toString();
-        }
-        if (_autoStates['gain'] == true) {
+        if (_autoStates['gain'] == true)
           _gainController.text = specs.gain.toString();
-        }
-        if (_autoStates['minStraight'] == true) {
+        if (_autoStates['minStraight'] == true)
           _minStraightController.text = specs.minStraight.toString();
-        }
-        if (_autoStates['offset'] == true) {
+        if (_autoStates['offset'] == true)
           _benderOffsetController.text = specs.benderOffset.toString();
-        }
       }
 
       if (_autoStates['fittingDepth'] == true) {
@@ -250,7 +245,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // 🚀 [추가] 선택 불가한 "측정 기준 락(Lock)" UI
   Widget _buildLockedMeasurementMode() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -329,9 +323,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       isAutoMode: key != null ? _autoStates[key] : null,
       onModeChanged: key != null
           ? (isAuto) {
-              setState(() {
-                _autoStates[key] = isAuto;
-              });
+              setState(() => _autoStates[key] = isAuto);
               if (isAuto) _onSpecsChanged();
             }
           : null,
@@ -343,7 +335,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // 🚀 [완전 개편] 현장 실무 가이드 (연신율 도표 + OD/2 보정 참조표 병합)
   Widget _buildFieldGuideTip() {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -375,8 +366,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            "• 적용 규격: [Inch] 1/4\" ~ 1\"  /  [mm] 8mm ~ 25mm\n"
-            "• 테이크업 (Take-Up): 센터라인 기준이 아닌, 튜브 두께(WT)를 적용하여 보정하세요.",
+            "• 적용 규격: [Inch] 1/4\" ~ 1\"  /  [mm] 8mm ~ 25mm\n• 테이크업 (Take-Up): 센터라인 기준이 아닌, 튜브 두께(WT)를 적용하여 보정하세요.",
             style: TextStyle(
               fontSize: 12,
               height: 1.5,
@@ -385,7 +375,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          // 기존 연신율 실측 도표
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -437,10 +426,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           ),
-
           const Divider(height: 32, color: Colors.black12),
-
-          // 🚀 [추가됨] 측정 기준 안내 및 보정표 (OD/2)
           const Row(
             children: [
               Icon(
@@ -461,9 +447,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            "본 계산기는 C-to-C(가상 센터라인) 전용입니다.\n"
-            "도면이 끝단(Face) 또는 바깥쪽(Back) 기준이라면, 아래의 보정 참조표(OD/2)를 보고 치수를 직접 가감하여 입력하십시오.\n"
-            "※ 잘못된 기준 적용으로 인한 오차는 전적으로 작업자의 책임입니다.",
+            "본 계산기는 C-to-C(가상 센터라인) 전용입니다.\n도면이 끝단(Face) 또는 바깥쪽(Back) 기준이라면, 아래의 보정 참조표(OD/2)를 보고 치수를 직접 가감하여 입력하십시오.\n※ 잘못된 기준 적용으로 인한 오차는 전적으로 작업자의 책임입니다.",
             style: TextStyle(
               fontSize: 12,
               height: 1.5,
@@ -548,7 +532,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // 테이블 내부 Row 생성 헬퍼 (color 파라미터 추가)
   TableRow _buildTableRow(
     String od,
     String valText, {
@@ -599,9 +582,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 value: _currentOD,
                 items: _odList,
                 onChanged: (val) {
-                  setState(() {
-                    _currentOD = val!;
-                  });
+                  setState(() => _currentOD = val!);
                   _onSpecsChanged();
                 },
                 displayMapper: (item) =>
@@ -643,7 +624,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           children: [
             TwoColumnRow(
-              // 🚀 [수정됨] 드롭다운 제거 후 Locked UI 배치
               left: _buildLockedMeasurementMode(),
               right: _buildDropdownWithHelper(
                 label: "마커 정렬 (Marking)",
@@ -677,30 +657,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   List<Widget> _buildRightGroup() {
     return [
-      // 🚀 우측 영역 최상단에 현장 실무 가이드 (연신율 + OD/2 참조표) 배치
       _buildFieldGuideTip(),
-
       SettingSection(
         title: "3. 벤더 장비 제원",
         icon: Icons.build,
         child: Column(
           children: [
-            _buildDropdownWithHelper(
-              label: "벤더 브랜드",
-              value: _benderBrand,
-              items: const [
-                "Swagelok",
-                "Hy-Lok",
-                "Parker",
-                "Ridgid",
-                "Klein",
-                "Other",
-              ],
-              onChanged: (val) {
-                setState(() => _benderBrand = val!);
-                _onSpecsChanged();
-              },
-              helperText: "※ 제조사별 공식 데이터 연동",
+            // 🚀 [추가됨] 벤더 브랜드 옆에 벤더 타입(수동/전동) 드롭다운 배치!
+            TwoColumnRow(
+              left: _buildDropdownWithHelper(
+                label: "벤더 브랜드",
+                value: _benderBrand,
+                items: const [
+                  "Swagelok",
+                  "Hy-Lok",
+                  "Parker",
+                  "Ridgid",
+                  "Klein",
+                  "Other",
+                ],
+                onChanged: (val) {
+                  setState(() => _benderBrand = val!);
+                  _onSpecsChanged();
+                },
+                helperText: "※ 제조사 선택",
+              ),
+              right: _buildDropdownWithHelper(
+                label: "벤더 타입",
+                value: _benderType,
+                items: const ["수동 (Hand)", "전동 (Electric)"],
+                onChanged: (val) {
+                  setState(() => _benderType = val!);
+                  _onSpecsChanged();
+                },
+                helperText: "※ 3/4\" 이상은 전동 장비 권장",
+              ),
             ),
             const SizedBox(height: 16),
             TwoColumnRow(
@@ -868,10 +859,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         shadowColor: Colors.black45,
         backgroundColor: makitaTeal,
         centerTitle: false,
-        title: Column(
+        title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               "벤딩 및 배관 설정",
               style: TextStyle(
                 fontWeight: FontWeight.w900,
@@ -880,8 +871,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 letterSpacing: -0.5,
               ),
             ),
-            const SizedBox(height: 2),
-            const Text(
+            SizedBox(height: 2),
+            Text(
               "장비 제원 및 마킹 기준 관리",
               style: TextStyle(
                 fontSize: 13,
@@ -951,6 +942,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
+// 🚀 [추가됨] 에러의 원인이었던 MakitaNumericInput 클래스를 완벽히 포함!
 class MakitaNumericInput extends StatelessWidget {
   final String label;
   final TextEditingController controller;

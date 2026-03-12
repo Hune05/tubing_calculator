@@ -4,7 +4,7 @@ import 'dart:math' as math;
 import 'package:tubing_calculator/src/core/database/database_helper.dart';
 import 'package:tubing_calculator/src/data/bend_data_manager.dart';
 
-// 🚀 [해결 1] 색상 변수들을 전역 상수(const)로 분리하여 invalid_constant 에러 완전 해결!
+// 💡 색상 상수 정의 (invalid_constant 에러 해결)
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
 const Color slate600 = Color(0xFF475569);
@@ -31,17 +31,24 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
   double tail = 0.0;
   double fittingDepth = 0.0;
 
-  final TransformationController _viewController = TransformationController();
+  // 🚀 기본 아이소메트릭 각도
+  static const double _defaultRotX = math.pi / 6;
+  static const double _defaultRotY = math.pi / 4;
 
-  final double _defaultRotX = math.pi / 6;
-  final double _defaultRotY = math.pi / 4;
   late double _rotationX;
   late double _rotationY;
 
-  final double _minRotX = 0.0;
-  final double _maxRotX = math.pi / 3;
-  final double _minRotY = -math.pi / 2;
-  final double _maxRotY = math.pi;
+  // 회전 제한(Clamp)
+  final double _minRotX = _defaultRotX - 0.7;
+  final double _maxRotX = _defaultRotX + 0.7;
+  final double _minRotY = _defaultRotY - 1.2;
+  final double _maxRotY = _defaultRotY + 1.2;
+
+  double _zoomLevel = 1.0;
+  double _baseZoom = 1.0;
+
+  // 🚀 하이라이트 기능을 위한 인덱스 변수
+  int? _selectedSegmentIndex;
 
   @override
   void initState() {
@@ -53,45 +60,36 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     _rotationY = _defaultRotY;
 
     _parsePtoP();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _centerView();
-    });
-  }
-
-  void _centerView() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final dx = 1000.0 - (screenWidth * 0.7 / 2);
-    final dy = 1000.0 - (screenHeight / 2) + 100;
-
-    // 🚀 [해결 2] deprecated_member_use 경고 해결 (translate, scale 대신 최신 API 사용)
-    _viewController.value = Matrix4.identity()
-      ..setTranslationRaw(-dx, -dy, 0.0);
   }
 
   void _resetView() {
     setState(() {
       _rotationX = _defaultRotX;
       _rotationY = _defaultRotY;
-      _centerView();
+      _zoomLevel = 1.0;
+      _selectedSegmentIndex = null; // 원점 복귀 시 하이라이트 선택 해제
     });
   }
 
-  void _onPanUpdate(DragUpdateDetails details) {
+  void _zoomIn() =>
+      setState(() => _zoomLevel = (_zoomLevel + 0.2).clamp(0.5, 5.0));
+  void _zoomOut() =>
+      setState(() => _zoomLevel = (_zoomLevel - 0.2).clamp(0.5, 5.0));
+
+  void _onScaleStart(ScaleStartDetails details) => _baseZoom = _zoomLevel;
+
+  void _onScaleUpdate(ScaleUpdateDetails details) {
     setState(() {
-      _rotationY -= details.delta.dx * 0.01;
-      _rotationX -= details.delta.dy * 0.01;
-
-      _rotationX = _rotationX.clamp(_minRotX, _maxRotX);
-      _rotationY = _rotationY.clamp(_minRotY, _maxRotY);
+      // 1손가락 = 회전, 2손가락 = 줌
+      if (details.scale == 1.0) {
+        _rotationY -= details.focalPointDelta.dx * 0.008;
+        _rotationX -= details.focalPointDelta.dy * 0.008;
+        _rotationX = _rotationX.clamp(_minRotX, _maxRotX);
+        _rotationY = _rotationY.clamp(_minRotY, _maxRotY);
+      } else {
+        _zoomLevel = (_baseZoom * details.scale).clamp(0.5, 5.0);
+      }
     });
-  }
-
-  @override
-  void dispose() {
-    _viewController.dispose();
-    super.dispose();
   }
 
   void _parsePtoP() {
@@ -100,7 +98,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
       project = pData['project'] ?? "N/A";
       from = pData['from'] ?? "N/A";
       to = pData['to'] ?? "N/A";
-
       startFit = (pData['start_fit'] == true) || (pData['start_fit'] == 'true');
       endFit = (pData['end_fit'] == true) || (pData['end_fit'] == 'true');
       tail = double.tryParse(pData['tail']?.toString() ?? '0.0') ?? 0.0;
@@ -128,6 +125,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     return "적용 안함 (NONE)";
   }
 
+  // 💡 [복구 완료] 수정 팝업 기능 전체 포함
   Future<void> _editInfo() async {
     TextEditingController projCtrl = TextEditingController(text: project);
     TextEditingController fromCtrl = TextEditingController(text: from);
@@ -235,8 +233,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                         currentData['pipe_size'] = selectedSize;
                         _parsePtoP();
                       });
-
-                      // 🚀 [해결 3] use_build_context_synchronously 경고 해결
                       if (!context.mounted) return;
                       Navigator.pop(context);
                     },
@@ -295,6 +291,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            // 1. 상단 정보 헤더
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
@@ -431,6 +428,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
             Expanded(
               child: Row(
                 children: [
+                  // 2. 3D 아이솔 뷰어 패널
                   Expanded(
                     flex: 7,
                     child: Container(
@@ -450,33 +448,35 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                         borderRadius: BorderRadius.circular(8),
                         child: Stack(
                           children: [
-                            GestureDetector(
-                              onPanUpdate: _onPanUpdate,
-                              child: InteractiveViewer(
-                                transformationController: _viewController,
-                                panEnabled: false,
-                                boundaryMargin: const EdgeInsets.all(3000),
-                                minScale: 0.1,
-                                maxScale: 5.0,
-                                constrained: false,
-                                child: Container(
-                                  width: 2000,
-                                  height: 2000,
-                                  color: pureWhite,
-                                  child: CustomPaint(
-                                    size: const Size(2000, 2000),
-                                    painter: DetailedAutoFitIsoPainter(
-                                      bendList: bendList,
-                                      tail: tail,
-                                      startFit: startFit,
-                                      endFit: endFit,
-                                      fittingDepth: fittingDepth,
-                                      rotationX: _rotationX,
-                                      rotationY: _rotationY,
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                return GestureDetector(
+                                  onScaleStart: _onScaleStart,
+                                  onScaleUpdate: _onScaleUpdate,
+                                  onDoubleTap: _resetView,
+                                  child: Container(
+                                    color: Colors.transparent,
+                                    child: CustomPaint(
+                                      size: Size(
+                                        constraints.maxWidth,
+                                        constraints.maxHeight,
+                                      ),
+                                      painter: DetailedAutoFitIsoPainter(
+                                        bendList: bendList,
+                                        tail: tail,
+                                        startFit: startFit,
+                                        endFit: endFit,
+                                        fittingDepth: fittingDepth,
+                                        rotationX: _rotationX,
+                                        rotationY: _rotationY,
+                                        zoomLevel: _zoomLevel,
+                                        selectedSegmentIndex:
+                                            _selectedSegmentIndex, // 🚀 터치한 구간 번호 전달
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ),
+                                );
+                              },
                             ),
                             Positioned(
                               top: 16,
@@ -511,25 +511,54 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                               ),
                             ),
                             Positioned(
-                              bottom: 20,
-                              right: 20,
-                              child: FloatingActionButton.extended(
-                                heroTag: "reset_view_btn",
-                                backgroundColor: makitaTeal,
-                                elevation: 4,
-                                onPressed: _resetView,
-                                icon: const Icon(
-                                  Icons.home,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                                label: const Text(
-                                  "원점",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
+                              right: 16,
+                              bottom: 16,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  FloatingActionButton(
+                                    mini: true,
+                                    heroTag: "btn_dt_zoom_in",
+                                    backgroundColor: makitaTeal,
+                                    elevation: 2,
+                                    onPressed: _zoomIn,
+                                    child: const Icon(
+                                      Icons.add,
+                                      color: Colors.white,
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(height: 8),
+                                  FloatingActionButton(
+                                    mini: true,
+                                    heroTag: "btn_dt_zoom_out",
+                                    backgroundColor: makitaTeal,
+                                    elevation: 2,
+                                    onPressed: _zoomOut,
+                                    child: const Icon(
+                                      Icons.remove,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  FloatingActionButton.extended(
+                                    heroTag: "reset_dt_view_btn",
+                                    backgroundColor: makitaTeal,
+                                    elevation: 4,
+                                    onPressed: _resetView,
+                                    icon: const Icon(
+                                      Icons.home,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                    label: const Text(
+                                      "원점",
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
@@ -538,6 +567,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                     ),
                   ),
 
+                  // 3. 우측 마킹 포인트 리스트
                   Expanded(
                     flex: 3,
                     child: Container(
@@ -606,15 +636,13 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                                   ),
                                 ),
                                 Expanded(
-                                  child: ListView.separated(
+                                  child: ListView.builder(
                                     padding: EdgeInsets.zero,
                                     itemCount: bendList.length + 1,
-                                    separatorBuilder: (context, index) =>
-                                        Divider(
-                                          color: Colors.grey.shade200,
-                                          height: 1,
-                                        ),
                                     itemBuilder: (context, index) {
+                                      bool isSelected =
+                                          _selectedSegmentIndex == index;
+
                                       if (index < bendList.length) {
                                         final bend = bendList[index];
                                         final double rawLength =
@@ -625,112 +653,145 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                                         final String angle =
                                             bend['angle']?.toString() ?? '0';
 
-                                        lastMarkingPoint =
-                                            bend['marking_point'] != null
-                                            ? bend['marking_point'].toDouble()
-                                            : (lastMarkingPoint + rawLength);
+                                        if (index == 0) {
+                                          lastMarkingPoint =
+                                              bend['marking_point'] != null
+                                              ? bend['marking_point'].toDouble()
+                                              : rawLength;
+                                        } else {
+                                          lastMarkingPoint =
+                                              bend['marking_point'] != null
+                                              ? bend['marking_point'].toDouble()
+                                              : (lastMarkingPoint + rawLength);
+                                        }
                                         int displayLength = rawLength.round();
                                         int displayMarking = lastMarkingPoint
                                             .round();
 
-                                        return Container(
-                                          padding: const EdgeInsets.all(16),
-                                          child: Row(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.center,
-                                            children: [
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Row(
-                                                      children: [
-                                                        Container(
-                                                          padding:
-                                                              const EdgeInsets.all(
-                                                                4,
-                                                              ),
-                                                          decoration:
-                                                              const BoxDecoration(
+                                        return GestureDetector(
+                                          onTap: () => setState(
+                                            () => _selectedSegmentIndex =
+                                                isSelected ? null : index,
+                                          ),
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: isSelected
+                                                  ? Colors.orange.withValues(
+                                                      alpha: 0.15,
+                                                    )
+                                                  : Colors
+                                                        .transparent, // 🚀 터치 시 배경색 하이라이트
+                                              border: Border(
+                                                bottom: BorderSide(
+                                                  color: Colors.grey.shade200,
+                                                ),
+                                              ),
+                                            ),
+                                            padding: const EdgeInsets.all(16),
+                                            child: Row(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.center,
+                                              children: [
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Row(
+                                                        children: [
+                                                          Container(
+                                                            padding:
+                                                                const EdgeInsets.all(
+                                                                  4,
+                                                                ),
+                                                            decoration: BoxDecoration(
+                                                              color: isSelected
+                                                                  ? Colors
+                                                                        .orange
+                                                                        .shade700
+                                                                  : makitaTeal,
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                            ),
+                                                            child: Text(
+                                                              "${index + 1}",
+                                                              style: const TextStyle(
                                                                 color:
-                                                                    makitaTeal,
-                                                                shape: BoxShape
-                                                                    .circle,
+                                                                    pureWhite,
+                                                                fontSize: 10,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
                                                               ),
-                                                          child: Text(
-                                                            "${index + 1}",
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 6,
+                                                          ),
+                                                          Text(
+                                                            "MK-${(index + 1).toString().padLeft(2, '0')}",
                                                             style:
                                                                 const TextStyle(
                                                                   color:
-                                                                      pureWhite,
-                                                                  fontSize: 10,
+                                                                      slate900,
+                                                                  fontSize: 15,
                                                                   fontWeight:
                                                                       FontWeight
                                                                           .bold,
                                                                 ),
                                                           ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 6,
-                                                        ),
-                                                        Text(
-                                                          "MK-${(index + 1).toString().padLeft(2, '0')}",
-                                                          style:
-                                                              const TextStyle(
-                                                                color: slate900,
-                                                                fontSize: 15,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                              ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    const SizedBox(height: 4),
-                                                    Row(
-                                                      children: [
-                                                        Text(
-                                                          "L: $displayLength mm",
-                                                          style:
-                                                              const TextStyle(
-                                                                color: slate600,
-                                                                fontSize: 12,
-                                                              ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 8,
-                                                        ),
-                                                        Text(
-                                                          "${_getDirectionTextShort(rotation)} $angle°",
-                                                          style:
-                                                              const TextStyle(
-                                                                color:
-                                                                    makitaTeal,
-                                                                fontSize: 12,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                              ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ],
+                                                        ],
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      Row(
+                                                        children: [
+                                                          Text(
+                                                            "L: $displayLength mm",
+                                                            style:
+                                                                const TextStyle(
+                                                                  color:
+                                                                      slate600,
+                                                                  fontSize: 12,
+                                                                ),
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 8,
+                                                          ),
+                                                          Text(
+                                                            "${_getDirectionTextShort(rotation)} $angle°",
+                                                            style: TextStyle(
+                                                              color: isSelected
+                                                                  ? Colors
+                                                                        .orange
+                                                                        .shade800
+                                                                  : makitaTeal,
+                                                              fontSize: 12,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
-                                              ),
-                                              Text(
-                                                "$displayMarking",
-                                                style: const TextStyle(
-                                                  color: slate900,
-                                                  fontSize: 24,
-                                                  fontFamily: 'monospace',
-                                                  fontWeight: FontWeight.w900,
+                                                Text(
+                                                  "$displayMarking",
+                                                  style: const TextStyle(
+                                                    color: slate900,
+                                                    fontSize: 24,
+                                                    fontFamily: 'monospace',
+                                                    fontWeight: FontWeight.w900,
+                                                  ),
                                                 ),
-                                              ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
                                         );
                                       } else {
+                                        // TAIL (꼬리) 영역
                                         int displayTail = tail.round();
                                         String extraInfo = "";
                                         if (displayTail == 0 &&
@@ -741,93 +802,112 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                                           double lastRot =
                                               (bendList.last['rotation'] ?? 0)
                                                   .toDouble();
-                                          if (lastAngle > 0) {
+                                          if (lastAngle > 0)
                                             extraInfo =
                                                 " (방향: ${_getDirectionTextShort(lastRot)} $lastAngle° 유지)";
-                                          }
                                         }
 
-                                        return Container(
-                                          padding: const EdgeInsets.all(16),
-                                          decoration: BoxDecoration(
-                                            color: makitaTeal.withValues(
-                                              alpha: 0.05,
-                                            ),
+                                        return GestureDetector(
+                                          onTap: () => setState(
+                                            () => _selectedSegmentIndex =
+                                                isSelected ? null : index,
                                           ),
-                                          child: Row(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.center,
-                                            children: [
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Row(
-                                                      children: [
-                                                        Container(
-                                                          padding:
-                                                              const EdgeInsets.all(
-                                                                4,
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: isSelected
+                                                  ? Colors.orange.withValues(
+                                                      alpha: 0.15,
+                                                    )
+                                                  : makitaTeal.withValues(
+                                                      alpha: 0.05,
+                                                    ),
+                                              border: Border(
+                                                bottom: BorderSide(
+                                                  color: Colors.grey.shade200,
+                                                ),
+                                              ),
+                                            ),
+                                            padding: const EdgeInsets.all(16),
+                                            child: Row(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.center,
+                                              children: [
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Row(
+                                                        children: [
+                                                          Container(
+                                                            padding:
+                                                                const EdgeInsets.all(
+                                                                  4,
+                                                                ),
+                                                            decoration:
+                                                                BoxDecoration(
+                                                                  color: Colors
+                                                                      .red
+                                                                      .shade700,
+                                                                  shape: BoxShape
+                                                                      .circle,
+                                                                ),
+                                                            child: const Text(
+                                                              "E",
+                                                              style: TextStyle(
+                                                                color:
+                                                                    pureWhite,
+                                                                fontSize: 10,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
                                                               ),
-                                                          decoration:
-                                                              BoxDecoration(
-                                                                color: Colors
-                                                                    .red
-                                                                    .shade700,
-                                                                shape: BoxShape
-                                                                    .circle,
-                                                              ),
-                                                          child: const Text(
-                                                            "E",
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 6,
+                                                          ),
+                                                          const Text(
+                                                            "TAIL (END)",
                                                             style: TextStyle(
-                                                              color: pureWhite,
-                                                              fontSize: 10,
+                                                              color: slate900,
+                                                              fontSize: 15,
                                                               fontWeight:
                                                                   FontWeight
                                                                       .bold,
                                                             ),
                                                           ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 6,
-                                                        ),
-                                                        const Text(
-                                                          "TAIL (END)",
-                                                          style: TextStyle(
-                                                            color: slate900,
-                                                            fontSize: 15,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    const SizedBox(height: 4),
-                                                    Text(
-                                                      "L: $displayTail mm ${endFit ? '(+Fit: ${fittingDepth.round()})' : ''}$extraInfo",
-                                                      style: TextStyle(
-                                                        color: slate600,
-                                                        fontSize: 12,
-                                                        fontWeight:
-                                                            extraInfo.isNotEmpty
-                                                            ? FontWeight.bold
-                                                            : FontWeight.normal,
+                                                        ],
                                                       ),
-                                                    ),
-                                                  ],
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        "L: $displayTail mm ${endFit ? '(+Fit: ${fittingDepth.round()})' : ''}$extraInfo",
+                                                        style: TextStyle(
+                                                          color: slate600,
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              extraInfo
+                                                                  .isNotEmpty
+                                                              ? FontWeight.bold
+                                                              : FontWeight
+                                                                    .normal,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
-                                              ),
-                                              Text(
-                                                "$displayTotalCut",
-                                                style: TextStyle(
-                                                  color: Colors.red.shade700,
-                                                  fontSize: 26,
-                                                  fontFamily: 'monospace',
-                                                  fontWeight: FontWeight.w900,
+                                                Text(
+                                                  "$displayTotalCut",
+                                                  style: TextStyle(
+                                                    color: Colors.red.shade700,
+                                                    fontSize: 26,
+                                                    fontFamily: 'monospace',
+                                                    fontWeight: FontWeight.w900,
+                                                  ),
                                                 ),
-                                              ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
                                         );
                                       }
@@ -849,8 +929,8 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
 }
 
 /// ============================================================================
-// 🔥 3D 물리엔진 최종 진화: 3D 공간 롤링 + 제스처 회전 완벽 호환!
-// ============================================================================
+// 🔥 3D 물리엔진: 하이브리드 자동 계산 + 하이라이트 기능 (에러 완전 정복)
+/// ============================================================================
 class DetailedAutoFitIsoPainter extends CustomPainter {
   final List<dynamic> bendList;
   final double tail;
@@ -859,8 +939,9 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
   final double fittingDepth;
   final double rotationX;
   final double rotationY;
+  final double zoomLevel;
+  final int? selectedSegmentIndex; // 🚀 터치한 인덱스
 
-  // 💡 색상 변수들은 전역 const를 사용하므로 더 이상 생성자에서 받지 않습니다.
   DetailedAutoFitIsoPainter({
     required this.bendList,
     required this.tail,
@@ -869,6 +950,8 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
     required this.fittingDepth,
     required this.rotationX,
     required this.rotationY,
+    required this.zoomLevel,
+    this.selectedSegmentIndex,
   });
 
   double _dotProduct(List<double> v1, List<double> v2) =>
@@ -881,33 +964,19 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
   }
 
   List<double> _getTargetVector(double rot) {
-    if (rot == 360.0) return [0, 0, 1];
-    if (rot == 450.0) return [0, 0, -1];
+    if (rot == 360) return [0, 0, 1];
+    if (rot == 450) return [0, 0, -1];
     double rad = rot * math.pi / 180.0;
     return [math.sin(rad), -math.cos(rad), 0.0];
   }
 
   List<double> _rotate3D(List<double> point, double rx, double ry) {
-    double x = point[0];
-    double y = point[1];
-    double z = point[2];
-
-    double tempX = x * math.cos(ry) + z * math.sin(ry);
-    double tempZ = -x * math.sin(ry) + z * math.cos(ry);
-    x = tempX;
-    z = tempZ;
-
-    double tempY = y * math.cos(rx) - z * math.sin(rx);
-    tempZ = y * math.sin(rx) + z * math.cos(rx);
-    y = tempY;
-    z = tempZ;
-
-    return [x, y, z];
-  }
-
-  Offset _projectTo2D(List<double> p) {
-    List<double> rotP = _rotate3D(p, rotationX, rotationY);
-    return Offset(rotP[0], rotP[1]);
+    double x = point[0], y = point[1], z = point[2];
+    double tx = x * math.cos(ry) + z * math.sin(ry);
+    double tz = -x * math.sin(ry) + z * math.cos(ry);
+    double ty = y * math.cos(rx) - tz * math.sin(rx);
+    z = y * math.sin(rx) + tz * math.cos(rx);
+    return [tx, ty, z];
   }
 
   String _getDirName(double rot) {
@@ -922,26 +991,15 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
 
   String _getRollingText(double prevRot, double currRot) {
     if (prevRot == currRot) return "";
-
     List<double> v1 = _getTargetVector(prevRot);
     List<double> v2 = _getTargetVector(currRot);
-
     double dot = _dotProduct(v1, v2);
-    // 🚀 [해결 4] 단일 라인 if문에 중괄호 {} 추가
-    if (dot > 1.0) {
-      dot = 1.0;
-    }
-    if (dot < -1.0) {
-      dot = -1.0;
-    }
+    if (dot > 1.0) dot = 1.0;
+    if (dot < -1.0) dot = -1.0;
     int angleDeg = (math.acos(dot) * 180 / math.pi).round();
 
-    if (angleDeg == 0) {
-      return "";
-    }
-    if (angleDeg == 180) {
-      return "↻ 180° 파이프 반전 (뒤집기)";
-    }
+    if (angleDeg == 0) return "";
+    if (angleDeg == 180) return "↻ 180° 파이프 반전 (뒤집기)";
 
     if (prevRot < 360 && currRot < 360) {
       double diff = currRot - prevRot;
@@ -951,411 +1009,256 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
       while (diff <= -180) {
         diff += 360;
       }
-      if (diff > 0) {
-        return "↻ 시계 ${diff.toInt()}° 롤링";
-      }
-      if (diff < 0) {
-        return "↺ 반시계 ${diff.abs().toInt()}° 롤링";
-      }
+      if (diff > 0) return "↻ 시계 ${diff.toInt()}° 롤링";
+      if (diff < 0) return "↺ 반시계 ${diff.abs().toInt()}° 롤링";
     }
-
-    // 🚀 [해결 5] 불필요한 보간 괄호 제거
     return "⟳ $angleDeg° 롤링 ➔ ${_getDirName(currRot)}";
-  }
-
-  void _drawDashedLine(Canvas canvas, Offset p1, Offset p2, Color color) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 3.0
-      ..style = PaintingStyle.stroke;
-    var path = Path();
-    double dashWidth = 8.0, dashSpace = 6.0, distance = (p2 - p1).distance;
-    double dx = (p2.dx - p1.dx) / distance, dy = (p2.dy - p1.dy) / distance;
-    double i = 0;
-    while (i < distance) {
-      path.moveTo(p1.dx + dx * i, p1.dy + dy * i);
-      i += dashWidth;
-      if (i > distance) {
-        i = distance;
-      }
-      path.lineTo(p1.dx + dx * i, p1.dy + dy * i);
-      i += dashSpace;
-    }
-    canvas.drawPath(path, paint);
   }
 
   @override
   void paint(Canvas canvas, Size size) {
     if (bendList.isEmpty && tail <= 0) return;
 
-    List<List<double>> points3D = [];
-    List<double> currPos = [0.0, 0.0, 0.0];
-    List<double> currDir = [1.0, 0.0, 0.0];
+    // 1. 3D 좌표 및 방향 추출 (스마트 벤딩 로직)
+    List<List<double>> pts3D = [];
+    List<double> curP = [0, 0, 0];
+    List<double> curD = [1, 0, 0];
+    List<List<double>> segDirs = [];
 
-    List<double>? startFit3D;
-    if (startFit && fittingDepth > 0) {
-      startFit3D = [
-        currPos[0] - currDir[0] * fittingDepth,
-        currPos[1] - currDir[1] * fittingDepth,
-        currPos[2] - currDir[2] * fittingDepth,
-      ];
-    }
-    points3D.add([...currPos]);
+    pts3D.add([...curP]);
 
     for (var bend in bendList) {
       double l = (bend['length'] ?? 0).toDouble();
       double a = (bend['angle'] ?? 0).toDouble();
-      double rot = (bend['rotation'] ?? 0.0).toDouble();
+      double? rot = bend['rotation']?.toDouble();
+
+      if (a == 0 && rot != null) curD = _getTargetVector(rot);
+      segDirs.add([...curD]);
 
       if (l > 0) {
-        currPos[0] += currDir[0] * l;
-        currPos[1] += currDir[1] * l;
-        currPos[2] += currDir[2] * l;
+        curP = [
+          curP[0] + curD[0] * l,
+          curP[1] + curD[1] * l,
+          curP[2] + curD[2] * l,
+        ];
       }
-      points3D.add([...currPos]);
+      pts3D.add([...curP]);
 
-      if (a > 0) {
+      if (a > 0 && rot != null) {
         double radA = a * math.pi / 180.0;
-        List<double> targetVec = _getTargetVector(rot);
-        double dot = _dotProduct(targetVec, currDir);
+        List<double> tVec = _getTargetVector(rot);
+        double dot = _dotProduct(tVec, curD);
         List<double> u = _normalize([
-          targetVec[0] - dot * currDir[0],
-          targetVec[1] - dot * currDir[1],
-          targetVec[2] - dot * currDir[2],
+          tVec[0] - dot * curD[0],
+          tVec[1] - dot * curD[1],
+          tVec[2] - dot * curD[2],
         ]);
         if (u[0] != 0 || u[1] != 0 || u[2] != 0) {
-          currDir = _normalize([
-            currDir[0] * math.cos(radA) + u[0] * math.sin(radA),
-            currDir[1] * math.cos(radA) + u[1] * math.sin(radA),
-            currDir[2] * math.cos(radA) + u[2] * math.sin(radA),
+          curD = _normalize([
+            curD[0] * math.cos(radA) + u[0] * math.sin(radA),
+            curD[1] * math.cos(radA) + u[1] * math.sin(radA),
+            curD[2] * math.cos(radA) + u[2] * math.sin(radA),
           ]);
         }
       }
     }
 
-    List<double>? tail3D, endFit3D, phantom3D;
+    segDirs.add([...curD]);
     if (tail > 0) {
-      currPos[0] += currDir[0] * tail;
-      currPos[1] += currDir[1] * tail;
-      currPos[2] += currDir[2] * tail;
-      tail3D = [...currPos];
-    } else if (bendList.isNotEmpty &&
-        (bendList.last['angle'] ?? 0).toDouble() > 0) {
-      phantom3D = [
-        currPos[0] + currDir[0] * 50.0,
-        currPos[1] + currDir[1] * 50.0,
-        currPos[2] + currDir[2] * 50.0,
+      curP = [
+        curP[0] + curD[0] * tail,
+        curP[1] + curD[1] * tail,
+        curP[2] + curD[2] * tail,
       ];
+      pts3D.add([...curP]);
     }
 
-    if (endFit && fittingDepth > 0) {
-      endFit3D = [
-        currPos[0] + currDir[0] * fittingDepth,
-        currPos[1] + currDir[1] * fittingDepth,
-        currPos[2] + currDir[2] * fittingDepth,
-      ];
-    }
-
+    // 2. 2D 화면 투영 및 자동 스케일 맞춤
     double minX = double.infinity,
         maxX = -double.infinity,
         minY = double.infinity,
         maxY = -double.infinity;
+    List<Offset> pts2D = pts3D.map((p) {
+      List<double> rp = _rotate3D(p, rotationX, rotationY);
+      if (rp[0] < minX) minX = rp[0];
+      if (rp[0] > maxX) maxX = rp[0];
+      if (rp[1] < minY) minY = rp[1];
+      if (rp[1] > maxY) maxY = rp[1];
+      return Offset(rp[0], rp[1]);
+    }).toList();
 
-    void updateBounds(Offset p) {
-      if (p.dx < minX) {
-        minX = p.dx;
-      }
-      if (p.dx > maxX) {
-        maxX = p.dx;
-      }
-      if (p.dy < minY) {
-        minY = p.dy;
-      }
-      if (p.dy > maxY) {
-        maxY = p.dy;
-      }
-    }
+    double bW = maxX - minX == 0 ? 100 : maxX - minX;
+    double bH = maxY - minY == 0 ? 100 : maxY - minY;
+    double scale =
+        math
+            .min(size.width * 0.6 / bW, size.height * 0.6 / bH)
+            .clamp(0.1, 5.0) *
+        zoomLevel;
 
-    Offset? startFit2D = startFit3D != null ? _projectTo2D(startFit3D) : null;
-    List<Offset> pts2D = points3D.map((p) => _projectTo2D(p)).toList();
-    Offset? tail2D = tail3D != null ? _projectTo2D(tail3D) : null;
-    Offset? endFit2D = endFit3D != null ? _projectTo2D(endFit3D) : null;
-    Offset? phantom2D = phantom3D != null ? _projectTo2D(phantom3D) : null;
-
-    if (startFit2D != null) {
-      updateBounds(startFit2D);
-    }
-    for (var p in pts2D) {
-      updateBounds(p);
-    }
-    if (tail2D != null) {
-      updateBounds(tail2D);
-    }
-    if (endFit2D != null) {
-      updateBounds(endFit2D);
-    }
-    if (phantom2D != null) {
-      updateBounds(phantom2D);
-    }
-
-    double bWidth = maxX - minX, bHeight = maxY - minY;
-    if (bWidth == 0) {
-      bWidth = 100;
-    }
-    if (bHeight == 0) {
-      bHeight = 100;
-    }
-
-    double drawScale = math
-        .min(size.width * 0.7 / bWidth, size.width * 0.7 / bHeight)
-        .clamp(0.1, 5.0);
-    double centerX = minX + (bWidth / 2), centerY = minY + (bHeight / 2);
-
-    Offset transform(Offset p) => Offset(
-      (p.dx - centerX) * drawScale + size.width / 2,
-      (p.dy - centerY) * drawScale + size.height / 2,
+    Offset tr(Offset p) => Offset(
+      (p.dx - (minX + maxX) / 2) * scale + size.width / 2,
+      (p.dy - (minY + maxY) / 2) * scale + size.height / 2,
     );
+    List<Offset> fPts = pts2D.map((p) => tr(p)).toList();
 
-    List<Offset> finalPts2D = pts2D.map((p) => transform(p)).toList();
-    Offset? finalStartFit2D = startFit2D != null ? transform(startFit2D) : null;
-    Offset? finalTail2D = tail2D != null ? transform(tail2D) : null;
-    Offset? finalEndFit2D = endFit2D != null ? transform(endFit2D) : null;
-    Offset? finalPhantom2D = phantom2D != null ? transform(phantom2D) : null;
-
-    final pipePaint = Paint()
+    // 그리기 페인트 설정
+    final pPaint = Paint()
       ..color = slate900
       ..strokeWidth = 6.0
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
-    final fittingPaint = Paint()
-      ..color = makitaTeal.withValues(alpha: 0.6)
-      ..strokeWidth = 14.0
-      ..strokeCap = StrokeCap.square
+    final hPaint = Paint()
+      ..color = Colors.orange.shade500
+      ..strokeWidth = 10.0
+      ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
 
-    if (startFit && finalStartFit2D != null) {
-      canvas.drawLine(finalStartFit2D, finalPts2D[0], fittingPaint);
+    // 🚀 [기능 2] 롤링 가이드 (Ghost Line)
+    if (selectedSegmentIndex != null &&
+        selectedSegmentIndex! > 0 &&
+        selectedSegmentIndex! < bendList.length) {
+      Offset startNode = fPts[selectedSegmentIndex!];
+      List<double> prevDir = segDirs[selectedSegmentIndex! - 1];
+      List<double> start3D = pts3D[selectedSegmentIndex!];
+      List<double> ghost3D = [
+        start3D[0] + prevDir[0] * 50,
+        start3D[1] + prevDir[1] * 50,
+        start3D[2] + prevDir[2] * 50,
+      ];
+      Offset ghostEnd = tr(
+        Offset(
+          _rotate3D(ghost3D, rotationX, rotationY)[0],
+          _rotate3D(ghost3D, rotationX, rotationY)[1],
+        ),
+      );
+
+      var dPaint = Paint()
+        ..color = Colors.grey
+        ..strokeWidth = 2;
+      double dist = (ghostEnd - startNode).distance;
+      for (double i = 0; i < dist; i += 8) {
+        if (dist == 0) break;
+        canvas.drawLine(
+          startNode + (ghostEnd - startNode) * (i / dist),
+          startNode + (ghostEnd - startNode) * ((i + 4) / dist),
+          dPaint,
+        );
+      }
     }
 
-    for (int i = 0; i < bendList.length; i++) {
-      double l = (bendList[i]['length'] ?? 0).toDouble();
-      if (l > 0) {
-        canvas.drawLine(finalPts2D[i], finalPts2D[i + 1], pipePaint);
-        Offset delta = finalPts2D[i + 1] - finalPts2D[i];
+    // 3. 파이프 라인 그리기 (하이라이트 적용)
+    for (int i = 0; i < fPts.length - 1; i++) {
+      bool isSelected = selectedSegmentIndex == i;
+      canvas.drawLine(fPts[i], fPts[i + 1], isSelected ? hPaint : pPaint);
+
+      // 🚀 [기능 1 & 3] 진입 화살표 & 치수 텍스트 표시
+      double len = 0;
+      if (i < bendList.length)
+        len = (bendList[i]['length'] ?? 0).toDouble();
+      else if (i == bendList.length && tail > 0)
+        len = tail;
+
+      if (len > 0) {
+        Offset delta = fPts[i + 1] - fPts[i];
         if (delta.distance > 0.1) {
           Offset dir2D = Offset(
             delta.dx / delta.distance,
             delta.dy / delta.distance,
           );
-          Offset mid = Offset(
-            (finalPts2D[i].dx + finalPts2D[i + 1].dx) / 2,
-            (finalPts2D[i].dy + finalPts2D[i + 1].dy) / 2,
+          Offset mid = (fPts[i] + fPts[i + 1]) / 2;
+
+          // 화살표 강조
+          double aLen = isSelected ? 24.0 : 14.0;
+          double aWid = isSelected ? 16.0 : 10.0;
+          var aPaint = Paint()
+            ..color = isSelected ? Colors.orange.shade900 : makitaTeal
+            ..style = PaintingStyle.fill;
+          double ang = math.atan2(dir2D.dy, dir2D.dx);
+          Offset tip =
+              mid +
+              Offset(math.cos(ang) * (aLen / 2), math.sin(ang) * (aLen / 2));
+          Offset bck =
+              mid -
+              Offset(math.cos(ang) * (aLen / 2), math.sin(ang) * (aLen / 2));
+          Offset p2 =
+              bck +
+              Offset(
+                math.cos(ang + math.pi / 2) * aWid,
+                math.sin(ang + math.pi / 2) * aWid,
+              );
+          Offset p3 =
+              bck +
+              Offset(
+                math.cos(ang - math.pi / 2) * aWid,
+                math.sin(ang - math.pi / 2) * aWid,
+              );
+          canvas.drawPath(
+            Path()
+              ..moveTo(tip.dx, tip.dy)
+              ..lineTo(p2.dx, p2.dy)
+              ..lineTo(p3.dx, p3.dy)
+              ..close(),
+            aPaint,
           );
-          _drawDirectionArrow(canvas, mid, dir2D, makitaTeal);
+
+          // 치수 텍스트 강조
+          Offset norm = Offset(-dir2D.dy, dir2D.dx);
+          if (norm.dy > 0) norm = Offset(-norm.dx, -norm.dy);
+          var textSpan = TextSpan(
+            text: "${len.round()}",
+            style: TextStyle(
+              color: isSelected ? Colors.orange.shade900 : slate600,
+              fontSize: isSelected ? 22 : 14,
+              fontWeight: FontWeight.bold,
+              backgroundColor: isSelected
+                  ? Colors.orange.shade50
+                  : pureWhite.withValues(alpha: 0.8),
+            ),
+          );
+          var textPainter = TextPainter(
+            text: textSpan,
+            textDirection: TextDirection.ltr,
+          )..layout();
+          textPainter.paint(
+            canvas,
+            mid +
+                norm * (isSelected ? 30 : 20) -
+                Offset(textPainter.width / 2, textPainter.height / 2),
+          );
         }
       }
     }
 
-    Offset lastPt = finalPts2D.last;
-    if (tail > 0 && finalTail2D != null) {
-      canvas.drawLine(lastPt, finalTail2D, pipePaint);
-      Offset delta = finalTail2D - lastPt;
-      if (delta.distance > 0.1) {
-        Offset mid = Offset(
-          (lastPt.dx + finalTail2D.dx) / 2,
-          (lastPt.dy + finalTail2D.dy) / 2,
-        );
-        _drawDirectionArrow(
-          canvas,
-          mid,
-          Offset(delta.dx / delta.distance, delta.dy / delta.distance),
-          slate600,
-        );
-      }
-      lastPt = finalTail2D;
-    } else if (finalPhantom2D != null) {
-      _drawDashedLine(
-        canvas,
-        lastPt,
-        finalPhantom2D,
-        makitaTeal.withValues(alpha: 0.5),
-      );
-      _drawDirectionArrow(
-        canvas,
-        Offset(
-          (lastPt.dx + finalPhantom2D.dx) / 2,
-          (lastPt.dy + finalPhantom2D.dy) / 2,
-        ),
-        finalPhantom2D - lastPt,
-        makitaTeal,
-      );
-    }
-
-    if (endFit && finalEndFit2D != null) {
-      canvas.drawLine(lastPt, finalEndFit2D, fittingPaint);
-    }
-
-    for (int i = 0; i < bendList.length; i++) {
-      double l = (bendList[i]['length'] ?? 0).toDouble();
-      if (l > 0) {
-        Offset delta = finalPts2D[i + 1] - finalPts2D[i];
-        Offset dir2D = Offset(
-          delta.dx / delta.distance,
-          delta.dy / delta.distance,
-        );
-        Offset mid = Offset(
-          (finalPts2D[i].dx + finalPts2D[i + 1].dx) / 2,
-          (finalPts2D[i].dy + finalPts2D[i + 1].dy) / 2,
-        );
-        Offset normal = Offset(-dir2D.dy, dir2D.dx);
-        if (normal.dy > 0) {
-          normal = Offset(-normal.dx, -normal.dy);
-        }
-        _drawSimpleLength(
-          canvas,
-          "${l.toInt()}",
-          mid + Offset(normal.dx * 20, normal.dy * 20),
-          slate600,
-        );
-      }
-    }
-
-    if (tail > 0 && finalTail2D != null) {
-      Offset delta = finalTail2D - finalPts2D.last;
-      Offset dir2D = Offset(
-        delta.dx / delta.distance,
-        delta.dy / delta.distance,
-      );
-      Offset mid = Offset(
-        (finalPts2D.last.dx + finalTail2D.dx) / 2,
-        (finalPts2D.last.dy + finalTail2D.dy) / 2,
-      );
-      Offset normal = Offset(-dir2D.dy, dir2D.dx);
-      if (normal.dy > 0) {
-        normal = Offset(-normal.dx, -normal.dy);
-      }
-      _drawSimpleLength(
-        canvas,
-        "${tail.toInt()}",
-        mid + Offset(normal.dx * 20, normal.dy * 20),
-        slate600,
-      );
-    }
-
-    if (startFit && finalStartFit2D != null) {
-      _drawNodeBadge(canvas, "S", finalStartFit2D, slate900, pureWhite);
-    } else {
-      _drawNodeBadge(canvas, "S", finalPts2D[0], slate900, pureWhite);
-    }
-
-    for (int i = 0; i < bendList.length; i++) {
-      Offset nodePos = finalPts2D[i + 1];
-      _drawNodeBadge(canvas, "${i + 1}", nodePos, makitaTeal, pureWhite);
-
+    // 4. 노드 배지 및 롤링 텍스트 그리기
+    for (int i = 0; i < fPts.length; i++) {
       if (i == 0) {
-        _drawRollingBadge(
-          canvas,
-          "[기준 평면]",
-          nodePos + const Offset(15, -25),
-          slate600,
-        );
-      } else {
-        double prevRot = bendList[i - 1]['rotation'] ?? 0.0;
-        double currRot = bendList[i]['rotation'] ?? 0.0;
-        String rollText = _getRollingText(prevRot, currRot);
-        if (rollText.isNotEmpty) {
+        _drawNodeBadge(canvas, "S", fPts[i], slate900, pureWhite);
+      } else if (i <= bendList.length) {
+        _drawNodeBadge(canvas, "$i", fPts[i], makitaTeal, pureWhite);
+        if (i == 1) {
           _drawRollingBadge(
             canvas,
-            rollText,
-            nodePos + const Offset(20, -25),
-            Colors.orange.shade800,
+            "[기준 평면]",
+            fPts[i] + const Offset(15, -25),
+            slate600,
           );
+        } else {
+          double pRot = (bendList[i - 2]['rotation'] ?? 0.0).toDouble();
+          double cRot = (bendList[i - 1]['rotation'] ?? 0.0).toDouble();
+          String rollText = _getRollingText(pRot, cRot);
+          if (rollText.isNotEmpty) {
+            _drawRollingBadge(
+              canvas,
+              rollText,
+              fPts[i] + const Offset(20, -25),
+              Colors.orange.shade800,
+            );
+          }
         }
+      } else if (i == fPts.length - 1) {
+        _drawNodeBadge(canvas, "E", fPts[i], Colors.red.shade700, pureWhite);
       }
     }
-
-    if (endFit && finalEndFit2D != null) {
-      _drawNodeBadge(
-        canvas,
-        "E",
-        finalEndFit2D,
-        Colors.red.shade700,
-        pureWhite,
-      );
-    } else {
-      _drawNodeBadge(canvas, "E", lastPt, Colors.red.shade700, pureWhite);
-    }
-  }
-
-  void _drawDirectionArrow(
-    Canvas canvas,
-    Offset center,
-    Offset direction,
-    Color color,
-  ) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-    final double arrowLength = 16.0, arrowWidth = 10.0;
-    final angle = math.atan2(direction.dy, direction.dx);
-    final tip =
-        center +
-        Offset(
-          math.cos(angle) * (arrowLength * 0.5),
-          math.sin(angle) * (arrowLength * 0.5),
-        );
-    final back =
-        center -
-        Offset(
-          math.cos(angle) * (arrowLength * 0.5),
-          math.sin(angle) * (arrowLength * 0.5),
-        );
-    final p2 =
-        back +
-        Offset(
-          math.cos(angle + math.pi / 2) * arrowWidth,
-          math.sin(angle + math.pi / 2) * arrowWidth,
-        );
-    final p3 =
-        back +
-        Offset(
-          math.cos(angle - math.pi / 2) * arrowWidth,
-          math.sin(angle - math.pi / 2) * arrowWidth,
-        );
-    canvas.drawPath(
-      Path()
-        ..moveTo(tip.dx, tip.dy)
-        ..lineTo(p2.dx, p2.dy)
-        ..lineTo(p3.dx, p3.dy)
-        ..close(),
-      paint,
-    );
-  }
-
-  void _drawSimpleLength(
-    Canvas canvas,
-    String text,
-    Offset center,
-    Color color,
-  ) {
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          color: color,
-          fontSize: 15,
-          fontFamily: 'monospace',
-          fontWeight: FontWeight.bold,
-          backgroundColor: pureWhite.withValues(alpha: 0.8),
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    )..layout();
-    textPainter.paint(
-      canvas,
-      center - Offset(textPainter.width / 2, textPainter.height / 2),
-    );
   }
 
   void _drawNodeBadge(
@@ -1410,6 +1313,8 @@ class DetailedAutoFitIsoPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant DetailedAutoFitIsoPainter oldDelegate) {
     return oldDelegate.rotationX != rotationX ||
-        oldDelegate.rotationY != rotationY;
+        oldDelegate.rotationY != rotationY ||
+        oldDelegate.zoomLevel != zoomLevel ||
+        oldDelegate.selectedSegmentIndex != selectedSegmentIndex;
   }
 }
