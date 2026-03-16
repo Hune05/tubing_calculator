@@ -10,7 +10,6 @@ const Color makitaTeal = Color(0xFF007580);
 const Color makitaDark = Color(0xFF004D54);
 const Color textPrimary = Color(0xFF1A1A1A);
 
-// 🚀 드래그 앤 드롭을 위해 각 포인트에 고유 ID(Key) 부여
 class CutPoint {
   final String id = UniqueKey().toString();
   FittingItem fitting;
@@ -35,7 +34,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
   String _globalMaker = "Swagelok";
   List<CutPoint> _points = [];
   int _setMultiplier = 1;
-  bool _groupSameLengths = false; // 🚀 동일 치수 합산 스위치 상태
+  bool _groupSameLengths = false;
 
   @override
   void initState() {
@@ -61,11 +60,16 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
   void _calculate() {
     setState(() {
       for (int i = 0; i < _points.length - 1; i++) {
+        if (_points[i].c2cController.text.trim().isEmpty) {
+          _points[i].calculatedCut = 0.0;
+          continue;
+        }
+
         double c2c = double.tryParse(_points[i].c2cController.text) ?? 0.0;
         double deduction1 = _points[i].fitting.deduction;
         double deduction2 = _points[i + 1].fitting.deduction;
-        double cut = c2c - deduction1 - deduction2;
-        _points[i].calculatedCut = cut > 0 ? cut : 0.0;
+
+        _points[i].calculatedCut = c2c - deduction1 - deduction2;
       }
     });
   }
@@ -99,16 +103,112 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
     }
   }
 
-  void _saveRecord() {
-    double totalOneSet = _points.fold(
-      0,
-      (sum, point) => sum + point.calculatedCut,
+  // 🚀 커스텀 부속(삽입 깊이 직접 입력) 팝업
+  void _showCustomFittingDialog(int index) {
+    TextEditingController nameCtrl = TextEditingController(text: "커스텀 부속");
+    TextEditingController dedCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: whiteCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text(
+          "부속 / 삽입 깊이 직접 입력",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(
+                labelText: "부속 이름 (예: 밸브, 후렌지 등)",
+                filled: true,
+                fillColor: lightBg,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: dedCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: "공제값 (삽입 깊이) mm",
+                filled: true,
+                fillColor: lightBg,
+                suffixText: "mm",
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              "💡 팁: 전체 길이에서 튜브 삽입(물림) 깊이만 빼고 싶을 때 사용하세요.",
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("취소", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: makitaTeal),
+            onPressed: () {
+              double customDed = double.tryParse(dedCtrl.text) ?? 0.0;
+              setState(() {
+                // 🚀 [에러 픽스] "" 대신 진짜 아이콘(Icons.extension)을 넣었습니다!
+                _points[index].fitting = FittingItem(
+                  id: "custom_${DateTime.now().millisecondsSinceEpoch}",
+                  category: "CUSTOM",
+                  name: nameCtrl.text.trim().isEmpty
+                      ? "커스텀 부속"
+                      : nameCtrl.text.trim(),
+                  tubeOD: "직접입력",
+                  maker: "CUSTOM",
+                  deduction: customDed,
+                  icon: Icons.extension, // 💡 이 부분이 수정되었습니다!
+                );
+                _calculate();
+              });
+              Navigator.pop(ctx);
+            },
+            child: const Text(
+              "적용",
+              style: TextStyle(color: whiteCard, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
     );
+  }
+
+  void _saveRecord() {
+    if (_points.any(
+      (p) => p.c2cController.text.isNotEmpty && p.calculatedCut < 0,
+    )) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("간섭이 발생한 구간이 있습니다. 치수를 확인해주세요!"),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    double totalOneSet = _points
+        .sublist(0, _points.length - 1)
+        .fold(
+          0.0,
+          (sum, point) =>
+              sum + (point.calculatedCut > 0 ? point.calculatedCut : 0.0),
+        );
     double finalTotal = totalOneSet * _setMultiplier;
 
     if (finalTotal <= 0) {
       return;
     }
+
+    FocusScope.of(context).unfocus();
 
     setState(() {
       widget.project.addCutLength(finalTotal);
@@ -131,6 +231,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
   }
 
   Widget _buildFittingBadge(FittingItem item, bool isNone) {
+    bool isCustom = item.category == "CUSTOM";
     return Container(
       width: 44,
       height: 44,
@@ -138,12 +239,14 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
       decoration: BoxDecoration(
         color: isNone
             ? Colors.grey.shade100
-            : makitaTeal.withValues(alpha: 0.1),
+            : (isCustom
+                  ? Colors.orange.shade50
+                  : makitaTeal.withValues(alpha: 0.1)),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isNone
               ? Colors.grey.shade300
-              : makitaTeal.withValues(alpha: 0.5),
+              : (isCustom ? Colors.orange : makitaTeal.withValues(alpha: 0.5)),
         ),
       ),
       child: Text(
@@ -152,7 +255,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
         style: TextStyle(
           fontSize: item.category.length > 4 ? 9 : 12,
           fontWeight: FontWeight.w900,
-          color: isNone ? Colors.grey : makitaTeal,
+          color: isNone
+              ? Colors.grey
+              : (isCustom ? Colors.orange.shade800 : makitaTeal),
           height: 1.1,
         ),
       ),
@@ -168,8 +273,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
         foregroundColor: whiteCard,
         elevation: 0,
         title: Text(
-          "프로젝트: ${widget.project.name} | 누적 튜브: ${widget.project.estimatedMeters} m",
-          style: const TextStyle(fontWeight: FontWeight.w900),
+          "프로젝트: ${widget.project.name} | 누적: ${widget.project.estimatedMeters} m",
+          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
         ),
       ),
       body: Column(
@@ -264,7 +369,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                                 size: 18,
                               ),
                               label: const Text(
-                                "추가",
+                                "포인트 추가",
                                 style: TextStyle(color: whiteCard),
                               ),
                               style: ElevatedButton.styleFrom(
@@ -274,7 +379,6 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        // 🚀 ReorderableListView 로 변경 (드래그 앤 드롭 지원!)
                         Expanded(
                           child: ReorderableListView.builder(
                             itemCount: _points.length,
@@ -285,12 +389,12 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                                 }
                                 final point = _points.removeAt(oldIndex);
                                 _points.insert(newIndex, point);
-                                _calculate(); // 위치가 바뀌었으니 재계산
+                                _calculate();
                               });
                             },
                             itemBuilder: (context, index) {
                               return Container(
-                                key: ValueKey(_points[index].id), // 고유 키 필수
+                                key: ValueKey(_points[index].id),
                                 child: Column(
                                   children: [
                                     _buildFittingCard(index),
@@ -320,7 +424,6 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // 🚀 명칭 변경: 배관 도식화 -> 배치도
                               const Text(
                                 "1. 배치도",
                                 style: TextStyle(
@@ -346,6 +449,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                                             if (index < _points.length - 1)
                                               _buildVisualPipe(
                                                 _points[index].calculatedCut,
+                                                _points[index]
+                                                    .c2cController
+                                                    .text
+                                                    .isNotEmpty,
                                               ),
                                           ],
                                         );
@@ -358,7 +465,6 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                           ),
                         ),
                       ),
-
                       const Divider(
                         height: 1,
                         color: Colors.black12,
@@ -387,7 +493,6 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                                         ),
                                       ),
                                       const SizedBox(width: 16),
-                                      // 🚀 동일 치수 합산 스위치 추가
                                       const Text(
                                         "같은 길이 합산",
                                         style: TextStyle(
@@ -398,7 +503,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                                       ),
                                       Switch(
                                         value: _groupSameLengths,
-                                        activeColor: makitaTeal,
+                                        activeThumbColor: makitaTeal,
                                         onChanged: (val) => setState(
                                           () => _groupSameLengths = val,
                                         ),
@@ -418,13 +523,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                                             Icons.remove,
                                             color: makitaTeal,
                                           ),
-                                          onPressed: () {
-                                            setState(() {
-                                              if (_setMultiplier > 1) {
-                                                _setMultiplier--;
-                                              }
-                                            });
-                                          },
+                                          onPressed: () => setState(() {
+                                            if (_setMultiplier > 1)
+                                              _setMultiplier--;
+                                          }),
                                         ),
                                         Text(
                                           "$_setMultiplier SET",
@@ -448,7 +550,6 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                                 ],
                               ),
                               const SizedBox(height: 12),
-
                               Expanded(
                                 child: Container(
                                   decoration: BoxDecoration(
@@ -458,15 +559,16 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                                     ),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child:
-                                      _buildCuttingListRenderer(), // 🚀 합산 로직 분리
+                                  child: _buildCuttingListRenderer(),
                                 ),
                               ),
                               const SizedBox(height: 16),
 
                               ElevatedButton(
                                 onPressed:
-                                    _points.any((p) => p.calculatedCut > 0)
+                                    _points.any(
+                                      (p) => p.c2cController.text.isNotEmpty,
+                                    )
                                     ? _saveRecord
                                     : null,
                                 style: ElevatedButton.styleFrom(
@@ -477,7 +579,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                                   ),
                                 ),
                                 child: Text(
-                                  "$_setMultiplier 세트 전량 저장 (합계: ${(_points.fold(0.0, (sum, p) => sum + p.calculatedCut) * _setMultiplier).toStringAsFixed(1)} mm)",
+                                  "$_setMultiplier 세트 전량 저장 (합계: ${(_points.sublist(0, _points.length - 1).fold(0.0, (sum, p) => sum + (p.calculatedCut > 0 ? p.calculatedCut : 0)) * _setMultiplier).toStringAsFixed(1)} mm)",
                                   style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
@@ -500,36 +602,241 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
     );
   }
 
-  // 🚀 컷팅 지시서 렌더링 (합산 vs 개별)
+  Widget _buildFittingCard(int index) {
+    FittingItem item = _points[index].fitting;
+    bool isNone = item.id == "none";
+
+    return Row(
+      children: [
+        const Icon(Icons.drag_handle, color: Colors.grey),
+        const SizedBox(width: 8),
+        Container(
+          width: 36,
+          height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isNone ? Colors.grey.shade300 : makitaDark,
+            shape: BoxShape.circle,
+          ),
+          child: Text(
+            "PT${index + 1}",
+            style: TextStyle(
+              color: isNone ? Colors.grey.shade600 : whiteCard,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: whiteCard,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isNone ? Colors.grey.shade300 : makitaTeal,
+                width: isNone ? 1 : 2,
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _openFittingSelector(index),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      child: Row(
+                        children: [
+                          _buildFittingBadge(item, isNone),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (!isNone)
+                                  Text(
+                                    "${item.tubeOD} 규격",
+                                    style: const TextStyle(
+                                      color: Colors.redAccent,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                Text(
+                                  isNone ? "부속을 고르세요" : item.name,
+                                  style: TextStyle(
+                                    color: isNone ? Colors.grey : textPrimary,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (!isNone)
+                            Text(
+                              "- ${item.deduction}mm",
+                              style: const TextStyle(
+                                color: makitaDark,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Container(width: 1, height: 40, color: Colors.grey.shade300),
+                IconButton(
+                  tooltip: "공제값 직접 입력",
+                  icon: const Icon(Icons.edit_square, color: Colors.grey),
+                  onPressed: () => _showCustomFittingDialog(index),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_points.length > 2)
+          IconButton(
+            icon: const Icon(Icons.delete, color: Colors.redAccent),
+            onPressed: () => _removePoint(index),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildLengthInputCard(int index) {
+    bool hasInput = _points[index].c2cController.text.trim().isNotEmpty;
+    bool isInterference = hasInput && _points[index].calculatedCut < 0;
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 48, top: 4, bottom: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 2,
+            height: isInterference ? 70 : 50,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(width: 24),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: _points[index].c2cController,
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => _calculate(),
+                  cursorColor: makitaTeal,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: textPrimary,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: "전체 길이 (C to C / End to End)",
+                    labelStyle: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 13,
+                    ),
+                    filled: true,
+                    fillColor: isInterference ? Colors.red.shade50 : whiteCard,
+                    suffixText: "mm",
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: isInterference
+                            ? Colors.red
+                            : Colors.grey.shade300,
+                        width: isInterference ? 2 : 1,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: isInterference ? Colors.red : makitaTeal,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                ),
+                if (isInterference)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, left: 4),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.warning_rounded,
+                          color: Colors.red,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          "간섭 발생! 입력값이 양쪽 피팅 공제값의 합보다 작습니다.",
+                          style: TextStyle(
+                            color: Colors.red.shade700,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCuttingListRenderer() {
     List<double> validCuts = _points
         .sublist(0, _points.length - 1)
+        .where((p) => p.c2cController.text.isNotEmpty && p.calculatedCut > 0)
         .map((p) => p.calculatedCut)
-        .where((c) => c > 0)
         .toList();
 
     if (validCuts.isEmpty) {
-      return const Center(
-        child: Text("치수를 입력하세요.", style: TextStyle(color: Colors.grey)),
+      bool hasError = _points.any(
+        (p) => p.c2cController.text.isNotEmpty && p.calculatedCut < 0,
+      );
+      return Center(
+        child: Text(
+          hasError ? "간섭이 발생한 구간을 수정하세요." : "치수를 입력하세요.",
+          style: TextStyle(
+            color: hasError ? Colors.red : Colors.grey,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       );
     }
 
     if (_groupSameLengths) {
-      // 그룹화 (예: 150mm가 2개면 150.0: 2)
       Map<double, int> grouped = {};
       for (var cut in validCuts) {
         grouped[cut] = (grouped[cut] ?? 0) + 1;
       }
-
       return ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: grouped.length,
-        separatorBuilder: (_, __) => const Divider(),
+        separatorBuilder: (context, index) => const Divider(),
         itemBuilder: (context, index) {
           double length = grouped.keys.elementAt(index);
           int count = grouped[length]!;
           int totalCount = count * _setMultiplier;
-
           return Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -542,7 +849,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                 ),
               ),
               Text(
-                "기본 ${count}개 x $_setMultiplier SET",
+                "기본 $count개 x $_setMultiplier SET",
                 style: const TextStyle(fontSize: 14, color: Colors.grey),
               ),
               Text(
@@ -566,14 +873,16 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
         },
       );
     } else {
-      // 기존 개별 나열 모드
       return ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: _points.length - 1,
-        separatorBuilder: (_, __) => const Divider(),
+        separatorBuilder: (context, index) => const Divider(),
         itemBuilder: (context, index) {
+          if (_points[index].c2cController.text.isEmpty) {
+            return const SizedBox.shrink();
+          }
           double cutLen = _points[index].calculatedCut;
-          if (cutLen <= 0) {
+          if (cutLen < 0) {
             return const SizedBox.shrink();
           }
 
@@ -619,156 +928,6 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
     }
   }
 
-  Widget _buildFittingCard(int index) {
-    FittingItem item = _points[index].fitting;
-    bool isNone = item.id == "none";
-
-    return Row(
-      children: [
-        // 🚀 드래그 핸들 아이콘 추가
-        const Icon(Icons.drag_handle, color: Colors.grey),
-        const SizedBox(width: 8),
-        Container(
-          width: 36,
-          height: 36,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: isNone ? Colors.grey.shade300 : makitaDark,
-            shape: BoxShape.circle,
-          ),
-          child: Text(
-            "PT${index + 1}",
-            style: TextStyle(
-              color: isNone ? Colors.grey.shade600 : whiteCard,
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: InkWell(
-            onTap: () => _openFittingSelector(index),
-            child: Container(
-              padding: const EdgeInsets.only(
-                left: 12,
-                right: 12,
-                top: 10,
-                bottom: 10,
-              ),
-              decoration: BoxDecoration(
-                color: whiteCard,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: isNone ? Colors.grey.shade300 : makitaTeal,
-                  width: isNone ? 1 : 2,
-                ),
-              ),
-              child: Row(
-                children: [
-                  _buildFittingBadge(item, isNone),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (!isNone)
-                          Text(
-                            "${item.tubeOD} 규격",
-                            style: const TextStyle(
-                              color: Colors.redAccent,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        Text(
-                          isNone ? "부속을 고르세요" : item.displayName,
-                          style: TextStyle(
-                            color: isNone ? Colors.grey : textPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (!isNone)
-                    Text(
-                      "- ${item.deduction}mm",
-                      style: const TextStyle(
-                        color: makitaDark,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        if (_points.length > 2)
-          IconButton(
-            icon: const Icon(Icons.delete, color: Colors.redAccent),
-            onPressed: () => _removePoint(index),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildLengthInputCard(int index) {
-    return Padding(
-      padding: const EdgeInsets.only(
-        left: 48,
-        right: 0,
-        top: 4,
-        bottom: 4,
-      ), // 드래그 핸들 공간 확보
-      child: Row(
-        children: [
-          Container(width: 2, height: 50, color: Colors.grey.shade400),
-          const SizedBox(width: 24),
-          Expanded(
-            child: TextField(
-              controller: _points[index].c2cController,
-              keyboardType: TextInputType.number,
-              onChanged: (_) => _calculate(),
-              // 🚀 텍스트필드 보라색 픽스: 커서 컬러 마키타 틸 지정
-              cursorColor: makitaTeal,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                color: textPrimary,
-              ),
-              decoration: InputDecoration(
-                labelText: "C to C 치수",
-                labelStyle: TextStyle(color: Colors.grey.shade600),
-                filled: true,
-                fillColor: whiteCard,
-                suffixText: "mm",
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                // 🚀 포커스 테두리 확실하게 마키타 틸 적용
-                focusedBorder: const OutlineInputBorder(
-                  borderSide: BorderSide(color: makitaTeal, width: 2),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildVisualFitting(FittingItem item, int index) {
     bool isNone = item.id == "none";
     return Column(
@@ -802,32 +961,45 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          item.name,
+          item.name.length > 8 ? "${item.name.substring(0, 8)}.." : item.name,
           style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
         ),
       ],
     );
   }
 
-  Widget _buildVisualPipe(double cutLength) {
+  Widget _buildVisualPipe(double cutLength, bool hasInput) {
+    bool isInterference = hasInput && cutLength < 0;
+
     return Container(
       width: 120,
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Column(
         children: [
-          // 🚀 "대기" -> "치수"
-          Text(
-            cutLength > 0 ? "${cutLength.toStringAsFixed(1)} mm" : "치수",
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-              color: cutLength > 0 ? Colors.redAccent : Colors.grey,
+          if (isInterference)
+            const Text(
+              "⚠️ 간섭",
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+                color: Colors.red,
+              ),
+            )
+          else
+            Text(
+              hasInput ? "${cutLength.toStringAsFixed(1)} mm" : "치수",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                color: hasInput ? Colors.redAccent : Colors.grey,
+              ),
             ),
-          ),
           const SizedBox(height: 8),
           Container(
             height: 6,
-            color: cutLength > 0 ? textPrimary : Colors.grey.shade300,
+            color: isInterference
+                ? Colors.red
+                : (hasInput ? textPrimary : Colors.grey.shade300),
           ),
           const SizedBox(height: 20),
         ],
