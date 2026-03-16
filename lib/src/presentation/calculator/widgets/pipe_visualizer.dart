@@ -1,53 +1,92 @@
+// lib/src/presentation/calculator/widgets/pipe_visualizer.dart
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'package:vector_math/vector_math_64.dart' as vmath;
+
+const Color makitaTeal = Color(0xFF007580);
+const Color slate900 = Color(0xFF0F172A);
+const Color slate600 = Color(0xFF475569);
+const Color slate100 = Color(0xFFF1F5F9);
+const Color pureWhite = Color(0xFFFFFFFF);
 
 class PipeVisualizer extends StatefulWidget {
-  // 데이터가 dynamic으로 들어올 수도 있으니 유연하게 대처하기 위해 유지
   final List<Map<String, dynamic>> bendList;
+  final double tailLength;
+  final int? selectedSegmentIndex;
+  final String initialStartDir;
+  final ValueChanged<String>? onStartDirChanged;
 
-  const PipeVisualizer({super.key, required this.bendList});
+  const PipeVisualizer({
+    super.key,
+    required this.bendList,
+    this.tailLength = 0.0,
+    this.selectedSegmentIndex,
+    this.initialStartDir = 'RIGHT',
+    this.onStartDirChanged,
+  });
 
   @override
   State<PipeVisualizer> createState() => _PipeVisualizerState();
 }
 
 class _PipeVisualizerState extends State<PipeVisualizer> {
-  // 기본 아이소메트릭 각도
-  static const double _defaultRotX = math.pi / 6;
-  static const double _defaultRotY = math.pi / 4;
+  static const double _defaultRotX = -math.pi / 6;
+  static const double _defaultRotY = -math.pi / 4;
 
   double _rotationX = _defaultRotX;
   double _rotationY = _defaultRotY;
-
-  // 회전 제한(Clamp)
-  final double _minRotX = _defaultRotX - 0.7;
-  final double _maxRotX = _defaultRotX + 0.7;
-  final double _minRotY = _defaultRotY - 1.2;
-  final double _maxRotY = _defaultRotY + 1.2;
-
-  // 🚀 줌 관련 변수
   double _zoomLevel = 1.0;
   double _baseZoom = 1.0;
 
-  // 초기화(리프레시) 함수
+  double _panX = 0.0;
+  double _panY = 0.0;
+
+  bool _isFlippedX = false;
+  bool _isFlippedY = false;
+
+  late String _startDir;
+
+  @override
+  void initState() {
+    super.initState();
+    _startDir = widget.initialStartDir;
+  }
+
+  // 🚀 [핵심 해결] 부모 화면(계산기)에서 0.1초 뒤에 찾아온 기억(DOWN)을 던져주면, 즉시 캐치해서 바꿈!
+  @override
+  void didUpdateWidget(PipeVisualizer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialStartDir != widget.initialStartDir) {
+      setState(() {
+        _startDir = widget.initialStartDir;
+      });
+    }
+  }
+
   void _resetView() {
     setState(() {
       _rotationX = _defaultRotX;
       _rotationY = _defaultRotY;
       _zoomLevel = 1.0;
+      _panX = 0.0;
+      _panY = 0.0;
+      _isFlippedX = false;
+      _isFlippedY = false;
     });
   }
 
-  void _zoomIn() {
+  void _rotateCamera() {
     setState(() {
-      _zoomLevel = (_zoomLevel + 0.2).clamp(0.5, 5.0);
+      _rotationY -= math.pi / 2;
     });
   }
 
-  void _zoomOut() {
-    setState(() {
-      _zoomLevel = (_zoomLevel - 0.2).clamp(0.5, 5.0);
-    });
+  void _toggleFlipX() {
+    setState(() => _isFlippedX = !_isFlippedX);
+  }
+
+  void _toggleFlipY() {
+    setState(() => _isFlippedY = !_isFlippedY);
   }
 
   void _onScaleStart(ScaleStartDetails details) {
@@ -56,16 +95,11 @@ class _PipeVisualizerState extends State<PipeVisualizer> {
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
     setState(() {
-      // 1. 회전 처리
-      _rotationY -= details.focalPointDelta.dx * 0.008;
-      _rotationX -= details.focalPointDelta.dy * 0.008;
-
-      _rotationX = _rotationX.clamp(_minRotX, _maxRotX);
-      _rotationY = _rotationY.clamp(_minRotY, _maxRotY);
-
-      // 2. 줌 처리
-      if (details.scale != 1.0) {
-        _zoomLevel = (_baseZoom * details.scale).clamp(0.5, 5.0);
+      if (details.scale == 1.0) {
+        _panX += details.focalPointDelta.dx;
+        _panY += details.focalPointDelta.dy;
+      } else {
+        _zoomLevel = (_baseZoom * details.scale).clamp(0.2, 10.0);
       }
     });
   }
@@ -74,319 +108,774 @@ class _PipeVisualizerState extends State<PipeVisualizer> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            return GestureDetector(
-              onScaleStart: _onScaleStart,
-              onScaleUpdate: _onScaleUpdate,
-              onDoubleTap: _resetView,
-              child: Container(
-                color: Colors.transparent,
-                child: CustomPaint(
-                  size: Size(constraints.maxWidth, constraints.maxHeight),
-                  painter: IsoPipePainter(
-                    bendList: widget.bendList,
-                    rotationX: _rotationX,
-                    rotationY: _rotationY,
-                    zoomLevel: _zoomLevel,
-                  ),
-                ),
+        GestureDetector(
+          onScaleStart: _onScaleStart,
+          onScaleUpdate: _onScaleUpdate,
+          onDoubleTap: _resetView,
+          child: Container(
+            width: double.infinity,
+            height: double.infinity,
+            color: const Color(0xFF151B22),
+            child: CustomPaint(
+              painter: IsoPipePainter(
+                bendList: widget.bendList,
+                tailLength: widget.tailLength,
+                rotationX: _rotationX,
+                rotationY: _rotationY,
+                zoomLevel: _zoomLevel,
+                panX: _panX,
+                panY: _panY,
+                isFlippedX: _isFlippedX,
+                isFlippedY: _isFlippedY,
+                startDirection: _startDir,
+                selectedSegmentIndex: widget.selectedSegmentIndex,
               ),
-            );
-          },
+            ),
+          ),
         ),
-        // 우측 하단 줌 및 초기화 버튼
+        Positioned(
+          top: 16,
+          right: 16,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2B3643),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white24),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _startDir,
+                dropdownColor: const Color(0xFF2B3643),
+                icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+                onChanged: (String? newValue) {
+                  if (newValue != null) {
+                    setState(() => _startDir = newValue);
+                    widget.onStartDirChanged?.call(newValue);
+                  }
+                },
+                items: ['RIGHT', 'LEFT', 'UP', 'DOWN', 'FRONT', 'BACK']
+                    .map<DropdownMenuItem<String>>((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text('시작: $value'),
+                      );
+                    })
+                    .toList(),
+              ),
+            ),
+          ),
+        ),
         Positioned(
           right: 16,
           bottom: 16,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              FloatingActionButton(
-                mini: true,
-                heroTag: "btn_zoom_in",
-                backgroundColor: Colors.black54,
-                elevation: 0,
-                onPressed: _zoomIn,
-                child: const Icon(Icons.add, color: Colors.white),
+              _buildControlButton(
+                icon: Icons.swap_vert,
+                color: _isFlippedY
+                    ? const Color(0xFFE57373)
+                    : const Color(0xFF4A6572),
+                onPressed: _toggleFlipY,
+              ),
+              const SizedBox(height: 12),
+              _buildControlButton(
+                icon: Icons.swap_horiz,
+                color: _isFlippedX
+                    ? const Color(0xFFE57373)
+                    : const Color(0xFF4A6572),
+                onPressed: _toggleFlipX,
+              ),
+              const SizedBox(height: 12),
+              _buildControlButton(
+                icon: Icons.rotate_90_degrees_cw,
+                color: const Color(0xFF4A6572),
+                onPressed: _rotateCamera,
+              ),
+              const SizedBox(height: 12),
+              _buildControlButton(
+                icon: Icons.add,
+                onPressed: () => setState(
+                  () => _zoomLevel = (_zoomLevel + 0.2).clamp(0.2, 10.0),
+                ),
               ),
               const SizedBox(height: 8),
-              FloatingActionButton(
-                mini: true,
-                heroTag: "btn_zoom_out",
-                backgroundColor: Colors.black54,
-                elevation: 0,
-                onPressed: _zoomOut,
-                child: const Icon(Icons.remove, color: Colors.white),
+              _buildControlButton(
+                icon: Icons.remove,
+                onPressed: () => setState(
+                  () => _zoomLevel = (_zoomLevel - 0.2).clamp(0.2, 10.0),
+                ),
               ),
               const SizedBox(height: 8),
-              FloatingActionButton(
-                mini: true,
-                heroTag: "btn_reset",
-                backgroundColor: Colors.black54,
-                elevation: 0,
-                onPressed: _resetView,
-                child: const Icon(Icons.refresh, color: Colors.white),
-              ),
+              _buildControlButton(icon: Icons.refresh, onPressed: _resetView),
             ],
           ),
         ),
       ],
     );
   }
+
+  Widget _buildControlButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+    Color? color,
+  }) {
+    return FloatingActionButton(
+      mini: true,
+      heroTag: icon.toString(),
+      backgroundColor: color ?? const Color(0xFF2B3643),
+      elevation: 2,
+      onPressed: onPressed,
+      child: Icon(icon, color: Colors.white70, size: 20),
+    );
+  }
+}
+
+abstract class Renderable {
+  double get z;
+  void draw(
+    Canvas canvas,
+    Paint pipePaint,
+    Paint highlightPaint,
+    Paint outlinePaint,
+  );
+}
+
+class SegmentRenderable implements Renderable {
+  final Offset p1, p2;
+  @override
+  final double z;
+  final bool isSelected;
+
+  SegmentRenderable(this.p1, this.p2, this.z, {this.isSelected = false});
+
+  @override
+  void draw(
+    Canvas canvas,
+    Paint pipePaint,
+    Paint highlightPaint,
+    Paint outlinePaint,
+  ) {
+    canvas.drawLine(p1, p2, outlinePaint);
+    canvas.drawLine(p1, p2, isSelected ? highlightPaint : pipePaint);
+
+    double dx = p2.dx - p1.dx;
+    double dy = p2.dy - p1.dy;
+    double length = math.sqrt(dx * dx + dy * dy);
+
+    if (length > 15) {
+      double arrowSize = 6.0;
+      double lineAngle = math.atan2(dy, dx);
+      Offset mid = Offset(p1.dx + dx * 0.55, p1.dy + dy * 0.55);
+
+      Offset arrowP1 = Offset(
+        mid.dx - arrowSize * math.cos(lineAngle - math.pi / 6),
+        mid.dy - arrowSize * math.sin(lineAngle - math.pi / 6),
+      );
+      Offset arrowP2 = Offset(
+        mid.dx - arrowSize * math.cos(lineAngle + math.pi / 6),
+        mid.dy - arrowSize * math.sin(lineAngle + math.pi / 6),
+      );
+
+      Path arrowPath = Path()
+        ..moveTo(mid.dx, mid.dy)
+        ..lineTo(arrowP1.dx, arrowP1.dy)
+        ..lineTo(arrowP2.dx, arrowP2.dy)
+        ..close();
+
+      Paint arrowPaint = Paint()
+        ..color = isSelected ? Colors.white : Colors.white.withOpacity(0.8)
+        ..style = PaintingStyle.fill;
+
+      canvas.drawPath(arrowPath, arrowPaint);
+    }
+  }
+}
+
+class DashedLineRenderable implements Renderable {
+  final Offset p1, p2;
+  @override
+  final double z;
+
+  DashedLineRenderable(this.p1, this.p2, this.z);
+
+  @override
+  void draw(
+    Canvas canvas,
+    Paint pipePaint,
+    Paint highlightPaint,
+    Paint outlinePaint,
+  ) {
+    final dashPaint = Paint()
+      ..color = Colors.amberAccent.withOpacity(0.9)
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    double dx = p2.dx - p1.dx;
+    double dy = p2.dy - p1.dy;
+    double distance = math.sqrt(dx * dx + dy * dy);
+
+    if (distance <= 0) return;
+
+    const double dashWidth = 10.0;
+    const double dashSpace = 8.0;
+
+    double unitDx = dx / distance;
+    double unitDy = dy / distance;
+
+    double startX = p1.dx;
+    double startY = p1.dy;
+    double drawn = 0.0;
+
+    while (drawn < distance) {
+      double nextDraw = math.min(dashWidth, distance - drawn);
+      double endX = startX + unitDx * nextDraw;
+      double endY = startY + unitDy * nextDraw;
+
+      canvas.drawLine(Offset(startX, startY), Offset(endX, endY), dashPaint);
+
+      drawn += nextDraw + dashSpace;
+      startX = endX + unitDx * dashSpace;
+      startY = endY + unitDy * dashSpace;
+    }
+
+    double arrowSize = 8.0;
+    double lineAngle = math.atan2(dy, dx);
+    Offset arrowP1 = Offset(
+      p2.dx - arrowSize * math.cos(lineAngle - math.pi / 6),
+      p2.dy - arrowSize * math.sin(lineAngle - math.pi / 6),
+    );
+    Offset arrowP2 = Offset(
+      p2.dx - arrowSize * math.cos(lineAngle + math.pi / 6),
+      p2.dy - arrowSize * math.sin(lineAngle + math.pi / 6),
+    );
+
+    Path arrowPath = Path()
+      ..moveTo(p2.dx, p2.dy)
+      ..lineTo(arrowP1.dx, arrowP1.dy)
+      ..lineTo(arrowP2.dx, arrowP2.dy)
+      ..close();
+
+    canvas.drawPath(
+      arrowPath,
+      Paint()
+        ..color = Colors.amberAccent
+        ..style = PaintingStyle.fill,
+    );
+  }
+}
+
+class NodeRenderable implements Renderable {
+  final Offset pos;
+  @override
+  final double z;
+  final bool isStart;
+  final bool isEnd;
+  final bool isSelected;
+
+  NodeRenderable(
+    this.pos,
+    this.z, {
+    this.isStart = false,
+    this.isEnd = false,
+    this.isSelected = false,
+  });
+
+  @override
+  void draw(
+    Canvas canvas,
+    Paint pipePaint,
+    Paint highlightPaint,
+    Paint outlinePaint,
+  ) {
+    double radius = isStart ? 6.0 : 4.0;
+    canvas.drawCircle(pos, radius + 1.0, outlinePaint);
+
+    Color nodeColor = isStart
+        ? const Color(0xFFE53935)
+        : (isEnd
+              ? const Color(0xFF64B5F6)
+              : (isSelected ? Colors.orange : const Color(0xFF90A4AE)));
+
+    canvas.drawCircle(pos, radius, Paint()..color = nodeColor);
+  }
+}
+
+class LabelRenderable implements Renderable {
+  final Offset centerPos;
+  @override
+  final double z;
+  final String text;
+  final bool isStraightPipe;
+  final bool isSelected;
+  final bool isStartLabel;
+
+  LabelRenderable(
+    this.centerPos,
+    this.z,
+    this.text, {
+    this.isStraightPipe = false,
+    this.isSelected = false,
+    this.isStartLabel = false,
+  });
+
+  @override
+  void draw(
+    Canvas canvas,
+    Paint pipePaint,
+    Paint highlightPaint,
+    Paint outlinePaint,
+  ) {
+    Color textColor = isStartLabel
+        ? Colors.white
+        : (isStraightPipe ? Colors.white70 : Colors.white);
+
+    double fontSize = isStartLabel
+        ? 12
+        : (isStraightPipe ? 11 : (isSelected ? 20 : 16));
+
+    final textSpan = TextSpan(
+      text: text,
+      style: TextStyle(
+        color: textColor,
+        fontSize: fontSize,
+        fontWeight: isStraightPipe ? FontWeight.bold : FontWeight.w900,
+        letterSpacing: isStartLabel ? 1.0 : 0.0,
+      ),
+    );
+
+    final textPainter = TextPainter(
+      text: textSpan,
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    Offset drawPos = Offset(
+      centerPos.dx - (textPainter.width / 2),
+      centerPos.dy - (textPainter.height / 2),
+    );
+
+    final rect = Rect.fromLTWH(
+      drawPos.dx - (isStraightPipe ? 4 : 8),
+      drawPos.dy - (isStraightPipe ? 2 : 4),
+      textPainter.width + (isStraightPipe ? 8 : 16),
+      textPainter.height + (isStraightPipe ? 4 : 8),
+    );
+    final rrect = RRect.fromRectAndRadius(
+      rect,
+      Radius.circular(isStraightPipe ? 4 : 8),
+    );
+
+    final bgPaint = Paint()
+      ..color = isStartLabel
+          ? const Color(0xFFE53935)
+          : (isStraightPipe
+                ? Colors.grey.shade800.withOpacity(0.7)
+                : (isSelected
+                      ? Colors.orange.shade800
+                      : const Color(0xFF151B22).withOpacity(0.95)))
+      ..style = PaintingStyle.fill;
+
+    final borderPaint = Paint()
+      ..color = isStartLabel
+          ? Colors.red.shade900
+          : (isStraightPipe
+                ? Colors.grey.shade600
+                : (isSelected ? Colors.orange.shade300 : Colors.grey.shade600))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = isStraightPipe ? 1.0 : 1.5;
+
+    canvas.drawRRect(rrect, bgPaint);
+    canvas.drawRRect(rrect, borderPaint);
+    textPainter.paint(canvas, drawPos);
+  }
 }
 
 class IsoPipePainter extends CustomPainter {
   final List<Map<String, dynamic>> bendList;
+  final double tailLength;
   final double rotationX;
   final double rotationY;
   final double zoomLevel;
+  final double panX;
+  final double panY;
+  final bool isFlippedX;
+  final bool isFlippedY;
+  final String startDirection;
+  final int? selectedSegmentIndex;
 
   IsoPipePainter({
     required this.bendList,
+    this.tailLength = 0.0,
     required this.rotationX,
     required this.rotationY,
     required this.zoomLevel,
+    required this.panX,
+    required this.panY,
+    required this.isFlippedX,
+    required this.isFlippedY,
+    required this.startDirection,
+    this.selectedSegmentIndex,
   });
 
-  double _dotProduct(List<double> v1, List<double> v2) {
-    return v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
+  double _getVisualLength(double realLength) {
+    if (realLength <= 0) return 0.0;
+    return 40.0 + math.pow(realLength, 0.5) * 6.0;
   }
 
-  List<double> _normalize(List<double> v) {
-    double mag = math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-    if (mag == 0) return [0, 0, 0];
-    return [v[0] / mag, v[1] / mag, v[2] / mag];
+  vmath.Vector3 _getAbsoluteDirection(double rot) {
+    if (rot == 0.0) return vmath.Vector3(0, 1, 0);
+    if (rot == 90.0) return vmath.Vector3(1, 0, 0);
+    if (rot == 180.0) return vmath.Vector3(0, -1, 0);
+    if (rot == 270.0) return vmath.Vector3(-1, 0, 0);
+    if (rot == 360.0) return vmath.Vector3(0, 0, 1);
+    if (rot == 450.0) return vmath.Vector3(0, 0, -1);
+    return vmath.Vector3(1, 0, 0);
   }
 
-  List<double> _getTargetVector(double rot) {
-    if (rot == 360.0) return [0, 0, 1];
-    if (rot == 450.0) return [0, 0, -1];
-    double rad = rot * math.pi / 180.0;
-    return [math.sin(rad), -math.cos(rad), 0.0];
+  vmath.Vector3 _getStartVector() {
+    switch (startDirection) {
+      case 'UP':
+        return vmath.Vector3(0, 1, 0);
+      case 'DOWN':
+        return vmath.Vector3(0, -1, 0);
+      case 'LEFT':
+        return vmath.Vector3(-1, 0, 0);
+      case 'FRONT':
+        return vmath.Vector3(0, 0, 1);
+      case 'BACK':
+        return vmath.Vector3(0, 0, -1);
+      case 'RIGHT':
+      default:
+        return vmath.Vector3(1, 0, 0);
+    }
   }
 
-  List<double> _rotate3D(List<double> point, double rx, double ry) {
-    double x = point[0];
-    double y = point[1];
-    double z = point[2];
+  void _drawBlueprintGrid(Canvas canvas, Size size) {
+    final minorPaint = Paint()
+      ..color = const Color(0xFF202A36)
+      ..strokeWidth = 1.0;
+    final majorPaint = Paint()
+      ..color = const Color(0xFF2C3948)
+      ..strokeWidth = 1.5;
 
-    double tempX = x * math.cos(ry) + z * math.sin(ry);
-    double tempZ = -x * math.sin(ry) + z * math.cos(ry);
-    x = tempX;
-    z = tempZ;
-
-    double tempY = y * math.cos(rx) - z * math.sin(rx);
-    tempZ = y * math.sin(rx) + z * math.cos(rx);
-    y = tempY;
-    z = tempZ;
-
-    return [x, y, z];
+    double step = 30.0;
+    for (double i = 0; i < size.width; i += step) {
+      canvas.drawLine(
+        Offset(i, 0),
+        Offset(i, size.height),
+        i % (step * 5) == 0 ? majorPaint : minorPaint,
+      );
+    }
+    for (double i = 0; i < size.height; i += step) {
+      canvas.drawLine(
+        Offset(0, i),
+        Offset(size.width, i),
+        i % (step * 5) == 0 ? majorPaint : minorPaint,
+      );
+    }
   }
 
   @override
   void paint(Canvas canvas, Size size) {
     if (size.width <= 0 || size.height <= 0) return;
 
+    _drawBlueprintGrid(canvas, size);
+
+    List<vmath.Vector3> pts3D = [];
+    vmath.Vector3 currentPos = vmath.Vector3.zero();
+    pts3D.add(currentPos.clone());
+
+    vmath.Vector3 currentDir = _getStartVector();
+
+    // 🚀 번호 매기기 로직 (계산기용)
+    List<int> internalMarkNums = [];
+    int currentMarkNum = 1;
+    for (int i = 0; i < bendList.length; i++) {
+      double angle = (bendList[i]['angle'] ?? 0).toDouble();
+      if (angle == 0.0) {
+        internalMarkNums.add(0);
+      } else {
+        internalMarkNums.add(currentMarkNum);
+        currentMarkNum++;
+      }
+    }
+
+    for (int i = 0; i < bendList.length; i++) {
+      var bend = bendList[i];
+      double realL = (bend['length'] ?? 0).toDouble();
+      double angle = (bend['angle'] ?? 0).toDouble();
+      double rot = (bend['rotation'] ?? 0).toDouble();
+      double visL = _getVisualLength(realL);
+
+      currentPos += (currentDir * visL);
+      pts3D.add(currentPos.clone());
+
+      if (angle > 0) {
+        vmath.Vector3 targetDir = _getAbsoluteDirection(rot);
+        vmath.Vector3 bendAxis = currentDir.cross(targetDir);
+
+        if (bendAxis.length2 > 0.001) {
+          bendAxis.normalize();
+          vmath.Quaternion bendQuat = vmath.Quaternion.axisAngle(
+            bendAxis,
+            -angle * math.pi / 180.0,
+          );
+          currentDir = bendQuat.rotate(currentDir)..normalize();
+        } else {
+          if (currentDir.dot(targetDir) < -0.9) {
+            vmath.Vector3 fallback = vmath.Vector3(0, 0, 1);
+            if (currentDir.cross(fallback).length2 < 0.001)
+              fallback = vmath.Vector3(0, 1, 0);
+            bendAxis = currentDir.cross(fallback)..normalize();
+            vmath.Quaternion bendQuat = vmath.Quaternion.axisAngle(
+              bendAxis,
+              -angle * math.pi / 180.0,
+            );
+            currentDir = bendQuat.rotate(currentDir)..normalize();
+          }
+        }
+      }
+    }
+
+    if (tailLength > 0) {
+      double visTail = _getVisualLength(tailLength);
+      currentPos += (currentDir * visTail);
+      pts3D.add(currentPos.clone());
+    }
+
+    vmath.Vector3 center3D = _calculateCenter(pts3D);
+    double maxRadius = _calculateMaxRadius(pts3D, center3D);
+    double scale =
+        (math.min(size.width, size.height) * 0.4) / maxRadius * zoomLevel;
+
+    vmath.Matrix4 cameraMatrix = vmath.Matrix4.identity()
+      ..rotateX(rotationX)
+      ..rotateY(rotationY);
+
+    List<vmath.Vector3> projectedPts = [];
+    for (var p in pts3D) {
+      vmath.Vector3 translated = p - center3D;
+      projectedPts.add(cameraMatrix.transformed3(translated));
+    }
+
+    Offset to2D(vmath.Vector3 p) {
+      double finalX = isFlippedX ? -p.x : p.x;
+      double finalY = isFlippedY ? -p.y : p.y;
+      return Offset(
+        finalX * scale + size.width / 2 + panX,
+        -finalY * scale + size.height / 2 + panY,
+      );
+    }
+
+    List<Renderable> renderQueue = [];
+    List<LabelRenderable> labelQueue = [];
+
+    int pipeEndIndex = projectedPts.length - 1;
+
+    for (int i = 0; i < pipeEndIndex; i++) {
+      double zAvg = (projectedPts[i].z + projectedPts[i + 1].z) / 2;
+      bool isSelected = selectedSegmentIndex == i;
+
+      Offset p1_2d = to2D(projectedPts[i]);
+      Offset p2_2d = to2D(projectedPts[i + 1]);
+
+      renderQueue.add(
+        SegmentRenderable(p1_2d, p2_2d, zAvg, isSelected: isSelected),
+      );
+
+      if (i < bendList.length) {
+        double realL = bendList[i]['length']?.toDouble() ?? 0.0;
+        double angle = bendList[i]['angle']?.toDouble() ?? 0.0;
+
+        int mNum = internalMarkNums[i];
+
+        if (realL > 0) {
+          Offset mid = (p1_2d + p2_2d) / 2;
+          double dx = p2_2d.dx - p1_2d.dx;
+          double dy = p2_2d.dy - p1_2d.dy;
+          double len = math.sqrt(dx * dx + dy * dy);
+
+          Offset normal = len > 0
+              ? Offset(-dy / len, dx / len)
+              : const Offset(0, -1);
+          if (normal.dy > 0) normal = Offset(-normal.dx, -normal.dy);
+
+          Offset labelPos = mid + normal * 18.0;
+
+          if (angle == 0.0) {
+            labelQueue.add(
+              LabelRenderable(
+                labelPos,
+                zAvg,
+                "L:${realL.toInt()}",
+                isStraightPipe: true,
+                isSelected: isSelected,
+              ),
+            );
+          } else {
+            labelQueue.add(
+              LabelRenderable(
+                labelPos,
+                zAvg,
+                "$mNum",
+                isStraightPipe: false,
+                isSelected: isSelected,
+              ),
+            );
+          }
+        }
+      }
+    }
+
+    for (int i = 0; i <= pipeEndIndex; i++) {
+      bool isSelected =
+          (selectedSegmentIndex == i ||
+          (selectedSegmentIndex != null && selectedSegmentIndex == i - 1));
+      Offset nodePos = to2D(projectedPts[i]);
+      renderQueue.add(
+        NodeRenderable(
+          nodePos,
+          projectedPts[i].z - 0.05,
+          isStart: i == 0,
+          isEnd: i == pipeEndIndex,
+          isSelected: isSelected,
+        ),
+      );
+      if (i == 0)
+        labelQueue.add(
+          LabelRenderable(
+            nodePos + const Offset(0, -22),
+            projectedPts[i].z - 0.1,
+            "START",
+            isStartLabel: true,
+          ),
+        );
+    }
+
+    vmath.Vector3 translatedEnd =
+        (currentPos + currentDir * (150.0 / scale)) - center3D;
+    vmath.Vector3 pEndDir = cameraMatrix.transformed3(translatedEnd);
+    Offset pEndDir2D = to2D(pEndDir);
+    Offset pCurrentPos2D = to2D(projectedPts.last);
+    double zAvgDir = (projectedPts.last.z + pEndDir.z) / 2;
+
+    renderQueue.add(DashedLineRenderable(pCurrentPos2D, pEndDir2D, zAvgDir));
+    renderQueue.sort((a, b) => b.z.compareTo(a.z));
+    labelQueue.sort((a, b) => b.z.compareTo(a.z));
+
     final pipePaint = Paint()
-      ..color = const Color(0xFF007580)
+      ..color = const Color(0xFF607D8B)
       ..strokeWidth = 6.0
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
+    final highlightPaint = Paint()
+      ..color = Colors.orange.shade500
+      ..strokeWidth = 8.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final outlinePaint = Paint()
+      ..color = Colors.black45
+      ..strokeWidth = 8.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
-    final nodePaint = Paint()
-      ..color = Colors.amber
-      ..style = PaintingStyle.fill;
-    final startNodePaint = Paint()
-      ..color = Colors.redAccent
-      ..style = PaintingStyle.fill;
-
-    List<List<double>> points3D = [];
-    List<double> currPos = [0.0, 0.0, 0.0];
-    List<double> currDir = [1.0, 0.0, 0.0];
-
-    points3D.add([...currPos]);
-
-    // 🚀 [안전장치 1] 메인 루프: 데이터 파싱 시 .toDouble() 적용
-    for (var bend in bendList) {
-      double l = bend['length']?.toDouble() ?? 0.0;
-      double a = bend['angle']?.toDouble() ?? 0.0;
-      double? rotVal = bend['rotation']?.toDouble();
-
-      if (a == 0 && rotVal != null) {
-        currDir = _getTargetVector(rotVal);
-      }
-
-      if (l > 0) {
-        currPos[0] += currDir[0] * l;
-        currPos[1] += currDir[1] * l;
-        currPos[2] += currDir[2] * l;
-      }
-      points3D.add([...currPos]);
-
-      if (a > 0 && rotVal != null) {
-        double radA = a * math.pi / 180.0;
-        List<double> targetVec = _getTargetVector(rotVal);
-
-        double dot = _dotProduct(targetVec, currDir);
-        List<double> u = [
-          targetVec[0] - dot * currDir[0],
-          targetVec[1] - dot * currDir[1],
-          targetVec[2] - dot * currDir[2],
-        ];
-
-        u = _normalize(u);
-
-        if (u[0] != 0 || u[1] != 0 || u[2] != 0) {
-          currDir = [
-            currDir[0] * math.cos(radA) + u[0] * math.sin(radA),
-            currDir[1] * math.cos(radA) + u[1] * math.sin(radA),
-            currDir[2] * math.cos(radA) + u[2] * math.sin(radA),
-          ];
-          currDir = _normalize(currDir);
-        }
-      }
-    }
-
-    if (bendList.isNotEmpty) {
-      currPos[0] += currDir[0] * 100.0;
-      currPos[1] += currDir[1] * 100.0;
-      currPos[2] += currDir[2] * 100.0;
-      points3D.add([...currPos]);
-    } else {
-      currPos[0] += 50.0;
-      points3D.add([...currPos]);
-    }
-
-    List<Offset> points2D = [];
-    double minX = double.infinity, maxX = -double.infinity;
-    double minY = double.infinity, maxY = -double.infinity;
-
-    for (var p in points3D) {
-      List<double> rotatedP = _rotate3D(p, rotationX, rotationY);
-
-      double screenX = rotatedP[0];
-      double screenY = rotatedP[1];
-
-      points2D.add(Offset(screenX, screenY));
-      if (screenX < minX) minX = screenX;
-      if (screenX > maxX) maxX = screenX;
-      if (screenY < minY) minY = screenY;
-      if (screenY > maxY) maxY = screenY;
-    }
-
-    double drawWidth = maxX - minX;
-    double drawHeight = maxY - minY;
-    if (drawWidth == 0) drawWidth = 1;
-    if (drawHeight == 0) drawHeight = 1;
-
-    double scaleX = (size.width * 0.7) / drawWidth;
-    double scaleY = (size.height * 0.7) / drawHeight;
-
-    // 계산된 스케일에 사용자가 조작한 zoomLevel 반영
-    double finalScale = math.min(scaleX, scaleY) * zoomLevel;
-
-    double centerX = minX + (drawWidth / 2);
-    double centerY = minY + (drawHeight / 2);
-    double screenCenterX = size.width / 2;
-    double screenCenterY = size.height / 2;
-
-    List<Offset> finalPoints = [];
-
-    final path = Path();
-    for (int i = 0; i < points2D.length; i++) {
-      double finalX = (points2D[i].dx - centerX) * finalScale + screenCenterX;
-      double finalY = (points2D[i].dy - centerY) * finalScale + screenCenterY;
-      Offset finalPos = Offset(finalX, finalY);
-      finalPoints.add(finalPos);
-
-      if (i == 0) {
-        path.moveTo(finalPos.dx, finalPos.dy);
-      } else {
-        path.lineTo(finalPos.dx, finalPos.dy);
-      }
-    }
-    canvas.drawPath(path, pipePaint);
-
-    // 🚀 [안전장치 2] 치수(Length) 텍스트 루프
-    for (int i = 0; i < bendList.length; i++) {
-      double l = bendList[i]['length']?.toDouble() ?? 0.0;
-      if (l > 0) {
-        Offset mid = Offset(
-          (finalPoints[i].dx + finalPoints[i + 1].dx) / 2,
-          (finalPoints[i].dy + finalPoints[i + 1].dy) / 2,
-        );
-        _drawText(canvas, "L:${l.toInt()}", mid, Colors.white, isAngle: false);
-      }
-    }
-
-    canvas.drawCircle(finalPoints[0], 6, startNodePaint);
-
-    // 🚀 [안전장치 3] 각도(Angle) 텍스트 루프
-    for (int i = 1; i <= bendList.length; i++) {
-      canvas.drawCircle(finalPoints[i], 5, nodePaint);
-
-      if (i <= bendList.length) {
-        double a = bendList[i - 1]['angle']?.toDouble() ?? 0.0;
-        if (a > 0) {
-          _drawText(
-            canvas,
-            "${a.toStringAsFixed(a % 1 == 0 ? 0 : 1)}°",
-            finalPoints[i],
-            Colors.amber,
-            isAngle: true,
-          );
-        }
-      }
-    }
-
-    if (finalPoints.length > bendList.length + 1) {
-      Offset tailMid = Offset(
-        (finalPoints[bendList.length].dx +
-                finalPoints[bendList.length + 1].dx) /
-            2,
-        (finalPoints[bendList.length].dy +
-                finalPoints[bendList.length + 1].dy) /
-            2,
-      );
-      _drawText(canvas, "진행방향", tailMid, Colors.white30, isAngle: false);
-    }
+    _drawAxisGuide(canvas, cameraMatrix, to2D, scale);
+    for (var item in renderQueue)
+      item.draw(canvas, pipePaint, highlightPaint, outlinePaint);
+    for (var label in labelQueue)
+      label.draw(canvas, pipePaint, highlightPaint, outlinePaint);
   }
 
-  void _drawText(
+  vmath.Vector3 _calculateCenter(List<vmath.Vector3> pts) {
+    double minX = double.infinity,
+        maxX = -double.infinity,
+        minY = double.infinity,
+        maxY = -double.infinity,
+        minZ = double.infinity,
+        maxZ = -double.infinity;
+    for (var p in pts) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+      if (p.z < minZ) minZ = p.z;
+      if (p.z > maxZ) maxZ = p.z;
+    }
+    return vmath.Vector3(
+      (minX + maxX) / 2,
+      (minY + maxY) / 2,
+      (minZ + maxZ) / 2,
+    );
+  }
+
+  double _calculateMaxRadius(List<vmath.Vector3> pts, vmath.Vector3 center) {
+    double maxRadius = 10.0;
+    for (var p in pts) {
+      double dist = p.distanceTo(center);
+      if (dist > maxRadius) maxRadius = dist;
+    }
+    return maxRadius;
+  }
+
+  void _drawAxisGuide(
     Canvas canvas,
-    String text,
-    Offset position,
-    Color color, {
-    required bool isAngle,
-  }) {
-    final textSpan = TextSpan(
-      text: text,
-      style: TextStyle(
-        color: color,
-        fontSize: isAngle ? 14 : 11,
-        fontWeight: FontWeight.bold,
-        backgroundColor: Colors.black54,
-      ),
-    );
-    final textPainter = TextPainter(
-      text: textSpan,
-      textDirection: TextDirection.ltr,
-    );
-    textPainter.layout();
-
-    Offset offsetPos = isAngle
-        ? Offset(position.dx + 8, position.dy - 10)
-        : Offset(position.dx - (textPainter.width / 2), position.dy - 15);
-
-    textPainter.paint(canvas, offsetPos);
+    vmath.Matrix4 camMatrix,
+    Offset Function(vmath.Vector3) to2D,
+    double scale,
+  ) {
+    double axLen = 40.0 / scale;
+    List<vmath.Vector3> axes = [
+      vmath.Vector3(axLen, 0, 0),
+      vmath.Vector3(0, axLen, 0),
+      vmath.Vector3(0, 0, axLen),
+    ];
+    List<Color> axColors = [
+      const Color(0xFF81C784),
+      const Color(0xFFE57373),
+      const Color(0xFF64B5F6),
+    ];
+    vmath.Vector3 originCenter = vmath.Vector3(-axLen * 2, -axLen * 2, 0);
+    vmath.Vector3 projOrigin = camMatrix.transformed3(originCenter);
+    for (int i = 0; i < 3; i++) {
+      vmath.Vector3 endDir = camMatrix.transformed3(originCenter + axes[i]);
+      canvas.drawLine(
+        to2D(projOrigin),
+        to2D(endDir),
+        Paint()
+          ..color = axColors[i].withOpacity(0.6)
+          ..strokeWidth = 2.0,
+      );
+    }
   }
 
   @override
   bool shouldRepaint(covariant IsoPipePainter oldDelegate) {
     return oldDelegate.rotationX != rotationX ||
         oldDelegate.rotationY != rotationY ||
-        oldDelegate.zoomLevel != zoomLevel;
+        oldDelegate.zoomLevel != zoomLevel ||
+        oldDelegate.panX != panX ||
+        oldDelegate.panY != panY ||
+        oldDelegate.bendList != bendList ||
+        oldDelegate.isFlippedX != isFlippedX ||
+        oldDelegate.isFlippedY != isFlippedY ||
+        oldDelegate.startDirection != startDirection ||
+        oldDelegate.selectedSegmentIndex != selectedSegmentIndex;
   }
 }

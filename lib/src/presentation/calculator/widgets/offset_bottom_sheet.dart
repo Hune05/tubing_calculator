@@ -5,6 +5,7 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_num
 
 const Color makitaTeal = Color(0xFF007580);
 const Color panelBg = Color(0xFF2A2A2A);
+const Color pureWhite = Color(0xFFFFFFFF);
 
 class OffsetBottomSheet extends StatefulWidget {
   final double currentRotation;
@@ -43,12 +44,11 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
   final TextEditingController _angleCtrl = TextEditingController(text: "45");
   final TextEditingController _travelCtrl = TextEditingController(text: "150");
 
-  bool _isInverted = false; // 🚀 방향 반전 스위치
-
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+
     _heightCtrl.addListener(() => setState(() {}));
     _angleCtrl.addListener(() => setState(() {}));
     _travelCtrl.addListener(() => setState(() {}));
@@ -70,9 +70,18 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
     ctrl.text = next.toStringAsFixed(next % 1 == 0 ? 0 : 1);
   }
 
+  // 평행을 맞추기 위한 180도 반전 회전값 계산
+  double _getOppositeRotation(double currentRot) {
+    if (currentRot == 360.0) return 450.0;
+    if (currentRot == 450.0) return 360.0;
+    return (currentRot + 180.0) % 360.0;
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final maxHeight = MediaQuery.of(context).size.height * 0.85;
+
     double h = double.tryParse(_heightCtrl.text) ?? 0;
     double a = double.tryParse(_angleCtrl.text) ?? 0;
     double t = double.tryParse(_travelCtrl.text) ?? 0;
@@ -82,17 +91,19 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
         : 0;
     double calcAngle = 0;
     bool inverseError = false;
+
     if (t > 0 && h > 0) {
-      if (h > t)
+      if (h > t) {
         inverseError = true;
-      else
+      } else {
         calcAngle = math.asin(h / t) * 180.0 / math.pi;
+      }
     }
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: Container(
-        height: 530,
+        constraints: BoxConstraints(maxHeight: maxHeight),
         padding: const EdgeInsets.all(24),
         decoration: const BoxDecoration(
           color: panelBg,
@@ -100,6 +111,7 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
           border: Border(top: BorderSide(color: makitaTeal, width: 3)),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -156,161 +168,118 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
                 controller: _tabController,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "각도 (∠)",
-                        style: TextStyle(color: Colors.white70, fontSize: 13),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: _buildTextField(_angleCtrl, "각도 °"),
-                          ),
-                          const SizedBox(width: 12),
-                          ...[
-                            22.5,
-                            30.0,
-                            45.0,
-                            60.0,
-                          ].map((val) => _buildQuickAngleBtn(_angleCtrl, val)),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [_buildInvertToggle()],
-                      ), // 🚀 반전 토글
-                      const SizedBox(height: 8),
-                      _buildResultBox(
-                        title: "빗변 길이 (Travel)",
-                        value: calcTravel,
-                        btnText: "추가",
-                        isError: false,
-                        onPressed: () {
-                          if (calcTravel > 0 && a > 0) {
-                            double roundedTravel = double.parse(
-                              calcTravel.toStringAsFixed(1),
-                            );
-                            // 🔥 반전 여부에 따라 각도 뒤집기
-                            double r1 = _isInverted
-                                ? (widget.currentRotation + 180.0) % 360.0
-                                : widget.currentRotation;
-                            double r2 = _isInverted
-                                ? widget.currentRotation
-                                : (widget.currentRotation + 180.0) % 360.0;
-                            widget.onAddBend(0.0, a, r1);
-                            widget.onAddBend(roundedTravel, a, r2);
-                            Navigator.pop(context);
-                          }
-                        },
-                      ),
-                    ],
+                  // 🚀 탭 1: 정방향 오프셋
+                  SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "벤딩 각도 (∠)",
+                          style: TextStyle(color: Colors.white70, fontSize: 13),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: _buildTextField(_angleCtrl, "각도 °"),
+                            ),
+                            const SizedBox(width: 12),
+                            ...[22.5, 30.0, 45.0, 60.0].map(
+                              (val) => _buildQuickAngleBtn(_angleCtrl, val),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        _buildResultBox(
+                          title: "필요 빗변 길이 (Travel)",
+                          value: calcTravel,
+                          btnText: "적용",
+                          isError: false,
+                          onPressed: () {
+                            if (calcTravel > 0 && a > 0) {
+                              double roundedTravel = double.parse(
+                                calcTravel.toStringAsFixed(1),
+                              );
+                              // 🚀 사용자가 선택하는 대신, 기존 진행 방향을 그대로 활용하여 평행 오프셋 구성
+                              double oppRot = _getOppositeRotation(
+                                widget.currentRotation,
+                              );
+
+                              widget.onAddBend(0.0, a, widget.currentRotation);
+                              widget.onAddBend(roundedTravel, a, oppRot);
+                              Navigator.pop(context);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "빗변 길이 (Travel)",
-                        style: TextStyle(color: Colors.white70, fontSize: 13),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildTextField(_travelCtrl, "거리 mm"),
-                          ),
-                          const SizedBox(width: 12),
-                          _buildQuickBtn(_travelCtrl, -10.0, "-10"),
-                          const SizedBox(width: 4),
-                          _buildQuickBtn(_travelCtrl, 10.0, "+10"),
-                        ],
-                      ),
-                      if (inverseError)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 8.0),
-                          child: Text(
-                            "오류: 빗변은 높이보다 커야함!",
-                            style: TextStyle(
-                              color: Colors.redAccent,
-                              fontWeight: FontWeight.bold,
+                  // 🚀 탭 2: 역산 오프셋
+                  SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "현장 빗변 길이 (Travel)",
+                          style: TextStyle(color: Colors.white70, fontSize: 13),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTextField(_travelCtrl, "거리 mm"),
+                            ),
+                            const SizedBox(width: 12),
+                            _buildQuickBtn(_travelCtrl, -10.0, "-10"),
+                            const SizedBox(width: 4),
+                            _buildQuickBtn(_travelCtrl, 10.0, "+10"),
+                          ],
+                        ),
+                        if (inverseError)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8.0),
+                            child: Text(
+                              "오류: 빗변(Travel)은 높이(H)보다 길어야 합니다!",
+                              style: TextStyle(
+                                color: Colors.redAccent,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
+                        const SizedBox(height: 24),
+                        _buildResultBox(
+                          title: "필요 각도 (∠)",
+                          value: calcAngle,
+                          btnText: "적용",
+                          isError: inverseError,
+                          isAngle: true,
+                          onPressed: () {
+                            if (t > 0 && calcAngle > 0 && !inverseError) {
+                              double roundedAngle = double.parse(
+                                calcAngle.toStringAsFixed(1),
+                              );
+                              // 🚀 탭 2에서도 마찬가지로 기존 진행 방향 활용
+                              double oppRot = _getOppositeRotation(
+                                widget.currentRotation,
+                              );
+
+                              widget.onAddBend(
+                                0.0,
+                                roundedAngle,
+                                widget.currentRotation,
+                              );
+                              widget.onAddBend(t, roundedAngle, oppRot);
+                              Navigator.pop(context);
+                            }
+                          },
                         ),
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [_buildInvertToggle()],
-                      ), // 🚀 반전 토글
-                      const SizedBox(height: 8),
-                      _buildResultBox(
-                        title: "각도 (∠)",
-                        value: calcAngle,
-                        btnText: "추가",
-                        isError: inverseError,
-                        isAngle: true,
-                        onPressed: () {
-                          if (t > 0 && calcAngle > 0 && !inverseError) {
-                            double roundedAngle = double.parse(
-                              calcAngle.toStringAsFixed(1),
-                            );
-                            double r1 = _isInverted
-                                ? (widget.currentRotation + 180.0) % 360.0
-                                : widget.currentRotation;
-                            double r2 = _isInverted
-                                ? widget.currentRotation
-                                : (widget.currentRotation + 180.0) % 360.0;
-                            widget.onAddBend(0.0, roundedAngle, r1);
-                            widget.onAddBend(t, roundedAngle, r2);
-                            Navigator.pop(context);
-                          }
-                        },
-                      ),
-                    ],
+                        const SizedBox(height: 20),
+                      ],
+                    ),
                   ),
                 ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 🚀 반전 토글 UI
-  Widget _buildInvertToggle() {
-    return InkWell(
-      onTap: () => setState(() => _isInverted = !_isInverted),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: _isInverted
-              ? Colors.redAccent.withOpacity(0.2)
-              : Colors.black45,
-          border: Border.all(
-            color: _isInverted ? Colors.redAccent : Colors.white24,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.swap_vert,
-              color: _isInverted ? Colors.redAccent : Colors.white54,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              _isInverted ? "반전 (아래로 파기)" : "정방향 (위로 넘기)",
-              style: TextStyle(
-                color: _isInverted ? Colors.white : Colors.white54,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
               ),
             ),
           ],

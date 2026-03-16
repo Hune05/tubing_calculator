@@ -6,9 +6,10 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_num
 
 const Color makitaTeal = Color(0xFF007580);
 const Color panelBg = Color(0xFF2A2A2A);
+const Color pureWhite = Color(0xFFFFFFFF);
 
 class RollingOffsetBottomSheet extends StatefulWidget {
-  final double currentRotation; // 🚀 메인 화면의 진행 방향 연동
+  final double currentRotation;
   final Function(double length, double angle, double rotation) onAddBend;
 
   const RollingOffsetBottomSheet({
@@ -39,10 +40,7 @@ class RollingOffsetBottomSheet extends StatefulWidget {
 }
 
 class _RollingOffsetBottomSheetState extends State<RollingOffsetBottomSheet> {
-  // 입력 모드 토글 (true: 역산, false: 정산)
   bool _isReverseMode = true;
-  // 🚀 방향 반전 스위치
-  bool _isInverted = false;
 
   final TextEditingController _riseCtrl = TextEditingController(text: "150");
   final TextEditingController _rollCtrl = TextEditingController(text: "200");
@@ -72,9 +70,17 @@ class _RollingOffsetBottomSheetState extends State<RollingOffsetBottomSheet> {
     super.dispose();
   }
 
+  // 🚀 3D 엔진용 180도 반전 함수
+  double _getOppositeRotation(double currentRot) {
+    if (currentRot == 360.0) return 450.0;
+    if (currentRot == 450.0) return 360.0;
+    return (currentRot + 180.0) % 360.0;
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final maxHeight = MediaQuery.of(context).size.height * 0.85;
 
     double bendAngle = double.tryParse(_angleCtrl.text) ?? 0;
     double bendRad = bendAngle * math.pi / 180.0;
@@ -114,297 +120,255 @@ class _RollingOffsetBottomSheetState extends State<RollingOffsetBottomSheet> {
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: Container(
+        constraints: BoxConstraints(maxHeight: maxHeight), // 🚀 유동 높이 적용
         padding: const EdgeInsets.all(24),
         decoration: const BoxDecoration(
           color: panelBg,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           border: Border(top: BorderSide(color: makitaTeal, width: 3)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Row(
-                  children: [
-                    Icon(LucideIcons.orbit, color: makitaTeal, size: 28),
-                    SizedBox(width: 12),
-                    Text(
-                      "롤링 오프셋 계산기",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white54),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.black45,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              padding: const EdgeInsets.all(4),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _isReverseMode = true),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: _isReverseMode
-                              ? makitaTeal
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          "역산 (길이·각도)",
-                          style: TextStyle(
-                            color: _isReverseMode
-                                ? Colors.white
-                                : Colors.white54,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _isReverseMode = false),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: !_isReverseMode
-                              ? makitaTeal
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          "정산 (수직·수평)",
-                          style: TextStyle(
-                            color: !_isReverseMode
-                                ? Colors.white
-                                : Colors.white54,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            if (_isReverseMode) ...[
-              _buildCompactInputRow(_travelCtrl, "빗변 길이 (Travel)"),
-              const SizedBox(height: 12),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min, // 🚀 내용물 크기만큼만 잡히도록
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(
-                    child: _buildCompactInputRow(_angleCtrl, "벤딩 각도 (∠)"),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildCompactInputRow(
-                      _rollAngleCtrl,
-                      "회전 각도 (Roll ∠)",
-                    ),
-                  ),
-                ],
-              ),
-            ] else ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildCompactInputRow(_riseCtrl, "수직 (Rise)"),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildCompactInputRow(_rollCtrl, "수평 (Roll)"),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _buildCompactInputRow(_angleCtrl, "벤딩 각도 (∠)"),
-            ],
-
-            const SizedBox(height: 12),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  const Text(
-                    "빠른 각도:",
-                    style: TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
-                  const SizedBox(width: 8),
-                  ...[
-                    22.5,
-                    30.0,
-                    45.0,
-                    60.0,
-                    90.0,
-                  ].map((val) => _buildQuickAngleBtn(_angleCtrl, val)),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [_buildInvertToggle()],
-            ), // 🚀 반전 토글
-            const SizedBox(height: 8),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const Row(
                     children: [
-                      _buildResultText(
-                        "True Offset",
-                        "${trueOffset.toStringAsFixed(1)} mm",
-                      ),
-                      const SizedBox(height: 4),
-                      if (_isReverseMode) ...[
-                        _buildResultText(
-                          "수직(Rise)",
-                          "${rise.toStringAsFixed(1)} mm",
-                        ),
-                        _buildResultText(
-                          "수평(Roll)",
-                          "${roll.toStringAsFixed(1)} mm",
-                        ),
-                      ] else ...[
-                        _buildResultText(
-                          "회전 각도",
-                          "${rollAngle.toStringAsFixed(1)}°",
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Text(
-                      "빗변 (Travel)",
-                      style: TextStyle(color: Colors.white54, fontSize: 12),
-                    ),
-                    Text(
-                      travel > 0 ? "${travel.toStringAsFixed(1)} mm" : "입력 대기",
-                      style: TextStyle(
-                        color: travel > 0 ? makitaTeal : Colors.white54,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: makitaTeal,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 14,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      onPressed: () {
-                        if (travel > 0 && bendAngle > 0) {
-                          double roundedTravel = double.parse(
-                            travel.toStringAsFixed(1),
-                          );
-
-                          // 🔥 방향 연동 & 반전 적용
-                          // 현재 배관의 진행방향(currentRotation)에 롤링 각도(rollAngle)를 더함
-                          double r1 =
-                              (widget.currentRotation + rollAngle) % 360.0;
-
-                          // 반전(아래로 파기) 스위치가 켜졌다면 180도를 뒤집음
-                          if (_isInverted) {
-                            r1 = (r1 + 180.0) % 360.0;
-                          }
-
-                          double r2 = (r1 + 180.0) % 360.0;
-
-                          widget.onAddBend(0.0, bendAngle, r1);
-                          widget.onAddBend(roundedTravel, bendAngle, r2);
-
-                          Navigator.pop(context);
-                        }
-                      },
-                      child: const Text(
-                        "롤링 추가",
+                      Icon(LucideIcons.orbit, color: makitaTeal, size: 28),
+                      SizedBox(width: 12),
+                      Text(
+                        "롤링 오프셋 계산기",
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 16,
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white54),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.black45,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.all(4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _isReverseMode = true),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: _isReverseMode
+                                ? makitaTeal
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            "역산 (길이·각도)",
+                            style: TextStyle(
+                              color: _isReverseMode
+                                  ? Colors.white
+                                  : Colors.white54,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _isReverseMode = false),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: !_isReverseMode
+                                ? makitaTeal
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            "정산 (수직·수평)",
+                            style: TextStyle(
+                              color: !_isReverseMode
+                                  ? Colors.white
+                                  : Colors.white54,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 🚀 반전 토글 UI
-  Widget _buildInvertToggle() {
-    return InkWell(
-      onTap: () => setState(() => _isInverted = !_isInverted),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: _isInverted
-              ? Colors.redAccent.withOpacity(0.2)
-              : Colors.black45,
-          border: Border.all(
-            color: _isInverted ? Colors.redAccent : Colors.white24,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.swap_vert,
-              color: _isInverted ? Colors.redAccent : Colors.white54,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              _isInverted ? "반전 (아래로 파기)" : "정방향 (위로 넘기)",
-              style: TextStyle(
-                color: _isInverted ? Colors.white : Colors.white54,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+
+              if (_isReverseMode) ...[
+                _buildCompactInputRow(_travelCtrl, "빗변 길이 (Travel)"),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildCompactInputRow(_angleCtrl, "벤딩 각도 (∠)"),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildCompactInputRow(
+                        _rollAngleCtrl,
+                        "회전 각도 (Roll ∠)",
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildCompactInputRow(_riseCtrl, "수직 (Rise)"),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildCompactInputRow(_rollCtrl, "수평 (Roll)"),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _buildCompactInputRow(_angleCtrl, "벤딩 각도 (∠)"),
+              ],
+
+              const SizedBox(height: 12),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    const Text(
+                      "빠른 각도:",
+                      style: TextStyle(color: Colors.white54, fontSize: 12),
+                    ),
+                    const SizedBox(width: 8),
+                    ...[
+                      22.5,
+                      30.0,
+                      45.0,
+                      60.0,
+                      90.0,
+                    ].map((val) => _buildQuickAngleBtn(_angleCtrl, val)),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 32), // 🚀 6축이 빠진 자리에 여백 확보
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildResultText(
+                          "True Offset",
+                          "${trueOffset.toStringAsFixed(1)} mm",
+                        ),
+                        const SizedBox(height: 4),
+                        if (_isReverseMode) ...[
+                          _buildResultText(
+                            "수직(Rise)",
+                            "${rise.toStringAsFixed(1)} mm",
+                          ),
+                          _buildResultText(
+                            "수평(Roll)",
+                            "${roll.toStringAsFixed(1)} mm",
+                          ),
+                        ] else ...[
+                          _buildResultText(
+                            "회전 각도",
+                            "${rollAngle.toStringAsFixed(1)}°",
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text(
+                        "빗변 (Travel)",
+                        style: TextStyle(color: Colors.white54, fontSize: 12),
+                      ),
+                      Text(
+                        travel > 0
+                            ? "${travel.toStringAsFixed(1)} mm"
+                            : "입력 대기",
+                        style: TextStyle(
+                          color: travel > 0 ? makitaTeal : Colors.white54,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: makitaTeal,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 14,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: () {
+                          if (travel > 0 && bendAngle > 0) {
+                            double roundedTravel = double.parse(
+                              travel.toStringAsFixed(1),
+                            );
+
+                            // 🚀 6축 방향이 빠진 핵심 로직 (자동 계산)
+                            // 1. 현재 파이프가 뻗어 나가는 방향(currentRotation)에
+                            //    계산된 롤 각도(rollAngle)를 더해서 대각선으로 꺾어 올릴 타겟 방향(r1) 산출
+                            double r1 =
+                                (widget.currentRotation + rollAngle) % 360.0;
+
+                            // 2. 평행을 맞추기 위해 그 타겟 방향에서 정확히 180도 뒤집은 방향(r2) 산출
+                            double r2 = _getOppositeRotation(r1);
+
+                            widget.onAddBend(0.0, bendAngle, r1);
+                            widget.onAddBend(roundedTravel, bendAngle, r2);
+
+                            Navigator.pop(context);
+                          }
+                        },
+                        child: const Text(
+                          "적용",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

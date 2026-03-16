@@ -1,3 +1,4 @@
+// lib/src/presentation/calculator/widgets/main_calculator_screen.dart
 import 'package:flutter/material.dart';
 
 import 'package:tubing_calculator/src/presentation/calculator/screens/marking_page.dart';
@@ -21,14 +22,17 @@ class _MainCalculatorScreenState extends State<MainCalculatorScreen> {
   final BendDataManager _dataManager = BendDataManager();
   late PageController _pageController;
   bool _isLoading = true;
-  int _currentIndex = 0; // 🚀 현재 페이지 인덱스를 추적하는 변수 추가!
+  int _currentIndex = 0;
+
+  // 🚀 [추가] 메인 화면에서 시작 방향 상태를 총괄 관리합니다!
+  String _currentStartDir = 'RIGHT';
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
 
-    // 🚀 스와이프할 때마다 현재 페이지 번호를 감지하여 앱바 타이틀을 바꾸기 위한 리스너
+    // 스와이프할 때마다 현재 페이지 번호를 감지하여 앱바 타이틀을 바꾸기 위한 리스너
     _pageController.addListener(() {
       if (_pageController.hasClients) {
         int next = _pageController.page?.round() ?? 0;
@@ -71,7 +75,6 @@ class _MainCalculatorScreenState extends State<MainCalculatorScreen> {
       backgroundColor: const Color(0xFF1E1E1E),
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
-        // 🚀 현재 페이지가 0이면 계산기, 1이면 마킹 가이드로 타이틀 자동 변경!
         title: Text(
           _currentIndex == 0 ? "BENDING WORKSPACE" : "MARKING GUIDE",
           style: const TextStyle(
@@ -93,16 +96,22 @@ class _MainCalculatorScreenState extends State<MainCalculatorScreen> {
               bendList: _dataManager.bendList
                   .map((e) => e.cast<String, double>())
                   .toList(),
+
+              // 🚀 [해결] 여기서 계산기 쪽에 현재 방향과 변경 콜백을 넘겨줍니다!
+              startDir: _currentStartDir,
+              onStartDirChanged: (newDir) {
+                setState(() {
+                  _currentStartDir = newDir;
+                });
+              },
+
               onAddBend: (l, a, r) =>
                   setState(() => _dataManager.addBend(l, a, r)),
               onUpdateBend: (i, l, a, r) =>
                   setState(() => _dataManager.updateBend(i, l, a, r)),
-
-              // 🚀 [추가된 부분] 라인 삭제 배관 연결!
               onDeleteBend: (index) => setState(() {
                 _dataManager.bendList.removeAt(index);
               }),
-
               onClear: () => setState(() => _dataManager.clearBends()),
               onReorderBend: (oldIndex, newIndex) {
                 setState(() {
@@ -111,7 +120,12 @@ class _MainCalculatorScreenState extends State<MainCalculatorScreen> {
                 });
               },
             ),
-            MarkingPage(pageController: _pageController),
+
+            // 🚀 [중요] 마킹 페이지로 넘어갈 때(저장 화면) 최종 시작 방향을 함께 넘겨줍니다!
+            MarkingPage(
+              pageController: _pageController,
+              startDir: _currentStartDir, // <-- 마킹 페이지가 이걸 받아서 DB에 저장하게 됨
+            ),
           ],
         ),
       ),

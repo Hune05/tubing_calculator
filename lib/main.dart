@@ -49,7 +49,8 @@ class MyApp extends StatelessWidget {
       routes: {
         '/menu': (context) => const MenuScreen(),
         '/calculator': (context) => const MainCalculatorScreen(),
-        '/marking': (context) => const MarkingPage(),
+        // 🚀 [에러 해결] 라우팅 목록에서도 필수 값인 startDir의 기본값을 넣어줍니다!
+        '/marking': (context) => const MarkingPage(startDir: 'RIGHT'),
         '/settings': (context) => const SettingsScreen(),
         '/history': (context) => const HistoryScreen(),
         '/inventory': (context) => const InventoryPage(),

@@ -7,10 +7,12 @@ const Color makitaTeal = Color(0xFF007580);
 class SmartSavePad extends StatefulWidget {
   final double totalCut;
   final List<dynamic> bendList;
-  // 💡 마킹 화면에서 받아올 3가지 핵심 정보 추가
   final bool includeStart;
   final bool includeEnd;
   final double tailLength;
+
+  // 🚀 [추가] 마킹 페이지로부터 시작 방향 값을 전달받습니다.
+  final String startDir;
 
   const SmartSavePad({
     super.key,
@@ -19,6 +21,7 @@ class SmartSavePad extends StatefulWidget {
     required this.includeStart,
     required this.includeEnd,
     required this.tailLength,
+    required this.startDir, // 🚀 [추가]
   });
 
   @override
@@ -207,7 +210,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
                   ),
                 ),
                 onPressed: () async {
-                  // 💡 피팅 및 Tail 정보를 DB(JSON)에 확실히 못 박아버립니다!
+                  // 💡 피팅, Tail, 그리고 시작 방향(start_dir)을 DB(JSON)에 확실히 못 박아버립니다!
                   Map<String, dynamic> pToPData = {
                     "project": _projectController.text.isEmpty
                         ? "프로젝트 미지정"
@@ -221,6 +224,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
                     "start_fit": widget.includeStart,
                     "end_fit": widget.includeEnd,
                     "tail": widget.tailLength,
+                    "start_dir": widget.startDir, // 🚀 [추가] 부모로부터 받은 시작 방향 저장!
                   };
 
                   await DatabaseHelper.instance.insertHistory({

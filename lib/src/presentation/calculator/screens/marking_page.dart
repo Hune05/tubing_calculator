@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:tubing_calculator/src/data/bend_data_manager.dart';
 import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
+import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
@@ -11,7 +12,15 @@ const Color pureWhite = Color(0xFFFFFFFF);
 
 class MarkingPage extends StatefulWidget {
   final PageController? pageController;
-  const MarkingPage({super.key, this.pageController});
+
+  // 🚀 [추가] 부모(메인 화면)로부터 뷰어의 시작 방향을 전달받습니다.
+  final String startDir;
+
+  const MarkingPage({
+    super.key,
+    this.pageController,
+    required this.startDir, // 🚀 [추가] 필수 파라미터로 지정
+  });
 
   @override
   State<MarkingPage> createState() => _MarkingPageState();
@@ -84,59 +93,61 @@ class _MarkingPageState extends State<MarkingPage> {
     final dataManager = BendDataManager();
     final bendList = dataManager.bendList;
 
-    final double takeUp90 = dataManager.takeUp90;
-    final double gain90 = dataManager.gain90;
+    final double radius = dataManager.takeUp90;
     final double fittingDepth = dataManager.fittingDepth;
 
-    final double startFitting = _includeStartFitting ? fittingDepth : 0.0;
-    final double endFitting = _includeEndFitting ? fittingDepth : 0.0;
+    final engine = TubeBendingEngine(radius: radius);
+
+    List<BendInstruction> instructions = [];
+    for (int i = 0; i < bendList.length; i++) {
+      double l = bendList[i]['length']!.toDouble();
+
+      if (i == 0 && _includeStartFitting) l += fittingDepth;
+      if (i == bendList.length - 1 && _includeEndFitting) l += fittingDepth;
+
+      instructions.add(
+        BendInstruction(
+          length: l,
+          angle: bendList[i]['angle']!.toDouble(),
+          rotation: bendList[i]['rotation']!.toDouble(),
+        ),
+      );
+    }
+
+    final result = engine.calculate(instructions, 0.0);
+    final double pureCutLength = result['totalCutLength'];
+    final List<StepResult> steps = result['steps'];
 
     List<Map<String, dynamic>> displayMarks = [];
-    double cumulativeLength = 0;
     int markNumber = 1;
-    double prevMarkPoint = 0.0;
+    double lastMarkingPoint = 0.0;
 
     for (int i = 0; i < bendList.length; i++) {
-      double length = bendList[i]['length']!;
-      double angle = bendList[i]['angle']!;
+      bool isStraight = bendList[i]['angle'] == 0.0;
 
-      cumulativeLength += length;
-
-      if (angle == 0.0) {
-        displayMarks.add({...bendList[i], 'is_straight': true});
-        continue;
+      double currentMark = steps[i].markingPoint;
+      if (currentMark > lastMarkingPoint) {
+        lastMarkingPoint = currentMark;
       }
-
-      double angleRad = angle * math.pi / 180.0;
-      double currentTakeUp = takeUp90 * math.tan(angleRad / 2);
-
-      double markPoint = cumulativeLength + startFitting - currentTakeUp;
-      double incrementalMark = markNumber == 1
-          ? markPoint
-          : (markPoint - prevMarkPoint);
 
       displayMarks.add({
         ...bendList[i],
-        'is_straight': false,
-        'mark_num': markNumber,
-        'marking_point': markPoint,
-        'incremental_mark': incrementalMark,
+        'is_straight': isStraight,
+        'mark_num': isStraight ? 0 : markNumber,
+        'marking_point': currentMark,
+        'incremental_mark': steps[i].incrementalMark,
       });
 
-      prevMarkPoint = markPoint;
-      markNumber++;
+      if (!isStraight) markNumber++;
     }
 
-    double totalCut = bendList.isEmpty
-        ? 0
-        : cumulativeLength + _tailLength + startFitting + endFitting;
+    double totalCut = bendList.isEmpty ? 0.0 : pureCutLength + _tailLength;
+    double diffAfterLastMark = totalCut - lastMarkingPoint;
 
-    // 🚀 핵심 로직: 단독으로 열렸는가? (pageController가 null이면 단독 실행)
     bool isStandalone = widget.pageController == null;
 
     return Scaffold(
       backgroundColor: slate100,
-      // 🚀 단독으로 열렸을 때만 '뒤로 가기'가 포함된 앱바를 띄웁니다!
       appBar: isStandalone
           ? AppBar(
               title: const Text(
@@ -155,10 +166,11 @@ class _MarkingPageState extends State<MarkingPage> {
                 onPressed: () => Navigator.of(context).pop(),
               ),
             )
-          : null, // 스와이프 모드일 때는 겹치지 않게 숨김 (메인 화면이 대신 타이틀을 표시해줌)
+          : null,
       body: SafeArea(
         child: Column(
           children: [
+            // 상단: 기장 정보 및 저장 버튼
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -173,6 +185,7 @@ class _MarkingPageState extends State<MarkingPage> {
                 ],
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Column(
@@ -182,7 +195,7 @@ class _MarkingPageState extends State<MarkingPage> {
                           "TOTAL CUT LENGTH (안전 기장)",
                           style: TextStyle(
                             color: slate600,
-                            fontSize: 11,
+                            fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -191,22 +204,55 @@ class _MarkingPageState extends State<MarkingPage> {
                           "${totalCut.round()} mm",
                           style: TextStyle(
                             color: Colors.red.shade700,
-                            fontSize: 28,
+                            fontSize: 32,
                             fontWeight: FontWeight.w900,
                             fontFamily: 'monospace',
                           ),
                         ),
+                        if (bendList.isNotEmpty && diffAfterLastMark > 0)
+                          Container(
+                            margin: const EdgeInsets.only(top: 8),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.red.shade100),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "※ 마지막 마킹 대비 잔여 기장: +${diffAfterLastMark.round()}mm",
+                                  style: TextStyle(
+                                    color: Colors.red.shade700,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  "⚠️ 주의: 버리는 값이 아닙니다. 마지막 벤딩 곡선을 완성하기 위한 '필수 기장'이므로 반드시 위 총 기장대로 절단하세요.",
+                                  style: TextStyle(
+                                    color: Colors.red.shade600,
+                                    fontSize: 11,
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                       ],
                     ),
                   ),
+                  const SizedBox(width: 16),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        "T-Up: ${takeUp90.round()} / Gain: ${gain90.round()}",
+                        "벤더 반경(R): ${radius.round()} mm",
                         style: const TextStyle(
                           color: slate600,
-                          fontSize: 13,
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -220,15 +266,18 @@ class _MarkingPageState extends State<MarkingPage> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
+                            horizontal: 20,
+                            vertical: 12,
                           ),
                         ),
                         onPressed: () => _handleSave(totalCut, displayMarks),
                         icon: const Icon(Icons.save, size: 20),
                         label: const Text(
                           "저장하기",
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
                       ),
                     ],
@@ -237,6 +286,7 @@ class _MarkingPageState extends State<MarkingPage> {
               ),
             ),
 
+            // 중단: 옵션 설정
             Container(
               color: pureWhite,
               margin: const EdgeInsets.only(top: 8),
@@ -244,7 +294,7 @@ class _MarkingPageState extends State<MarkingPage> {
                 children: [
                   _buildOptionTile(
                     title: "시작 부속 포함 (삽입 깊이 +${fittingDepth.round()}mm)",
-                    subtitle: "파이프 첫 시작점이 조인트(부속) 안으로 들어가는 깊이를 계산에 포함합니다.",
+                    subtitle: "첫 배관 마킹 지점을 뒤로 미루고 전체 길이를 연장합니다.",
                     value: _includeStartFitting,
                     onChanged: (v) {
                       setState(() {
@@ -261,7 +311,7 @@ class _MarkingPageState extends State<MarkingPage> {
                   ),
                   _buildOptionTile(
                     title: "종료 부속 포함 (삽입 깊이 +${fittingDepth.round()}mm)",
-                    subtitle: "파이프 끝부분이 조인트(부속) 안으로 들어가는 깊이를 계산에 포함합니다.",
+                    subtitle: "마지막 배관 길이를 연장하여 컷팅 지점을 넉넉하게 잡습니다.",
                     value: _includeEndFitting,
                     onChanged: (v) {
                       setState(() {
@@ -276,9 +326,8 @@ class _MarkingPageState extends State<MarkingPage> {
                     indent: 20,
                     endIndent: 20,
                   ),
-
                   InkWell(
-                    onTap: () => _showTailPad(),
+                    onTap: _showTailPad,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                         vertical: 16,
@@ -289,12 +338,12 @@ class _MarkingPageState extends State<MarkingPage> {
                         children: [
                           Expanded(
                             child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 const Icon(
                                   Icons.straighten,
                                   color: slate600,
-                                  size: 22,
+                                  size: 24,
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
@@ -306,16 +355,16 @@ class _MarkingPageState extends State<MarkingPage> {
                                         "최종 절단 여유 기장 (Tail)",
                                         style: TextStyle(
                                           color: slate900,
-                                          fontSize: 14,
+                                          fontSize: 15,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        "마지막 벤딩 후, 현장 조인을 위해 끝에 넉넉하게 남겨둘 추가 길이를 설정합니다.",
+                                        "마지막 벤딩 후, 현장 조인을 위해 끝에 넉넉하게 남겨둘 추가 길이",
                                         style: TextStyle(
                                           color: Colors.grey.shade500,
-                                          fontSize: 11,
+                                          fontSize: 12,
                                         ),
                                       ),
                                     ],
@@ -327,12 +376,12 @@ class _MarkingPageState extends State<MarkingPage> {
                           Container(
                             margin: const EdgeInsets.only(left: 12),
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
+                              horizontal: 16,
+                              vertical: 10,
                             ),
                             decoration: BoxDecoration(
                               color: makitaTeal.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               "${_tailLength.round()} mm >",
@@ -351,8 +400,9 @@ class _MarkingPageState extends State<MarkingPage> {
               ),
             ),
 
+            // 하단: 마킹 리스트 헤더
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               width: double.infinity,
               color: slate100,
               child: Row(
@@ -362,16 +412,16 @@ class _MarkingPageState extends State<MarkingPage> {
                     "MARKING POINTS (벤더 정렬선)",
                     style: TextStyle(
                       color: slate600,
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1,
                     ),
                   ),
                   Text(
-                    "※ 자르지 마세요",
+                    "※ 줄자 0점은 파이프 시작점 고정",
                     style: TextStyle(
                       color: Colors.red.shade400,
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -379,12 +429,13 @@ class _MarkingPageState extends State<MarkingPage> {
               ),
             ),
 
+            // 마킹 리스트 출력
             Expanded(
               child: displayMarks.isEmpty
                   ? const Center(
                       child: Text(
-                        "데이터가 없습니다.",
-                        style: TextStyle(color: slate600),
+                        "계산기 화면에서 데이터를 입력해주세요.",
+                        style: TextStyle(color: slate600, fontSize: 16),
                       ),
                     )
                   : ListView.builder(
@@ -392,48 +443,73 @@ class _MarkingPageState extends State<MarkingPage> {
                       itemCount: displayMarks.length,
                       itemBuilder: (context, index) {
                         final item = displayMarks[index];
+                        int cumulativeMark = item['marking_point'].round();
+                        int incrementalMark = item['incremental_mark'].round();
+                        int originalLength = item['length']!.round();
+
+                        List<String> fittingTexts = [];
+                        if (index == 0 && _includeStartFitting) {
+                          fittingTexts.add("시작+${fittingDepth.round()}");
+                        }
+                        if (index == displayMarks.length - 1 &&
+                            _includeEndFitting) {
+                          fittingTexts.add("종료+${fittingDepth.round()}");
+                        }
+                        String fittingNotice = fittingTexts.isNotEmpty
+                            ? " (${fittingTexts.join(', ')})"
+                            : "";
 
                         if (item['is_straight'] == true) {
                           return Container(
                             margin: const EdgeInsets.symmetric(
                               horizontal: 16,
-                              vertical: 4,
+                              vertical: 6,
                             ),
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
+                              horizontal: 20,
+                              vertical: 16,
                             ),
                             decoration: BoxDecoration(
                               color: Colors.grey.shade100,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: Colors.grey.shade300,
-                                style: BorderStyle.solid,
-                              ),
+                              border: Border.all(color: Colors.grey.shade300),
                             ),
                             child: Row(
                               children: [
                                 Icon(
                                   Icons.arrow_downward,
                                   color: Colors.grey.shade500,
-                                  size: 16,
+                                  size: 18,
                                 ),
                                 const SizedBox(width: 12),
-                                Text(
-                                  "직관 연장: +${item['length']?.round()} mm",
-                                  style: const TextStyle(
-                                    color: slate600,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
+                                Expanded(
+                                  child: Text(
+                                    "직관 연장: +$originalLength mm$fittingNotice",
+                                    style: const TextStyle(
+                                      color: slate600,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                const Spacer(),
-                                Text(
-                                  "마킹 없음",
-                                  style: TextStyle(
-                                    color: Colors.grey.shade500,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: makitaTeal.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    "마킹 지점: $cumulativeMark",
+                                    style: const TextStyle(
+                                      color: makitaTeal,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w900,
+                                      fontFamily: 'monospace',
+                                    ),
                                   ),
                                 ),
                               ],
@@ -441,14 +517,10 @@ class _MarkingPageState extends State<MarkingPage> {
                           );
                         }
 
-                        int cumulativeMark = item['marking_point'].round();
-                        int incrementalMark = item['incremental_mark'].round();
-                        int sectionLength = item['length']!.round();
-
                         return Container(
                           margin: const EdgeInsets.symmetric(
                             horizontal: 16,
-                            vertical: 6,
+                            vertical: 8,
                           ),
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
@@ -469,8 +541,8 @@ class _MarkingPageState extends State<MarkingPage> {
                           child: Row(
                             children: [
                               Container(
-                                width: 32,
-                                height: 32,
+                                width: 40,
+                                height: 40,
                                 decoration: const BoxDecoration(
                                   color: makitaTeal,
                                   shape: BoxShape.circle,
@@ -480,6 +552,7 @@ class _MarkingPageState extends State<MarkingPage> {
                                   "${item['mark_num']}",
                                   style: const TextStyle(
                                     color: pureWhite,
+                                    fontSize: 18,
                                     fontWeight: FontWeight.w900,
                                   ),
                                 ),
@@ -490,10 +563,10 @@ class _MarkingPageState extends State<MarkingPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const Text(
-                                      "누적 마킹 지점 (줄자 0점 고정)",
+                                      "누적 마킹 지점",
                                       style: TextStyle(
                                         color: slate600,
-                                        fontSize: 11,
+                                        fontSize: 13,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -501,7 +574,7 @@ class _MarkingPageState extends State<MarkingPage> {
                                       "$cumulativeMark",
                                       style: const TextStyle(
                                         color: slate900,
-                                        fontSize: 36,
+                                        fontSize: 38,
                                         fontWeight: FontWeight.w900,
                                         fontFamily: 'monospace',
                                       ),
@@ -510,8 +583,8 @@ class _MarkingPageState extends State<MarkingPage> {
                                       Container(
                                         margin: const EdgeInsets.only(top: 4),
                                         padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                          vertical: 2,
+                                          horizontal: 8,
+                                          vertical: 4,
                                         ),
                                         decoration: BoxDecoration(
                                           color: makitaTeal.withValues(
@@ -522,10 +595,10 @@ class _MarkingPageState extends State<MarkingPage> {
                                           ),
                                         ),
                                         child: Text(
-                                          "↳ 앞 벤딩과의 구간 거리: +$incrementalMark",
+                                          "↳ 앞 마킹과의 거리: +$incrementalMark",
                                           style: const TextStyle(
                                             color: makitaTeal,
-                                            fontSize: 13,
+                                            fontSize: 14,
                                             fontWeight: FontWeight.bold,
                                             fontFamily: 'monospace',
                                           ),
@@ -539,18 +612,18 @@ class _MarkingPageState extends State<MarkingPage> {
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
+                                      horizontal: 10,
+                                      vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
                                       color: slate100,
-                                      borderRadius: BorderRadius.circular(4),
+                                      borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
-                                      "요청 기장: $sectionLength",
+                                      "요청 기장: $originalLength$fittingNotice",
                                       style: const TextStyle(
                                         color: slate900,
-                                        fontSize: 12,
+                                        fontSize: 13,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -560,15 +633,15 @@ class _MarkingPageState extends State<MarkingPage> {
                                     children: [
                                       Icon(
                                         _getDirectionIcon(item['rotation']!),
-                                        size: 16,
+                                        size: 20,
                                         color: makitaTeal,
                                       ),
-                                      const SizedBox(width: 4),
+                                      const SizedBox(width: 6),
                                       Text(
                                         "${item['angle']?.round()}° / ${_getDirectionText(item['rotation']!)}",
                                         style: const TextStyle(
                                           color: makitaTeal,
-                                          fontSize: 14,
+                                          fontSize: 16,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
@@ -597,7 +670,7 @@ class _MarkingPageState extends State<MarkingPage> {
     return InkWell(
       onTap: () => onChanged(!value),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -606,10 +679,10 @@ class _MarkingPageState extends State<MarkingPage> {
               child: Icon(
                 value ? Icons.check_circle : Icons.radio_button_unchecked,
                 color: value ? makitaTeal : slate600,
-                size: 22,
+                size: 24,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -618,14 +691,14 @@ class _MarkingPageState extends State<MarkingPage> {
                     title,
                     style: TextStyle(
                       color: value ? slate900 : slate600,
-                      fontSize: 14,
+                      fontSize: 15,
                       fontWeight: value ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
                   ),
                 ],
               ),
@@ -645,16 +718,19 @@ class _MarkingPageState extends State<MarkingPage> {
       finalSaveData[finalSaveData.length - 1]['end_fit_applied'] =
           _includeEndFitting;
     }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      // 🚀 [추가] 팝업 화면(SmartSavePad)에 widget.startDir 전달
       builder: (context) => SmartSavePad(
         totalCut: totalCut,
         bendList: finalSaveData,
         includeStart: _includeStartFitting,
         includeEnd: _includeEndFitting,
         tailLength: _tailLength,
+        startDir: widget.startDir, // 🚀 여기서 부모가 준 방향을 패드로 전달!
       ),
     );
   }
@@ -790,7 +866,7 @@ class _MarkingPageState extends State<MarkingPage> {
                               Expanded(
                                 flex: 2,
                                 child: InkWell(
-                                  onTap: () => applyTail(),
+                                  onTap: applyTail,
                                   child: Container(
                                     margin: const EdgeInsets.all(6),
                                     decoration: BoxDecoration(

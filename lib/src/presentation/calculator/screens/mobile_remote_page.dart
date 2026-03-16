@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:math' as math;
-import 'package:cloud_firestore/cloud_firestore.dart'; // ★ 파이어베이스 추가
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:vector_math/vector_math_64.dart' as vmath; // 🚀 3D 엔진 필수 패키지
 
-import '../widgets/pipe_iso_painter.dart';
 import '../widgets/remote_widgets.dart';
+
+// 💡 리모컨 UI용 색상 정의
+const Color makitaTeal = Color(0xFF007580);
+const Color inputBg = Color(0xFF1E1E1E);
+const Color darkBg = Color(0xFF121212);
+const Color mutedWhite = Color(0xFFE0E0E0);
 
 class MobileRemotePage extends StatefulWidget {
   const MobileRemotePage({super.key});
@@ -152,12 +158,12 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
       if (_innerTabs[m] == 1 && _val2Ctrls[m].text.isEmpty) return false;
       if (_angleCtrls[m].text.isEmpty) return false;
     }
-    if (m == 4 && (_val2Ctrls[m].text.isEmpty || _angleCtrls[m].text.isEmpty))
+    if (m == 4 && (_val2Ctrls[m].text.isEmpty || _angleCtrls[m].text.isEmpty)) {
       return false;
+    }
     return true;
   }
 
-  // 🚀 [핵심 추가] 파이어베이스 서버로 데이터 전송
   Future<void> _sendData() async {
     if (_isTransmitting) return;
     HapticFeedback.heavyImpact();
@@ -184,13 +190,13 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
       "time":
           "${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}",
       "mode": _modes[m]['name'],
-      "color": _modes[m]['color'].value, // 서버 저장용 색상 int 변환
+      "color": _modes[m]['color'].value,
       "val1": sendVal1,
       "val2": sendVal2,
       "angle": sendAngle,
       "dir": _selectedDirs[m],
       "status": "pending",
-      "timestamp": timestamp, // 태블릿에서 시간순 정렬 및 필터링을 위한 타임스탬프
+      "timestamp": timestamp,
     };
 
     setState(() => _historyLogs.insert(0, newRecord));
@@ -204,7 +210,6 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     );
 
     try {
-      // ★ Firestore 'remote_commands' 컬렉션에 데이터 업로드
       await FirebaseFirestore.instance
           .collection('remote_commands')
           .doc(timestamp.toString())
@@ -346,8 +351,52 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     );
   }
 
+  // 🚀 [핵심 수정] 가짜 2D 그림을 버리고 진짜 3D 벡터 엔진(Preview3DPainter)으로 연동
   Widget _buildIsoPreview(Color modeColor) {
     int m = _currentMode;
+
+    // 현재 입력창의 값들 파싱
+    double val1 = double.tryParse(_val1Ctrls[m].text) ?? 50.0;
+    double val2 = double.tryParse(_val2Ctrls[m].text) ?? 50.0;
+    double angle = double.tryParse(_angleCtrls[m].text) ?? 45.0;
+
+    // 아무것도 입력 안 했을 때 기본 표시값
+    if (val1 == 0) val1 = 50.0;
+    if (val2 == 0) val2 = 50.0;
+
+    // 모드(m)에 따라 3D 뷰어에 던져줄 가상의 벤딩 리스트 생성
+    List<Map<String, dynamic>> previewBends = [];
+
+    if (m == 0) {
+      // 직관
+      previewBends.add({'length': val1, 'angle': 0.0, 'rotation': 0.0});
+    } else if (m == 1) {
+      // 90도
+      previewBends.add({'length': val1, 'angle': 90.0, 'rotation': 90.0});
+      previewBends.add({'length': 50.0, 'angle': 0.0, 'rotation': 0.0});
+    } else if (m == 2) {
+      // 오프셋
+      double a = angle == 0 ? 45.0 : angle;
+      double travel = val1 / math.sin(a * math.pi / 180.0);
+      previewBends.add({'length': 40.0, 'angle': a, 'rotation': 90.0});
+      previewBends.add({'length': travel, 'angle': a, 'rotation': 270.0});
+      previewBends.add({'length': 40.0, 'angle': 0.0, 'rotation': 0.0});
+    } else if (m == 3) {
+      // 새들 (3 Point)
+      double a = angle == 0 ? 45.0 : angle;
+      double travel = val1 / math.sin((a / 2) * math.pi / 180.0);
+      previewBends.add({'length': 30.0, 'angle': a / 2, 'rotation': 0.0});
+      previewBends.add({'length': travel, 'angle': a, 'rotation': 180.0});
+      previewBends.add({'length': travel, 'angle': a / 2, 'rotation': 0.0});
+    } else if (m == 4) {
+      // 롤링
+      double a = angle == 0 ? 45.0 : angle;
+      double t = math.sqrt(val1 * val1 + val2 * val2);
+      previewBends.add({'length': 40.0, 'angle': a, 'rotation': 45.0});
+      previewBends.add({'length': t, 'angle': a, 'rotation': 225.0});
+      previewBends.add({'length': 40.0, 'angle': 0.0, 'rotation': 0.0});
+    }
+
     return Container(
       height: 140,
       width: double.infinity,
@@ -364,19 +413,8 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         children: [
           CustomPaint(
             size: const Size(double.infinity, 140),
-            painter: GridPainter(),
-          ),
-          CustomPaint(
-            size: const Size(double.infinity, 140),
-            painter: PipeIsoPainter(
-              mode: m,
-              innerTab: _innerTabs[m],
-              val1: double.tryParse(_val1Ctrls[m].text) ?? 0,
-              val2:
-                  double.tryParse(_val2Ctrls[m].text) ??
-                  double.tryParse(_serverRadius) ??
-                  0,
-              angle: double.tryParse(_angleCtrls[m].text) ?? 0,
+            painter: Preview3DPainter(
+              bendList: previewBends,
               themeColor: modeColor,
             ),
           ),
@@ -390,7 +428,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                 borderRadius: BorderRadius.circular(4),
               ),
               child: const Text(
-                "아이솔 형상 미리보기",
+                "3D 자동 변환 미리보기",
                 style: TextStyle(color: Colors.white, fontSize: 10),
               ),
             ),
@@ -459,7 +497,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
-            child: Row(
+            child: const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
@@ -470,7 +508,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Icon(Icons.arrow_forward, color: mutedWhite, size: 20),
               ],
             ),
@@ -675,7 +713,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(
+        const Text(
           "벤딩 방향축 (6-Axis)",
           style: TextStyle(
             fontSize: 20,
@@ -782,10 +820,12 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                           var log = _historyLogs[index];
                           bool isCompleted = log['status'] == 'completed';
                           String subtitleText = "H/L: ${log['val1']}";
-                          if (log['val2'] != "")
+                          if (log['val2'] != "") {
                             subtitleText += " / W/D/Roll: ${log['val2']}";
-                          if (log['angle'] != "")
+                          }
+                          if (log['angle'] != "") {
                             subtitleText += " / 각도: ${log['angle']}°";
+                          }
                           subtitleText += "  •  ${log['time']}";
                           return ListTile(
                             leading: CircleAvatar(
@@ -822,4 +862,122 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
       },
     );
   }
+}
+
+/// ============================================================================
+/// 🚀 [완벽 교체] 리모컨용 3D 벡터 미리보기 엔진 (Quaternion 적용)
+/// ============================================================================
+class Preview3DPainter extends CustomPainter {
+  final List<Map<String, dynamic>> bendList;
+  final Color themeColor;
+
+  Preview3DPainter({required this.bendList, required this.themeColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (bendList.isEmpty || size.width <= 0 || size.height <= 0) return;
+
+    final paint = Paint()
+      ..color = themeColor
+      ..strokeWidth = 6.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    // 1. 3D 공간 벡터 추적 (Quaternion 적용)
+    List<vmath.Vector3> pts3D = [];
+    vmath.Vector3 currentPos = vmath.Vector3.zero();
+    // 리모컨에서는 사용자가 보기 편하도록 X축(가로)을 진행 방향으로 고정
+    vmath.Vector3 currentDir = vmath.Vector3(1, 0, 0);
+    vmath.Vector3 currentNormal = vmath.Vector3(0, 1, 0);
+
+    pts3D.add(currentPos.clone());
+
+    for (var bend in bendList) {
+      double l = (bend['length'] ?? 0).toDouble();
+      double a = (bend['angle'] ?? 0).toDouble();
+      double rot = (bend['rotation'] ?? 0).toDouble();
+
+      currentPos += (currentDir * l);
+      pts3D.add(currentPos.clone());
+
+      if (a > 0) {
+        double thetaRad = a * (math.pi / 180.0);
+        double rollRad = rot * (math.pi / 180.0);
+
+        vmath.Quaternion rollQuat = vmath.Quaternion.axisAngle(
+          currentDir,
+          rollRad,
+        );
+        rollQuat.rotate(currentNormal);
+        currentNormal.normalize();
+
+        vmath.Quaternion bendQuat = vmath.Quaternion.axisAngle(
+          currentNormal,
+          thetaRad,
+        );
+        bendQuat.rotate(currentDir);
+        currentDir.normalize();
+      }
+    }
+
+    // 2. 리모컨 화면을 위한 약간의 고정된 회전 (아이소메트릭 뷰)
+    vmath.Matrix4 cameraMatrix = vmath.Matrix4.identity()
+      ..rotateX(math.pi / 8)
+      ..rotateY(-math.pi / 6);
+
+    List<vmath.Vector3> rotatedPts = pts3D
+        .map((p) => cameraMatrix.transformed3(p))
+        .toList();
+
+    // 3. 2D 투영 및 자동 스케일 맞춤
+    double minX = double.infinity, maxX = -double.infinity;
+    double minY = double.infinity, maxY = -double.infinity;
+
+    for (var p in rotatedPts) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+
+    double drawWidth = maxX - minX == 0 ? 100 : maxX - minX;
+    double drawHeight = maxY - minY == 0 ? 100 : maxY - minY;
+    // 리모컨 화면(140px)에 꽉 차게 보이기 위해 여백 조절 (0.8)
+    double scale = math
+        .min((size.width * 0.8) / drawWidth, (size.height * 0.8) / drawHeight)
+        .clamp(0.1, 5.0);
+
+    Offset tr(vmath.Vector3 p) {
+      return Offset(
+        (p.x - (minX + maxX) / 2) * scale + size.width / 2,
+        (p.y - (minY + maxY) / 2) * scale + size.height / 2,
+      );
+    }
+
+    List<Offset> finalPoints = rotatedPts.map((p) => tr(p)).toList();
+
+    // 4. 선 그리기
+    final path = Path();
+    for (int i = 0; i < finalPoints.length; i++) {
+      if (i == 0)
+        path.moveTo(finalPoints[i].dx, finalPoints[i].dy);
+      else
+        path.lineTo(finalPoints[i].dx, finalPoints[i].dy);
+    }
+
+    // 그림자 효과
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = themeColor.withValues(alpha: 0.3)
+        ..strokeWidth = 14
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke,
+    );
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant Preview3DPainter oldDelegate) => true;
 }
