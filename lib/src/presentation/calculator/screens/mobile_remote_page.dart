@@ -3,11 +3,13 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:vector_math/vector_math_64.dart' as vmath; // 🚀 3D 엔진 필수 패키지
+import 'package:vector_math/vector_math_64.dart' as vmath;
+import 'package:shared_preferences/shared_preferences.dart'; // 🚀 로컬 저장소 추가
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../widgets/remote_widgets.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
-// 💡 리모컨 UI용 색상 정의
 const Color makitaTeal = Color(0xFF007580);
 const Color inputBg = Color(0xFF1E1E1E);
 const Color darkBg = Color(0xFF121212);
@@ -53,6 +55,9 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
 
   final List<Map<String, dynamic>> _historyLogs = [];
 
+  // 🚀 리모컨 3D 뷰어용 시작 방향 (기본값 RIGHT)
+  String _previewStartDir = "RIGHT";
+
   @override
   void initState() {
     super.initState();
@@ -78,6 +83,33 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     _val1FocusNodes = List.generate(_modeCount, (_) => FocusNode());
     _val2FocusNodes = List.generate(_modeCount, (_) => FocusNode());
     _angleFocusNodes = List.generate(_modeCount, (_) => FocusNode());
+
+    _loadSavedStartDir(); // 🚀 시작할 때 저장된 방향 불러오기
+  }
+
+  // 🚀 기기에 저장된 리모컨 방향 불러오기
+  Future<void> _loadSavedStartDir() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedDir = prefs.getString('remote_preview_start_dir');
+      if (savedDir != null && savedDir.isNotEmpty) {
+        setState(() {
+          _previewStartDir = savedDir;
+        });
+      }
+    } catch (e) {
+      debugPrint("리모컨 방향 로드 실패: $e");
+    }
+  }
+
+  // 🚀 기기에 리모컨 방향 저장하기
+  Future<void> _saveStartDir(String newDir) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('remote_preview_start_dir', newDir);
+    } catch (e) {
+      debugPrint("리모컨 방향 저장 실패: $e");
+    }
   }
 
   @override
@@ -351,45 +383,36 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     );
   }
 
-  // 🚀 [핵심 수정] 가짜 2D 그림을 버리고 진짜 3D 벡터 엔진(Preview3DPainter)으로 연동
   Widget _buildIsoPreview(Color modeColor) {
     int m = _currentMode;
 
-    // 현재 입력창의 값들 파싱
     double val1 = double.tryParse(_val1Ctrls[m].text) ?? 50.0;
     double val2 = double.tryParse(_val2Ctrls[m].text) ?? 50.0;
     double angle = double.tryParse(_angleCtrls[m].text) ?? 45.0;
 
-    // 아무것도 입력 안 했을 때 기본 표시값
     if (val1 == 0) val1 = 50.0;
     if (val2 == 0) val2 = 50.0;
 
-    // 모드(m)에 따라 3D 뷰어에 던져줄 가상의 벤딩 리스트 생성
     List<Map<String, dynamic>> previewBends = [];
 
     if (m == 0) {
-      // 직관
       previewBends.add({'length': val1, 'angle': 0.0, 'rotation': 0.0});
     } else if (m == 1) {
-      // 90도
       previewBends.add({'length': val1, 'angle': 90.0, 'rotation': 90.0});
       previewBends.add({'length': 50.0, 'angle': 0.0, 'rotation': 0.0});
     } else if (m == 2) {
-      // 오프셋
       double a = angle == 0 ? 45.0 : angle;
       double travel = val1 / math.sin(a * math.pi / 180.0);
       previewBends.add({'length': 40.0, 'angle': a, 'rotation': 90.0});
       previewBends.add({'length': travel, 'angle': a, 'rotation': 270.0});
       previewBends.add({'length': 40.0, 'angle': 0.0, 'rotation': 0.0});
     } else if (m == 3) {
-      // 새들 (3 Point)
       double a = angle == 0 ? 45.0 : angle;
       double travel = val1 / math.sin((a / 2) * math.pi / 180.0);
       previewBends.add({'length': 30.0, 'angle': a / 2, 'rotation': 0.0});
       previewBends.add({'length': travel, 'angle': a, 'rotation': 180.0});
       previewBends.add({'length': travel, 'angle': a / 2, 'rotation': 0.0});
     } else if (m == 4) {
-      // 롤링
       double a = angle == 0 ? 45.0 : angle;
       double t = math.sqrt(val1 * val1 + val2 * val2);
       previewBends.add({'length': 40.0, 'angle': a, 'rotation': 45.0});
@@ -416,21 +439,71 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
             painter: Preview3DPainter(
               bendList: previewBends,
               themeColor: modeColor,
+              startDirection: _previewStartDir, // 🚀 방향 정보 주입
             ),
           ),
+
+          // 🚀 [추가] 리모컨용 시작 방향 선택 드롭다운 (태블릿 UI와 동일)
           Positioned(
             top: 10,
             left: 10,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Text(
-                "3D 자동 변환 미리보기",
-                style: TextStyle(color: Colors.white, fontSize: 10),
-              ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    "현재 파이프 방향:",
+                    style: TextStyle(color: Colors.white, fontSize: 11),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  height: 26,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2B3643),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _previewStartDir,
+                      dropdownColor: const Color(0xFF2B3643),
+                      icon: const Icon(
+                        Icons.arrow_drop_down,
+                        color: Colors.white70,
+                        size: 18,
+                      ),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      onChanged: (String? newValue) {
+                        if (newValue != null) {
+                          setState(() => _previewStartDir = newValue);
+                          _saveStartDir(newValue); // 🚀 로컬 저장
+                        }
+                      },
+                      items: ['RIGHT', 'LEFT', 'UP', 'DOWN', 'FRONT', 'BACK']
+                          .map<DropdownMenuItem<String>>((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value),
+                            );
+                          })
+                          .toList(),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -865,13 +938,37 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
 }
 
 /// ============================================================================
-/// 🚀 [완벽 교체] 리모컨용 3D 벡터 미리보기 엔진 (Quaternion 적용)
+/// 🚀 [완벽 교체] 리모컨용 3D 벡터 미리보기 엔진 (방향 적용 완료)
 /// ============================================================================
 class Preview3DPainter extends CustomPainter {
   final List<Map<String, dynamic>> bendList;
   final Color themeColor;
+  final String startDirection; // 🚀 리모컨에서 선택한 시작 방향 받기
 
-  Preview3DPainter({required this.bendList, required this.themeColor});
+  Preview3DPainter({
+    required this.bendList,
+    required this.themeColor,
+    required this.startDirection,
+  });
+
+  // 🚀 시작 방향을 3D 벡터로 변환
+  vmath.Vector3 _getStartVector(String dir) {
+    switch (dir) {
+      case 'UP':
+        return vmath.Vector3(0, 1, 0);
+      case 'DOWN':
+        return vmath.Vector3(0, -1, 0);
+      case 'LEFT':
+        return vmath.Vector3(-1, 0, 0);
+      case 'FRONT':
+        return vmath.Vector3(0, 0, 1);
+      case 'BACK':
+        return vmath.Vector3(0, 0, -1);
+      case 'RIGHT':
+      default:
+        return vmath.Vector3(1, 0, 0);
+    }
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -884,12 +981,18 @@ class Preview3DPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
-    // 1. 3D 공간 벡터 추적 (Quaternion 적용)
+    // 1. 3D 공간 벡터 추적
     List<vmath.Vector3> pts3D = [];
     vmath.Vector3 currentPos = vmath.Vector3.zero();
-    // 리모컨에서는 사용자가 보기 편하도록 X축(가로)을 진행 방향으로 고정
-    vmath.Vector3 currentDir = vmath.Vector3(1, 0, 0);
-    vmath.Vector3 currentNormal = vmath.Vector3(0, 1, 0);
+
+    // 🚀 리모컨 드롭다운에서 선택한 방향을 실제 3D 벡터 시작 방향으로 적용!
+    vmath.Vector3 currentDir = _getStartVector(startDirection);
+
+    // 🚀 방향에 따라 회전축(Normal) 초기화 세팅
+    vmath.Vector3 currentNormal =
+        (startDirection == 'UP' || startDirection == 'DOWN')
+        ? vmath.Vector3(0, 0, 1) // 수직일 경우 앞뒤를 축으로
+        : vmath.Vector3(0, 1, 0); // 수평일 경우 위아래를 축으로
 
     pts3D.add(currentPos.clone());
 
@@ -943,7 +1046,6 @@ class Preview3DPainter extends CustomPainter {
 
     double drawWidth = maxX - minX == 0 ? 100 : maxX - minX;
     double drawHeight = maxY - minY == 0 ? 100 : maxY - minY;
-    // 리모컨 화면(140px)에 꽉 차게 보이기 위해 여백 조절 (0.8)
     double scale = math
         .min((size.width * 0.8) / drawWidth, (size.height * 0.8) / drawHeight)
         .clamp(0.1, 5.0);
@@ -979,5 +1081,8 @@ class Preview3DPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant Preview3DPainter oldDelegate) => true;
+  bool shouldRepaint(covariant Preview3DPainter oldDelegate) {
+    return oldDelegate.startDirection != startDirection ||
+        oldDelegate.bendList != bendList;
+  }
 }

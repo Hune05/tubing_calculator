@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+// 🚀 Hive 로컬 DB 연동
+import 'package:hive_flutter/hive_flutter.dart';
+
 // 🔥 파이어베이스 연동
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -24,6 +27,11 @@ import 'package:tubing_calculator/src/presentation/menu/page/mobile_loading_scre
 void main() async {
   // 플러터 엔진 초기화
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 🚀 [추가됨] Hive 로컬 DB 초기화 및 프로젝트 금고 열기
+  // 앱이 켜질 때 이 금고를 열어둬야 'projectsBox' 데이터를 날아가지 않게 저장할 수 있습니다.
+  await Hive.initFlutter();
+  await Hive.openBox('projectsBox');
 
   // 🔥 파이어베이스 서버 연결
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);

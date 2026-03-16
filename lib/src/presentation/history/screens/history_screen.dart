@@ -37,6 +37,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
     // 🔥 에러 수정 완료: readAllHistory() -> getHistory() 로 변경!
     final data = await DatabaseHelper.instance.getHistory();
 
+    // 🚀 [디테일 1] 비동기 작업(await) 후 화면이 닫혔으면 멈춤 (앱 튕김 방지)
+    if (!mounted) return;
+
     // 데이터를 프로젝트(폴더)별로 그룹화
     Map<String, List<Map<String, dynamic>>> tempGrouped = {};
     for (var item in data) {
@@ -56,6 +59,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
       }
       tempGrouped[project]!.add(item);
     }
+
+    // 🚀 [디테일 2] 폴더 안의 도면들을 '최신순(ID 내림차순)'으로 정렬
+    tempGrouped.forEach((key, list) {
+      list.sort((a, b) => (b['id'] as int).compareTo(a['id'] as int));
+    });
 
     setState(() {
       _groupedHistory = tempGrouped;
@@ -179,7 +187,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       FabricationDetailScreen(itemData: item),
                                 ),
                               );
-                              _refreshHistory(); // 돌아왔을 때 새로고침
+                              // 🚀 [디테일 3] 뒤로가기 눌러서 돌아왔을 때 안전하게 새로고침
+                              if (!mounted) return;
+                              _refreshHistory();
                             },
                             title: Text(
                               fromTo,
@@ -288,6 +298,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   await DatabaseHelper.instance.deleteHistory(
                                     item['id'],
                                   );
+                                  // 🚀 [디테일 4] 삭제 완료 후 팝업 닫힌 뒤 안전하게 새로고침
+                                  if (!mounted) return;
                                   _refreshHistory();
                                 }
                               },

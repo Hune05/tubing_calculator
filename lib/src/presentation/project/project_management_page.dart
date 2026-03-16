@@ -1,13 +1,12 @@
+import 'dart:io';
+import 'dart:convert'; // 🚀 JSON 변환용
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:hive_flutter/hive_flutter.dart'; // 🚀 Hive
 
-// 💡 일관된 라이트/슬레이트 테마 컬러
-const Color makitaTeal = Color(0xFF007580);
-const Color slate900 = Color(0xFF0F172A);
-const Color slate600 = Color(0xFF475569);
-const Color slate100 = Color(0xFFF1F5F9);
-const Color slate50 = Color(0xFFF8FAFC);
-const Color pureWhite = Color(0xFFFFFFFF);
+import 'app_colors.dart';
+import 'project_list_item.dart';
 
 class ProjectManagementPage extends StatefulWidget {
   const ProjectManagementPage({super.key});
@@ -17,36 +16,1115 @@ class ProjectManagementPage extends StatefulWidget {
 }
 
 class _ProjectManagementPageState extends State<ProjectManagementPage> {
-  // 열려있는 프로젝트 카드의 인덱스
   int? _expandedIndex;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final ImagePicker _picker = ImagePicker();
 
-  // 💡 테스트용 프로젝트별 소모 자재 데이터
-  final List<Map<String, dynamic>> projects = [
-    {
-      "name": "MAIN LINE #1 Setup",
-      "date": "2026-03-01 ~ 진행중",
-      "status": "ONGOING",
-      "materials": [
-        {"name": "1/2\" Seamless Tube", "type": "TUBE", "qty_mm": 44500},
-        {"name": "1/2\" Union Elbow", "type": "FITTING", "qty_ea": 14},
-        {"name": "1/2\" Male Connector", "type": "FITTING", "qty_ea": 8},
-      ],
-    },
-    {
-      "name": "SUB LINE #2 Repair",
-      "date": "2026-02-15 ~ 2026-02-20",
-      "status": "COMPLETED",
-      "materials": [
-        {"name": "3/8\" Seamless Tube", "type": "TUBE", "qty_mm": 11800},
-        {"name": "3/8\" Union Tee", "type": "FITTING", "qty_ea": 4},
-      ],
-    },
-  ];
+  // 🚀 Hive 박스 연결
+  final Box _myBox = Hive.box('projectsBox');
+  List<Map<String, dynamic>> projects = [];
 
-  // 💡 프로젝트 생성 팝업 띄우기
+  @override
+  void initState() {
+    super.initState();
+    _loadData(); // 앱 켜질 때 저장된 데이터 불러오기
+  }
+
+  // 🚀 데이터 불러오기 (더미 파일 제거)
+  void _loadData() {
+    final String? jsonString = _myBox.get('projectList');
+    if (jsonString != null) {
+      final List<dynamic> decoded = jsonDecode(jsonString);
+      setState(() {
+        projects = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+      });
+    }
+  }
+
+  // 🚀 데이터 저장하기 (변경될 때마다 호출)
+  void _saveData() {
+    // 안전한 저장을 위해 JSON 문자열로 변환하여 저장
+    _myBox.put('projectList', jsonEncode(projects));
+  }
+
+  Future<String?> _pickImageSource() async {
+    final ImageSource? source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                "사진 첨부 방식 선택",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: slate900,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: makitaTeal),
+              title: const Text(
+                '카메라로 바로 촬영',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: slate600),
+              title: const Text(
+                '갤러리에서 사진 선택',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+
+    if (source != null) {
+      final XFile? image = await _picker.pickImage(
+        source: source,
+        imageQuality: 70,
+      );
+      return image?.path;
+    }
+    return null;
+  }
+
+  Future<void> _confirmDeleteProject(int index) async {
+    bool? confirm = await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: pureWhite,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red.shade600),
+            const SizedBox(width: 8),
+            const Text(
+              "프로젝트 삭제",
+              style: TextStyle(fontWeight: FontWeight.bold, color: slate900),
+            ),
+          ],
+        ),
+        content: const Text(
+          "정말로 이 프로젝트를 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다.",
+          style: TextStyle(color: slate600, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text(
+              "취소",
+              style: TextStyle(color: slate600, fontWeight: FontWeight.bold),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              "삭제",
+              style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      setState(() {
+        projects.removeAt(index);
+        if (_expandedIndex == index) {
+          _expandedIndex = null;
+        } else if (_expandedIndex != null && _expandedIndex! > index) {
+          _expandedIndex = _expandedIndex! - 1;
+        }
+        _saveData(); // 🚀 삭제 후 저장
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("🗑️ 프로젝트가 삭제되었습니다."),
+            backgroundColor: slate600,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showUpdateProgressDialog(int index) {
+    final project = projects[index];
+    double currentProgress = project['progress'] ?? 0.0;
+    final TextEditingController percentCtrl = TextEditingController(
+      text: (currentProgress * 100).toInt().toString(),
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          bool isCompleted = currentProgress >= 1.0;
+          return AlertDialog(
+            backgroundColor: pureWhite,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            title: const Text(
+              "진행률 업데이트",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        "현재 진행률 (%)",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: slate900,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 90,
+                      child: TextField(
+                        controller: percentCtrl,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: isCompleted
+                              ? Colors.green.shade600
+                              : makitaTeal,
+                          fontSize: 18,
+                        ),
+                        decoration: InputDecoration(
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                          ),
+                          filled: true,
+                          fillColor: slate50,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          suffixText: "%",
+                        ),
+                        onChanged: (val) {
+                          double? parsed = double.tryParse(val);
+                          if (parsed != null) {
+                            setDialogState(
+                              () => currentProgress =
+                                  (parsed.clamp(0, 100)) / 100.0,
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Slider(
+                  value: currentProgress,
+                  min: 0.0,
+                  max: 1.0,
+                  divisions: 100,
+                  activeColor: isCompleted ? Colors.green.shade500 : makitaTeal,
+                  inactiveColor: slate200,
+                  onChanged: (val) {
+                    setDialogState(() {
+                      currentProgress = val;
+                      percentCtrl.text = (val * 100).toInt().toString();
+                    });
+                  },
+                ),
+                Center(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isCompleted
+                          ? Colors.green.shade50
+                          : makitaTeal.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isCompleted
+                            ? Colors.green.shade300
+                            : makitaTeal.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Text(
+                      isCompleted ? "🎉 COMPLETED (완료)" : "🚀 ONGOING (진행중)",
+                      style: TextStyle(
+                        color: isCompleted ? Colors.green.shade700 : makitaTeal,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text(
+                  "취소",
+                  style: TextStyle(
+                    color: slate600,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isCompleted
+                      ? Colors.green.shade600
+                      : makitaTeal,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () {
+                  setState(() {
+                    projects[index]['progress'] = currentProgress;
+                    projects[index]['status'] = currentProgress >= 1.0
+                        ? 'COMPLETED'
+                        : 'ONGOING';
+                    _saveData(); // 🚀 진행률 변경 후 저장
+                  });
+                  Navigator.pop(ctx);
+                },
+                child: const Text(
+                  "저장",
+                  style: TextStyle(
+                    color: pureWhite,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showUpdateRevisionDialog(int projectIndex) {
+    final TextEditingController revCtrl = TextEditingController(
+      text: projects[projectIndex]['revision'],
+    );
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: pureWhite,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text(
+          "기준 도면(리비전) 변경",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        content: TextField(
+          controller: revCtrl,
+          autofocus: true,
+          style: const TextStyle(fontWeight: FontWeight.bold, color: slate900),
+          decoration: InputDecoration(
+            hintText: "예: P&ID Rev.3",
+            filled: true,
+            fillColor: pureWhite,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade500, width: 1.5),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: makitaTeal, width: 2.0),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              "취소",
+              style: TextStyle(color: slate600, fontWeight: FontWeight.bold),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: makitaTeal),
+            onPressed: () {
+              setState(() {
+                projects[projectIndex]['revision'] = revCtrl.text.trim();
+                _saveData(); // 🚀 리비전 변경 후 저장
+              });
+              Navigator.pop(ctx);
+            },
+            child: const Text(
+              "수정",
+              style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddPunchDialog(int projectIndex) {
+    final TextEditingController punchCtrl = TextEditingController();
+    List<String> attachedImages = [];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          bool hasImage = attachedImages.isNotEmpty;
+          return AlertDialog(
+            backgroundColor: pureWhite,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            title: const Text(
+              "펀치 리스트 추가",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: slate900,
+              ),
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: punchCtrl,
+                    autofocus: true,
+                    maxLines: 2,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: slate900,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: "수정/보완 내용",
+                      labelStyle: const TextStyle(
+                        color: slate700,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      hintText: "여기에 내용을 입력하세요",
+                      filled: true,
+                      fillColor: pureWhite,
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: Colors.grey.shade500,
+                          width: 1.5,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                          color: makitaTeal,
+                          width: 2.0,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  InkWell(
+                    onTap: attachedImages.length >= 5
+                        ? null
+                        : () async {
+                            final path = await _pickImageSource();
+                            if (path != null)
+                              setDialogState(() => attachedImages.add(path));
+                          },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 20,
+                        horizontal: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: hasImage
+                            ? makitaTeal.withValues(alpha: 0.05)
+                            : pureWhite,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: hasImage ? makitaTeal : Colors.grey.shade400,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.add_a_photo,
+                            color: attachedImages.length >= 5
+                                ? Colors.grey.shade400
+                                : makitaTeal,
+                            size: 36,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "현장 사진 첨부 (${attachedImages.length}/5)",
+                            style: TextStyle(
+                              color: attachedImages.length >= 5
+                                  ? Colors.grey.shade400
+                                  : slate900,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                          if (hasImage) const SizedBox(height: 16),
+                          if (hasImage)
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 12,
+                              children: attachedImages.asMap().entries.map((
+                                entry,
+                              ) {
+                                int idx = entry.key;
+                                String path = entry.value;
+                                return Stack(
+                                  alignment: Alignment.topRight,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.file(
+                                        File(path),
+                                        width: 100,
+                                        height: 100,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                    InkWell(
+                                      onTap: () => setDialogState(
+                                        () => attachedImages.removeAt(idx),
+                                      ),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.red,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.close,
+                                          color: Colors.white,
+                                          size: 16,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }).toList(),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text(
+                  "취소",
+                  style: TextStyle(
+                    color: slate600,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade500,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                ),
+                onPressed: () {
+                  String textValue = punchCtrl.text.trim();
+                  if (textValue.isNotEmpty || attachedImages.isNotEmpty) {
+                    setState(() {
+                      projects[projectIndex]['punch_lists'].insert(0, {
+                        "content": textValue.isEmpty
+                            ? "내용 없음 (사진 참조)"
+                            : textValue,
+                        "is_completed": false,
+                        "has_image": attachedImages.isNotEmpty,
+                        "image_path": attachedImages.isNotEmpty
+                            ? attachedImages.first
+                            : null,
+                        "image_paths": List.from(attachedImages),
+                      });
+                      _saveData(); // 🚀 펀치 등록 후 저장
+                    });
+                    Navigator.pop(ctx);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("내용을 입력하거나 사진을 최소 1장 첨부해주세요!"),
+                        backgroundColor: Colors.red,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+                child: const Text(
+                  "등록하기",
+                  style: TextStyle(
+                    color: pureWhite,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showDailyReportDialog(int projectIndex, {int? reportIndex}) {
+    final bool isEdit = reportIndex != null;
+    final targetList = projects[projectIndex]['daily_reports'] as List;
+    final existingData = isEdit ? targetList[reportIndex] : null;
+
+    final TextEditingController pointCtrl = TextEditingController(
+      text: isEdit ? existingData['points'].toString() : "",
+    );
+    final TextEditingController noteCtrl = TextEditingController(
+      text: isEdit ? existingData['note'] : "",
+    );
+    final TextEditingController asBuiltCtrl = TextEditingController(
+      text: isEdit ? existingData['as_built_reason'] : "",
+    );
+    bool isAsBuilt = isEdit ? (existingData['is_as_built'] ?? false) : false;
+
+    List<dynamic> existingPaths =
+        existingData?['image_paths'] ??
+        (existingData?['image_path'] != null
+            ? [existingData!['image_path']]
+            : []);
+    List<String> attachedImages = isEdit
+        ? List<String>.from(existingPaths)
+        : [];
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            bool hasImage = attachedImages.isNotEmpty;
+            return AlertDialog(
+              backgroundColor: pureWhite,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              title: Text(
+                isEdit ? "작업 일보 수정" : "오늘의 작업 일보",
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  color: slate900,
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: pointCtrl,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: slate900,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: "벤딩 포인트 수",
+                        labelStyle: const TextStyle(
+                          color: slate700,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        filled: true,
+                        fillColor: pureWhite,
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: Colors.grey.shade500,
+                            width: 1.5,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: makitaTeal,
+                            width: 2.0,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: noteCtrl,
+                      maxLines: 2,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: slate900,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: "특이사항 및 작업 내용",
+                        labelStyle: const TextStyle(
+                          color: slate700,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        filled: true,
+                        fillColor: pureWhite,
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: Colors.grey.shade500,
+                            width: 1.5,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: makitaTeal,
+                            width: 2.0,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    InkWell(
+                      onTap: attachedImages.length >= 5
+                          ? null
+                          : () async {
+                              final path = await _pickImageSource();
+                              if (path != null)
+                                setDialogState(() => attachedImages.add(path));
+                            },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 20,
+                          horizontal: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: hasImage
+                              ? makitaTeal.withValues(alpha: 0.05)
+                              : pureWhite,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: hasImage ? makitaTeal : Colors.grey.shade400,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.add_a_photo,
+                              color: attachedImages.length >= 5
+                                  ? Colors.grey.shade400
+                                  : makitaTeal,
+                              size: 36,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              "현장 사진 첨부 (${attachedImages.length}/5)",
+                              style: TextStyle(
+                                color: attachedImages.length >= 5
+                                    ? Colors.grey.shade400
+                                    : slate900,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            if (hasImage) const SizedBox(height: 16),
+                            if (hasImage)
+                              Wrap(
+                                spacing: 12,
+                                runSpacing: 12,
+                                children: attachedImages.asMap().entries.map((
+                                  entry,
+                                ) {
+                                  int idx = entry.key;
+                                  String path = entry.value;
+                                  return Stack(
+                                    alignment: Alignment.topRight,
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.file(
+                                          File(path),
+                                          width: 100,
+                                          height: 100,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                      InkWell(
+                                        onTap: () => setDialogState(
+                                          () => attachedImages.removeAt(idx),
+                                        ),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(6),
+                                          decoration: const BoxDecoration(
+                                            color: Colors.red,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.close,
+                                            color: Colors.white,
+                                            size: 16,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                }).toList(),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: isAsBuilt ? Colors.orange.shade50 : pureWhite,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isAsBuilt
+                              ? Colors.orange.shade400
+                              : Colors.grey.shade400,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          CheckboxListTile(
+                            title: Text(
+                              "도면과 다름 (As-Built 반영 요망)",
+                              style: TextStyle(
+                                color: isAsBuilt
+                                    ? Colors.orange.shade800
+                                    : slate900,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            value: isAsBuilt,
+                            activeColor: Colors.orange.shade700,
+                            checkColor: pureWhite,
+                            controlAffinity: ListTileControlAffinity.leading,
+                            onChanged: (val) =>
+                                setDialogState(() => isAsBuilt = val ?? false),
+                          ),
+                          if (isAsBuilt)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                left: 16,
+                                right: 16,
+                                bottom: 16,
+                              ),
+                              child: TextField(
+                                controller: asBuiltCtrl,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: slate900,
+                                ),
+                                decoration: InputDecoration(
+                                  labelText: "변경 사유 및 벤딩값",
+                                  filled: true,
+                                  fillColor: pureWhite,
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                      color: Colors.grey.shade500,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: const BorderSide(
+                                      color: Colors.orange,
+                                      width: 2.0,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text(
+                    "취소",
+                    style: TextStyle(
+                      color: slate600,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: makitaTeal,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                  ),
+                  onPressed: () {
+                    String ptText = pointCtrl.text.trim();
+                    String ntText = noteCtrl.text.trim();
+
+                    if (ptText.isNotEmpty ||
+                        ntText.isNotEmpty ||
+                        attachedImages.isNotEmpty) {
+                      final today = DateTime.now();
+                      final dateStr = isEdit
+                          ? existingData['date']
+                          : "${today.month.toString().padLeft(2, '0')}/${today.day.toString().padLeft(2, '0')}";
+
+                      final newReport = {
+                        "date": dateStr,
+                        "points": int.tryParse(ptText) ?? 0,
+                        "note": ntText.isEmpty ? "특이사항 없음" : ntText,
+                        "is_as_built": isAsBuilt,
+                        "as_built_reason": isAsBuilt
+                            ? asBuiltCtrl.text.trim()
+                            : "",
+                        "has_image": attachedImages.isNotEmpty,
+                        "image_path": attachedImages.isNotEmpty
+                            ? attachedImages.first
+                            : null,
+                        "image_paths": List.from(attachedImages),
+                      };
+
+                      setState(() {
+                        if (isEdit)
+                          targetList[reportIndex] = newReport;
+                        else
+                          targetList.insert(0, newReport);
+                        _saveData(); // 🚀 일보 등록/수정 후 저장
+                      });
+                      Navigator.pop(ctx);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("포인트 수, 작업 내용, 또는 사진 중 하나는 입력해주세요!"),
+                          backgroundColor: Colors.red,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+                  child: Text(
+                    isEdit ? "수정완료" : "저장하기",
+                    style: const TextStyle(
+                      color: pureWhite,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _confirmDeleteDailyReport(
+    int projectIndex,
+    int reportIndex,
+  ) async {
+    bool? confirm = await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: pureWhite,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text(
+          "작업 일보 삭제",
+          style: TextStyle(fontWeight: FontWeight.bold, color: slate900),
+        ),
+        content: const Text(
+          "이 작업 일보를 삭제하시겠습니까?",
+          style: TextStyle(color: slate600),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text(
+              "취소",
+              style: TextStyle(color: slate600, fontWeight: FontWeight.bold),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              "삭제",
+              style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      setState(() {
+        projects[projectIndex]['daily_reports'].removeAt(reportIndex);
+        _saveData(); // 🚀 삭제 후 저장
+      });
+    }
+  }
+
+  Future<void> _deductMaterialsFromInventory(int index) async {
+    final project = projects[index];
+    if (project['isDeducted'] == true) return;
+
+    bool? confirm = await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: pureWhite,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text(
+          "재고 일괄 차감",
+          style: TextStyle(fontWeight: FontWeight.bold, color: slate900),
+        ),
+        content: const Text("이 프로젝트에 사용된 자재들을 창고 재고에서 차감하시겠습니까?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text(
+              "취소",
+              style: TextStyle(color: slate600, fontWeight: FontWeight.bold),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: makitaTeal),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              "차감하기",
+              style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) =>
+            const Center(child: CircularProgressIndicator(color: makitaTeal)),
+      );
+    }
+
+    try {
+      final materials = project['materials'] as List<dynamic>;
+      for (var mat in materials) {
+        int requiredQty = mat['type'] == 'TUBE'
+            ? ((mat['qty_mm'] as int) / 6000).ceil()
+            : mat['qty_ea'] as int;
+        final snapshot = await _db
+            .collection('inventory')
+            .where('name', isEqualTo: mat['db_name'])
+            .limit(1)
+            .get();
+        if (snapshot.docs.isNotEmpty) {
+          final doc = snapshot.docs.first;
+          await _db.collection('inventory').doc(doc.id).update({
+            'qty': (doc.data()['qty'] ?? 0) - requiredQty,
+          });
+        } else {
+          await _db.collection('inventory').add({
+            "name": mat['db_name'],
+            "size": "규격 확인 필요",
+            "category": mat['type'],
+            "qty": -requiredQty,
+            "min_qty": 10,
+            "is_dead_stock": false,
+            "unit": mat['type'] == 'TUBE' ? "본" : "EA",
+            "createdAt": FieldValue.serverTimestamp(),
+            "location": "임시 등록 (확인 요망)",
+          });
+        }
+        await _db.collection('inventory_logs').add({
+          "project_name": project['name'],
+          "material_name": mat['db_name'],
+          "deducted_qty": requiredQty,
+          "unit": mat['type'] == 'TUBE' ? "본" : "EA",
+          "timestamp": FieldValue.serverTimestamp(),
+        });
+      }
+
+      if (mounted) Navigator.pop(context);
+      setState(() {
+        projects[index]['isDeducted'] = true;
+        _saveData(); // 🚀 재고 차감 완료 상태 저장
+      });
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text("✅ 재고 차감 및 출고 기록 완료!"),
+            backgroundColor: Colors.green.shade700,
+          ),
+        );
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("차감 실패: $e"),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+    }
+  }
+
   void _showCreateProjectSheet() {
     final TextEditingController nameController = TextEditingController();
-
+    final TextEditingController revController = TextEditingController();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -74,11 +1152,6 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  "새로운 라인 또는 작업 구간의 이름을 입력하세요.",
-                  style: TextStyle(color: slate600, fontSize: 13),
-                ),
                 const SizedBox(height: 24),
                 TextField(
                   controller: nameController,
@@ -88,16 +1161,27 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                     fontWeight: FontWeight.bold,
                   ),
                   decoration: InputDecoration(
-                    labelText: "프로젝트 명 (예: UTILITY LINE #3)",
+                    labelText: "프로젝트 명",
                     filled: true,
                     fillColor: slate50,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
                     ),
-                    focusedBorder: OutlineInputBorder(
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: revController,
+                  style: const TextStyle(
+                    color: slate900,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: "기준 도면 / P&ID 리비전 (예: Rev.0)",
+                    filled: true,
+                    fillColor: slate50,
+                    border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: makitaTeal, width: 2),
                     ),
                   ),
                 ),
@@ -114,21 +1198,25 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                     ),
                     onPressed: () {
                       if (nameController.text.trim().isNotEmpty) {
-                        // 오늘 날짜 구하기
                         final today = DateTime.now();
-                        final dateString =
-                            "${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}";
-
                         setState(() {
-                          // 새 프로젝트를 리스트 맨 위(0번째)에 추가
                           projects.insert(0, {
                             "name": nameController.text.trim(),
-                            "date": "$dateString ~ 진행중",
+                            "date":
+                                "${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')} ~ 진행중",
+                            "revision": revController.text.trim().isEmpty
+                                ? "기준 도면 미상"
+                                : revController.text.trim(),
                             "status": "ONGOING",
-                            "materials": [], // 초기엔 소모 자재 없음
+                            "progress": 0.0,
+                            "isDeducted": false,
+                            "materials": [],
+                            "daily_reports": [],
+                            "punch_lists": [],
                           });
+                          _saveData(); // 🚀 신규 생성 후 저장
                         });
-                        Navigator.pop(context); // 팝업 닫기
+                        Navigator.pop(context);
                       }
                     },
                     child: const Text(
@@ -146,6 +1234,169 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
           ),
         );
       },
+    );
+  }
+
+  void _showDetailModal(
+    String title,
+    String content,
+    List<dynamic>? imagePaths, {
+    bool isAsBuilt = false,
+    String? asBuiltReason,
+  }) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: pureWhite,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.85,
+          height: MediaQuery.of(context).size.height * 0.85,
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 22,
+                  color: slate900,
+                ),
+              ),
+              const Divider(height: 24, thickness: 1, color: slate200),
+
+              SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      content,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: slate900,
+                        height: 1.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (isAsBuilt &&
+                        asBuiltReason != null &&
+                        asBuiltReason.isNotEmpty) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.orange.shade200),
+                        ),
+                        child: Text(
+                          "⚠️ As-Built: $asBuiltReason",
+                          style: TextStyle(
+                            color: Colors.orange.shade800,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ],
+                ),
+              ),
+
+              Expanded(
+                child: (imagePaths != null && imagePaths.isNotEmpty)
+                    ? Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          PageView.builder(
+                            itemCount: imagePaths.length,
+                            itemBuilder: (context, index) {
+                              return ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: InteractiveViewer(
+                                  minScale: 1.0,
+                                  maxScale: 5.0,
+                                  child: Image.file(
+                                    File(imagePaths[index]),
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          if (imagePaths.length > 1)
+                            Container(
+                              margin: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black87,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                "👈 좌우로 스와이프 (${imagePaths.length}장) 👉",
+                                style: const TextStyle(
+                                  color: pureWhite,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      )
+                    : Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: slate50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: slate200),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            "📷 첨부된 사진이 없습니다.",
+                            style: TextStyle(
+                              color: slate600,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: makitaTeal,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text(
+                    "닫기",
+                    style: TextStyle(
+                      color: pureWhite,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -169,7 +1420,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
       body: projects.isEmpty
           ? const Center(
               child: Text(
-                "등록된 프로젝트가 없습니다.\n우측 하단 버튼을 눌러 생성하세요.",
+                "등록된 프로젝트가 없습니다.\n우측 하단 버튼을 눌러 추가하세요.",
                 textAlign: TextAlign.center,
                 style: TextStyle(color: slate600, height: 1.5),
               ),
@@ -187,163 +1438,58 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                 final project = projects[index];
                 final bool isExpanded = _expandedIndex == index;
 
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                  decoration: BoxDecoration(
-                    color: pureWhite,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isExpanded ? makitaTeal : Colors.grey.shade300,
-                      width: isExpanded ? 2.0 : 1.0,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
+                return ProjectListItem(
+                  project: project,
+                  isExpanded: isExpanded,
+                  onToggleExpand: () => setState(
+                    () => _expandedIndex = isExpanded ? null : index,
                   ),
-                  child: Column(
-                    children: [
-                      // 🔹 프로젝트 헤더 (클릭 시 확장)
-                      InkWell(
-                        onTap: () {
-                          setState(() {
-                            _expandedIndex = isExpanded ? null : index;
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              // 아이콘
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: isExpanded
-                                      ? makitaTeal.withOpacity(0.1)
-                                      : slate50,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  LucideIcons.folderKanban,
-                                  color: isExpanded ? makitaTeal : slate600,
-                                  size: 24,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-
-                              // 프로젝트 제목 & 날짜
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      project['name'],
-                                      style: const TextStyle(
-                                        color: slate900,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      project['date'],
-                                      style: const TextStyle(
-                                        color: slate600,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              // 상태 배지
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: project['status'] == 'ONGOING'
-                                      ? makitaTeal.withOpacity(0.1)
-                                      : slate100,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  project['status'],
-                                  style: TextStyle(
-                                    color: project['status'] == 'ONGOING'
-                                        ? makitaTeal
-                                        : slate600,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Icon(
-                                isExpanded
-                                    ? Icons.keyboard_arrow_up
-                                    : Icons.keyboard_arrow_down,
-                                color: slate600,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // 🔹 소모 자재 리스트 (확장 영역)
-                      if (isExpanded) ...[
-                        const Divider(height: 1),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: const BoxDecoration(
-                            color: slate50,
-                            borderRadius: BorderRadius.vertical(
-                              bottom: Radius.circular(12),
-                            ),
-                          ),
-                          child: project['materials'].isEmpty
-                              ? const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 8.0),
-                                  child: Text(
-                                    "아직 등록된 소모 자재가 없습니다.",
-                                    style: TextStyle(
-                                      color: slate600,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                )
-                              : Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      "소모 자재 집계 (BOM)",
-                                      style: TextStyle(
-                                        color: slate900,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    ...project['materials'].map<Widget>((mat) {
-                                      return _buildMaterialRow(mat);
-                                    }).toList(),
-                                  ],
-                                ),
-                        ),
-                      ],
-                    ],
-                  ),
+                  onUpdateRevision: () => _showUpdateRevisionDialog(index),
+                  onDeleteProject: () => _confirmDeleteProject(index),
+                  onUpdateProgress: () => _showUpdateProgressDialog(index),
+                  onAddDailyReport: () => _showDailyReportDialog(index),
+                  onEditDailyReport: (reportIdx) =>
+                      _showDailyReportDialog(index, reportIndex: reportIdx),
+                  onDeleteDailyReport: (reportIdx) =>
+                      _confirmDeleteDailyReport(index, reportIdx),
+                  onAddPunch: () => _showAddPunchDialog(index),
+                  onDeductInventory: () => _deductMaterialsFromInventory(index),
+                  // 🚀 체크박스 클릭 등 상태 변경 시 호출되는 부분 (여기서도 저장!)
+                  onStateUpdate: () {
+                    setState(() {});
+                    _saveData();
+                  },
+                  onViewDailyReportDetail: (reportIdx) {
+                    final report = project['daily_reports'][reportIdx];
+                    List<dynamic> passImages =
+                        report['image_paths'] ??
+                        (report['image_path'] != null
+                            ? [report['image_path']]
+                            : []);
+                    _showDetailModal(
+                      "${report['date']} 작업 일보",
+                      "벤딩 포인트: ${report['points']} pt\n작업 내용: ${report['note']}",
+                      passImages,
+                      isAsBuilt: report['is_as_built'] ?? false,
+                      asBuiltReason: report['as_built_reason'],
+                    );
+                  },
+                  onViewPunchDetail: (punchIdx) {
+                    final punch = project['punch_lists'][punchIdx];
+                    List<dynamic> passImages =
+                        punch['image_paths'] ??
+                        (punch['image_path'] != null
+                            ? [punch['image_path']]
+                            : []);
+                    _showDetailModal(
+                      "펀치 리스트 상세 내용",
+                      punch['content'],
+                      passImages,
+                    );
+                  },
                 );
               },
             ),
-      // 🔥 생성 기능 연결 완료
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showCreateProjectSheet,
         backgroundColor: makitaTeal,
@@ -352,73 +1498,6 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
           "프로젝트 생성",
           style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
         ),
-      ),
-    );
-  }
-
-  // 💡 자재별 소모량 표시 위젯 (튜브일 경우 '본' 계산 적용)
-  Widget _buildMaterialRow(Map<String, dynamic> mat) {
-    bool isTube = mat['type'] == 'TUBE';
-
-    // 튜브인 경우 총 길이를 6m(6000mm) 기준으로 나누어 필요 '본' 수를 올림으로 계산합니다.
-    int tubeSticks = 0;
-    if (isTube) {
-      double totalMm = (mat['qty_mm'] as int).toDouble();
-      tubeSticks = (totalMm / 6000).ceil();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            isTube ? Icons.line_weight : LucideIcons.gitMerge,
-            size: 18,
-            color: slate600,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  mat['name'],
-                  style: const TextStyle(
-                    color: slate900,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                if (isTube) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    "총 컷팅: ${(mat['qty_mm'] / 1000).toStringAsFixed(1)}m",
-                    style: const TextStyle(color: slate600, fontSize: 12),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                isTube ? "$tubeSticks 본" : "${mat['qty_ea']} EA",
-                style: const TextStyle(
-                  color: makitaTeal,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
-                ),
-              ),
-              if (isTube)
-                const Text(
-                  "(6m 원장 기준)",
-                  style: TextStyle(color: slate600, fontSize: 10),
-                ),
-            ],
-          ),
-        ],
       ),
     );
   }
