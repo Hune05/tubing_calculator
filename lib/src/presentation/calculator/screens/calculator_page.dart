@@ -67,6 +67,23 @@ class _CalculatorPageState extends State<CalculatorPage>
 
   String _localStartDir = 'RIGHT';
 
+  // 🔹 [추가됨] 전체 기장 및 잔여량 계산 로직
+  double? _totalPipeLength;
+
+  double get _usedPipeLength {
+    if (widget.bendList.isEmpty) return 0.0;
+    return widget.bendList.fold(
+      0.0,
+      (sum, bend) => sum + (bend['length'] ?? 0.0),
+    );
+  }
+
+  double get _remainingPipeLength {
+    if (_totalPipeLength == null) return 0.0;
+    return _totalPipeLength! - _usedPipeLength;
+  }
+  // ------------------------------------------------
+
   @override
   void initState() {
     super.initState();
@@ -78,7 +95,6 @@ class _CalculatorPageState extends State<CalculatorPage>
     WakelockPlus.enable();
   }
 
-  // 🚀 [핵심 해결] 부모(MainCalculatorScreen)가 값을 변경하면 이 화면도 즉각 업데이트!
   @override
   void didUpdateWidget(CalculatorPage oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -129,6 +145,67 @@ class _CalculatorPageState extends State<CalculatorPage>
     _tempController.dispose();
     super.dispose();
   }
+
+  // 🔹 [추가됨] 전체 기장 설정 다이얼로그
+  void _showSetTotalLengthDialog() {
+    final TextEditingController lengthController = TextEditingController(
+      text: _totalPipeLength?.toStringAsFixed(1) ?? "",
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: pureWhite,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text(
+          "파이프 전체 기장 설정",
+          style: TextStyle(color: makitaTeal, fontWeight: FontWeight.bold),
+        ),
+        content: TextField(
+          controller: lengthController,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: "예: 6000",
+            suffixText: "mm",
+            filled: true,
+            fillColor: slate100,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() => _totalPipeLength = null);
+              Navigator.pop(ctx);
+            },
+            child: const Text("초기화", style: TextStyle(color: slate600)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: makitaTeal,
+              foregroundColor: pureWhite,
+            ),
+            onPressed: () {
+              final val = double.tryParse(lengthController.text);
+              if (val != null && val > 0) {
+                setState(() => _totalPipeLength = val);
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text(
+              "설정",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  // ------------------------------------------------
 
   void receiveRemoteData(Map<String, dynamic> data) async {
     if (!mounted || _isAutoProcessing) return;
@@ -571,6 +648,63 @@ class _CalculatorPageState extends State<CalculatorPage>
                 margin: const EdgeInsets.only(top: 12, bottom: 12, right: 12),
                 child: Column(
                   children: [
+                    // 🔹 [추가됨] 전체 기장 설정 및 잔여량 표시 패널
+                    GestureDetector(
+                      onTap: _showSetTotalLengthDialog,
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _totalPipeLength == null
+                              ? slate900
+                              : (_remainingPipeLength < 0
+                                    ? Colors.red.shade50
+                                    : makitaTeal.withValues(alpha: 0.1)),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _totalPipeLength == null
+                                ? slate900
+                                : (_remainingPipeLength < 0
+                                      ? Colors.red
+                                      : makitaTeal),
+                            width: 2,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _totalPipeLength == null
+                                  ? "전체 기장을 설정하세요 (클릭)"
+                                  : "잔여 기장 (총 ${_totalPipeLength!.toStringAsFixed(1)}mm)",
+                              style: TextStyle(
+                                color: _totalPipeLength == null
+                                    ? pureWhite
+                                    : slate900,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            if (_totalPipeLength != null)
+                              Text(
+                                "${_remainingPipeLength.toStringAsFixed(1)} mm",
+                                style: TextStyle(
+                                  color: _remainingPipeLength < 0
+                                      ? Colors.red
+                                      : makitaTeal,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // ------------------------------------------------
                     Expanded(
                       flex: 4,
                       child: Container(
