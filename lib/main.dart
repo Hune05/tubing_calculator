@@ -1,3 +1,4 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -28,7 +29,7 @@ void main() async {
   // 플러터 엔진 초기화
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 🚀 [추가됨] Hive 로컬 DB 초기화 및 프로젝트 금고 열기
+  // 🚀 Hive 로컬 DB 초기화 및 프로젝트 금고 열기
   // 앱이 켜질 때 이 금고를 열어둬야 'projectsBox' 데이터를 날아가지 않게 저장할 수 있습니다.
   await Hive.initFlutter();
   await Hive.openBox('projectsBox');

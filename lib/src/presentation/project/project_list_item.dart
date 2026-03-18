@@ -17,6 +17,7 @@ class ProjectListItem extends StatelessWidget {
   final VoidCallback onStateUpdate;
   final Function(int) onViewDailyReportDetail;
   final Function(int) onViewPunchDetail;
+  final VoidCallback onOpenCutting;
 
   const ProjectListItem({
     super.key,
@@ -34,6 +35,7 @@ class ProjectListItem extends StatelessWidget {
     required this.onStateUpdate,
     required this.onViewDailyReportDetail,
     required this.onViewPunchDetail,
+    required this.onOpenCutting,
   });
 
   @override
@@ -92,7 +94,7 @@ class ProjectListItem extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              project['name'],
+                              project['name'] ?? '이름 없음',
                               style: const TextStyle(
                                 color: slate900,
                                 fontSize: 16,
@@ -101,7 +103,7 @@ class ProjectListItem extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              project['date'],
+                              project['date'] ?? '',
                               style: const TextStyle(
                                 color: slate600,
                                 fontSize: 12,
@@ -131,7 +133,7 @@ class ProjectListItem extends StatelessWidget {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      "기준: ${project['revision']}",
+                                      "기준: ${project['revision'] ?? ''}",
                                       style: const TextStyle(
                                         color: slate600,
                                         fontSize: 11,
@@ -162,7 +164,7 @@ class ProjectListItem extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  project['status'],
+                                  project['status'] ?? '',
                                   style: TextStyle(
                                     color: project['status'] == 'ONGOING'
                                         ? makitaTeal
@@ -275,20 +277,54 @@ class ProjectListItem extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          "📦 소모 자재 집계 (BOM)",
-                          style: TextStyle(
-                            color: slate900,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              "📦 소모 자재 집계 (BOM)",
+                              style: TextStyle(
+                                color: slate900,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            ElevatedButton.icon(
+                              onPressed: onOpenCutting,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(
+                                  0xFF004D54,
+                                ), // 안전하게 색상 코드 하드코딩
+                                foregroundColor: pureWhite,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                minimumSize: Size.zero,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ),
+                              icon: const Icon(Icons.straighten, size: 14),
+                              label: const Text(
+                                "컷팅 작업하기",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 12),
                         if (project['materials'] == null ||
                             project['materials'].isEmpty)
                           const Text(
-                            "자재 내역이 없습니다.",
-                            style: TextStyle(color: slate600, fontSize: 13),
+                            "자재 내역이 없습니다.\n'컷팅 작업하기' 버튼을 눌러 작업을 시작하세요.",
+                            style: TextStyle(
+                              color: slate600,
+                              fontSize: 13,
+                              height: 1.5,
+                            ),
                           ),
                         if (project['materials'] != null)
                           ...project['materials']
@@ -387,7 +423,7 @@ class ProjectListItem extends StatelessWidget {
                                             ),
                                           ),
                                           child: Text(
-                                            report['date'],
+                                            report['date'] ?? '',
                                             style: const TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 11,
@@ -397,7 +433,7 @@ class ProjectListItem extends StatelessWidget {
                                         ),
                                         const SizedBox(width: 8),
                                         Text(
-                                          "${report['points']} Pts",
+                                          "${report['points'] ?? 0} Pts",
                                           style: const TextStyle(
                                             fontWeight: FontWeight.bold,
                                             color: makitaTeal,
@@ -411,7 +447,7 @@ class ProjectListItem extends StatelessWidget {
                                                 CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                report['note'],
+                                                report['note'] ?? '',
                                                 style: const TextStyle(
                                                   color: slate600,
                                                   fontSize: 13,
@@ -519,7 +555,7 @@ class ProjectListItem extends StatelessWidget {
                                           const SizedBox(width: 6),
                                           Expanded(
                                             child: Text(
-                                              "As-Built 반영 필요: ${report['as_built_reason']}",
+                                              "As-Built 반영 필요: ${report['as_built_reason'] ?? ''}",
                                               style: TextStyle(
                                                 color: Colors.orange.shade800,
                                                 fontSize: 12,
@@ -597,7 +633,7 @@ class ProjectListItem extends StatelessWidget {
                               child: Row(
                                 children: [
                                   Checkbox(
-                                    value: punch['is_completed'],
+                                    value: punch['is_completed'] ?? false,
                                     activeColor: makitaTeal,
                                     onChanged: (val) {
                                       punch['is_completed'] = val;
@@ -617,18 +653,22 @@ class ProjectListItem extends StatelessWidget {
                                           children: [
                                             Expanded(
                                               child: Text(
-                                                punch['content'],
+                                                punch['content'] ?? '',
                                                 style: TextStyle(
                                                   fontSize: 13,
                                                   fontWeight:
-                                                      punch['is_completed']
+                                                      (punch['is_completed'] ==
+                                                          true)
                                                       ? FontWeight.normal
                                                       : FontWeight.bold,
-                                                  color: punch['is_completed']
+                                                  color:
+                                                      (punch['is_completed'] ==
+                                                          true)
                                                       ? Colors.grey
                                                       : slate900,
                                                   decoration:
-                                                      punch['is_completed']
+                                                      (punch['is_completed'] ==
+                                                          true)
                                                       ? TextDecoration
                                                             .lineThrough
                                                       : null,
@@ -644,7 +684,8 @@ class ProjectListItem extends StatelessWidget {
                                                     style: TextStyle(
                                                       fontSize: 10,
                                                       color:
-                                                          punch['is_completed']
+                                                          (punch['is_completed'] ==
+                                                              true)
                                                           ? Colors.grey
                                                           : slate600,
                                                     ),
@@ -652,7 +693,9 @@ class ProjectListItem extends StatelessWidget {
                                                   Icon(
                                                     Icons.photo_camera,
                                                     size: 16,
-                                                    color: punch['is_completed']
+                                                    color:
+                                                        (punch['is_completed'] ==
+                                                            true)
                                                         ? Colors.grey
                                                         : slate600,
                                                   ),
@@ -710,7 +753,9 @@ class ProjectListItem extends StatelessWidget {
 
   Widget _buildMaterialRow(Map<String, dynamic> mat) {
     bool isTube = mat['type'] == 'TUBE';
-    int tubeSticks = isTube ? ((mat['qty_mm'] as int) / 6000).ceil() : 0;
+    // 🚨 [핵심 해결] as int 때문에 발생하던 타입 에러를 as num으로 변경해 완벽 해결!
+    int tubeSticks = isTube ? ((mat['qty_mm'] as num) / 6000).ceil() : 0;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Row(
@@ -726,23 +771,23 @@ class ProjectListItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  mat['name'],
+                  mat['db_name'] ?? mat['name'] ?? '알 수 없는 자재',
                   style: const TextStyle(
                     color: slate900,
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
                   ),
                 ),
-                if (isTube)
+                if (isTube && mat['qty_mm'] != null)
                   Text(
-                    "총 ${(mat['qty_mm'] / 1000).toStringAsFixed(1)}m",
+                    "총 ${((mat['qty_mm'] as num) / 1000).toStringAsFixed(1)}m",
                     style: const TextStyle(color: slate600, fontSize: 11),
                   ),
               ],
             ),
           ),
           Text(
-            isTube ? "$tubeSticks 본" : "${mat['qty_ea']} EA",
+            isTube ? "$tubeSticks 본" : "${mat['qty_ea'] ?? 0} EA",
             style: const TextStyle(
               color: makitaTeal,
               fontWeight: FontWeight.w900,

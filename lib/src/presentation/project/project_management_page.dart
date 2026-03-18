@@ -1,12 +1,16 @@
 import 'dart:io';
-import 'dart:convert'; // 🚀 JSON 변환용
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:hive_flutter/hive_flutter.dart'; // 🚀 Hive
+import 'package:hive_flutter/hive_flutter.dart';
 
 import 'app_colors.dart';
 import 'project_list_item.dart';
+
+import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_main_screen.dart'
+    hide makitaTeal;
+import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
 
 class ProjectManagementPage extends StatefulWidget {
   const ProjectManagementPage({super.key});
@@ -20,17 +24,15 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final ImagePicker _picker = ImagePicker();
 
-  // 🚀 Hive 박스 연결
   final Box _myBox = Hive.box('projectsBox');
   List<Map<String, dynamic>> projects = [];
 
   @override
   void initState() {
     super.initState();
-    _loadData(); // 앱 켜질 때 저장된 데이터 불러오기
+    _loadData();
   }
 
-  // 🚀 데이터 불러오기 (더미 파일 제거)
   void _loadData() {
     final String? jsonString = _myBox.get('projectList');
     if (jsonString != null) {
@@ -41,9 +43,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
     }
   }
 
-  // 🚀 데이터 저장하기 (변경될 때마다 호출)
   void _saveData() {
-    // 안전한 저장을 위해 JSON 문자열로 변환하여 저장
     _myBox.put('projectList', jsonEncode(projects));
   }
 
@@ -153,7 +153,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
         } else if (_expandedIndex != null && _expandedIndex! > index) {
           _expandedIndex = _expandedIndex! - 1;
         }
-        _saveData(); // 🚀 삭제 후 저장
+        _saveData();
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -312,7 +312,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                     projects[index]['status'] = currentProgress >= 1.0
                         ? 'COMPLETED'
                         : 'ONGOING';
-                    _saveData(); // 🚀 진행률 변경 후 저장
+                    _saveData();
                   });
                   Navigator.pop(ctx);
                 },
@@ -375,7 +375,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
             onPressed: () {
               setState(() {
                 projects[projectIndex]['revision'] = revCtrl.text.trim();
-                _saveData(); // 🚀 리비전 변경 후 저장
+                _saveData();
               });
               Navigator.pop(ctx);
             },
@@ -450,14 +450,14 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
                   InkWell(
                     onTap: attachedImages.length >= 5
                         ? null
                         : () async {
                             final path = await _pickImageSource();
-                            if (path != null)
+                            if (path != null) {
                               setDialogState(() => attachedImages.add(path));
+                            }
                           },
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
@@ -580,7 +580,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                             : null,
                         "image_paths": List.from(attachedImages),
                       });
-                      _saveData(); // 🚀 펀치 등록 후 저장
+                      _saveData();
                     });
                     Navigator.pop(ctx);
                   } else {
@@ -729,8 +729,9 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                           ? null
                           : () async {
                               final path = await _pickImageSource();
-                              if (path != null)
+                              if (path != null) {
                                 setDialogState(() => attachedImages.add(path));
+                              }
                             },
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
@@ -936,11 +937,12 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                       };
 
                       setState(() {
-                        if (isEdit)
+                        if (isEdit) {
                           targetList[reportIndex] = newReport;
-                        else
+                        } else {
                           targetList.insert(0, newReport);
-                        _saveData(); // 🚀 일보 등록/수정 후 저장
+                        }
+                        _saveData();
                       });
                       Navigator.pop(ctx);
                     } else {
@@ -1011,7 +1013,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
     if (confirm == true) {
       setState(() {
         projects[projectIndex]['daily_reports'].removeAt(reportIndex);
-        _saveData(); // 🚀 삭제 후 저장
+        _saveData();
       });
     }
   }
@@ -1079,7 +1081,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
         } else {
           await _db.collection('inventory').add({
             "name": mat['db_name'],
-            "size": "규격 확인 필요",
+            "size": mat['spec'] ?? "규격 확인 필요",
             "category": mat['type'],
             "qty": -requiredQty,
             "min_qty": 10,
@@ -1101,30 +1103,33 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
       if (mounted) Navigator.pop(context);
       setState(() {
         projects[index]['isDeducted'] = true;
-        _saveData(); // 🚀 재고 차감 완료 상태 저장
+        _saveData();
       });
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text("✅ 재고 차감 및 출고 기록 완료!"),
             backgroundColor: Colors.green.shade700,
           ),
         );
+      }
     } catch (e) {
       if (mounted) Navigator.pop(context);
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("차감 실패: $e"),
             backgroundColor: Colors.red.shade700,
           ),
         );
+      }
     }
   }
 
   void _showCreateProjectSheet() {
     final TextEditingController nameController = TextEditingController();
     final TextEditingController revController = TextEditingController();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1135,65 +1140,133 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
             bottom: MediaQuery.of(context).viewInsets.bottom,
           ),
           child: Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
             decoration: const BoxDecoration(
               color: pureWhite,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  "신규 프로젝트 생성",
-                  style: TextStyle(
-                    color: slate900,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: slate200,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
+
+                const Text(
+                  "신규 프로젝트 생성",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: slate900,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 32),
+
                 TextField(
                   controller: nameController,
                   autofocus: true,
                   style: const TextStyle(
                     color: slate900,
                     fontWeight: FontWeight.bold,
+                    fontSize: 16,
                   ),
                   decoration: InputDecoration(
                     labelText: "프로젝트 명",
+                    labelStyle: const TextStyle(
+                      color: makitaTeal,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    hintText: "새로운 프로젝트 이름을 입력하세요",
+                    hintStyle: const TextStyle(
+                      color: slate400,
+                      fontWeight: FontWeight.normal,
+                    ),
                     filled: true,
-                    fillColor: slate50,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                    fillColor: pureWhite,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 18,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: Colors.grey.shade300,
+                        width: 1.5,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: makitaTeal,
+                        width: 2.0,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
+
                 TextField(
                   controller: revController,
                   style: const TextStyle(
                     color: slate900,
                     fontWeight: FontWeight.bold,
+                    fontSize: 16,
                   ),
                   decoration: InputDecoration(
-                    labelText: "기준 도면 / P&ID 리비전 (예: Rev.0)",
+                    labelText: "기준 도면 / P&ID 리비전",
+                    labelStyle: const TextStyle(
+                      color: makitaTeal,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    hintText: "예: Rev.0",
+                    hintStyle: const TextStyle(
+                      color: slate400,
+                      fontWeight: FontWeight.normal,
+                    ),
                     filled: true,
-                    fillColor: slate50,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                    fillColor: pureWhite,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 18,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: Colors.grey.shade300,
+                        width: 1.5,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: makitaTeal,
+                        width: 2.0,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
+
                 SizedBox(
-                  width: double.infinity,
-                  height: 50,
+                  height: 56,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: makitaTeal,
+                      foregroundColor: pureWhite,
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     onPressed: () {
@@ -1201,6 +1274,8 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                         final today = DateTime.now();
                         setState(() {
                           projects.insert(0, {
+                            "id": DateTime.now().millisecondsSinceEpoch
+                                .toString(),
                             "name": nameController.text.trim(),
                             "date":
                                 "${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')} ~ 진행중",
@@ -1214,17 +1289,17 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                             "daily_reports": [],
                             "punch_lists": [],
                           });
-                          _saveData(); // 🚀 신규 생성 후 저장
+                          _saveData();
                         });
                         Navigator.pop(context);
                       }
                     },
                     child: const Text(
-                      "생성하기",
+                      "프로젝트 생성하기",
                       style: TextStyle(
-                        color: pureWhite,
-                        fontSize: 16,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
                       ),
                     ),
                   ),
@@ -1454,7 +1529,6 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                       _confirmDeleteDailyReport(index, reportIdx),
                   onAddPunch: () => _showAddPunchDialog(index),
                   onDeductInventory: () => _deductMaterialsFromInventory(index),
-                  // 🚀 체크박스 클릭 등 상태 변경 시 호출되는 부분 (여기서도 저장!)
                   onStateUpdate: () {
                     setState(() {});
                     _saveData();
@@ -1486,6 +1560,82 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                       punch['content'],
                       passImages,
                     );
+                  },
+                  onOpenCutting: () {
+                    if (project['id'] == null ||
+                        project['id'].toString().trim().isEmpty) {
+                      project['id'] = DateTime.now().millisecondsSinceEpoch
+                          .toString();
+                      _saveData();
+                    }
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CuttingMainScreen(
+                          project: CuttingProject(
+                            id: project['id'],
+                            name: project['name'] ?? '이름 없음',
+                            createdAt: DateTime.now(),
+                          ),
+                          onSaveCallback:
+                              (
+                                double tubeLengthMm,
+                                List<Map<String, dynamic>> fittingsList,
+                              ) {
+                                setState(() {
+                                  List<dynamic> currentMaterials =
+                                      List<dynamic>.from(
+                                        projects[index]['materials'] ?? [],
+                                      );
+
+                                  int tubeIdx = currentMaterials.indexWhere(
+                                    (m) => m['type'] == 'TUBE',
+                                  );
+                                  if (tubeIdx >= 0) {
+                                    currentMaterials[tubeIdx]['qty_mm'] =
+                                        (currentMaterials[tubeIdx]['qty_mm'] ??
+                                            0) +
+                                        tubeLengthMm;
+                                  } else {
+                                    currentMaterials.add({
+                                      'db_name': 'TUBE 3/8 (기본)',
+                                      'type': 'TUBE',
+                                      'qty_mm': tubeLengthMm,
+                                    });
+                                  }
+
+                                  for (var newFit in fittingsList) {
+                                    int fitIdx = currentMaterials.indexWhere(
+                                      (m) => m['db_name'] == newFit['db_name'],
+                                    );
+                                    if (fitIdx >= 0) {
+                                      currentMaterials[fitIdx]['qty_ea'] =
+                                          (currentMaterials[fitIdx]['qty_ea'] ??
+                                              0) +
+                                          newFit['qty'];
+                                    } else {
+                                      currentMaterials.add({
+                                        'db_name': newFit['db_name'],
+                                        'maker': newFit['maker'],
+                                        'spec': newFit['spec'],
+                                        'name': newFit['name'],
+                                        'type': 'FITTING',
+                                        'qty_ea': newFit['qty'],
+                                      });
+                                    }
+                                  }
+
+                                  projects[index]['materials'] =
+                                      currentMaterials;
+                                  _saveData();
+                                });
+                              },
+                        ),
+                      ),
+                    ).then((_) {
+                      _loadData();
+                    });
                   },
                 );
               },

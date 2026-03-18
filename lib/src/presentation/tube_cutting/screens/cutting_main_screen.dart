@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../../data/models/cutting_project_model.dart';
 import '../../../data/models/fitting_item.dart';
 import '../../../data/models/smart_fitting_db.dart';
@@ -19,18 +22,34 @@ class CutPoint {
   CutPoint({required this.fitting})
     : c2cController = TextEditingController(),
       calculatedCut = 0.0;
+
   void dispose() => c2cController.dispose();
 }
 
 class CuttingMainScreen extends StatefulWidget {
   final CuttingProject project;
-  const CuttingMainScreen({super.key, required this.project});
+  // 🚀 [자재 관리용 데이터 구조 업그레이드] Map<String, int> 대신 완벽한 규격 리스트를 쏩니다!
+  final Function(
+    double totalTubeLength,
+    List<Map<String, dynamic>> fittingsList,
+  )?
+  onSaveCallback;
+
+  const CuttingMainScreen({
+    super.key,
+    required this.project,
+    this.onSaveCallback,
+  });
 
   @override
   State<CuttingMainScreen> createState() => _CuttingMainScreenState();
 }
 
-class _CuttingMainScreenState extends State<CuttingMainScreen> {
+class _CuttingMainScreenState extends State<CuttingMainScreen>
+    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
+  @override
+  bool get wantKeepAlive => true;
+
   String _globalMaker = "Swagelok";
   List<CutPoint> _points = [];
   int _setMultiplier = 1;
@@ -39,7 +58,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializeSequence();
+    _loadDraftState();
   }
 
   void _initializeSequence() {
@@ -51,10 +72,99 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _saveDraftState();
     for (var point in _points) {
       point.dispose();
     }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      _saveDraftState();
+    }
+  }
+
+  String get _draftKey {
+    if (widget.onSaveCallback == null) {
+      return 'cutting_draft_standalone_absolute_fixed_key';
+    }
+    String idStr = widget.project.id.toString();
+    if (idStr.isEmpty || idStr == 'null') {
+      return 'cutting_draft_fallback_${widget.project.name}';
+    }
+    return 'cutting_draft_$idStr';
+  }
+
+  Future<void> _saveDraftState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stateData = {
+        'globalMaker': _globalMaker,
+        'setMultiplier': _setMultiplier,
+        'groupSameLengths': _groupSameLengths,
+        'points': _points.map((p) {
+          return {
+            'fittingId': p.fitting.id,
+            'c2c': p.c2cController.text,
+            'isCustom': p.fitting.category == 'CUSTOM',
+            'customName': p.fitting.name,
+            'customDed': p.fitting.deduction,
+            'customOD': p.fitting.tubeOD, // 규격 임시 저장
+          };
+        }).toList(),
+      };
+      await prefs.setString(_draftKey, jsonEncode(stateData));
+    } catch (e) {
+      debugPrint("임시 저장 실패: $e");
+    }
+  }
+
+  Future<void> _loadDraftState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = prefs.getString(_draftKey);
+
+      if (jsonStr != null) {
+        final stateData = jsonDecode(jsonStr);
+        setState(() {
+          _globalMaker = stateData['globalMaker'] ?? "Swagelok";
+          _setMultiplier = stateData['setMultiplier'] ?? 1;
+          _groupSameLengths = stateData['groupSameLengths'] ?? false;
+
+          if (stateData['points'] != null) {
+            for (var p in _points) p.dispose();
+
+            _points = (stateData['points'] as List).map((pData) {
+              CutPoint p = CutPoint(fitting: SmartFittingDB.getById("none"));
+              if (pData['isCustom'] == true) {
+                p.fitting = FittingItem(
+                  id: pData['fittingId'] ?? "custom",
+                  category: "CUSTOM",
+                  name: pData['customName'] ?? "커스텀 부속",
+                  tubeOD: pData['customOD'] ?? "미지정",
+                  maker: "CUSTOM",
+                  deduction: (pData['customDed'] as num?)?.toDouble() ?? 0.0,
+                  icon: Icons.extension,
+                );
+              } else {
+                p.fitting = SmartFittingDB.getById(
+                  pData['fittingId'] ?? "none",
+                );
+              }
+              p.c2cController.text = pData['c2c'] ?? "";
+              return p;
+            }).toList();
+          }
+        });
+        _calculate();
+      }
+    } catch (e) {
+      debugPrint("불러오기 실패: $e");
+    }
   }
 
   void _calculate() {
@@ -72,6 +182,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
         _points[i].calculatedCut = c2c - deduction1 - deduction2;
       }
     });
+    _saveDraftState();
   }
 
   void _addPoint() {
@@ -82,9 +193,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
   }
 
   void _removePoint(int index) {
-    if (_points.length <= 2) {
-      return;
-    }
+    if (_points.length <= 2) return;
     setState(() {
       _points[index].dispose();
       _points.removeAt(index);
@@ -103,81 +212,204 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
     }
   }
 
-  // 🚀 커스텀 부속(삽입 깊이 직접 입력) 팝업
   void _showCustomFittingDialog(int index) {
     TextEditingController nameCtrl = TextEditingController(text: "커스텀 부속");
-    TextEditingController dedCtrl = TextEditingController();
+    TextEditingController specCtrl = TextEditingController();
+    TextEditingController deductionCtrl = TextEditingController();
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: whiteCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text(
-          "부속 / 삽입 깊이 직접 입력",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(
-                labelText: "부속 이름 (예: 밸브, 후렌지 등)",
-                filled: true,
-                fillColor: lightBg,
-              ),
+    Widget buildInputField({
+      required String label,
+      required String hint,
+      required TextEditingController controller,
+      bool isNumber = false,
+    }) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              color: makitaDark,
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: dedCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "공제값 (삽입 깊이) mm",
-                filled: true,
-                fillColor: lightBg,
-                suffixText: "mm",
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              "💡 팁: 전체 길이에서 튜브 삽입(물림) 깊이만 빼고 싶을 때 사용하세요.",
-              style: TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("취소", style: TextStyle(color: Colors.grey)),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: makitaTeal),
-            onPressed: () {
-              double customDed = double.tryParse(dedCtrl.text) ?? 0.0;
-              setState(() {
-                // 🚀 [에러 픽스] "" 대신 진짜 아이콘(Icons.extension)을 넣었습니다!
-                _points[index].fitting = FittingItem(
-                  id: "custom_${DateTime.now().millisecondsSinceEpoch}",
-                  category: "CUSTOM",
-                  name: nameCtrl.text.trim().isEmpty
-                      ? "커스텀 부속"
-                      : nameCtrl.text.trim(),
-                  tubeOD: "직접입력",
-                  maker: "CUSTOM",
-                  deduction: customDed,
-                  icon: Icons.extension, // 💡 이 부분이 수정되었습니다!
-                );
-                _calculate();
-              });
-              Navigator.pop(ctx);
-            },
-            child: const Text(
-              "적용",
-              style: TextStyle(color: whiteCard, fontWeight: FontWeight.bold),
+          const SizedBox(height: 8),
+          TextField(
+            controller: controller,
+            keyboardType: isNumber
+                ? const TextInputType.numberWithOptions(decimal: true)
+                : TextInputType.text,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: textPrimary,
+            ),
+            cursorColor: makitaTeal,
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 16),
+              suffixText: isNumber ? "mm" : null,
+              suffixStyle: const TextStyle(
+                color: makitaTeal,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+              filled: true,
+              fillColor: Colors.grey.shade50,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 16,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey.shade300, width: 1.5),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: makitaTeal, width: 2.5),
+              ),
             ),
           ),
         ],
+      );
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: whiteCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: makitaTeal.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.extension,
+                        color: makitaTeal,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      "커스텀 부속 설정",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 20,
+                        color: textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                buildInputField(
+                  label: "품명 (예: 볼 밸브, 체크 밸브)",
+                  hint: "품명 입력",
+                  controller: nameCtrl,
+                ),
+                const SizedBox(height: 16),
+                buildInputField(
+                  label: "규격 (예: 1/2, 3/8, 12mm)",
+                  hint: "규격 입력",
+                  controller: specCtrl,
+                ),
+                const SizedBox(height: 16),
+                buildInputField(
+                  label: "적용할 공제값 (Deduction)",
+                  hint: "0.0",
+                  controller: deductionCtrl,
+                  isNumber: true,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 1,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          side: BorderSide(
+                            color: Colors.grey.shade300,
+                            width: 2,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          "취소",
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: makitaTeal,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: () {
+                          double customDed =
+                              double.tryParse(deductionCtrl.text) ?? 0.0;
+                          String specStr = specCtrl.text.trim().isEmpty
+                              ? "미지정"
+                              : specCtrl.text.trim();
+
+                          setState(() {
+                            _points[index].fitting = FittingItem(
+                              id: "custom_${DateTime.now().millisecondsSinceEpoch}",
+                              category: "CUSTOM",
+                              name: nameCtrl.text.trim().isEmpty
+                                  ? "커스텀 부속"
+                                  : nameCtrl.text.trim(),
+                              tubeOD: specStr, // 🚀 규격 정확히 저장
+                              maker: "CUSTOM",
+                              deduction: customDed,
+                              icon: Icons.extension,
+                            );
+                            _calculate();
+                          });
+                          Navigator.pop(ctx);
+                        },
+                        child: const Text(
+                          "적용하기",
+                          style: TextStyle(
+                            color: whiteCard,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -202,16 +434,67 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
           (sum, point) =>
               sum + (point.calculatedCut > 0 ? point.calculatedCut : 0.0),
         );
+
     double finalTotal = totalOneSet * _setMultiplier;
 
-    if (finalTotal <= 0) {
-      return;
-    }
+    if (finalTotal <= 0) return;
 
     FocusScope.of(context).unfocus();
 
+    // 🚀 [자재 관리용 완벽 분리] 제조사, 규격, 품명, 수량을 담을 객체 리스트
+    Map<String, Map<String, dynamic>> groupedFittings = {};
+    int totalFittingCount = 0;
+
+    for (var point in _points) {
+      if (point.fitting.id != "none") {
+        String maker = point.fitting.category == "CUSTOM"
+            ? "CUSTOM"
+            : _globalMaker;
+        String spec = point.fitting.tubeOD;
+        String name = point.fitting.name;
+
+        // 고유 식별 키 (제조사_규격_이름)
+        String uniqueKey = "${maker}_${spec}_$name";
+
+        if (groupedFittings.containsKey(uniqueKey)) {
+          groupedFittings[uniqueKey]!['qty'] += 1;
+        } else {
+          groupedFittings[uniqueKey] = {
+            'maker': maker,
+            'spec': spec,
+            'name': name,
+            'qty': 1,
+            'type': 'FITTING',
+          };
+        }
+      }
+    }
+
+    List<Map<String, dynamic>> finalFittingsList = [];
+    groupedFittings.forEach((key, data) {
+      data['qty'] = (data['qty'] as int) * _setMultiplier;
+      totalFittingCount += data['qty'] as int;
+      // DB 식별용 깔끔한 조합 이름 생성
+      data['db_name'] = "[${data['maker']}] ${data['spec']} ${data['name']}";
+      finalFittingsList.add(data);
+    });
+
     setState(() {
-      widget.project.addCutLength(finalTotal);
+      try {
+        widget.project.recordUsage(
+          tubeLengthMm: finalTotal,
+          fittings: {}, // 이건 구형 함수라 비워둡니다 (앱 뻗음 방지)
+          multiplier: _setMultiplier,
+        );
+      } catch (e) {
+        debugPrint("단독 모드 에러 무시: $e");
+      }
+
+      // 🚀 부모(리스트)에 쓰레기 데이터 없이 완벽한 규격 JSON 리스트를 쏴줍니다!
+      if (widget.onSaveCallback != null) {
+        widget.onSaveCallback!(finalTotal, finalFittingsList);
+      }
+
       for (var point in _points) {
         point.c2cController.clear();
         point.calculatedCut = 0.0;
@@ -223,7 +506,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          "$_setMultiplier세트 (총 ${finalTotal.toStringAsFixed(1)}mm) 기록 완료!",
+          "튜브 총 ${finalTotal.toStringAsFixed(1)}mm 및 피팅 ${totalFittingCount}개 작업 완료!",
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: makitaTeal,
       ),
@@ -266,6 +550,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     return Scaffold(
       backgroundColor: lightBg,
       appBar: AppBar(
@@ -273,7 +559,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
         foregroundColor: whiteCard,
         elevation: 0,
         title: Text(
-          "프로젝트: ${widget.project.name} | 누적: ${widget.project.estimatedMeters} m",
+          "프로젝트: ${widget.project.name}",
           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
         ),
       ),
@@ -308,7 +594,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                       bool isSelected = _globalMaker == maker;
                       return Expanded(
                         child: GestureDetector(
-                          onTap: () => setState(() => _globalMaker = maker),
+                          onTap: () {
+                            setState(() => _globalMaker = maker);
+                            _saveDraftState();
+                          },
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
                             margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -382,14 +671,36 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                         Expanded(
                           child: ReorderableListView.builder(
                             itemCount: _points.length,
+                            proxyDecorator:
+                                (
+                                  Widget child,
+                                  int index,
+                                  Animation<double> animation,
+                                ) {
+                                  return Material(
+                                    color: Colors.transparent,
+                                    elevation: 0,
+                                    child: _buildFittingCard(index),
+                                  );
+                                },
                             onReorder: (oldIndex, newIndex) {
                               setState(() {
                                 if (newIndex > oldIndex) {
                                   newIndex -= 1;
                                 }
-                                final point = _points.removeAt(oldIndex);
-                                _points.insert(newIndex, point);
+                                List<FittingItem> currentFittings = _points
+                                    .map((p) => p.fitting)
+                                    .toList();
+                                final movedFitting = currentFittings.removeAt(
+                                  oldIndex,
+                                );
+                                currentFittings.insert(newIndex, movedFitting);
+
+                                for (int i = 0; i < _points.length; i++) {
+                                  _points[i].fitting = currentFittings[i];
+                                }
                                 _calculate();
+                                _saveDraftState();
                               });
                             },
                             itemBuilder: (context, index) {
@@ -411,7 +722,6 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                   ),
                 ),
                 Container(width: 1, color: Colors.black12),
-
                 Expanded(
                   flex: 5,
                   child: Column(
@@ -470,7 +780,6 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                         color: Colors.black12,
                         thickness: 2,
                       ),
-
                       Expanded(
                         flex: 1,
                         child: Container(
@@ -504,9 +813,12 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                                       Switch(
                                         value: _groupSameLengths,
                                         activeThumbColor: makitaTeal,
-                                        onChanged: (val) => setState(
-                                          () => _groupSameLengths = val,
-                                        ),
+                                        onChanged: (val) {
+                                          setState(
+                                            () => _groupSameLengths = val,
+                                          );
+                                          _saveDraftState();
+                                        },
                                       ),
                                     ],
                                   ),
@@ -523,10 +835,14 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                                             Icons.remove,
                                             color: makitaTeal,
                                           ),
-                                          onPressed: () => setState(() {
-                                            if (_setMultiplier > 1)
-                                              _setMultiplier--;
-                                          }),
+                                          onPressed: () {
+                                            setState(() {
+                                              if (_setMultiplier > 1) {
+                                                _setMultiplier--;
+                                                _saveDraftState();
+                                              }
+                                            });
+                                          },
                                         ),
                                         Text(
                                           "$_setMultiplier SET",
@@ -541,8 +857,12 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                                             Icons.add,
                                             color: makitaTeal,
                                           ),
-                                          onPressed: () =>
-                                              setState(() => _setMultiplier++),
+                                          onPressed: () {
+                                            setState(() {
+                                              _setMultiplier++;
+                                              _saveDraftState();
+                                            });
+                                          },
                                         ),
                                       ],
                                     ),
@@ -563,7 +883,6 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                                 ),
                               ),
                               const SizedBox(height: 16),
-
                               ElevatedButton(
                                 onPressed:
                                     _points.any(
@@ -579,7 +898,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                                   ),
                                 ),
                                 child: Text(
-                                  "$_setMultiplier 세트 전량 저장 (합계: ${(_points.sublist(0, _points.length - 1).fold(0.0, (sum, p) => sum + (p.calculatedCut > 0 ? p.calculatedCut : 0)) * _setMultiplier).toStringAsFixed(1)} mm)",
+                                  "$_setMultiplier 세트 작업 완료 (저장 및 초기화)",
                                   style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
@@ -605,6 +924,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
   Widget _buildFittingCard(int index) {
     FittingItem item = _points[index].fitting;
     bool isNone = item.id == "none";
+    bool isCustom = item.category == "CUSTOM";
 
     return Row(
       children: [
@@ -678,9 +998,11 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
                           ),
                           if (!isNone)
                             Text(
-                              "- ${item.deduction}mm",
-                              style: const TextStyle(
-                                color: makitaDark,
+                              isCustom ? "수동" : "- ${item.deduction}mm",
+                              style: TextStyle(
+                                color: isCustom
+                                    ? Colors.orange.shade800
+                                    : makitaDark,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w900,
                               ),
@@ -729,7 +1051,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
               children: [
                 TextField(
                   controller: _points[index].c2cController,
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   onChanged: (_) => _calculate(),
                   cursorColor: makitaTeal,
                   style: const TextStyle(
@@ -878,14 +1202,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
         itemCount: _points.length - 1,
         separatorBuilder: (context, index) => const Divider(),
         itemBuilder: (context, index) {
-          if (_points[index].c2cController.text.isEmpty) {
+          if (_points[index].c2cController.text.isEmpty)
             return const SizedBox.shrink();
-          }
           double cutLen = _points[index].calculatedCut;
-          if (cutLen < 0) {
-            return const SizedBox.shrink();
-          }
-
+          if (cutLen < 0) return const SizedBox.shrink();
           return Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -970,7 +1290,6 @@ class _CuttingMainScreenState extends State<CuttingMainScreen> {
 
   Widget _buildVisualPipe(double cutLength, bool hasInput) {
     bool isInterference = hasInput && cutLength < 0;
-
     return Container(
       width: 120,
       padding: const EdgeInsets.symmetric(horizontal: 4),

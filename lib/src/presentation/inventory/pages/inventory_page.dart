@@ -102,7 +102,7 @@ class _InventoryPageState extends State<InventoryPage> {
     if (confirm == true) await _inventoryDb.doc(docId).delete();
   }
 
-  // 🚀 [수정] 내역 삭제 시 '이름'과 '규격'을 동시에 매칭해서 정확한 자재를 찾아 복구합니다!
+  // 🚀 [핵심 수정] 출고 내역 삭제 시, 완벽하게 통합된 고유 이름표(material_name) 하나만으로 정확하게 복구합니다.
   Future<void> _confirmDeleteLog(
     String docId,
     Map<String, dynamic> logData,
@@ -110,7 +110,6 @@ class _InventoryPageState extends State<InventoryPage> {
     String type = logData['type'] ?? 'OUT';
     int qty = logData['qty'] ?? logData['deducted_qty'] ?? 0;
     String materialName = logData['material_name'] ?? "";
-    String size = logData['size'] ?? ""; // 💡 규격 추가
 
     bool? confirm = await showDialog(
       context: context,
@@ -162,11 +161,12 @@ class _InventoryPageState extends State<InventoryPage> {
 
       if (materialName.isNotEmpty && qty > 0) {
         try {
-          // 💡 이름과 규격이 모두 일치하는 녀석을 찾습니다.
-          var query = _inventoryDb.where('name', isEqualTo: materialName);
-          if (size.isNotEmpty) query = query.where('size', isEqualTo: size);
+          // 💡 오직 고유한 이름표(material_name = "[제조사] 규격 자재명")로만 매칭합니다. 제조사나 규격 꼬일 일이 0%가 됩니다.
+          final snapshot = await _inventoryDb
+              .where('name', isEqualTo: materialName)
+              .limit(1)
+              .get();
 
-          final snapshot = await query.limit(1).get();
           if (snapshot.docs.isNotEmpty) {
             final doc = snapshot.docs.first;
             final currentQty = doc['qty'] ?? 0;
@@ -190,28 +190,23 @@ class _InventoryPageState extends State<InventoryPage> {
     }
   }
 
-  // 🚀 [핵심 수정] 수기 입/출고 등록 시 규격(Size)과 재질(Material)을 받도록 강화
+  // 🚀 [핵심 수정] 수기 입/출고 등록 시 "제조사", "규격", "자재명"을 조합하여 고유한 db_name을 생성합니다.
   void _showAddLogSheet() {
     bool isOutbound = false;
     final TextEditingController projectCtrl = TextEditingController();
+    final TextEditingController makerCtrl = TextEditingController(
+      text: "SWAGELOK",
+    ); // 💡 제조사 필수화
     final TextEditingController materialCtrl = TextEditingController();
-    final TextEditingController sizeCtrl = TextEditingController(); // 💡 규격 추가
+    final TextEditingController sizeCtrl = TextEditingController();
     final TextEditingController qtyCtrl = TextEditingController(text: "1");
 
     String selectedCategory = "FITTING";
-    String selectedMaterial = "SS316";
+    String selectedUnit = "EA";
 
     final List<String> addCategories = _categories
         .where((c) => c != "ALL")
         .toList();
-    final List<String> materials = [
-      "SS304",
-      "SS316",
-      "SS316L",
-      "CARBON",
-      "PVC",
-      "기타",
-    ];
 
     showModalBottomSheet(
       context: context,
@@ -316,31 +311,35 @@ class _InventoryPageState extends State<InventoryPage> {
                         "예: MAIN LINE #1 (또는 '신규 입고')",
                       ),
                       const SizedBox(height: 16),
-                      // 💡 카테고리 & 재질 선택 추가
                       Row(
                         children: [
                           _buildPopupDropdown(
                             "카테고리",
                             selectedCategory,
                             addCategories,
-                            (val) =>
-                                setSheetState(() => selectedCategory = val!),
+                            (val) => setSheetState(() {
+                              selectedCategory = val!;
+                              // 💡 TUBE면 강제로 '본'으로 락(Lock)
+                              if (val == "TUBE") selectedUnit = "본";
+                            }),
                           ),
                           const SizedBox(width: 12),
                           _buildPopupDropdown(
-                            "재질",
-                            selectedMaterial,
-                            materials,
-                            (val) =>
-                                setSheetState(() => selectedMaterial = val!),
+                            "단위 (Unit)",
+                            selectedUnit,
+                            ["EA", "본", "BOX", "M", "SET"],
+                            (val) => setSheetState(() {
+                              if (selectedCategory != "TUBE")
+                                selectedUnit = val!;
+                            }),
                           ),
                         ],
                       ),
                       const SizedBox(height: 16),
-                      _buildPopupLabel("자재명 (정확히 입력)"),
-                      _buildPopupTextField(materialCtrl, "예: Union Tee"),
+                      // 💡 제조사 필수 입력 추가
+                      _buildPopupLabel("제조사 (Maker)"),
+                      _buildPopupTextField(makerCtrl, "예: Swagelok, Parker 등"),
                       const SizedBox(height: 16),
-                      // 💡 규격 & 수량 입력란
                       Row(
                         children: [
                           Expanded(
@@ -355,20 +354,23 @@ class _InventoryPageState extends State<InventoryPage> {
                           ),
                           const SizedBox(width: 12),
                           Expanded(
+                            flex: 3,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildPopupLabel("수량"),
+                                _buildPopupLabel("품명 (Description)"),
                                 _buildPopupTextField(
-                                  qtyCtrl,
-                                  "0",
-                                  isNumber: true,
+                                  materialCtrl,
+                                  "예: Union Tee",
                                 ),
                               ],
                             ),
                           ),
                         ],
                       ),
+                      const SizedBox(height: 16),
+                      _buildPopupLabel("수량"),
+                      _buildPopupTextField(qtyCtrl, "0", isNumber: true),
                       const SizedBox(height: 32),
                       SizedBox(
                         width: double.infinity,
@@ -384,37 +386,42 @@ class _InventoryPageState extends State<InventoryPage> {
                           ),
                           onPressed: () async {
                             String proj = projectCtrl.text.trim();
-                            String mat = materialCtrl.text.trim();
+                            String maker = makerCtrl.text.trim().toUpperCase();
                             String size = sizeCtrl.text.trim();
+                            String mat = materialCtrl.text.trim();
                             int qty = int.tryParse(qtyCtrl.text) ?? 0;
 
-                            // 💡 깐깐한 조건: 이름, 규격, 수량이 다 있어야 통과!
-                            if (mat.isEmpty || size.isEmpty || qty <= 0) {
+                            // 💡 깐깐한 방어: 4가지가 완벽해야 등록 가능
+                            if (maker.isEmpty ||
+                                size.isEmpty ||
+                                mat.isEmpty ||
+                                qty <= 0) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text("자재명, 규격, 수량을 모두 입력해주세요!"),
+                                  content: Text("제조사, 규격, 품명, 수량을 모두 입력해주세요!"),
                                   backgroundColor: Colors.red,
                                 ),
                               );
                               return;
                             }
 
+                            // 🚀 [중요] 컷팅 페이지와 완전히 동일한 고유 이름표 생성
+                            String combinedDbName = "[$maker] $size $mat";
+
                             try {
-                              // 1. 로그에 추가 (규격 정보도 같이 저장)
+                              // 1. 로그 기록 (조합된 이름 사용)
                               await _logsDb.add({
                                 "type": isOutbound ? "OUT" : "IN",
                                 "project_name": proj.isEmpty ? "기타 수기등록" : proj,
-                                "material_name": mat,
-                                "size": size, // 💡 새로 추가됨
+                                "material_name": combinedDbName, // 고유 이름표
                                 "qty": qty,
-                                "unit": "EA",
+                                "unit": selectedUnit,
                                 "timestamp": FieldValue.serverTimestamp(),
                               });
 
-                              // 2. 창고(전체 재고) 업데이트 (이름 + 규격 동시 매칭)
+                              // 2. 창고에 고유 이름표(name)로 매칭하여 업데이트 또는 신규 생성
                               final snapshot = await _inventoryDb
-                                  .where('name', isEqualTo: mat)
-                                  .where('size', isEqualTo: size)
+                                  .where('name', isEqualTo: combinedDbName)
                                   .limit(1)
                                   .get();
 
@@ -428,20 +435,18 @@ class _InventoryPageState extends State<InventoryPage> {
                                   'qty': newQty,
                                 });
                               } else {
-                                // 💡 창고에 아예 없는 부속이면 깐깐한 규칙에 맞춰서 완벽하게 신규 생성
+                                // 창고에 처음 들어오는 자재라면 완벽한 규격으로 생성
                                 await _inventoryDb.add({
-                                  "name": mat,
-                                  "size": size, // 제대로 들어감
+                                  "name": combinedDbName, // 고유 이름표
+                                  "size": size,
+                                  "maker": maker,
+                                  "raw_name": mat, // 순수 품명
                                   "category": selectedCategory,
-                                  "material": selectedMaterial,
-                                  "qty": isOutbound
-                                      ? -qty
-                                      : qty, // 출고면 마이너스로 시작
+                                  "qty": isOutbound ? -qty : qty,
                                   "min_qty": 10,
                                   "is_dead_stock": false,
-                                  "unit": "EA",
-                                  "maker": "수기등록",
-                                  "location": "확인 요망",
+                                  "unit": selectedUnit,
+                                  "location": "수기 등록 확인요망",
                                   "createdAt": FieldValue.serverTimestamp(),
                                 });
                               }
@@ -478,7 +483,9 @@ class _InventoryPageState extends State<InventoryPage> {
     final TextEditingController qtyCtrl = TextEditingController(text: "0");
     final TextEditingController minQtyCtrl = TextEditingController(text: "10");
     final TextEditingController heatNoCtrl = TextEditingController();
-    final TextEditingController makerCtrl = TextEditingController();
+    final TextEditingController makerCtrl = TextEditingController(
+      text: "SWAGELOK",
+    );
     final TextEditingController locationCtrl = TextEditingController();
 
     String selectedCategory = "FITTING";
@@ -520,7 +527,7 @@ class _InventoryPageState extends State<InventoryPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        "신규 자재 등록",
+                        "신규 자재 마스터 등록",
                         style: TextStyle(
                           color: slate900,
                           fontSize: 20,
@@ -536,7 +543,8 @@ class _InventoryPageState extends State<InventoryPage> {
                             addCategories,
                             (val) => setSheetState(() {
                               selectedCategory = val!;
-                              selectedUnit = val == "TUBE" ? "본" : "EA";
+                              // 💡 TUBE 락 체결
+                              if (val == "TUBE") selectedUnit = "본";
                             }),
                           ),
                           const SizedBox(width: 12),
@@ -550,7 +558,33 @@ class _InventoryPageState extends State<InventoryPage> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      _buildPopupLabel("자재명 (Description)"),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildPopupLabel("제조사 (Maker)"),
+                                _buildPopupTextField(makerCtrl, "예: Swagelok"),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 3,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildPopupLabel("규격 (Size)"),
+                                _buildPopupTextField(sizeCtrl, "예: 1/2\", 50A"),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _buildPopupLabel("품명 (Description)"),
                       _buildPopupTextField(
                         nameCtrl,
                         "예: Union Tee, Ball Valve 등",
@@ -569,8 +603,8 @@ class _InventoryPageState extends State<InventoryPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildPopupLabel("규격 (Size)"),
-                                _buildPopupTextField(sizeCtrl, "예: 1/2\", 50A"),
+                                _buildPopupLabel("히트 번호"),
+                                _buildPopupTextField(heatNoCtrl, "예: H1234"),
                               ],
                             ),
                           ),
@@ -579,32 +613,11 @@ class _InventoryPageState extends State<InventoryPage> {
                             "단위",
                             selectedUnit,
                             ["EA", "본", "BOX", "M", "SET"],
-                            (val) => setSheetState(() => selectedUnit = val!),
+                            (val) => setSheetState(() {
+                              if (selectedCategory != "TUBE")
+                                selectedUnit = val!;
+                            }),
                             isSmall: true,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildPopupLabel("제조사"),
-                                _buildPopupTextField(makerCtrl, "예: Swagelok"),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildPopupLabel("히트 번호"),
-                                _buildPopupTextField(heatNoCtrl, "예: H1234"),
-                              ],
-                            ),
                           ),
                         ],
                       ),
@@ -668,13 +681,26 @@ class _InventoryPageState extends State<InventoryPage> {
                                 ),
                               ),
                               onPressed: () async {
-                                if (nameCtrl.text.trim().isEmpty ||
-                                    sizeCtrl.text.trim().isEmpty)
+                                String maker = makerCtrl.text
+                                    .trim()
+                                    .toUpperCase();
+                                String size = sizeCtrl.text.trim();
+                                String name = nameCtrl.text.trim();
+
+                                if (maker.isEmpty ||
+                                    size.isEmpty ||
+                                    name.isEmpty)
                                   return;
+
+                                // 🚀 완벽한 고유 이름표 생성
+                                String combinedDbName = "[$maker] $size $name";
+
                                 try {
                                   await _inventoryDb.add({
-                                    "name": nameCtrl.text.trim(),
-                                    "size": sizeCtrl.text.trim(),
+                                    "name": combinedDbName, // 고유키
+                                    "size": size,
+                                    "maker": maker,
+                                    "raw_name": name,
                                     "category": selectedCategory,
                                     "qty": int.tryParse(qtyCtrl.text) ?? 0,
                                     "min_qty":
@@ -682,9 +708,6 @@ class _InventoryPageState extends State<InventoryPage> {
                                     "is_dead_stock": false,
                                     "unit": selectedUnit,
                                     "heatNo": heatNoCtrl.text
-                                        .trim()
-                                        .toUpperCase(),
-                                    "maker": makerCtrl.text
                                         .trim()
                                         .toUpperCase(),
                                     "material": selectedMaterial,
@@ -697,7 +720,7 @@ class _InventoryPageState extends State<InventoryPage> {
                                 }
                               },
                               child: const Text(
-                                "등록하기",
+                                "마스터 등록",
                                 style: TextStyle(
                                   color: pureWhite,
                                   fontWeight: FontWeight.bold,
@@ -730,6 +753,7 @@ class _InventoryPageState extends State<InventoryPage> {
       ),
     ),
   );
+
   Widget _buildPopupTextField(
     TextEditingController ctrl,
     String hint, {
@@ -748,6 +772,7 @@ class _InventoryPageState extends State<InventoryPage> {
       ),
     ),
   );
+
   Widget _buildPopupDropdown(
     String label,
     String value,
@@ -798,7 +823,7 @@ class _InventoryPageState extends State<InventoryPage> {
                 autofocus: true,
                 style: const TextStyle(color: pureWhite),
                 decoration: const InputDecoration(
-                  hintText: '자재명, 규격 검색...',
+                  hintText: '자재명, 규격, 제조사 검색...',
                   hintStyle: TextStyle(color: Colors.white70),
                   border: InputBorder.none,
                 ),
@@ -1032,7 +1057,9 @@ class _InventoryPageState extends State<InventoryPage> {
             builder: (context, snapshot) {
               if (snapshot.hasError) return const Center(child: Text("에러 발생"));
               if (snapshot.connectionState == ConnectionState.waiting)
-                return const Center(child: CircularProgressIndicator());
+                return const Center(
+                  child: CircularProgressIndicator(color: makitaTeal),
+                );
 
               final docs = snapshot.data!.docs;
               final filteredDocs = docs.where((doc) {
@@ -1042,13 +1069,16 @@ class _InventoryPageState extends State<InventoryPage> {
                     data['category'] == _selectedFilterCategory;
                 bool statusMatch =
                     (data['is_dead_stock'] ?? false) == _showDeadStock;
+
+                // 검색 강화 (이름, 규격, 메이커 모두 검색)
+                String fullName = data['name'].toString().toLowerCase();
+                String maker = (data['maker'] ?? "").toString().toLowerCase();
+                String size = (data['size'] ?? "").toString().toLowerCase();
                 bool searchMatch =
-                    data['name'].toString().toLowerCase().contains(
-                      _searchQuery,
-                    ) ||
-                    data['size'].toString().toLowerCase().contains(
-                      _searchQuery,
-                    );
+                    fullName.contains(_searchQuery) ||
+                    maker.contains(_searchQuery) ||
+                    size.contains(_searchQuery);
+
                 return categoryMatch && statusMatch && searchMatch;
               }).toList();
 
@@ -1194,12 +1224,6 @@ class _InventoryPageState extends State<InventoryPage> {
                   bool isOut = (log['type'] ?? 'OUT') == 'OUT';
                   int qty = log['qty'] ?? log['deducted_qty'] ?? 0;
 
-                  // 💡 규격(Size) 정보가 있으면 이름 옆에 같이 보여줌
-                  String sizeInfo =
-                      (log['size'] != null && log['size'].toString().isNotEmpty)
-                      ? " (${log['size']})"
-                      : "";
-
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -1218,7 +1242,7 @@ class _InventoryPageState extends State<InventoryPage> {
                       ),
                     ),
                     title: Text(
-                      (log['material_name'] ?? '알 수 없는 자재') + sizeInfo,
+                      log['material_name'] ?? '알 수 없는 자재',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
@@ -1345,7 +1369,8 @@ class _InventoryPageState extends State<InventoryPage> {
                       children: [
                         Expanded(
                           child: Text(
-                            item['name'] ?? "이름 없음",
+                            item['name'] ??
+                                "이름 없음", // 💡 [Swagelok] 1/2 밸브 형태로 출력됨
                             style: const TextStyle(
                               color: slate900,
                               fontSize: 15,
@@ -1396,7 +1421,7 @@ class _InventoryPageState extends State<InventoryPage> {
                       ],
                     ),
                     Text(
-                      "규격: ${item['size']} | 재질: ${item['material'] ?? '-'}",
+                      "분류: ${item['category']} | 재질: ${item['material'] ?? '-'}",
                       style: const TextStyle(color: slate600, fontSize: 12),
                     ),
                     const SizedBox(height: 8),
@@ -1409,12 +1434,6 @@ class _InventoryPageState extends State<InventoryPage> {
                             Icons.location_on,
                             item['location'],
                             Colors.orange.shade700,
-                          ),
-                        if ((item['maker'] ?? "").isNotEmpty)
-                          _buildBadge(
-                            Icons.factory,
-                            item['maker'],
-                            Colors.blue,
                           ),
                         if ((item['heatNo'] ?? "").isNotEmpty)
                           _buildBadge(

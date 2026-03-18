@@ -67,10 +67,10 @@ class _CalculatorPageState extends State<CalculatorPage>
 
   String _localStartDir = 'RIGHT';
 
-  // 🔹 [추가됨] 전체 기장 및 잔여량 계산 로직
-  double? _totalPipeLength;
+  // 🚀 예상 튜브 길이 및 마진 계산 로직
+  double _safeMargin = 100.0; // 기본 여유 마진 (0으로 설정 가능)
 
-  double get _usedPipeLength {
+  double get _rawLengthSum {
     if (widget.bendList.isEmpty) return 0.0;
     return widget.bendList.fold(
       0.0,
@@ -78,11 +78,10 @@ class _CalculatorPageState extends State<CalculatorPage>
     );
   }
 
-  double get _remainingPipeLength {
-    if (_totalPipeLength == null) return 0.0;
-    return _totalPipeLength! - _usedPipeLength;
+  double get _estimatedTotalLength {
+    if (_rawLengthSum == 0) return 0.0;
+    return _rawLengthSum + _safeMargin;
   }
-  // ------------------------------------------------
 
   @override
   void initState() {
@@ -146,66 +145,185 @@ class _CalculatorPageState extends State<CalculatorPage>
     super.dispose();
   }
 
-  // 🔹 [추가됨] 전체 기장 설정 다이얼로그
-  void _showSetTotalLengthDialog() {
-    final TextEditingController lengthController = TextEditingController(
-      text: _totalPipeLength?.toStringAsFixed(1) ?? "",
-    );
+  // 🔹 [변경됨] 시스템 키보드 대신 커스텀 넘패드를 띄우는 마진 설정 팝업
+  void _showMarginNumpad() {
+    String tempValue = _safeMargin > 0 ? _safeMargin.toStringAsFixed(0) : "";
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: pureWhite,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text(
-          "파이프 전체 기장 설정",
-          style: TextStyle(color: makitaTeal, fontWeight: FontWeight.bold),
-        ),
-        content: TextField(
-          controller: lengthController,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: "예: 6000",
-            suffixText: "mm",
-            filled: true,
-            fillColor: slate100,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              setState(() => _totalPipeLength = null);
-              Navigator.pop(ctx);
-            },
-            child: const Text("초기화", style: TextStyle(color: slate600)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: makitaTeal,
-              foregroundColor: pureWhite,
-            ),
-            onPressed: () {
-              final val = double.tryParse(lengthController.text);
-              if (val != null && val > 0) {
-                setState(() => _totalPipeLength = val);
-              }
-              Navigator.pop(ctx);
-            },
-            child: const Text(
-              "설정",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            void pressKey(String key) {
+              setModalState(() {
+                if (key == 'C') {
+                  tempValue = "";
+                } else if (key == '⌫') {
+                  if (tempValue.isNotEmpty) {
+                    tempValue = tempValue.substring(0, tempValue.length - 1);
+                  }
+                } else {
+                  if (tempValue == "0") {
+                    tempValue = key;
+                  } else {
+                    tempValue += key;
+                  }
+                }
+              });
+            }
+
+            void applyMargin() {
+              double? val = double.tryParse(tempValue);
+              setState(() {
+                _safeMargin = val ?? 0.0; // 빈 값이면 0으로 처리 (마진 없음)
+              });
+              Navigator.pop(context);
+            }
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.55,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              decoration: BoxDecoration(
+                color: pureWhite,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, -5),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "여유 마진 입력",
+                            style: TextStyle(
+                              color: slate900,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          Text(
+                            "마진이 필요없다면 0을 입력하세요",
+                            style: TextStyle(color: slate600, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        tempValue.isEmpty ? "0 mm" : "$tempValue mm",
+                        style: const TextStyle(
+                          color: makitaTeal,
+                          fontSize: 32,
+                          fontWeight: FontWeight.w900,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              _numKey('7', pressKey),
+                              _numKey('8', pressKey),
+                              _numKey('9', pressKey),
+                              _numKey(
+                                'C',
+                                pressKey,
+                                color: Colors.red.shade400,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              _numKey('4', pressKey),
+                              _numKey('5', pressKey),
+                              _numKey('6', pressKey),
+                              _numKey(
+                                '⌫',
+                                pressKey,
+                                color: Colors.orange.shade400,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              _numKey('1', pressKey),
+                              _numKey('2', pressKey),
+                              _numKey('3', pressKey),
+                              _numKey('.', pressKey), // 필요시 소수점 사용 가능
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              _numKey('0', pressKey),
+                              _numKey('00', pressKey),
+                              Expanded(
+                                flex: 2,
+                                child: InkWell(
+                                  onTap: applyMargin,
+                                  child: Container(
+                                    margin: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: makitaTeal,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: const Text(
+                                      "마진 적용",
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
-  // ------------------------------------------------
 
   void receiveRemoteData(Map<String, dynamic> data) async {
     if (!mounted || _isAutoProcessing) return;
@@ -648,57 +766,75 @@ class _CalculatorPageState extends State<CalculatorPage>
                 margin: const EdgeInsets.only(top: 12, bottom: 12, right: 12),
                 child: Column(
                   children: [
-                    // 🔹 [추가됨] 전체 기장 설정 및 잔여량 표시 패널
+                    // 🚀 [디자인 수정] 예상 튜브 길이 표시 패널 (폰트/자간/컬러 최적화)
                     GestureDetector(
-                      onTap: _showSetTotalLengthDialog,
+                      onTap: _showMarginNumpad,
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
+                          horizontal: 18,
+                          vertical: 14,
                         ),
                         decoration: BoxDecoration(
-                          color: _totalPipeLength == null
+                          color: _estimatedTotalLength == 0
                               ? slate900
-                              : (_remainingPipeLength < 0
-                                    ? Colors.red.shade50
-                                    : makitaTeal.withValues(alpha: 0.1)),
-                          borderRadius: BorderRadius.circular(8),
+                              : makitaTeal.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: _totalPipeLength == null
+                            color: _estimatedTotalLength == 0
                                 ? slate900
-                                : (_remainingPipeLength < 0
-                                      ? Colors.red
-                                      : makitaTeal),
-                            width: 2,
+                                : makitaTeal.withValues(alpha: 0.5),
+                            width: 1.5,
                           ),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  "예상 튜브 길이",
+                                  style: TextStyle(
+                                    color: _estimatedTotalLength == 0
+                                        ? pureWhite
+                                        : slate900,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                    letterSpacing: -0.5,
+                                  ),
+                                ),
+                                if (_estimatedTotalLength > 0)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      "순수합: ${_rawLengthSum.toStringAsFixed(1)} + 마진: ${_safeMargin.toStringAsFixed(0)}",
+                                      style: TextStyle(
+                                        color: slate600,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: -0.3,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                             Text(
-                              _totalPipeLength == null
-                                  ? "전체 기장을 설정하세요 (클릭)"
-                                  : "잔여 기장 (총 ${_totalPipeLength!.toStringAsFixed(1)}mm)",
+                              _estimatedTotalLength == 0
+                                  ? "계산 대기중..."
+                                  : "${_estimatedTotalLength.toStringAsFixed(1)} mm",
                               style: TextStyle(
-                                color: _totalPipeLength == null
-                                    ? pureWhite
-                                    : slate900,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                                color: _estimatedTotalLength == 0
+                                    ? Colors.white54
+                                    : makitaTeal,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w900,
+                                fontFamily: 'monospace',
+                                letterSpacing: -0.5,
                               ),
                             ),
-                            if (_totalPipeLength != null)
-                              Text(
-                                "${_remainingPipeLength.toStringAsFixed(1)} mm",
-                                style: TextStyle(
-                                  color: _remainingPipeLength < 0
-                                      ? Colors.red
-                                      : makitaTeal,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
                           ],
                         ),
                       ),
