@@ -28,7 +28,8 @@ class CutPoint {
 
 class CuttingMainScreen extends StatefulWidget {
   final CuttingProject project;
-  // 🚀 [자재 관리용 데이터 구조 업그레이드] Map<String, int> 대신 완벽한 규격 리스트를 쏩니다!
+
+  // 🚀 [자재 관리 연동 핵심] 부모(ProjectManagementPage)로부터 받는 콜백
   final Function(
     double totalTubeLength,
     List<Map<String, dynamic>> fittingsList,
@@ -113,7 +114,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             'isCustom': p.fitting.category == 'CUSTOM',
             'customName': p.fitting.name,
             'customDed': p.fitting.deduction,
-            'customOD': p.fitting.tubeOD, // 규격 임시 저장
+            'customOD': p.fitting.tubeOD,
           };
         }).toList(),
       };
@@ -474,7 +475,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     groupedFittings.forEach((key, data) {
       data['qty'] = (data['qty'] as int) * _setMultiplier;
       totalFittingCount += data['qty'] as int;
-      // DB 식별용 깔끔한 조합 이름 생성
+      // 🚀 [핵심] InventoryPage에서 필터링하는 방식과 100% 동일하게 db_name 생성!
       data['db_name'] = "[${data['maker']}] ${data['spec']} ${data['name']}";
       finalFittingsList.add(data);
     });
@@ -483,14 +484,14 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       try {
         widget.project.recordUsage(
           tubeLengthMm: finalTotal,
-          fittings: {}, // 이건 구형 함수라 비워둡니다 (앱 뻗음 방지)
+          fittings: {},
           multiplier: _setMultiplier,
         );
       } catch (e) {
         debugPrint("단독 모드 에러 무시: $e");
       }
 
-      // 🚀 부모(리스트)에 쓰레기 데이터 없이 완벽한 규격 JSON 리스트를 쏴줍니다!
+      // 🚀 부모(ProjectManagementPage)의 바구니로 완벽하게 규격화된 데이터를 쏩니다!
       if (widget.onSaveCallback != null) {
         widget.onSaveCallback!(finalTotal, finalFittingsList);
       }

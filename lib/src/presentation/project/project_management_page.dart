@@ -4,13 +4,19 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_colors.dart';
 import 'project_list_item.dart';
 
-import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_main_screen.dart'
-    hide makitaTeal;
+import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
+
+// 🚀 [에러 해결의 핵심!] 'as' 키워드로 닉네임을 붙여서 색상 이름 충돌을 원천 차단합니다.
+import 'package:tubing_calculator/src/presentation/calculator/screens/electric_calculator_page.dart'
+    as electric;
+import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_main_screen.dart'
+    as manual;
 
 class ProjectManagementPage extends StatefulWidget {
   const ProjectManagementPage({super.key});
@@ -1561,7 +1567,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                       passImages,
                     );
                   },
-                  onOpenCutting: () {
+                  onOpenCutting: () async {
                     if (project['id'] == null ||
                         project['id'].toString().trim().isEmpty) {
                       project['id'] = DateTime.now().millisecondsSinceEpoch
@@ -1569,73 +1575,125 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                       _saveData();
                     }
 
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CuttingMainScreen(
-                          project: CuttingProject(
-                            id: project['id'],
-                            name: project['name'] ?? '이름 없음',
-                            createdAt: DateTime.now(),
-                          ),
-                          onSaveCallback:
-                              (
-                                double tubeLengthMm,
-                                List<Map<String, dynamic>> fittingsList,
-                              ) {
-                                setState(() {
-                                  List<dynamic> currentMaterials =
-                                      List<dynamic>.from(
-                                        projects[index]['materials'] ?? [],
-                                      );
+                    final prefs = await SharedPreferences.getInstance();
+                    final String benderType =
+                        prefs.getString('benderType') ?? "수동 (Hand)";
+                    final settings = await SettingsManager.loadSettings();
+                    final double clr = settings['bendRadius'] ?? 0.0;
+                    final double minClamp = settings['minStraight'] ?? 0.0;
 
-                                  int tubeIdx = currentMaterials.indexWhere(
-                                    (m) => m['type'] == 'TUBE',
-                                  );
-                                  if (tubeIdx >= 0) {
-                                    currentMaterials[tubeIdx]['qty_mm'] =
-                                        (currentMaterials[tubeIdx]['qty_mm'] ??
-                                            0) +
-                                        tubeLengthMm;
-                                  } else {
-                                    currentMaterials.add({
-                                      'db_name': 'TUBE 3/8 (기본)',
-                                      'type': 'TUBE',
-                                      'qty_mm': tubeLengthMm,
-                                    });
-                                  }
+                    if (!context.mounted) return;
 
-                                  for (var newFit in fittingsList) {
-                                    int fitIdx = currentMaterials.indexWhere(
-                                      (m) => m['db_name'] == newFit['db_name'],
+                    if (benderType == "전동 (Electric)") {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => electric.ElectricCalculatorPage(
+                            startDir: 'RIGHT',
+                            clr: clr,
+                            minClampLength: minClamp,
+                            onSaveCallback:
+                                (
+                                  double tubeLengthMm,
+                                  List<Map<String, dynamic>> fittingsList,
+                                ) {
+                                  setState(() {
+                                    List<dynamic> currentMaterials =
+                                        List<dynamic>.from(
+                                          projects[index]['materials'] ?? [],
+                                        );
+
+                                    int tubeIdx = currentMaterials.indexWhere(
+                                      (m) => m['type'] == 'TUBE',
                                     );
-                                    if (fitIdx >= 0) {
-                                      currentMaterials[fitIdx]['qty_ea'] =
-                                          (currentMaterials[fitIdx]['qty_ea'] ??
+                                    if (tubeIdx >= 0) {
+                                      currentMaterials[tubeIdx]['qty_mm'] =
+                                          (currentMaterials[tubeIdx]['qty_mm'] ??
                                               0) +
-                                          newFit['qty'];
+                                          tubeLengthMm;
                                     } else {
                                       currentMaterials.add({
-                                        'db_name': newFit['db_name'],
-                                        'maker': newFit['maker'],
-                                        'spec': newFit['spec'],
-                                        'name': newFit['name'],
-                                        'type': 'FITTING',
-                                        'qty_ea': newFit['qty'],
+                                        'db_name': 'TUBE 3/8 (기본)',
+                                        'type': 'TUBE',
+                                        'qty_mm': tubeLengthMm,
                                       });
                                     }
-                                  }
-
-                                  projects[index]['materials'] =
-                                      currentMaterials;
-                                  _saveData();
-                                });
-                              },
+                                    projects[index]['materials'] =
+                                        currentMaterials;
+                                    _saveData();
+                                  });
+                                },
+                          ),
                         ),
-                      ),
-                    ).then((_) {
-                      _loadData();
-                    });
+                      ).then((_) => _loadData());
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => manual.CuttingMainScreen(
+                            project: CuttingProject(
+                              id: project['id'],
+                              name: project['name'] ?? '이름 없음',
+                              createdAt: DateTime.now(),
+                            ),
+                            onSaveCallback:
+                                (
+                                  double tubeLengthMm,
+                                  List<Map<String, dynamic>> fittingsList,
+                                ) {
+                                  setState(() {
+                                    List<dynamic> currentMaterials =
+                                        List<dynamic>.from(
+                                          projects[index]['materials'] ?? [],
+                                        );
+
+                                    int tubeIdx = currentMaterials.indexWhere(
+                                      (m) => m['type'] == 'TUBE',
+                                    );
+                                    if (tubeIdx >= 0) {
+                                      currentMaterials[tubeIdx]['qty_mm'] =
+                                          (currentMaterials[tubeIdx]['qty_mm'] ??
+                                              0) +
+                                          tubeLengthMm;
+                                    } else {
+                                      currentMaterials.add({
+                                        'db_name': 'TUBE 3/8 (기본)',
+                                        'type': 'TUBE',
+                                        'qty_mm': tubeLengthMm,
+                                      });
+                                    }
+
+                                    for (var newFit in fittingsList) {
+                                      int fitIdx = currentMaterials.indexWhere(
+                                        (m) =>
+                                            m['db_name'] == newFit['db_name'],
+                                      );
+                                      if (fitIdx >= 0) {
+                                        currentMaterials[fitIdx]['qty_ea'] =
+                                            (currentMaterials[fitIdx]['qty_ea'] ??
+                                                0) +
+                                            newFit['qty'];
+                                      } else {
+                                        currentMaterials.add({
+                                          'db_name': newFit['db_name'],
+                                          'maker': newFit['maker'],
+                                          'spec': newFit['spec'],
+                                          'name': newFit['name'],
+                                          'type': 'FITTING',
+                                          'qty_ea': newFit['qty'],
+                                        });
+                                      }
+                                    }
+
+                                    projects[index]['materials'] =
+                                        currentMaterials;
+                                    _saveData();
+                                  });
+                                },
+                          ),
+                        ),
+                      ).then((_) => _loadData());
+                    }
                   },
                 );
               },

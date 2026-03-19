@@ -12,14 +12,17 @@ const Color pureWhite = Color(0xFFFFFFFF);
 
 class MarkingPage extends StatefulWidget {
   final PageController? pageController;
-
-  // 🚀 [추가] 부모(메인 화면)로부터 뷰어의 시작 방향을 전달받습니다.
   final String startDir;
+
+  // 🚀 [추가] 프로젝트 관리로 쏠 콜백 함수
+  final Function(double totalCut, List<Map<String, dynamic>> fittings)?
+  onSaveCallback;
 
   const MarkingPage({
     super.key,
     this.pageController,
-    required this.startDir, // 🚀 [추가] 필수 파라미터로 지정
+    required this.startDir,
+    this.onSaveCallback, // 🚀 [추가]
   });
 
   @override
@@ -723,14 +726,14 @@ class _MarkingPageState extends State<MarkingPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      // 🚀 [추가] 팝업 화면(SmartSavePad)에 widget.startDir 전달
       builder: (context) => SmartSavePad(
         totalCut: totalCut,
         bendList: finalSaveData,
         includeStart: _includeStartFitting,
         includeEnd: _includeEndFitting,
         tailLength: _tailLength,
-        startDir: widget.startDir, // 🚀 여기서 부모가 준 방향을 패드로 전달!
+        startDir: widget.startDir,
+        onSaveCallback: widget.onSaveCallback, // 🚀 [추가] 바텀시트로 콜백 전달!
       ),
     );
   }

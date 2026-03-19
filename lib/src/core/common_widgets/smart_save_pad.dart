@@ -10,9 +10,11 @@ class SmartSavePad extends StatefulWidget {
   final bool includeStart;
   final bool includeEnd;
   final double tailLength;
-
-  // 🚀 [추가] 마킹 페이지로부터 시작 방향 값을 전달받습니다.
   final String startDir;
+
+  // 🚀 [추가] 프로젝트 관리(자재 누적)로 쏠 콜백 함수
+  final Function(double totalCut, List<Map<String, dynamic>> fittings)?
+  onSaveCallback;
 
   const SmartSavePad({
     super.key,
@@ -21,7 +23,8 @@ class SmartSavePad extends StatefulWidget {
     required this.includeStart,
     required this.includeEnd,
     required this.tailLength,
-    required this.startDir, // 🚀 [추가]
+    required this.startDir,
+    this.onSaveCallback, // 🚀 [추가]
   });
 
   @override
@@ -210,7 +213,6 @@ class _SmartSavePadState extends State<SmartSavePad> {
                   ),
                 ),
                 onPressed: () async {
-                  // 💡 피팅, Tail, 그리고 시작 방향(start_dir)을 DB(JSON)에 확실히 못 박아버립니다!
                   Map<String, dynamic> pToPData = {
                     "project": _projectController.text.isEmpty
                         ? "프로젝트 미지정"
@@ -224,7 +226,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
                     "start_fit": widget.includeStart,
                     "end_fit": widget.includeEnd,
                     "tail": widget.tailLength,
-                    "start_dir": widget.startDir, // 🚀 [추가] 부모로부터 받은 시작 방향 저장!
+                    "start_dir": widget.startDir,
                   };
 
                   await DatabaseHelper.instance.insertHistory({
@@ -235,11 +237,39 @@ class _SmartSavePadState extends State<SmartSavePad> {
                     'bend_data': jsonEncode(widget.bendList),
                   });
 
+                  // 🚀 [자재 연동 핵심 로직] 부속품 리스트 생성 후 콜백 트리거
+                  if (widget.onSaveCallback != null) {
+                    List<Map<String, dynamic>> usedFittings = [];
+
+                    // 체크박스 옵션에 따라 "현재 선택한 파이프 규격"의 Fitting을 자동으로 할당
+                    if (widget.includeStart) {
+                      usedFittings.add({
+                        'db_name': '[SWAGELOK] $_selectedSize Union (Start)',
+                        'maker': 'SWAGELOK',
+                        'spec': _selectedSize,
+                        'name': 'Union',
+                        'qty': 1,
+                      });
+                    }
+                    if (widget.includeEnd) {
+                      usedFittings.add({
+                        'db_name': '[SWAGELOK] $_selectedSize Union (End)',
+                        'maker': 'SWAGELOK',
+                        'spec': _selectedSize,
+                        'name': 'Union',
+                        'qty': 1,
+                      });
+                    }
+
+                    // 부모(ProjectManagementPage)가 던져준 함수를 실행해 바구니에 담음
+                    widget.onSaveCallback!(widget.totalCut, usedFittings);
+                  }
+
                   if (!mounted) return;
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text("작업 보관함에 저장되었습니다! 💾"),
+                      content: Text("작업 보관함 및 프로젝트 자재에 누적 저장되었습니다! 💾"),
                       backgroundColor: makitaTeal,
                     ),
                   );
