@@ -12,8 +12,8 @@ import 'project_list_item.dart';
 import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
 
-// 🚀 [에러 해결의 핵심!] 'as' 키워드로 닉네임을 붙여서 색상 이름 충돌을 원천 차단합니다.
-import 'package:tubing_calculator/src/presentation/calculator/screens/electric_calculator_page.dart'
+// 🚀 [수정 완료] 새로 만든 Workspace를 import 합니다!
+import 'package:tubing_calculator/src/presentation/calculator/screens/electric_bending_workspace.dart'
     as electric;
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_main_screen.dart'
     as manual;
@@ -352,7 +352,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
         ),
         content: TextField(
           controller: revCtrl,
-          autofocus: true,
+          autofocus: true, // 🚀 여기! 'autFocus' -> 'autofocus' 로 수정 완료
           style: const TextStyle(fontWeight: FontWeight.bold, color: slate900),
           decoration: InputDecoration(
             hintText: "예: P&ID Rev.3",
@@ -1588,7 +1588,8 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => electric.ElectricCalculatorPage(
+                          // 🚀 전동 워크스페이스 호출
+                          builder: (context) => electric.ElectricBendingWorkspace(
                             startDir: 'RIGHT',
                             clr: clr,
                             minClampLength: minClamp,
@@ -1618,6 +1619,29 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                                         'qty_mm': tubeLengthMm,
                                       });
                                     }
+
+                                    for (var newFit in fittingsList) {
+                                      int fitIdx = currentMaterials.indexWhere(
+                                        (m) =>
+                                            m['db_name'] == newFit['db_name'],
+                                      );
+                                      if (fitIdx >= 0) {
+                                        currentMaterials[fitIdx]['qty_ea'] =
+                                            (currentMaterials[fitIdx]['qty_ea'] ??
+                                                0) +
+                                            newFit['qty'];
+                                      } else {
+                                        currentMaterials.add({
+                                          'db_name': newFit['db_name'],
+                                          'maker': newFit['maker'],
+                                          'spec': newFit['spec'],
+                                          'name': newFit['name'],
+                                          'type': 'FITTING',
+                                          'qty_ea': newFit['qty'],
+                                        });
+                                      }
+                                    }
+
                                     projects[index]['materials'] =
                                         currentMaterials;
                                     _saveData();

@@ -1,13 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert'; // 전동 데이터 디코딩용
 
 import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
-import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
-import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_main_screen.dart';
-import 'package:tubing_calculator/src/presentation/calculator/screens/electric_calculator_page.dart';
+import 'package:tubing_calculator/src/presentation/calculator/screens/electric_bending_workspace.dart';
+// 🚀 마킹 페이지 직접 호출을 위해 임포트가 필요합니다. 경로가 다르다면 수정해 주세요!
+import 'package:tubing_calculator/src/presentation/calculator/screens/electric_marking_page.dart';
+// import 'package:tubing_calculator/src/presentation/calculator/screens/marking_page.dart';
 
 class MenuScreen extends StatelessWidget {
   const MenuScreen({super.key});
+
+  // 🚀 [핵심 1] 모드 인터록 검사 함수 (문지기 역할)
+  Future<bool> _checkMode(
+    BuildContext context,
+    String requiredMode,
+    String errorMsg,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final currentMode = prefs.getString('benderType') ?? "수동 (Hand)";
+
+    if (currentMode != requiredMode) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              errorMsg,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            backgroundColor: Colors.redAccent,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return false; // 진입 차단
+    }
+    return true; // 진입 허용
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +77,7 @@ class MenuScreen extends StatelessWidget {
               onTap: () => Navigator.pushNamed(context, '/cutting'),
             ),
 
-            // 🚀 [수정] 명칭을 "전동 벤딩 계산기"로 변경!
+            // 🚀 [수정] 전동 벤딩 계산기 (수동 모드일 때 차단)
             _buildGridCard(
               context,
               icon: Icons.precision_manufacturing,
@@ -55,6 +85,15 @@ class MenuScreen extends StatelessWidget {
               subtitle: 'NC/CNC YBC 제원 산출',
               iconColor: Colors.orange.shade800,
               onTap: () async {
+                // 1. 인터록 검사
+                bool isOk = await _checkMode(
+                  context,
+                  "전동 (Electric)",
+                  "현재 수동 모드입니다. 설정에서 전동 모드로 변경해 주세요.",
+                );
+                if (!isOk) return;
+
+                // 2. 정상 진입
                 final settings = await SettingsManager.loadSettings();
                 final double clr = settings['bendRadius'] ?? 0.0;
                 final double minClamp = settings['minStraight'] ?? 0.0;
@@ -64,7 +103,7 @@ class MenuScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ElectricCalculatorPage(
+                    builder: (context) => ElectricBendingWorkspace(
                       startDir: 'RIGHT',
                       clr: clr,
                       minClampLength: minClamp,
@@ -75,22 +114,78 @@ class MenuScreen extends StatelessWidget {
               },
             ),
 
+            // 🚀 [수정] 수동 벤딩 계산기 (전동 모드일 때 차단)
             _buildGridCard(
               context,
               icon: Icons.calculate_outlined,
-              title: '벤딩 계산기',
+              title: '수동 벤딩 계산기',
               subtitle: '단일/다중 벤딩 작업',
               iconColor: const Color(0xFF007580),
-              onTap: () => Navigator.pushNamed(context, '/calculator'),
+              onTap: () async {
+                // 1. 인터록 검사
+                bool isOk = await _checkMode(
+                  context,
+                  "수동 (Hand)",
+                  "현재 전동 모드입니다. 설정에서 수동 모드로 변경해 주세요.",
+                );
+                if (!isOk) return;
+
+                // 2. 정상 진입
+                if (!context.mounted) return;
+                Navigator.pushNamed(context, '/calculator');
+              },
             ),
 
+            // 🚀 [핵심 2] 마킹 및 컷팅 (설정값에 따라 자동 분기)
             _buildGridCard(
               context,
               icon: Icons.straighten,
               title: '마킹 및 컷팅',
               subtitle: '최종 컷팅 길이 확인',
               iconColor: const Color(0xFF007580),
-              onTap: () => Navigator.pushNamed(context, '/marking'),
+              onTap: () async {
+                final prefs = await SharedPreferences.getInstance();
+                final currentMode =
+                    prefs.getString('benderType') ?? "수동 (Hand)";
+
+                if (!context.mounted) return;
+
+                if (currentMode == "전동 (Electric)") {
+                  // 전동 데이터 불러오기 (ElectricBendingWorkspace에서 저장한 데이터)
+                  List<Map<String, double>> electricList = [];
+                  String? jsonString = prefs.getString(
+                    'saved_electric_bend_list',
+                  );
+
+                  if (jsonString != null && jsonString.isNotEmpty) {
+                    final List<dynamic> decoded = jsonDecode(jsonString);
+
+                    // 🚀 바로 이 부분! map 뒤에 명시적 타입 <Map<String, double>>을 추가하고 (value as num) 처리
+                    electricList = decoded.map<Map<String, double>>((item) {
+                      final Map<String, dynamic> map =
+                          item as Map<String, dynamic>;
+                      return map.map(
+                        (key, value) =>
+                            MapEntry(key, (value as num).toDouble()),
+                      );
+                    }).toList();
+                  }
+
+                  // 전동 마킹 페이지로 즉시 연결
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ElectricMarkingPage(
+                        startDir: 'RIGHT', // 방향은 저장된 값이나 기본값 사용
+                        bendList: electricList,
+                      ),
+                    ),
+                  );
+                } else {
+                  // 수동 모드면 기존 수동 라우터로 연결
+                  Navigator.pushNamed(context, '/marking');
+                }
+              },
             ),
 
             _buildGridCard(
@@ -134,6 +229,7 @@ class MenuScreen extends StatelessWidget {
     );
   }
 
+  // 기존 _buildGridCard 메서드는 동일하게 유지
   Widget _buildGridCard(
     BuildContext context, {
     required IconData icon,

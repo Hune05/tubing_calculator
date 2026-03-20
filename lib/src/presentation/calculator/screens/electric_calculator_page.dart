@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:lucide_icons/lucide_icons.dart';
 
-// 🚀 기존 수동 계산기에서 쓰던 위젯들을 그대로 가져옵니다.
+import 'package:tubing_calculator/src/data/bend_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/saddle_bottom_sheet.dart';
@@ -17,25 +17,30 @@ const Color pureWhite = Color(0xFFFFFFFF);
 
 class ElectricCalculatorPage extends StatefulWidget {
   final String startDir;
-  final double clr; // 금형 반경
-  final double minClampLength; // 클램프 여유장
-  final Function(double, List<Map<String, dynamic>>)? onSaveCallback;
+  final double clr;
+  final double minClampLength;
+  final List<Map<String, double>> bendList;
+  final ValueChanged<List<Map<String, double>>> onListChanged;
 
   const ElectricCalculatorPage({
     super.key,
     required this.startDir,
     required this.clr,
     required this.minClampLength,
-    this.onSaveCallback,
+    required this.bendList,
+    required this.onListChanged,
   });
 
   @override
   State<ElectricCalculatorPage> createState() => _ElectricCalculatorPageState();
 }
 
-class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
+class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final TextEditingController _tempController = TextEditingController();
-  final List<Map<String, double>> _bendList = [];
 
   int? _editingIndex;
   double? _currentAngle;
@@ -45,37 +50,33 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
   double _safeMargin = 100.0;
 
   double get _rawLengthSum {
-    if (_bendList.isEmpty) return 0.0;
-    return _bendList.fold(0.0, (sum, bend) => sum + (bend['length'] ?? 0.0));
+    if (widget.bendList.isEmpty) return 0.0;
+    return widget.bendList.fold(
+      0.0,
+      (sum, bend) => sum + (bend['length'] ?? 0.0),
+    );
   }
 
-  // 🚀 전동기 전용 튜브 총 기장 연산 로직 (연신율 기하학적 계산)
   double get _estimatedTotalLength {
-    if (_bendList.isEmpty) return 0.0;
-
+    if (widget.bendList.isEmpty) return 0.0;
     double totalCut = 0.0;
     double prevSetback = 0.0;
 
-    for (var b in _bendList) {
-      double l = b['length']!;
-      double a = b['angle']!;
+    for (var b in widget.bendList) {
+      double l = b['length']!.toDouble();
+      double a = b['angle']!.toDouble();
 
       if (a == 0) {
         totalCut += (l - prevSetback);
         prevSetback = 0.0;
       } else {
-        // 후퇴량(Setback)과 호의 길이(Arc Length)
         double setback = widget.clr * math.tan((a / 2) * (math.pi / 180));
         double arcLength = 2 * math.pi * widget.clr * (a / 360);
-
         double straightLength = l - prevSetback - setback;
         totalCut += straightLength + arcLength;
-
         prevSetback = setback;
       }
     }
-
-    // 최종 마진 및 시작 클램프 물림장 합산
     return totalCut + widget.minClampLength + _safeMargin;
   }
 
@@ -91,10 +92,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
     super.dispose();
   }
 
-  // --- 마진 입력 ---
   void _showMarginNumpad() {
     String tempValue = _safeMargin > 0 ? _safeMargin.toStringAsFixed(0) : "";
-
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -290,12 +289,10 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
     );
   }
 
-  // --- 사용자 입력 패드 호출 ---
   void _showCustomAnglePad() {
     String tempValue = (_currentAngle ?? 0) > 0
         ? _currentAngle!.toStringAsFixed(_currentAngle! % 1 == 0 ? 0 : 1)
         : "";
-
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -457,43 +454,6 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
     );
   }
 
-  // --- 작업 완료 로직 ---
-  void _handleComplete() {
-    if (_bendList.isEmpty) {
-      _showError("⚠️ 치수와 방향을 먼저 세팅해주세요!");
-      return;
-    }
-
-    if (widget.onSaveCallback != null) {
-      widget.onSaveCallback!(_estimatedTotalLength, []); // 피팅 없이 총 기장만 누적
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            "작업 완료! 자재 리스트에 총 ${_estimatedTotalLength.toStringAsFixed(1)}mm 누적되었습니다.",
-          ),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            "총 소요 기장: ${_estimatedTotalLength.toStringAsFixed(1)}mm 산출 완료!",
-          ),
-          backgroundColor: Colors.orange.shade800,
-        ),
-      );
-    }
-
-    setState(() {
-      _bendList.clear();
-      _editingIndex = null;
-      _tempController.clear();
-      _currentAngle = null;
-      _currentRotation = null;
-    });
-  }
-
   void _handleApply() {
     final double? val = double.tryParse(_tempController.text);
     if (val != null && val > 0) {
@@ -506,21 +466,24 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
         return;
       }
 
+      List<Map<String, double>> newList = List.from(widget.bendList);
+
       setState(() {
         if (_editingIndex != null) {
-          _bendList[_editingIndex!] = {
+          newList[_editingIndex!] = {
             'length': val,
             'angle': _currentAngle!,
             'rotation': _currentRotation!,
           };
           _editingIndex = null;
         } else {
-          _bendList.add({
+          newList.add({
             'length': val,
             'angle': _currentAngle!,
             'rotation': _currentRotation!,
           });
         }
+        widget.onListChanged(newList);
         _tempController.clear();
         _currentAngle = null;
         _currentRotation = null;
@@ -542,9 +505,9 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
   void _startEdit(int index) {
     setState(() {
       _editingIndex = index;
-      _tempController.text = _bendList[index]['length'].toString();
-      _currentAngle = _bendList[index]['angle']!;
-      _currentRotation = _bendList[index]['rotation']!;
+      _tempController.text = widget.bendList[index]['length'].toString();
+      _currentAngle = widget.bendList[index]['angle']!.toDouble();
+      _currentRotation = widget.bendList[index]['rotation']!.toDouble();
     });
   }
 
@@ -560,37 +523,48 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
   }
 
   void _executeMacro(double val, double angle, double rot) {
+    List<Map<String, double>> newList = List.from(widget.bendList);
     setState(() {
       if (_editingIndex != null) {
-        _bendList[_editingIndex!] = {
+        newList[_editingIndex!] = {
           'length': val,
           'angle': angle,
           'rotation': rot,
         };
         _editingIndex = null;
       } else {
-        _bendList.add({'length': val, 'angle': angle, 'rotation': rot});
+        newList.add({'length': val, 'angle': angle, 'rotation': rot});
       }
+      widget.onListChanged(newList);
       _tempController.clear();
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       backgroundColor: slate100,
       appBar: AppBar(
         title: const Text(
-          "전동 벤딩 계산기",
-          style: TextStyle(fontWeight: FontWeight.w900),
+          "ELECTRIC BENDING CALCULATOR",
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 16,
+            letterSpacing: 1.0,
+          ),
         ),
         backgroundColor: Colors.orange.shade800,
-        foregroundColor: pureWhite,
+        foregroundColor: Colors.white,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
       ),
       body: Row(
         children: [
-          // 🔹 [왼쪽] 3D 뷰어 & 리스트 패널
+          // 🔹 [왼쪽] 3D 뷰어
           Expanded(
             flex: 5,
             child: Container(
@@ -616,7 +590,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
                     ),
                   ),
                   PipeVisualizer(
-                    bendList: _bendList,
+                    bendList: widget.bendList,
                     initialStartDir: _localStartDir,
                     onStartDirChanged: (newDir) =>
                         setState(() => _localStartDir = newDir),
@@ -637,7 +611,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
                           ),
                         ),
                         Text(
-                          "TOTAL BENDS: ${_bendList.where((b) => b['angle']! > 0).length}",
+                          "TOTAL BENDS: ${widget.bendList.where((b) => b['angle']! > 0).length}",
                           style: TextStyle(
                             color: Colors.orange.shade700,
                             fontSize: 12,
@@ -735,7 +709,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
 
                   // 🚀 INPUT LIST 및 매크로
                   Expanded(
-                    flex: 4,
+                    flex: 5,
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -811,7 +785,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
                                           _tempController.clear();
                                           _currentRotation = null;
                                           _currentAngle = null;
-                                          _bendList.clear();
+                                          widget.onListChanged([]);
                                         });
                                       },
                                     ),
@@ -822,30 +796,34 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
                           ),
                           Divider(color: Colors.grey.shade200, thickness: 1.5),
                           Expanded(
-                            child: _bendList.isEmpty
+                            child: widget.bendList.isEmpty
                                 ? const Center(
                                     child: Text(
-                                      "치수와 방향을 셋팅하세요",
+                                      "치수와 방향을 셋팅하세요\n입력 후 스와이프하여 마킹 확인",
                                       textAlign: TextAlign.center,
-                                      style: TextStyle(color: slate600),
+                                      style: TextStyle(
+                                        color: slate600,
+                                        height: 1.5,
+                                      ),
                                     ),
                                   )
                                 : ReorderableListView.builder(
-                                    itemCount: _bendList.length,
+                                    itemCount: widget.bendList.length,
                                     onReorder: (oldIndex, newIndex) {
                                       setState(() {
                                         if (oldIndex < newIndex) newIndex -= 1;
-                                        final item = _bendList.removeAt(
-                                          oldIndex,
-                                        );
-                                        _bendList.insert(newIndex, item);
+                                        List<Map<String, double>> newList =
+                                            List.from(widget.bendList);
+                                        final item = newList.removeAt(oldIndex);
+                                        newList.insert(newIndex, item);
                                         _editingIndex = null;
                                         _tempController.clear();
+                                        widget.onListChanged(newList);
                                       });
                                     },
                                     itemBuilder: (context, index) {
                                       bool isEditing = _editingIndex == index;
-                                      final bend = _bendList[index];
+                                      final bend = widget.bendList[index];
                                       return GestureDetector(
                                         key: ValueKey(
                                           'bend_${index}_${bend.hashCode}',
@@ -975,30 +953,6 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
                       ),
                     ),
                   ),
-
-                  // 🚀 작업 완료 및 누적 버튼 (YBC 대신)
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56, // 수동 화면 버튼 높이와 일치
-                    child: ElevatedButton(
-                      onPressed: _bendList.isEmpty ? null : _handleComplete,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange.shade800,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text(
-                        "작업 완료 및 자재 소모량 누적",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: pureWhite,
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -1026,7 +980,6 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
     );
   }
 
-  // --- 각도/방향 패널 ---
   Widget _buildAngleRotationPanel() {
     return Padding(
       padding: const EdgeInsets.all(12.0),
@@ -1063,7 +1016,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
                         ),
                         const SizedBox(width: 8),
                         _AnglePushBtn(
-                          label: "15.0°",
+                          label: "15°", // 🚀 .0 제거
                           onTap: () => setState(() => _currentAngle = 15.0),
                         ),
                       ],
@@ -1074,12 +1027,12 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
                     child: Row(
                       children: [
                         _AnglePushBtn(
-                          label: "22.5°",
+                          label: "22.5°", // 🚀 22.5는 유지
                           onTap: () => setState(() => _currentAngle = 22.5),
                         ),
                         const SizedBox(width: 8),
                         _AnglePushBtn(
-                          label: "30.0°",
+                          label: "30°", // 🚀 .0 제거
                           onTap: () => setState(() => _currentAngle = 30.0),
                         ),
                       ],
@@ -1090,12 +1043,12 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
                     child: Row(
                       children: [
                         _AnglePushBtn(
-                          label: "45.0°",
+                          label: "45°", // 🚀 .0 제거
                           onTap: () => setState(() => _currentAngle = 45.0),
                         ),
                         const SizedBox(width: 8),
                         _AnglePushBtn(
-                          label: "60.0°",
+                          label: "60°", // 🚀 .0 제거
                           onTap: () => setState(() => _currentAngle = 60.0),
                         ),
                       ],
@@ -1106,12 +1059,12 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
                     child: Row(
                       children: [
                         _AnglePushBtn(
-                          label: "90.0°",
+                          label: "90°", // 🚀 .0 제거
                           onTap: () => setState(() => _currentAngle = 90.0),
                         ),
                         const SizedBox(width: 8),
                         _AnglePushBtn(
-                          label: "180.0°",
+                          label: "180°", // 🚀 .0 제거
                           onTap: () => setState(() => _currentAngle = 180.0),
                         ),
                       ],
@@ -1131,36 +1084,44 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
                                 width: 1.5,
                               ),
                             ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Text(
-                                  "현재 각도",
-                                  style: TextStyle(
-                                    color: slate600,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
+                            // 🚀 수정됨: 현재 각도 오버플로우 방지
+                            child: Center(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(4.0),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Text(
+                                        "현재 각도",
+                                        style: TextStyle(
+                                          color: slate600,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        _currentAngle == null
+                                            ? "--"
+                                            : "${_currentAngle!.toStringAsFixed(_currentAngle! % 1 == 0 ? 0 : 1)}°",
+                                        style: TextStyle(
+                                          color: _currentAngle == null
+                                              ? slate600
+                                              : Colors.orange.shade800,
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 24,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _currentAngle == null
-                                      ? "--"
-                                      : "${_currentAngle!.toStringAsFixed(_currentAngle! % 1 == 0 ? 0 : 1)}°",
-                                  style: TextStyle(
-                                    color: _currentAngle == null
-                                        ? slate600
-                                        : Colors.orange.shade800,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 24,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        // 🚀 직접 입력 버튼 원상 복구 완료!
                         _AnglePushBtn(
                           label: "직접 입력",
                           icon: Icons.edit,
@@ -1231,28 +1192,37 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
                               width: 1.5,
                             ),
                           ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Text(
-                                "현재 방향",
-                                style: TextStyle(
-                                  color: slate600,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
+                          // 🚀 수정됨: 현재 방향 오버플로우 방지
+                          child: Center(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Padding(
+                                padding: const EdgeInsets.all(4.0),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Text(
+                                      "현재 방향",
+                                      style: TextStyle(
+                                        color: slate600,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      _getDirectionText(_currentRotation),
+                                      style: TextStyle(
+                                        color: _currentRotation == null
+                                            ? slate600
+                                            : Colors.orange.shade800,
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 26,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              Text(
-                                _getDirectionText(_currentRotation),
-                                style: TextStyle(
-                                  color: _currentRotation == null
-                                      ? slate600
-                                      : Colors.orange.shade800,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 26,
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
@@ -1276,9 +1246,13 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage> {
                         onTap: () {
                           if (_editingIndex != null) {
                             setState(() {
-                              _bendList.removeAt(_editingIndex!);
+                              List<Map<String, double>> newList = List.from(
+                                widget.bendList,
+                              );
+                              newList.removeAt(_editingIndex!);
                               _editingIndex = null;
                               _tempController.clear();
+                              widget.onListChanged(newList);
                             });
                           } else {
                             _showError("삭제할 라인을 위 리스트에서 먼저 선택해주세요.");
@@ -1428,24 +1402,36 @@ class _DirectionPushBtnState extends State<_DirectionPushBtn> {
                   ]
                 : [],
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                widget.icon,
-                color: _isPressed ? pureWhite : slate600,
-                size: 26,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  color: _isPressed ? pureWhite : slate600,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+          // 🚀 수정됨: 방향 버튼 오버플로우 방지
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4.0,
+                  vertical: 2.0,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      widget.icon,
+                      color: _isPressed ? pureWhite : slate600,
+                      size: 26,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.label,
+                      style: TextStyle(
+                        color: _isPressed ? pureWhite : slate600,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1501,20 +1487,32 @@ class _GlowingActionBtnState extends State<_GlowingActionBtn> {
                   ]
                 : [],
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(widget.icon, color: widget.color, size: 26),
-              const SizedBox(height: 2),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  color: widget.color,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
+          // 🚀 수정됨: 하단 액션 버튼 오버플로우 방지
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4.0,
+                  vertical: 2.0,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(widget.icon, color: widget.color, size: 26),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.label,
+                      style: TextStyle(
+                        color: widget.color,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),

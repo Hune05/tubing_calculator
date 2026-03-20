@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:async';
 
 import 'inventory_model.dart';
 import 'inventory_item_card.dart';
+
+const Color makitaTeal = Color(0xFF007580);
+const Color slate900 = Color(0xFF0F172A);
 
 class MobileInventoryPage extends StatefulWidget {
   const MobileInventoryPage({super.key});
@@ -18,6 +23,12 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
 
   final Color darkBg = const Color(0xFF1E2124);
   final Color cardBg = const Color(0xFF2A2E33);
+
+  final CollectionReference _inventoryDb = FirebaseFirestore.instance
+      .collection('inventory');
+  final CollectionReference _logsDb = FirebaseFirestore.instance.collection(
+    'inventory_logs',
+  );
 
   final List<Map<String, dynamic>> _categories = [
     {"name": "튜브 (Tube)", "color": const Color(0xFF4A5D66)},
@@ -68,22 +79,30 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     TextEditingController qtyController = TextEditingController(
       text: currentQty.toString(),
     );
+
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           backgroundColor: cardBg,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           title: Text(
-            "$item 수량 입력",
-            style: const TextStyle(color: Colors.white, fontSize: 18),
+            "$item 실사 수량 입력",
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           content: TextField(
             controller: qtyController,
             keyboardType: TextInputType.number,
             style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+              color: makitaTeal,
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
             ),
             autofocus: true,
             decoration: InputDecoration(
@@ -140,9 +159,16 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
       builder: (context) {
         return AlertDialog(
           backgroundColor: cardBg,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           title: const Text(
             "신규 자재 등록",
-            style: TextStyle(color: Colors.white, fontSize: 18),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           content: TextField(
             controller: nameController,
@@ -187,7 +213,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                 Navigator.pop(context);
               },
               child: const Text(
-                "추가",
+                "자재등록 완료",
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -200,7 +226,6 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     );
   }
 
-  // ★ 수정됨: 보관 위치(Location) 지원 및 태블릿 데이터 호환
   void _showExtraInfoDialog(String item, ItemData data, String infoType) {
     TextEditingController ctrl = TextEditingController(
       text: infoType == 'HeatNo'
@@ -211,25 +236,36 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     );
 
     List<String> quickOptions = [];
-    if (infoType == 'Maker')
-      quickOptions = ["Swagelok", "Parker", "Hy-Lok", "DK-Lok", "Sandvik"];
-    if (infoType == 'Material')
-      quickOptions = ["SS316L", "SS304", "Carbon Steel", "Brass", "Teflon"];
-    if (infoType == 'Location')
-      quickOptions = ["A창고", "B창고", "C창고", "야적장", "선반 1열"]; // 필요에 따라 수정
+
+    if (infoType == 'Maker') {
+      quickOptions = ["HY-LOK", "SWAGELOK", "PARKER"];
+    }
+    if (infoType == 'Material') {
+      quickOptions = ["SS316L", "SS304", "Carbon", "Teflon"];
+    }
+    if (infoType == 'Location') {
+      quickOptions = ["A동 1열", "B동 2열", "튜빙 야적장", "공구함"];
+    }
 
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           backgroundColor: cardBg,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           title: Text(
             infoType == 'HeatNo'
                 ? "히트 넘버 입력"
                 : (infoType == 'Maker'
                       ? "제조사 선택"
                       : (infoType == 'Material' ? "재질 선택" : "보관 위치 입력")),
-            style: const TextStyle(color: Colors.white, fontSize: 18),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -238,7 +274,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                 controller: ctrl,
                 textCapitalization: TextCapitalization.characters,
                 style: const TextStyle(
-                  color: Colors.greenAccent,
+                  color: Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -269,16 +305,23 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                         (opt) => ActionChip(
                           label: Text(
                             opt,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
+                            style: TextStyle(
+                              color: ctrl.text == opt ? slate900 : Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                          backgroundColor: darkBg,
+                          backgroundColor: ctrl.text == opt
+                              ? makitaTeal
+                              : darkBg,
                           side: BorderSide(
                             color: Colors.white.withValues(alpha: 0.1),
                           ),
-                          onPressed: () => ctrl.text = opt,
+                          onPressed: () {
+                            setState(() {
+                              ctrl.text = opt;
+                            });
+                          },
                         ),
                       )
                       .toList(),
@@ -297,14 +340,18 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
               ),
               onPressed: () {
                 setState(() {
-                  if (infoType == 'HeatNo')
+                  if (infoType == 'HeatNo') {
                     data.heatNo = ctrl.text.trim().toUpperCase();
-                  if (infoType == 'Maker')
+                  }
+                  if (infoType == 'Maker') {
                     data.maker = ctrl.text.trim().toUpperCase();
-                  if (infoType == 'Material')
+                  }
+                  if (infoType == 'Material') {
                     data.material = ctrl.text.trim().toUpperCase();
-                  if (infoType == 'Location')
+                  }
+                  if (infoType == 'Location') {
                     data.location = ctrl.text.trim().toUpperCase();
+                  }
                 });
                 Navigator.pop(context);
               },
@@ -322,16 +369,12 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     );
   }
 
-  // ★ 수정됨: 융통성 있는 검증 (카테고리별 강제 제한 해제)
   bool _validateSync() {
     var currentItems = _inventoryData[_currentCategory]!;
     if (!currentItems.values.any((item) => item.qty > 0)) {
-      _showErrorSnackBar("전송할 자재 수량이 0입니다.");
+      _showErrorSnackBar("전송할 실사 수량이 없습니다.");
       return false;
     }
-    // 태블릿과 동일하게 모든 항목을 개방했으므로,
-    // 모바일 현장 조사 특성상 필수값 제한은 최소화했습니다.
-    // 필요 시 여기에 정책(예: "모든 항목 위치 입력 필수")을 추가할 수 있습니다.
     return true;
   }
 
@@ -346,14 +389,14 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     HapticFeedback.lightImpact();
   }
 
-  // ★ 수정됨: Location 데이터 전송 및 초기화 로직 추가
-  void _syncToServer() {
+  Future<void> _syncToServer() async {
     FocusScope.of(context).unfocus();
     if (!_validateSync()) return;
 
     HapticFeedback.heavyImpact();
     var currentItems = _inventoryData[_currentCategory]!;
     Map<String, dynamic> snapshot = {};
+
     currentItems.forEach((key, value) {
       if (value.qty > 0) {
         snapshot[key] = {
@@ -361,7 +404,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
           'heatNo': value.heatNo,
           'maker': value.maker,
           'material': value.material,
-          'location': value.location, // DB에 위치 정보 함께 전송
+          'location': value.location,
         };
       }
     });
@@ -373,35 +416,106 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
       "category": _categories[_currentCategory]['name'],
       "color": _categories[_currentCategory]['color'],
       "items": snapshot,
-      "status": "pending",
+      "status": "syncing",
     };
 
-    setState(() {
-      _historyLogs.insert(0, newRecord);
-      currentItems.forEach((key, value) {
-        value.qty = 0;
-        value.heatNo = "";
-        value.maker = "";
-        value.material = "";
-        value.location = ""; // 초기화 추가
-      });
-    });
+    setState(() => _historyLogs.insert(0, newRecord));
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text("데이터를 전송 큐에 담았습니다."),
-        backgroundColor: Colors.grey.shade800,
+      const SnackBar(
+        content: Text("서버로 실사 데이터를 전송 중입니다..."),
+        backgroundColor: makitaTeal,
       ),
     );
-    Future.delayed(const Duration(seconds: 2), () {
+
+    try {
+      for (var entry in snapshot.entries) {
+        String itemName = entry.key;
+        var data = entry.value;
+        int physicalQty = data['qty'];
+
+        final querySnap = await _inventoryDb
+            .where('name', isEqualTo: itemName)
+            .limit(1)
+            .get();
+
+        if (querySnap.docs.isNotEmpty) {
+          var doc = querySnap.docs.first;
+          int systemQty = doc['qty'] ?? 0;
+          int diff = physicalQty - systemQty;
+
+          await _inventoryDb.doc(doc.id).update({
+            'qty': physicalQty,
+            if (data['location'] != "") 'location': data['location'],
+            if (data['heatNo'] != "") 'heatNo': data['heatNo'],
+          });
+
+          if (diff != 0) {
+            await _logsDb.add({
+              'type': 'AUDIT',
+              'project_name': '📱 모바일 현장 실사',
+              'material_name': itemName,
+              'qty': diff.abs(),
+              'sign': diff > 0 ? '+' : '-',
+              'unit': 'EA',
+              'timestamp': FieldValue.serverTimestamp(),
+            });
+          }
+        } else {
+          await _inventoryDb.add({
+            'name': itemName,
+            'category': _categories[_currentCategory]['name'],
+            'maker': data['maker'] != "" ? data['maker'] : "HY-LOK",
+            'qty': physicalQty,
+            'location': data['location'],
+            'heatNo': data['heatNo'],
+            'status': '정상',
+            'is_dead_stock': false,
+            'is_reorder_needed': false,
+            'unit': 'EA',
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+
+          await _logsDb.add({
+            'type': 'IN',
+            'project_name': '📱 모바일 신규 등록',
+            'material_name': itemName,
+            'qty': physicalQty,
+            'unit': 'EA',
+            'timestamp': FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _historyLogs.firstWhere(
+          (log) => log['id'] == newRecord['id'],
+        )['status'] = "completed";
+        currentItems.forEach((key, value) {
+          value.qty = 0;
+          value.heatNo = "";
+          value.maker = "";
+          value.material = "";
+          value.location = "";
+        });
+      });
+      HapticFeedback.mediumImpact();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text("서버 동기화 완료!"),
+          backgroundColor: Colors.green.shade700,
+        ),
+      );
+    } catch (e) {
       if (!mounted) return;
       setState(
         () => _historyLogs.firstWhere(
           (log) => log['id'] == newRecord['id'],
-        )['status'] = "completed",
+        )['status'] = "failed",
       );
-      HapticFeedback.mediumImpact();
-    });
+      _showErrorSnackBar("전송 실패: 네트워크를 확인하세요.");
+    }
   }
 
   void _showHistorySheet() {
@@ -425,7 +539,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                 ),
               ),
               const Text(
-                "자재 전송 기록",
+                "현장 실사(Audit) 기록",
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -437,7 +551,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                 child: _historyLogs.isEmpty
                     ? Center(
                         child: Text(
-                          "기록이 없습니다.",
+                          "실사 기록이 없습니다.",
                           style: TextStyle(color: Colors.grey.shade500),
                         ),
                       )
@@ -446,7 +560,9 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                         itemBuilder: (context, index) {
                           var log = _historyLogs[index];
                           bool isCompleted = log['status'] == 'completed';
+                          bool isFailed = log['status'] == 'failed';
                           Map<String, dynamic> items = log['items'];
+
                           return ExpansionTile(
                             leading: CircleAvatar(
                               backgroundColor: log['color'],
@@ -460,28 +576,36 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                               ),
                             ),
                             trailing: Icon(
-                              isCompleted ? Icons.check_circle : Icons.schedule,
-                              color: isCompleted
-                                  ? Colors.greenAccent
-                                  : Colors.orangeAccent,
+                              isFailed
+                                  ? Icons.error
+                                  : (isCompleted
+                                        ? Icons.check_circle
+                                        : Icons.sync),
+                              color: isFailed
+                                  ? Colors.redAccent
+                                  : (isCompleted
+                                        ? Colors.greenAccent
+                                        : Colors.orangeAccent),
                             ),
                             children: items.entries.map((e) {
-                              String detail = "수량: ${e.value['qty']}";
-                              if (e.value['location'] != "")
-                                detail +=
-                                    " | Loc: ${e.value['location']}"; // 위치 추가
-                              if (e.value['heatNo'] != "")
+                              String detail = "실사 수량: ${e.value['qty']}";
+                              if (e.value['location'] != "") {
+                                detail += " | Loc: ${e.value['location']}";
+                              }
+                              if (e.value['heatNo'] != "") {
                                 detail += " | Heat: ${e.value['heatNo']}";
-                              if (e.value['maker'] != "")
+                              }
+                              if (e.value['maker'] != "") {
                                 detail += " | Maker: ${e.value['maker']}";
-                              if (e.value['material'] != "")
-                                detail += " | Mat: ${e.value['material']}";
+                              }
+
                               return ListTile(
                                 title: Text(
                                   e.key,
                                   style: TextStyle(
                                     color: Colors.grey.shade300,
                                     fontSize: 14,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 subtitle: Text(
@@ -581,8 +705,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                       return InventoryItemCard(
                         itemName: itemName,
                         data: data,
-                        categoryIndex:
-                            index, // 카테고리 인덱스를 통째로 넘기지만, 이제 제약 없이 모두 사용하게 됩니다.
+                        categoryIndex: index,
                         themeColor: catColor,
                         onUpdateQuantity: (delta) {
                           HapticFeedback.lightImpact();
@@ -616,13 +739,13 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.cloud_upload, color: Colors.white, size: 26),
+                    Icon(LucideIcons.scale, color: Colors.white, size: 26),
                     SizedBox(width: 12),
                     Text(
-                      "재고 데이터 전송",
+                      "실사 데이터(Audit) 서버 전송",
                       style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
                         color: Colors.white,
                       ),
                     ),

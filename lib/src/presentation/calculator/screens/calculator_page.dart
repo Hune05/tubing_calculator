@@ -1202,7 +1202,7 @@ class _CalculatorPageState extends State<CalculatorPage>
                               ),
                               const SizedBox(width: 8),
                               _AnglePushBtn(
-                                label: "15.0°",
+                                label: "15°", // 🚀 .0 제거됨
                                 onTap: () =>
                                     setState(() => _currentAngle = 15.0),
                               ),
@@ -1214,13 +1214,13 @@ class _CalculatorPageState extends State<CalculatorPage>
                           child: Row(
                             children: [
                               _AnglePushBtn(
-                                label: "22.5°",
+                                label: "22.5°", // 🚀 이건 유지
                                 onTap: () =>
                                     setState(() => _currentAngle = 22.5),
                               ),
                               const SizedBox(width: 8),
                               _AnglePushBtn(
-                                label: "30.0°",
+                                label: "30°", // 🚀 .0 제거됨
                                 onTap: () =>
                                     setState(() => _currentAngle = 30.0),
                               ),
@@ -1232,13 +1232,13 @@ class _CalculatorPageState extends State<CalculatorPage>
                           child: Row(
                             children: [
                               _AnglePushBtn(
-                                label: "45.0°",
+                                label: "45°", // 🚀 .0 제거됨
                                 onTap: () =>
                                     setState(() => _currentAngle = 45.0),
                               ),
                               const SizedBox(width: 8),
                               _AnglePushBtn(
-                                label: "60.0°",
+                                label: "60°", // 🚀 .0 제거됨
                                 onTap: () =>
                                     setState(() => _currentAngle = 60.0),
                               ),
@@ -1250,13 +1250,13 @@ class _CalculatorPageState extends State<CalculatorPage>
                           child: Row(
                             children: [
                               _AnglePushBtn(
-                                label: "90.0°",
+                                label: "90°", // 🚀 .0 제거됨
                                 onTap: () =>
                                     setState(() => _currentAngle = 90.0),
                               ),
                               const SizedBox(width: 8),
                               _AnglePushBtn(
-                                label: "180.0°",
+                                label: "180°", // 🚀 .0 제거됨
                                 onTap: () =>
                                     setState(() => _currentAngle = 180.0),
                               ),
@@ -1277,31 +1277,41 @@ class _CalculatorPageState extends State<CalculatorPage>
                                       width: 1.5,
                                     ),
                                   ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Text(
-                                        "현재 각도",
-                                        style: TextStyle(
-                                          color: slate600,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
+                                  // 🚀 수정됨: 현재 각도 오버플로우 방지 (FittedBox 적용)
+                                  child: Center(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(4.0),
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            const Text(
+                                              "현재 각도",
+                                              style: TextStyle(
+                                                color: slate600,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              _currentAngle == null
+                                                  ? "--"
+                                                  : "${_currentAngle!.toStringAsFixed(_currentAngle! % 1 == 0 ? 0 : 1)}°",
+                                              style: TextStyle(
+                                                color: _currentAngle == null
+                                                    ? slate600
+                                                    : makitaTeal,
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 24,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        _currentAngle == null
-                                            ? "--"
-                                            : "${_currentAngle!.toStringAsFixed(_currentAngle! % 1 == 0 ? 0 : 1)}°",
-                                        style: TextStyle(
-                                          color: _currentAngle == null
-                                              ? slate600
-                                              : makitaTeal,
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 24,
-                                        ),
-                                      ),
-                                    ],
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1387,29 +1397,39 @@ class _CalculatorPageState extends State<CalculatorPage>
                                     width: 1.5,
                                   ),
                                 ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Text(
-                                      "현재 방향",
-                                      style: TextStyle(
-                                        color: slate600,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
+                                // 🚀 수정됨: 현재 방향 오버플로우 방지 (FittedBox 적용)
+                                child: Center(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4.0),
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Text(
+                                            "현재 방향",
+                                            style: TextStyle(
+                                              color: slate600,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            _getDirectionText(_currentRotation),
+                                            style: TextStyle(
+                                              color: _currentRotation == null
+                                                  ? slate600
+                                                  : makitaTeal,
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 26,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      _getDirectionText(_currentRotation),
-                                      style: TextStyle(
-                                        color: _currentRotation == null
-                                            ? slate600
-                                            : makitaTeal,
-                                        fontWeight: FontWeight.w900,
-                                        fontSize: 26,
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -1673,20 +1693,32 @@ class _GlowingActionBtnState extends State<_GlowingActionBtn> {
                   ]
                 : [],
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(widget.icon, color: widget.color, size: 26),
-              const SizedBox(height: 2),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  color: widget.color,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
+          // 🚀 수정됨: 하단 액션 버튼 오버플로우 방지 (FittedBox 적용)
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4.0,
+                  vertical: 2.0,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(widget.icon, color: widget.color, size: 26),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.label,
+                      style: TextStyle(
+                        color: widget.color,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1748,24 +1780,36 @@ class _DirectionPushBtnState extends State<_DirectionPushBtn> {
                   ]
                 : [],
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                widget.icon,
-                color: _isPressed ? pureWhite : slate600,
-                size: 26,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  color: _isPressed ? pureWhite : slate600,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+          // 🚀 수정됨: 방향 버튼 오버플로우 방지 (FittedBox 적용)
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4.0,
+                  vertical: 2.0,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      widget.icon,
+                      color: _isPressed ? pureWhite : slate600,
+                      size: 26,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.label,
+                      style: TextStyle(
+                        color: _isPressed ? pureWhite : slate600,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
