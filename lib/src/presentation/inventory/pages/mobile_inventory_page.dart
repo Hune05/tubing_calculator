@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:mobile_scanner/mobile_scanner.dart'; // 💡 스캐너 패키지 임포트
 import 'dart:async';
 
 import 'inventory_model.dart';
@@ -113,7 +114,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                         size: 32,
                       ),
                       onPressed: () => _showAddNewItemDialog(catId),
-                      tooltip: "현장에서 신규 자재 추가",
+                      tooltip: "현장에서 신규 자재 추가 및 바코드 스캔",
                     ),
                   ),
                 ],
@@ -133,27 +134,24 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                         .where('category', isEqualTo: currentCatId)
                         .snapshots(),
                     builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
+                      if (!snapshot.hasData)
                         return const Center(
                           child: CircularProgressIndicator(color: makitaTeal),
                         );
-                      }
 
                       var dbDocs = snapshot.data!.docs;
                       var localNewDocs = _newLocalItems.entries
                           .where((e) => e.value['category'] == currentCatId)
                           .toList();
-
                       int totalCount = dbDocs.length + localNewDocs.length;
 
-                      if (totalCount == 0) {
+                      if (totalCount == 0)
                         return Center(
                           child: Text(
                             "등록된 자재가 없습니다.",
                             style: TextStyle(color: Colors.grey.shade600),
                           ),
                         );
-                      }
 
                       return ListView.builder(
                         padding: const EdgeInsets.symmetric(
@@ -170,7 +168,6 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                             var doc = dbDocs[i];
                             docId = doc.id;
                             itemName = doc['name'] ?? '이름 없음';
-
                             if (_localEdits.containsKey(docId)) {
                               displayData = _localEdits[docId]!;
                             } else {

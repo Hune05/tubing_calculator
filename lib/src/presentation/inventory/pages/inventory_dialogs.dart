@@ -1,306 +1,6 @@
 part of 'inventory_page.dart';
 
 extension InventoryDialogsExt on _InventoryPageState {
-  void _showDeleteConfirmDialog({required String docId}) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: pureWhite,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-        title: const Text(
-          "아이템 삭제",
-          style: TextStyle(fontWeight: FontWeight.bold, color: slate900),
-        ),
-        content: const Text(
-          "이 자재 마스터를 영구적으로 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다.",
-          style: TextStyle(fontSize: 14, color: slate700),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text(
-              "취소",
-              style: TextStyle(color: slate600, fontWeight: FontWeight.bold),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade700,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            onPressed: () {
-              _inventoryDb.doc(docId).delete();
-              if (_selectedDocId == docId) {
-                setState(() {
-                  _selectedDocId = null;
-                  _selectedItemData = null;
-                });
-              }
-              Navigator.pop(ctx);
-            },
-            child: const Text(
-              "삭제",
-              style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAddMaterialSheet() {
-    final TextEditingController nameCtrl = TextEditingController();
-    final TextEditingController sizeCtrl = TextEditingController();
-    final TextEditingController qtyCtrl = TextEditingController(text: "0");
-    final TextEditingController makerCtrl = TextEditingController(
-      text: "HY-LOK",
-    );
-    final TextEditingController heatNoCtrl = TextEditingController();
-    final TextEditingController locationCtrl = TextEditingController();
-
-    String selectedCategory = "FITTING";
-    String selectedUnit = "EA";
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheetState) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: pureWhite,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "신규 자재 등록",
-                    style: TextStyle(
-                      color: slate900,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: slate900,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      icon: const Icon(LucideIcons.camera, color: pureWhite),
-                      label: const Text(
-                        "📷 도면/BOM 사진 찍어서 자동 입력 (준비중)",
-                        style: TextStyle(
-                          color: pureWhite,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("스마트폰 카메라 연동 패키지 설치 후 활성화됩니다."),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    "또는 직접 수동 입력",
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: slate600,
-                    ),
-                  ),
-                  const Divider(),
-                  const SizedBox(height: 8),
-                  const Text(
-                    "제조사 퀵 선택",
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: makitaTeal,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: ["HY-LOK", "SWAGELOK", "PARKER"]
-                        .map(
-                          (m) => ActionChip(
-                            label: Text(m),
-                            backgroundColor: makerCtrl.text == m
-                                ? makitaTeal
-                                : slate100,
-                            labelStyle: TextStyle(
-                              color: makerCtrl.text == m ? pureWhite : slate900,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            onPressed: () {
-                              setSheetState(() {
-                                makerCtrl.text = m;
-                              });
-                            },
-                          ),
-                        )
-                        .toList(),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      _buildPopupDropdown(
-                        "카테고리",
-                        selectedCategory,
-                        _categories.where((c) => c != "ALL").toList(),
-                        (v) {
-                          setSheetState(() {
-                            selectedCategory = v!;
-                            if (v == "TUBE") selectedUnit = "본";
-                          });
-                        },
-                      ),
-                      const SizedBox(width: 12),
-                      _buildPopupDropdown(
-                        "단위",
-                        selectedUnit,
-                        ["EA", "본", "BOX", "M"],
-                        (v) {
-                          setSheetState(() {
-                            if (selectedCategory != "TUBE") selectedUnit = v!;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: _buildInputLabelField(
-                          "제조사 (수동)",
-                          makerCtrl,
-                          "HY-LOK",
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 2,
-                        child: _buildInputLabelField(
-                          "규격 (Size)",
-                          sizeCtrl,
-                          "예: 1/2\"",
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _buildInputLabelField("품명", nameCtrl, "예: Union Tee"),
-                  const SizedBox(height: 16),
-                  _buildInputLabelField(
-                    "보관 위치 (Location)",
-                    locationCtrl,
-                    "예: 랙 A-1열, 튜빙 야적장 등",
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: _buildInputLabelField(
-                          "히트 넘버 (Heat No.)",
-                          heatNoCtrl,
-                          "미기재 시 생략",
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 2,
-                        child: _buildInputLabelField(
-                          "초기 수량",
-                          qtyCtrl,
-                          "0",
-                          isNumber: true,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: makitaTeal,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      onPressed: () async {
-                        if (nameCtrl.text.isEmpty ||
-                            sizeCtrl.text.isEmpty ||
-                            makerCtrl.text.isEmpty)
-                          return;
-                        String fullName =
-                            "[${makerCtrl.text}] ${sizeCtrl.text} ${nameCtrl.text}";
-                        if (heatNoCtrl.text.isNotEmpty) {
-                          fullName += " (H:${heatNoCtrl.text})";
-                        }
-
-                        await _inventoryDb.add({
-                          "name": fullName,
-                          "maker": makerCtrl.text,
-                          "size": sizeCtrl.text,
-                          "raw_name": nameCtrl.text,
-                          "category": selectedCategory,
-                          "heatNo": heatNoCtrl.text,
-                          "location": locationCtrl.text,
-                          "qty": int.tryParse(qtyCtrl.text) ?? 0,
-                          "min_qty": 10,
-                          "unit": selectedUnit,
-                          "status": "정상",
-                          "is_dead_stock": false,
-                          "is_reorder_needed": false,
-                          "createdAt": FieldValue.serverTimestamp(),
-                        });
-                        if (context.mounted) Navigator.pop(context);
-                      },
-                      child: const Text(
-                        "자재등록 완료",
-                        style: TextStyle(
-                          color: pureWhite,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   void _showMainStockActionDialog({
     required bool isDispatch,
     required String docId,
@@ -388,7 +88,7 @@ extension InventoryDialogsExt on _InventoryPageState {
                   color: slate900,
                 ),
                 decoration: InputDecoration(
-                  hintText: "예: 성적서 미적용 구간, B급 자재 사용 등",
+                  hintText: "예: 성적서 미적용 구간 등",
                   hintStyle: const TextStyle(color: slate400, fontSize: 13),
                   filled: true,
                   fillColor: slate50,
@@ -450,12 +150,10 @@ extension InventoryDialogsExt on _InventoryPageState {
               if (qty <= 0 || (isDispatch && proj.isEmpty)) return;
 
               try {
-                int currentQty = item['qty'] ?? 0;
-                int newWarehouseQty = isDispatch
-                    ? currentQty - qty
-                    : currentQty + qty;
-
-                await _inventoryDb.doc(docId).update({'qty': newWarehouseQty});
+                // 안전 증감 연산 처리
+                await _inventoryDb.doc(docId).update({
+                  'qty': FieldValue.increment(isDispatch ? -qty : qty),
+                });
 
                 if (isDispatch) {
                   final snapshot = await _projectInventoryDb
@@ -464,11 +162,10 @@ extension InventoryDialogsExt on _InventoryPageState {
                       .limit(1)
                       .get();
                   if (snapshot.docs.isNotEmpty) {
-                    int pQty = snapshot.docs.first['qty'] ?? 0;
                     await _projectInventoryDb
                         .doc(snapshot.docs.first.id)
                         .update({
-                          'qty': pQty + qty,
+                          'qty': FieldValue.increment(qty),
                           if (reason.isNotEmpty) 'reason': reason,
                         });
                   } else {
@@ -665,29 +362,26 @@ extension InventoryDialogsExt on _InventoryPageState {
                 if (qty <= 0 || qty > currentProjQty) return;
 
                 try {
-                  int newProjQty = currentProjQty - qty;
-                  if (newProjQty == 0) {
+                  if (currentProjQty - qty == 0) {
                     await _projectInventoryDb.doc(docId).delete();
                   } else {
                     await _projectInventoryDb.doc(docId).update({
-                      'qty': newProjQty,
+                      'qty': FieldValue.increment(-qty),
                     });
                   }
 
                   String targetMatName = pItem['material_name'];
                   if (returnStatus != "정상" &&
-                      !targetMatName.contains("($returnStatus)")) {
+                      !targetMatName.contains("($returnStatus)"))
                     targetMatName = "$targetMatName ($returnStatus)";
-                  }
 
                   final snapshot = await _inventoryDb
                       .where('name', isEqualTo: targetMatName)
                       .limit(1)
                       .get();
                   if (snapshot.docs.isNotEmpty) {
-                    int wQty = snapshot.docs.first['qty'] ?? 0;
                     await _inventoryDb.doc(snapshot.docs.first.id).update({
-                      'qty': wQty + qty,
+                      'qty': FieldValue.increment(qty),
                     });
                   } else {
                     await _inventoryDb.add({
@@ -697,7 +391,7 @@ extension InventoryDialogsExt on _InventoryPageState {
                       "heatNo": pItem['heatNo'] ?? "",
                       "location": pItem['location'] ?? "반납/위치미상",
                       "qty": qty,
-                      "min_qty": 0,
+                      "min_qty": 10,
                       "status": returnStatus,
                       "is_dead_stock": returnStatus != "정상",
                       "is_reorder_needed": false,
@@ -737,6 +431,269 @@ extension InventoryDialogsExt on _InventoryPageState {
     );
   }
 
+  void _showDeleteConfirmDialog({required String docId}) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: pureWhite,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        title: const Text(
+          "아이템 삭제",
+          style: TextStyle(fontWeight: FontWeight.bold, color: slate900),
+        ),
+        content: const Text(
+          "이 자재 마스터를 영구적으로 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다.",
+          style: TextStyle(fontSize: 14, color: slate700),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              "취소",
+              style: TextStyle(color: slate600, fontWeight: FontWeight.bold),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            onPressed: () {
+              _inventoryDb.doc(docId).delete();
+              if (_selectedDocId == docId)
+                setState(() {
+                  _selectedDocId = null;
+                  _selectedItemData = null;
+                });
+              Navigator.pop(ctx);
+            },
+            child: const Text(
+              "삭제",
+              style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddMaterialSheet() {
+    final TextEditingController nameCtrl = TextEditingController();
+    final TextEditingController sizeCtrl = TextEditingController();
+    final TextEditingController qtyCtrl = TextEditingController(text: "0");
+    final TextEditingController minQtyCtrl = TextEditingController(text: "10");
+    final TextEditingController makerCtrl = TextEditingController(
+      text: "HY-LOK",
+    );
+    final TextEditingController heatNoCtrl = TextEditingController();
+    final TextEditingController locationCtrl = TextEditingController();
+
+    String selectedCategory = "FITTING";
+    String selectedUnit = "EA";
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: const BoxDecoration(
+              color: pureWhite,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "신규 자재 등록",
+                    style: TextStyle(
+                      color: slate900,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "제조사 퀵 선택",
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: makitaTeal,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: ["HY-LOK", "SWAGELOK", "PARKER"]
+                        .map(
+                          (m) => ActionChip(
+                            label: Text(m),
+                            backgroundColor: makerCtrl.text == m
+                                ? makitaTeal
+                                : slate100,
+                            labelStyle: TextStyle(
+                              color: makerCtrl.text == m ? pureWhite : slate900,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            onPressed: () {
+                              setSheetState(() {
+                                makerCtrl.text = m;
+                              });
+                            },
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      _buildPopupDropdown(
+                        "카테고리",
+                        selectedCategory,
+                        _categories.where((c) => c != "ALL").toList(),
+                        (v) {
+                          setSheetState(() {
+                            selectedCategory = v!;
+                            if (v == "TUBE") selectedUnit = "본";
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 12),
+                      _buildPopupDropdown(
+                        "단위",
+                        selectedUnit,
+                        ["EA", "본", "BOX", "M"],
+                        (v) {
+                          setSheetState(() {
+                            if (selectedCategory != "TUBE") selectedUnit = v!;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: _buildInputLabelField(
+                          "제조사",
+                          makerCtrl,
+                          "HY-LOK",
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: _buildInputLabelField(
+                          "규격 (Size)",
+                          sizeCtrl,
+                          "예: 1/2\"",
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _buildInputLabelField("품명", nameCtrl, "예: Union Tee"),
+                  const SizedBox(height: 16),
+                  _buildInputLabelField("보관 위치", locationCtrl, "예: 랙 A-1열 등"),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: _buildInputLabelField(
+                          "히트 넘버",
+                          heatNoCtrl,
+                          "생략가능",
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: _buildInputLabelField(
+                          "초기 수량",
+                          qtyCtrl,
+                          "0",
+                          isNumber: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _buildInputLabelField(
+                    "최소 유지 수량 (안전 재고)",
+                    minQtyCtrl,
+                    "10",
+                    isNumber: true,
+                  ),
+                  const SizedBox(height: 32),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: makitaTeal,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onPressed: () async {
+                        if (nameCtrl.text.isEmpty ||
+                            sizeCtrl.text.isEmpty ||
+                            makerCtrl.text.isEmpty)
+                          return;
+                        String fullName =
+                            "[${makerCtrl.text}] ${sizeCtrl.text} ${nameCtrl.text}";
+                        if (heatNoCtrl.text.isNotEmpty)
+                          fullName += " (H:${heatNoCtrl.text})";
+
+                        await _inventoryDb.add({
+                          "name": fullName,
+                          "maker": makerCtrl.text,
+                          "size": sizeCtrl.text,
+                          "raw_name": nameCtrl.text,
+                          "category": selectedCategory,
+                          "heatNo": heatNoCtrl.text,
+                          "location": locationCtrl.text,
+                          "qty": int.tryParse(qtyCtrl.text) ?? 0,
+                          "min_qty": int.tryParse(minQtyCtrl.text) ?? 10,
+                          "unit": selectedUnit,
+                          "status": "정상",
+                          "is_dead_stock": false,
+                          "is_reorder_needed": false,
+                          "createdAt": FieldValue.serverTimestamp(),
+                        });
+                        if (context.mounted) Navigator.pop(context);
+                      },
+                      child: const Text(
+                        "자재등록 완료",
+                        style: TextStyle(
+                          color: pureWhite,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showDeleteLogsDialog() {
     showDialog(
       context: context,
@@ -758,16 +715,13 @@ extension InventoryDialogsExt on _InventoryPageState {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              "오래된 입출고 및 실사 기록을 삭제합니다.\n삭제된 데이터는 복구할 수 없습니다.",
+              "오래된 기록을 삭제합니다.",
               style: TextStyle(color: slate600, fontSize: 13),
             ),
             const SizedBox(height: 16),
-            _buildLogDeleteOption(ctx, "1주일 이전 기록 삭제", 7),
-            _buildLogDeleteOption(ctx, "보름(15일) 이전 기록 삭제", 15),
-            _buildLogDeleteOption(ctx, "1개월 이전 기록 삭제", 30),
-            _buildLogDeleteOption(ctx, "1분기(90일) 이전 기록 삭제", 90),
-            const Divider(height: 24),
-            _buildLogDeleteOption(ctx, "전체 기록 일괄 삭제", 0, isAll: true),
+            _buildLogDeleteOption(ctx, "1주일 이전 삭제", 7),
+            _buildLogDeleteOption(ctx, "1개월 이전 삭제", 30),
+            _buildLogDeleteOption(ctx, "전체 일괄 삭제", 0, isAll: true),
           ],
         ),
         actions: [
@@ -797,8 +751,7 @@ extension InventoryDialogsExt on _InventoryPageState {
           var snapshot = await _logsDb.get();
           WriteBatch batch = FirebaseFirestore.instance.batch();
           for (var doc in snapshot.docs) {
-            final data = doc.data() as Map<String, dynamic>;
-            final ts = data['timestamp'] as Timestamp?;
+            final ts = doc['timestamp'] as Timestamp?;
             if (ts != null) {
               if (isAll || ts.toDate().isBefore(cutoff)) {
                 batch.delete(doc.reference);
@@ -808,13 +761,12 @@ extension InventoryDialogsExt on _InventoryPageState {
             }
           }
           await batch.commit();
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("선택한 주기의 기록이 삭제되었습니다.")),
-            );
-          }
+          if (mounted)
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text("삭제 완료")));
         } catch (e) {
-          debugPrint("기록 삭제 오류: $e");
+          debugPrint("오류: $e");
         }
       },
       child: Padding(
@@ -856,7 +808,7 @@ extension InventoryDialogsExt on _InventoryPageState {
             Icon(LucideIcons.scale, color: slate900),
             SizedBox(width: 8),
             Text(
-              "재고 수정",
+              "재고 임의 수정",
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: 18,

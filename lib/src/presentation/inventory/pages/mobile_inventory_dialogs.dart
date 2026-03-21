@@ -1,6 +1,5 @@
 part of 'mobile_inventory_page.dart';
 
-// 상태 확장(extension)시 발생하는 setState 경고 무시
 // ignore_for_file: invalid_use_of_protected_member
 // ignore_for_file: library_private_types_in_public_api
 
@@ -9,7 +8,6 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
     TextEditingController qtyController = TextEditingController(
       text: currentQty.toString(),
     );
-
     showDialog(
       context: context,
       builder: (context) {
@@ -86,6 +84,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
     );
   }
 
+  // 💡 모바일 QR / 바코드 스캐너 연동 다이얼로그
   void _showAddNewItemDialog(String categoryId) {
     TextEditingController nameController = TextEditingController();
     showDialog(
@@ -104,26 +103,88 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
               fontWeight: FontWeight.bold,
             ),
           ),
-          content: TextField(
-            controller: nameController,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
-            autofocus: true,
-            decoration: InputDecoration(
-              hintText: "자재명 및 규격 입력",
-              hintStyle: TextStyle(color: Colors.grey.shade600),
-              filled: true,
-              fillColor: darkBg,
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.1),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent.shade700,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  icon: const Icon(LucideIcons.scanLine, color: Colors.white),
+                  label: const Text(
+                    "QR / 바코드 스캔",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onPressed: () async {
+                    // 스캐너 페이지 띄우기
+                    final scannedCode = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => Scaffold(
+                          appBar: AppBar(
+                            title: const Text("바코드 스캔"),
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.white,
+                          ),
+                          body: MobileScanner(
+                            onDetect: (capture) {
+                              final List<Barcode> barcodes = capture.barcodes;
+                              if (barcodes.isNotEmpty &&
+                                  barcodes.first.rawValue != null) {
+                                Navigator.pop(context, barcodes.first.rawValue);
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+
+                    // 결과가 있으면 텍스트 박스에 자동 채우기
+                    if (scannedCode != null && scannedCode is String) {
+                      setState(() {
+                        nameController.text = scannedCode;
+                      });
+                    }
+                  },
                 ),
               ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(
-                  color: _categories[_currentCategory]['color'],
+              const SizedBox(height: 16),
+              const Text(
+                "또는 직접 수동 입력",
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: nameController,
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: "자재명 및 규격 입력",
+                  hintStyle: TextStyle(color: Colors.grey.shade600),
+                  filled: true,
+                  fillColor: darkBg,
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: _categories[_currentCategory]['color'],
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
           actions: [
             TextButton(
@@ -172,9 +233,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                 ? data.maker
                 : (infoType == 'Material' ? data.material : data.location));
     } catch (_) {}
-
     TextEditingController ctrl = TextEditingController(text: currentValue);
-
     List<String> quickOptions = [];
     if (infoType == 'Maker') quickOptions = ["HY-LOK", "SWAGELOK", "PARKER"];
     if (infoType == 'Material')
@@ -355,7 +414,6 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                           bool isCompleted = log['status'] == 'completed';
                           bool isFailed = log['status'] == 'failed';
                           int syncCount = log['syncCount'] ?? 0;
-
                           return ExpansionTile(
                             leading: CircleAvatar(
                               backgroundColor: log['color'],

@@ -1,9 +1,9 @@
 part of 'inventory_page.dart';
 
+// ignore_for_file: invalid_use_of_protected_member
+// ignore_for_file: library_private_types_in_public_api
+
 extension InventoryTabsExt on _InventoryPageState {
-  // ===========================================================================
-  // [탭 1] 자재 창고 (마스터 재고)
-  // ===========================================================================
   Widget _buildMainInventoryTab() {
     return Column(
       children: [
@@ -22,7 +22,11 @@ extension InventoryTabsExt on _InventoryPageState {
                       "카테고리",
                       _selectedFilterCategory,
                       _categories,
-                      (v) => setState(() => _selectedFilterCategory = v!),
+                      (v) {
+                        setState(() {
+                          _selectedFilterCategory = v!;
+                        });
+                      },
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -31,7 +35,11 @@ extension InventoryTabsExt on _InventoryPageState {
                       "제조사",
                       _selectedFilterMaker,
                       _makers,
-                      (v) => setState(() => _selectedFilterMaker = v!),
+                      (v) {
+                        setState(() {
+                          _selectedFilterMaker = v!;
+                        });
+                      },
                     ),
                   ),
                 ],
@@ -39,32 +47,26 @@ extension InventoryTabsExt on _InventoryPageState {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  _buildStatusChip(
-                    "가용 자재 목록",
-                    _stockFilterStatus == 0,
-                    () => setState(() {
+                  _buildStatusChip("가용 자재 목록", _stockFilterStatus == 0, () {
+                    setState(() {
                       _stockFilterStatus = 0;
                       _selectedDocId = null;
-                    }),
-                  ),
+                    });
+                  }),
                   const SizedBox(width: 6),
-                  _buildStatusChip(
-                    "장기 보관 자재 목록",
-                    _stockFilterStatus == 1,
-                    () => setState(() {
+                  _buildStatusChip("장기 보관 자재", _stockFilterStatus == 1, () {
+                    setState(() {
                       _stockFilterStatus = 1;
                       _selectedDocId = null;
-                    }),
-                  ),
+                    });
+                  }),
                   const SizedBox(width: 6),
-                  _buildStatusChip(
-                    "발주 요청 목록",
-                    _stockFilterStatus == 2,
-                    () => setState(() {
+                  _buildStatusChip("발주 요청 목록", _stockFilterStatus == 2, () {
+                    setState(() {
                       _stockFilterStatus = 2;
                       _selectedDocId = null;
-                    }),
-                  ),
+                    });
+                  }),
                 ],
               ),
             ],
@@ -74,6 +76,7 @@ extension InventoryTabsExt on _InventoryPageState {
           child: StreamBuilder<QuerySnapshot>(
             stream: _inventoryDb
                 .orderBy('createdAt', descending: true)
+                .limit(300)
                 .snapshots(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
@@ -128,11 +131,15 @@ extension InventoryTabsExt on _InventoryPageState {
                   vertical: 8,
                 ).copyWith(bottom: 20),
                 itemCount: docs.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 6),
-                itemBuilder: (context, idx) => _buildMaterialCard(
-                  docs[idx].id,
-                  docs[idx].data() as Map<String, dynamic>,
-                ),
+                separatorBuilder: (context, index) {
+                  return const SizedBox(height: 6);
+                },
+                itemBuilder: (context, idx) {
+                  return _buildMaterialCard(
+                    docs[idx].id,
+                    docs[idx].data() as Map<String, dynamic>,
+                  );
+                },
               );
             },
           ),
@@ -175,7 +182,10 @@ extension InventoryTabsExt on _InventoryPageState {
     bool isReorder = item['is_reorder_needed'] ?? false;
     String heatNo = item['heatNo'] ?? "";
     String location = item['location'] ?? "";
+    int currentQty = item['qty'] ?? 0;
+    int minQty = item['min_qty'] ?? 10;
 
+    bool isLowStock = !isDead && (currentQty <= minQty);
     bool isSelected = _selectedDocId == id;
 
     return InkWell(
@@ -200,8 +210,8 @@ extension InventoryTabsExt on _InventoryPageState {
           border: Border.all(
             color: isSelected
                 ? makitaTeal
-                : (isReorder ? Colors.orange.shade400 : slate300),
-            width: isSelected ? 2 : 1,
+                : (isLowStock ? Colors.redAccent : slate300),
+            width: isSelected || isLowStock ? 2 : 1,
           ),
         ),
         child: Column(
@@ -259,6 +269,38 @@ extension InventoryTabsExt on _InventoryPageState {
                     ),
                   ),
                 ],
+                if (isLowStock && !isReorder) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(
+                          LucideIcons.alertTriangle,
+                          size: 10,
+                          color: Colors.red,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          "재고 부족",
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 6),
@@ -277,11 +319,13 @@ extension InventoryTabsExt on _InventoryPageState {
                   ),
                 ),
                 Text(
-                  "${item['qty']}",
+                  "$currentQty",
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
-                    color: isDead ? statusColor : makitaTeal,
+                    color: isDead
+                        ? statusColor
+                        : (isLowStock ? Colors.red : makitaTeal),
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -330,21 +374,24 @@ extension InventoryTabsExt on _InventoryPageState {
                     itemBuilder: (ctx) => [
                       if (!isDead)
                         _buildMenuRow('reorder', isReorder ? "발주 완료" : "발주 요청"),
-                      _buildMenuRow('audit', "재고 수정"),
+                      if (!isDead || (isDead && status != '장기 보관'))
+                        _buildMenuRow('keep', "장기 보관"),
                       if (isDead && status != '악성 재고')
                         _buildMenuRow(
                           'bad_stock',
                           "악성 재고 처리",
                           color: Colors.orange.shade800,
                         ),
-                      if (!isDead || (isDead && status != '장기 보관'))
-                        _buildMenuRow('keep', "장기 보관"),
                       if (isDead) _buildMenuRow('normal', "정상 재고 복구"),
-                      _buildMenuRow(
-                        'delete',
-                        "아이템 삭제",
-                        color: Colors.red.shade700,
-                      ),
+                      if (_isAdmin) ...[
+                        const PopupMenuDivider(),
+                        _buildMenuRow('audit', "재고 임의 수정"),
+                        _buildMenuRow(
+                          'delete',
+                          "마스터 삭제",
+                          color: Colors.red.shade700,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -421,9 +468,6 @@ extension InventoryTabsExt on _InventoryPageState {
     );
   }
 
-  // ===========================================================================
-  // [탭 2] 현장 자재
-  // ===========================================================================
   Widget _buildProjectInventoryTab() {
     return StreamBuilder<QuerySnapshot>(
       stream: _projectInventoryDb
@@ -461,7 +505,9 @@ extension InventoryTabsExt on _InventoryPageState {
         return ListView.separated(
           padding: const EdgeInsets.all(12).copyWith(bottom: 20),
           itemCount: docs.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 6),
+          separatorBuilder: (context, index) {
+            return const SizedBox(height: 6);
+          },
           itemBuilder: (context, index) {
             final data = docs[index].data() as Map<String, dynamic>;
             String heatNo = data['heatNo'] ?? "";
@@ -607,37 +653,64 @@ extension InventoryTabsExt on _InventoryPageState {
     );
   }
 
-  // ===========================================================================
-  // [탭 3] 기록 (Logs)
-  // ===========================================================================
   Widget _buildLogsTab() {
     return Column(
       children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: pureWhite,
-          child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: slate100,
-              foregroundColor: slate900,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
-              ),
+        if (_isAdmin)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: pureWhite,
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: slate100,
+                      foregroundColor: slate900,
+                      elevation: 0,
+                    ),
+                    icon: const Icon(LucideIcons.trash2, size: 16),
+                    label: const Text(
+                      "기록 정리",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: _showDeleteLogsDialog,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey.shade400,
+                      foregroundColor: pureWhite,
+                      elevation: 0,
+                    ),
+                    icon: const Icon(LucideIcons.lock, size: 16),
+                    label: const Text(
+                      "엑셀 공유 (준비중)",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("기기 호환성 문제로 현재 잠겨있는 기능입니다."),
+                          backgroundColor: Colors.grey,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-            icon: const Icon(LucideIcons.trash2, size: 16),
-            label: const Text(
-              "오래된 기록 정리하기",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            onPressed: _showDeleteLogsDialog,
           ),
-        ),
         const Divider(height: 1),
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
-            stream: _logsDb.orderBy('timestamp', descending: true).snapshots(),
+            stream: _logsDb
+                .orderBy('timestamp', descending: true)
+                .limit(300)
+                .snapshots(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
@@ -659,7 +732,9 @@ extension InventoryTabsExt on _InventoryPageState {
               return ListView.separated(
                 padding: const EdgeInsets.all(16),
                 itemCount: docs.length,
-                separatorBuilder: (context, index) => const Divider(height: 1),
+                separatorBuilder: (context, index) {
+                  return const Divider(height: 1);
+                },
                 itemBuilder: (context, index) {
                   final log = docs[index].data() as Map<String, dynamic>;
                   final Timestamp? ts = log['timestamp'] as Timestamp?;
@@ -748,9 +823,6 @@ extension InventoryTabsExt on _InventoryPageState {
     );
   }
 
-  // ===========================================================================
-  // [탭 4] 현장 보관 가이드
-  // ===========================================================================
   Widget _buildStorageGuideTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -806,7 +878,6 @@ extension InventoryTabsExt on _InventoryPageState {
               points: [
                 "현장에서 반납된 '포장 개봉품'이나 '성적서 불가' 피팅을 새 박스에 섞지 마세요.",
                 "선반 맨 아래 칸이나 '빨간색 바구니'를 잉여/B급 전용칸으로 지정하세요.",
-                "앱에서 파란색(테스트용) 마크가 뜬 잉여 자재는 막배관 작업 시 최우선으로 꺼내 씁니다.",
               ],
             ),
             _buildGuideSection(
@@ -816,7 +887,6 @@ extension InventoryTabsExt on _InventoryPageState {
               points: [
                 "카본(Carbon)과 서스(SUS) 배관재를 같은 선반에 혼합 보관하지 마세요.",
                 "카본 분진이 스뎅에 묻으면 '갈바닉 부식'이 발생합니다.",
-                "불가피하면 상단에 SUS, 하단에 Carbon을 배치하세요.",
               ],
             ),
             _buildGuideSection(
@@ -825,8 +895,7 @@ extension InventoryTabsExt on _InventoryPageState {
               title: "4. 튜빙과 피팅의 분리 보관 및 위치 식별",
               points: [
                 "길이가 긴 튜빙은 휨 방지를 위해 전용 수평 캔틸레버 랙에 별도 보관합니다.",
-                "튜빙 절단면에는 반드시 플라스틱 캡을 씌워 이물질을 차단하세요.",
-                "신규 자재 등록 시 반드시 앱 내 '보관 위치(Location)' 필드에 정확한 랙 번호를 입력해야 합니다.",
+                "신규 자재 등록 시 반드시 앱 내 '보관 위치'를 입력해야 합니다.",
               ],
             ),
             _buildGuideSection(
@@ -834,9 +903,7 @@ extension InventoryTabsExt on _InventoryPageState {
               color: slate900,
               title: "5. 정기 재고 조사(실사) 및 전산 보정",
               points: [
-                "전산 수량과 실제 보관함 수량이 다를 경우, 임의로 '현장 불출' 처리해서 수량을 맞추지 마세요. (원가 산정 오류 발생)",
-                "해당 자재 카드의 점 3개(⋮) 메뉴에서 [재고 수정] 기능을 사용해 실제 개수를 입력하세요.",
-                "실사 보정 기록은 장부에 검은색 저울 아이콘(⚖️)으로 분리되어 투명하게 관리됩니다.",
+                "전산 수량과 실제 보관함 수량이 다를 경우 점 3개(⋮) 메뉴에서 [재고 임의 수정] 기능을 사용해 개수를 맞추세요.",
               ],
               isLast: true,
             ),
