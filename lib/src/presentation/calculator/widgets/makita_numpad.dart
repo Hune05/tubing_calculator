@@ -1,3 +1,4 @@
+// lib/src/presentation/calculator/widgets/makita_numpad.dart
 import 'package:flutter/material.dart';
 
 const Color makitaTeal = Color(0xFF007580);
@@ -19,12 +20,13 @@ class MakitaNumpad extends StatefulWidget {
     this.title = "수치 입력",
   });
 
-  static void show(
+  // 🚀 [Lint 에러 해결] void -> Future<void> 로 변경하고 return 추가
+  static Future<void> show(
     BuildContext context, {
     required TextEditingController controller,
     required String title,
   }) {
-    showModalBottomSheet(
+    return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,

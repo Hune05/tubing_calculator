@@ -1,10 +1,10 @@
+// lib/src/presentation/remote/screens/mobile_remote_page.dart (경로는 환경에 맞게)
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:vector_math/vector_math_64.dart' as vmath;
-import 'package:shared_preferences/shared_preferences.dart'; // 🚀 로컬 저장소 추가
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../widgets/remote_widgets.dart';
@@ -30,12 +30,17 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
 
   final String _serverRadius = "45.0";
 
+  // 🚀 [기능 개선] 영문 key를 추가하여 DB 통신 시 규격화된 포맷 사용
   final List<Map<String, dynamic>> _modes = [
-    {"name": "직관 (Straight)", "color": const Color(0xFF4A5D66)},
-    {"name": "90° 벤딩", "color": const Color(0xFF00606B)},
-    {"name": "오프셋", "color": const Color(0xFF8A6345)},
-    {"name": "새들", "color": const Color(0xFF635666)},
-    {"name": "롤링 오프셋", "color": const Color(0xFF3B5E52)},
+    {
+      "key": "STRAIGHT",
+      "name": "직관 (Straight)",
+      "color": const Color(0xFF4A5D66),
+    },
+    {"key": "BEND_90", "name": "90° 벤딩", "color": const Color(0xFF00606B)},
+    {"key": "OFFSET", "name": "오프셋", "color": const Color(0xFF8A6345)},
+    {"key": "SADDLE", "name": "새들", "color": const Color(0xFF635666)},
+    {"key": "ROLLING", "name": "롤링 오프셋", "color": const Color(0xFF3B5E52)},
   ];
 
   final int _modeCount = 5;
@@ -54,9 +59,6 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
   late List<FocusNode> _angleFocusNodes;
 
   final List<Map<String, dynamic>> _historyLogs = [];
-
-  // 🚀 리모컨 3D 뷰어용 시작 방향 (기본값 RIGHT)
-  String _previewStartDir = "RIGHT";
 
   @override
   void initState() {
@@ -79,37 +81,6 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     );
     _result1Ctrls = List.generate(_modeCount, (_) => TextEditingController());
     _result2Ctrls = List.generate(_modeCount, (_) => TextEditingController());
-
-    _val1FocusNodes = List.generate(_modeCount, (_) => FocusNode());
-    _val2FocusNodes = List.generate(_modeCount, (_) => FocusNode());
-    _angleFocusNodes = List.generate(_modeCount, (_) => FocusNode());
-
-    _loadSavedStartDir(); // 🚀 시작할 때 저장된 방향 불러오기
-  }
-
-  // 🚀 기기에 저장된 리모컨 방향 불러오기
-  Future<void> _loadSavedStartDir() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedDir = prefs.getString('remote_preview_start_dir');
-      if (savedDir != null && savedDir.isNotEmpty) {
-        setState(() {
-          _previewStartDir = savedDir;
-        });
-      }
-    } catch (e) {
-      debugPrint("리모컨 방향 로드 실패: $e");
-    }
-  }
-
-  // 🚀 기기에 리모컨 방향 저장하기
-  Future<void> _saveStartDir(String newDir) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('remote_preview_start_dir', newDir);
-    } catch (e) {
-      debugPrint("리모컨 방향 저장 실패: $e");
-    }
   }
 
   @override
@@ -221,13 +192,14 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
       "id": timestamp.toString(),
       "time":
           "${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}",
-      "mode": _modes[m]['name'],
+      "mode": _modes[m]['key'], // 🚀 DB 연산을 위해 영문 키값 전송
+      "modeName": _modes[m]['name'], // 🚀 UI 출력을 위한 한글 이름
       "color": _modes[m]['color'].value,
       "val1": sendVal1,
       "val2": sendVal2,
       "angle": sendAngle,
       "dir": _selectedDirs[m],
-      "status": "pending",
+      "status": "pending", // 🚀 처음엔 대기 상태
       "timestamp": timestamp,
     };
 
@@ -247,13 +219,32 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
           .doc(timestamp.toString())
           .set(newRecord);
 
+      // 🚀 [기능 개선] 양방향 동기화: 문서의 상태 변화를 실시간으로 추적하여 UI 업데이트
+      FirebaseFirestore.instance
+          .collection('remote_commands')
+          .doc(timestamp.toString())
+          .snapshots()
+          .listen((docSnapshot) {
+            if (docSnapshot.exists &&
+                docSnapshot.data()!['status'] == 'completed') {
+              if (mounted) {
+                setState(() {
+                  var targetLog = _historyLogs.firstWhere(
+                    (log) => log['id'] == timestamp.toString(),
+                    orElse: () => <String, dynamic>{}, // 빈 맵 반환
+                  );
+                  if (targetLog.isNotEmpty) {
+                    targetLog['status'] = "completed";
+                  }
+                });
+              }
+            }
+          });
+
       if (!mounted) return;
       HapticFeedback.mediumImpact();
 
       setState(() {
-        _historyLogs.firstWhere(
-          (log) => log['id'] == newRecord['id'],
-        )['status'] = "completed";
         _isTransmitting = false;
         _isInputFinishedList[m] = false;
         _selectedDirs[m] = "UP";
@@ -420,6 +411,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
       previewBends.add({'length': 40.0, 'angle': 0.0, 'rotation': 0.0});
     }
 
+    // 🚀 [UI 개선] 불필요한 Dropdown 제거 및 뷰어 단순화
     return Container(
       height: 140,
       width: double.infinity,
@@ -432,81 +424,12 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
           ),
         ),
       ),
-      child: Stack(
-        children: [
-          CustomPaint(
-            size: const Size(double.infinity, 140),
-            painter: Preview3DPainter(
-              bendList: previewBends,
-              themeColor: modeColor,
-              startDirection: _previewStartDir, // 🚀 방향 정보 주입
-            ),
-          ),
-
-          // 🚀 [추가] 리모컨용 시작 방향 선택 드롭다운 (태블릿 UI와 동일)
-          Positioned(
-            top: 10,
-            left: 10,
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    "현재 파이프 방향:",
-                    style: TextStyle(color: Colors.white, fontSize: 11),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  height: 26,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2B3643),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.white24),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _previewStartDir,
-                      dropdownColor: const Color(0xFF2B3643),
-                      icon: const Icon(
-                        Icons.arrow_drop_down,
-                        color: Colors.white70,
-                        size: 18,
-                      ),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      onChanged: (String? newValue) {
-                        if (newValue != null) {
-                          setState(() => _previewStartDir = newValue);
-                          _saveStartDir(newValue); // 🚀 로컬 저장
-                        }
-                      },
-                      items: ['RIGHT', 'LEFT', 'UP', 'DOWN', 'FRONT', 'BACK']
-                          .map<DropdownMenuItem<String>>((String value) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(value),
-                            );
-                          })
-                          .toList(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+      child: CustomPaint(
+        size: const Size(double.infinity, 140),
+        painter: Preview3DPainter(
+          bendList: previewBends,
+          themeColor: modeColor,
+        ),
       ),
     );
   }
@@ -906,7 +829,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                               radius: 12,
                             ),
                             title: Text(
-                              "${log['mode']} (${log['dir']})",
+                              "${log['modeName']} (${log['dir']})",
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -938,37 +861,13 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
 }
 
 /// ============================================================================
-/// 🚀 [완벽 교체] 리모컨용 3D 벡터 미리보기 엔진 (방향 적용 완료)
+/// 🚀 [수정 완료] 리모컨용 3D 벡터 미리보기 엔진 (시작 방향 X축 고정)
 /// ============================================================================
 class Preview3DPainter extends CustomPainter {
   final List<Map<String, dynamic>> bendList;
   final Color themeColor;
-  final String startDirection; // 🚀 리모컨에서 선택한 시작 방향 받기
 
-  Preview3DPainter({
-    required this.bendList,
-    required this.themeColor,
-    required this.startDirection,
-  });
-
-  // 🚀 시작 방향을 3D 벡터로 변환
-  vmath.Vector3 _getStartVector(String dir) {
-    switch (dir) {
-      case 'UP':
-        return vmath.Vector3(0, 1, 0);
-      case 'DOWN':
-        return vmath.Vector3(0, -1, 0);
-      case 'LEFT':
-        return vmath.Vector3(-1, 0, 0);
-      case 'FRONT':
-        return vmath.Vector3(0, 0, 1);
-      case 'BACK':
-        return vmath.Vector3(0, 0, -1);
-      case 'RIGHT':
-      default:
-        return vmath.Vector3(1, 0, 0);
-    }
-  }
+  Preview3DPainter({required this.bendList, required this.themeColor});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -985,14 +884,9 @@ class Preview3DPainter extends CustomPainter {
     List<vmath.Vector3> pts3D = [];
     vmath.Vector3 currentPos = vmath.Vector3.zero();
 
-    // 🚀 리모컨 드롭다운에서 선택한 방향을 실제 3D 벡터 시작 방향으로 적용!
-    vmath.Vector3 currentDir = _getStartVector(startDirection);
-
-    // 🚀 방향에 따라 회전축(Normal) 초기화 세팅
-    vmath.Vector3 currentNormal =
-        (startDirection == 'UP' || startDirection == 'DOWN')
-        ? vmath.Vector3(0, 0, 1) // 수직일 경우 앞뒤를 축으로
-        : vmath.Vector3(0, 1, 0); // 수평일 경우 위아래를 축으로
+    // 🚀 복잡한 설정 없이 리모컨에서는 무조건 우측(X축)으로 그리기 시작
+    vmath.Vector3 currentDir = vmath.Vector3(1, 0, 0);
+    vmath.Vector3 currentNormal = vmath.Vector3(0, 1, 0);
 
     pts3D.add(currentPos.clone());
 
@@ -1062,10 +956,11 @@ class Preview3DPainter extends CustomPainter {
     // 4. 선 그리기
     final path = Path();
     for (int i = 0; i < finalPoints.length; i++) {
-      if (i == 0)
+      if (i == 0) {
         path.moveTo(finalPoints[i].dx, finalPoints[i].dy);
-      else
+      } else {
         path.lineTo(finalPoints[i].dx, finalPoints[i].dy);
+      }
     }
 
     // 그림자 효과
@@ -1082,7 +977,6 @@ class Preview3DPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant Preview3DPainter oldDelegate) {
-    return oldDelegate.startDirection != startDirection ||
-        oldDelegate.bendList != bendList;
+    return oldDelegate.bendList != bendList;
   }
 }

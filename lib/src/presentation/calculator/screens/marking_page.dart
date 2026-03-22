@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-// 🚀 unused_import: dart:math 제거 완료
 import 'package:tubing_calculator/src/data/bend_data_manager.dart';
 import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
+// 🚀 [개선 1 적용] 공통 숫자 패드 import 추가
+import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
@@ -39,13 +41,7 @@ class _MarkingPageState extends State<MarkingPage> {
   void initState() {
     super.initState();
     _refreshSettings();
-
-    _tailController.addListener(() {
-      setState(() {
-        _tailLength = double.tryParse(_tailController.text) ?? 0.0;
-        BendDataManager().tail = _tailLength;
-      });
-    });
+    // 🚀 [개선 2 적용] 불필요한 _tailController.addListener 제거 (저장은 팝업이 닫힐 때 한 번만 수행)
   }
 
   Future<void> _refreshSettings() async {
@@ -724,191 +720,27 @@ class _MarkingPageState extends State<MarkingPage> {
     );
   }
 
-  void _showTailPad() {
-    String tempValue = _tailLength > 0 ? _tailLength.round().toString() : "";
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            void pressKey(String key) {
-              setModalState(() {
-                // 🚀 에러 해결: if 블록 중괄호 완벽 반영
-                if (key == 'C') {
-                  tempValue = "";
-                } else if (key == '⌫') {
-                  if (tempValue.isNotEmpty) {
-                    tempValue = tempValue.substring(0, tempValue.length - 1);
-                  }
-                } else {
-                  tempValue = tempValue == "0" ? key : tempValue + key;
-                }
-              });
-            }
+  // 🚀 [개선 1 적용] 수백 줄의 하드코딩 팝업을 MakitaNumpad 재사용으로 축소!
+  void _showTailPad() async {
+    _tailController.text = _tailLength > 0
+        ? _tailLength.round().toString()
+        : "";
 
-            void applyTail() {
-              _tailController.text = tempValue.isEmpty ? "0" : tempValue;
-              Navigator.pop(context);
-            }
-
-            return Container(
-              height: MediaQuery.of(context).size.height * 0.55,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              decoration: BoxDecoration(
-                color: pureWhite,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, -5),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "절단 여유 기장 (Tail)",
-                        style: TextStyle(
-                          color: slate600,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        tempValue.isEmpty ? "0 mm" : "$tempValue mm",
-                        style: const TextStyle(
-                          color: slate900,
-                          fontSize: 36,
-                          fontWeight: FontWeight.w900,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: Row(
-                            children: [
-                              _numKey('7', pressKey),
-                              _numKey('8', pressKey),
-                              _numKey('9', pressKey),
-                              _numKey(
-                                'C',
-                                pressKey,
-                                color: Colors.red.shade400,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              _numKey('4', pressKey),
-                              _numKey('5', pressKey),
-                              _numKey('6', pressKey),
-                              _numKey(
-                                '⌫',
-                                pressKey,
-                                color: Colors.orange.shade400,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              _numKey('1', pressKey),
-                              _numKey('2', pressKey),
-                              _numKey('3', pressKey),
-                              _numKey('.', pressKey),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              _numKey('0', pressKey),
-                              _numKey('00', pressKey),
-                              Expanded(
-                                flex: 2,
-                                child: InkWell(
-                                  onTap: applyTail,
-                                  child: Container(
-                                    margin: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: makitaTeal,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: const Text(
-                                      "적용",
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
+    await MakitaNumpad.show(
+      context,
+      controller: _tailController,
+      title: "절단 여유 기장 (mm)",
     );
-  }
 
-  Widget _numKey(String text, Function(String) onTap, {Color? color}) {
-    return Expanded(
-      child: InkWell(
-        onTap: () => onTap(text),
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          margin: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: slate100,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            text,
-            style: TextStyle(
-              color: color ?? slate900,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-    );
+    if (!mounted) return;
+
+    double? val = double.tryParse(_tailController.text);
+    setState(() {
+      _tailLength = val ?? 0.0;
+      _tailController.text = _tailLength > 0
+          ? _tailLength.round().toString()
+          : "0";
+      BendDataManager().tail = _tailLength; // 🚀 [개선 2 적용] 팝업이 닫힐 때 한 번만 저장
+    });
   }
 }

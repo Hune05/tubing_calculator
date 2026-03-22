@@ -67,14 +67,13 @@ class _CalculatorPageState extends State<CalculatorPage>
 
   String _localStartDir = 'RIGHT';
 
-  // 🚀 예상 튜브 길이 및 마진 계산 로직
-  double _safeMargin = 100.0; // 기본 여유 마진 (0으로 설정 가능)
+  double _safeMargin = 100.0;
 
   double get _rawLengthSum {
     if (widget.bendList.isEmpty) return 0.0;
     return widget.bendList.fold(
       0.0,
-      (sum, bend) => sum + (bend['length'] ?? 0.0),
+      (acc, bend) => acc + (bend['length'] ?? 0.0),
     );
   }
 
@@ -145,184 +144,44 @@ class _CalculatorPageState extends State<CalculatorPage>
     super.dispose();
   }
 
-  // 🔹 [변경됨] 시스템 키보드 대신 커스텀 넘패드를 띄우는 마진 설정 팝업
-  void _showMarginNumpad() {
-    String tempValue = _safeMargin > 0 ? _safeMargin.toStringAsFixed(0) : "";
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            void pressKey(String key) {
-              setModalState(() {
-                if (key == 'C') {
-                  tempValue = "";
-                } else if (key == '⌫') {
-                  if (tempValue.isNotEmpty) {
-                    tempValue = tempValue.substring(0, tempValue.length - 1);
-                  }
-                } else {
-                  if (tempValue == "0") {
-                    tempValue = key;
-                  } else {
-                    tempValue += key;
-                  }
-                }
-              });
-            }
-
-            void applyMargin() {
-              double? val = double.tryParse(tempValue);
-              setState(() {
-                _safeMargin = val ?? 0.0; // 빈 값이면 0으로 처리 (마진 없음)
-              });
-              Navigator.pop(context);
-            }
-
-            return Container(
-              height: MediaQuery.of(context).size.height * 0.55,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              decoration: BoxDecoration(
-                color: pureWhite,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, -5),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "여유 마진 입력",
-                            style: TextStyle(
-                              color: slate900,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          Text(
-                            "마진이 필요없다면 0을 입력하세요",
-                            style: TextStyle(color: slate600, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        tempValue.isEmpty ? "0 mm" : "$tempValue mm",
-                        style: const TextStyle(
-                          color: makitaTeal,
-                          fontSize: 32,
-                          fontWeight: FontWeight.w900,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: Row(
-                            children: [
-                              _numKey('7', pressKey),
-                              _numKey('8', pressKey),
-                              _numKey('9', pressKey),
-                              _numKey(
-                                'C',
-                                pressKey,
-                                color: Colors.red.shade400,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              _numKey('4', pressKey),
-                              _numKey('5', pressKey),
-                              _numKey('6', pressKey),
-                              _numKey(
-                                '⌫',
-                                pressKey,
-                                color: Colors.orange.shade400,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              _numKey('1', pressKey),
-                              _numKey('2', pressKey),
-                              _numKey('3', pressKey),
-                              _numKey('.', pressKey), // 필요시 소수점 사용 가능
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              _numKey('0', pressKey),
-                              _numKey('00', pressKey),
-                              Expanded(
-                                flex: 2,
-                                child: InkWell(
-                                  onTap: applyMargin,
-                                  child: Container(
-                                    margin: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: makitaTeal,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: const Text(
-                                      "마진 적용",
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
+  void _showMarginNumpad() async {
+    final controller = TextEditingController(
+      text: _safeMargin > 0 ? _safeMargin.toStringAsFixed(0) : "",
     );
+
+    await MakitaNumpad.show(
+      context,
+      controller: controller,
+      title: "여유 마진 입력 (mm)",
+    );
+
+    if (!mounted) return;
+    double? val = double.tryParse(controller.text);
+    setState(() {
+      _safeMargin = val ?? 0.0;
+    });
+  }
+
+  void _showCustomAnglePad() async {
+    final controller = TextEditingController(
+      text: (_currentAngle ?? 0) > 0
+          ? _currentAngle!.toStringAsFixed(_currentAngle! % 1 == 0 ? 0 : 1)
+          : "",
+    );
+
+    await MakitaNumpad.show(
+      context,
+      controller: controller,
+      title: "자유 각도 입력 (0~360°)",
+    );
+
+    if (!mounted) return;
+    double? val = double.tryParse(controller.text);
+    if (val != null) {
+      setState(() {
+        _currentAngle = val > 360.0 ? 360.0 : val;
+      });
+    }
   }
 
   void receiveRemoteData(Map<String, dynamic> data) async {
@@ -330,6 +189,7 @@ class _CalculatorPageState extends State<CalculatorPage>
 
     setState(() => _isAutoProcessing = true);
 
+    String docId = data['id']?.toString() ?? "";
     String mode = data['mode'] ?? "";
     double val1 = double.tryParse(data['val1'].toString()) ?? 0;
     double val2 = double.tryParse(data['val2'].toString()) ?? 0;
@@ -340,7 +200,7 @@ class _CalculatorPageState extends State<CalculatorPage>
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("📲 리모컨 수신: [$mode] 연산 및 자동 입력 중..."),
+        content: Text("📲 리모컨 수신: [${data['modeName'] ?? mode}] 처리 중..."),
         backgroundColor: makitaTeal,
         duration: const Duration(milliseconds: 1500),
       ),
@@ -348,31 +208,38 @@ class _CalculatorPageState extends State<CalculatorPage>
 
     await Future.delayed(const Duration(milliseconds: 400));
 
-    if (mode == "직관 (Straight)") {
-      _executeMacro(val1, 0.0, targetRot);
-    } else if (mode == "90° 벤딩") {
-      _executeMacro(val1, 90.0, targetRot);
-    } else if (mode == "오프셋") {
+    // 🚀 [기능 개선] 하드코딩된 한글 매칭을 키값 매칭으로 변경 및 0 나누기 방어코드 적용
+    if (mode == "STRAIGHT" || mode == "직관 (Straight)") {
+      _executeMacro(val1, 0.0, targetRot, docId);
+    } else if (mode == "BEND_90" || mode == "90° 벤딩") {
+      _executeMacro(val1, 90.0, targetRot, docId);
+    } else if (mode == "OFFSET" || mode == "오프셋") {
       double d = 0;
       double finalAngle = angle;
       if (angle > 0) {
-        d = val1 / math.sin(angle * (math.pi / 180));
+        double sinVal = math.sin(angle * (math.pi / 180));
+        d = sinVal == 0 ? val1 : val1 / sinVal; // 🚀 방어 코드
       } else if (val2 > 0) {
         d = val2;
-        finalAngle = math.asin(val1 / val2) * (180 / math.pi);
+        finalAngle =
+            math.asin((val1 / val2).clamp(-1.0, 1.0)) * (180 / math.pi);
       }
-      _executeMacro(d, finalAngle, targetRot);
-    } else if (mode == "새들") {
-      double d = (angle > 0)
-          ? (val1 / math.sin(angle * (math.pi / 180)))
-          : val1;
-      _executeMacro(d, angle, targetRot);
-    } else if (mode == "롤링 오프셋") {
+      _executeMacro(d, finalAngle, targetRot, docId);
+    } else if (mode == "SADDLE" || mode == "새들") {
+      double d = val1;
+      if (angle > 0) {
+        double sinVal = math.sin(angle * (math.pi / 180));
+        d = sinVal == 0 ? val1 : val1 / sinVal; // 🚀 방어 코드
+      }
+      _executeMacro(d, angle, targetRot, docId);
+    } else if (mode == "ROLLING" || mode == "롤링 오프셋") {
       double trueH = math.sqrt((val1 * val1) + (val2 * val2));
-      double d = (angle > 0)
-          ? (trueH / math.sin(angle * (math.pi / 180)))
-          : trueH;
-      _executeMacro(d, angle, targetRot);
+      double d = trueH;
+      if (angle > 0) {
+        double sinVal = math.sin(angle * (math.pi / 180));
+        d = sinVal == 0 ? trueH : trueH / sinVal; // 🚀 방어 코드
+      }
+      _executeMacro(d, angle, targetRot, docId);
     } else {
       setState(() => _isAutoProcessing = false);
     }
@@ -397,7 +264,12 @@ class _CalculatorPageState extends State<CalculatorPage>
     }
   }
 
-  void _executeMacro(double length, double angle, double rot) async {
+  void _executeMacro(
+    double length,
+    double angle,
+    double rot,
+    String docId,
+  ) async {
     setState(() {
       _tempController.text = length.toStringAsFixed(1);
       _currentAngle = angle;
@@ -405,7 +277,22 @@ class _CalculatorPageState extends State<CalculatorPage>
     });
 
     await Future.delayed(const Duration(milliseconds: 600));
+
+    if (!mounted) return;
+
     _handleApply();
+
+    // 🚀 [기능 개선] 정상적으로 리스트에 추가된 후 리모컨으로 '처리 완료' 응답 전송
+    if (docId.isNotEmpty) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('remote_commands')
+            .doc(docId)
+            .update({'status': 'completed'});
+      } catch (e) {
+        debugPrint("상태 업데이트 실패: $e");
+      }
+    }
 
     setState(() => _isAutoProcessing = false);
   }
@@ -476,207 +363,6 @@ class _CalculatorPageState extends State<CalculatorPage>
     });
   }
 
-  void _showCustomAnglePad() {
-    String tempValue = (_currentAngle ?? 0) > 0
-        ? _currentAngle!.toStringAsFixed(_currentAngle! % 1 == 0 ? 0 : 1)
-        : "";
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            void pressKey(String key) {
-              setModalState(() {
-                if (key == 'C') {
-                  tempValue = "";
-                } else if (key == '⌫') {
-                  if (tempValue.isNotEmpty) {
-                    tempValue = tempValue.substring(0, tempValue.length - 1);
-                  }
-                } else {
-                  if (tempValue == "0") {
-                    tempValue = key;
-                  } else {
-                    tempValue += key;
-                  }
-                }
-                double? val = double.tryParse(tempValue);
-                if (val != null && val > 360) {
-                  tempValue = "360";
-                }
-              });
-            }
-
-            void applyAngle() {
-              double? val = double.tryParse(tempValue);
-              if (val != null) {
-                setState(() => _currentAngle = val);
-              }
-              Navigator.pop(context);
-            }
-
-            return Container(
-              height: MediaQuery.of(context).size.height * 0.55,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              decoration: BoxDecoration(
-                color: pureWhite,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, -5),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "자유 각도 입력 (0~360°)",
-                        style: TextStyle(
-                          color: slate600,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        tempValue.isEmpty ? "0°" : "$tempValue°",
-                        style: const TextStyle(
-                          color: slate900,
-                          fontSize: 36,
-                          fontWeight: FontWeight.w900,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: Row(
-                            children: [
-                              _numKey('7', pressKey),
-                              _numKey('8', pressKey),
-                              _numKey('9', pressKey),
-                              _numKey(
-                                'C',
-                                pressKey,
-                                color: Colors.red.shade400,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              _numKey('4', pressKey),
-                              _numKey('5', pressKey),
-                              _numKey('6', pressKey),
-                              _numKey(
-                                '⌫',
-                                pressKey,
-                                color: Colors.orange.shade400,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              _numKey('1', pressKey),
-                              _numKey('2', pressKey),
-                              _numKey('3', pressKey),
-                              _numKey('.', pressKey),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              _numKey('0', pressKey),
-                              _numKey('00', pressKey),
-                              Expanded(
-                                flex: 2,
-                                child: InkWell(
-                                  onTap: applyAngle,
-                                  child: Container(
-                                    margin: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: makitaTeal,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: const Text(
-                                      "적용",
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _numKey(String text, Function(String) onTap, {Color? color}) {
-    return Expanded(
-      child: InkWell(
-        onTap: () => onTap(text),
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          margin: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: slate100,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            text,
-            style: TextStyle(
-              color: color ?? slate900,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -687,7 +373,6 @@ class _CalculatorPageState extends State<CalculatorPage>
         absorbing: _isAutoProcessing,
         child: Row(
           children: [
-            // 🔹 [왼쪽] 3D 뷰어
             Expanded(
               flex: 5,
               child: Container(
@@ -759,14 +444,12 @@ class _CalculatorPageState extends State<CalculatorPage>
               ),
             ),
 
-            // 🔹 [오른쪽] 조작반
             Expanded(
               flex: 5,
               child: Container(
                 margin: const EdgeInsets.only(top: 12, bottom: 12, right: 12),
                 child: Column(
                   children: [
-                    // 🚀 [디자인 수정] 예상 튜브 길이 표시 패널 (폰트/자간/컬러 최적화)
                     GestureDetector(
                       onTap: _showMarginNumpad,
                       child: Container(
@@ -840,7 +523,6 @@ class _CalculatorPageState extends State<CalculatorPage>
                       ),
                     ),
 
-                    // ------------------------------------------------
                     Expanded(
                       flex: 4,
                       child: Container(
@@ -985,19 +667,35 @@ class _CalculatorPageState extends State<CalculatorPage>
                             ),
                             Expanded(
                               child: widget.bendList.isEmpty
-                                  ? const Center(
-                                      child: Text(
-                                        "치수와 방향을 셋팅하세요\n또는 리모컨으로 데이터를 전송하세요",
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(color: slate600),
+                                  ? Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.playlist_add_rounded,
+                                            size: 48,
+                                            color: Colors.grey.shade300,
+                                          ),
+                                          const SizedBox(height: 12),
+                                          const Text(
+                                            "치수와 방향을 셋팅하세요\n또는 리모컨으로 데이터를 전송하세요",
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              color: slate600,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     )
                                   : ReorderableListView.builder(
                                       itemCount: widget.bendList.length,
                                       onReorder: (int oldIndex, int newIndex) {
                                         setState(() {
-                                          if (oldIndex < newIndex)
+                                          if (oldIndex < newIndex) {
                                             newIndex -= 1;
+                                          }
                                           _editingIndex = null;
                                           _tempController.clear();
                                         });
@@ -1011,9 +709,7 @@ class _CalculatorPageState extends State<CalculatorPage>
                                         final bend = widget.bendList[index];
 
                                         return GestureDetector(
-                                          key: ValueKey(
-                                            'bend_${index}_${bend.hashCode}',
-                                          ),
+                                          key: ValueKey(bend.hashCode),
                                           onTap: () => _startEdit(index),
                                           child: Container(
                                             margin: const EdgeInsets.only(
@@ -1120,7 +816,6 @@ class _CalculatorPageState extends State<CalculatorPage>
                                     Transform.scale(
                                       scale: 0.9,
                                       child: MakitaNumpad(
-                                        // 🚀 [여기가 추가된 핵심 코드]
                                         key: ValueKey(
                                           _editingIndex ?? 'new_input',
                                         ),
@@ -1199,14 +894,16 @@ class _CalculatorPageState extends State<CalculatorPage>
                         Expanded(
                           child: Row(
                             children: [
-                              _AnglePushBtn(
+                              _MakitaBtn(
                                 label: "0°(직관)",
+                                fontSize: 13,
                                 onTap: () =>
                                     setState(() => _currentAngle = 0.0),
                               ),
                               const SizedBox(width: 8),
-                              _AnglePushBtn(
+                              _MakitaBtn(
                                 label: "15°",
+                                fontSize: 18,
                                 onTap: () =>
                                     setState(() => _currentAngle = 15.0),
                               ),
@@ -1217,14 +914,16 @@ class _CalculatorPageState extends State<CalculatorPage>
                         Expanded(
                           child: Row(
                             children: [
-                              _AnglePushBtn(
+                              _MakitaBtn(
                                 label: "22.5°",
+                                fontSize: 18,
                                 onTap: () =>
                                     setState(() => _currentAngle = 22.5),
                               ),
                               const SizedBox(width: 8),
-                              _AnglePushBtn(
+                              _MakitaBtn(
                                 label: "30°",
+                                fontSize: 18,
                                 onTap: () =>
                                     setState(() => _currentAngle = 30.0),
                               ),
@@ -1235,14 +934,16 @@ class _CalculatorPageState extends State<CalculatorPage>
                         Expanded(
                           child: Row(
                             children: [
-                              _AnglePushBtn(
+                              _MakitaBtn(
                                 label: "45°",
+                                fontSize: 18,
                                 onTap: () =>
                                     setState(() => _currentAngle = 45.0),
                               ),
                               const SizedBox(width: 8),
-                              _AnglePushBtn(
+                              _MakitaBtn(
                                 label: "60°",
+                                fontSize: 18,
                                 onTap: () =>
                                     setState(() => _currentAngle = 60.0),
                               ),
@@ -1253,14 +954,16 @@ class _CalculatorPageState extends State<CalculatorPage>
                         Expanded(
                           child: Row(
                             children: [
-                              _AnglePushBtn(
+                              _MakitaBtn(
                                 label: "90°",
+                                fontSize: 18,
                                 onTap: () =>
                                     setState(() => _currentAngle = 90.0),
                               ),
                               const SizedBox(width: 8),
-                              _AnglePushBtn(
+                              _MakitaBtn(
                                 label: "180°",
+                                fontSize: 18,
                                 onTap: () =>
                                     setState(() => _currentAngle = 180.0),
                               ),
@@ -1319,9 +1022,10 @@ class _CalculatorPageState extends State<CalculatorPage>
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              _AnglePushBtn(
+                              _MakitaBtn(
                                 label: "직접 입력",
                                 icon: Icons.edit,
+                                fontSize: 13,
                                 onTap: _showCustomAnglePad,
                               ),
                             ],
@@ -1356,23 +1060,38 @@ class _CalculatorPageState extends State<CalculatorPage>
                       Expanded(
                         child: Row(
                           children: [
-                            _DirectionPushBtn(
+                            _MakitaBtn(
                               icon: LucideIcons.arrowUpRight,
                               label: "FRONT",
+                              isVertical: true,
+                              borderRadius: 10,
+                              defaultTextColor: slate600,
+                              defaultIconColor: slate600,
+                              fontSize: 12,
                               onTap: () =>
                                   setState(() => _currentRotation = 360.0),
                             ),
                             const SizedBox(width: 8),
-                            _DirectionPushBtn(
+                            _MakitaBtn(
                               icon: LucideIcons.arrowUp,
                               label: "UP",
+                              isVertical: true,
+                              borderRadius: 10,
+                              defaultTextColor: slate600,
+                              defaultIconColor: slate600,
+                              fontSize: 12,
                               onTap: () =>
                                   setState(() => _currentRotation = 0.0),
                             ),
                             const SizedBox(width: 8),
-                            _DirectionPushBtn(
+                            _MakitaBtn(
                               icon: LucideIcons.arrowDownLeft,
                               label: "BACK",
+                              isVertical: true,
+                              borderRadius: 10,
+                              defaultTextColor: slate600,
+                              defaultIconColor: slate600,
+                              fontSize: 12,
                               onTap: () =>
                                   setState(() => _currentRotation = 450.0),
                             ),
@@ -1383,9 +1102,14 @@ class _CalculatorPageState extends State<CalculatorPage>
                       Expanded(
                         child: Row(
                           children: [
-                            _DirectionPushBtn(
+                            _MakitaBtn(
                               icon: LucideIcons.arrowLeft,
                               label: "LEFT",
+                              isVertical: true,
+                              borderRadius: 10,
+                              defaultTextColor: slate600,
+                              defaultIconColor: slate600,
+                              fontSize: 12,
                               onTap: () =>
                                   setState(() => _currentRotation = 270.0),
                             ),
@@ -1436,9 +1160,14 @@ class _CalculatorPageState extends State<CalculatorPage>
                               ),
                             ),
                             const SizedBox(width: 8),
-                            _DirectionPushBtn(
+                            _MakitaBtn(
                               icon: LucideIcons.arrowRight,
                               label: "RIGHT",
+                              isVertical: true,
+                              borderRadius: 10,
+                              defaultTextColor: slate600,
+                              defaultIconColor: slate600,
+                              fontSize: 12,
                               onTap: () =>
                                   setState(() => _currentRotation = 90.0),
                             ),
@@ -1449,10 +1178,14 @@ class _CalculatorPageState extends State<CalculatorPage>
                       Expanded(
                         child: Row(
                           children: [
-                            _GlowingActionBtn(
+                            _MakitaBtn(
                               icon: Icons.delete_outline,
                               label: "라인 삭제",
-                              color: Colors.red.shade600,
+                              primaryColor: Colors.red.shade600,
+                              isVertical: true,
+                              solidFill: false,
+                              borderRadius: 10,
+                              fontSize: 13,
                               onTap: () {
                                 if (_editingIndex == null) {
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -1527,17 +1260,26 @@ class _CalculatorPageState extends State<CalculatorPage>
                               },
                             ),
                             const SizedBox(width: 8),
-                            _DirectionPushBtn(
+                            _MakitaBtn(
                               icon: LucideIcons.arrowDown,
                               label: "DOWN",
+                              isVertical: true,
+                              borderRadius: 10,
+                              defaultTextColor: slate600,
+                              defaultIconColor: slate600,
+                              fontSize: 12,
                               onTap: () =>
                                   setState(() => _currentRotation = 180.0),
                             ),
                             const SizedBox(width: 8),
-                            _GlowingActionBtn(
+                            _MakitaBtn(
                               icon: Icons.check,
                               label: "적용",
-                              color: makitaTeal,
+                              primaryColor: makitaTeal,
+                              isVertical: true,
+                              solidFill: false,
+                              borderRadius: 10,
+                              fontSize: 13,
                               onTap: _handleApply,
                             ),
                           ],
@@ -1555,263 +1297,145 @@ class _CalculatorPageState extends State<CalculatorPage>
   }
 }
 
-class _AnglePushBtn extends StatefulWidget {
+class _MakitaBtn extends StatefulWidget {
   final String label;
-  final VoidCallback onTap;
   final IconData? icon;
-
-  const _AnglePushBtn({required this.label, required this.onTap, this.icon});
-
-  @override
-  State<_AnglePushBtn> createState() => _AnglePushBtnState();
-}
-
-class _AnglePushBtnState extends State<_AnglePushBtn> {
-  bool _isPressed = false;
-
-  void _handleTapDown(TapDownDetails details) =>
-      setState(() => _isPressed = true);
-
-  void _handleTapUp(TapUpDetails details) async {
-    await Future.delayed(const Duration(milliseconds: 100));
-    if (mounted) setState(() => _isPressed = false);
-    widget.onTap();
-  }
-
-  void _handleTapCancel() => setState(() => _isPressed = false);
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTapDown: _handleTapDown,
-        onTapUp: _handleTapUp,
-        onTapCancel: _handleTapCancel,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 80),
-          decoration: BoxDecoration(
-            color: _isPressed ? makitaTeal : pureWhite,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: _isPressed ? makitaTeal : Colors.grey.shade300,
-              width: _isPressed ? 2 : 1,
-            ),
-            boxShadow: _isPressed
-                ? [
-                    BoxShadow(
-                      color: makitaTeal.withValues(alpha: 0.3),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : [],
-          ),
-          child: Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (widget.icon != null) ...[
-                  Icon(
-                    widget.icon,
-                    size: 14,
-                    color: _isPressed ? pureWhite : slate600,
-                  ),
-                  const SizedBox(width: 4),
-                ],
-                Text(
-                  widget.label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: _isPressed ? pureWhite : slate900,
-                    fontSize: widget.label == "0°(직관)" || widget.icon != null
-                        ? 13
-                        : 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GlowingActionBtn extends StatefulWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
   final VoidCallback onTap;
+  final Color primaryColor;
+  final Color? defaultTextColor;
+  final Color? defaultIconColor;
+  final bool isVertical;
+  final bool solidFill;
+  final double fontSize;
+  final double borderRadius;
 
-  const _GlowingActionBtn({
-    required this.icon,
+  const _MakitaBtn({
     required this.label,
-    required this.color,
     required this.onTap,
+    this.icon,
+    this.primaryColor = makitaTeal,
+    this.defaultTextColor,
+    this.defaultIconColor,
+    this.isVertical = false,
+    this.solidFill = true,
+    this.fontSize = 14,
+    this.borderRadius = 8,
   });
 
   @override
-  State<_GlowingActionBtn> createState() => _GlowingActionBtnState();
+  State<_MakitaBtn> createState() => _MakitaBtnState();
 }
 
-class _GlowingActionBtnState extends State<_GlowingActionBtn> {
+class _MakitaBtnState extends State<_MakitaBtn> {
   bool _isPressed = false;
-
-  void _handleTapDown(TapDownDetails details) =>
-      setState(() => _isPressed = true);
-  void _handleTapUp(TapUpDetails details) async {
-    await Future.delayed(const Duration(milliseconds: 100));
-    if (mounted) setState(() => _isPressed = false);
-    widget.onTap();
-  }
-
-  void _handleTapCancel() => setState(() => _isPressed = false);
 
   @override
   Widget build(BuildContext context) {
+    Color bgColor = pureWhite;
+    Color borderColor = Colors.grey.shade300;
+    Color txtColor = widget.defaultTextColor ?? slate900;
+    Color icnColor = widget.defaultIconColor ?? slate600;
+    double borderWidth = 1.0;
+    List<BoxShadow> shadows = [];
+
+    if (widget.solidFill) {
+      if (_isPressed) {
+        bgColor = widget.primaryColor;
+        borderColor = widget.primaryColor;
+        borderWidth = 2.0;
+        txtColor = pureWhite;
+        icnColor = pureWhite;
+        shadows = [
+          BoxShadow(
+            color: widget.primaryColor.withValues(alpha: 0.3),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ];
+      }
+    } else {
+      borderColor = widget.primaryColor;
+      borderWidth = _isPressed ? 3.0 : 1.5;
+      txtColor = widget.primaryColor;
+      icnColor = widget.primaryColor;
+      if (_isPressed) {
+        bgColor = widget.primaryColor.withValues(alpha: 0.1);
+        shadows = [
+          BoxShadow(
+            color: widget.primaryColor.withValues(alpha: 0.3),
+            blurRadius: 10,
+            spreadRadius: 1,
+            offset: const Offset(0, 2),
+          ),
+        ];
+      }
+    }
+
+    final content = widget.isVertical
+        ? Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (widget.icon != null)
+                Icon(widget.icon, color: icnColor, size: 26),
+              if (widget.icon != null) const SizedBox(height: 4),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: txtColor,
+                  fontSize: widget.fontSize,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          )
+        : Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (widget.icon != null)
+                Icon(widget.icon, size: 14, color: icnColor),
+              if (widget.icon != null) const SizedBox(width: 4),
+              Text(
+                widget.label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: txtColor,
+                  fontSize: widget.fontSize,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          );
+
     return Expanded(
       child: GestureDetector(
-        onTapDown: _handleTapDown,
-        onTapUp: _handleTapUp,
-        onTapCancel: _handleTapCancel,
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) async {
+          await Future.delayed(const Duration(milliseconds: 100));
+          if (mounted) setState(() => _isPressed = false);
+          widget.onTap();
+        },
+        onTapCancel: () => setState(() => _isPressed = false),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 80),
           decoration: BoxDecoration(
-            color: _isPressed ? widget.color.withValues(alpha: 0.1) : pureWhite,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: widget.color,
-              width: _isPressed ? 3.0 : 1.5,
-            ),
-            boxShadow: _isPressed
-                ? [
-                    BoxShadow(
-                      color: widget.color.withValues(alpha: 0.3),
-                      blurRadius: 10,
-                      spreadRadius: 1,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : [],
+            color: bgColor,
+            borderRadius: BorderRadius.circular(widget.borderRadius),
+            border: Border.all(color: borderColor, width: borderWidth),
+            boxShadow: shadows,
           ),
-          // 🚀 수정됨: 하단 액션 버튼 오버플로우 방지 (FittedBox 적용)
           child: Center(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 4.0,
-                  vertical: 2.0,
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(widget.icon, color: widget.color, size: 26),
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.label,
-                      style: TextStyle(
-                        color: widget.color,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
+            child: widget.isVertical
+                ? FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4.0,
+                        vertical: 2.0,
                       ),
+                      child: content,
                     ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DirectionPushBtn extends StatefulWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _DirectionPushBtn({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  State<_DirectionPushBtn> createState() => _DirectionPushBtnState();
-}
-
-class _DirectionPushBtnState extends State<_DirectionPushBtn> {
-  bool _isPressed = false;
-
-  void _handleTapDown(TapDownDetails details) =>
-      setState(() => _isPressed = true);
-  void _handleTapUp(TapUpDetails details) async {
-    await Future.delayed(const Duration(milliseconds: 100));
-    if (mounted) setState(() => _isPressed = false);
-    widget.onTap();
-  }
-
-  void _handleTapCancel() => setState(() => _isPressed = false);
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTapDown: _handleTapDown,
-        onTapUp: _handleTapUp,
-        onTapCancel: _handleTapCancel,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 80),
-          decoration: BoxDecoration(
-            color: _isPressed ? makitaTeal : pureWhite,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: _isPressed ? makitaTeal : Colors.grey.shade300,
-              width: _isPressed ? 2 : 1,
-            ),
-            boxShadow: _isPressed
-                ? [
-                    BoxShadow(
-                      color: makitaTeal.withValues(alpha: 0.3),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : [],
-          ),
-          // 🚀 수정됨: 방향 버튼 오버플로우 방지 (FittedBox 적용)
-          child: Center(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 4.0,
-                  vertical: 2.0,
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      widget.icon,
-                      color: _isPressed ? pureWhite : slate600,
-                      size: 26,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.label,
-                      style: TextStyle(
-                        color: _isPressed ? pureWhite : slate600,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+                  )
+                : content,
           ),
         ),
       ),

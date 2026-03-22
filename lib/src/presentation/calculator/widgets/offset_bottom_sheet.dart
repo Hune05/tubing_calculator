@@ -1,3 +1,4 @@
+// lib/src/presentation/calculator/widgets/offset_bottom_sheet.dart
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:math' as math;
@@ -70,7 +71,6 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
     ctrl.text = next.toStringAsFixed(next % 1 == 0 ? 0 : 1);
   }
 
-  // 평행을 맞추기 위한 180도 반전 회전값 계산
   double _getOppositeRotation(double currentRot) {
     if (currentRot == 360.0) return 450.0;
     if (currentRot == 450.0) return 360.0;
@@ -110,6 +110,7 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           border: Border(top: BorderSide(color: makitaTeal, width: 3)),
         ),
+        // 🚀 핵심: 메인 Column을 shrink 설정하여 남는 여백 제거
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -163,128 +164,117 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
               ],
             ),
             const SizedBox(height: 20),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  // 🚀 탭 1: 정방향 오프셋
-                  SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "벤딩 각도 (∠)",
-                          style: TextStyle(color: Colors.white70, fontSize: 13),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: _buildTextField(_angleCtrl, "각도 °"),
-                            ),
-                            const SizedBox(width: 12),
-                            ...[22.5, 30.0, 45.0, 60.0].map(
-                              (val) => _buildQuickAngleBtn(_angleCtrl, val),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        _buildResultBox(
-                          title: "필요 빗변 길이 (Travel)",
-                          value: calcTravel,
-                          btnText: "적용",
-                          isError: false,
-                          onPressed: () {
-                            if (calcTravel > 0 && a > 0) {
-                              double roundedTravel = double.parse(
-                                calcTravel.toStringAsFixed(1),
-                              );
-                              // 🚀 사용자가 선택하는 대신, 기존 진행 방향을 그대로 활용하여 평행 오프셋 구성
-                              double oppRot = _getOppositeRotation(
-                                widget.currentRotation,
-                              );
 
-                              widget.onAddBend(0.0, a, widget.currentRotation);
-                              widget.onAddBend(roundedTravel, a, oppRot);
-                              Navigator.pop(context);
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-                    ),
-                  ),
-                  // 🚀 탭 2: 역산 오프셋
-                  SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "현장 빗변 길이 (Travel)",
-                          style: TextStyle(color: Colors.white70, fontSize: 13),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildTextField(_travelCtrl, "거리 mm"),
-                            ),
-                            const SizedBox(width: 12),
-                            _buildQuickBtn(_travelCtrl, -10.0, "-10"),
-                            const SizedBox(width: 4),
-                            _buildQuickBtn(_travelCtrl, 10.0, "+10"),
-                          ],
-                        ),
-                        if (inverseError)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 8.0),
-                            child: Text(
-                              "오류: 빗변(Travel)은 높이(H)보다 길어야 합니다!",
-                              style: TextStyle(
-                                color: Colors.redAccent,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        const SizedBox(height: 24),
-                        _buildResultBox(
-                          title: "필요 각도 (∠)",
-                          value: calcAngle,
-                          btnText: "적용",
-                          isError: inverseError,
-                          isAngle: true,
-                          onPressed: () {
-                            if (t > 0 && calcAngle > 0 && !inverseError) {
-                              double roundedAngle = double.parse(
-                                calcAngle.toStringAsFixed(1),
-                              );
-                              // 🚀 탭 2에서도 마찬가지로 기존 진행 방향 활용
-                              double oppRot = _getOppositeRotation(
-                                widget.currentRotation,
-                              );
-
-                              widget.onAddBend(
-                                0.0,
-                                roundedAngle,
-                                widget.currentRotation,
-                              );
-                              widget.onAddBend(t, roundedAngle, oppRot);
-                              Navigator.pop(context);
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+            // 🚀 핵심: Expanded 대신 높이를 컨텐츠에 맞추는 래퍼 사용
+            AnimatedBuilder(
+              animation: _tabController,
+              builder: (context, _) {
+                // 현재 탭에 맞는 위젯만 렌더링하여 고정 높이 점유를 방지
+                return _tabController.index == 0
+                    ? _buildForwardTab(a, calcTravel)
+                    : _buildInverseTab(t, calcAngle, inverseError);
+              },
             ),
           ],
         ),
       ),
+    );
+  }
+
+  // 🚀 정방향 탭 UI 분리
+  Widget _buildForwardTab(double a, double calcTravel) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "벤딩 각도 (∠)",
+          style: TextStyle(color: Colors.white70, fontSize: 13),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(flex: 2, child: _buildTextField(_angleCtrl, "각도 °")),
+            const SizedBox(width: 12),
+            ...[
+              22.5,
+              30.0,
+              45.0,
+              60.0,
+            ].map((val) => _buildQuickAngleBtn(_angleCtrl, val)),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _buildResultBox(
+          title: "필요 빗변 길이 (Travel)",
+          value: calcTravel,
+          btnText: "적용",
+          isError: false,
+          onPressed: () {
+            if (calcTravel > 0 && a > 0) {
+              double roundedTravel = double.parse(
+                calcTravel.toStringAsFixed(1),
+              );
+              double oppRot = _getOppositeRotation(widget.currentRotation);
+
+              widget.onAddBend(0.0, a, widget.currentRotation);
+              widget.onAddBend(roundedTravel, a, oppRot);
+              Navigator.pop(context);
+            }
+          },
+        ),
+      ],
+    );
+  }
+
+  // 🚀 역산 탭 UI 분리
+  Widget _buildInverseTab(double t, double calcAngle, bool inverseError) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "현장 빗변 길이 (Travel)",
+          style: TextStyle(color: Colors.white70, fontSize: 13),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(child: _buildTextField(_travelCtrl, "거리 mm")),
+            const SizedBox(width: 12),
+            _buildQuickBtn(_travelCtrl, -10.0, "-10"),
+            const SizedBox(width: 4),
+            _buildQuickBtn(_travelCtrl, 10.0, "+10"),
+          ],
+        ),
+        if (inverseError)
+          const Padding(
+            padding: EdgeInsets.only(top: 8.0),
+            child: Text(
+              "오류: 빗변(Travel)은 높이(H)보다 길어야 합니다!",
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        const SizedBox(height: 24),
+        _buildResultBox(
+          title: "필요 각도 (∠)",
+          value: calcAngle,
+          btnText: "적용",
+          isError: inverseError,
+          isAngle: true,
+          onPressed: () {
+            if (t > 0 && calcAngle > 0 && !inverseError) {
+              double roundedAngle = double.parse(calcAngle.toStringAsFixed(1));
+              double oppRot = _getOppositeRotation(widget.currentRotation);
+
+              widget.onAddBend(0.0, roundedAngle, widget.currentRotation);
+              widget.onAddBend(t, roundedAngle, oppRot);
+              Navigator.pop(context);
+            }
+          },
+        ),
+      ],
     );
   }
 
