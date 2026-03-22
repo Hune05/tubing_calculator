@@ -5,7 +5,7 @@ import 'package:tubing_calculator/src/core/database/database_helper.dart';
 // 💡 [경로 확인] 본인 프로젝트에 맞는 경로 활성화
 import '../../fabrication/screens/fabrication_detail_screen.dart';
 
-// 💡 실무용 컬러 팔레트 (눈이 편안한 슬레이트 톤 추가)
+// 💡 실무용 컬러 팔레트 (눈이 편안한 슬레이트 톤)
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
 const Color slate600 = Color(0xFF475569);
@@ -25,19 +25,28 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Map<String, List<Map<String, dynamic>>> _groupedHistory = {};
   bool _isLoading = true;
 
+  // 🚀 [추가] 검색 기능을 위한 상태 변수들
+  bool _isSearching = false;
+  String _searchQuery = "";
+  final TextEditingController _searchController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     _refreshHistory();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose(); // 메모리 누수 방지
+    super.dispose();
+  }
+
   Future<void> _refreshHistory() async {
     setState(() => _isLoading = true);
 
-    // 🔥 에러 수정 완료: readAllHistory() -> getHistory() 로 변경!
     final data = await DatabaseHelper.instance.getHistory();
 
-    // 🚀 [디테일 1] 비동기 작업(await) 후 화면이 닫혔으면 멈춤 (앱 튕김 방지)
     if (!mounted) return;
 
     // 데이터를 프로젝트(폴더)별로 그룹화
@@ -60,7 +69,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       tempGrouped[project]!.add(item);
     }
 
-    // 🚀 [디테일 2] 폴더 안의 도면들을 '최신순(ID 내림차순)'으로 정렬
+    // 폴더 안의 도면들을 '최신순(ID 내림차순)'으로 정렬
     tempGrouped.forEach((key, list) {
       list.sort((a, b) => (b['id'] as int).compareTo(a['id'] as int));
     });
@@ -73,29 +82,94 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 🚀 [추가] 검색어에 맞게 데이터 필터링 로직 적용
+    Map<String, List<Map<String, dynamic>>> filteredGroupedHistory = {};
+
+    if (_searchQuery.isEmpty) {
+      // 검색어가 없으면 전체 표시
+      filteredGroupedHistory = _groupedHistory;
+    } else {
+      _groupedHistory.forEach((folderName, items) {
+        // 1. 폴더 이름이 검색어와 일치하는가?
+        bool folderMatches = folderName.toLowerCase().contains(_searchQuery);
+
+        // 2. 폴더 내 아이템의 경로(from -> to)가 검색어와 일치하는가?
+        List<Map<String, dynamic>> matchingItems = items.where((item) {
+          String rawPtoP = item['p_to_p'] ?? '{}';
+          String fromTo = "";
+          try {
+            var pData = jsonDecode(rawPtoP);
+            fromTo = "${pData['from']} ➔ ${pData['to']}".toLowerCase();
+          } catch (_) {}
+
+          return fromTo.contains(_searchQuery);
+        }).toList();
+
+        // 폴더 이름이 일치하면 그 안의 모든 아이템을 보여주고,
+        // 그렇지 않으면 경로가 일치하는 아이템만 골라서 폴더를 만듦
+        if (folderMatches) {
+          filteredGroupedHistory[folderName] = items;
+        } else if (matchingItems.isNotEmpty) {
+          filteredGroupedHistory[folderName] = matchingItems;
+        }
+      });
+    }
+
     return Scaffold(
-      backgroundColor: slate50, // 💡 전체 배경을 눈이 편안한 오프화이트로
+      backgroundColor: slate50,
       appBar: AppBar(
-        title: const Text(
-          '제작 보관함',
-          style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1),
-        ),
+        // 🚀 [수정] 검색 상태에 따라 AppBar UI 변화 (텍스트 입력창 vs 타이틀)
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: const TextStyle(color: pureWhite, fontSize: 16),
+                decoration: const InputDecoration(
+                  hintText: '프로젝트명 또는 경로 검색...',
+                  hintStyle: TextStyle(color: Colors.white70),
+                  border: InputBorder.none,
+                ),
+                onChanged: (val) {
+                  setState(() {
+                    _searchQuery = val.toLowerCase();
+                  });
+                },
+              )
+            : const Text(
+                '작업 기록 보관', // 💡 명칭 변경 적용
+                style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1),
+              ),
         backgroundColor: makitaTeal,
         foregroundColor: pureWhite,
         elevation: 0,
+        actions: [
+          // 🚀 [추가] 돋보기 검색 버튼
+          IconButton(
+            icon: Icon(_isSearching ? Icons.close : Icons.search),
+            onPressed: () {
+              setState(() {
+                _isSearching = !_isSearching;
+                if (!_isSearching) {
+                  _searchController.clear();
+                  _searchQuery = ""; // 검색 취소 시 초기화
+                }
+              });
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: makitaTeal))
-          : _groupedHistory.isEmpty
+          : filteredGroupedHistory.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.inbox, size: 80, color: Colors.grey.shade300),
                   const SizedBox(height: 16),
-                  const Text(
-                    '저장된 도면이 없습니다.',
-                    style: TextStyle(
+                  Text(
+                    _isSearching ? '검색 결과가 없습니다.' : '저장된 도면이 없습니다.',
+                    style: const TextStyle(
                       color: slate600,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -106,13 +180,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
             )
           : ListView.builder(
               padding: const EdgeInsets.all(16),
-              itemCount: _groupedHistory.keys.length,
+              itemCount: filteredGroupedHistory.keys.length,
               itemBuilder: (context, index) {
-                String folderName = _groupedHistory.keys.elementAt(index);
+                String folderName = filteredGroupedHistory.keys.elementAt(
+                  index,
+                );
                 List<Map<String, dynamic>> folderItems =
-                    _groupedHistory[folderName]!;
+                    filteredGroupedHistory[folderName]!;
 
-                // 아코디언 형태의 폴더 디자인 (화이트 테마)
+                // 아코디언 형태의 폴더 디자인
                 return Theme(
                   data: Theme.of(
                     context,
@@ -125,14 +201,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       border: Border.all(color: Colors.grey.shade200),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.03),
+                          color: Colors.black.withValues(alpha: 0.03),
                           blurRadius: 6,
                           offset: const Offset(0, 3),
                         ),
                       ],
                     ),
                     child: ExpansionTile(
-                      initiallyExpanded: index == 0,
+                      initiallyExpanded:
+                          index == 0 || _isSearching, // 검색 중일 때는 기본으로 폴더 열어두기
                       iconColor: makitaTeal,
                       collapsedIconColor: slate600,
                       leading: const Icon(
@@ -169,7 +246,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             bottom: 12,
                           ),
                           decoration: BoxDecoration(
-                            color: slate100, // 💡 폴더 안의 파일은 살짝 회색으로 구분감 부여
+                            color: slate100,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: Colors.grey.shade200),
                           ),
@@ -187,7 +264,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       FabricationDetailScreen(itemData: item),
                                 ),
                               );
-                              // 🚀 [디테일 3] 뒤로가기 눌러서 돌아왔을 때 안전하게 새로고침
                               if (!mounted) return;
                               _refreshHistory();
                             },
@@ -248,7 +324,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 color: Colors.red.shade400,
                               ),
                               onPressed: () async {
-                                // 💡 삭제 확인 팝업
+                                // 삭제 확인 팝업
                                 bool? confirm = await showDialog(
                                   context: context,
                                   builder: (ctx) => AlertDialog(
@@ -298,7 +374,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   await DatabaseHelper.instance.deleteHistory(
                                     item['id'],
                                   );
-                                  // 🚀 [디테일 4] 삭제 완료 후 팝업 닫힌 뒤 안전하게 새로고침
                                   if (!mounted) return;
                                   _refreshHistory();
                                 }

@@ -1120,6 +1120,10 @@ class _CalculatorPageState extends State<CalculatorPage>
                                     Transform.scale(
                                       scale: 0.9,
                                       child: MakitaNumpad(
+                                        // 🚀 [여기가 추가된 핵심 코드]
+                                        key: ValueKey(
+                                          _editingIndex ?? 'new_input',
+                                        ),
                                         controller: _tempController,
                                         onApply: _handleApply,
                                         title: _editingIndex != null
@@ -1202,7 +1206,7 @@ class _CalculatorPageState extends State<CalculatorPage>
                               ),
                               const SizedBox(width: 8),
                               _AnglePushBtn(
-                                label: "15°", // 🚀 .0 제거됨
+                                label: "15°",
                                 onTap: () =>
                                     setState(() => _currentAngle = 15.0),
                               ),
@@ -1214,13 +1218,13 @@ class _CalculatorPageState extends State<CalculatorPage>
                           child: Row(
                             children: [
                               _AnglePushBtn(
-                                label: "22.5°", // 🚀 이건 유지
+                                label: "22.5°",
                                 onTap: () =>
                                     setState(() => _currentAngle = 22.5),
                               ),
                               const SizedBox(width: 8),
                               _AnglePushBtn(
-                                label: "30°", // 🚀 .0 제거됨
+                                label: "30°",
                                 onTap: () =>
                                     setState(() => _currentAngle = 30.0),
                               ),
@@ -1232,13 +1236,13 @@ class _CalculatorPageState extends State<CalculatorPage>
                           child: Row(
                             children: [
                               _AnglePushBtn(
-                                label: "45°", // 🚀 .0 제거됨
+                                label: "45°",
                                 onTap: () =>
                                     setState(() => _currentAngle = 45.0),
                               ),
                               const SizedBox(width: 8),
                               _AnglePushBtn(
-                                label: "60°", // 🚀 .0 제거됨
+                                label: "60°",
                                 onTap: () =>
                                     setState(() => _currentAngle = 60.0),
                               ),
@@ -1250,13 +1254,13 @@ class _CalculatorPageState extends State<CalculatorPage>
                           child: Row(
                             children: [
                               _AnglePushBtn(
-                                label: "90°", // 🚀 .0 제거됨
+                                label: "90°",
                                 onTap: () =>
                                     setState(() => _currentAngle = 90.0),
                               ),
                               const SizedBox(width: 8),
                               _AnglePushBtn(
-                                label: "180°", // 🚀 .0 제거됨
+                                label: "180°",
                                 onTap: () =>
                                     setState(() => _currentAngle = 180.0),
                               ),
@@ -1277,7 +1281,6 @@ class _CalculatorPageState extends State<CalculatorPage>
                                       width: 1.5,
                                     ),
                                   ),
-                                  // 🚀 수정됨: 현재 각도 오버플로우 방지 (FittedBox 적용)
                                   child: Center(
                                     child: FittedBox(
                                       fit: BoxFit.scaleDown,
@@ -1397,7 +1400,6 @@ class _CalculatorPageState extends State<CalculatorPage>
                                     width: 1.5,
                                   ),
                                 ),
-                                // 🚀 수정됨: 현재 방향 오버플로우 방지 (FittedBox 적용)
                                 child: Center(
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,

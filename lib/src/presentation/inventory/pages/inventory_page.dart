@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:io';
 import 'dart:convert';
-import 'package:csv/csv.dart'; // 💡 ListToCsvConverter 에러 해결을 위한 필수 임포트!
+import 'package:csv/csv.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart'; // 💡 공유 기능을 위한 필수 임포트!
+import 'package:share_plus/share_plus.dart';
 
 import 'inventory_constants.dart';
 
@@ -33,7 +33,7 @@ class _InventoryPageState extends State<InventoryPage> {
   String? _selectedDocId;
   Map<String, dynamic>? _selectedItemData;
 
-  // 관리자 권한 토글
+  // 관리자 권한 토글 (실무 적용 시 로그인 세션과 연동)
   bool _isAdmin = true;
 
   final List<String> _categories = [
@@ -95,7 +95,7 @@ class _InventoryPageState extends State<InventoryPage> {
                     setState(() => _searchQuery = v.toLowerCase()),
               )
             : const Text(
-                '태블릿 자재 창고 관리',
+                '태블릿 자재 창고 관리', // 태블릿용 명시
                 style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
               ),
         backgroundColor: makitaTeal,
@@ -113,13 +113,11 @@ class _InventoryPageState extends State<InventoryPage> {
               ),
               Switch(
                 value: _isAdmin,
-                onChanged: (v) {
-                  setState(() {
-                    _isAdmin = v;
-                    _selectedDocId = null;
-                    _selectedItemData = null;
-                  });
-                },
+                onChanged: (v) => setState(() {
+                  _isAdmin = v;
+                  _selectedDocId = null;
+                  _selectedItemData = null;
+                }),
                 activeColor: Colors.amberAccent,
                 activeTrackColor: Colors.black26,
               ),
@@ -127,15 +125,13 @@ class _InventoryPageState extends State<InventoryPage> {
           ),
           IconButton(
             icon: Icon(_isSearching ? Icons.close : LucideIcons.search),
-            onPressed: () {
-              setState(() {
-                _isSearching = !_isSearching;
-                if (!_isSearching) {
-                  _searchController.clear();
-                  _searchQuery = "";
-                }
-              });
-            },
+            onPressed: () => setState(() {
+              _isSearching = !_isSearching;
+              if (!_isSearching) {
+                _searchController.clear();
+                _searchQuery = "";
+              }
+            }),
           ),
         ],
       ),
@@ -201,13 +197,11 @@ class _InventoryPageState extends State<InventoryPage> {
                                         ),
                                       );
                                     }
-                                  : () {
-                                      _showMainStockActionDialog(
-                                        isDispatch: false,
-                                        docId: _selectedDocId!,
-                                        item: _selectedItemData!,
-                                      );
-                                    },
+                                  : () => _showMainStockActionDialog(
+                                      isDispatch: false,
+                                      docId: _selectedDocId!,
+                                      item: _selectedItemData!,
+                                    ),
                               child: const Text(
                                 "자재 입고 (+)",
                                 style: TextStyle(
@@ -239,13 +233,11 @@ class _InventoryPageState extends State<InventoryPage> {
                                         ),
                                       );
                                     }
-                                  : () {
-                                      _showMainStockActionDialog(
-                                        isDispatch: true,
-                                        docId: _selectedDocId!,
-                                        item: _selectedItemData!,
-                                      );
-                                    },
+                                  : () => _showMainStockActionDialog(
+                                      isDispatch: true,
+                                      docId: _selectedDocId!,
+                                      item: _selectedItemData!,
+                                    ),
                               child: const Text(
                                 "자재 불출 (-)",
                                 style: TextStyle(
@@ -306,12 +298,10 @@ class _InventoryPageState extends State<InventoryPage> {
                                         ),
                                       );
                                     }
-                                  : () {
-                                      _showProjectReturnDialog(
-                                        docId: _selectedDocId!,
-                                        pItem: _selectedItemData!,
-                                      );
-                                    },
+                                  : () => _showProjectReturnDialog(
+                                      docId: _selectedDocId!,
+                                      pItem: _selectedItemData!,
+                                    ),
                               child: const Text(
                                 "자재 반납",
                                 style: TextStyle(
@@ -334,15 +324,13 @@ class _InventoryPageState extends State<InventoryPage> {
     bool isSel = _currentTabIndex == index;
     return Expanded(
       child: GestureDetector(
-        onTap: () {
-          setState(() {
-            if (_currentTabIndex != index) {
-              _currentTabIndex = index;
-              _selectedDocId = null;
-              _selectedItemData = null;
-            }
-          });
-        },
+        onTap: () => setState(() {
+          if (_currentTabIndex != index) {
+            _currentTabIndex = index;
+            _selectedDocId = null;
+            _selectedItemData = null;
+          }
+        }),
         child: Container(
           height: 40,
           decoration: BoxDecoration(

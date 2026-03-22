@@ -33,7 +33,7 @@ class MakitaNumpad extends StatefulWidget {
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
         child: Container(
-          height: 480, // 🔥 높이 통일
+          height: 480,
           decoration: BoxDecoration(
             color: slate50,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -60,39 +60,55 @@ class MakitaNumpad extends StatefulWidget {
 }
 
 class _MakitaNumpadState extends State<MakitaNumpad> {
-  bool _isFirstPress = true; // 🚀 첫 터치 덮어쓰기 로직
+  // 🚀 첫 터치 시 기존 값을 지우기 위한 상태값
+  bool _isFirstPress = true;
+
+  @override
+  void didUpdateWidget(covariant MakitaNumpad oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 💡 핵심 수정: 텍스트가 같더라도(예: 1번 라인 100, 2번 라인 100)
+    // title("#1 적용" -> "#2 적용")이 바뀌면 무조건 새로운 입력으로 간주하고 초기화합니다.
+    if (oldWidget.title != widget.title ||
+        oldWidget.controller.text != widget.controller.text) {
+      _isFirstPress = true;
+    }
+  }
 
   void _onKeyPressed(String value) {
-    if (value == 'C') {
-      widget.controller.text = '';
-      _isFirstPress = false;
-    } else if (value == 'DEL') {
-      final text = widget.controller.text;
-      if (text.isNotEmpty) {
-        widget.controller.text = text.substring(0, text.length - 1);
-      }
-      _isFirstPress = false;
-    } else {
-      if (_isFirstPress) {
+    setState(() {
+      if (value == 'C') {
         widget.controller.text = '';
         _isFirstPress = false;
-      }
-
-      final text = widget.controller.text;
-      if (value == '.') {
-        if (!text.contains('.')) {
-          widget.controller.text = text.isEmpty ? '0.' : text + '.';
+      } else if (value == 'DEL') {
+        final text = widget.controller.text;
+        if (text.isNotEmpty) {
+          widget.controller.text = text.substring(0, text.length - 1);
         }
+        // 지우기 버튼을 누르면 이어서 수정하려는 의도이므로 덮어쓰기 해제
+        _isFirstPress = false;
       } else {
-        if (text == '0' && value != '00') {
-          widget.controller.text = value;
-        } else if (text == '0' && value == '00') {
-          return; // 0일때 00 입력 무시
+        // 🚀 첫 터치 시 기존 값을 완전히 지우고 새로 입력
+        if (_isFirstPress) {
+          widget.controller.text = '';
+          _isFirstPress = false;
+        }
+
+        final text = widget.controller.text;
+        if (value == '.') {
+          if (!text.contains('.')) {
+            widget.controller.text = text.isEmpty ? '0.' : text + '.';
+          }
         } else {
-          widget.controller.text = text + value;
+          if (text == '0' && value != '00') {
+            widget.controller.text = value;
+          } else if (text == '0' && value == '00') {
+            return;
+          } else {
+            widget.controller.text = text + value;
+          }
         }
       }
-    }
+    });
   }
 
   Widget _buildButton(
@@ -216,7 +232,6 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
           ),
           const SizedBox(height: 16),
 
-          // 🔥 배열 통일 완료
           Expanded(
             child: Column(
               children: [

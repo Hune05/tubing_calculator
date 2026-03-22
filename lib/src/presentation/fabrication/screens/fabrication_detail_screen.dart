@@ -71,15 +71,16 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     return "${rot.toInt()}°";
   }
 
+  // 🚀 [수정] BA, SB 등의 값도 정수 반올림 출력 (필요 시 수정 가능)
   String _extractValue(Map<String, dynamic> map, List<String> keys) {
     for (String key in keys) {
       if (map.containsKey(key) && map[key] != null) {
         var val = map[key];
         if (val is num) {
-          return val.toStringAsFixed(1);
+          return val.round().toString(); // 💡 반올림 적용
         } else if (val is String && val.isNotEmpty) {
           double? parsed = double.tryParse(val);
-          return parsed != null ? parsed.toStringAsFixed(1) : val;
+          return parsed != null ? parsed.round().toString() : val; // 💡 반올림 적용
         }
       }
     }
@@ -224,16 +225,15 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
       bendList = [];
     }
 
-    // 🚀 [문제 해결의 핵심!] 건너뛰는 버그 수정
-    // 3D 뷰어와 리스트가 '진짜 번호'를 공유할 수 있도록 정확히 계산합니다.
     int markNumber = 1;
     for (int i = 0; i < bendList.length; i++) {
       bool isStraight = (bendList[i]['angle']?.toDouble() ?? 0.0) == 0.0;
       bendList[i]['is_straight'] = isStraight;
       bendList[i]['display_mark_num'] = isStraight ? 0 : markNumber;
-      if (!isStraight) markNumber++; // 직관이 아닐 때만 번호를 하나씩 올립니다.
+      if (!isStraight) markNumber++;
     }
 
+    // 🚀 [핵심] 총 컷팅 길이 반올림 적용 (절단장 정수로 표현)
     final double absoluteTotalCut =
         double.tryParse(currentData['total_length']?.toString() ?? '0') ?? 0.0;
     final int displayTotalCut = absoluteTotalCut.round();
@@ -357,7 +357,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            "$displayTotalCut mm",
+                            "$displayTotalCut mm", // 💡 반올림 적용된 총 길이 출력!
                             style: TextStyle(
                               color: Colors.red.shade700,
                               fontSize: 16,
@@ -396,7 +396,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: PipeVisualizer(
-                          bendList: bendList, // 🚀 완벽하게 번호 매겨진 데이터 전달
+                          bendList: bendList,
                           tailLength: tail,
                           selectedSegmentIndex: _selectedSegmentIndex,
                           initialStartDir: startDir,
@@ -533,7 +533,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     );
   }
 
-  // 🚀 직관/벤딩을 완벽하게 분리한 UI (직관은 마킹값 스킵)
   Widget _buildSegmentListItem({
     required int index,
     required bool isSelected,
@@ -552,21 +551,25 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     int displayMarkNum = 0;
 
     if (isTail) {
-      lengthText = tailLength?.round().toString() ?? "0";
+      lengthText = tailLength?.round().toString() ?? "0"; // 💡 여유 기장 반올림!
       directionText = "TAIL";
     } else if (bendData != null) {
       double rawLength = (bendData['length'] ?? 0).toDouble();
       double rotation = (bendData['rotation'] ?? 0.0).toDouble();
-      String angle = bendData['angle']?.toString() ?? '0';
+
+      // 💡 벤딩 각도는 보통 정수로 들어가지만, 혹시 몰라 double로 변환 후 반올림
+      double rawAngle =
+          double.tryParse(bendData['angle']?.toString() ?? '0') ?? 0.0;
+      String angle = rawAngle.round().toString();
 
       isStraight = bendData['is_straight'] ?? false;
       displayMarkNum = bendData['display_mark_num'] ?? 0;
 
-      lengthText = rawLength.round().toString();
+      lengthText = rawLength.round().toString(); // 💡 입력 기장 반올림!
       directionText = "${_getDirectionTextShort(rotation)} $angle°";
 
-      // 🚀 핵심 로직: 직관(Straight)이면 아예 마킹값을 무시해버림!
       if (!isStraight) {
+        // _extractValue 함수 내부에서 이미 .round() 적용되도록 수정해두었음!
         markText = _extractValue(bendData, [
           'mark',
           'marking',
@@ -577,7 +580,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
       }
     }
 
-    // 🚀 [1] 직관(Straight) 및 꼬리(Tail) 구간 렌더링 (마킹 UI 완전 제거)
     if (isTail || isStraight) {
       return GestureDetector(
         onTap: onTap,
@@ -622,7 +624,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
       );
     }
 
-    // 🚀 [2] 실제 벤딩 구간: 번호표 큼직하게 + 마킹값 거대하게!
     bool hasExtraInfo = baText.isNotEmpty || sbText.isNotEmpty;
 
     return GestureDetector(
@@ -641,7 +642,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // 진짜 벤딩 마킹 번호표
                 Container(
                   width: 36,
                   height: 36,
@@ -660,8 +660,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                   ),
                 ),
                 const SizedBox(width: 16),
-
-                // 거대한 마킹 값
                 if (markText.isNotEmpty)
                   Expanded(
                     child: Column(
@@ -676,12 +674,12 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                           ),
                         ),
                         Text(
-                          "$markText mm",
+                          "$markText mm", // 💡 소수점 날아간 깔끔한 마킹 값 출력!
                           style: TextStyle(
                             color: isSelected
                                 ? Colors.orange.shade800
                                 : slate900,
-                            fontSize: 32, // 🔥 사이즈 폭발
+                            fontSize: 32,
                             fontWeight: FontWeight.w900,
                             fontFamily: 'monospace',
                           ),
@@ -691,10 +689,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                   ),
               ],
             ),
-
             const SizedBox(height: 16),
-
-            // 길이와 벤딩 각도 등 부차적 정보
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
@@ -721,7 +716,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                         ),
                       ),
                       Text(
-                        "$lengthText mm",
+                        "$lengthText mm", // 💡 반올림 적용!
                         style: const TextStyle(
                           color: slate900,
                           fontSize: 15,
@@ -755,7 +750,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                 ],
               ),
             ),
-
             if (hasExtraInfo) ...[
               const SizedBox(height: 8),
               Row(

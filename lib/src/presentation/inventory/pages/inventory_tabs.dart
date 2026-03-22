@@ -1,5 +1,6 @@
 part of 'inventory_page.dart';
 
+// 상태 확장 시 발생하는 setState 경고 무시
 // ignore_for_file: invalid_use_of_protected_member
 // ignore_for_file: library_private_types_in_public_api
 
@@ -661,47 +662,18 @@ extension InventoryTabsExt on _InventoryPageState {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             color: pureWhite,
-            child: Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: slate100,
-                      foregroundColor: slate900,
-                      elevation: 0,
-                    ),
-                    icon: const Icon(LucideIcons.trash2, size: 16),
-                    label: const Text(
-                      "기록 정리",
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    onPressed: _showDeleteLogsDialog,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey.shade400,
-                      foregroundColor: pureWhite,
-                      elevation: 0,
-                    ),
-                    icon: const Icon(LucideIcons.lock, size: 16),
-                    label: const Text(
-                      "엑셀 공유 (준비중)",
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("기기 호환성 문제로 현재 잠겨있는 기능입니다."),
-                          backgroundColor: Colors.grey,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: slate100,
+                foregroundColor: slate900,
+                elevation: 0,
+              ),
+              icon: const Icon(LucideIcons.trash2, size: 16),
+              label: const Text(
+                "기록 정리",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              onPressed: _showDeleteLogsDialog,
             ),
           ),
         const Divider(height: 1),
