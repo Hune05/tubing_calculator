@@ -1,7 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart'; // 🚀 캡처를 위한 패키지
 import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui; // 🚀 이미지 변환용
+import 'dart:typed_data'; // 🚀 바이트 데이터용
+
 import 'package:tubing_calculator/src/core/database/database_helper.dart';
 import 'package:tubing_calculator/src/data/bend_data_manager.dart';
+
+// 🚀 추가된 패키지 임포트
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 // 🚀 독립된 아이소 엔진 임포트
 import 'package:tubing_calculator/src/presentation/calculator/widgets/pipe_visualizer.dart';
@@ -35,8 +46,12 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
   String startDir = 'RIGHT';
   int? _selectedSegmentIndex;
 
-  // 💡 [개선] 매번 build에서 파싱하지 않도록 List를 상태로 관리
+  bool _isExporting = false;
+
   List<Map<String, dynamic>> parsedBendList = [];
+
+  // 🚀 형상을 캡처하기 위한 GlobalKey 생성
+  final GlobalKey _isoBoundaryKey = GlobalKey();
 
   @override
   void initState() {
@@ -44,7 +59,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     currentData = Map<String, dynamic>.from(widget.itemData);
     fittingDepth = BendDataManager().fittingDepth;
     _parsePtoP();
-    _parseBendData(); // 💡 [개선] 초기화 시 벤드 데이터를 한 번만 파싱
+    _parseBendData();
   }
 
   void _parsePtoP() {
@@ -65,7 +80,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     }
   }
 
-  // 💡 [개선] 성능 최적화: build 바깥으로 파싱 로직 분리
   void _parseBendData() {
     try {
       List<dynamic> rawList = jsonDecode(currentData['bend_data']);
@@ -111,6 +125,317 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     return "";
   }
 
+  // 🚀 형상 화면을 고화질 이미지(PNG)로 캡처하는 함수
+  Future<Uint8List?> _captureIsoImage() async {
+    try {
+      // RepaintBoundary를 찾음
+      RenderRepaintBoundary boundary =
+          _isoBoundaryKey.currentContext!.findRenderObject()
+              as RenderRepaintBoundary;
+      // pixelRatio를 3.0 이상으로 높여 아주 선명하게 캡처
+      ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+      ByteData? byteData = await image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+      return byteData?.buffer.asUint8List();
+    } catch (e) {
+      debugPrint("이미지 캡처 에러: $e");
+      return null;
+    }
+  }
+
+  // 🚀 PDF 생성 및 공유 로직
+  Future<void> _exportToPDFAndShare() async {
+    if (parsedBendList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("공유할 데이터가 없습니다."),
+          backgroundColor: slate600,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isExporting = true);
+
+    try {
+      // 1. 아이소 도면 캡처
+      Uint8List? isoImageBytes = await _captureIsoImage();
+      pw.MemoryImage? pdfIsoImage;
+      if (isoImageBytes != null) {
+        pdfIsoImage = pw.MemoryImage(isoImageBytes);
+      }
+
+      final pdf = pw.Document();
+
+      final double absoluteTotalCut =
+          double.tryParse(currentData['total_length']?.toString() ?? '0') ??
+          0.0;
+      final int displayTotalCut = absoluteTotalCut.round();
+
+      String fittingStr = "";
+      if (startFit) fittingStr += "S ";
+      if (endFit) fittingStr += (fittingStr.isNotEmpty ? "& E" : "E");
+      if (fittingStr.isEmpty) fittingStr = "None";
+
+      final String currentDate = DateTime.now().toString().split(' ')[0];
+
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(40),
+
+          header: (pw.Context context) {
+            return pw.Column(
+              children: [
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text(
+                      "TUBING FABRICATION REPORT",
+                      style: pw.TextStyle(
+                        fontSize: 22,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.teal800,
+                      ),
+                    ),
+                    pw.Text(
+                      "Date: $currentDate",
+                      style: const pw.TextStyle(
+                        fontSize: 10,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 8),
+                pw.Divider(thickness: 2, color: PdfColors.teal800),
+                pw.SizedBox(height: 20),
+              ],
+            );
+          },
+
+          footer: (pw.Context context) {
+            return pw.Container(
+              alignment: pw.Alignment.centerRight,
+              margin: const pw.EdgeInsets.only(top: 10),
+              child: pw.Text(
+                'Page ${context.pageNumber} of ${context.pagesCount}',
+                style: const pw.TextStyle(
+                  fontSize: 10,
+                  color: PdfColors.grey600,
+                ),
+              ),
+            );
+          },
+
+          build: (pw.Context context) {
+            return [
+              // 1. 도면 정보
+              pw.Container(
+                padding: const pw.EdgeInsets.all(16),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.grey100,
+                  borderRadius: const pw.BorderRadius.all(
+                    pw.Radius.circular(8),
+                  ),
+                  border: pw.Border.all(color: PdfColors.teal200, width: 1.5),
+                ),
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          "PROJECT INFO",
+                          style: pw.TextStyle(
+                            color: PdfColors.teal700,
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                        pw.SizedBox(height: 8),
+                        pw.Text(
+                          "Project: $project",
+                          style: const pw.TextStyle(fontSize: 14),
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          "Line: $from  ->  $to",
+                          style: const pw.TextStyle(fontSize: 14),
+                        ),
+                      ],
+                    ),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Text(
+                          "SPECIFICATION",
+                          style: pw.TextStyle(
+                            color: PdfColors.teal700,
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                        pw.SizedBox(height: 8),
+                        pw.Text(
+                          "Pipe Size: ${currentData['pipe_size']}  |  Fit: $fittingStr",
+                          style: const pw.TextStyle(fontSize: 14),
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          "Total Cut: $displayTotalCut mm",
+                          style: pw.TextStyle(
+                            fontSize: 14,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.red800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 20),
+
+              // 🚀 2. 캡처된 3D 튜브 형상 삽입 (존재할 경우)
+              if (pdfIsoImage != null) ...[
+                pw.Text(
+                  "ISO DRAWING",
+                  style: pw.TextStyle(
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.blueGrey800,
+                  ),
+                ),
+                pw.SizedBox(height: 10),
+                pw.Container(
+                  height: 250, // 이미지 높이
+                  width: double.infinity,
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.white, // PDF 내부에서도 명시적으로 흰색 배경 지정
+                    border: pw.Border.all(color: PdfColors.grey300),
+                    borderRadius: const pw.BorderRadius.all(
+                      pw.Radius.circular(8),
+                    ),
+                  ),
+                  child: pw.Image(
+                    pdfIsoImage,
+                    fit: pw.BoxFit.contain,
+                  ), // 캡처된 이미지 삽입
+                ),
+                pw.SizedBox(height: 30),
+              ],
+
+              // 3. 벤딩 데이터 타이틀
+              pw.Text(
+                "BENDING SEQUENCE",
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.blueGrey800,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+
+              // 4. 지브라 패턴(얼룩무늬) 표 디자인
+              pw.TableHelper.fromTextArray(
+                headers: [
+                  'Mark No.',
+                  'Length (mm)',
+                  'Angle',
+                  'Direction',
+                  'Marking (mm)',
+                ],
+                headerStyle: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white,
+                  fontSize: 11,
+                ),
+                headerDecoration: const pw.BoxDecoration(
+                  color: PdfColors.teal700,
+                ),
+                rowDecoration: const pw.BoxDecoration(
+                  border: pw.Border(
+                    bottom: pw.BorderSide(color: PdfColors.grey300, width: 0.5),
+                  ),
+                ),
+                oddRowDecoration: const pw.BoxDecoration(
+                  color: PdfColors.grey50,
+                ),
+                cellHeight: 32,
+                cellAlignment: pw.Alignment.center,
+                cellStyle: const pw.TextStyle(fontSize: 11),
+                data: parsedBendList.map((bend) {
+                  bool isStraight = bend['is_straight'] ?? false;
+                  String markNum = isStraight
+                      ? "-"
+                      : "${bend['display_mark_num']}";
+                  String length = "${(bend['length'] ?? 0).toDouble().round()}";
+                  String angle = isStraight
+                      ? "-"
+                      : "${(double.tryParse(bend['angle']?.toString() ?? '0') ?? 0).round()}°";
+                  String direction = isStraight
+                      ? "-"
+                      : _getDirectionTextShort(
+                          (bend['rotation'] ?? 0.0).toDouble(),
+                        );
+                  String marking = isStraight
+                      ? "-"
+                      : _extractValue(bend, [
+                          'mark',
+                          'marking',
+                          'marking_point',
+                        ]);
+
+                  return [markNum, length, angle, direction, marking];
+                }).toList(),
+              ),
+              pw.SizedBox(height: 16),
+
+              // 5. TAIL 정보
+              pw.Container(
+                alignment: pw.Alignment.centerRight,
+                child: pw.Text(
+                  "* Tail Length: ${tail.round()} mm / Start Dir: $startDir",
+                  style: pw.TextStyle(
+                    fontSize: 10,
+                    fontStyle: pw.FontStyle.italic,
+                    color: PdfColors.grey600,
+                  ),
+                ),
+              ),
+            ];
+          },
+        ),
+      );
+
+      final output = await getTemporaryDirectory();
+      final safeProject = project.replaceAll(' ', '_');
+      final safeFrom = from.replaceAll(' ', '_');
+      final file = File("${output.path}/ISO_${safeProject}_$safeFrom.pdf");
+      await file.writeAsBytes(await pdf.save());
+
+      await Share.shareXFiles([
+        XFile(file.path),
+      ], text: '[$project] $from 배관 튜빙 데이터 리포트입니다.');
+    } catch (e) {
+      debugPrint("PDF 생성 실패: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("PDF 생성 중 오류가 발생했습니다."),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isExporting = false);
+    }
+  }
+
   Future<void> _editInfo() async {
     TextEditingController projCtrl = TextEditingController(text: project);
     TextEditingController fromCtrl = TextEditingController(text: from);
@@ -150,7 +475,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: projCtrl,
-                  textInputAction: TextInputAction.next, // 💡 [개선] 키보드 액션 추가
+                  textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(
                     labelText: "PROJECT",
                     filled: true,
@@ -164,8 +489,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                     Expanded(
                       child: TextField(
                         controller: fromCtrl,
-                        textInputAction:
-                            TextInputAction.next, // 💡 [개선] 키보드 액션 추가
+                        textInputAction: TextInputAction.next,
                         decoration: const InputDecoration(
                           labelText: "FROM",
                           filled: true,
@@ -245,7 +569,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 총 컷팅 길이 반올림 적용 (절단장 정수로 표현)
     final double absoluteTotalCut =
         double.tryParse(currentData['total_length']?.toString() ?? '0') ?? 0.0;
     final int displayTotalCut = absoluteTotalCut.round();
@@ -270,8 +593,28 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
         foregroundColor: pureWhite,
         elevation: 0,
         actions: [
+          _isExporting
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: pureWhite,
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.share, size: 24),
+                  tooltip: "PDF 공유",
+                  onPressed: _exportToPDFAndShare,
+                ),
           IconButton(
             icon: const Icon(Icons.edit_note, size: 28),
+            tooltip: "도면 정보 수정",
             onPressed: _editInfo,
           ),
         ],
@@ -279,10 +622,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _buildTopInfoPanel(
-              displayTotalCut,
-              fittingStr,
-            ), // 💡 [개선] 가독성을 위해 위젯 분리
+            _buildTopInfoPanel(displayTotalCut, fittingStr),
             Expanded(
               child: Row(
                 children: [
@@ -305,37 +645,45 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                           ),
                         ],
                       ),
+                      // 🚀 캡처를 위해 RepaintBoundary로 감싸줌
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: PipeVisualizer(
-                          bendList: parsedBendList, // 💡 [개선] 캐싱된 리스트 사용
-                          tailLength: tail,
-                          selectedSegmentIndex: _selectedSegmentIndex,
-                          initialStartDir: startDir,
-                          onStartDirChanged: (newDir) async {
-                            setState(() {
-                              startDir = newDir;
-                            });
-                            try {
-                              Map<String, dynamic> newPtoP = {
-                                "project": project,
-                                "from": from,
-                                "to": to,
-                                "start_fit": startFit,
-                                "end_fit": endFit,
-                                "tail": tail,
-                                "start_dir": newDir,
-                              };
-                              String newPtoPJson = jsonEncode(newPtoP);
-                              await DatabaseHelper.instance.updateHistory(
-                                currentData['id'],
-                                {'p_to_p': newPtoPJson},
-                              );
-                              currentData['p_to_p'] = newPtoPJson;
-                            } catch (e) {
-                              debugPrint("방향 저장 실패: $e");
-                            }
-                          },
+                        child: RepaintBoundary(
+                          key: _isoBoundaryKey, // 🚀 글로벌 키 연결
+                          child: Container(
+                            color:
+                                pureWhite, // 🚀 여기서 무조건 순백색(White) 배경을 고정합니다!
+                            child: PipeVisualizer(
+                              bendList: parsedBendList,
+                              tailLength: tail,
+                              selectedSegmentIndex: _selectedSegmentIndex,
+                              initialStartDir: startDir,
+                              onStartDirChanged: (newDir) async {
+                                setState(() {
+                                  startDir = newDir;
+                                });
+                                try {
+                                  Map<String, dynamic> newPtoP = {
+                                    "project": project,
+                                    "from": from,
+                                    "to": to,
+                                    "start_fit": startFit,
+                                    "end_fit": endFit,
+                                    "tail": tail,
+                                    "start_dir": newDir,
+                                  };
+                                  String newPtoPJson = jsonEncode(newPtoP);
+                                  await DatabaseHelper.instance.updateHistory(
+                                    currentData['id'],
+                                    {'p_to_p': newPtoPJson},
+                                  );
+                                  currentData['p_to_p'] = newPtoPJson;
+                                } catch (e) {
+                                  debugPrint("방향 저장 실패: $e");
+                                }
+                              },
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -359,9 +707,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                           ),
                         ],
                       ),
-                      child:
-                          parsedBendList
-                              .isEmpty // 💡 [개선] 캐싱된 리스트 사용
+                      child: parsedBendList.isEmpty
                           ? const Center(
                               child: Text(
                                 "NO DATA",
@@ -448,7 +794,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     );
   }
 
-  // 💡 [개선] 가독성을 위해 상단 패널을 별도 위젯(메서드)으로 분리
   Widget _buildTopInfoPanel(int displayTotalCut, String fittingStr) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -588,7 +933,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
       displayMarkNum = bendData['display_mark_num'] ?? 0;
 
       lengthText = rawLength.round().toString();
-      // 💡 [수정 완료] 각도가 먼저, 방향이 나중에 오도록 수정
       directionText = "$angle° ${_getDirectionTextShort(rotation)}";
 
       if (!isStraight) {
