@@ -12,14 +12,14 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: cardBg,
+          backgroundColor: pureWhite, // 💡 배경 하얗게
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
           title: Text(
             "$item\n실사 수량 입력",
             style: const TextStyle(
-              color: Colors.white,
+              color: slate900, // 💡 진한 텍스트
               fontSize: 16,
               height: 1.3,
               fontWeight: FontWeight.bold,
@@ -30,21 +30,22 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
             keyboardType: TextInputType.number,
             style: const TextStyle(
               color: makitaTeal,
-              fontSize: 28,
+              fontSize: 32,
               fontWeight: FontWeight.w900,
             ),
             autofocus: true,
             decoration: InputDecoration(
               filled: true,
-              fillColor: darkBg,
+              fillColor: slate100, // 💡 입력창 연한 회색
               enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.1),
-                ),
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey.shade300),
               ),
               focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide(
                   color: _categories[_currentCategory]['color'],
+                  width: 2,
                 ),
               ),
             ),
@@ -52,11 +53,14 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("취소", style: TextStyle(color: Colors.grey)),
+              child: const Text("취소", style: TextStyle(color: slate600)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: _categories[_currentCategory]['color'],
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               onPressed: () {
                 int? newQty = int.tryParse(qtyController.text);
@@ -84,21 +88,20 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
     );
   }
 
-  // 💡 모바일 QR / 바코드 스캐너 연동 다이얼로그
   void _showAddNewItemDialog(String categoryId) {
     TextEditingController nameController = TextEditingController();
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: cardBg,
+          backgroundColor: pureWhite,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
           title: const Text(
             "신규 자재 임시 등록",
             style: TextStyle(
-              color: Colors.white,
+              color: slate900,
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
@@ -125,14 +128,13 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                     ),
                   ),
                   onPressed: () async {
-                    // 스캐너 페이지 띄우기
                     final scannedCode = await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => Scaffold(
                           appBar: AppBar(
                             title: const Text("바코드 스캔"),
-                            backgroundColor: Colors.black,
+                            backgroundColor: slate900,
                             foregroundColor: Colors.white,
                           ),
                           body: MobileScanner(
@@ -147,12 +149,8 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                         ),
                       ),
                     );
-
-                    // 결과가 있으면 텍스트 박스에 자동 채우기
                     if (scannedCode != null && scannedCode is String) {
-                      setState(() {
-                        nameController.text = scannedCode;
-                      });
+                      setState(() => nameController.text = scannedCode);
                     }
                   },
                 ),
@@ -160,26 +158,31 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
               const SizedBox(height: 16),
               const Text(
                 "또는 직접 수동 입력",
-                style: TextStyle(color: Colors.grey, fontSize: 12),
+                style: TextStyle(color: slate600, fontSize: 12),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: nameController,
-                style: const TextStyle(color: Colors.white, fontSize: 16),
+                style: const TextStyle(
+                  color: slate900,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
                 autofocus: true,
                 decoration: InputDecoration(
                   hintText: "자재명 및 규격 입력",
-                  hintStyle: TextStyle(color: Colors.grey.shade600),
+                  hintStyle: TextStyle(color: Colors.grey.shade400),
                   filled: true,
-                  fillColor: darkBg,
+                  fillColor: slate100,
                   enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.1),
-                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
                   ),
                   focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(
                       color: _categories[_currentCategory]['color'],
+                      width: 2,
                     ),
                   ),
                 ),
@@ -189,11 +192,14 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("취소", style: TextStyle(color: Colors.grey)),
+              child: const Text("취소", style: TextStyle(color: slate600)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: _categories[_currentCategory]['color'],
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               onPressed: () {
                 String name = nameController.text.trim();
@@ -245,9 +251,9 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: cardBg,
+          backgroundColor: pureWhite,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
           title: Text(
             infoType == 'HeatNo'
@@ -256,7 +262,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                       ? "제조사 선택"
                       : (infoType == 'Material' ? "재질 선택" : "보관 위치 입력")),
             style: const TextStyle(
-              color: Colors.white,
+              color: slate900,
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
@@ -268,23 +274,27 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                 controller: ctrl,
                 textCapitalization: TextCapitalization.characters,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: slate900,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: darkBg,
+                  fillColor: slate100,
                   hintText: "직접 입력",
-                  hintStyle: TextStyle(color: Colors.grey.shade600),
+                  hintStyle: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontWeight: FontWeight.normal,
+                  ),
                   enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.1),
-                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
                   ),
                   focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(
                       color: _categories[_currentCategory]['color'],
+                      width: 2,
                     ),
                   ),
                 ),
@@ -294,29 +304,26 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: quickOptions
-                      .map(
-                        (opt) => ActionChip(
-                          label: Text(
-                            opt,
-                            style: TextStyle(
-                              color: ctrl.text == opt ? slate900 : Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          backgroundColor: ctrl.text == opt
-                              ? makitaTeal
-                              : darkBg,
-                          side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.1),
-                          ),
-                          onPressed: () {
-                            setState(() => ctrl.text = opt);
-                          },
+                  children: quickOptions.map((opt) {
+                    bool isSelected = ctrl.text == opt;
+                    return ActionChip(
+                      label: Text(
+                        opt,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : slate600,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
                         ),
-                      )
-                      .toList(),
+                      ),
+                      backgroundColor: isSelected ? makitaTeal : slate100,
+                      side: BorderSide(
+                        color: isSelected ? makitaTeal : Colors.grey.shade300,
+                      ),
+                      onPressed: () {
+                        setState(() => ctrl.text = opt);
+                      },
+                    );
+                  }).toList(),
                 ),
               ],
             ],
@@ -324,11 +331,14 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("취소", style: TextStyle(color: Colors.grey)),
+              child: const Text("취소", style: TextStyle(color: slate600)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: _categories[_currentCategory]['color'],
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               onPressed: () {
                 setState(() {
@@ -373,9 +383,9 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
   void _showHistorySheet() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: cardBg,
+      backgroundColor: pureWhite, // 💡 바텀시트 화이트
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
         return SafeArea(
@@ -386,14 +396,14 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                 width: 40,
                 height: 5,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade600,
+                  color: Colors.grey.shade300,
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
               const Text(
                 "현장 실사(Audit) 동기화 기록",
                 style: TextStyle(
-                  color: Colors.white,
+                  color: slate900,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -401,10 +411,10 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
               const SizedBox(height: 10),
               Expanded(
                 child: _historyLogs.isEmpty
-                    ? Center(
+                    ? const Center(
                         child: Text(
                           "실사 기록이 없습니다.",
-                          style: TextStyle(color: Colors.grey.shade500),
+                          style: TextStyle(color: slate600),
                         ),
                       )
                     : ListView.builder(
@@ -422,14 +432,14 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                             title: Text(
                               "${log['category']} • ${log['time']}",
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: slate900,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             subtitle: Text(
                               "$syncCount개 항목 전송됨",
-                              style: TextStyle(
-                                color: Colors.grey.shade400,
+                              style: const TextStyle(
+                                color: slate600,
                                 fontSize: 12,
                               ),
                             ),
@@ -440,17 +450,20 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                                         ? Icons.check_circle
                                         : Icons.sync),
                               color: isFailed
-                                  ? Colors.redAccent
+                                  ? Colors.red.shade600
                                   : (isCompleted
-                                        ? Colors.greenAccent
-                                        : Colors.orangeAccent),
+                                        ? Colors.green.shade600
+                                        : Colors.orange.shade600),
                             ),
                             children: const [
                               Padding(
                                 padding: EdgeInsets.all(16.0),
                                 child: Text(
                                   "데이터가 서버에 안전하게 병합되었습니다.",
-                                  style: TextStyle(color: Colors.white54),
+                                  style: TextStyle(
+                                    color: slate600,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ],

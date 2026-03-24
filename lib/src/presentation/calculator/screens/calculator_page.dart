@@ -11,6 +11,8 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/offset_bot
 import 'package:tubing_calculator/src/presentation/calculator/widgets/saddle_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/rolling_offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/pipe_visualizer.dart';
+// 🚀 [새로 추가된 평행/축소 바텀시트 임포트]
+import 'package:tubing_calculator/src/presentation/calculator/widgets/parallel_shrink_bottom_sheet.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 const Color makitaTeal = Color(0xFF007580);
@@ -208,7 +210,6 @@ class _CalculatorPageState extends State<CalculatorPage>
 
     await Future.delayed(const Duration(milliseconds: 400));
 
-    // 🚀 [기능 개선] 하드코딩된 한글 매칭을 키값 매칭으로 변경 및 0 나누기 방어코드 적용
     if (mode == "STRAIGHT" || mode == "직관 (Straight)") {
       _executeMacro(val1, 0.0, targetRot, docId);
     } else if (mode == "BEND_90" || mode == "90° 벤딩") {
@@ -218,7 +219,7 @@ class _CalculatorPageState extends State<CalculatorPage>
       double finalAngle = angle;
       if (angle > 0) {
         double sinVal = math.sin(angle * (math.pi / 180));
-        d = sinVal == 0 ? val1 : val1 / sinVal; // 🚀 방어 코드
+        d = sinVal == 0 ? val1 : val1 / sinVal;
       } else if (val2 > 0) {
         d = val2;
         finalAngle =
@@ -229,7 +230,7 @@ class _CalculatorPageState extends State<CalculatorPage>
       double d = val1;
       if (angle > 0) {
         double sinVal = math.sin(angle * (math.pi / 180));
-        d = sinVal == 0 ? val1 : val1 / sinVal; // 🚀 방어 코드
+        d = sinVal == 0 ? val1 : val1 / sinVal;
       }
       _executeMacro(d, angle, targetRot, docId);
     } else if (mode == "ROLLING" || mode == "롤링 오프셋") {
@@ -237,7 +238,7 @@ class _CalculatorPageState extends State<CalculatorPage>
       double d = trueH;
       if (angle > 0) {
         double sinVal = math.sin(angle * (math.pi / 180));
-        d = sinVal == 0 ? trueH : trueH / sinVal; // 🚀 방어 코드
+        d = sinVal == 0 ? trueH : trueH / sinVal;
       }
       _executeMacro(d, angle, targetRot, docId);
     } else {
@@ -282,7 +283,6 @@ class _CalculatorPageState extends State<CalculatorPage>
 
     _handleApply();
 
-    // 🚀 [기능 개선] 정상적으로 리스트에 추가된 후 리모컨으로 '처리 완료' 응답 전송
     if (docId.isNotEmpty) {
       try {
         await FirebaseFirestore.instance
@@ -634,6 +634,18 @@ class _CalculatorPageState extends State<CalculatorPage>
                                                 );
                                               }
                                             },
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(width: 6),
+                                      // 🚀 [추가됨] 평행/축소 헬퍼 칩
+                                      _buildToolChip(
+                                        "평행/축소",
+                                        LucideIcons.layoutGrid,
+                                        () {
+                                          ParallelShrinkBottomSheet.show(
+                                            context,
+                                            currentAngle: _currentAngle,
                                           );
                                         },
                                       ),

@@ -133,8 +133,15 @@ class _MarkingPageState extends State<MarkingPage> {
       if (!isStraight) markNumber++;
     }
 
+    // 🚀 [수정 완료] 테이크업(25)을 제거하여 실제 슈(롤러) 여유 기장만 표시
     double totalCut = bendList.isEmpty ? 0.0 : pureCutLength + _tailLength;
-    double diffAfterLastMark = totalCut - lastMarkingPoint;
+
+    // ✅ 가이드 수식에서 radius(25.0)를 빼줍니다.
+    // 이렇게 해야 +14mm (외경 11 + 슈 여유 3)가 정확히 뜹니다.
+    double diffAfterLastMark = (totalCut - lastMarkingPoint) - radius;
+
+    // 만약 계산값이 마이너스가 나오면 0으로 처리 (안전장치)
+    if (diffAfterLastMark < 0) diffAfterLastMark = 0;
     bool isStandalone = widget.pageController == null;
 
     return Scaffold(

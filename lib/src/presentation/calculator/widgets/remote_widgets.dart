@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-// 앱 전체에서 공통으로 쓸 색상들
-const Color darkBg = Color(0xFF1E2124);
-const Color inputBg = Color(0xFF2A2E33);
-const Color mutedWhite = Color(0xFFD0D4D9);
+// 🎨 화이트 & 마키타 테마 컬러
+const Color makitaTeal = Color(0xFF007580);
+const Color slate900 = Color(0xFF0F172A); // 진한 텍스트 (입력값)
+const Color slate600 = Color(0xFF475569); // 서브 텍스트 (라벨)
+const Color slate100 = Color(0xFFF1F5F9); // 연한 회색 (읽기 전용창 배경)
+const Color pureWhite = Color(0xFFFFFFFF); // 퓨어 화이트 (입력창 배경)
 
 class RemoteReadOnlyField extends StatelessWidget {
   final String label;
@@ -30,12 +32,20 @@ class RemoteReadOnlyField extends StatelessWidget {
       ),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(fontSize: 14, color: Colors.grey),
+        labelStyle: const TextStyle(
+          fontSize: 14,
+          color: slate600,
+          fontWeight: FontWeight.bold,
+        ),
         filled: true,
-        fillColor: inputBg,
+        fillColor: slate100, // 💡 읽기 전용은 연한 회색으로 입력창과 구분
         disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none, // 💡 테두리 없이 깔끔하게
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
         ),
       ),
     );
@@ -87,22 +97,31 @@ class RemoteTextField extends StatelessWidget {
           style: const TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.bold,
-            color: mutedWhite,
+            color: slate900, // 💡 진한 글씨로 시인성 극대화
           ),
           decoration: InputDecoration(
             labelText: isOptional ? label : "$label *",
-            labelStyle: const TextStyle(fontSize: 14, color: Colors.grey),
+            labelStyle: const TextStyle(
+              fontSize: 14,
+              color: slate600,
+              fontWeight: FontWeight.bold,
+            ),
             filled: true,
-            fillColor: inputBg,
+            fillColor: pureWhite, // 💡 새하얀 배경
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                color: Colors.white.withValues(alpha: 0.05),
+                color: Colors.grey.shade300, // 💡 연한 회색 테두리
+                width: 1.5,
               ),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: focusColor, width: 2),
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: focusColor, width: 2.5),
             ),
           ),
         ),
@@ -119,20 +138,28 @@ class RemoteTextField extends StatelessWidget {
                         onPressed: () {
                           HapticFeedback.selectionClick();
                           ctrl.text = angle.toString();
-                          if (nextFocus == null)
+                          if (nextFocus == null) {
                             FocusScope.of(context).unfocus();
+                          }
                         },
                         style: OutlinedButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          foregroundColor: mutedWhite,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          foregroundColor: slate900, // 💡 텍스트 색상
+                          backgroundColor: pureWhite, // 💡 배경 색상
                           side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.1),
+                            color: Colors.grey.shade300,
+                            width: 1.5,
                           ),
-                          backgroundColor: inputBg,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                         child: Text(
                           "$angle°",
-                          style: const TextStyle(fontSize: 14),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -175,11 +202,16 @@ class InnerTabSelector extends StatelessWidget {
               margin: const EdgeInsets.symmetric(horizontal: 4),
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                color: isSelected ? inputBg : Colors.transparent,
+                color: isSelected
+                    ? pureWhite
+                    : Colors.transparent, // 💡 선택 시 흰색 카드 형태
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(8),
+                ),
                 border: Border(
                   bottom: BorderSide(
-                    color: isSelected ? activeColor : Colors.transparent,
-                    width: 3,
+                    color: isSelected ? activeColor : Colors.grey.shade300,
+                    width: isSelected ? 3 : 1,
                   ),
                 ),
               ),
@@ -187,7 +219,7 @@ class InnerTabSelector extends StatelessWidget {
               child: Text(
                 tabs[i],
                 style: TextStyle(
-                  color: isSelected ? activeColor : Colors.grey,
+                  color: isSelected ? activeColor : slate600,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -216,6 +248,7 @@ class DirectionSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return GridView.count(
       shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 3,
       mainAxisSpacing: 16,
       crossAxisSpacing: 16,
@@ -227,15 +260,27 @@ class DirectionSelector extends StatelessWidget {
             HapticFeedback.selectionClick();
             onDirSelected(dir);
           },
+          borderRadius: BorderRadius.circular(12),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             decoration: BoxDecoration(
-              color: isSelected ? modeColor : inputBg,
+              color: isSelected ? modeColor : pureWhite, // 💡 비활성 시 흰색
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isSelected ? modeColor : Colors.transparent,
+                color: isSelected
+                    ? modeColor
+                    : Colors.grey.shade300, // 💡 비활성 시 연한 테두리
                 width: 2,
               ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: modeColor.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : null,
             ),
             alignment: Alignment.center,
             child: Text(
@@ -243,7 +288,7 @@ class DirectionSelector extends StatelessWidget {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: isSelected ? Colors.white : Colors.grey,
+                color: isSelected ? pureWhite : slate600, // 💡 텍스트 대비 향상
               ),
             ),
           ),

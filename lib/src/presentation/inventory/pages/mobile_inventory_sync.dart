@@ -16,8 +16,11 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
   void _showErrorSnackBar(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg),
-        backgroundColor: Colors.redAccent.shade700,
+        content: Text(
+          msg,
+          style: const TextStyle(fontWeight: FontWeight.bold, color: pureWhite),
+        ),
+        backgroundColor: Colors.red.shade700,
         duration: const Duration(seconds: 2),
       ),
     );
@@ -44,7 +47,10 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text("서버로 실사 데이터를 전송 중입니다..."),
+        content: Text(
+          "서버로 실사 데이터를 전송 중입니다...",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: makitaTeal,
       ),
     );
@@ -63,7 +69,6 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
 
           DocumentReference newDocRef = _inventoryDb.doc();
 
-          // 💡 Map 선언 내부에는 제어문(try-catch)을 넣을 수 없으므로 변수를 먼저 선언하고 조건에 따라 추가합니다.
           Map<String, dynamic> newDocData = {
             'name': itemName,
             'category': category,
@@ -149,7 +154,10 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
       HapticFeedback.mediumImpact();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text("서버 동기화 완료! PC에도 즉시 반영되었습니다."),
+          content: const Text(
+            "서버 동기화 완료! PC에도 즉시 반영되었습니다.",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           backgroundColor: Colors.green.shade700,
         ),
       );

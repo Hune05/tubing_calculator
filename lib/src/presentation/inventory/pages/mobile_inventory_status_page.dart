@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-const Color darkBg = Color(0xFF1E2124);
-const Color cardBg = Color(0xFF2A2E33);
-const Color mutedWhite = Color(0xFFD0D4D9);
+// 🎨 화이트 & 마키타 테마 컬러 공통 선언
 const Color makitaTeal = Color(0xFF007580);
+const Color slate900 = Color(0xFF0F172A);
+const Color slate600 = Color(0xFF475569);
+const Color slate100 = Color(0xFFF1F5F9);
+const Color pureWhite = Color(0xFFFFFFFF);
 
 class MobileInventoryStatusPage extends StatefulWidget {
   const MobileInventoryStatusPage({super.key});
@@ -36,32 +38,40 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: darkBg,
+      backgroundColor: slate100, // 💡 전체 배경 밝게
       appBar: AppBar(
-        backgroundColor: darkBg,
+        backgroundColor: makitaTeal, // 💡 앱바는 마키타 컬러
         elevation: 0,
+        iconTheme: const IconThemeData(color: pureWhite),
         title: const Text(
           "자재 현황 조회",
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 18,
-            color: Colors.white,
+            color: pureWhite,
           ),
         ),
       ),
       body: Column(
         children: [
           // 1. 검색 바
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          Container(
+            color: makitaTeal, // 앱바와 이어지는 느낌
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: TextField(
               controller: _searchController,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(
+                color: slate900,
+                fontWeight: FontWeight.bold,
+              ),
               onChanged: (val) =>
                   setState(() => _searchQuery = val.toLowerCase()),
               decoration: InputDecoration(
                 hintText: "자재명, 규격, 위치 검색...",
-                hintStyle: TextStyle(color: Colors.grey.shade600),
+                hintStyle: TextStyle(
+                  color: Colors.grey.shade500,
+                  fontWeight: FontWeight.normal,
+                ),
                 prefixIcon: Icon(
                   LucideIcons.search,
                   color: Colors.grey.shade500,
@@ -76,7 +86,8 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                       )
                     : null,
                 filled: true,
-                fillColor: cardBg,
+                fillColor: pureWhite,
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -87,11 +98,11 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
 
           // 2. 카테고리 필터
           Container(
-            height: 50,
-            margin: const EdgeInsets.symmetric(vertical: 8),
+            height: 56,
+            color: pureWhite, // 필터 영역 흰색 배경
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               itemCount: _categories.length,
               itemBuilder: (context, index) {
                 final cat = _categories[index];
@@ -102,7 +113,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                     label: Text(
                       cat,
                       style: TextStyle(
-                        color: isSelected ? Colors.white : mutedWhite,
+                        color: isSelected ? pureWhite : slate600,
                         fontWeight: isSelected
                             ? FontWeight.bold
                             : FontWeight.normal,
@@ -110,12 +121,13 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                     ),
                     selected: isSelected,
                     selectedColor: makitaTeal,
-                    backgroundColor: cardBg,
+                    backgroundColor: slate100,
+                    showCheckmark: false,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     side: BorderSide(
-                      color: isSelected ? makitaTeal : Colors.transparent,
+                      color: isSelected ? makitaTeal : Colors.grey.shade300,
                     ),
                     onSelected: (selected) {
                       setState(() => _selectedCategory = cat);
@@ -176,10 +188,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                   return Center(
                     child: Text(
                       "검색 결과가 없습니다.",
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 16,
-                      ),
+                      style: TextStyle(color: slate600, fontSize: 16),
                     ),
                   );
                 }
@@ -187,7 +196,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
-                    vertical: 8,
+                    vertical: 16,
                   ),
                   itemCount: filteredDocs.length,
                   itemBuilder: (context, index) {
@@ -201,14 +210,21 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                       margin: const EdgeInsets.only(bottom: 12),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: cardBg,
+                        color: pureWhite, // 💡 카드 배경 하얗게
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: isLowStock
                               ? Colors.redAccent.withValues(alpha: 0.5)
-                              : Colors.transparent, // ★ 경고 수정
-                          width: 1.5,
+                              : Colors.grey.shade300,
+                          width: isLowStock ? 2 : 1,
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -220,7 +236,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                                 Text(
                                   data['name'] ?? "이름 없음",
                                   style: const TextStyle(
-                                    color: Colors.white,
+                                    color: slate900,
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -230,29 +246,29 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                                   _buildInfoBadge(
                                     Icons.location_on,
                                     data['location'],
-                                    Colors.orangeAccent,
+                                    Colors.orange.shade800,
                                   ),
                                 const SizedBox(height: 6),
                                 Text(
                                   "규격: ${data['size'] ?? '-'} | 재질: ${data['material'] ?? '-'}",
-                                  style: TextStyle(
-                                    color: Colors.grey.shade400,
+                                  style: const TextStyle(
+                                    color: slate600,
                                     fontSize: 12,
                                   ),
                                 ),
                                 if ((data['maker'] ?? "").isNotEmpty)
                                   Text(
                                     "제조사: ${data['maker']}",
-                                    style: TextStyle(
-                                      color: Colors.grey.shade400,
+                                    style: const TextStyle(
+                                      color: slate600,
                                       fontSize: 12,
                                     ),
                                   ),
                                 if ((data['heatNo'] ?? "").isNotEmpty)
                                   Text(
                                     "Heat No: ${data['heatNo']}",
-                                    style: TextStyle(
-                                      color: Colors.grey.shade400,
+                                    style: const TextStyle(
+                                      color: slate600,
                                       fontSize: 12,
                                     ),
                                   ),
@@ -266,17 +282,18 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                                 "$qty",
                                 style: TextStyle(
                                   color: isLowStock
-                                      ? Colors.redAccent
-                                      : Colors.greenAccent,
-                                  fontSize: 24,
+                                      ? Colors.red.shade700
+                                      : slate900, // 💡 정상 수량은 진한 글씨로
+                                  fontSize: 26,
                                   fontWeight: FontWeight.w900,
                                 ),
                               ),
                               Text(
                                 data['unit'] ?? "EA",
-                                style: TextStyle(
-                                  color: Colors.grey.shade500,
-                                  fontSize: 11,
+                                style: const TextStyle(
+                                  color: slate600,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                               if (isLowStock)
@@ -287,15 +304,16 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.redAccent.withValues(
-                                      alpha: 0.2,
-                                    ), // ★ 경고 수정
+                                    color: Colors.red.shade50,
                                     borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                      color: Colors.red.shade200,
+                                    ),
                                   ),
-                                  child: const Text(
+                                  child: Text(
                                     "재고 부족",
                                     style: TextStyle(
-                                      color: Colors.redAccent,
+                                      color: Colors.red.shade700,
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -320,9 +338,9 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1), // ★ 경고 수정
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withValues(alpha: 0.3)), // ★ 경고 수정
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

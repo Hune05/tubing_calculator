@@ -40,15 +40,14 @@ class RollingOffsetBottomSheet extends StatefulWidget {
 }
 
 class _RollingOffsetBottomSheetState extends State<RollingOffsetBottomSheet> {
-  bool _isReverseMode = true;
+  // 기본값을 정산 모드로 시작
+  bool _isReverseMode = false;
 
   final TextEditingController _riseCtrl = TextEditingController(text: "150");
   final TextEditingController _rollCtrl = TextEditingController(text: "200");
   final TextEditingController _travelCtrl = TextEditingController(text: "350");
-  final TextEditingController _rollAngleCtrl = TextEditingController(
-    text: "30",
-  );
   final TextEditingController _angleCtrl = TextEditingController(text: "45");
+  // 🚀 수평/회전 각도는 Rise와 Roll 거리로 자동 계산되므로 입력 컨트롤러 삭제
 
   @override
   void initState() {
@@ -56,7 +55,6 @@ class _RollingOffsetBottomSheetState extends State<RollingOffsetBottomSheet> {
     _riseCtrl.addListener(() => setState(() {}));
     _rollCtrl.addListener(() => setState(() {}));
     _travelCtrl.addListener(() => setState(() {}));
-    _rollAngleCtrl.addListener(() => setState(() {}));
     _angleCtrl.addListener(() => setState(() {}));
   }
 
@@ -65,7 +63,6 @@ class _RollingOffsetBottomSheetState extends State<RollingOffsetBottomSheet> {
     _riseCtrl.dispose();
     _rollCtrl.dispose();
     _travelCtrl.dispose();
-    _rollAngleCtrl.dispose();
     _angleCtrl.dispose();
     super.dispose();
   }
@@ -82,45 +79,49 @@ class _RollingOffsetBottomSheetState extends State<RollingOffsetBottomSheet> {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final maxHeight = MediaQuery.of(context).size.height * 0.85;
 
-    double bendAngle = double.tryParse(_angleCtrl.text) ?? 0;
-    double bendRad = bendAngle * math.pi / 180.0;
+    // 1. 공통 입력값 파싱 (거리는 수직, 수평으로 고정)
+    double rise = double.tryParse(_riseCtrl.text) ?? 0;
+    double roll = double.tryParse(_rollCtrl.text) ?? 0;
 
-    double rise = 0;
-    double roll = 0;
-    double travel = 0;
+    // 2. 공통 계산 (True Offset 및 회전 각도는 자동 계산!)
+    double trueOffset = math.sqrt(math.pow(rise, 2) + math.pow(roll, 2));
     double rollAngle = 0;
-    double trueOffset = 0;
+    if (rise > 0 || roll > 0) {
+      rollAngle = math.atan2(roll, rise) * (180.0 / math.pi);
+      if (rollAngle < 0) rollAngle += 360;
+    }
+
+    // 3. 모드에 따른 최종 결과값 도출
+    double finalTravel = 0;
+    double finalBendAngle = 0;
+    double advance = 0; // 🚀 가로 길이(Run/Advance) 변수 추가
 
     if (_isReverseMode) {
-      travel = double.tryParse(_travelCtrl.text) ?? 0;
-      rollAngle = double.tryParse(_rollAngleCtrl.text) ?? 0;
-      double rollRad = rollAngle * math.pi / 180.0;
-
-      if (bendAngle > 0) {
-        trueOffset = travel * math.sin(bendRad);
-        rise = trueOffset * math.cos(rollRad);
-        roll = trueOffset * math.sin(rollRad);
+      // 🚀 [역산] 빗변 길이 입력 -> 벤딩 각도 및 가로 길이 도출
+      finalTravel = double.tryParse(_travelCtrl.text) ?? 0;
+      if (finalTravel > 0 && trueOffset <= finalTravel) {
+        // 아크사인(asin)을 이용하여 정확한 벤딩 각도 계산
+        finalBendAngle =
+            math.asin(trueOffset / finalTravel) * (180.0 / math.pi);
+        // 피타고라스 정리로 가로 길이 계산: √(빗변² - 밑변²)
+        advance = math.sqrt(math.pow(finalTravel, 2) - math.pow(trueOffset, 2));
       }
     } else {
-      rise = double.tryParse(_riseCtrl.text) ?? 0;
-      roll = double.tryParse(_rollCtrl.text) ?? 0;
-
-      trueOffset = math.sqrt(math.pow(rise, 2) + math.pow(roll, 2));
-
-      if (rise > 0 || roll > 0) {
-        rollAngle = math.atan2(roll, rise) * (180.0 / math.pi);
-        if (rollAngle < 0) rollAngle += 360;
-      }
-
-      if (bendAngle > 0) {
-        travel = trueOffset / math.sin(bendRad);
+      // 🚀 [정산] 벤딩 각도 입력 -> 빗변 길이 및 가로 길이 도출
+      finalBendAngle = double.tryParse(_angleCtrl.text) ?? 0;
+      if (finalBendAngle > 0 && finalBendAngle < 180) {
+        double bendRad = finalBendAngle * math.pi / 180.0;
+        finalTravel = trueOffset / math.sin(bendRad);
+        // 탄젠트를 이용하여 가로 길이 계산 (밑변 / tan(각도))
+        // 90도일 경우 가로 길이는 0이 되도록 처리
+        advance = finalBendAngle == 90.0 ? 0 : trueOffset / math.tan(bendRad);
       }
     }
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: Container(
-        constraints: BoxConstraints(maxHeight: maxHeight), // 🚀 유동 높이 적용
+        constraints: BoxConstraints(maxHeight: maxHeight),
         padding: const EdgeInsets.all(24),
         decoration: const BoxDecoration(
           color: panelBg,
@@ -129,7 +130,7 @@ class _RollingOffsetBottomSheetState extends State<RollingOffsetBottomSheet> {
         ),
         child: SingleChildScrollView(
           child: Column(
-            mainAxisSize: MainAxisSize.min, // 🚀 내용물 크기만큼만 잡히도록
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -167,30 +168,6 @@ class _RollingOffsetBottomSheetState extends State<RollingOffsetBottomSheet> {
                   children: [
                     Expanded(
                       child: GestureDetector(
-                        onTap: () => setState(() => _isReverseMode = true),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            color: _isReverseMode
-                                ? makitaTeal
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            "역산 (길이·각도)",
-                            style: TextStyle(
-                              color: _isReverseMode
-                                  ? Colors.white
-                                  : Colors.white54,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: GestureDetector(
                         onTap: () => setState(() => _isReverseMode = false),
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -202,9 +179,33 @@ class _RollingOffsetBottomSheetState extends State<RollingOffsetBottomSheet> {
                           ),
                           alignment: Alignment.center,
                           child: Text(
-                            "정산 (수직·수평)",
+                            "정산 (각도 입력)",
                             style: TextStyle(
                               color: !_isReverseMode
+                                  ? Colors.white
+                                  : Colors.white54,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _isReverseMode = true),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: _isReverseMode
+                                ? makitaTeal
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            "역산 (빗변 입력)",
+                            style: TextStyle(
+                              color: _isReverseMode
                                   ? Colors.white
                                   : Colors.white54,
                               fontWeight: FontWeight.bold,
@@ -218,65 +219,53 @@ class _RollingOffsetBottomSheetState extends State<RollingOffsetBottomSheet> {
               ),
               const SizedBox(height: 20),
 
+              // 🚀 공통 입력: 수직, 수평 거리는 무조건 최상단에 고정
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildCompactInputRow(_riseCtrl, "수직 거리 (Rise)"),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildCompactInputRow(_rollCtrl, "수평 거리 (Roll)"),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // 🚀 모드에 따라 3번째 입력창 토글
               if (_isReverseMode) ...[
-                _buildCompactInputRow(_travelCtrl, "빗변 길이 (Travel)"),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildCompactInputRow(_angleCtrl, "벤딩 각도 (∠)"),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildCompactInputRow(
-                        _rollAngleCtrl,
-                        "회전 각도 (Roll ∠)",
-                      ),
-                    ),
-                  ],
-                ),
+                _buildCompactInputRow(_travelCtrl, "가진 파이프 빗변 (Travel)"),
               ] else ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildCompactInputRow(_riseCtrl, "수직 (Rise)"),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildCompactInputRow(_rollCtrl, "수평 (Roll)"),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
                 _buildCompactInputRow(_angleCtrl, "벤딩 각도 (∠)"),
+                const SizedBox(height: 12),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      const Text(
+                        "빠른 각도:",
+                        style: TextStyle(color: Colors.white54, fontSize: 12),
+                      ),
+                      const SizedBox(width: 8),
+                      ...[
+                        22.5,
+                        30.0,
+                        45.0,
+                        60.0,
+                        90.0,
+                      ].map((val) => _buildQuickAngleBtn(_angleCtrl, val)),
+                    ],
+                  ),
+                ),
               ],
 
-              const SizedBox(height: 12),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    const Text(
-                      "빠른 각도:",
-                      style: TextStyle(color: Colors.white54, fontSize: 12),
-                    ),
-                    const SizedBox(width: 8),
-                    ...[
-                      22.5,
-                      30.0,
-                      45.0,
-                      60.0,
-                      90.0,
-                    ].map((val) => _buildQuickAngleBtn(_angleCtrl, val)),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 32), // 🚀 6축이 빠진 자리에 여백 확보
+              const SizedBox(height: 32),
 
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // 좌측 보조 결과창 (자동 계산된 값들)
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,37 +275,45 @@ class _RollingOffsetBottomSheetState extends State<RollingOffsetBottomSheet> {
                           "${trueOffset.toStringAsFixed(1)} mm",
                         ),
                         const SizedBox(height: 4),
-                        if (_isReverseMode) ...[
-                          _buildResultText(
-                            "수직(Rise)",
-                            "${rise.toStringAsFixed(1)} mm",
-                          ),
-                          _buildResultText(
-                            "수평(Roll)",
-                            "${roll.toStringAsFixed(1)} mm",
-                          ),
-                        ] else ...[
-                          _buildResultText(
-                            "회전 각도",
-                            "${rollAngle.toStringAsFixed(1)}°",
-                          ),
-                        ],
+                        // 🚀 가로 길이 결과 표시 추가
+                        _buildResultText(
+                          "가로 길이 (Run)",
+                          "${advance.toStringAsFixed(1)} mm",
+                        ),
+                        const SizedBox(height: 4),
+                        _buildResultText(
+                          "자동 회전각", // 명확하게 자동 계산됨을 알림
+                          "${rollAngle.toStringAsFixed(1)}°",
+                        ),
                       ],
                     ),
                   ),
+                  // 🚀 우측 메인 결과창 (핵심: 역산이면 각도를, 정산이면 빗변을 띄움)
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Text(
-                        "빗변 (Travel)",
-                        style: TextStyle(color: Colors.white54, fontSize: 12),
+                      Text(
+                        _isReverseMode ? "목표 벤딩 각도 (∠)" : "필요한 빗변 (Travel)",
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
                       ),
                       Text(
-                        travel > 0
-                            ? "${travel.toStringAsFixed(1)} mm"
-                            : "입력 대기",
+                        _isReverseMode
+                            ? (finalBendAngle > 0
+                                  ? "${finalBendAngle.toStringAsFixed(1)}°"
+                                  : "입력 에러")
+                            : (finalTravel > 0
+                                  ? "${finalTravel.toStringAsFixed(1)} mm"
+                                  : "입력 대기"),
                         style: TextStyle(
-                          color: travel > 0 ? makitaTeal : Colors.white54,
+                          color:
+                              (_isReverseMode
+                                  ? finalBendAngle > 0
+                                  : finalTravel > 0)
+                              ? makitaTeal
+                              : Colors.redAccent, // 에러 시 빨간색 강조
                           fontSize: 26,
                           fontWeight: FontWeight.w900,
                         ),
@@ -334,22 +331,25 @@ class _RollingOffsetBottomSheetState extends State<RollingOffsetBottomSheet> {
                           ),
                         ),
                         onPressed: () {
-                          if (travel > 0 && bendAngle > 0) {
+                          // 값이 모두 정상일 때만 3D 뷰로 넘김
+                          if (finalTravel > 0 && finalBendAngle > 0) {
                             double roundedTravel = double.parse(
-                              travel.toStringAsFixed(1),
+                              finalTravel.toStringAsFixed(1),
+                            );
+                            double roundedBendAngle = double.parse(
+                              finalBendAngle.toStringAsFixed(1),
                             );
 
-                            // 🚀 6축 방향이 빠진 핵심 로직 (자동 계산)
-                            // 1. 현재 파이프가 뻗어 나가는 방향(currentRotation)에
-                            //    계산된 롤 각도(rollAngle)를 더해서 대각선으로 꺾어 올릴 타겟 방향(r1) 산출
                             double r1 =
                                 (widget.currentRotation + rollAngle) % 360.0;
-
-                            // 2. 평행을 맞추기 위해 그 타겟 방향에서 정확히 180도 뒤집은 방향(r2) 산출
                             double r2 = _getOppositeRotation(r1);
 
-                            widget.onAddBend(0.0, bendAngle, r1);
-                            widget.onAddBend(roundedTravel, bendAngle, r2);
+                            widget.onAddBend(0.0, roundedBendAngle, r1);
+                            widget.onAddBend(
+                              roundedTravel,
+                              roundedBendAngle,
+                              r2,
+                            );
 
                             Navigator.pop(context);
                           }
@@ -380,7 +380,7 @@ class _RollingOffsetBottomSheetState extends State<RollingOffsetBottomSheet> {
       child: Row(
         children: [
           SizedBox(
-            width: 80,
+            width: 85, // 글자가 잘리지 않도록 너비를 살짝 늘렸습니다.
             child: Text(
               label,
               style: const TextStyle(color: Colors.white54, fontSize: 12),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:mobile_scanner/mobile_scanner.dart'; // 💡 스캐너 패키지 임포트
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'dart:async';
 
 import 'inventory_model.dart';
@@ -11,8 +11,12 @@ import 'inventory_item_card.dart';
 part 'mobile_inventory_dialogs.dart';
 part 'mobile_inventory_sync.dart';
 
+// 🎨 화이트 & 마키타 테마 컬러 공통 선언
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
+const Color slate600 = Color(0xFF475569);
+const Color slate100 = Color(0xFFF1F5F9);
+const Color pureWhite = Color(0xFFFFFFFF);
 
 class MobileInventoryPage extends StatefulWidget {
   const MobileInventoryPage({super.key});
@@ -24,9 +28,6 @@ class MobileInventoryPage extends StatefulWidget {
 class _MobileInventoryPageState extends State<MobileInventoryPage> {
   final PageController _pageController = PageController();
   int _currentCategory = 0;
-
-  final Color darkBg = const Color(0xFF1E2124);
-  final Color cardBg = const Color(0xFF2A2E33);
 
   final CollectionReference _inventoryDb = FirebaseFirestore.instance
       .collection('inventory');
@@ -69,14 +70,24 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     var catId = catInfo['id'] as String;
 
     return Scaffold(
-      backgroundColor: darkBg,
+      backgroundColor: slate100, // 💡 배경을 밝고 화사하게
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             Container(
               height: 90,
               width: double.infinity,
-              color: catColor,
+              decoration: BoxDecoration(
+                color: catColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: catColor.withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
               child: Stack(
                 children: [
                   Center(
@@ -86,7 +97,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                         Text(
                           "좌우로 스와이프하여 카테고리 변경",
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.6),
+                            color: Colors.white.withValues(alpha: 0.8),
                             fontSize: 12,
                           ),
                         ),
@@ -117,6 +128,18 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                       tooltip: "현장에서 신규 자재 추가 및 바코드 스캔",
                     ),
                   ),
+                  Positioned(
+                    left: 16,
+                    top: 0,
+                    bottom: 0,
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back_ios,
+                        color: Colors.white,
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -134,10 +157,11 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                         .where('category', isEqualTo: currentCatId)
                         .snapshots(),
                     builder: (context, snapshot) {
-                      if (!snapshot.hasData)
+                      if (!snapshot.hasData) {
                         return const Center(
                           child: CircularProgressIndicator(color: makitaTeal),
                         );
+                      }
 
                       var dbDocs = snapshot.data!.docs;
                       var localNewDocs = _newLocalItems.entries
@@ -145,13 +169,14 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                           .toList();
                       int totalCount = dbDocs.length + localNewDocs.length;
 
-                      if (totalCount == 0)
+                      if (totalCount == 0) {
                         return Center(
                           child: Text(
                             "등록된 자재가 없습니다.",
-                            style: TextStyle(color: Colors.grey.shade600),
+                            style: TextStyle(color: slate600, fontSize: 16),
                           ),
                         );
+                      }
 
                       return ListView.builder(
                         padding: const EdgeInsets.symmetric(
@@ -217,32 +242,38 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                 },
               ),
             ),
-            Container(
-              padding: const EdgeInsets.all(20),
-              color: darkBg,
-              child: ElevatedButton(
-                onPressed: _syncToServer,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: catColor,
-                  minimumSize: const Size.fromHeight(70),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+            SafeArea(
+              top: false,
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: pureWhite, // 💡 하단 버튼 배경 화이트
+                  border: Border(top: BorderSide(color: Colors.grey.shade200)),
                 ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(LucideIcons.scale, color: Colors.white, size: 26),
-                    SizedBox(width: 12),
-                    Text(
-                      "실사 데이터(Audit) 서버 전송",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                      ),
+                child: ElevatedButton(
+                  onPressed: _syncToServer,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: catColor,
+                    minimumSize: const Size.fromHeight(64),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ],
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(LucideIcons.scale, color: Colors.white, size: 24),
+                      SizedBox(width: 10),
+                      Text(
+                        "실사 데이터(Audit) 서버 전송",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -251,8 +282,9 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showHistorySheet,
-        backgroundColor: cardBg,
-        child: const Icon(Icons.history, color: Colors.white),
+        backgroundColor: pureWhite, // 💡 FAB 색상 화이트로 변경
+        elevation: 4,
+        child: const Icon(Icons.history, color: slate900),
       ),
     );
   }

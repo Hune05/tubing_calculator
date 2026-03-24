@@ -35,12 +35,16 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
   String startDir = 'RIGHT';
   int? _selectedSegmentIndex;
 
+  // 💡 [개선] 매번 build에서 파싱하지 않도록 List를 상태로 관리
+  List<Map<String, dynamic>> parsedBendList = [];
+
   @override
   void initState() {
     super.initState();
     currentData = Map<String, dynamic>.from(widget.itemData);
     fittingDepth = BendDataManager().fittingDepth;
     _parsePtoP();
+    _parseBendData(); // 💡 [개선] 초기화 시 벤드 데이터를 한 번만 파싱
   }
 
   void _parsePtoP() {
@@ -61,6 +65,27 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     }
   }
 
+  // 💡 [개선] 성능 최적화: build 바깥으로 파싱 로직 분리
+  void _parseBendData() {
+    try {
+      List<dynamic> rawList = jsonDecode(currentData['bend_data']);
+      parsedBendList = rawList
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+
+      int markNumber = 1;
+      for (int i = 0; i < parsedBendList.length; i++) {
+        bool isStraight =
+            (parsedBendList[i]['angle']?.toDouble() ?? 0.0) == 0.0;
+        parsedBendList[i]['is_straight'] = isStraight;
+        parsedBendList[i]['display_mark_num'] = isStraight ? 0 : markNumber;
+        if (!isStraight) markNumber++;
+      }
+    } catch (e) {
+      parsedBendList = [];
+    }
+  }
+
   String _getDirectionTextShort(double rot) {
     if (rot == 0.0) return "UP";
     if (rot == 90.0) return "RIGHT";
@@ -71,16 +96,15 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     return "${rot.toInt()}°";
   }
 
-  // 🚀 [수정] BA, SB 등의 값도 정수 반올림 출력 (필요 시 수정 가능)
   String _extractValue(Map<String, dynamic> map, List<String> keys) {
     for (String key in keys) {
       if (map.containsKey(key) && map[key] != null) {
         var val = map[key];
         if (val is num) {
-          return val.round().toString(); // 💡 반올림 적용
+          return val.round().toString();
         } else if (val is String && val.isNotEmpty) {
           double? parsed = double.tryParse(val);
-          return parsed != null ? parsed.round().toString() : val; // 💡 반올림 적용
+          return parsed != null ? parsed.round().toString() : val;
         }
       }
     }
@@ -126,6 +150,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: projCtrl,
+                  textInputAction: TextInputAction.next, // 💡 [개선] 키보드 액션 추가
                   decoration: const InputDecoration(
                     labelText: "PROJECT",
                     filled: true,
@@ -139,6 +164,8 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                     Expanded(
                       child: TextField(
                         controller: fromCtrl,
+                        textInputAction:
+                            TextInputAction.next, // 💡 [개선] 키보드 액션 추가
                         decoration: const InputDecoration(
                           labelText: "FROM",
                           filled: true,
@@ -153,6 +180,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                     Expanded(
                       child: TextField(
                         controller: toCtrl,
+                        textInputAction: TextInputAction.done,
                         decoration: const InputDecoration(
                           labelText: "TO",
                           filled: true,
@@ -217,23 +245,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    List<Map<String, dynamic>> bendList = [];
-    try {
-      List<dynamic> rawList = jsonDecode(currentData['bend_data']);
-      bendList = rawList.map((e) => Map<String, dynamic>.from(e)).toList();
-    } catch (e) {
-      bendList = [];
-    }
-
-    int markNumber = 1;
-    for (int i = 0; i < bendList.length; i++) {
-      bool isStraight = (bendList[i]['angle']?.toDouble() ?? 0.0) == 0.0;
-      bendList[i]['is_straight'] = isStraight;
-      bendList[i]['display_mark_num'] = isStraight ? 0 : markNumber;
-      if (!isStraight) markNumber++;
-    }
-
-    // 🚀 [핵심] 총 컷팅 길이 반올림 적용 (절단장 정수로 표현)
+    // 총 컷팅 길이 반올림 적용 (절단장 정수로 표현)
     final double absoluteTotalCut =
         double.tryParse(currentData['total_length']?.toString() ?? '0') ?? 0.0;
     final int displayTotalCut = absoluteTotalCut.round();
@@ -267,110 +279,10 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: BoxDecoration(
-                color: pureWhite,
-                border: Border(
-                  bottom: BorderSide(color: Colors.grey.shade300, width: 1),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "LINE",
-                          style: TextStyle(
-                            color: slate600,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          "$from ➔ $to",
-                          style: const TextStyle(
-                            color: slate900,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(width: 1, height: 40, color: Colors.grey.shade200),
-                  Expanded(
-                    flex: 2,
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "SIZE / FIT",
-                            style: TextStyle(
-                              color: slate600,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "${currentData['pipe_size']} / $fittingStr",
-                            style: const TextStyle(
-                              color: makitaTeal,
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Container(width: 1, height: 40, color: Colors.grey.shade200),
-                  Expanded(
-                    flex: 2,
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "TOTAL CUT",
-                            style: TextStyle(
-                              color: slate600,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "$displayTotalCut mm", // 💡 반올림 적용된 총 길이 출력!
-                            style: TextStyle(
-                              color: Colors.red.shade700,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _buildTopInfoPanel(
+              displayTotalCut,
+              fittingStr,
+            ), // 💡 [개선] 가독성을 위해 위젯 분리
             Expanded(
               child: Row(
                 children: [
@@ -396,7 +308,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: PipeVisualizer(
-                          bendList: bendList,
+                          bendList: parsedBendList, // 💡 [개선] 캐싱된 리스트 사용
                           tailLength: tail,
                           selectedSegmentIndex: _selectedSegmentIndex,
                           initialStartDir: startDir,
@@ -447,7 +359,9 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                           ),
                         ],
                       ),
-                      child: bendList.isEmpty
+                      child:
+                          parsedBendList
+                              .isEmpty // 💡 [개선] 캐싱된 리스트 사용
                           ? const Center(
                               child: Text(
                                 "NO DATA",
@@ -491,15 +405,16 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                                   child: ListView.builder(
                                     padding: EdgeInsets.zero,
                                     itemCount:
-                                        bendList.length + (tail > 0 ? 1 : 0),
+                                        parsedBendList.length +
+                                        (tail > 0 ? 1 : 0),
                                     itemBuilder: (context, index) {
                                       bool isSelected =
                                           _selectedSegmentIndex == index;
-                                      if (index < bendList.length) {
+                                      if (index < parsedBendList.length) {
                                         return _buildSegmentListItem(
                                           index: index,
                                           isSelected: isSelected,
-                                          bendData: bendList[index],
+                                          bendData: parsedBendList[index],
                                           onTap: () => setState(
                                             () => _selectedSegmentIndex =
                                                 isSelected ? null : index,
@@ -533,6 +448,114 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     );
   }
 
+  // 💡 [개선] 가독성을 위해 상단 패널을 별도 위젯(메서드)으로 분리
+  Widget _buildTopInfoPanel(int displayTotalCut, String fittingStr) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: pureWhite,
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade300, width: 1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "LINE",
+                  style: TextStyle(
+                    color: slate600,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "$from ➔ $to",
+                  style: const TextStyle(
+                    color: slate900,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          Container(width: 1, height: 40, color: Colors.grey.shade200),
+          Expanded(
+            flex: 2,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "SIZE / FIT",
+                    style: TextStyle(
+                      color: slate600,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "${currentData['pipe_size']} / $fittingStr",
+                    style: const TextStyle(
+                      color: makitaTeal,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Container(width: 1, height: 40, color: Colors.grey.shade200),
+          Expanded(
+            flex: 2,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "TOTAL CUT",
+                    style: TextStyle(
+                      color: slate600,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "$displayTotalCut mm",
+                    style: TextStyle(
+                      color: Colors.red.shade700,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSegmentListItem({
     required int index,
     required bool isSelected,
@@ -551,13 +574,12 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     int displayMarkNum = 0;
 
     if (isTail) {
-      lengthText = tailLength?.round().toString() ?? "0"; // 💡 여유 기장 반올림!
+      lengthText = tailLength?.round().toString() ?? "0";
       directionText = "TAIL";
     } else if (bendData != null) {
       double rawLength = (bendData['length'] ?? 0).toDouble();
       double rotation = (bendData['rotation'] ?? 0.0).toDouble();
 
-      // 💡 벤딩 각도는 보통 정수로 들어가지만, 혹시 몰라 double로 변환 후 반올림
       double rawAngle =
           double.tryParse(bendData['angle']?.toString() ?? '0') ?? 0.0;
       String angle = rawAngle.round().toString();
@@ -565,11 +587,11 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
       isStraight = bendData['is_straight'] ?? false;
       displayMarkNum = bendData['display_mark_num'] ?? 0;
 
-      lengthText = rawLength.round().toString(); // 💡 입력 기장 반올림!
-      directionText = "${_getDirectionTextShort(rotation)} $angle°";
+      lengthText = rawLength.round().toString();
+      // 💡 [수정 완료] 각도가 먼저, 방향이 나중에 오도록 수정
+      directionText = "$angle° ${_getDirectionTextShort(rotation)}";
 
       if (!isStraight) {
-        // _extractValue 함수 내부에서 이미 .round() 적용되도록 수정해두었음!
         markText = _extractValue(bendData, [
           'mark',
           'marking',
@@ -674,7 +696,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                           ),
                         ),
                         Text(
-                          "$markText mm", // 💡 소수점 날아간 깔끔한 마킹 값 출력!
+                          "$markText mm",
                           style: TextStyle(
                             color: isSelected
                                 ? Colors.orange.shade800
@@ -716,7 +738,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                         ),
                       ),
                       Text(
-                        "$lengthText mm", // 💡 반올림 적용!
+                        "$lengthText mm",
                         style: const TextStyle(
                           color: slate900,
                           fontSize: 15,
