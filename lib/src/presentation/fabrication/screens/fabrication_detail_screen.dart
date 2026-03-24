@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart'; // 🚀 캡처를 위한 패키지
+import 'package:flutter/services.dart'; // 🚀 폰트 로드(rootBundle)용
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui; // 🚀 이미지 변환용
@@ -8,7 +9,7 @@ import 'dart:typed_data'; // 🚀 바이트 데이터용
 import 'package:tubing_calculator/src/core/database/database_helper.dart';
 import 'package:tubing_calculator/src/data/bend_data_manager.dart';
 
-// 🚀 추가된 패키지 임포트
+// 🚀 PDF 및 공유 패키지 임포트
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
@@ -128,11 +129,9 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
   // 🚀 형상 화면을 고화질 이미지(PNG)로 캡처하는 함수
   Future<Uint8List?> _captureIsoImage() async {
     try {
-      // RepaintBoundary를 찾음
       RenderRepaintBoundary boundary =
           _isoBoundaryKey.currentContext!.findRenderObject()
               as RenderRepaintBoundary;
-      // pixelRatio를 3.0 이상으로 높여 아주 선명하게 캡처
       ui.Image image = await boundary.toImage(pixelRatio: 3.0);
       ByteData? byteData = await image.toByteData(
         format: ui.ImageByteFormat.png,
@@ -158,6 +157,9 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
 
     setState(() => _isExporting = true);
 
+    // 🚀 2. 하얀 화면으로 그려질 시간을 0.15초 벌어줍니다! 이 줄을 캡처 바로 위에 추가하세요!
+    await Future.delayed(const Duration(milliseconds: 150));
+
     try {
       // 1. 아이소 도면 캡처
       Uint8List? isoImageBytes = await _captureIsoImage();
@@ -166,7 +168,20 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
         pdfIsoImage = pw.MemoryImage(isoImageBytes);
       }
 
-      final pdf = pw.Document();
+      // 🚀 2. 한글 폰트 로드 (VS Code에 넣은 파일)
+      final fontData = await rootBundle.load(
+        'assets/fonts/NotoSansKR-VariableFont_wght.ttf',
+      );
+      final ttf = pw.Font.ttf(fontData);
+
+      // 🚀 3. PDF 문서 생성 (영어/숫자는 기본 폰트, 한글은 NotoSans 폰트 적용)
+      final pdf = pw.Document(
+        theme: pw.ThemeData.withFont(
+          base: pw.Font.helvetica(),
+          bold: pw.Font.helveticaBold(),
+          fontFallback: [ttf], // 한글이 나오면 이 폰트로 그림
+        ),
+      );
 
       final double absoluteTotalCut =
           double.tryParse(currentData['total_length']?.toString() ?? '0') ??
@@ -180,6 +195,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
 
       final String currentDate = DateTime.now().toString().split(' ')[0];
 
+      // 4. PDF 페이지 작성
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
@@ -193,7 +209,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
                   children: [
                     pw.Text(
-                      "TUBING FABRICATION REPORT",
+                      "튜빙 작업 지시서 (ISO REPORT)",
                       style: pw.TextStyle(
                         fontSize: 22,
                         fontWeight: pw.FontWeight.bold,
@@ -201,7 +217,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                       ),
                     ),
                     pw.Text(
-                      "Date: $currentDate",
+                      "출력일: $currentDate",
                       style: const pw.TextStyle(
                         fontSize: 10,
                         color: PdfColors.grey700,
@@ -221,7 +237,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
               alignment: pw.Alignment.centerRight,
               margin: const pw.EdgeInsets.only(top: 10),
               child: pw.Text(
-                'Page ${context.pageNumber} of ${context.pagesCount}',
+                '페이지 ${context.pageNumber} / ${context.pagesCount}',
                 style: const pw.TextStyle(
                   fontSize: 10,
                   color: PdfColors.grey600,
@@ -232,7 +248,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
 
           build: (pw.Context context) {
             return [
-              // 1. 도면 정보
+              // 도면 정보 박스
               pw.Container(
                 padding: const pw.EdgeInsets.all(16),
                 decoration: pw.BoxDecoration(
@@ -249,7 +265,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
                         pw.Text(
-                          "PROJECT INFO",
+                          "프로젝트 정보",
                           style: pw.TextStyle(
                             color: PdfColors.teal700,
                             fontWeight: pw.FontWeight.bold,
@@ -258,12 +274,12 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                         ),
                         pw.SizedBox(height: 8),
                         pw.Text(
-                          "Project: $project",
+                          "프로젝트명: $project",
                           style: const pw.TextStyle(fontSize: 14),
                         ),
                         pw.SizedBox(height: 4),
                         pw.Text(
-                          "Line: $from  ->  $to",
+                          "작업구간: $from  ->  $to",
                           style: const pw.TextStyle(fontSize: 14),
                         ),
                       ],
@@ -272,7 +288,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                       crossAxisAlignment: pw.CrossAxisAlignment.end,
                       children: [
                         pw.Text(
-                          "SPECIFICATION",
+                          "배관 스펙",
                           style: pw.TextStyle(
                             color: PdfColors.teal700,
                             fontWeight: pw.FontWeight.bold,
@@ -281,12 +297,12 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                         ),
                         pw.SizedBox(height: 8),
                         pw.Text(
-                          "Pipe Size: ${currentData['pipe_size']}  |  Fit: $fittingStr",
+                          "파이프 규격: ${currentData['pipe_size']}  |  피팅: $fittingStr",
                           style: const pw.TextStyle(fontSize: 14),
                         ),
                         pw.SizedBox(height: 4),
                         pw.Text(
-                          "Total Cut: $displayTotalCut mm",
+                          "절단장(Total Cut): $displayTotalCut mm",
                           style: pw.TextStyle(
                             fontSize: 14,
                             fontWeight: pw.FontWeight.bold,
@@ -300,10 +316,10 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
               ),
               pw.SizedBox(height: 20),
 
-              // 🚀 2. 캡처된 3D 튜브 형상 삽입 (존재할 경우)
+              // 캡처된 3D 튜브 형상 삽입
               if (pdfIsoImage != null) ...[
                 pw.Text(
-                  "ISO DRAWING",
+                  "아이소메트릭 도면 (ISO DRAWING)",
                   style: pw.TextStyle(
                     fontSize: 16,
                     fontWeight: pw.FontWeight.bold,
@@ -312,26 +328,23 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                 ),
                 pw.SizedBox(height: 10),
                 pw.Container(
-                  height: 250, // 이미지 높이
+                  height: 250,
                   width: double.infinity,
                   decoration: pw.BoxDecoration(
-                    color: PdfColors.white, // PDF 내부에서도 명시적으로 흰색 배경 지정
+                    color: PdfColors.white, // PDF 상에서 배경 흰색 고정
                     border: pw.Border.all(color: PdfColors.grey300),
                     borderRadius: const pw.BorderRadius.all(
                       pw.Radius.circular(8),
                     ),
                   ),
-                  child: pw.Image(
-                    pdfIsoImage,
-                    fit: pw.BoxFit.contain,
-                  ), // 캡처된 이미지 삽입
+                  child: pw.Image(pdfIsoImage, fit: pw.BoxFit.contain),
                 ),
                 pw.SizedBox(height: 30),
               ],
 
-              // 3. 벤딩 데이터 타이틀
+              // 벤딩 데이터 표
               pw.Text(
-                "BENDING SEQUENCE",
+                "벤딩 데이터 (BENDING SEQUENCE)",
                 style: pw.TextStyle(
                   fontSize: 16,
                   fontWeight: pw.FontWeight.bold,
@@ -340,15 +353,8 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
               ),
               pw.SizedBox(height: 10),
 
-              // 4. 지브라 패턴(얼룩무늬) 표 디자인
               pw.TableHelper.fromTextArray(
-                headers: [
-                  'Mark No.',
-                  'Length (mm)',
-                  'Angle',
-                  'Direction',
-                  'Marking (mm)',
-                ],
+                headers: ['번호', '기장 (mm)', '각도', '방향', '마킹포인트 (mm)'],
                 headerStyle: pw.TextStyle(
                   fontWeight: pw.FontWeight.bold,
                   color: PdfColors.white,
@@ -395,16 +401,12 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
               ),
               pw.SizedBox(height: 16),
 
-              // 5. TAIL 정보
+              // TAIL 정보
               pw.Container(
                 alignment: pw.Alignment.centerRight,
                 child: pw.Text(
-                  "* Tail Length: ${tail.round()} mm / Start Dir: $startDir",
-                  style: pw.TextStyle(
-                    fontSize: 10,
-                    fontStyle: pw.FontStyle.italic,
-                    color: PdfColors.grey600,
-                  ),
+                  "* 여유 기장(Tail): ${tail.round()} mm / 시작 방향: $startDir",
+                  style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
                 ),
               ),
             ];
@@ -413,14 +415,13 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
       );
 
       final output = await getTemporaryDirectory();
-      final safeProject = project.replaceAll(' ', '_');
-      final safeFrom = from.replaceAll(' ', '_');
-      final file = File("${output.path}/ISO_${safeProject}_$safeFrom.pdf");
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final file = File("${output.path}/ISO_REPORT_$timestamp.pdf");
       await file.writeAsBytes(await pdf.save());
 
       await Share.shareXFiles([
         XFile(file.path),
-      ], text: '[$project] $from 배관 튜빙 데이터 리포트입니다.');
+      ], text: '[$project] $from 작업 지시서 리포트입니다.');
     } catch (e) {
       debugPrint("PDF 생성 실패: $e");
       if (mounted) {
@@ -645,15 +646,14 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                           ),
                         ],
                       ),
-                      // 🚀 캡처를 위해 RepaintBoundary로 감싸줌
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: RepaintBoundary(
-                          key: _isoBoundaryKey, // 🚀 글로벌 키 연결
+                          key: _isoBoundaryKey,
                           child: Container(
-                            color:
-                                pureWhite, // 🚀 여기서 무조건 순백색(White) 배경을 고정합니다!
+                            color: pureWhite, // 🚀 캡처 시 무조건 순백색(White) 배경 고정!
                             child: PipeVisualizer(
+                              isLightMode: _isExporting, // 🚀 1. 이 줄을 추가해 주세요!
                               bendList: parsedBendList,
                               tailLength: tail,
                               selectedSegmentIndex: _selectedSegmentIndex,
@@ -1032,7 +1032,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          "MARKING (마킹 지점)",
+                          "마킹 지점 (MARKING)",
                           style: TextStyle(
                             color: slate600,
                             fontSize: 11,

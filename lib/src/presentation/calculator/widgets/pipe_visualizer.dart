@@ -1,4 +1,3 @@
-// lib/src/presentation/calculator/widgets/pipe_visualizer.dart
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' as vmath;
@@ -16,6 +15,9 @@ class PipeVisualizer extends StatefulWidget {
   final String initialStartDir;
   final ValueChanged<String>? onStartDirChanged;
 
+  // 🚀 PDF 캡처용 밝은 테마 모드 플래그 추가!
+  final bool isLightMode;
+
   const PipeVisualizer({
     super.key,
     required this.bendList,
@@ -23,6 +25,7 @@ class PipeVisualizer extends StatefulWidget {
     this.selectedSegmentIndex,
     this.initialStartDir = 'RIGHT',
     this.onStartDirChanged,
+    this.isLightMode = false, // 기본값은 다크 모드(false)
   });
 
   @override
@@ -52,7 +55,6 @@ class _PipeVisualizerState extends State<PipeVisualizer> {
     _startDir = widget.initialStartDir;
   }
 
-  // 🚀 [핵심 해결] 부모 화면(계산기)에서 0.1초 뒤에 찾아온 기억(DOWN)을 던져주면, 즉시 캐치해서 바꿈!
   @override
   void didUpdateWidget(PipeVisualizer oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -109,13 +111,16 @@ class _PipeVisualizerState extends State<PipeVisualizer> {
     return Stack(
       children: [
         GestureDetector(
-          onScaleStart: _onScaleStart,
-          onScaleUpdate: _onScaleUpdate,
-          onDoubleTap: _resetView,
+          onScaleStart: widget.isLightMode ? null : _onScaleStart,
+          onScaleUpdate: widget.isLightMode ? null : _onScaleUpdate,
+          onDoubleTap: widget.isLightMode ? null : _resetView,
           child: Container(
             width: double.infinity,
             height: double.infinity,
-            color: const Color(0xFF151B22),
+            // 🚀 PDF 캡처 시 투명(또는 흰색) 처리, 평소엔 까만색
+            color: widget.isLightMode
+                ? Colors.transparent
+                : const Color(0xFF151B22),
             child: CustomPaint(
               painter: IsoPipePainter(
                 bendList: widget.bendList,
@@ -129,101 +134,109 @@ class _PipeVisualizerState extends State<PipeVisualizer> {
                 isFlippedY: _isFlippedY,
                 startDirection: _startDir,
                 selectedSegmentIndex: widget.selectedSegmentIndex,
+                isLightMode: widget.isLightMode, // 페인터에 모드 전달
               ),
             ),
           ),
         ),
-        Positioned(
-          top: 16,
-          right: 16,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2B3643),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.white24),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black26,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
+
+        // 🚀 PDF 캡처 모드(isLightMode)일 때는 지저분한 UI 버튼들을 싹 숨깁니다!
+        if (!widget.isLightMode) ...[
+          Positioned(
+            top: 16,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2B3643),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white24),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _startDir,
+                  dropdownColor: const Color(0xFF2B3643),
+                  icon: const Icon(
+                    Icons.arrow_drop_down,
+                    color: Colors.white70,
+                  ),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  onChanged: (String? newValue) {
+                    if (newValue != null) {
+                      setState(() => _startDir = newValue);
+                      widget.onStartDirChanged?.call(newValue);
+                    }
+                  },
+                  items: ['RIGHT', 'LEFT', 'UP', 'DOWN', 'FRONT', 'BACK']
+                      .map<DropdownMenuItem<String>>((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text('시작: $value'),
+                        );
+                      })
+                      .toList(),
                 ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildControlButton(
+                  icon: Icons.swap_vert,
+                  color: _isFlippedY
+                      ? const Color(0xFFE57373)
+                      : const Color(0xFF4A6572),
+                  onPressed: _toggleFlipY,
+                ),
+                const SizedBox(height: 12),
+                _buildControlButton(
+                  icon: Icons.swap_horiz,
+                  color: _isFlippedX
+                      ? const Color(0xFFE57373)
+                      : const Color(0xFF4A6572),
+                  onPressed: _toggleFlipX,
+                ),
+                const SizedBox(height: 12),
+                _buildControlButton(
+                  icon: Icons.rotate_90_degrees_cw,
+                  color: const Color(0xFF4A6572),
+                  onPressed: _rotateCamera,
+                ),
+                const SizedBox(height: 12),
+                _buildControlButton(
+                  icon: Icons.add,
+                  onPressed: () => setState(
+                    () => _zoomLevel = (_zoomLevel + 0.2).clamp(0.2, 10.0),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildControlButton(
+                  icon: Icons.remove,
+                  onPressed: () => setState(
+                    () => _zoomLevel = (_zoomLevel - 0.2).clamp(0.2, 10.0),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildControlButton(icon: Icons.refresh, onPressed: _resetView),
               ],
             ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _startDir,
-                dropdownColor: const Color(0xFF2B3643),
-                icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-                onChanged: (String? newValue) {
-                  if (newValue != null) {
-                    setState(() => _startDir = newValue);
-                    widget.onStartDirChanged?.call(newValue);
-                  }
-                },
-                items: ['RIGHT', 'LEFT', 'UP', 'DOWN', 'FRONT', 'BACK']
-                    .map<DropdownMenuItem<String>>((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text('시작: $value'),
-                      );
-                    })
-                    .toList(),
-              ),
-            ),
           ),
-        ),
-        Positioned(
-          right: 16,
-          bottom: 16,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildControlButton(
-                icon: Icons.swap_vert,
-                color: _isFlippedY
-                    ? const Color(0xFFE57373)
-                    : const Color(0xFF4A6572),
-                onPressed: _toggleFlipY,
-              ),
-              const SizedBox(height: 12),
-              _buildControlButton(
-                icon: Icons.swap_horiz,
-                color: _isFlippedX
-                    ? const Color(0xFFE57373)
-                    : const Color(0xFF4A6572),
-                onPressed: _toggleFlipX,
-              ),
-              const SizedBox(height: 12),
-              _buildControlButton(
-                icon: Icons.rotate_90_degrees_cw,
-                color: const Color(0xFF4A6572),
-                onPressed: _rotateCamera,
-              ),
-              const SizedBox(height: 12),
-              _buildControlButton(
-                icon: Icons.add,
-                onPressed: () => setState(
-                  () => _zoomLevel = (_zoomLevel + 0.2).clamp(0.2, 10.0),
-                ),
-              ),
-              const SizedBox(height: 8),
-              _buildControlButton(
-                icon: Icons.remove,
-                onPressed: () => setState(
-                  () => _zoomLevel = (_zoomLevel - 0.2).clamp(0.2, 10.0),
-                ),
-              ),
-              const SizedBox(height: 8),
-              _buildControlButton(icon: Icons.refresh, onPressed: _resetView),
-            ],
-          ),
-        ),
+        ],
       ],
     );
   }
@@ -259,8 +272,15 @@ class SegmentRenderable implements Renderable {
   @override
   final double z;
   final bool isSelected;
+  final bool isLightMode; // 🚀 밝은 테마 여부
 
-  SegmentRenderable(this.p1, this.p2, this.z, {this.isSelected = false});
+  SegmentRenderable(
+    this.p1,
+    this.p2,
+    this.z, {
+    this.isSelected = false,
+    this.isLightMode = false,
+  });
 
   @override
   void draw(
@@ -296,8 +316,11 @@ class SegmentRenderable implements Renderable {
         ..lineTo(arrowP2.dx, arrowP2.dy)
         ..close();
 
+      // 🚀 PDF 캡처 시 하얀색 배경에서는 화살표를 검은색으로 반전!
       Paint arrowPaint = Paint()
-        ..color = isSelected ? Colors.white : Colors.white.withOpacity(0.8)
+        ..color = isLightMode
+            ? (isSelected ? Colors.black : Colors.black87)
+            : (isSelected ? Colors.white : Colors.white.withOpacity(0.8))
         ..style = PaintingStyle.fill;
 
       canvas.drawPath(arrowPath, arrowPaint);
@@ -309,8 +332,9 @@ class DashedLineRenderable implements Renderable {
   final Offset p1, p2;
   @override
   final double z;
+  final bool isLightMode;
 
-  DashedLineRenderable(this.p1, this.p2, this.z);
+  DashedLineRenderable(this.p1, this.p2, this.z, {this.isLightMode = false});
 
   @override
   void draw(
@@ -320,7 +344,9 @@ class DashedLineRenderable implements Renderable {
     Paint outlinePaint,
   ) {
     final dashPaint = Paint()
-      ..color = Colors.amberAccent.withOpacity(0.9)
+      ..color = isLightMode
+          ? Colors.orange.shade800
+          : Colors.amberAccent.withOpacity(0.9)
       ..strokeWidth = 2.5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
@@ -373,7 +399,7 @@ class DashedLineRenderable implements Renderable {
     canvas.drawPath(
       arrowPath,
       Paint()
-        ..color = Colors.amberAccent
+        ..color = isLightMode ? Colors.orange.shade800 : Colors.amberAccent
         ..style = PaintingStyle.fill,
     );
   }
@@ -386,6 +412,7 @@ class NodeRenderable implements Renderable {
   final bool isStart;
   final bool isEnd;
   final bool isSelected;
+  final bool isLightMode;
 
   NodeRenderable(
     this.pos,
@@ -393,6 +420,7 @@ class NodeRenderable implements Renderable {
     this.isStart = false,
     this.isEnd = false,
     this.isSelected = false,
+    this.isLightMode = false,
   });
 
   @override
@@ -409,7 +437,11 @@ class NodeRenderable implements Renderable {
         ? const Color(0xFFE53935)
         : (isEnd
               ? const Color(0xFF64B5F6)
-              : (isSelected ? Colors.orange : const Color(0xFF90A4AE)));
+              : (isSelected
+                    ? Colors.orange
+                    : (isLightMode
+                          ? Colors.grey.shade600
+                          : const Color(0xFF90A4AE))));
 
     canvas.drawCircle(pos, radius, Paint()..color = nodeColor);
   }
@@ -423,6 +455,7 @@ class LabelRenderable implements Renderable {
   final bool isStraightPipe;
   final bool isSelected;
   final bool isStartLabel;
+  final bool isLightMode;
 
   LabelRenderable(
     this.centerPos,
@@ -431,6 +464,7 @@ class LabelRenderable implements Renderable {
     this.isStraightPipe = false,
     this.isSelected = false,
     this.isStartLabel = false,
+    this.isLightMode = false,
   });
 
   @override
@@ -440,9 +474,12 @@ class LabelRenderable implements Renderable {
     Paint highlightPaint,
     Paint outlinePaint,
   ) {
+    // 🚀 밝은 테마일 때 글자 색상 까맣게 반전
     Color textColor = isStartLabel
         ? Colors.white
-        : (isStraightPipe ? Colors.white70 : Colors.white);
+        : (isStraightPipe
+              ? (isLightMode ? Colors.black87 : Colors.white70)
+              : (isLightMode ? Colors.black : Colors.white));
 
     double fontSize = isStartLabel
         ? 12
@@ -479,14 +516,19 @@ class LabelRenderable implements Renderable {
       Radius.circular(isStraightPipe ? 4 : 8),
     );
 
+    // 🚀 밝은 테마일 때 박스 배경색 하얗게 반전
     final bgPaint = Paint()
       ..color = isStartLabel
           ? const Color(0xFFE53935)
           : (isStraightPipe
-                ? Colors.grey.shade800.withOpacity(0.7)
+                ? (isLightMode
+                      ? Colors.white70
+                      : Colors.grey.shade800.withOpacity(0.7))
                 : (isSelected
-                      ? Colors.orange.shade800
-                      : const Color(0xFF151B22).withOpacity(0.95)))
+                      ? Colors.orange.shade400
+                      : (isLightMode
+                            ? Colors.white
+                            : const Color(0xFF151B22).withOpacity(0.95))))
       ..style = PaintingStyle.fill;
 
     final borderPaint = Paint()
@@ -494,7 +536,9 @@ class LabelRenderable implements Renderable {
           ? Colors.red.shade900
           : (isStraightPipe
                 ? Colors.grey.shade600
-                : (isSelected ? Colors.orange.shade300 : Colors.grey.shade600))
+                : (isSelected
+                      ? Colors.orange.shade800
+                      : (isLightMode ? Colors.black54 : Colors.grey.shade600)))
       ..style = PaintingStyle.stroke
       ..strokeWidth = isStraightPipe ? 1.0 : 1.5;
 
@@ -517,6 +561,8 @@ class IsoPipePainter extends CustomPainter {
   final String startDirection;
   final int? selectedSegmentIndex;
 
+  final bool isLightMode; // 🚀 화가(Painter)에게도 모드 전달
+
   IsoPipePainter({
     required this.bendList,
     this.tailLength = 0.0,
@@ -529,6 +575,7 @@ class IsoPipePainter extends CustomPainter {
     required this.isFlippedY,
     required this.startDirection,
     this.selectedSegmentIndex,
+    required this.isLightMode,
   });
 
   double _getVisualLength(double realLength) {
@@ -565,11 +612,12 @@ class IsoPipePainter extends CustomPainter {
   }
 
   void _drawBlueprintGrid(Canvas canvas, Size size) {
+    // 🚀 모드에 따라 그리드 색상을 밝게/어둡게 변경
     final minorPaint = Paint()
-      ..color = const Color(0xFF202A36)
+      ..color = isLightMode ? Colors.grey.shade200 : const Color(0xFF202A36)
       ..strokeWidth = 1.0;
     final majorPaint = Paint()
-      ..color = const Color(0xFF2C3948)
+      ..color = isLightMode ? Colors.grey.shade300 : const Color(0xFF2C3948)
       ..strokeWidth = 1.5;
 
     double step = 30.0;
@@ -601,7 +649,6 @@ class IsoPipePainter extends CustomPainter {
 
     vmath.Vector3 currentDir = _getStartVector();
 
-    // 🚀 번호 매기기 로직 (계산기용)
     List<int> internalMarkNums = [];
     int currentMarkNum = 1;
     for (int i = 0; i < bendList.length; i++) {
@@ -694,13 +741,18 @@ class IsoPipePainter extends CustomPainter {
       Offset p2_2d = to2D(projectedPts[i + 1]);
 
       renderQueue.add(
-        SegmentRenderable(p1_2d, p2_2d, zAvg, isSelected: isSelected),
+        SegmentRenderable(
+          p1_2d,
+          p2_2d,
+          zAvg,
+          isSelected: isSelected,
+          isLightMode: isLightMode,
+        ),
       );
 
       if (i < bendList.length) {
         double realL = bendList[i]['length']?.toDouble() ?? 0.0;
         double angle = bendList[i]['angle']?.toDouble() ?? 0.0;
-
         int mNum = internalMarkNums[i];
 
         if (realL > 0) {
@@ -713,7 +765,6 @@ class IsoPipePainter extends CustomPainter {
               ? Offset(-dy / len, dx / len)
               : const Offset(0, -1);
           if (normal.dy > 0) normal = Offset(-normal.dx, -normal.dy);
-
           Offset labelPos = mid + normal * 18.0;
 
           if (angle == 0.0) {
@@ -724,6 +775,7 @@ class IsoPipePainter extends CustomPainter {
                 "L:${realL.toInt()}",
                 isStraightPipe: true,
                 isSelected: isSelected,
+                isLightMode: isLightMode,
               ),
             );
           } else {
@@ -734,6 +786,7 @@ class IsoPipePainter extends CustomPainter {
                 "$mNum",
                 isStraightPipe: false,
                 isSelected: isSelected,
+                isLightMode: isLightMode,
               ),
             );
           }
@@ -753,17 +806,20 @@ class IsoPipePainter extends CustomPainter {
           isStart: i == 0,
           isEnd: i == pipeEndIndex,
           isSelected: isSelected,
+          isLightMode: isLightMode,
         ),
       );
-      if (i == 0)
+      if (i == 0) {
         labelQueue.add(
           LabelRenderable(
             nodePos + const Offset(0, -22),
             projectedPts[i].z - 0.1,
             "START",
             isStartLabel: true,
+            isLightMode: isLightMode,
           ),
         );
+      }
     }
 
     vmath.Vector3 translatedEnd =
@@ -773,12 +829,21 @@ class IsoPipePainter extends CustomPainter {
     Offset pCurrentPos2D = to2D(projectedPts.last);
     double zAvgDir = (projectedPts.last.z + pEndDir.z) / 2;
 
-    renderQueue.add(DashedLineRenderable(pCurrentPos2D, pEndDir2D, zAvgDir));
+    renderQueue.add(
+      DashedLineRenderable(
+        pCurrentPos2D,
+        pEndDir2D,
+        zAvgDir,
+        isLightMode: isLightMode,
+      ),
+    );
     renderQueue.sort((a, b) => b.z.compareTo(a.z));
     labelQueue.sort((a, b) => b.z.compareTo(a.z));
 
     final pipePaint = Paint()
-      ..color = const Color(0xFF607D8B)
+      ..color = isLightMode
+          ? const Color(0xFF455A64)
+          : const Color(0xFF607D8B) // 🚀 밝은 테마에선 파이프를 약간 더 진하게!
       ..strokeWidth = 6.0
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
@@ -790,7 +855,10 @@ class IsoPipePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     final outlinePaint = Paint()
-      ..color = Colors.black45
+      ..color = isLightMode
+          ? Colors.black87
+          : Colors
+                .black45 // 🚀 테두리도 명확하게
       ..strokeWidth = 8.0
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
@@ -859,9 +927,9 @@ class IsoPipePainter extends CustomPainter {
         to2D(projOrigin),
         to2D(endDir),
         Paint()
-          ..color = axColors[i].withOpacity(0.6)
+          ..color = axColors[i].withOpacity(0.8)
           ..strokeWidth = 2.0,
-      );
+      ); // 투명도 조절
     }
   }
 
@@ -876,6 +944,7 @@ class IsoPipePainter extends CustomPainter {
         oldDelegate.isFlippedX != isFlippedX ||
         oldDelegate.isFlippedY != isFlippedY ||
         oldDelegate.startDirection != startDirection ||
-        oldDelegate.selectedSegmentIndex != selectedSegmentIndex;
+        oldDelegate.selectedSegmentIndex != selectedSegmentIndex ||
+        oldDelegate.isLightMode != isLightMode; // 🚀 모드 변경 시 리페인트
   }
 }
