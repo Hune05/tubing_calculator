@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/data/bend_data_manager.dart';
 import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
-// 🚀 [개선 1 적용] 공통 숫자 패드 import 추가
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -41,7 +40,6 @@ class _MarkingPageState extends State<MarkingPage> {
   void initState() {
     super.initState();
     _refreshSettings();
-    // 🚀 [개선 2 적용] 불필요한 _tailController.addListener 제거 (저장은 팝업이 닫힐 때 한 번만 수행)
   }
 
   Future<void> _refreshSettings() async {
@@ -113,34 +111,65 @@ class _MarkingPageState extends State<MarkingPage> {
     final double pureCutLength = result['totalCutLength'];
     final List<StepResult> steps = result['steps'];
 
+    // 🚀 [핵심 수정 완료] ISO 형상 파괴 버그 픽스!
     List<Map<String, dynamic>> displayMarks = [];
     int markNumber = 1;
     double lastMarkingPoint = 0.0;
+    double accumulatedIncremental = 0.0;
 
     for (int i = 0; i < bendList.length; i++) {
       bool isStraight = bendList[i]['angle'] == 0.0;
       double currentMark = steps[i].markingPoint;
+      double currentLength = bendList[i]['length']!.toDouble();
+
       if (currentMark > lastMarkingPoint) lastMarkingPoint = currentMark;
 
-      displayMarks.add({
-        ...bendList[i],
-        'is_straight': isStraight,
-        'mark_num': isStraight ? 0 : markNumber,
-        'marking_point': currentMark,
-        'incremental_mark': steps[i].incrementalMark,
-      });
+      // 🛑 1. 길이도 없고 각도도 없는 진짜 '깡통(더미) 직관'
+      if (currentLength <= 0.01 && isStraight) {
+        accumulatedIncremental += steps[i].incrementalMark;
+        // 💡 ISO(3D)에 빈 공간으로라도 데이터가 넘어가야 형상이 안 깨지므로 배열에 넣음
+        displayMarks.add({
+          ...bendList[i],
+          'is_straight': true,
+          'is_hidden': true, // 👈 UI에서만 숨기기 위한 특수 플래그
+          'mark_num': 0,
+          'marking_point': currentMark,
+          'incremental_mark': 0.0,
+        });
+        continue; // 마킹 번호는 올리지 않음
+      }
 
-      if (!isStraight) markNumber++;
+      // 🛑 2. 실제 길이가 있는 직관
+      if (isStraight) {
+        accumulatedIncremental += steps[i].incrementalMark;
+        displayMarks.add({
+          ...bendList[i],
+          'is_straight': true,
+          'is_hidden': false,
+          'mark_num': 0,
+          'marking_point': currentMark,
+          'incremental_mark': 0.0,
+        });
+      }
+      // 🛑 3. 진짜 벤딩 (오프셋 0.0 시작점 포함!)
+      else {
+        // 각도가 있다면 길이가 0.0이어도 '제자리 벤딩'이므로 무조건 카드 생성!
+        displayMarks.add({
+          ...bendList[i],
+          'is_straight': false,
+          'is_hidden': false,
+          'mark_num': markNumber,
+          'marking_point': currentMark,
+          'incremental_mark': steps[i].incrementalMark + accumulatedIncremental,
+        });
+
+        markNumber++; // 벤딩이므로 넘버링 증가
+        accumulatedIncremental = 0.0; // 앞 직관에서 몰아받은 거리 초기화
+      }
     }
 
-    // 🚀 [수정 완료] 테이크업(25)을 제거하여 실제 슈(롤러) 여유 기장만 표시
     double totalCut = bendList.isEmpty ? 0.0 : pureCutLength + _tailLength;
-
-    // ✅ 가이드 수식에서 radius(25.0)를 빼줍니다.
-    // 이렇게 해야 +14mm (외경 11 + 슈 여유 3)가 정확히 뜹니다.
     double diffAfterLastMark = (totalCut - lastMarkingPoint) - radius;
-
-    // 만약 계산값이 마이너스가 나오면 0으로 처리 (안전장치)
     if (diffAfterLastMark < 0) diffAfterLastMark = 0;
     bool isStandalone = widget.pageController == null;
 
@@ -289,8 +318,8 @@ class _MarkingPageState extends State<MarkingPage> {
               child: Column(
                 children: [
                   _buildOptionTile(
-                    title: "시작 부속 포함 (삽입 깊이 +${fittingDepth.round()}mm)",
-                    subtitle: "첫 배관 마킹 지점을 뒤로 미루고 전체 길이를 연장합니다.",
+                    title: "첫단 피팅 포함 (삽입 깊이 +${fittingDepth.round()}mm)",
+                    subtitle: "첫 마킹 지점에 피팅 삽입 깊이를 추가합니다.",
                     value: _includeStartFitting,
                     onChanged: (v) {
                       setState(() {
@@ -306,8 +335,8 @@ class _MarkingPageState extends State<MarkingPage> {
                     endIndent: 20,
                   ),
                   _buildOptionTile(
-                    title: "종료 부속 포함 (삽입 깊이 +${fittingDepth.round()}mm)",
-                    subtitle: "마지막 배관 길이를 연장하여 컷팅 지점을 넉넉하게 잡습니다.",
+                    title: "말단 피팅 포함 (삽입 깊이 +${fittingDepth.round()}mm)",
+                    subtitle: "튜브 길이를 연장하여 삽입  깊이를 추가합니다.",
                     value: _includeEndFitting,
                     onChanged: (v) {
                       setState(() {
@@ -437,6 +466,12 @@ class _MarkingPageState extends State<MarkingPage> {
                       itemCount: displayMarks.length,
                       itemBuilder: (context, index) {
                         final item = displayMarks[index];
+
+                        // 🚀 [해결 핵심] 데이터엔 있지만 UI에선 보일 필요 없는 깡통 더미를 여기서 숨깁니다!
+                        if (item['is_hidden'] == true) {
+                          return const SizedBox.shrink(); // 공간 차지 없이 완벽하게 숨김
+                        }
+
                         int cumulativeMark = item['marking_point'].round();
                         int incrementalMark = item['incremental_mark'].round();
                         int originalLength = item['length']!.round();
@@ -702,6 +737,7 @@ class _MarkingPageState extends State<MarkingPage> {
   }
 
   void _handleSave(double totalCut, List<Map<String, dynamic>> saveList) {
+    // 🚀 데이터 넘길 땐 is_hidden 포함 모든 데이터가 넘어가서 ISO 형상이 살아납니다!
     final finalSaveData = List<Map<String, dynamic>>.from(
       saveList.map((e) => Map<String, dynamic>.from(e)),
     );
@@ -727,7 +763,6 @@ class _MarkingPageState extends State<MarkingPage> {
     );
   }
 
-  // 🚀 [개선 1 적용] 수백 줄의 하드코딩 팝업을 MakitaNumpad 재사용으로 축소!
   void _showTailPad() async {
     _tailController.text = _tailLength > 0
         ? _tailLength.round().toString()
@@ -747,7 +782,7 @@ class _MarkingPageState extends State<MarkingPage> {
       _tailController.text = _tailLength > 0
           ? _tailLength.round().toString()
           : "0";
-      BendDataManager().tail = _tailLength; // 🚀 [개선 2 적용] 팝업이 닫힐 때 한 번만 저장
+      BendDataManager().tail = _tailLength;
     });
   }
 }

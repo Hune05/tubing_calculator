@@ -6,22 +6,23 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_num
 
 const Color makitaTeal = Color(0xFF007580);
 const Color panelBg = Color(0xFF2A2A2A);
-const Color pureWhite = Color(0xFFFFFFFF);
 
 class OffsetBottomSheet extends StatefulWidget {
   final double currentRotation;
-  final Function(double length, double angle, double rotation) onAddBend;
+
+  // 🚀 [수정됨] 단일 삽입이 아닌 여러 개를 묶어서 한 번에 전송합니다!
+  final Function(List<Map<String, double>> bends) onAddMultipleBends;
 
   const OffsetBottomSheet({
     super.key,
     required this.currentRotation,
-    required this.onAddBend,
+    required this.onAddMultipleBends, // 🚀 연결
   });
 
   static void show(
     BuildContext context, {
     required double currentRotation,
-    required Function(double, double, double) onAddBend,
+    required Function(List<Map<String, double>>) onAddMultipleBends, // 🚀 연결
   }) {
     showModalBottomSheet(
       context: context,
@@ -29,7 +30,7 @@ class OffsetBottomSheet extends StatefulWidget {
       backgroundColor: Colors.transparent,
       builder: (context) => OffsetBottomSheet(
         currentRotation: currentRotation,
-        onAddBend: onAddBend,
+        onAddMultipleBends: onAddMultipleBends,
       ),
     );
   }
@@ -41,6 +42,8 @@ class OffsetBottomSheet extends StatefulWidget {
 class _OffsetBottomSheetState extends State<OffsetBottomSheet>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool _isInverted = false;
+
   final TextEditingController _heightCtrl = TextEditingController(text: "100");
   final TextEditingController _angleCtrl = TextEditingController(text: "45");
   final TextEditingController _travelCtrl = TextEditingController(text: "150");
@@ -49,7 +52,6 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-
     _heightCtrl.addListener(() => setState(() {}));
     _angleCtrl.addListener(() => setState(() {}));
     _travelCtrl.addListener(() => setState(() {}));
@@ -71,17 +73,32 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
     ctrl.text = next.toStringAsFixed(next % 1 == 0 ? 0 : 1);
   }
 
-  double _getOppositeRotation(double currentRot) {
-    if (currentRot == 360.0) return 450.0;
-    if (currentRot == 450.0) return 360.0;
-    return (currentRot + 180.0) % 360.0;
+  void _applyBending(double angle, double travel) {
+    if (angle <= 0 || travel <= 0) return;
+
+    double roundedAngle = double.parse(angle.toStringAsFixed(1));
+    double roundedTravel = double.parse(travel.toStringAsFixed(1));
+
+    double r1 = _isInverted
+        ? (widget.currentRotation + 180.0) % 360.0
+        : widget.currentRotation;
+    double r2 = _isInverted
+        ? widget.currentRotation
+        : (widget.currentRotation + 180.0) % 360.0;
+
+    // 🎯 [해결 핵심] 2개의 절곡을 하나의 리스트에 묶어서 보냅니다.
+    // 이렇게 하면 setState가 한 번만 돌기 때문에 3D 애니메이션이 튀지 않습니다!
+    widget.onAddMultipleBends([
+      {'length': 0.0, 'angle': roundedAngle, 'rotation': r1},
+      {'length': roundedTravel, 'angle': roundedAngle, 'rotation': r2},
+    ]);
+
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final maxHeight = MediaQuery.of(context).size.height * 0.85;
-
     double h = double.tryParse(_heightCtrl.text) ?? 0;
     double a = double.tryParse(_angleCtrl.text) ?? 0;
     double t = double.tryParse(_travelCtrl.text) ?? 0;
@@ -103,16 +120,14 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: Container(
-        constraints: BoxConstraints(maxHeight: maxHeight),
+        height: 600,
         padding: const EdgeInsets.all(24),
         decoration: const BoxDecoration(
           color: panelBg,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           border: Border(top: BorderSide(color: makitaTeal, width: 3)),
         ),
-        // 🚀 핵심: 메인 Column을 shrink 설정하여 남는 여백 제거
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -123,10 +138,10 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
                     Icon(LucideIcons.calculator, color: makitaTeal, size: 28),
                     SizedBox(width: 12),
                     Text(
-                      "오프셋(Offset)",
+                      "오프셋 계산기",
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 20,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -138,6 +153,8 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+
             TabBar(
               controller: _tabController,
               indicatorColor: makitaTeal,
@@ -149,6 +166,7 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
               ],
             ),
             const SizedBox(height: 16),
+
             const Text(
               "장애물 높이/깊이 (H)",
               style: TextStyle(color: Colors.white70, fontSize: 13),
@@ -163,17 +181,94 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
                 _buildQuickBtn(_heightCtrl, 5.0, "+5"),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
-            // 🚀 핵심: Expanded 대신 높이를 컨텐츠에 맞추는 래퍼 사용
-            AnimatedBuilder(
-              animation: _tabController,
-              builder: (context, _) {
-                // 현재 탭에 맞는 위젯만 렌더링하여 고정 높이 점유를 방지
-                return _tabController.index == 0
-                    ? _buildForwardTab(a, calcTravel)
-                    : _buildInverseTab(t, calcAngle, inverseError);
-              },
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  // 정방향 탭
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "각도 (∠)",
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: _buildTextField(_angleCtrl, "각도 °"),
+                          ),
+                          const SizedBox(width: 12),
+                          ...[
+                            22.5,
+                            30.0,
+                            45.0,
+                            60.0,
+                          ].map((val) => _buildQuickAngleBtn(_angleCtrl, val)),
+                        ],
+                      ),
+                      const Spacer(),
+                      _buildInvertToggle(),
+                      const SizedBox(height: 12),
+                      _buildResultBox(
+                        title: "계산된 빗변 (Travel)",
+                        value: calcTravel,
+                        btnText: "적용",
+                        onPressed: () => _applyBending(a, calcTravel),
+                      ),
+                    ],
+                  ),
+                  // 역산 탭
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "현장 빗변 (Travel)",
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildTextField(_travelCtrl, "거리 mm"),
+                          ),
+                          const SizedBox(width: 12),
+                          _buildQuickBtn(_travelCtrl, -10.0, "-10"),
+                          const SizedBox(width: 4),
+                          _buildQuickBtn(_travelCtrl, 10.0, "+10"),
+                        ],
+                      ),
+                      if (inverseError)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8),
+                          child: Text(
+                            "오류: 빗변은 높이보다 커야함!",
+                            style: TextStyle(
+                              color: Colors.redAccent,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      const Spacer(),
+                      _buildInvertToggle(),
+                      const SizedBox(height: 12),
+                      _buildResultBox(
+                        title: "계산된 각도 (∠)",
+                        value: calcAngle,
+                        btnText: "적용",
+                        isError: inverseError,
+                        isAngle: true,
+                        onPressed: () => _applyBending(calcAngle, t),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -181,100 +276,43 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
     );
   }
 
-  // 🚀 정방향 탭 UI 분리
-  Widget _buildForwardTab(double a, double calcTravel) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "벤딩 각도 (∠)",
-          style: TextStyle(color: Colors.white70, fontSize: 13),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(flex: 2, child: _buildTextField(_angleCtrl, "각도 °")),
-            const SizedBox(width: 12),
-            ...[
-              22.5,
-              30.0,
-              45.0,
-              60.0,
-            ].map((val) => _buildQuickAngleBtn(_angleCtrl, val)),
-          ],
-        ),
-        const SizedBox(height: 24),
-        _buildResultBox(
-          title: "필요 빗변 길이 (Travel)",
-          value: calcTravel,
-          btnText: "적용",
-          isError: false,
-          onPressed: () {
-            if (calcTravel > 0 && a > 0) {
-              double roundedTravel = double.parse(
-                calcTravel.toStringAsFixed(1),
-              );
-              double oppRot = _getOppositeRotation(widget.currentRotation);
-
-              widget.onAddBend(0.0, a, widget.currentRotation);
-              widget.onAddBend(roundedTravel, a, oppRot);
-              Navigator.pop(context);
-            }
-          },
-        ),
-      ],
-    );
-  }
-
-  // 🚀 역산 탭 UI 분리
-  Widget _buildInverseTab(double t, double calcAngle, bool inverseError) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "현장 빗변 길이 (Travel)",
-          style: TextStyle(color: Colors.white70, fontSize: 13),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(child: _buildTextField(_travelCtrl, "거리 mm")),
-            const SizedBox(width: 12),
-            _buildQuickBtn(_travelCtrl, -10.0, "-10"),
-            const SizedBox(width: 4),
-            _buildQuickBtn(_travelCtrl, 10.0, "+10"),
-          ],
-        ),
-        if (inverseError)
-          const Padding(
-            padding: EdgeInsets.only(top: 8.0),
-            child: Text(
-              "오류: 빗변(Travel)은 높이(H)보다 길어야 합니다!",
-              style: TextStyle(
-                color: Colors.redAccent,
-                fontWeight: FontWeight.bold,
-              ),
+  Widget _buildInvertToggle() {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: InkWell(
+        onTap: () => setState(() => _isInverted = !_isInverted),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: _isInverted
+                ? Colors.redAccent.withOpacity(0.1)
+                : Colors.black45,
+            border: Border.all(
+              color: _isInverted ? Colors.redAccent : Colors.white24,
             ),
+            borderRadius: BorderRadius.circular(8),
           ),
-        const SizedBox(height: 24),
-        _buildResultBox(
-          title: "필요 각도 (∠)",
-          value: calcAngle,
-          btnText: "적용",
-          isError: inverseError,
-          isAngle: true,
-          onPressed: () {
-            if (t > 0 && calcAngle > 0 && !inverseError) {
-              double roundedAngle = double.parse(calcAngle.toStringAsFixed(1));
-              double oppRot = _getOppositeRotation(widget.currentRotation);
-
-              widget.onAddBend(0.0, roundedAngle, widget.currentRotation);
-              widget.onAddBend(t, roundedAngle, oppRot);
-              Navigator.pop(context);
-            }
-          },
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.swap_vert,
+                color: _isInverted ? Colors.redAccent : Colors.white54,
+                size: 18,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _isInverted ? "아래로 파기(Invert)" : "위로 넘기(Normal)",
+                style: TextStyle(
+                  color: _isInverted ? Colors.white : Colors.white54,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
         ),
-      ],
+      ),
     );
   }
 
@@ -290,8 +328,6 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
         fontWeight: FontWeight.bold,
       ),
       decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Colors.white38),
         filled: true,
         fillColor: Colors.black45,
         contentPadding: const EdgeInsets.symmetric(
@@ -301,10 +337,6 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: makitaTeal, width: 2),
         ),
       ),
     );
@@ -337,7 +369,7 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
 
   Widget _buildQuickAngleBtn(TextEditingController ctrl, double val) {
     return Padding(
-      padding: const EdgeInsets.only(right: 6.0),
+      padding: const EdgeInsets.only(left: 6),
       child: InkWell(
         onTap: () => ctrl.text = val.toStringAsFixed(val % 1 == 0 ? 0 : 1),
         child: Container(
@@ -348,7 +380,7 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
             border: Border.all(color: Colors.white12),
           ),
           child: Text(
-            val % 1 == 0 ? "${val.toInt()}°" : "$val°",
+            "${val.toInt()}°",
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -383,7 +415,7 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
             children: [
               Text(
                 title,
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
               ),
               Text(
                 value > 0 && !isError
@@ -393,7 +425,7 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
                   color: value > 0 && !isError
                       ? Colors.white
                       : Colors.redAccent,
-                  fontSize: 24,
+                  fontSize: 22,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -402,14 +434,13 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: makitaTeal,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             ),
             onPressed: onPressed,
             child: Text(
               btnText,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
             ),

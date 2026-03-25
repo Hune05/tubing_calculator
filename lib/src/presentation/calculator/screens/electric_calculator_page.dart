@@ -1,8 +1,9 @@
+// lib/src/presentation/calculator/screens/electric_calculator_page.dart
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:lucide_icons/lucide_icons.dart';
 
-import 'package:tubing_calculator/src/data/bend_data_manager.dart';
+// 🚀 [수정] 사용하지 않는 bend_data_manager.dart import 제거 완료
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/saddle_bottom_sheet.dart';
@@ -106,8 +107,9 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                 if (key == 'C') {
                   tempValue = "";
                 } else if (key == '⌫') {
-                  if (tempValue.isNotEmpty)
+                  if (tempValue.isNotEmpty) {
                     tempValue = tempValue.substring(0, tempValue.length - 1);
+                  }
                 } else {
                   tempValue = tempValue == "0" ? key : tempValue + key;
                 }
@@ -305,8 +307,9 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                 if (key == 'C') {
                   tempValue = "";
                 } else if (key == '⌫') {
-                  if (tempValue.isNotEmpty)
+                  if (tempValue.isNotEmpty) {
                     tempValue = tempValue.substring(0, tempValue.length - 1);
+                  }
                 } else {
                   tempValue = tempValue == "0" ? key : tempValue + key;
                 }
@@ -540,6 +543,22 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     });
   }
 
+  // 🚀 [추가] 화면이 튀지 않도록 오프셋 등 여러 개의 벤딩을 한 번에 삽입하는 함수
+  void _executeMultipleMacros(List<Map<String, double>> bends) {
+    List<Map<String, double>> newList = List.from(widget.bendList);
+    setState(() {
+      if (_editingIndex != null) {
+        newList.removeAt(_editingIndex!); // 기존 데이터 지우고
+        newList.insertAll(_editingIndex!, bends); // 그 자리에 묶음으로 추가
+        _editingIndex = null;
+      } else {
+        newList.addAll(bends); // 끝에 묶음으로 추가
+      }
+      widget.onListChanged(newList); // 한 번만 상태 갱신 발송!
+      _tempController.clear();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -633,7 +652,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
               margin: const EdgeInsets.only(top: 12, bottom: 12, right: 12),
               child: Column(
                 children: [
-                  // 🚀 예상 튜브 길이 표시 패널
+                  // 예상 튜브 길이 표시 패널
                   GestureDetector(
                     onTap: _showMarginNumpad,
                     child: Container(
@@ -707,7 +726,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                     ),
                   ),
 
-                  // 🚀 INPUT LIST 및 매크로
+                  // INPUT LIST 및 매크로
                   Expanded(
                     flex: 5,
                     child: Container(
@@ -746,8 +765,9 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                                         context,
                                         currentRotation:
                                             _currentRotation ?? 0.0,
-                                        onAddBend: (val, angle, rot) =>
-                                            _executeMacro(val, angle, rot),
+                                        // 🚀 [해결됨] 에러 나던 부분: 다중 추가 함수로 교체
+                                        onAddMultipleBends: (bends) =>
+                                            _executeMultipleMacros(bends),
                                       );
                                     }),
                                     const SizedBox(width: 6),
@@ -899,7 +919,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                   ),
                   const SizedBox(height: 12),
 
-                  // 🚀 탭 컨트롤러
+                  // 탭 컨트롤러
                   Expanded(
                     flex: 6,
                     child: Container(
@@ -1016,7 +1036,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                         ),
                         const SizedBox(width: 8),
                         _AnglePushBtn(
-                          label: "15°", // 🚀 .0 제거
+                          label: "15°",
                           onTap: () => setState(() => _currentAngle = 15.0),
                         ),
                       ],
@@ -1027,12 +1047,12 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                     child: Row(
                       children: [
                         _AnglePushBtn(
-                          label: "22.5°", // 🚀 22.5는 유지
+                          label: "22.5°",
                           onTap: () => setState(() => _currentAngle = 22.5),
                         ),
                         const SizedBox(width: 8),
                         _AnglePushBtn(
-                          label: "30°", // 🚀 .0 제거
+                          label: "30°",
                           onTap: () => setState(() => _currentAngle = 30.0),
                         ),
                       ],
@@ -1043,12 +1063,12 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                     child: Row(
                       children: [
                         _AnglePushBtn(
-                          label: "45°", // 🚀 .0 제거
+                          label: "45°",
                           onTap: () => setState(() => _currentAngle = 45.0),
                         ),
                         const SizedBox(width: 8),
                         _AnglePushBtn(
-                          label: "60°", // 🚀 .0 제거
+                          label: "60°",
                           onTap: () => setState(() => _currentAngle = 60.0),
                         ),
                       ],
@@ -1059,12 +1079,12 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                     child: Row(
                       children: [
                         _AnglePushBtn(
-                          label: "90°", // 🚀 .0 제거
+                          label: "90°",
                           onTap: () => setState(() => _currentAngle = 90.0),
                         ),
                         const SizedBox(width: 8),
                         _AnglePushBtn(
-                          label: "180°", // 🚀 .0 제거
+                          label: "180°",
                           onTap: () => setState(() => _currentAngle = 180.0),
                         ),
                       ],
@@ -1084,7 +1104,6 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                                 width: 1.5,
                               ),
                             ),
-                            // 🚀 수정됨: 현재 각도 오버플로우 방지
                             child: Center(
                               child: FittedBox(
                                 fit: BoxFit.scaleDown,
@@ -1192,7 +1211,6 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                               width: 1.5,
                             ),
                           ),
-                          // 🚀 수정됨: 현재 방향 오버플로우 방지
                           child: Center(
                             child: FittedBox(
                               fit: BoxFit.scaleDown,
@@ -1209,6 +1227,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
+                                    const SizedBox(height: 2),
                                     Text(
                                       _getDirectionText(_currentRotation),
                                       style: TextStyle(
@@ -1402,7 +1421,6 @@ class _DirectionPushBtnState extends State<_DirectionPushBtn> {
                   ]
                 : [],
           ),
-          // 🚀 수정됨: 방향 버튼 오버플로우 방지
           child: Center(
             child: FittedBox(
               fit: BoxFit.scaleDown,
@@ -1487,7 +1505,6 @@ class _GlowingActionBtnState extends State<_GlowingActionBtn> {
                   ]
                 : [],
           ),
-          // 🚀 수정됨: 하단 액션 버튼 오버플로우 방지
           child: Center(
             child: FittedBox(
               fit: BoxFit.scaleDown,

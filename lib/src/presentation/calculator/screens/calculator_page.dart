@@ -6,12 +6,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
+
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/saddle_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/rolling_offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/pipe_visualizer.dart';
-// 🚀 [새로 추가된 평행/축소 바텀시트 임포트]
 import 'package:tubing_calculator/src/presentation/calculator/widgets/parallel_shrink_bottom_sheet.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -29,6 +30,9 @@ class CalculatorPage extends StatefulWidget {
   final ValueChanged<String> onStartDirChanged;
 
   final Function(double, double, double) onAddBend;
+  // 🚀 [추가됨] 화면 튀는 걸 막기 위한 다중 삽입 콜백
+  final Function(List<Map<String, double>>) onAddMultipleBends;
+
   final Function(int, double, double, double) onUpdateBend;
   final Function(int index) onDeleteBend;
   final Function(int oldIndex, int newIndex) onReorderBend;
@@ -41,6 +45,7 @@ class CalculatorPage extends StatefulWidget {
     required this.startDir,
     required this.onStartDirChanged,
     required this.onAddBend,
+    required this.onAddMultipleBends, // 🚀 연결
     required this.onUpdateBend,
     required this.onDeleteBend,
     required this.onReorderBend,
@@ -70,6 +75,7 @@ class _CalculatorPageState extends State<CalculatorPage>
   String _localStartDir = 'RIGHT';
 
   double _safeMargin = 100.0;
+  double _minStraightFromSettings = 50.0;
 
   double get _rawLengthSum {
     if (widget.bendList.isEmpty) return 0.0;
@@ -89,6 +95,7 @@ class _CalculatorPageState extends State<CalculatorPage>
     super.initState();
     _localStartDir = widget.startDir;
     _loadSavedStartDir();
+    _loadMinStraightSetting();
 
     _listenerStartTime = DateTime.now().millisecondsSinceEpoch;
     _startRemoteListener();
@@ -102,6 +109,19 @@ class _CalculatorPageState extends State<CalculatorPage>
       setState(() {
         _localStartDir = widget.startDir;
       });
+    }
+  }
+
+  Future<void> _loadMinStraightSetting() async {
+    try {
+      final data = await SettingsManager.loadSettings();
+      if (mounted) {
+        setState(() {
+          _minStraightFromSettings = data['minStraight'] ?? 50.0;
+        });
+      }
+    } catch (e) {
+      debugPrint("최소 직선 구간 불러오기 실패: $e");
     }
   }
 
@@ -558,25 +578,26 @@ class _CalculatorPageState extends State<CalculatorPage>
                                   scrollDirection: Axis.horizontal,
                                   child: Row(
                                     children: [
+                                      // 🚀 [해결됨] 오프셋 버튼 클릭 시 묶음 데이터를 처리합니다.
                                       _buildToolChip("오프셋", null, () {
                                         OffsetBottomSheet.show(
                                           context,
                                           currentRotation:
                                               _currentRotation ?? 0.0,
-                                          onAddBend: (val, angle, rot) {
+                                          onAddMultipleBends: (bends) {
+                                            // 만약 편집 모드에서 오프셋으로 덮어씌울 경우 기존 건 지우고 삽입
                                             if (_editingIndex != null) {
-                                              widget.onUpdateBend(
+                                              widget.onDeleteBend(
                                                 _editingIndex!,
-                                                val,
-                                                angle,
-                                                rot,
                                               );
+                                              widget.onAddMultipleBends(bends);
                                               setState(() {
                                                 _editingIndex = null;
                                                 _tempController.clear();
                                               });
                                             } else {
-                                              widget.onAddBend(val, angle, rot);
+                                              // 신규 추가 시
+                                              widget.onAddMultipleBends(bends);
                                             }
                                           },
                                         );
@@ -638,7 +659,6 @@ class _CalculatorPageState extends State<CalculatorPage>
                                         },
                                       ),
                                       const SizedBox(width: 6),
-                                      // 🚀 [추가됨] 평행/축소 헬퍼 칩
                                       _buildToolChip(
                                         "평행/축소",
                                         LucideIcons.layoutGrid,
@@ -720,6 +740,11 @@ class _CalculatorPageState extends State<CalculatorPage>
                                         bool isEditing = _editingIndex == index;
                                         final bend = widget.bendList[index];
 
+                                        bool isWarning =
+                                            bend['length']! > 0.01 &&
+                                            bend['length']! <
+                                                _minStraightFromSettings;
+
                                         return GestureDetector(
                                           key: ValueKey(bend.hashCode),
                                           onTap: () => _startEdit(index),
@@ -733,51 +758,105 @@ class _CalculatorPageState extends State<CalculatorPage>
                                                   ? makitaTeal.withValues(
                                                       alpha: 0.08,
                                                     )
-                                                  : slate100,
+                                                  : (isWarning
+                                                        ? Colors.red.shade50
+                                                        : slate100),
                                               borderRadius:
                                                   BorderRadius.circular(6),
                                               border: Border.all(
                                                 color: isEditing
                                                     ? makitaTeal
-                                                    : Colors.transparent,
-                                                width: isEditing ? 2 : 1,
+                                                    : (isWarning
+                                                          ? Colors.red.shade300
+                                                          : Colors.transparent),
+                                                width: isEditing || isWarning
+                                                    ? 2
+                                                    : 1,
                                               ),
                                             ),
-                                            child: Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .spaceBetween,
                                                   children: [
-                                                    const Icon(
-                                                      Icons.drag_indicator,
-                                                      color: Colors.grey,
-                                                      size: 20,
+                                                    Row(
+                                                      children: [
+                                                        const Icon(
+                                                          Icons.drag_indicator,
+                                                          color: Colors.grey,
+                                                          size: 20,
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 8,
+                                                        ),
+                                                        Text(
+                                                          "#${index + 1}",
+                                                          style: TextStyle(
+                                                            color: isEditing
+                                                                ? makitaTeal
+                                                                : slate600,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ],
                                                     ),
-                                                    const SizedBox(width: 8),
                                                     Text(
-                                                      "#${index + 1}",
+                                                      "L: ${bend['length']} | A: ${bend['angle']}° | DIR: ${_getDirectionText(bend['rotation'])}",
                                                       style: TextStyle(
                                                         color: isEditing
                                                             ? makitaTeal
-                                                            : slate600,
+                                                            : (isWarning
+                                                                  ? Colors
+                                                                        .red
+                                                                        .shade900
+                                                                  : slate900),
+                                                        fontSize: 14,
                                                         fontWeight:
                                                             FontWeight.bold,
                                                       ),
                                                     ),
                                                   ],
                                                 ),
-                                                Text(
-                                                  "L: ${bend['length']} | A: ${bend['angle']}° | DIR: ${_getDirectionText(bend['rotation'])}",
-                                                  style: TextStyle(
-                                                    color: isEditing
-                                                        ? makitaTeal
-                                                        : slate900,
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.bold,
+                                                if (isWarning)
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          top: 6,
+                                                        ),
+                                                    child: Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment.end,
+                                                      children: [
+                                                        Icon(
+                                                          Icons
+                                                              .warning_amber_rounded,
+                                                          color: Colors
+                                                              .red
+                                                              .shade600,
+                                                          size: 14,
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 4,
+                                                        ),
+                                                        Text(
+                                                          "기계 간섭 주의 (최소 직관 ${_minStraightFromSettings.round()}mm 권장)",
+                                                          style: TextStyle(
+                                                            color: Colors
+                                                                .red
+                                                                .shade600,
+                                                            fontSize: 11,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
                                                   ),
-                                                ),
                                               ],
                                             ),
                                           ),

@@ -19,7 +19,7 @@ class MenuScreen extends StatelessWidget {
   // =========================================================================
   // 💡 [배포 스위치] 다른 사람에게 줄 APK를 만들 때만 여기를 true 로 바꾸세요!!
   // =========================================================================
-  static const bool isLiteVersion = true;
+  static const bool isLiteVersion = false;
   // false: 사장님 전용 풀버전 (격자형)
   // true: 남한테 배포할 라이트 버전 (세련된 얇은 선 왕버튼형)
 

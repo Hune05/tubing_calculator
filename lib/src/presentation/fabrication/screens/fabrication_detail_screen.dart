@@ -1,21 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart'; // 🚀 캡처를 위한 패키지
-import 'package:flutter/services.dart'; // 🚀 폰트 로드(rootBundle)용
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui' as ui; // 🚀 이미지 변환용
-import 'dart:typed_data'; // 🚀 바이트 데이터용
+import 'dart:ui' as ui;
+import 'dart:typed_data';
 
 import 'package:tubing_calculator/src/core/database/database_helper.dart';
 import 'package:tubing_calculator/src/data/bend_data_manager.dart';
 
-// 🚀 PDF 및 공유 패키지 임포트
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-// 🚀 독립된 아이소 엔진 임포트
 import 'package:tubing_calculator/src/presentation/calculator/widgets/pipe_visualizer.dart';
 
 const Color makitaTeal = Color(0xFF007580);
@@ -49,9 +47,11 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
 
   bool _isExporting = false;
 
+  // 🚀 메모(특이사항) 변수 추가
+  String memoText = "";
+
   List<Map<String, dynamic>> parsedBendList = [];
 
-  // 🚀 형상을 캡처하기 위한 GlobalKey 생성
   final GlobalKey _isoBoundaryKey = GlobalKey();
 
   @override
@@ -73,11 +73,15 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
       endFit = (pData['end_fit'] == true) || (pData['end_fit'] == 'true');
       tail = double.tryParse(pData['tail']?.toString() ?? '0.0') ?? 0.0;
       startDir = pData['start_dir'] ?? 'RIGHT';
+
+      // 🚀 DB에서 메모 불러오기
+      memoText = pData['memo'] ?? "";
     } catch (e) {
       project = "N/A";
       from = currentData['p_to_p'] ?? "N/A";
       to = "";
       startDir = 'RIGHT';
+      memoText = "";
     }
   }
 
@@ -126,7 +130,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     return "";
   }
 
-  // 🚀 형상 화면을 고화질 이미지(PNG)로 캡처하는 함수
   Future<Uint8List?> _captureIsoImage() async {
     try {
       RenderRepaintBoundary boundary =
@@ -143,7 +146,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     }
   }
 
-  // 🚀 PDF 생성 및 공유 로직
   Future<void> _exportToPDFAndShare() async {
     if (parsedBendList.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -157,29 +159,25 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
 
     setState(() => _isExporting = true);
 
-    // 🚀 2. 하얀 화면으로 그려질 시간을 0.15초 벌어줍니다! 이 줄을 캡처 바로 위에 추가하세요!
     await Future.delayed(const Duration(milliseconds: 150));
 
     try {
-      // 1. 아이소 도면 캡처
       Uint8List? isoImageBytes = await _captureIsoImage();
       pw.MemoryImage? pdfIsoImage;
       if (isoImageBytes != null) {
         pdfIsoImage = pw.MemoryImage(isoImageBytes);
       }
 
-      // 🚀 2. 한글 폰트 로드 (VS Code에 넣은 파일)
       final fontData = await rootBundle.load(
         'assets/fonts/NotoSansKR-VariableFont_wght.ttf',
       );
       final ttf = pw.Font.ttf(fontData);
 
-      // 🚀 3. PDF 문서 생성 (영어/숫자는 기본 폰트, 한글은 NotoSans 폰트 적용)
       final pdf = pw.Document(
         theme: pw.ThemeData.withFont(
           base: pw.Font.helvetica(),
           bold: pw.Font.helveticaBold(),
-          fontFallback: [ttf], // 한글이 나오면 이 폰트로 그림
+          fontFallback: [ttf],
         ),
       );
 
@@ -195,7 +193,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
 
       final String currentDate = DateTime.now().toString().split(' ')[0];
 
-      // 4. PDF 페이지 작성
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
@@ -248,7 +245,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
 
           build: (pw.Context context) {
             return [
-              // 도면 정보 박스
               pw.Container(
                 padding: const pw.EdgeInsets.all(16),
                 decoration: pw.BoxDecoration(
@@ -316,7 +312,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
               ),
               pw.SizedBox(height: 20),
 
-              // 캡처된 3D 튜브 형상 삽입
               if (pdfIsoImage != null) ...[
                 pw.Text(
                   "아이소메트릭 도면 (ISO DRAWING)",
@@ -331,7 +326,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                   height: 250,
                   width: double.infinity,
                   decoration: pw.BoxDecoration(
-                    color: PdfColors.white, // PDF 상에서 배경 흰색 고정
+                    color: PdfColors.white,
                     border: pw.Border.all(color: PdfColors.grey300),
                     borderRadius: const pw.BorderRadius.all(
                       pw.Radius.circular(8),
@@ -342,7 +337,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                 pw.SizedBox(height: 30),
               ],
 
-              // 벤딩 데이터 표
               pw.Text(
                 "벤딩 데이터 (BENDING SEQUENCE)",
                 style: pw.TextStyle(
@@ -401,7 +395,43 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
               ),
               pw.SizedBox(height: 16),
 
-              // TAIL 정보
+              // 🚀 메모가 있을 경우 PDF에 출력
+              if (memoText.isNotEmpty) ...[
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(12),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.yellow50,
+                    border: pw.Border.all(color: PdfColors.amber200),
+                    borderRadius: const pw.BorderRadius.all(
+                      pw.Radius.circular(6),
+                    ),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        "※ 특이사항 (MEMO)",
+                        style: pw.TextStyle(
+                          fontSize: 12,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.orange800,
+                        ),
+                      ),
+                      pw.SizedBox(height: 6),
+                      pw.Text(
+                        memoText,
+                        style: const pw.TextStyle(
+                          fontSize: 11,
+                          color: PdfColors.grey800,
+                          lineSpacing: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+              ],
+
               pw.Container(
                 alignment: pw.Alignment.centerRight,
                 child: pw.Text(
@@ -441,6 +471,9 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     TextEditingController projCtrl = TextEditingController(text: project);
     TextEditingController fromCtrl = TextEditingController(text: from);
     TextEditingController toCtrl = TextEditingController(text: to);
+
+    // 🚀 메모 컨트롤러
+    TextEditingController memoCtrl = TextEditingController(text: memoText);
     String selectedSize = currentData['pipe_size'] ?? '1/2"';
 
     await showModalBottomSheet(
@@ -505,7 +538,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                     Expanded(
                       child: TextField(
                         controller: toCtrl,
-                        textInputAction: TextInputAction.done,
+                        textInputAction: TextInputAction.next,
                         decoration: const InputDecoration(
                           labelText: "TO",
                           filled: true,
@@ -518,6 +551,21 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 16),
+
+                // 🚀 메모 입력창 추가
+                TextField(
+                  controller: memoCtrl,
+                  maxLines: 3,
+                  textInputAction: TextInputAction.newline,
+                  decoration: const InputDecoration(
+                    labelText: "특이사항 (MEMO)",
+                    filled: true,
+                    fillColor: slate100,
+                    border: OutlineInputBorder(borderSide: BorderSide.none),
+                  ),
+                ),
+
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
@@ -535,6 +583,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                         "end_fit": endFit,
                         "tail": tail,
                         "start_dir": startDir,
+                        "memo": memoCtrl.text, // 🚀 저장 시 메모 포함
                       };
                       await DatabaseHelper.instance.updateHistory(
                         currentData['id'],
@@ -651,9 +700,9 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                         child: RepaintBoundary(
                           key: _isoBoundaryKey,
                           child: Container(
-                            color: pureWhite, // 🚀 캡처 시 무조건 순백색(White) 배경 고정!
+                            color: pureWhite,
                             child: PipeVisualizer(
-                              isLightMode: _isExporting, // 🚀 1. 이 줄을 추가해 주세요!
+                              isLightMode: _isExporting,
                               bendList: parsedBendList,
                               tailLength: tail,
                               selectedSegmentIndex: _selectedSegmentIndex,
@@ -671,6 +720,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                                     "end_fit": endFit,
                                     "tail": tail,
                                     "start_dir": newDir,
+                                    "memo": memoText, // 🚀 방향 저장할 때도 메모 유지
                                   };
                                   String newPtoPJson = jsonEncode(newPtoP);
                                   await DatabaseHelper.instance.updateHistory(

@@ -36,7 +36,7 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
   // 🚀 컨트롤러
   final TextEditingController _spacingCtrl = TextEditingController(
     text: "50",
-  ); // 배관 간격 복구!
+  ); // 배관 간격
   final TextEditingController _riseCtrl = TextEditingController(text: "150");
   final TextEditingController _rollCtrl = TextEditingController(text: "200");
   late TextEditingController _angleCtrl;
@@ -138,7 +138,7 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
                       Icon(LucideIcons.layoutGrid, color: makitaTeal, size: 28),
                       SizedBox(width: 12),
                       Text(
-                        "평행 & 축소 헬퍼",
+                        "평행 & 축소 계산기",
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 20,
@@ -157,8 +157,8 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
 
               // 메인 토글
               _buildToggleBox(
-                "나란히 평행 계산기",
-                "내 파이프 축소값 계산기",
+                "평행 계산기",
+                "축소값 계산기",
                 _isParallelMode,
                 () => setState(() => _isParallelMode = true),
                 () => setState(() => _isParallelMode = false),
@@ -175,9 +175,9 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
               ),
               const SizedBox(height: 24),
 
-              // 🚀 동적 입력 필드 (배관 간격 복구!)
+              // 🚀 동적 입력 필드
               if (_isParallelMode) ...[
-                // 🚀 평행 모드에서는 2D든 3D든 무조건 '배관 간격'이 제일 위에 있어야 함!
+                // 평행 모드에서는 '배관 간격'이 제일 위
                 _buildCompactInputRow(_spacingCtrl, "배관 간격 (Spacing)"),
 
                 if (_is3DMode) ...[

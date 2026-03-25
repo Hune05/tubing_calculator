@@ -288,7 +288,8 @@ class CalculatorWrapper extends StatefulWidget {
 }
 
 class _CalculatorWrapperState extends State<CalculatorWrapper> {
-  List<Map<String, double>> _bendList = [];
+  // 🚀 [수정] Warning 해결을 위해 final 키워드 추가
+  final List<Map<String, double>> _bendList = [];
   String _startDir = "RIGHT";
 
   void _addBend(double length, double angle, double rotation) {
@@ -339,6 +340,12 @@ class _CalculatorWrapperState extends State<CalculatorWrapper> {
         startDir: _startDir,
         onStartDirChanged: (dir) => setState(() => _startDir = dir),
         onAddBend: _addBend,
+        // 🚀 [수정] Error 해결을 위해 다중 추가 콜백(onAddMultipleBends) 매핑 추가!
+        onAddMultipleBends: (bends) {
+          setState(() {
+            _bendList.addAll(bends);
+          });
+        },
         onUpdateBend: _updateBend,
         onDeleteBend: _deleteBend,
         onReorderBend: _reorderBend,
