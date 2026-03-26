@@ -46,10 +46,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
   int? _selectedSegmentIndex;
 
   bool _isExporting = false;
-
-  // 🚀 메모(특이사항) 변수 추가
   String memoText = "";
-
   List<Map<String, dynamic>> parsedBendList = [];
 
   final GlobalKey _isoBoundaryKey = GlobalKey();
@@ -73,8 +70,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
       endFit = (pData['end_fit'] == true) || (pData['end_fit'] == 'true');
       tail = double.tryParse(pData['tail']?.toString() ?? '0.0') ?? 0.0;
       startDir = pData['start_dir'] ?? 'RIGHT';
-
-      // 🚀 DB에서 메모 불러오기
       memoText = pData['memo'] ?? "";
     } catch (e) {
       project = "N/A";
@@ -146,6 +141,18 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     }
   }
 
+  String _compressBendData(List<Map<String, dynamic>> bends) {
+    if (bends.isEmpty) return "";
+    return bends
+        .map((b) {
+          int l = (b['length'] ?? 0).round();
+          int a = double.tryParse(b['angle']?.toString() ?? '0')?.round() ?? 0;
+          int r = (b['rotation'] ?? 0).round();
+          return "${l}_${a}_$r";
+        })
+        .join('-');
+  }
+
   Future<void> _exportToPDFAndShare() async {
     if (parsedBendList.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -158,7 +165,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     }
 
     setState(() => _isExporting = true);
-
     await Future.delayed(const Duration(milliseconds: 150));
 
     try {
@@ -185,189 +191,239 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
           double.tryParse(currentData['total_length']?.toString() ?? '0') ??
           0.0;
       final int displayTotalCut = absoluteTotalCut.round();
+      final String currentDate = DateTime.now().toString().split(' ')[0];
 
       String fittingStr = "";
       if (startFit) fittingStr += "S ";
       if (endFit) fittingStr += (fittingStr.isNotEmpty ? "& E" : "E");
       if (fittingStr.isEmpty) fittingStr = "None";
 
-      final String currentDate = DateTime.now().toString().split(' ')[0];
+      String compressedBends = _compressBendData(parsedBendList);
+      String qrDataUrl =
+          "tubingapp://view?p=${Uri.encodeComponent(project)}&s=${Uri.encodeComponent(currentData['pipe_size'] ?? '')}&b=$compressedBends";
+      if (qrDataUrl.isEmpty) qrDataUrl = "tubingapp://error";
 
+      // 📌 상단 표제란 복구 (QR을 제외하여 넓고 시원하게 유지)
+      pw.Widget buildTitleBlock() {
+        return pw.Container(
+          margin: const pw.EdgeInsets.only(bottom: 20),
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.black, width: 1.5),
+          ),
+          child: pw.Column(
+            children: [
+              pw.Container(
+                padding: const pw.EdgeInsets.symmetric(vertical: 6),
+                width: double.infinity,
+                alignment: pw.Alignment.center,
+                decoration: const pw.BoxDecoration(
+                  color: PdfColors.grey200,
+                  border: pw.Border(
+                    bottom: pw.BorderSide(color: PdfColors.black, width: 1.5),
+                  ),
+                ),
+                child: pw.Text(
+                  "TUBE FABRICATION REPORT",
+                  style: pw.TextStyle(
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              ),
+              pw.TableHelper.fromTextArray(
+                cellPadding: const pw.EdgeInsets.all(5),
+                columnWidths: {
+                  0: const pw.FlexColumnWidth(1),
+                  1: const pw.FlexColumnWidth(3),
+                  2: const pw.FlexColumnWidth(1),
+                  3: const pw.FlexColumnWidth(3),
+                },
+                data: [
+                  ['PROJECT', project, 'DATE', currentDate],
+                  [
+                    'LINE',
+                    '$from -> $to',
+                    'SPEC/FIT',
+                    '${currentData['pipe_size']} / $fittingStr',
+                  ],
+                  ['TOTAL CUT', '$displayTotalCut mm', 'DWG NO.', '-'],
+                ],
+                cellStyle: const pw.TextStyle(fontSize: 9),
+                headerStyle: pw.TextStyle(
+                  fontSize: 9,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+                cellAlignments: {
+                  0: pw.Alignment.center,
+                  1: pw.Alignment.centerLeft,
+                  2: pw.Alignment.center,
+                  3: pw.Alignment.centerLeft,
+                },
+                border: const pw.TableBorder(
+                  verticalInside: pw.BorderSide(
+                    color: PdfColors.black,
+                    width: 0.5,
+                  ),
+                  horizontalInside: pw.BorderSide(
+                    color: PdfColors.black,
+                    width: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
+      // 🚀 하단(Footer)에 들어갈 QR 코드 전용 위젯
+      pw.Widget buildQrFooter() {
+        return pw.Container(
+          margin: const pw.EdgeInsets.only(top: 15),
+          alignment: pw.Alignment.centerRight,
+          child: pw.Row(
+            mainAxisSize: pw.MainAxisSize.min,
+            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            children: [
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(bottom: 5, right: 10),
+                child: pw.Text(
+                  "Scan QR for 3D Viewer ▶",
+                  style: pw.TextStyle(
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.grey800,
+                  ),
+                ),
+              ),
+              pw.Container(
+                padding: const pw.EdgeInsets.all(4),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.black, width: 1),
+                ),
+                child: pw.BarcodeWidget(
+                  barcode: pw.Barcode.qrCode(),
+                  data: qrDataUrl,
+                  width: 55,
+                  height: 55,
+                  color: PdfColors.black,
+                  drawText: false,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
+      // [PAGE 1] 아이소 도면 페이지
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(30),
+          build: (pw.Context context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                buildTitleBlock(),
+                pw.Text(
+                  "[ ISO DRAWING ]",
+                  style: pw.TextStyle(
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 8),
+                pw.Expanded(
+                  child: pw.Container(
+                    width: double.infinity,
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: PdfColors.black, width: 1),
+                    ),
+                    padding: const pw.EdgeInsets.all(10),
+                    child: pdfIsoImage != null
+                        ? pw.Center(
+                            child: pw.Image(
+                              pdfIsoImage,
+                              fit: pw.BoxFit.contain,
+                            ),
+                          )
+                        : pw.Center(
+                            child: pw.Text(
+                              "도면 이미지가 없습니다.",
+                              style: const pw.TextStyle(color: PdfColors.grey),
+                            ),
+                          ),
+                  ),
+                ),
+                // 🚀 도면 하단에 QR 코드 추가
+                buildQrFooter(),
+              ],
+            );
+          },
+        ),
+      );
+
+      // [PAGE 2] 벤딩 데이터 및 세부사항 페이지
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(40),
-
-          header: (pw.Context context) {
-            return pw.Column(
-              children: [
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: pw.CrossAxisAlignment.end,
-                  children: [
-                    pw.Text(
-                      "튜빙 작업 지시서 (ISO REPORT)",
-                      style: pw.TextStyle(
-                        fontSize: 22,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.teal800,
-                      ),
-                    ),
-                    pw.Text(
-                      "출력일: $currentDate",
+          margin: const pw.EdgeInsets.all(30),
+          header: (context) => pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [buildTitleBlock()],
+          ),
+          footer: (context) => pw.Column(
+            mainAxisSize: pw.MainAxisSize.min,
+            children: [
+              pw.Divider(color: PdfColors.grey400, thickness: 0.5),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.only(bottom: 10),
+                    child: pw.Text(
+                      '- PAGE ${context.pageNumber + 1} -',
                       style: const pw.TextStyle(
                         fontSize: 10,
                         color: PdfColors.grey700,
                       ),
                     ),
-                  ],
-                ),
-                pw.SizedBox(height: 8),
-                pw.Divider(thickness: 2, color: PdfColors.teal800),
-                pw.SizedBox(height: 20),
-              ],
-            );
-          },
-
-          footer: (pw.Context context) {
-            return pw.Container(
-              alignment: pw.Alignment.centerRight,
-              margin: const pw.EdgeInsets.only(top: 10),
-              child: pw.Text(
-                '페이지 ${context.pageNumber} / ${context.pagesCount}',
-                style: const pw.TextStyle(
-                  fontSize: 10,
-                  color: PdfColors.grey600,
-                ),
+                  ),
+                  // 🚀 표 하단에도 QR 코드 추가
+                  buildQrFooter(),
+                ],
               ),
-            );
-          },
-
+            ],
+          ),
           build: (pw.Context context) {
             return [
-              pw.Container(
-                padding: const pw.EdgeInsets.all(16),
-                decoration: pw.BoxDecoration(
-                  color: PdfColors.grey100,
-                  borderRadius: const pw.BorderRadius.all(
-                    pw.Radius.circular(8),
-                  ),
-                  border: pw.Border.all(color: PdfColors.teal200, width: 1.5),
-                ),
-                child: pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(
-                          "프로젝트 정보",
-                          style: pw.TextStyle(
-                            color: PdfColors.teal700,
-                            fontWeight: pw.FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                        pw.SizedBox(height: 8),
-                        pw.Text(
-                          "프로젝트명: $project",
-                          style: const pw.TextStyle(fontSize: 14),
-                        ),
-                        pw.SizedBox(height: 4),
-                        pw.Text(
-                          "작업구간: $from  ->  $to",
-                          style: const pw.TextStyle(fontSize: 14),
-                        ),
-                      ],
-                    ),
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.end,
-                      children: [
-                        pw.Text(
-                          "배관 스펙",
-                          style: pw.TextStyle(
-                            color: PdfColors.teal700,
-                            fontWeight: pw.FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                        pw.SizedBox(height: 8),
-                        pw.Text(
-                          "파이프 규격: ${currentData['pipe_size']}  |  피팅: $fittingStr",
-                          style: const pw.TextStyle(fontSize: 14),
-                        ),
-                        pw.SizedBox(height: 4),
-                        pw.Text(
-                          "절단장(Total Cut): $displayTotalCut mm",
-                          style: pw.TextStyle(
-                            fontSize: 14,
-                            fontWeight: pw.FontWeight.bold,
-                            color: PdfColors.red800,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              pw.SizedBox(height: 20),
-
-              if (pdfIsoImage != null) ...[
-                pw.Text(
-                  "아이소메트릭 도면 (ISO DRAWING)",
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.blueGrey800,
-                  ),
-                ),
-                pw.SizedBox(height: 10),
-                pw.Container(
-                  height: 250,
-                  width: double.infinity,
-                  decoration: pw.BoxDecoration(
-                    color: PdfColors.white,
-                    border: pw.Border.all(color: PdfColors.grey300),
-                    borderRadius: const pw.BorderRadius.all(
-                      pw.Radius.circular(8),
-                    ),
-                  ),
-                  child: pw.Image(pdfIsoImage, fit: pw.BoxFit.contain),
-                ),
-                pw.SizedBox(height: 30),
-              ],
-
               pw.Text(
-                "벤딩 데이터 (BENDING SEQUENCE)",
+                "[ BENDING SEQUENCE ]",
                 style: pw.TextStyle(
-                  fontSize: 16,
+                  fontSize: 12,
                   fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.blueGrey800,
                 ),
               ),
-              pw.SizedBox(height: 10),
-
+              pw.SizedBox(height: 8),
               pw.TableHelper.fromTextArray(
-                headers: ['번호', '기장 (mm)', '각도', '방향', '마킹포인트 (mm)'],
+                headers: [
+                  'NO.',
+                  'LENGTH (mm)',
+                  'ANGLE',
+                  'DIRECTION',
+                  'MARK (mm)',
+                ],
                 headerStyle: pw.TextStyle(
                   fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.white,
-                  fontSize: 11,
+                  fontSize: 10,
                 ),
                 headerDecoration: const pw.BoxDecoration(
-                  color: PdfColors.teal700,
+                  color: PdfColors.grey300,
                 ),
-                rowDecoration: const pw.BoxDecoration(
-                  border: pw.Border(
-                    bottom: pw.BorderSide(color: PdfColors.grey300, width: 0.5),
-                  ),
-                ),
-                oddRowDecoration: const pw.BoxDecoration(
-                  color: PdfColors.grey50,
-                ),
-                cellHeight: 32,
+                cellHeight: 28,
                 cellAlignment: pw.Alignment.center,
-                cellStyle: const pw.TextStyle(fontSize: 11),
+                cellStyle: const pw.TextStyle(fontSize: 10),
                 data: parsedBendList.map((bend) {
                   bool isStraight = bend['is_straight'] ?? false;
                   String markNum = isStraight
@@ -389,54 +445,45 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                           'marking',
                           'marking_point',
                         ]);
-
                   return [markNum, length, angle, direction, marking];
                 }).toList(),
               ),
-              pw.SizedBox(height: 16),
-
-              // 🚀 메모가 있을 경우 PDF에 출력
-              if (memoText.isNotEmpty) ...[
-                pw.Container(
-                  padding: const pw.EdgeInsets.all(12),
-                  decoration: pw.BoxDecoration(
-                    color: PdfColors.yellow50,
-                    border: pw.Border.all(color: PdfColors.amber200),
-                    borderRadius: const pw.BorderRadius.all(
-                      pw.Radius.circular(6),
-                    ),
-                  ),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        "※ 특이사항 (MEMO)",
-                        style: pw.TextStyle(
-                          fontSize: 12,
-                          fontWeight: pw.FontWeight.bold,
-                          color: PdfColors.orange800,
-                        ),
-                      ),
-                      pw.SizedBox(height: 6),
-                      pw.Text(
-                        memoText,
-                        style: const pw.TextStyle(
-                          fontSize: 11,
-                          color: PdfColors.grey800,
-                          lineSpacing: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                pw.SizedBox(height: 12),
-              ],
-
+              pw.SizedBox(height: 8),
               pw.Container(
                 alignment: pw.Alignment.centerRight,
                 child: pw.Text(
-                  "* 여유 기장(Tail): ${tail.round()} mm / 시작 방향: $startDir",
-                  style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
+                  "* 여유 기장(Tail): ${tail.round()} mm   |   시작 방향(Start Dir): $startDir",
+                  style: pw.TextStyle(
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ),
+              pw.SizedBox(height: 24),
+              pw.Text(
+                "[ REMARKS (특이사항) ]",
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 8),
+              pw.Container(
+                width: double.infinity,
+                constraints: const pw.BoxConstraints(minHeight: 80),
+                padding: const pw.EdgeInsets.all(10),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.black, width: 0.5),
+                ),
+                child: pw.Text(
+                  memoText.isNotEmpty ? memoText : "(기재된 특이사항이 없습니다.)",
+                  style: pw.TextStyle(
+                    fontSize: 10,
+                    color: memoText.isNotEmpty
+                        ? PdfColors.black
+                        : PdfColors.grey600,
+                    lineSpacing: 1.5,
+                  ),
                 ),
               ),
             ];
@@ -449,6 +496,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
       final file = File("${output.path}/ISO_REPORT_$timestamp.pdf");
       await file.writeAsBytes(await pdf.save());
 
+      // ignore: deprecated_member_use
       await Share.shareXFiles([
         XFile(file.path),
       ], text: '[$project] $from 작업 지시서 리포트입니다.');
@@ -471,8 +519,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     TextEditingController projCtrl = TextEditingController(text: project);
     TextEditingController fromCtrl = TextEditingController(text: from);
     TextEditingController toCtrl = TextEditingController(text: to);
-
-    // 🚀 메모 컨트롤러
     TextEditingController memoCtrl = TextEditingController(text: memoText);
     String selectedSize = currentData['pipe_size'] ?? '1/2"';
 
@@ -552,8 +598,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-
-                // 🚀 메모 입력창 추가
                 TextField(
                   controller: memoCtrl,
                   maxLines: 3,
@@ -565,7 +609,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                     border: OutlineInputBorder(borderSide: BorderSide.none),
                   ),
                 ),
-
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
@@ -583,7 +626,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                         "end_fit": endFit,
                         "tail": tail,
                         "start_dir": startDir,
-                        "memo": memoCtrl.text, // 🚀 저장 시 메모 포함
+                        "memo": memoCtrl.text,
                       };
                       await DatabaseHelper.instance.updateHistory(
                         currentData['id'],
@@ -720,7 +763,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                                     "end_fit": endFit,
                                     "tail": tail,
                                     "start_dir": newDir,
-                                    "memo": memoText, // 🚀 방향 저장할 때도 메모 유지
+                                    "memo": memoText,
                                   };
                                   String newPtoPJson = jsonEncode(newPtoP);
                                   await DatabaseHelper.instance.updateHistory(
@@ -1109,7 +1152,9 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: isSelected ? Colors.orange.withOpacity(0.05) : slate100,
+                color: isSelected
+                    ? Colors.orange.withValues(alpha: 0.05)
+                    : slate100,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: isSelected

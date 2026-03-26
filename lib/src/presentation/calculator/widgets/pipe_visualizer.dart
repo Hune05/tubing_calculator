@@ -14,9 +14,11 @@ class PipeVisualizer extends StatefulWidget {
   final int? selectedSegmentIndex;
   final String initialStartDir;
   final ValueChanged<String>? onStartDirChanged;
-
-  // 🚀 PDF 캡처용 밝은 테마 모드 플래그 추가!
   final bool isLightMode;
+
+  // 🚀 다른 파일에서 에러 나지 않도록 변수틀만 유지 (뷰어 렌더링엔 사용 안 함)
+  final bool startFit;
+  final bool endFit;
 
   const PipeVisualizer({
     super.key,
@@ -25,7 +27,9 @@ class PipeVisualizer extends StatefulWidget {
     this.selectedSegmentIndex,
     this.initialStartDir = 'RIGHT',
     this.onStartDirChanged,
-    this.isLightMode = false, // 기본값은 다크 모드(false)
+    this.isLightMode = false,
+    this.startFit = false,
+    this.endFit = false,
   });
 
   @override
@@ -117,7 +121,6 @@ class _PipeVisualizerState extends State<PipeVisualizer> {
           child: Container(
             width: double.infinity,
             height: double.infinity,
-            // 🚀 PDF 캡처 시 투명(또는 흰색) 처리, 평소엔 까만색
             color: widget.isLightMode
                 ? Colors.transparent
                 : const Color(0xFF151B22),
@@ -134,13 +137,11 @@ class _PipeVisualizerState extends State<PipeVisualizer> {
                 isFlippedY: _isFlippedY,
                 startDirection: _startDir,
                 selectedSegmentIndex: widget.selectedSegmentIndex,
-                isLightMode: widget.isLightMode, // 페인터에 모드 전달
+                isLightMode: widget.isLightMode,
               ),
             ),
           ),
         ),
-
-        // 🚀 PDF 캡처 모드(isLightMode)일 때는 지저분한 UI 버튼들을 싹 숨깁니다!
         if (!widget.isLightMode) ...[
           Positioned(
             top: 16,
@@ -272,7 +273,7 @@ class SegmentRenderable implements Renderable {
   @override
   final double z;
   final bool isSelected;
-  final bool isLightMode; // 🚀 밝은 테마 여부
+  final bool isLightMode;
 
   SegmentRenderable(
     this.p1,
@@ -289,6 +290,9 @@ class SegmentRenderable implements Renderable {
     Paint highlightPaint,
     Paint outlinePaint,
   ) {
+    // 🚀 PDF 캡처 시 스케일 1.2배 확대 (부담스럽지 않게 축소)
+    double sf = isLightMode ? 1.2 : 1.0;
+
     canvas.drawLine(p1, p2, outlinePaint);
     canvas.drawLine(p1, p2, isSelected ? highlightPaint : pipePaint);
 
@@ -296,8 +300,8 @@ class SegmentRenderable implements Renderable {
     double dy = p2.dy - p1.dy;
     double length = math.sqrt(dx * dx + dy * dy);
 
-    if (length > 15) {
-      double arrowSize = 6.0;
+    if (length > 15 * sf) {
+      double arrowSize = 6.0 * sf;
       double lineAngle = math.atan2(dy, dx);
       Offset mid = Offset(p1.dx + dx * 0.55, p1.dy + dy * 0.55);
 
@@ -316,11 +320,10 @@ class SegmentRenderable implements Renderable {
         ..lineTo(arrowP2.dx, arrowP2.dy)
         ..close();
 
-      // 🚀 PDF 캡처 시 하얀색 배경에서는 화살표를 검은색으로 반전!
       Paint arrowPaint = Paint()
         ..color = isLightMode
             ? (isSelected ? Colors.black : Colors.black87)
-            : (isSelected ? Colors.white : Colors.white.withOpacity(0.8))
+            : (isSelected ? Colors.white : Colors.white.withValues(alpha: 0.8))
         ..style = PaintingStyle.fill;
 
       canvas.drawPath(arrowPath, arrowPaint);
@@ -343,11 +346,13 @@ class DashedLineRenderable implements Renderable {
     Paint highlightPaint,
     Paint outlinePaint,
   ) {
+    double sf = isLightMode ? 1.2 : 1.0; // 🚀 스케일 1.2배
+
     final dashPaint = Paint()
       ..color = isLightMode
           ? Colors.orange.shade800
-          : Colors.amberAccent.withOpacity(0.9)
-      ..strokeWidth = 2.5
+          : Colors.amberAccent.withValues(alpha: 0.9)
+      ..strokeWidth = 2.5 * sf
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
@@ -357,8 +362,8 @@ class DashedLineRenderable implements Renderable {
 
     if (distance <= 0) return;
 
-    const double dashWidth = 10.0;
-    const double dashSpace = 8.0;
+    double dashWidth = 10.0 * sf;
+    double dashSpace = 8.0 * sf;
 
     double unitDx = dx / distance;
     double unitDy = dy / distance;
@@ -379,7 +384,7 @@ class DashedLineRenderable implements Renderable {
       startY = endY + unitDy * dashSpace;
     }
 
-    double arrowSize = 8.0;
+    double arrowSize = 8.0 * sf;
     double lineAngle = math.atan2(dy, dx);
     Offset arrowP1 = Offset(
       p2.dx - arrowSize * math.cos(lineAngle - math.pi / 6),
@@ -405,21 +410,18 @@ class DashedLineRenderable implements Renderable {
   }
 }
 
-class NodeRenderable implements Renderable {
+// 🚀 시작점과 끝점 전용 표시 (작게 표시)
+class EndpointNodeRenderable implements Renderable {
   final Offset pos;
   @override
   final double z;
   final bool isStart;
-  final bool isEnd;
-  final bool isSelected;
   final bool isLightMode;
 
-  NodeRenderable(
+  EndpointNodeRenderable(
     this.pos,
     this.z, {
-    this.isStart = false,
-    this.isEnd = false,
-    this.isSelected = false,
+    required this.isStart,
     this.isLightMode = false,
   });
 
@@ -430,19 +432,14 @@ class NodeRenderable implements Renderable {
     Paint highlightPaint,
     Paint outlinePaint,
   ) {
-    double radius = isStart ? 6.0 : 4.0;
-    canvas.drawCircle(pos, radius + 1.0, outlinePaint);
+    double sf = isLightMode ? 1.2 : 1.0;
+    double radius = 4.0 * sf; // 🚀 눈에 거슬리지 않게 작게
 
     Color nodeColor = isStart
         ? const Color(0xFFE53935)
-        : (isEnd
-              ? const Color(0xFF64B5F6)
-              : (isSelected
-                    ? Colors.orange
-                    : (isLightMode
-                          ? Colors.grey.shade600
-                          : const Color(0xFF90A4AE))));
+        : const Color(0xFF64B5F6);
 
+    canvas.drawCircle(pos, radius + (1.5 * sf), outlinePaint);
     canvas.drawCircle(pos, radius, Paint()..color = nodeColor);
   }
 }
@@ -454,8 +451,10 @@ class LabelRenderable implements Renderable {
   final String text;
   final bool isStraightPipe;
   final bool isSelected;
-  final bool isStartLabel;
   final bool isLightMode;
+
+  // 🚀 START 라벨 여부
+  final bool isStartLabel;
 
   LabelRenderable(
     this.centerPos,
@@ -463,8 +462,8 @@ class LabelRenderable implements Renderable {
     this.text, {
     this.isStraightPipe = false,
     this.isSelected = false,
-    this.isStartLabel = false,
     this.isLightMode = false,
+    this.isStartLabel = false,
   });
 
   @override
@@ -474,24 +473,31 @@ class LabelRenderable implements Renderable {
     Paint highlightPaint,
     Paint outlinePaint,
   ) {
-    // 🚀 밝은 테마일 때 글자 색상 까맣게 반전
-    Color textColor = isStartLabel
-        ? Colors.white
-        : (isStraightPipe
-              ? (isLightMode ? Colors.black87 : Colors.white70)
-              : (isLightMode ? Colors.black : Colors.white));
+    double sf = isLightMode ? 1.2 : 1.0;
 
-    double fontSize = isStartLabel
-        ? 12
-        : (isStraightPipe ? 11 : (isSelected ? 20 : 16));
+    Color textColor;
+    if (isStartLabel) {
+      textColor = isLightMode ? Colors.red.shade800 : Colors.redAccent;
+    } else {
+      textColor = isStraightPipe
+          ? (isLightMode ? Colors.black87 : Colors.white70)
+          : (isLightMode ? Colors.black : Colors.white);
+    }
+
+    double baseFontSize = isStartLabel
+        ? 12.0
+        : (isStraightPipe ? 11.0 : (isSelected ? 20.0 : 16.0));
+    double fontSize = baseFontSize * sf;
 
     final textSpan = TextSpan(
       text: text,
       style: TextStyle(
         color: textColor,
         fontSize: fontSize,
-        fontWeight: isStraightPipe ? FontWeight.bold : FontWeight.w900,
-        letterSpacing: isStartLabel ? 1.0 : 0.0,
+        fontWeight: isStartLabel
+            ? FontWeight.w900
+            : (isStraightPipe ? FontWeight.bold : FontWeight.w900),
+        letterSpacing: isStartLabel ? 1.0 * sf : 0.0,
       ),
     );
 
@@ -505,42 +511,57 @@ class LabelRenderable implements Renderable {
       centerPos.dy - (textPainter.height / 2),
     );
 
+    double padX = (isStraightPipe ? 4.0 : 8.0) * sf;
+    double padY = (isStraightPipe ? 2.0 : 4.0) * sf;
+
     final rect = Rect.fromLTWH(
-      drawPos.dx - (isStraightPipe ? 4 : 8),
-      drawPos.dy - (isStraightPipe ? 2 : 4),
-      textPainter.width + (isStraightPipe ? 8 : 16),
-      textPainter.height + (isStraightPipe ? 4 : 8),
+      drawPos.dx - padX,
+      drawPos.dy - padY,
+      textPainter.width + padX * 2,
+      textPainter.height + padY * 2,
     );
+
     final rrect = RRect.fromRectAndRadius(
       rect,
-      Radius.circular(isStraightPipe ? 4 : 8),
+      Radius.circular((isStraightPipe ? 4.0 : 8.0) * sf),
     );
 
-    // 🚀 밝은 테마일 때 박스 배경색 하얗게 반전
-    final bgPaint = Paint()
-      ..color = isStartLabel
-          ? const Color(0xFFE53935)
-          : (isStraightPipe
-                ? (isLightMode
-                      ? Colors.white70
-                      : Colors.grey.shade800.withOpacity(0.7))
-                : (isSelected
-                      ? Colors.orange.shade400
-                      : (isLightMode
-                            ? Colors.white
-                            : const Color(0xFF151B22).withOpacity(0.95))))
-      ..style = PaintingStyle.fill;
+    // 🚀 배경/테두리 색상
+    Color bgColor;
+    Color borderColor;
 
+    if (isStartLabel) {
+      // START 글씨는 파이프를 가리지 않도록 아주 연한 반투명 박스만 씌움
+      bgColor = isLightMode
+          ? Colors.white.withValues(alpha: 0.8)
+          : const Color(0xFF151B22).withValues(alpha: 0.8);
+      borderColor = isLightMode
+          ? Colors.red.shade200
+          : Colors.red.shade900.withValues(alpha: 0.5);
+    } else {
+      bgColor = isStraightPipe
+          ? (isLightMode
+                ? Colors.white70
+                : Colors.grey.shade800.withValues(alpha: 0.7))
+          : (isSelected
+                ? Colors.orange.shade400
+                : (isLightMode
+                      ? Colors.white
+                      : const Color(0xFF151B22).withValues(alpha: 0.95)));
+      borderColor = isStraightPipe
+          ? Colors.grey.shade600
+          : (isSelected
+                ? Colors.orange.shade800
+                : (isLightMode ? Colors.black54 : Colors.grey.shade600));
+    }
+
+    final bgPaint = Paint()
+      ..color = bgColor
+      ..style = PaintingStyle.fill;
     final borderPaint = Paint()
-      ..color = isStartLabel
-          ? Colors.red.shade900
-          : (isStraightPipe
-                ? Colors.grey.shade600
-                : (isSelected
-                      ? Colors.orange.shade800
-                      : (isLightMode ? Colors.black54 : Colors.grey.shade600)))
+      ..color = borderColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = isStraightPipe ? 1.0 : 1.5;
+      ..strokeWidth = (isStraightPipe ? 1.0 : 1.5) * sf;
 
     canvas.drawRRect(rrect, bgPaint);
     canvas.drawRRect(rrect, borderPaint);
@@ -560,8 +581,7 @@ class IsoPipePainter extends CustomPainter {
   final bool isFlippedY;
   final String startDirection;
   final int? selectedSegmentIndex;
-
-  final bool isLightMode; // 🚀 화가(Painter)에게도 모드 전달
+  final bool isLightMode;
 
   IsoPipePainter({
     required this.bendList,
@@ -611,16 +631,15 @@ class IsoPipePainter extends CustomPainter {
     }
   }
 
-  void _drawBlueprintGrid(Canvas canvas, Size size) {
-    // 🚀 모드에 따라 그리드 색상을 밝게/어둡게 변경
+  void _drawBlueprintGrid(Canvas canvas, Size size, double sf) {
     final minorPaint = Paint()
       ..color = isLightMode ? Colors.grey.shade200 : const Color(0xFF202A36)
-      ..strokeWidth = 1.0;
+      ..strokeWidth = 1.0 * sf;
     final majorPaint = Paint()
       ..color = isLightMode ? Colors.grey.shade300 : const Color(0xFF2C3948)
-      ..strokeWidth = 1.5;
+      ..strokeWidth = 1.5 * sf;
 
-    double step = 30.0;
+    double step = 30.0 * sf;
     for (double i = 0; i < size.width; i += step) {
       canvas.drawLine(
         Offset(i, 0),
@@ -641,7 +660,9 @@ class IsoPipePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (size.width <= 0 || size.height <= 0) return;
 
-    _drawBlueprintGrid(canvas, size);
+    double sf = isLightMode ? 1.2 : 1.0;
+
+    _drawBlueprintGrid(canvas, size, sf);
 
     List<vmath.Vector3> pts3D = [];
     vmath.Vector3 currentPos = vmath.Vector3.zero();
@@ -765,7 +786,7 @@ class IsoPipePainter extends CustomPainter {
               ? Offset(-dy / len, dx / len)
               : const Offset(0, -1);
           if (normal.dy > 0) normal = Offset(-normal.dx, -normal.dy);
-          Offset labelPos = mid + normal * 18.0;
+          Offset labelPos = mid + normal * (18.0 * sf);
 
           if (angle == 0.0) {
             labelQueue.add(
@@ -794,28 +815,36 @@ class IsoPipePainter extends CustomPainter {
       }
     }
 
+    // 🚀 중간 노드 생략, START 텍스트 간격 띄움
     for (int i = 0; i <= pipeEndIndex; i++) {
-      bool isSelected =
-          (selectedSegmentIndex == i ||
-          (selectedSegmentIndex != null && selectedSegmentIndex == i - 1));
       Offset nodePos = to2D(projectedPts[i]);
-      renderQueue.add(
-        NodeRenderable(
-          nodePos,
-          projectedPts[i].z - 0.05,
-          isStart: i == 0,
-          isEnd: i == pipeEndIndex,
-          isSelected: isSelected,
-          isLightMode: isLightMode,
-        ),
-      );
+
       if (i == 0) {
+        // 시작점
+        renderQueue.add(
+          EndpointNodeRenderable(
+            nodePos,
+            projectedPts[i].z - 0.05,
+            isStart: true,
+            isLightMode: isLightMode,
+          ),
+        );
         labelQueue.add(
           LabelRenderable(
-            nodePos + const Offset(0, -22),
+            nodePos + Offset(0, -30.0 * sf), // 🚀 파이프 선을 가리지 않도록 넉넉하게 띄움
             projectedPts[i].z - 0.1,
             "START",
             isStartLabel: true,
+            isLightMode: isLightMode,
+          ),
+        );
+      } else if (i == pipeEndIndex) {
+        // 끝점
+        renderQueue.add(
+          EndpointNodeRenderable(
+            nodePos,
+            projectedPts[i].z - 0.05,
+            isStart: false,
             isLightMode: isLightMode,
           ),
         );
@@ -837,38 +866,36 @@ class IsoPipePainter extends CustomPainter {
         isLightMode: isLightMode,
       ),
     );
+
     renderQueue.sort((a, b) => b.z.compareTo(a.z));
     labelQueue.sort((a, b) => b.z.compareTo(a.z));
 
     final pipePaint = Paint()
-      ..color = isLightMode
-          ? const Color(0xFF455A64)
-          : const Color(0xFF607D8B) // 🚀 밝은 테마에선 파이프를 약간 더 진하게!
-      ..strokeWidth = 6.0
+      ..color = isLightMode ? const Color(0xFF455A64) : const Color(0xFF607D8B)
+      ..strokeWidth = 6.0 * sf
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     final highlightPaint = Paint()
       ..color = Colors.orange.shade500
-      ..strokeWidth = 8.0
+      ..strokeWidth = 8.0 * sf
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     final outlinePaint = Paint()
-      ..color = isLightMode
-          ? Colors.black87
-          : Colors
-                .black45 // 🚀 테두리도 명확하게
-      ..strokeWidth = 8.0
+      ..color = isLightMode ? Colors.black87 : Colors.black45
+      ..strokeWidth = 8.0 * sf
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
-    _drawAxisGuide(canvas, cameraMatrix, to2D, scale);
-    for (var item in renderQueue)
+    _drawAxisGuide(canvas, cameraMatrix, to2D, scale, sf);
+    for (var item in renderQueue) {
       item.draw(canvas, pipePaint, highlightPaint, outlinePaint);
-    for (var label in labelQueue)
+    }
+    for (var label in labelQueue) {
       label.draw(canvas, pipePaint, highlightPaint, outlinePaint);
+    }
   }
 
   vmath.Vector3 _calculateCenter(List<vmath.Vector3> pts) {
@@ -907,8 +934,9 @@ class IsoPipePainter extends CustomPainter {
     vmath.Matrix4 camMatrix,
     Offset Function(vmath.Vector3) to2D,
     double scale,
+    double sf,
   ) {
-    double axLen = 40.0 / scale;
+    double axLen = (40.0 / scale) * sf;
     List<vmath.Vector3> axes = [
       vmath.Vector3(axLen, 0, 0),
       vmath.Vector3(0, axLen, 0),
@@ -927,9 +955,9 @@ class IsoPipePainter extends CustomPainter {
         to2D(projOrigin),
         to2D(endDir),
         Paint()
-          ..color = axColors[i].withOpacity(0.8)
-          ..strokeWidth = 2.0,
-      ); // 투명도 조절
+          ..color = axColors[i].withValues(alpha: 0.8)
+          ..strokeWidth = 2.0 * sf,
+      );
     }
   }
 
@@ -945,6 +973,6 @@ class IsoPipePainter extends CustomPainter {
         oldDelegate.isFlippedY != isFlippedY ||
         oldDelegate.startDirection != startDirection ||
         oldDelegate.selectedSegmentIndex != selectedSegmentIndex ||
-        oldDelegate.isLightMode != isLightMode; // 🚀 모드 변경 시 리페인트
+        oldDelegate.isLightMode != isLightMode;
   }
 }
