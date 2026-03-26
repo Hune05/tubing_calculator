@@ -16,7 +16,6 @@ class PipeVisualizer extends StatefulWidget {
   final ValueChanged<String>? onStartDirChanged;
   final bool isLightMode;
 
-  // 🚀 다른 파일에서 에러 나지 않도록 변수틀만 유지 (뷰어 렌더링엔 사용 안 함)
   final bool startFit;
   final bool endFit;
 
@@ -138,6 +137,9 @@ class _PipeVisualizerState extends State<PipeVisualizer> {
                 startDirection: _startDir,
                 selectedSegmentIndex: widget.selectedSegmentIndex,
                 isLightMode: widget.isLightMode,
+                // 🚀 위젯에서 받은 피팅 정보를 페인터로 넘겨줌
+                startFit: widget.startFit,
+                endFit: widget.endFit,
               ),
             ),
           ),
@@ -268,6 +270,46 @@ abstract class Renderable {
   );
 }
 
+// 🚀 [추가] 피팅 삽입 형상을 렌더링하는 클래스
+class FittingRenderable implements Renderable {
+  final Offset p1, p2;
+  @override
+  final double z;
+  final bool isLightMode;
+
+  FittingRenderable(this.p1, this.p2, this.z, {this.isLightMode = false});
+
+  @override
+  void draw(
+    Canvas canvas,
+    Paint pipePaint,
+    Paint highlightPaint,
+    Paint outlinePaint,
+  ) {
+    double sf = isLightMode ? 1.2 : 1.0;
+
+    // 피팅 재질 느낌의 컬러 세팅 (파이프보다 두꺼움)
+    final fitPaint = Paint()
+      ..color = isLightMode ? Colors.blueGrey.shade300 : const Color(0xFF90A4AE)
+      ..strokeWidth =
+          14.0 *
+          sf // 파이프(6.0)보다 훨씬 두껍게
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final fitOutline = Paint()
+      ..color = isLightMode ? Colors.black87 : Colors.black54
+      ..strokeWidth =
+          18.0 *
+          sf // 외곽선
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawLine(p1, p2, fitOutline);
+    canvas.drawLine(p1, p2, fitPaint);
+  }
+}
+
 class SegmentRenderable implements Renderable {
   final Offset p1, p2;
   @override
@@ -290,7 +332,6 @@ class SegmentRenderable implements Renderable {
     Paint highlightPaint,
     Paint outlinePaint,
   ) {
-    // 🚀 PDF 캡처 시 스케일 1.2배 확대 (부담스럽지 않게 축소)
     double sf = isLightMode ? 1.2 : 1.0;
 
     canvas.drawLine(p1, p2, outlinePaint);
@@ -346,7 +387,7 @@ class DashedLineRenderable implements Renderable {
     Paint highlightPaint,
     Paint outlinePaint,
   ) {
-    double sf = isLightMode ? 1.2 : 1.0; // 🚀 스케일 1.2배
+    double sf = isLightMode ? 1.2 : 1.0;
 
     final dashPaint = Paint()
       ..color = isLightMode
@@ -410,39 +451,8 @@ class DashedLineRenderable implements Renderable {
   }
 }
 
-// 🚀 시작점과 끝점 전용 표시 (작게 표시)
-class EndpointNodeRenderable implements Renderable {
-  final Offset pos;
-  @override
-  final double z;
-  final bool isStart;
-  final bool isLightMode;
-
-  EndpointNodeRenderable(
-    this.pos,
-    this.z, {
-    required this.isStart,
-    this.isLightMode = false,
-  });
-
-  @override
-  void draw(
-    Canvas canvas,
-    Paint pipePaint,
-    Paint highlightPaint,
-    Paint outlinePaint,
-  ) {
-    double sf = isLightMode ? 1.2 : 1.0;
-    double radius = 4.0 * sf; // 🚀 눈에 거슬리지 않게 작게
-
-    Color nodeColor = isStart
-        ? const Color(0xFFE53935)
-        : const Color(0xFF64B5F6);
-
-    canvas.drawCircle(pos, radius + (1.5 * sf), outlinePaint);
-    canvas.drawCircle(pos, radius, Paint()..color = nodeColor);
-  }
-}
+// 🚀 EndpointNodeRenderable(동그라미) 클래스는 삭제하지 않고 남겨두었으나, paint()에서 더 이상 호출하지 않습니다.
+// (나중에 필요할까 봐 클래스만 유지했습니다)
 
 class LabelRenderable implements Renderable {
   final Offset centerPos;
@@ -452,8 +462,6 @@ class LabelRenderable implements Renderable {
   final bool isStraightPipe;
   final bool isSelected;
   final bool isLightMode;
-
-  // 🚀 START 라벨 여부
   final bool isStartLabel;
 
   LabelRenderable(
@@ -526,12 +534,10 @@ class LabelRenderable implements Renderable {
       Radius.circular((isStraightPipe ? 4.0 : 8.0) * sf),
     );
 
-    // 🚀 배경/테두리 색상
     Color bgColor;
     Color borderColor;
 
     if (isStartLabel) {
-      // START 글씨는 파이프를 가리지 않도록 아주 연한 반투명 박스만 씌움
       bgColor = isLightMode
           ? Colors.white.withValues(alpha: 0.8)
           : const Color(0xFF151B22).withValues(alpha: 0.8);
@@ -583,6 +589,10 @@ class IsoPipePainter extends CustomPainter {
   final int? selectedSegmentIndex;
   final bool isLightMode;
 
+  // 🚀 페인터가 피팅 여부를 알 수 있게 추가
+  final bool startFit;
+  final bool endFit;
+
   IsoPipePainter({
     required this.bendList,
     this.tailLength = 0.0,
@@ -596,6 +606,8 @@ class IsoPipePainter extends CustomPainter {
     required this.startDirection,
     this.selectedSegmentIndex,
     required this.isLightMode,
+    required this.startFit,
+    required this.endFit,
   });
 
   double _getVisualLength(double realLength) {
@@ -815,36 +827,66 @@ class IsoPipePainter extends CustomPainter {
       }
     }
 
-    // 🚀 중간 노드 생략, START 텍스트 간격 띄움
+    // 🚀 [추가] 3D 벡터를 계산하여 피팅 형상(두꺼운 파이프 껍데기) 삽입
+    double fitVisualLen = 20.0; // 화면에 그려질 피팅의 길이(깊이)
+
+    if (pts3D.length > 1) {
+      if (startFit) {
+        vmath.Vector3 dir = (pts3D[1] - pts3D[0])..normalize();
+        vmath.Vector3 fitEnd =
+            pts3D[0] +
+            dir * math.min(fitVisualLen, pts3D[0].distanceTo(pts3D[1]));
+        vmath.Vector3 projStart = cameraMatrix.transformed3(
+          pts3D[0] - center3D,
+        );
+        vmath.Vector3 projEnd = cameraMatrix.transformed3(fitEnd - center3D);
+
+        // Z값을 약간 깎아서 튜브보다 위(카메라 쪽)에 렌더링되게 덮어씌움
+        renderQueue.add(
+          FittingRenderable(
+            to2D(projStart),
+            to2D(projEnd),
+            ((projStart.z + projEnd.z) / 2) - 0.1,
+            isLightMode: isLightMode,
+          ),
+        );
+      }
+
+      if (endFit) {
+        int last = pipeEndIndex;
+        vmath.Vector3 dir = (pts3D[last - 1] - pts3D[last])..normalize();
+        vmath.Vector3 fitEnd =
+            pts3D[last] +
+            dir *
+                math.min(fitVisualLen, pts3D[last].distanceTo(pts3D[last - 1]));
+        vmath.Vector3 projStart = cameraMatrix.transformed3(
+          pts3D[last] - center3D,
+        );
+        vmath.Vector3 projEnd = cameraMatrix.transformed3(fitEnd - center3D);
+
+        renderQueue.add(
+          FittingRenderable(
+            to2D(projStart),
+            to2D(projEnd),
+            ((projStart.z + projEnd.z) / 2) - 0.1,
+            isLightMode: isLightMode,
+          ),
+        );
+      }
+    }
+
+    // 🚀 [수정] 시작/끝단 동그라미(원) 렌더링을 삭제하고, START 글자만 남김
     for (int i = 0; i <= pipeEndIndex; i++) {
       Offset nodePos = to2D(projectedPts[i]);
 
       if (i == 0) {
-        // 시작점
-        renderQueue.add(
-          EndpointNodeRenderable(
-            nodePos,
-            projectedPts[i].z - 0.05,
-            isStart: true,
-            isLightMode: isLightMode,
-          ),
-        );
+        // 기존 원 그리기 코드(EndpointNodeRenderable) 제거!
         labelQueue.add(
           LabelRenderable(
-            nodePos + Offset(0, -30.0 * sf), // 🚀 파이프 선을 가리지 않도록 넉넉하게 띄움
+            nodePos + Offset(0, -30.0 * sf),
             projectedPts[i].z - 0.1,
             "START",
             isStartLabel: true,
-            isLightMode: isLightMode,
-          ),
-        );
-      } else if (i == pipeEndIndex) {
-        // 끝점
-        renderQueue.add(
-          EndpointNodeRenderable(
-            nodePos,
-            projectedPts[i].z - 0.05,
-            isStart: false,
             isLightMode: isLightMode,
           ),
         );
@@ -973,6 +1015,8 @@ class IsoPipePainter extends CustomPainter {
         oldDelegate.isFlippedY != isFlippedY ||
         oldDelegate.startDirection != startDirection ||
         oldDelegate.selectedSegmentIndex != selectedSegmentIndex ||
-        oldDelegate.isLightMode != isLightMode;
+        oldDelegate.isLightMode != isLightMode ||
+        oldDelegate.startFit != startFit || // 🚀 피팅 값이 변하면 다시 그림
+        oldDelegate.endFit != endFit; // 🚀
   }
 }

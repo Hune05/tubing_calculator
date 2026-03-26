@@ -40,13 +40,14 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
   bool startFit = false;
   bool endFit = false;
   double tail = 0.0;
-  double fittingDepth = 0.0;
 
   String startDir = 'RIGHT';
   int? _selectedSegmentIndex;
 
   bool _isExporting = false;
+
   String memoText = "";
+
   List<Map<String, dynamic>> parsedBendList = [];
 
   final GlobalKey _isoBoundaryKey = GlobalKey();
@@ -55,7 +56,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
   void initState() {
     super.initState();
     currentData = Map<String, dynamic>.from(widget.itemData);
-    fittingDepth = BendDataManager().fittingDepth;
     _parsePtoP();
     _parseBendData();
   }
@@ -100,14 +100,18 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     }
   }
 
+  // 🚀 벤딩기 실무 맞춤형: 시계(CW) / 반시계(CCW) 회전 각도 표시
   String _getDirectionTextShort(double rot) {
-    if (rot == 0.0) return "UP";
-    if (rot == 90.0) return "RIGHT";
-    if (rot == 180.0) return "DOWN";
-    if (rot == 270.0) return "LEFT";
-    if (rot == 360.0) return "FRONT";
-    if (rot == 450.0) return "BACK";
-    return "${rot.toInt()}°";
+    double normalizedRot = rot % 360.0;
+    if (normalizedRot < 0) normalizedRot += 360.0;
+
+    if (normalizedRot == 0.0) return "0° (유지)";
+
+    if (normalizedRot <= 180.0) {
+      return "CW ${normalizedRot.round()}°";
+    } else {
+      return "CCW ${(360.0 - normalizedRot).round()}°";
+    }
   }
 
   String _extractValue(Map<String, dynamic> map, List<String> keys) {
@@ -203,7 +207,32 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
           "tubingapp://view?p=${Uri.encodeComponent(project)}&s=${Uri.encodeComponent(currentData['pipe_size'] ?? '')}&b=$compressedBends";
       if (qrDataUrl.isEmpty) qrDataUrl = "tubingapp://error";
 
-      // 📌 상단 표제란 복구 (QR을 제외하여 넓고 시원하게 유지)
+      // 🚀 하단 우측에 공통으로 들어갈 QR 코드 위젯 분리
+      pw.Widget buildQRCodeWidget() {
+        return pw.Column(
+          mainAxisSize: pw.MainAxisSize.min,
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            pw.SizedBox(
+              width: 50,
+              height: 50,
+              child: pw.BarcodeWidget(
+                barcode: pw.Barcode.qrCode(),
+                data: qrDataUrl,
+                color: PdfColors.black,
+                drawText: false,
+              ),
+            ),
+            pw.SizedBox(height: 4),
+            pw.Text(
+              "3D VIEWER",
+              style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold),
+            ),
+          ],
+        );
+      }
+
+      // 🚀 높이 고정을 풀고, 표(Table)가 전체 가로를 사용하도록 수정
       pw.Widget buildTitleBlock() {
         return pw.Container(
           margin: const pw.EdgeInsets.only(bottom: 20),
@@ -211,6 +240,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
             border: pw.Border.all(color: PdfColors.black, width: 1.5),
           ),
           child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
               pw.Container(
                 padding: const pw.EdgeInsets.symmetric(vertical: 6),
@@ -235,9 +265,9 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                 cellPadding: const pw.EdgeInsets.all(5),
                 columnWidths: {
                   0: const pw.FlexColumnWidth(1),
-                  1: const pw.FlexColumnWidth(3),
+                  1: const pw.FlexColumnWidth(2),
                   2: const pw.FlexColumnWidth(1),
-                  3: const pw.FlexColumnWidth(3),
+                  3: const pw.FlexColumnWidth(2),
                 },
                 data: [
                   ['PROJECT', project, 'DATE', currentDate],
@@ -276,46 +306,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
         );
       }
 
-      // 🚀 하단(Footer)에 들어갈 QR 코드 전용 위젯
-      pw.Widget buildQrFooter() {
-        return pw.Container(
-          margin: const pw.EdgeInsets.only(top: 15),
-          alignment: pw.Alignment.centerRight,
-          child: pw.Row(
-            mainAxisSize: pw.MainAxisSize.min,
-            crossAxisAlignment: pw.CrossAxisAlignment.end,
-            children: [
-              pw.Padding(
-                padding: const pw.EdgeInsets.only(bottom: 5, right: 10),
-                child: pw.Text(
-                  "Scan QR for 3D Viewer ▶",
-                  style: pw.TextStyle(
-                    fontSize: 10,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.grey800,
-                  ),
-                ),
-              ),
-              pw.Container(
-                padding: const pw.EdgeInsets.all(4),
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.black, width: 1),
-                ),
-                child: pw.BarcodeWidget(
-                  barcode: pw.Barcode.qrCode(),
-                  data: qrDataUrl,
-                  width: 55,
-                  height: 55,
-                  color: PdfColors.black,
-                  drawText: false,
-                ),
-              ),
-            ],
-          ),
-        );
-      }
-
-      // [PAGE 1] 아이소 도면 페이지
+      // --- PAGE 1: 도면 이미지 페이지 ---
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
@@ -355,46 +346,51 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                           ),
                   ),
                 ),
-                // 🚀 도면 하단에 QR 코드 추가
-                buildQrFooter(),
+                pw.SizedBox(height: 10),
+                // 🚀 페이지 1 하단 푸터 (페이지 번호 & QR 코드)
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text(
+                      '- PAGE 1 -',
+                      style: const pw.TextStyle(
+                        fontSize: 10,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                    buildQRCodeWidget(),
+                  ],
+                ),
               ],
             );
           },
         ),
       );
 
-      // [PAGE 2] 벤딩 데이터 및 세부사항 페이지
+      // --- PAGE 2 이상: 벤딩 시퀀스 데이터 페이지 ---
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(30),
-          header: (context) => pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [buildTitleBlock()],
-          ),
-          footer: (context) => pw.Column(
-            mainAxisSize: pw.MainAxisSize.min,
-            children: [
-              pw.Divider(color: PdfColors.grey400, thickness: 0.5),
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: pw.CrossAxisAlignment.end,
-                children: [
-                  pw.Padding(
-                    padding: const pw.EdgeInsets.only(bottom: 10),
-                    child: pw.Text(
-                      '- PAGE ${context.pageNumber + 1} -',
-                      style: const pw.TextStyle(
-                        fontSize: 10,
-                        color: PdfColors.grey700,
-                      ),
-                    ),
+          header: (context) => buildTitleBlock(),
+          // 🚀 MultiPage 전용 푸터에 QR 코드 고정
+          footer: (context) => pw.Container(
+            margin: const pw.EdgeInsets.only(top: 10),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.end,
+              children: [
+                pw.Text(
+                  '- PAGE ${context.pageNumber} -',
+                  style: const pw.TextStyle(
+                    fontSize: 10,
+                    color: PdfColors.grey700,
                   ),
-                  // 🚀 표 하단에도 QR 코드 추가
-                  buildQrFooter(),
-                ],
-              ),
-            ],
+                ),
+                buildQRCodeWidget(),
+              ],
+            ),
           ),
           build: (pw.Context context) {
             return [
@@ -406,6 +402,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                 ),
               ),
               pw.SizedBox(height: 8),
+
               pw.TableHelper.fromTextArray(
                 headers: [
                   'NO.',
@@ -445,9 +442,11 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                           'marking',
                           'marking_point',
                         ]);
+
                   return [markNum, length, angle, direction, marking];
                 }).toList(),
               ),
+
               pw.SizedBox(height: 8),
               pw.Container(
                 alignment: pw.Alignment.centerRight,
@@ -459,7 +458,9 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                   ),
                 ),
               ),
+
               pw.SizedBox(height: 24),
+
               pw.Text(
                 "[ REMARKS (특이사항) ]",
                 style: pw.TextStyle(
@@ -750,6 +751,8 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                               tailLength: tail,
                               selectedSegmentIndex: _selectedSegmentIndex,
                               initialStartDir: startDir,
+                              startFit: startFit,
+                              endFit: endFit,
                               onStartDirChanged: (newDir) async {
                                 setState(() {
                                   startDir = newDir;
