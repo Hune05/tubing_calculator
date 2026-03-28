@@ -12,7 +12,7 @@ class SmartSavePad extends StatefulWidget {
   final double tailLength;
   final String startDir;
 
-  // 🚀 [추가] 프로젝트 관리(자재 누적)로 쏠 콜백 함수
+  // 🚀 프로젝트 관리(자재 누적)로 쏠 콜백 함수
   final Function(double totalCut, List<Map<String, dynamic>> fittings)?
   onSaveCallback;
 
@@ -24,7 +24,7 @@ class SmartSavePad extends StatefulWidget {
     required this.includeEnd,
     required this.tailLength,
     required this.startDir,
-    this.onSaveCallback, // 🚀 [추가]
+    this.onSaveCallback,
   });
 
   @override
@@ -229,6 +229,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
                     "start_dir": widget.startDir,
                   };
 
+                  // 1. 비동기 작업 대기 (DB 저장)
                   await DatabaseHelper.instance.insertHistory({
                     'date': DateTime.now().toString().substring(0, 16),
                     'p_to_p': jsonEncode(pToPData),
@@ -237,11 +238,10 @@ class _SmartSavePadState extends State<SmartSavePad> {
                     'bend_data': jsonEncode(widget.bendList),
                   });
 
-                  // 🚀 [자재 연동 핵심 로직] 부속품 리스트 생성 후 콜백 트리거
+                  // 2. 콜백 실행 (동기 작업)
                   if (widget.onSaveCallback != null) {
                     List<Map<String, dynamic>> usedFittings = [];
 
-                    // 체크박스 옵션에 따라 "현재 선택한 파이프 규격"의 Fitting을 자동으로 할당
                     if (widget.includeStart) {
                       usedFittings.add({
                         'db_name': '[SWAGELOK] $_selectedSize Union (Start)',
@@ -261,12 +261,15 @@ class _SmartSavePadState extends State<SmartSavePad> {
                       });
                     }
 
-                    // 부모(ProjectManagementPage)가 던져준 함수를 실행해 바구니에 담음
                     widget.onSaveCallback!(widget.totalCut, usedFittings);
                   }
 
-                  if (!mounted) return;
+                  // 🚀 3. 비동기/콜백 처리가 모두 끝난 후 UI 조작 전 반드시 체크!
+                  if (!context.mounted) return;
+
+                  // 4. 안전하게 UI 조작 (경고 100% 소멸)
                   Navigator.pop(context);
+
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text("작업 보관함 및 프로젝트 자재에 누적 저장되었습니다! 💾"),

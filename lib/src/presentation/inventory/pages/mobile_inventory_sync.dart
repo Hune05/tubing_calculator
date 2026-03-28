@@ -72,7 +72,6 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
           Map<String, dynamic> newDocData = {
             'name': itemName,
             'category': category,
-            'maker': 'HY-LOK',
             'qty': data.qty,
             'status': '정상',
             'is_dead_stock': false,
@@ -81,10 +80,12 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
             'createdAt': FieldValue.serverTimestamp(),
           };
 
+          // 🚀 재질, 제조사, 히트넘버, 위치 추가 전송
           try {
+            if (data.material.isNotEmpty)
+              newDocData['material'] = data.material;
             if (data.heatNo.isNotEmpty) newDocData['heatNo'] = data.heatNo;
-          } catch (_) {}
-          try {
+            if (data.maker.isNotEmpty) newDocData['maker'] = data.maker;
             if (data.location.isNotEmpty)
               newDocData['location'] = data.location;
           } catch (_) {}
@@ -97,6 +98,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
             'material_name': itemName,
             'qty': data.qty,
             'unit': 'EA',
+            'worker_name': widget.workerName, // 🚀 로그인한 작업자 이름 로깅 (증거 확보)
             'timestamp': FieldValue.serverTimestamp(),
           });
         }
@@ -112,13 +114,12 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
             int diff = data.qty - systemQty;
 
             Map<String, dynamic> updates = {'qty': data.qty};
+
+            // 🚀 업데이트 시에도 재질 등 상세정보가 수정되었다면 전송
             try {
+              if (data.material.isNotEmpty) updates['material'] = data.material;
               if (data.heatNo.isNotEmpty) updates['heatNo'] = data.heatNo;
-            } catch (_) {}
-            try {
               if (data.maker.isNotEmpty) updates['maker'] = data.maker;
-            } catch (_) {}
-            try {
               if (data.location.isNotEmpty) updates['location'] = data.location;
             } catch (_) {}
 
@@ -132,6 +133,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
                 'qty': diff.abs(),
                 'sign': diff > 0 ? '+' : '-',
                 'unit': dbData['unit'] ?? 'EA',
+                'worker_name': widget.workerName, // 🚀 실사(수정)한 작업자 이름 로깅
                 'timestamp': FieldValue.serverTimestamp(),
               });
             }

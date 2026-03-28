@@ -35,7 +35,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
               _isScanned = true;
             });
 
-            // 🚀 3. 안전하게 딱 한 번만 데이터를 들고 메뉴로 복귀
+            // 🚀 3. [핵심] QR에 담긴 전체 URL 문자열을 그대로 들고 복귀합니다.
+            // 여기에 이미 sf=true, ef=true 같은 정보가 다 들어있습니다.
             Navigator.pop(context, barcode.rawValue);
           }
         },

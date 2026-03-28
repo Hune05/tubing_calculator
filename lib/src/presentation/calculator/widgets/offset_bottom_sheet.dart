@@ -1,28 +1,28 @@
-// lib/src/presentation/calculator/widgets/offset_bottom_sheet.dart
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:math' as math;
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
 
 const Color makitaTeal = Color(0xFF007580);
-const Color panelBg = Color(0xFF2A2A2A);
+const Color slate900 = Color(0xFF0F172A);
+const Color slate600 = Color(0xFF475569);
+const Color slate100 = Color(0xFFF1F5F9);
+const Color pureWhite = Color(0xFFFFFFFF);
 
 class OffsetBottomSheet extends StatefulWidget {
   final double currentRotation;
-
-  // 🚀 [수정됨] 단일 삽입이 아닌 여러 개를 묶어서 한 번에 전송합니다!
   final Function(List<Map<String, double>> bends) onAddMultipleBends;
 
   const OffsetBottomSheet({
     super.key,
     required this.currentRotation,
-    required this.onAddMultipleBends, // 🚀 연결
+    required this.onAddMultipleBends,
   });
 
   static void show(
     BuildContext context, {
     required double currentRotation,
-    required Function(List<Map<String, double>>) onAddMultipleBends, // 🚀 연결
+    required Function(List<Map<String, double>>) onAddMultipleBends,
   }) {
     showModalBottomSheet(
       context: context,
@@ -86,8 +86,6 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
         ? widget.currentRotation
         : (widget.currentRotation + 180.0) % 360.0;
 
-    // 🎯 [해결 핵심] 2개의 절곡을 하나의 리스트에 묶어서 보냅니다.
-    // 이렇게 하면 setState가 한 번만 돌기 때문에 3D 애니메이션이 튀지 않습니다!
     widget.onAddMultipleBends([
       {'length': 0.0, 'angle': roundedAngle, 'rotation': r1},
       {'length': roundedTravel, 'angle': roundedAngle, 'rotation': r2},
@@ -110,11 +108,10 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
     bool inverseError = false;
 
     if (t > 0 && h > 0) {
-      if (h > t) {
+      if (h > t)
         inverseError = true;
-      } else {
+      else
         calcAngle = math.asin(h / t) * 180.0 / math.pi;
-      }
     }
 
     return Padding(
@@ -123,9 +120,8 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
         height: 600,
         padding: const EdgeInsets.all(24),
         decoration: const BoxDecoration(
-          color: panelBg,
+          color: pureWhite,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border(top: BorderSide(color: makitaTeal, width: 3)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,7 +136,7 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
                     Text(
                       "오프셋 계산기",
                       style: TextStyle(
-                        color: Colors.white,
+                        color: slate900,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -148,28 +144,30 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
                   ],
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white54),
+                  icon: const Icon(Icons.close, color: slate600),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-
             TabBar(
               controller: _tabController,
               indicatorColor: makitaTeal,
               labelColor: makitaTeal,
-              unselectedLabelColor: Colors.white54,
+              unselectedLabelColor: slate600,
               tabs: const [
                 Tab(text: "정방향 (H+∠)"),
                 Tab(text: "역산 (H+Travel)"),
               ],
             ),
             const SizedBox(height: 16),
-
             const Text(
               "장애물 높이/깊이 (H)",
-              style: TextStyle(color: Colors.white70, fontSize: 13),
+              style: TextStyle(
+                color: slate600,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 8),
             Row(
@@ -182,19 +180,21 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
               ],
             ),
             const SizedBox(height: 16),
-
             Expanded(
               child: TabBarView(
                 controller: _tabController,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  // 정방향 탭
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
                         "각도 (∠)",
-                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                        style: TextStyle(
+                          color: slate600,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Row(
@@ -223,13 +223,16 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
                       ),
                     ],
                   ),
-                  // 역산 탭
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
                         "현장 빗변 (Travel)",
-                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                        style: TextStyle(
+                          color: slate600,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Row(
@@ -284,11 +287,9 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: _isInverted
-                ? Colors.redAccent.withOpacity(0.1)
-                : Colors.black45,
+            color: _isInverted ? Colors.red.shade50 : slate100,
             border: Border.all(
-              color: _isInverted ? Colors.redAccent : Colors.white24,
+              color: _isInverted ? Colors.red.shade300 : Colors.grey.shade300,
             ),
             borderRadius: BorderRadius.circular(8),
           ),
@@ -297,14 +298,14 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
             children: [
               Icon(
                 Icons.swap_vert,
-                color: _isInverted ? Colors.redAccent : Colors.white54,
+                color: _isInverted ? Colors.red.shade700 : slate600,
                 size: 18,
               ),
               const SizedBox(width: 6),
               Text(
                 _isInverted ? "아래로 파기(Invert)" : "위로 넘기(Normal)",
                 style: TextStyle(
-                  color: _isInverted ? Colors.white : Colors.white54,
+                  color: _isInverted ? Colors.red.shade700 : slate600,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
@@ -323,20 +324,29 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
       onTap: () =>
           MakitaNumpadGlass.show(context, controller: ctrl, title: hint),
       style: const TextStyle(
-        color: Colors.white,
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
+        color: makitaTeal,
+        fontSize: 20,
+        fontWeight: FontWeight.w900,
+        fontFamily: 'monospace',
       ),
       decoration: InputDecoration(
         filled: true,
-        fillColor: Colors.black45,
+        fillColor: slate100,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 12,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: makitaTeal, width: 2),
         ),
       ),
     );
@@ -352,16 +362,13 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.black45,
+          color: pureWhite,
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: Colors.white24),
+          border: Border.all(color: Colors.grey.shade300),
         ),
         child: Text(
           label,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(color: slate900, fontWeight: FontWeight.bold),
         ),
       ),
     );
@@ -375,14 +382,14 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.black45,
+            color: pureWhite,
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.white12),
+            border: Border.all(color: Colors.grey.shade300),
           ),
           child: Text(
-            "${val.toInt()}°",
+            val % 1 == 0 ? "${val.toInt()}°" : "$val°",
             style: const TextStyle(
-              color: Colors.white,
+              color: slate900,
               fontWeight: FontWeight.bold,
               fontSize: 13,
             ),
@@ -403,9 +410,9 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: makitaTeal.withAlpha(40),
+        color: makitaTeal.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: makitaTeal),
+        border: Border.all(color: makitaTeal.withOpacity(0.3)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -415,18 +422,21 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
             children: [
               Text(
                 title,
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                style: const TextStyle(
+                  color: slate600,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               Text(
                 value > 0 && !isError
                     ? "${value.toStringAsFixed(1)} ${isAngle ? "°" : "mm"}"
                     : "입력 대기",
                 style: TextStyle(
-                  color: value > 0 && !isError
-                      ? Colors.white
-                      : Colors.redAccent,
-                  fontSize: 22,
+                  color: value > 0 && !isError ? makitaTeal : Colors.redAccent,
+                  fontSize: 24,
                   fontWeight: FontWeight.w900,
+                  fontFamily: 'monospace',
                 ),
               ),
             ],
@@ -440,7 +450,7 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
             child: Text(
               btnText,
               style: const TextStyle(
-                color: Colors.white,
+                color: pureWhite,
                 fontWeight: FontWeight.bold,
               ),
             ),

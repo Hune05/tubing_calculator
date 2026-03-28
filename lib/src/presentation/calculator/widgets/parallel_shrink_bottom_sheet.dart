@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:lucide_icons/lucide_icons.dart';
-
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
 
 const Color makitaTeal = Color(0xFF007580);
-const Color panelBg = Color(0xFF2A2A2A);
+const Color slate900 = Color(0xFF0F172A);
+const Color slate600 = Color(0xFF475569);
+const Color slate100 = Color(0xFFF1F5F9);
 const Color pureWhite = Color(0xFFFFFFFF);
 
 class ParallelShrinkBottomSheet extends StatefulWidget {
   final double? initialAngle;
-
   const ParallelShrinkBottomSheet({super.key, this.initialAngle});
 
   static void show(BuildContext context, {double? currentAngle}) {
@@ -29,14 +29,10 @@ class ParallelShrinkBottomSheet extends StatefulWidget {
 }
 
 class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
-  // 🚀 모드 토글 상태
-  bool _isParallelMode = true; // true: 나란히 평행, false: 축소값
-  bool _is3DMode = false; // true: 3D 롤링, false: 2D 일반
+  bool _isParallelMode = true;
+  bool _is3DMode = false;
 
-  // 🚀 컨트롤러
-  final TextEditingController _spacingCtrl = TextEditingController(
-    text: "50",
-  ); // 배관 간격
+  final TextEditingController _spacingCtrl = TextEditingController(text: "50");
   final TextEditingController _riseCtrl = TextEditingController(text: "150");
   final TextEditingController _rollCtrl = TextEditingController(text: "200");
   late TextEditingController _angleCtrl;
@@ -52,12 +48,9 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
             widget.initialAngle! <= 90)
         ? widget.initialAngle!
         : 45.0;
-
     _angleCtrl = TextEditingController(
       text: initAng.toStringAsFixed(initAng % 1 == 0 ? 0 : 1),
     );
-
-    // 실시간 업데이트 리스너 연결
     _spacingCtrl.addListener(() => setState(() {}));
     _riseCtrl.addListener(() => setState(() {}));
     _rollCtrl.addListener(() => setState(() {}));
@@ -78,15 +71,11 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final maxHeight = MediaQuery.of(context).size.height * 0.85;
 
-    // 1. 공통 입력값 파싱
     double angle = double.tryParse(_angleCtrl.text) ?? 0.0;
-    double spacing = double.tryParse(_spacingCtrl.text) ?? 0.0; // 🚀 배관 간격 파싱
-
-    // 2. 수학 로직 계산
+    double spacing = double.tryParse(_spacingCtrl.text) ?? 0.0;
     double trueRise = 0;
     double finalResult = 0;
 
-    // 공통 롤링 높이 계산 (3D 롤링 모드일 때)
     if (_is3DMode) {
       double r = double.tryParse(_riseCtrl.text) ?? 0;
       double rl = double.tryParse(_rollCtrl.text) ?? 0;
@@ -96,18 +85,14 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
     }
 
     if (_isParallelMode) {
-      // --- 평행 보정(Stagger) 계산 ---
-      // 🚀 배관 간격(spacing)과 각도만 있으면 보정치를 구할 수 있음!
       if (angle > 0 && spacing > 0) {
-        if (angle == 90.0) {
+        if (angle == 90.0)
           finalResult = spacing * _pipeIndex * 1.5708;
-        } else {
+        else
           finalResult =
               spacing * _pipeIndex * math.tan((angle / 2) * (math.pi / 180));
-        }
       }
     } else {
-      // --- 축소값(Shrink) 계산 ---
       if (angle > 0 && angle < 90.0 && trueRise > 0) {
         double rad = angle * (math.pi / 180);
         finalResult = trueRise * ((1 / math.sin(rad)) - (1 / math.tan(rad)));
@@ -120,16 +105,14 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
         constraints: BoxConstraints(maxHeight: maxHeight),
         padding: const EdgeInsets.all(24),
         decoration: const BoxDecoration(
-          color: panelBg,
+          color: pureWhite,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border(top: BorderSide(color: makitaTeal, width: 3)),
         ),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 헤더
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -140,7 +123,7 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
                       Text(
                         "평행 & 축소 계산기",
                         style: TextStyle(
-                          color: Colors.white,
+                          color: slate900,
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
@@ -148,14 +131,12 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
                     ],
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white54),
+                    icon: const Icon(Icons.close, color: slate600),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-
-              // 메인 토글
               _buildToggleBox(
                 "평행 계산기",
                 "축소값 계산기",
@@ -164,8 +145,6 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
                 () => setState(() => _isParallelMode = false),
               ),
               const SizedBox(height: 12),
-
-              // 서브 토글
               _buildToggleBox(
                 "2D 평면 (일반)",
                 "3D 입체 (롤링)",
@@ -174,12 +153,8 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
                 () => setState(() => _is3DMode = true),
               ),
               const SizedBox(height: 24),
-
-              // 🚀 동적 입력 필드
               if (_isParallelMode) ...[
-                // 평행 모드에서는 '배관 간격'이 제일 위
                 _buildCompactInputRow(_spacingCtrl, "배관 간격 (Spacing)"),
-
                 if (_is3DMode) ...[
                   const SizedBox(height: 12),
                   Row(
@@ -201,7 +176,6 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
                   ),
                 ],
               ] else ...[
-                // 축소값 모드
                 if (!_is3DMode)
                   _buildCompactInputRow(_riseCtrl, "목표 높이 (Rise)")
                 else
@@ -218,8 +192,6 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
                   ),
               ],
               const SizedBox(height: 12),
-
-              // 공통 각도 입력 및 퀵버튼
               _buildCompactInputRow(_angleCtrl, "벤딩 각도 (∠)"),
               const SizedBox(height: 12),
               SingleChildScrollView(
@@ -228,7 +200,11 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
                   children: [
                     const Text(
                       "빠른 각도:",
-                      style: TextStyle(color: Colors.white54, fontSize: 12),
+                      style: TextStyle(
+                        color: slate600,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     ...[
@@ -242,13 +218,11 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
                 ),
               ),
               const SizedBox(height: 16),
-
-              // 평행 모드일 때만 보이는 가닥수 선택기
               if (_isParallelMode) ...[
                 const Text(
                   "옆 가닥 번호",
                   style: TextStyle(
-                    color: Colors.white70,
+                    color: slate600,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
@@ -264,70 +238,70 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
                   ].map((idx) => _buildPipeIndexBtn(idx)).toList(),
                 ),
               ],
-
               const SizedBox(height: 32),
-
-              // 최종 결과창
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // 좌측 보조 결과창
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: makitaTeal.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: makitaTeal.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (_is3DMode)
+                            _buildResultText(
+                              "True 오프셋",
+                              "${trueRise.toStringAsFixed(1)} mm",
+                            ),
+                          if (_isParallelMode)
+                            _buildResultText("마킹 가이드", "진입(+) 탈출(-)"),
+                          if (!_isParallelMode)
+                            _buildResultText("마킹 가이드", "기존 길이 + 미루기"),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        if (_is3DMode)
-                          _buildResultText(
-                            "True 오프셋",
-                            "${trueRise.toStringAsFixed(1)} mm",
+                        Text(
+                          _isParallelMode
+                              ? "$_pipeIndex번 보정치 (Stagger)"
+                              : "첫 벤딩 미루기 (Shrink)",
+                          style: const TextStyle(
+                            color: slate600,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
                           ),
-                        if (_isParallelMode)
-                          _buildResultText("마킹 가이드", "진입(+) 탈출(-)"),
-                        if (!_isParallelMode)
-                          _buildResultText("마킹 가이드", "기존 길이 + 미루기"),
+                        ),
+                        Text(
+                          finalResult > 0
+                              ? "+${finalResult.toStringAsFixed(1)} mm"
+                              : "계산 대기중",
+                          style: TextStyle(
+                            color: finalResult > 0
+                                ? makitaTeal
+                                : Colors.redAccent,
+                            fontSize: 26,
+                            fontWeight: FontWeight.w900,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                  // 우측 메인 결과창
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        _isParallelMode
-                            ? "$_pipeIndex번 보정치 (Stagger)"
-                            : "첫 벤딩 미루기 (Shrink)",
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 12,
-                        ),
-                      ),
-                      Text(
-                        finalResult > 0
-                            ? "+${finalResult.toStringAsFixed(1)} mm"
-                            : "계산 대기중",
-                        style: TextStyle(
-                          color: finalResult > 0
-                              ? makitaTeal
-                              : Colors.redAccent,
-                          fontSize: 32,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 20),
             ],
           ),
         ),
       ),
     );
   }
-
-  // ==========================================
-  // 🚀 재사용 위젯들
-  // ==========================================
 
   Widget _buildToggleBox(
     String leftLabel,
@@ -338,7 +312,7 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
   ) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.black45,
+        color: slate100,
         borderRadius: BorderRadius.circular(10),
       ),
       padding: const EdgeInsets.all(4),
@@ -362,7 +336,7 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
                   child: Text(
                     leftLabel,
                     style: TextStyle(
-                      color: isLeftActive ? Colors.white : Colors.white54,
+                      color: isLeftActive ? pureWhite : slate600,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
@@ -389,7 +363,7 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
                   child: Text(
                     rightLabel,
                     style: TextStyle(
-                      color: !isLeftActive ? Colors.white : Colors.white54,
+                      color: !isLeftActive ? pureWhite : slate600,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
@@ -410,7 +384,7 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
         Text(
           hint,
           style: const TextStyle(
-            color: Colors.white70,
+            color: slate600,
             fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
@@ -422,20 +396,25 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
           onTap: () =>
               MakitaNumpadGlass.show(context, controller: ctrl, title: hint),
           style: const TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+            color: makitaTeal,
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            fontFamily: 'monospace',
           ),
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.black45,
+            fillColor: slate100,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 12,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade300),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
@@ -455,16 +434,16 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.black45,
+            color: pureWhite,
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.white12),
+            border: Border.all(color: Colors.grey.shade300),
           ),
           child: Text(
             val % 1 == 0 ? "${val.toInt()}°" : "$val°",
             style: const TextStyle(
-              color: Colors.white,
+              color: slate900,
               fontWeight: FontWeight.bold,
-              fontSize: 12,
+              fontSize: 13,
             ),
           ),
         ),
@@ -483,9 +462,9 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
           height: 40,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: isActive ? makitaTeal : Colors.black45,
+            color: isActive ? makitaTeal : pureWhite,
             border: Border.all(
-              color: isActive ? makitaTeal : Colors.white12,
+              color: isActive ? makitaTeal : Colors.grey.shade300,
               width: 1.5,
             ),
             borderRadius: BorderRadius.circular(8),
@@ -493,7 +472,7 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
           child: Text(
             "$idx",
             style: TextStyle(
-              color: isActive ? Colors.white : Colors.white54,
+              color: isActive ? pureWhite : slate900,
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
@@ -512,15 +491,20 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
             width: 80,
             child: Text(
               label,
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
+              style: const TextStyle(
+                color: slate600,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           Text(
             value,
             style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
+              color: makitaTeal,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              fontFamily: 'monospace',
             ),
           ),
         ],

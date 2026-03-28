@@ -12,14 +12,14 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: pureWhite, // 💡 배경 하얗게
+          backgroundColor: pureWhite,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
           title: Text(
             "$item\n실사 수량 입력",
             style: const TextStyle(
-              color: slate900, // 💡 진한 텍스트
+              color: slate900,
               fontSize: 16,
               height: 1.3,
               fontWeight: FontWeight.bold,
@@ -28,15 +28,15 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
           content: TextField(
             controller: qtyController,
             keyboardType: TextInputType.number,
+            autofocus: true,
             style: const TextStyle(
               color: makitaTeal,
               fontSize: 32,
               fontWeight: FontWeight.w900,
             ),
-            autofocus: true,
             decoration: InputDecoration(
               filled: true,
-              fillColor: slate100, // 💡 입력창 연한 회색
+              fillColor: slate100,
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide(color: Colors.grey.shade300),
@@ -66,9 +66,8 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                 int? newQty = int.tryParse(qtyController.text);
                 if (newQty != null && newQty >= 0) {
                   setState(() {
-                    if (!_localEdits.containsKey(docId)) {
+                    if (!_localEdits.containsKey(docId))
                       _localEdits[docId] = ItemData();
-                    }
                     _localEdits[docId]!.qty = newQty;
                   });
                 }
@@ -90,141 +89,379 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
 
   void _showAddNewItemDialog(String categoryId) {
     TextEditingController nameController = TextEditingController();
+    TextEditingController specController = TextEditingController();
+
+    String autoMaterial = "";
+    String autoHeatNo = "";
+
+    // 🚀 1/8인치 제거, 콤팩트한 리스트로 수정
+    List<String> inchOptions = ["1/4\"", "3/8\"", "1/2\"", "3/4\"", "1\""];
+    List<String> mmOptions = ["6mm", "8mm", "10mm", "12mm", "25mm"];
+
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          backgroundColor: pureWhite,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            "신규 자재 임시 등록",
-            style: TextStyle(
-              color: slate900,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: pureWhite,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Text(
+                "신규 자재 임시 등록",
+                style: TextStyle(
+                  color: slate900,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueAccent.shade700,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        icon: const Icon(
+                          LucideIcons.scanLine,
+                          color: Colors.white,
+                        ),
+                        label: const Text(
+                          "QR / 바코드 스캔",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        onPressed: () async {
+                          HapticFeedback.lightImpact();
+                          final scannedCode = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => Scaffold(
+                                appBar: AppBar(
+                                  title: const Text("바코드 스캔"),
+                                  backgroundColor: slate900,
+                                  foregroundColor: Colors.white,
+                                ),
+                                body: MobileScanner(
+                                  onDetect: (capture) {
+                                    final List<Barcode> barcodes =
+                                        capture.barcodes;
+                                    if (barcodes.isNotEmpty &&
+                                        barcodes.first.rawValue != null) {
+                                      Navigator.pop(
+                                        context,
+                                        barcodes.first.rawValue,
+                                      );
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                          );
+                          if (scannedCode != null && scannedCode is String) {
+                            setDialogState(
+                              () => nameController.text = scannedCode,
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: makitaTeal,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        icon: const Icon(
+                          Icons.text_fields,
+                          color: Colors.white,
+                        ),
+                        label: const Text(
+                          "라벨 글자 스캔 (AI 자동 분류)",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        onPressed: () async {
+                          HapticFeedback.lightImpact();
+                          final result = await OcrService.scanAndClassify(
+                            context,
+                          );
+                          if (result != null) {
+                            setDialogState(() {
+                              nameController.text = result['name'] ?? "";
+                              autoMaterial = result['material'] ?? "";
+                              autoHeatNo = result['heatNo'] ?? "";
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    const Text(
+                      "자재명",
+                      style: TextStyle(
+                        color: slate600,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: nameController,
+                      style: const TextStyle(
+                        color: slate900,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: "스캔 또는 직접 입력",
+                        filled: true,
+                        fillColor: slate100,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    const Text(
+                      "규격 (사이즈)",
+                      style: TextStyle(
+                        color: slate600,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: specController,
+                      style: const TextStyle(
+                        color: makitaTeal,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: "직접 입력 또는 우측 화살표 터치",
+                        hintStyle: TextStyle(
+                          color: Colors.grey.shade400,
+                          fontSize: 14,
+                        ),
+                        filled: true,
+                        fillColor: slate100,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none,
+                        ),
+                        // 🚀🚀 여기서 까만 배경 해결 및 가로 4줄짜리 콤팩트 팝업 구현 🚀🚀
+                        suffixIcon: PopupMenuButton<String>(
+                          color: pureWhite, // 까만색 배경 튀어나오는 것 강제 화이트 고정
+                          surfaceTintColor: pureWhite,
+                          icon: const Icon(
+                            Icons.arrow_drop_down_circle,
+                            color: makitaTeal,
+                          ),
+                          offset: const Offset(0, 50),
+                          onSelected: (String value) {
+                            HapticFeedback.lightImpact();
+                            setDialogState(() => specController.text = value);
+                          },
+                          // 세로 리스트 대신 커스텀 위젯을 통째로 팝업에 집어넣음
+                          itemBuilder: (BuildContext context) =>
+                              <PopupMenuEntry<String>>[
+                                PopupMenuItem<String>(
+                                  enabled: false, // 배경 눌렀을 때 안 닫히게 처리
+                                  padding: const EdgeInsets.all(12),
+                                  child: SizedBox(
+                                    width: 260,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Text(
+                                          "인치 (Inch)",
+                                          style: TextStyle(
+                                            color: slate600,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Wrap(
+                                          spacing: 6,
+                                          runSpacing: 6,
+                                          children: inchOptions
+                                              .map(
+                                                (opt) => InkWell(
+                                                  onTap: () => Navigator.pop(
+                                                    context,
+                                                    opt,
+                                                  ),
+                                                  child: Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 12,
+                                                          vertical: 8,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: slate100,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            6,
+                                                          ),
+                                                      border: Border.all(
+                                                        color: Colors
+                                                            .grey
+                                                            .shade300,
+                                                      ),
+                                                    ),
+                                                    child: Text(
+                                                      opt,
+                                                      style: const TextStyle(
+                                                        color: slate900,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 13,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              )
+                                              .toList(),
+                                        ),
+                                        const Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            vertical: 8.0,
+                                          ),
+                                          child: Divider(color: Colors.grey),
+                                        ),
+                                        const Text(
+                                          "미리 (mm)",
+                                          style: TextStyle(
+                                            color: slate600,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Wrap(
+                                          spacing: 6,
+                                          runSpacing: 6,
+                                          children: mmOptions
+                                              .map(
+                                                (opt) => InkWell(
+                                                  onTap: () => Navigator.pop(
+                                                    context,
+                                                    opt,
+                                                  ),
+                                                  child: Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 12,
+                                                          vertical: 8,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: slate100,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            6,
+                                                          ),
+                                                      border: Border.all(
+                                                        color: Colors
+                                                            .grey
+                                                            .shade300,
+                                                      ),
+                                                    ),
+                                                    child: Text(
+                                                      opt,
+                                                      style: const TextStyle(
+                                                        color: slate900,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 13,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              )
+                                              .toList(),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("취소", style: TextStyle(color: slate600)),
+                ),
+                ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent.shade700,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    backgroundColor: _categories[_currentCategory]['color'],
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  icon: const Icon(LucideIcons.scanLine, color: Colors.white),
-                  label: const Text(
-                    "QR / 바코드 스캔",
+                  onPressed: () {
+                    String name = nameController.text.trim();
+                    String spec = specController.text.trim();
+                    String finalName = spec.isNotEmpty ? "$name $spec" : name;
+
+                    if (finalName.isNotEmpty) {
+                      setState(() {
+                        String tempId =
+                            "NEW_${DateTime.now().millisecondsSinceEpoch}";
+                        _newLocalItems[tempId] = {
+                          'name': finalName,
+                          'category': categoryId,
+                        };
+                        _localEdits[tempId] = ItemData()
+                          ..qty = 0
+                          ..material = autoMaterial
+                          ..heatNo = autoHeatNo;
+                      });
+                    }
+                    Navigator.pop(context);
+                  },
+                  child: const Text(
+                    "목록에 추가",
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  onPressed: () async {
-                    final scannedCode = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => Scaffold(
-                          appBar: AppBar(
-                            title: const Text("바코드 스캔"),
-                            backgroundColor: slate900,
-                            foregroundColor: Colors.white,
-                          ),
-                          body: MobileScanner(
-                            onDetect: (capture) {
-                              final List<Barcode> barcodes = capture.barcodes;
-                              if (barcodes.isNotEmpty &&
-                                  barcodes.first.rawValue != null) {
-                                Navigator.pop(context, barcodes.first.rawValue);
-                              }
-                            },
-                          ),
-                        ),
-                      ),
-                    );
-                    if (scannedCode != null && scannedCode is String) {
-                      setState(() => nameController.text = scannedCode);
-                    }
-                  },
                 ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                "또는 직접 수동 입력",
-                style: TextStyle(color: slate600, fontSize: 12),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: nameController,
-                style: const TextStyle(
-                  color: slate900,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: "자재명 및 규격 입력",
-                  hintStyle: TextStyle(color: Colors.grey.shade400),
-                  filled: true,
-                  fillColor: slate100,
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(
-                      color: _categories[_currentCategory]['color'],
-                      width: 2,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("취소", style: TextStyle(color: slate600)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _categories[_currentCategory]['color'],
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onPressed: () {
-                String name = nameController.text.trim();
-                if (name.isNotEmpty) {
-                  setState(() {
-                    String tempId =
-                        "NEW_${DateTime.now().millisecondsSinceEpoch}";
-                    _newLocalItems[tempId] = {
-                      'name': name,
-                      'category': categoryId,
-                    };
-                    _localEdits[tempId] = ItemData()..qty = 0;
-                  });
-                }
-                Navigator.pop(context);
-              },
-              child: const Text(
-                "임시 추가",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         );
       },
     );
@@ -240,6 +477,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                 : (infoType == 'Material' ? data.material : data.location));
     } catch (_) {}
     TextEditingController ctrl = TextEditingController(text: currentValue);
+
     List<String> quickOptions = [];
     if (infoType == 'Maker') quickOptions = ["HY-LOK", "SWAGELOK", "PARKER"];
     if (infoType == 'Material')
@@ -282,10 +520,6 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                   filled: true,
                   fillColor: slate100,
                   hintText: "직접 입력",
-                  hintStyle: TextStyle(
-                    color: Colors.grey.shade400,
-                    fontWeight: FontWeight.normal,
-                  ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(color: Colors.grey.shade300),
@@ -297,6 +531,22 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                       width: 2,
                     ),
                   ),
+                  suffixIcon: infoType == 'HeatNo'
+                      ? IconButton(
+                          icon: const Icon(
+                            Icons.text_fields,
+                            color: makitaTeal,
+                          ),
+                          onPressed: () async {
+                            HapticFeedback.lightImpact();
+                            final String? scannedText =
+                                await OcrService.scanLabelText(context);
+                            if (scannedText != null && scannedText.isNotEmpty) {
+                              ctrl.text = scannedText.toUpperCase();
+                            }
+                          },
+                        )
+                      : null,
                 ),
               ),
               if (quickOptions.isNotEmpty) ...[
@@ -319,9 +569,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                       side: BorderSide(
                         color: isSelected ? makitaTeal : Colors.grey.shade300,
                       ),
-                      onPressed: () {
-                        setState(() => ctrl.text = opt);
-                      },
+                      onPressed: () => setState(() => ctrl.text = opt),
                     );
                   }).toList(),
                 ),
@@ -342,9 +590,8 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
               ),
               onPressed: () {
                 setState(() {
-                  if (!_localEdits.containsKey(docId)) {
+                  if (!_localEdits.containsKey(docId))
                     _localEdits[docId] = data;
-                  }
                   try {
                     if (infoType == 'HeatNo')
                       _localEdits[docId]!.heatNo = ctrl.text
@@ -383,7 +630,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
   void _showHistorySheet() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: pureWhite, // 💡 바텀시트 화이트
+      backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),

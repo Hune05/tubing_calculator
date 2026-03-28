@@ -7,11 +7,11 @@ import 'dart:async';
 
 import 'inventory_model.dart';
 import 'inventory_item_card.dart';
+import 'mobile_inventory_ocr.dart';
 
 part 'mobile_inventory_dialogs.dart';
 part 'mobile_inventory_sync.dart';
 
-// 🎨 화이트 & 마키타 테마 컬러 공통 선언
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
 const Color slate600 = Color(0xFF475569);
@@ -19,7 +19,9 @@ const Color slate100 = Color(0xFFF1F5F9);
 const Color pureWhite = Color(0xFFFFFFFF);
 
 class MobileInventoryPage extends StatefulWidget {
-  const MobileInventoryPage({super.key});
+  final String workerName;
+
+  const MobileInventoryPage({super.key, required this.workerName});
 
   @override
   State<MobileInventoryPage> createState() => _MobileInventoryPageState();
@@ -70,7 +72,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     var catId = catInfo['id'] as String;
 
     return Scaffold(
-      backgroundColor: slate100, // 💡 배경을 밝고 화사하게
+      backgroundColor: slate100,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -91,27 +93,15 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
               child: Stack(
                 children: [
                   Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "좌우로 스와이프하여 카테고리 변경",
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.8),
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          catInfo['name'],
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
-                      ],
+                    // 🚀 쓸데없는 이름표와 스와이프 안내문 삭제, 카테고리 이름만 중앙에 시원하게 배치!
+                    child: Text(
+                      catInfo['name'],
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: 1.0,
+                      ),
                     ),
                   ),
                   Positioned(
@@ -125,7 +115,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                         size: 32,
                       ),
                       onPressed: () => _showAddNewItemDialog(catId),
-                      tooltip: "현장에서 신규 자재 추가 및 바코드 스캔",
+                      tooltip: "현장에서 신규 자재 추가",
                     ),
                   ),
                   Positioned(
@@ -157,11 +147,10 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                         .where('category', isEqualTo: currentCatId)
                         .snapshots(),
                     builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
+                      if (!snapshot.hasData)
                         return const Center(
                           child: CircularProgressIndicator(color: makitaTeal),
                         );
-                      }
 
                       var dbDocs = snapshot.data!.docs;
                       var localNewDocs = _newLocalItems.entries
@@ -169,14 +158,13 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                           .toList();
                       int totalCount = dbDocs.length + localNewDocs.length;
 
-                      if (totalCount == 0) {
-                        return Center(
+                      if (totalCount == 0)
+                        return const Center(
                           child: Text(
                             "등록된 자재가 없습니다.",
                             style: TextStyle(color: slate600, fontSize: 16),
                           ),
                         );
-                      }
 
                       return ListView.builder(
                         padding: const EdgeInsets.symmetric(
@@ -188,8 +176,9 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                           String docId;
                           String itemName;
                           ItemData displayData;
+                          bool isLocalNew = i >= dbDocs.length;
 
-                          if (i < dbDocs.length) {
+                          if (!isLocalNew) {
                             var doc = dbDocs[i];
                             docId = doc.id;
                             itemName = doc['name'] ?? '이름 없음';
@@ -207,7 +196,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                             displayData = _localEdits[docId]!;
                           }
 
-                          return InventoryItemCard(
+                          Widget itemCard = InventoryItemCard(
                             itemName: itemName,
                             data: displayData,
                             categoryIndex: index,
@@ -215,7 +204,8 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                             onUpdateQuantity: (delta) {
                               HapticFeedback.lightImpact();
                               setState(() {
-                                if (!_localEdits.containsKey(docId)) {
+                                if (!_localEdits.containsKey(docId) &&
+                                    !isLocalNew) {
                                   _localEdits[docId] = _createItemDataFromDoc(
                                     dbDocs[i].data() as Map<String, dynamic>,
                                   );
@@ -235,6 +225,72 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                               infoType,
                             ),
                           );
+
+                          if (isLocalNew) {
+                            return GestureDetector(
+                              onLongPress: () {
+                                HapticFeedback.heavyImpact();
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text(
+                                      "항목 삭제",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    content: Text(
+                                      "'$itemName' 항목을 전송 목록에서 삭제하시겠습니까?",
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text(
+                                          "취소",
+                                          style: TextStyle(color: slate600),
+                                        ),
+                                      ),
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.red.shade600,
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            _newLocalItems.remove(docId);
+                                            _localEdits.remove(docId);
+                                          });
+                                          Navigator.pop(context);
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text("삭제되었습니다."),
+                                            ),
+                                          );
+                                        },
+                                        child: const Text(
+                                          "삭제",
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 8.0),
+                                child: itemCard,
+                              ),
+                            );
+                          }
+
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: itemCard,
+                          );
                         },
                       );
                     },
@@ -247,7 +303,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
               child: Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: pureWhite, // 💡 하단 버튼 배경 화이트
+                  color: pureWhite,
                   border: Border(top: BorderSide(color: Colors.grey.shade200)),
                 ),
                 child: ElevatedButton(
@@ -265,7 +321,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                       Icon(LucideIcons.scale, color: Colors.white, size: 24),
                       SizedBox(width: 10),
                       Text(
-                        "실사 데이터(Audit) 서버 전송",
+                        "자재 목록 서버 전송",
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
@@ -282,7 +338,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showHistorySheet,
-        backgroundColor: pureWhite, // 💡 FAB 색상 화이트로 변경
+        backgroundColor: pureWhite,
         elevation: 4,
         child: const Icon(Icons.history, color: slate900),
       ),

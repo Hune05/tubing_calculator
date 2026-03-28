@@ -145,6 +145,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
     }
   }
 
+  // 🚀🚀 [수정됨] 마킹값(Marking)도 압축 문자열에 포함시키도록 변경 🚀🚀
   String _compressBendData(List<Map<String, dynamic>> bends) {
     if (bends.isEmpty) return "";
     return bends
@@ -152,7 +153,13 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
           int l = (b['length'] ?? 0).round();
           int a = double.tryParse(b['angle']?.toString() ?? '0')?.round() ?? 0;
           int r = (b['rotation'] ?? 0).round();
-          return "${l}_${a}_$r";
+
+          // 마킹값 추출 후 정수로 변환 (없으면 0)
+          String mStr = _extractValue(b, ['mark', 'marking', 'marking_point']);
+          int m = double.tryParse(mStr)?.round() ?? 0;
+
+          // 길이_각도_회전각_마킹값 형태로 반환
+          return "${l}_${a}_${r}_$m";
         })
         .join('-');
   }
@@ -203,11 +210,12 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
       if (fittingStr.isEmpty) fittingStr = "None";
 
       String compressedBends = _compressBendData(parsedBendList);
+
+      // 🚀🚀 [수정됨] 시작 방향(startDir)을 d 파라미터로 추가 🚀🚀
       String qrDataUrl =
-          "tubingapp://view?p=${Uri.encodeComponent(project)}&s=${Uri.encodeComponent(currentData['pipe_size'] ?? '')}&b=$compressedBends";
+          "tubingapp://view?p=${Uri.encodeComponent(project)}&s=${Uri.encodeComponent(currentData['pipe_size'] ?? '')}&b=$compressedBends&sf=$startFit&ef=$endFit&t=$tail&d=$startDir";
       if (qrDataUrl.isEmpty) qrDataUrl = "tubingapp://error";
 
-      // 🚀 하단 우측에 공통으로 들어갈 QR 코드 위젯 분리
       pw.Widget buildQRCodeWidget() {
         return pw.Column(
           mainAxisSize: pw.MainAxisSize.min,
@@ -232,7 +240,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
         );
       }
 
-      // 🚀 높이 고정을 풀고, 표(Table)가 전체 가로를 사용하도록 수정
       pw.Widget buildTitleBlock() {
         return pw.Container(
           margin: const pw.EdgeInsets.only(bottom: 20),
@@ -306,7 +313,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
         );
       }
 
-      // --- PAGE 1: 도면 이미지 페이지 ---
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
@@ -347,7 +353,6 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                   ),
                 ),
                 pw.SizedBox(height: 10),
-                // 🚀 페이지 1 하단 푸터 (페이지 번호 & QR 코드)
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
@@ -368,13 +373,11 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
         ),
       );
 
-      // --- PAGE 2 이상: 벤딩 시퀀스 데이터 페이지 ---
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(30),
           header: (context) => buildTitleBlock(),
-          // 🚀 MultiPage 전용 푸터에 QR 코드 고정
           footer: (context) => pw.Container(
             margin: const pw.EdgeInsets.only(top: 10),
             child: pw.Row(
