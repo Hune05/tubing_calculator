@@ -94,7 +94,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
     String autoMaterial = "";
     String autoHeatNo = "";
 
-    // 🚀 1/8인치 제거, 콤팩트한 리스트로 수정
+    // 🚀 1/8인치 제거된 콤팩트 리스트
     List<String> inchOptions = ["1/4\"", "3/8\"", "1/2\"", "3/4\"", "1\""];
     List<String> mmOptions = ["6mm", "8mm", "10mm", "12mm", "25mm"];
 
@@ -273,9 +273,9 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide.none,
                         ),
-                        // 🚀🚀 여기서 까만 배경 해결 및 가로 4줄짜리 콤팩트 팝업 구현 🚀🚀
+                        // 🚀 까만 배경 해결 및 가로 4줄 콤팩트 팝업
                         suffixIcon: PopupMenuButton<String>(
-                          color: pureWhite, // 까만색 배경 튀어나오는 것 강제 화이트 고정
+                          color: pureWhite,
                           surfaceTintColor: pureWhite,
                           icon: const Icon(
                             Icons.arrow_drop_down_circle,
@@ -286,11 +286,10 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                             HapticFeedback.lightImpact();
                             setDialogState(() => specController.text = value);
                           },
-                          // 세로 리스트 대신 커스텀 위젯을 통째로 팝업에 집어넣음
                           itemBuilder: (BuildContext context) =>
                               <PopupMenuEntry<String>>[
                                 PopupMenuItem<String>(
-                                  enabled: false, // 배경 눌렀을 때 안 닫히게 처리
+                                  enabled: false,
                                   padding: const EdgeInsets.all(12),
                                   child: SizedBox(
                                     width: 260,
@@ -479,11 +478,24 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
     TextEditingController ctrl = TextEditingController(text: currentValue);
 
     List<String> quickOptions = [];
-    if (infoType == 'Maker') quickOptions = ["HY-LOK", "SWAGELOK", "PARKER"];
-    if (infoType == 'Material')
+
+    // 🚀 제조사(Maker) 클릭 시 카테고리별 맞춤 버튼 제공
+    if (infoType == 'Maker') {
+      if (_categories[_currentCategory]['id'] == 'TUBE') {
+        // 튜브일 경우 튜브 전문 메이커 세팅
+        quickOptions = ["TSK", "SANDVIK", "세아특수강", "코리녹스"];
+      } else {
+        // 피팅, 밸브 등일 경우 기존 메이커 세팅
+        quickOptions = ["HY-LOK", "SWAGELOK", "PARKER"];
+      }
+    }
+
+    if (infoType == 'Material') {
       quickOptions = ["SS316L", "SS304", "Carbon", "Teflon"];
-    if (infoType == 'Location')
+    }
+    if (infoType == 'Location') {
       quickOptions = ["A동 1열", "B동 2열", "튜빙 야적장", "공구함"];
+    }
 
     showDialog(
       context: context,
@@ -590,25 +602,30 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
               ),
               onPressed: () {
                 setState(() {
-                  if (!_localEdits.containsKey(docId))
+                  if (!_localEdits.containsKey(docId)) {
                     _localEdits[docId] = data;
+                  }
                   try {
-                    if (infoType == 'HeatNo')
+                    if (infoType == 'HeatNo') {
                       _localEdits[docId]!.heatNo = ctrl.text
                           .trim()
                           .toUpperCase();
-                    if (infoType == 'Maker')
+                    }
+                    if (infoType == 'Maker') {
                       _localEdits[docId]!.maker = ctrl.text
                           .trim()
                           .toUpperCase();
-                    if (infoType == 'Material')
+                    }
+                    if (infoType == 'Material') {
                       _localEdits[docId]!.material = ctrl.text
                           .trim()
                           .toUpperCase();
-                    if (infoType == 'Location')
+                    }
+                    if (infoType == 'Location') {
                       _localEdits[docId]!.location = ctrl.text
                           .trim()
                           .toUpperCase();
+                    }
                   } catch (_) {}
                 });
                 Navigator.pop(context);

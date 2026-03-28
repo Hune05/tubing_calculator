@@ -2,25 +2,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
-// 🚀 결과 화면 및 도면 구동을 위한 임포트
+// 🚀 결과 화면 및 데이터 관리 임포트
 import 'package:tubing_calculator/src/data/bend_data_manager.dart';
 import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/pipe_visualizer.dart';
 
-// 🚀 설정 화면 구동을 위한 임포트
+// 🚀 모바일 전용 3D 뷰어 임포트
+import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_pipe_visualizer.dart';
+
+// 🚀 설정 화면 임포트
 import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/presentation/settings/controllers/settings_controller.dart';
 import 'package:tubing_calculator/src/presentation/settings/widgets/settings_widgets.dart';
 import 'package:tubing_calculator/src/core/utils/fitting_data.dart';
 
-// 🚀 특수 계산기 바텀시트들 임포트
-import 'package:tubing_calculator/src/presentation/calculator/widgets/offset_bottom_sheet.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/rolling_offset_bottom_sheet.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/saddle_bottom_sheet.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/parallel_shrink_bottom_sheet.dart';
+// 🚀 [핵심 수정] 모바일 전용 특수 계산기 바텀시트 임포트!
+import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_offset_bottom_sheet.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_rolling_offset_bottom_sheet.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_saddle_bottom_sheet.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_parallel_shrink_bottom_sheet.dart';
+
+// 🚀 보관함(History) 구동 및 [모바일 전용 상세 화면] 임포트
+import 'package:tubing_calculator/src/core/database/database_helper.dart';
+import 'package:tubing_calculator/src/presentation/fabrication/screens/mobile_fabrication_detail_screen.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
@@ -40,7 +47,6 @@ class MobileCalculatorPage extends StatefulWidget {
 class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
   final PageController _pageController = PageController();
   int _currentIndex = 0;
-
   String _startDir = "RIGHT";
 
   void _onPageChanged(int index) {
@@ -88,6 +94,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
             startDir: _startDir,
             onStartDirChanged: (val) => setState(() => _startDir = val),
           ),
+          const MobileHistoryTab(),
           const MobileSettingsTab(),
         ],
       ),
@@ -110,11 +117,11 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
           type: BottomNavigationBarType.fixed,
           selectedLabelStyle: const TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 12,
+            fontSize: 11,
           ),
           unselectedLabelStyle: const TextStyle(
             fontWeight: FontWeight.normal,
-            fontSize: 11,
+            fontSize: 10,
           ),
           items: const [
             BottomNavigationBarItem(
@@ -127,6 +134,10 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
             ),
             BottomNavigationBarItem(icon: Icon(LucideIcons.box), label: "도면"),
             BottomNavigationBarItem(
+              icon: Icon(Icons.folder_open),
+              label: "보관함",
+            ),
+            BottomNavigationBarItem(
               icon: Icon(LucideIcons.settings),
               label: "설정",
             ),
@@ -138,20 +149,20 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
 }
 
 // ==========================================
-// 🚀 1탭: 모바일 치수 입력 (라인 빌더) 화면
+// 🚀 1탭: 모바일 치수 입력 (라인 빌더)
 // ==========================================
 class MobileInputTab extends StatefulWidget {
   const MobileInputTab({super.key});
-
   @override
   State<MobileInputTab> createState() => _MobileInputTabState();
 }
 
 class _MobileInputTabState extends State<MobileInputTab> {
   final TextEditingController _lengthController = TextEditingController();
-
   double _selectedAngle = 90.0;
-  double _selectedRotation = 90.0;
+
+  // 방향값 nullable 처리 (매번 선택 강제)
+  double? _selectedRotation;
 
   final List<Map<String, dynamic>> _directions = [
     {"label": "UP (위)", "val": 0.0, "icon": Icons.arrow_upward},
@@ -181,15 +192,26 @@ class _MobileInputTabState extends State<MobileInputTab> {
       return;
     }
 
+    if (_selectedAngle > 0 && _selectedRotation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("벤딩 진행 방향(6축)을 먼저 선택해주세요!"),
+          backgroundColor: Colors.deepOrange,
+        ),
+      );
+      return;
+    }
+
     HapticFeedback.mediumImpact();
 
     setState(() {
       BendDataManager().bendList.add({
         'length': length,
         'angle': _selectedAngle,
-        'rotation': _selectedAngle == 0.0 ? 0.0 : _selectedRotation,
+        'rotation': _selectedAngle == 0.0 ? 0.0 : _selectedRotation!,
       });
       _lengthController.clear();
+      _selectedRotation = null; // 입력 후 리셋
     });
   }
 
@@ -224,15 +246,15 @@ class _MobileInputTabState extends State<MobileInputTab> {
   }
 
   void _showSpecialBendingMenu() {
-    double currentRot = _selectedRotation;
+    double currentRot = _selectedRotation ?? 90.0;
     if (BendDataManager().bendList.isNotEmpty) {
       final lastRot = BendDataManager().bendList.last['rotation'];
-      currentRot = (lastRot as num?)?.toDouble() ?? _selectedRotation;
+      currentRot = (lastRot as num?)?.toDouble() ?? (_selectedRotation ?? 90.0);
     }
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: pureWhite, // 🚀 팝업 배경을 완벽한 흰색으로!
+      backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -258,9 +280,10 @@ class _MobileInputTabState extends State<MobileInputTab> {
               ),
               const SizedBox(height: 24),
 
+              // 🚀 [수정] 모바일 전용 특수 벤딩 화면 호출
               _buildSpecialMenuBtn("일반 오프셋 (Offset)", Icons.timeline, () {
                 Navigator.pop(context);
-                OffsetBottomSheet.show(
+                MobileOffsetBottomSheet.show(
                   context,
                   currentRotation: currentRot,
                   onAddMultipleBends: _addMultipleBends,
@@ -268,7 +291,7 @@ class _MobileInputTabState extends State<MobileInputTab> {
               }),
               _buildSpecialMenuBtn("롤링 오프셋 (Rolling Offset)", Icons.sync, () {
                 Navigator.pop(context);
-                RollingOffsetBottomSheet.show(
+                MobileRollingOffsetBottomSheet.show(
                   context,
                   currentRotation: currentRot,
                   onAddBend: _addSingleBend,
@@ -276,7 +299,7 @@ class _MobileInputTabState extends State<MobileInputTab> {
               }),
               _buildSpecialMenuBtn("새들 벤딩 (Saddle)", Icons.architecture, () {
                 Navigator.pop(context);
-                SaddleBottomSheet.show(
+                MobileSaddleBottomSheet.show(
                   context,
                   currentRotation: currentRot,
                   onAddBend: _addSingleBend,
@@ -287,7 +310,7 @@ class _MobileInputTabState extends State<MobileInputTab> {
                 Icons.grid_view,
                 () {
                   Navigator.pop(context);
-                  ParallelShrinkBottomSheet.show(
+                  MobileParallelShrinkBottomSheet.show(
                     context,
                     currentAngle: _selectedAngle,
                   );
@@ -300,7 +323,6 @@ class _MobileInputTabState extends State<MobileInputTab> {
     );
   }
 
-  // 🚀 팝업 안의 버튼들을 눈이 편안한 디자인으로 수정
   Widget _buildSpecialMenuBtn(String title, IconData icon, VoidCallback onTap) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -312,7 +334,7 @@ class _MobileInputTabState extends State<MobileInputTab> {
           decoration: BoxDecoration(
             color: pureWhite,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300), // 연한 회색 테두리
+            border: Border.all(color: Colors.grey.shade300),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.02),
@@ -326,7 +348,7 @@ class _MobileInputTabState extends State<MobileInputTab> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: makitaTeal.withValues(alpha: 0.1), // 부드러운 틸 배경
+                  color: makitaTeal.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, color: makitaTeal, size: 20),
@@ -339,7 +361,7 @@ class _MobileInputTabState extends State<MobileInputTab> {
                   fontWeight: FontWeight.bold,
                   color: slate900,
                 ),
-              ), // 글자는 진한 회색으로 가독성 UP!
+              ),
               const Spacer(),
               Icon(
                 Icons.arrow_forward_ios,
@@ -415,7 +437,6 @@ class _MobileInputTabState extends State<MobileInputTab> {
                                 (item['angle'] as num?)?.toDouble() == 0.0;
                             double rotValue =
                                 (item['rotation'] as num?)?.toDouble() ?? 0.0;
-
                             String dirLabel = _directions.firstWhere(
                               (d) => d['val'] == rotValue,
                               orElse: () => {"label": "N/A"},
@@ -534,7 +555,11 @@ class _MobileInputTabState extends State<MobileInputTab> {
                           ],
                           selected: {_selectedAngle},
                           onSelectionChanged: (Set<double> newSelection) {
-                            setState(() => _selectedAngle = newSelection.first);
+                            setState(() {
+                              _selectedAngle = newSelection.first;
+                              if (_selectedAngle == 0.0)
+                                _selectedRotation = null;
+                            });
                           },
                           style: ButtonStyle(
                             backgroundColor:
@@ -560,13 +585,28 @@ class _MobileInputTabState extends State<MobileInputTab> {
                   ),
                   const SizedBox(height: 16),
                   if (_selectedAngle > 0) ...[
-                    const Text(
-                      "진행 방향 (6축)",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: slate600,
-                        fontSize: 13,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          "진행 방향 (6축)",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: _selectedRotation == null
+                                ? Colors.redAccent
+                                : slate600,
+                            fontSize: 13,
+                          ),
+                        ),
+                        if (_selectedRotation == null)
+                          const Text(
+                            " *방향을 선택하세요",
+                            style: TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     GridView.builder(
@@ -710,27 +750,20 @@ class _MobileInputTabState extends State<MobileInputTab> {
                     ],
                   ),
                   const SizedBox(height: 16),
-
-                  // 🚀 눈이 편안한 부드러운 틸 색상의 특수 벤딩 버튼으로 교체!
                   SizedBox(
                     width: double.infinity,
-                    height: 48, // 터치하기 좋게 살짝 높임
+                    height: 48,
                     child: OutlinedButton.icon(
                       onPressed: _showSpecialBendingMenu,
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: makitaTeal, width: 1.5),
                         foregroundColor: makitaTeal,
-                        backgroundColor: makitaTeal.withValues(
-                          alpha: 0.05,
-                        ), // 아주 연한 틸 배경
+                        backgroundColor: makitaTeal.withValues(alpha: 0.05),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      icon: const Icon(
-                        Icons.auto_awesome_mosaic,
-                        size: 20,
-                      ), // 아이콘 변경
+                      icon: const Icon(Icons.auto_awesome_mosaic, size: 20),
                       label: const Text(
                         "특수 벤딩 (오프셋 / 새들) 계산기",
                         style: TextStyle(
@@ -819,23 +852,19 @@ class _MobileResultTabState extends State<MobileResultTab> {
   Widget build(BuildContext context) {
     final dataManager = BendDataManager();
     final bendList = dataManager.bendList;
-
     final double radius = dataManager.takeUp90;
     final double fittingDepth = dataManager.fittingDepth;
-
     final engine = TubeBendingEngine(radius: radius);
 
     List<BendInstruction> instructions = [];
     for (int i = 0; i < bendList.length; i++) {
       double l = (bendList[i]['length'] as num?)?.toDouble() ?? 0.0;
-
       if (i == 0 && _includeStartFitting) {
         l += fittingDepth;
       }
       if (i == bendList.length - 1 && _includeEndFitting) {
         l += fittingDepth;
       }
-
       instructions.add(
         BendInstruction(
           length: l,
@@ -857,7 +886,6 @@ class _MobileResultTabState extends State<MobileResultTab> {
     for (int i = 0; i < bendList.length; i++) {
       double angleValue = (bendList[i]['angle'] as num?)?.toDouble() ?? 0.0;
       bool isStraight = angleValue == 0.0;
-
       double currentMark = steps[i].markingPoint;
       double currentLength = (bendList[i]['length'] as num?)?.toDouble() ?? 0.0;
 
@@ -904,7 +932,6 @@ class _MobileResultTabState extends State<MobileResultTab> {
 
     double totalCut = bendList.isEmpty ? 0.0 : pureCutLength + _tailLength;
     double diffAfterLastMark = (totalCut - lastMarkingPoint) - radius;
-
     if (diffAfterLastMark < 0) {
       diffAfterLastMark = 0;
     }
@@ -1212,7 +1239,8 @@ class _MobileResultTabState extends State<MobileResultTab> {
                                     fontFamily: 'monospace',
                                   ),
                                 ),
-                                if (item['mark_num'] > 1)
+                                if ((item['mark_num'] as num?) != null &&
+                                    (item['mark_num'] as num) > 1)
                                   Text(
                                     "↳ 앞 마킹과의 거리: +$incrementalMark",
                                     style: const TextStyle(
@@ -1389,14 +1417,14 @@ class MobileViewerTab extends StatelessWidget {
                     style: TextStyle(color: slate600, fontSize: 14),
                   ),
                 )
-              : PipeVisualizer(
+              : MobilePipeVisualizer(
                   bendList: bendList,
                   tailLength: dataManager.tail,
                   initialStartDir: startDir,
                   onStartDirChanged: onStartDirChanged,
                   startFit: dataManager.startFit,
                   endFit: dataManager.endFit,
-                  isLightMode: false,
+                  isLightMode: false, // 🚀 모바일 뷰어 다크모드 적용
                 ),
         ),
       ],
@@ -1405,7 +1433,372 @@ class MobileViewerTab extends StatelessWidget {
 }
 
 // ==========================================
-// 🚀 4탭: 모바일 설정 (Settings) 화면 및 가이드
+// 🚀 4탭: 모바일 보관함 (History) 화면
+// ==========================================
+class MobileHistoryTab extends StatefulWidget {
+  const MobileHistoryTab({super.key});
+
+  @override
+  State<MobileHistoryTab> createState() => _MobileHistoryTabState();
+}
+
+class _MobileHistoryTabState extends State<MobileHistoryTab> {
+  Map<String, List<Map<String, dynamic>>> _groupedHistory = {};
+  bool _isLoading = true;
+  String _searchQuery = "";
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshHistory();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _refreshHistory() async {
+    setState(() => _isLoading = true);
+    final data = await DatabaseHelper.instance.getHistory();
+    if (!mounted) return;
+
+    Map<String, List<Map<String, dynamic>>> tempGrouped = {};
+    for (var item in data) {
+      String rawPtoP = item['p_to_p'] ?? '{}';
+      String project = "미지정 프로젝트";
+      try {
+        var pData = jsonDecode(rawPtoP);
+        if (pData['project'] != null &&
+            pData['project'].toString().trim().isNotEmpty) {
+          project = pData['project'];
+        }
+      } catch (_) {}
+
+      if (!tempGrouped.containsKey(project)) {
+        tempGrouped[project] = [];
+      }
+      tempGrouped[project]!.add(item);
+    }
+
+    tempGrouped.forEach((key, list) {
+      list.sort((a, b) => (b['id'] as int).compareTo(a['id'] as int));
+    });
+
+    setState(() {
+      _groupedHistory = tempGrouped;
+      _isLoading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Map<String, List<Map<String, dynamic>>> filteredGroupedHistory = {};
+
+    if (_searchQuery.isEmpty) {
+      filteredGroupedHistory = _groupedHistory;
+    } else {
+      _groupedHistory.forEach((folderName, items) {
+        bool folderMatches = folderName.toLowerCase().contains(_searchQuery);
+        List<Map<String, dynamic>> matchingItems = items.where((item) {
+          String rawPtoP = item['p_to_p'] ?? '{}';
+          String fromTo = "";
+          try {
+            var pData = jsonDecode(rawPtoP);
+            fromTo = "${pData['from']} ➔ ${pData['to']}".toLowerCase();
+          } catch (_) {}
+          return fromTo.contains(_searchQuery);
+        }).toList();
+
+        if (folderMatches) {
+          filteredGroupedHistory[folderName] = items;
+        } else if (matchingItems.isNotEmpty) {
+          filteredGroupedHistory[folderName] = matchingItems;
+        }
+      });
+    }
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          color: pureWhite,
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: '프로젝트명 또는 경로 검색...',
+              hintStyle: const TextStyle(color: slate600),
+              prefixIcon: const Icon(Icons.search, color: makitaTeal),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.cancel, color: slate600),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = "");
+                      },
+                    )
+                  : null,
+              filled: true,
+              fillColor: slate100,
+              contentPadding: const EdgeInsets.symmetric(vertical: 0),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+            onChanged: (val) =>
+                setState(() => _searchQuery = val.toLowerCase()),
+          ),
+        ),
+        Expanded(
+          child: _isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(color: makitaTeal),
+                )
+              : filteredGroupedHistory.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.folder_off,
+                        size: 80,
+                        color: Colors.grey.shade300,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _searchQuery.isNotEmpty
+                            ? '검색 결과가 없습니다.'
+                            : '저장된 도면이 없습니다.',
+                        style: const TextStyle(
+                          color: slate600,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: filteredGroupedHistory.keys.length,
+                  itemBuilder: (context, index) {
+                    String folderName = filteredGroupedHistory.keys.elementAt(
+                      index,
+                    );
+                    List<Map<String, dynamic>> folderItems =
+                        filteredGroupedHistory[folderName]!;
+
+                    return Theme(
+                      data: Theme.of(
+                        context,
+                      ).copyWith(dividerColor: Colors.transparent),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: pureWhite,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade200),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.03),
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: ExpansionTile(
+                          initiallyExpanded:
+                              index == 0 || _searchQuery.isNotEmpty,
+                          iconColor: makitaTeal,
+                          collapsedIconColor: slate600,
+                          leading: const Icon(
+                            Icons.folder,
+                            color: makitaTeal,
+                            size: 28,
+                          ),
+                          title: Text(
+                            "$folderName (${folderItems.length})",
+                            style: const TextStyle(
+                              color: slate900,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
+                            ),
+                          ),
+                          children: folderItems.map((item) {
+                            String rawPtoP = item['p_to_p'] ?? '{}';
+                            String fromTo = "경로 미상";
+                            try {
+                              var pData = jsonDecode(rawPtoP);
+                              fromTo = "${pData['from']} ➔ ${pData['to']}";
+                            } catch (_) {}
+
+                            double cutRaw =
+                                double.tryParse(
+                                  item['total_length'].toString(),
+                                ) ??
+                                0.0;
+                            int cutDisplay = cutRaw.round();
+
+                            return Container(
+                              margin: const EdgeInsets.only(
+                                left: 16,
+                                right: 16,
+                                bottom: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: slate100,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade200),
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 4,
+                                ),
+                                onTap: () async {
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          MobileFabricationDetailScreen(
+                                            itemData: item,
+                                          ),
+                                    ),
+                                  );
+                                  if (!context.mounted) return;
+                                  _refreshHistory();
+                                },
+                                title: Text(
+                                  fromTo,
+                                  style: const TextStyle(
+                                    color: makitaTeal,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                subtitle: Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.straighten,
+                                            size: 14,
+                                            color: slate600,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            "Total Cut: $cutDisplay mm",
+                                            style: TextStyle(
+                                              color: Colors.red.shade700,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Text(
+                                            "Size: ${item['pipe_size']}",
+                                            style: const TextStyle(
+                                              color: slate600,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        "날짜: ${item['date']?.toString().substring(0, 10) ?? ''}",
+                                        style: TextStyle(
+                                          color: Colors.grey.shade500,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                trailing: IconButton(
+                                  icon: Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.red.shade400,
+                                  ),
+                                  onPressed: () async {
+                                    bool? confirm = await showDialog(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        backgroundColor: pureWhite,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        title: const Text(
+                                          "삭제 확인",
+                                          style: TextStyle(
+                                            color: slate900,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        content: const Text(
+                                          "이 도면을 보관함에서 영구 삭제하시겠습니까?",
+                                          style: TextStyle(color: slate600),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(ctx, false),
+                                            child: const Text(
+                                              "취소",
+                                              style: TextStyle(
+                                                color: slate600,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(ctx, true),
+                                            child: Text(
+                                              "삭제",
+                                              style: TextStyle(
+                                                color: Colors.red.shade600,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (confirm == true) {
+                                      await DatabaseHelper.instance
+                                          .deleteHistory(item['id']);
+                                      if (!context.mounted) return;
+                                      _refreshHistory();
+                                    }
+                                  },
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+// ==========================================
+// 🚀 5탭: 모바일 설정 (Settings) 화면 및 가이드
 // ==========================================
 class MobileSettingsTab extends StatefulWidget {
   const MobileSettingsTab({super.key});
