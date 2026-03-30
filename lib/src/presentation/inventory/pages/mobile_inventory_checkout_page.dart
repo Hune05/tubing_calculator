@@ -14,7 +14,7 @@ class MobileInventoryCheckoutPage extends StatefulWidget {
   final int currentQty;
   final bool isCheckout;
   final String workerName;
-  final bool isPinned; // 🚀 에러의 주범이었던 변수 추가 완료!
+  final bool isPinned;
 
   const MobileInventoryCheckoutPage({
     super.key,
@@ -23,7 +23,7 @@ class MobileInventoryCheckoutPage extends StatefulWidget {
     required this.currentQty,
     required this.isCheckout,
     required this.workerName,
-    this.isPinned = false, // 기본값
+    this.isPinned = false,
   });
 
   @override
@@ -41,13 +41,11 @@ class _MobileInventoryCheckoutPageState
     setState(() => _isLoading = true);
 
     try {
-      // 🚀 케이스 1: "전량 소진 (반납할 자재 없음)" 버튼을 눌렀을 때
       if (unpinOnly) {
         await FirebaseFirestore.instance
             .collection('inventory')
             .doc(widget.docId)
             .update({
-              // 수량은 건드리지 않고, 내 이름만 빼서 고정 해제
               'activeWorkers': FieldValue.arrayRemove([widget.workerName]),
             });
 
@@ -57,7 +55,6 @@ class _MobileInventoryCheckoutPageState
         return;
       }
 
-      // 🚀 케이스 2: 정상적인 수량 불출 또는 반납
       int amount = int.tryParse(_qtyController.text) ?? 0;
       if (amount <= 0) {
         _showSnackBar("수량을 1개 이상 입력해주세요.", Colors.redAccent);
@@ -73,34 +70,36 @@ class _MobileInventoryCheckoutPageState
 
       int changeValue = widget.isCheckout ? -amount : amount;
 
-      // 상단 고정(작업 바구니) 로직 분기
       dynamic workerAction;
       if (widget.isCheckout) {
-        // 불출 시: 내 이름을 박아서 상단에 고정
         workerAction = FieldValue.arrayUnion([widget.workerName]);
       } else {
-        // 반납 시: 작업 끝났으니 이름을 빼서 고정 해제
         workerAction = FieldValue.arrayRemove([widget.workerName]);
       }
 
-      // 1. 재고 업데이트 및 고정/해제 처리
       await FirebaseFirestore.instance
           .collection('inventory')
           .doc(widget.docId)
           .update({
             'qty': FieldValue.increment(changeValue),
             'lastUpdated': FieldValue.serverTimestamp(),
-            'activeWorkers': workerAction, // 👈 여기서 고정/해제가 이루어짐
+            'activeWorkers': workerAction,
           });
 
-      // 2. 통합 로그 남기기 (이름은 이미 합쳐져서 들어옴)
+      // 🚀 [완벽 해결] 태블릿이 사용하는 공식 필드명(비밀 언어)으로 로그 전송!
+      String projectName = _reasonController.text.trim();
+      if (projectName.isEmpty) {
+        projectName = widget.isCheckout ? "모바일 현장 불출" : "모바일 현장 반납";
+      }
+
       await FirebaseFirestore.instance.collection('inventory_logs').add({
-        'itemName': widget.itemName,
-        'action': widget.isCheckout ? '현장 불출' : '현장 반납',
-        'qty': changeValue,
-        'workerName': widget.workerName,
+        'material_name': widget.itemName, // 👈 name 대신 material_name!
+        'type': widget.isCheckout ? 'OUT' : 'IN', // 👈 action 대신 type IN/OUT!
+        'qty': amount, // 로그에는 양수로 기록
+        'worker_name': widget.workerName, // 👈 workerName 대신 worker_name!
+        'project_name': projectName, // 👈 사유 대신 project_name!
+        'unit': 'EA', // 👈 단위 필수
         'device': 'Mobile',
-        'reason': _reasonController.text.trim(),
         'timestamp': FieldValue.serverTimestamp(),
       });
 
@@ -151,7 +150,7 @@ class _MobileInventoryCheckoutPageState
                   color: pureWhite,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: makitaTeal.withValues(alpha: 0.3), // 최신 문법 적용
+                    color: makitaTeal.withValues(alpha: 0.3),
                     width: 2,
                   ),
                 ),
@@ -203,7 +202,7 @@ class _MobileInventoryCheckoutPageState
               TextField(
                 controller: _reasonController,
                 decoration: InputDecoration(
-                  labelText: "사유 / 프로젝트명 입력 (선택)",
+                  labelText: "프로젝트명 또는 사유 입력",
                   filled: true,
                   fillColor: pureWhite,
                   border: OutlineInputBorder(
@@ -213,7 +212,6 @@ class _MobileInventoryCheckoutPageState
               ),
               const Spacer(),
 
-              // 🚀 반납 모드이면서 내가 작업 중인(고정된) 자재일 때 뜨는 "소진 해제" 버튼
               if (!widget.isCheckout && widget.isPinned) ...[
                 SizedBox(
                   width: double.infinity,
@@ -244,7 +242,6 @@ class _MobileInventoryCheckoutPageState
                 const SizedBox(height: 12),
               ],
 
-              // 메인 불출/반납 버튼
               SizedBox(
                 width: double.infinity,
                 height: 56,

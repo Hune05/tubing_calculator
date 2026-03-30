@@ -7,12 +7,11 @@ const Color slate900 = Color(0xFF0F172A);
 const Color slate600 = Color(0xFF475569);
 const Color slate100 = Color(0xFFF1F5F9);
 const Color pureWhite = Color(0xFFFFFFFF);
-const Color slate300 = Color(0xFFCBD5E1); // 🚀 이거 한 줄만 추가해 주세요!
+const Color slate300 = Color(0xFFCBD5E1);
 
 class MobileInventoryLogsPage extends StatelessWidget {
   const MobileInventoryLogsPage({super.key});
 
-  // 🕒 날짜 포맷 변환 도우미 함수
   String _formatDate(Timestamp? timestamp) {
     if (timestamp == null) return "시간 정보 없음";
     DateTime dt = timestamp.toDate();
@@ -24,7 +23,7 @@ class MobileInventoryLogsPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: slate100,
       appBar: AppBar(
-        backgroundColor: makitaTeal,
+        backgroundColor: makitaTeal, // X-RAY 끄고 원래 예쁜 색으로 복구
         elevation: 0,
         iconTheme: const IconThemeData(color: pureWhite),
         title: const Text(
@@ -33,7 +32,6 @@ class MobileInventoryLogsPage extends StatelessWidget {
         ),
       ),
       body: StreamBuilder<QuerySnapshot>(
-        // 🚀 inventory_logs 컬렉션에서 최근 100개만 시간 역순으로 불러옵니다.
         stream: FirebaseFirestore.instance
             .collection('inventory_logs')
             .orderBy('timestamp', descending: true)
@@ -63,30 +61,40 @@ class MobileInventoryLogsPage extends StatelessWidget {
             itemBuilder: (context, index) {
               final data = logs[index].data() as Map<String, dynamic>;
 
-              // 🚀 데이터 파싱 (여기서 모바일이 던진 이름을 확인할 수 있습니다)
-              String itemName = data['itemName'] ?? "이름 없음 (데이터 누락)";
-              String action = data['action'] ?? "알 수 없는 작업";
-              int qty = data['qty'] ?? 0;
-              String workerName = data['workerName'] ?? "작업자 미상";
-              String device = data['device'] ?? "Unknown";
-              String reason = data['reason'] ?? "";
+              // 🚀 [완벽 해결] 태블릿이 쓰는 material_name, worker_name, type을 먼저 찾습니다!
+              String itemName =
+                  data['material_name'] ??
+                  data['itemName'] ??
+                  data['name'] ??
+                  "이름 없음";
+              String workerName =
+                  data['worker_name'] ?? data['workerName'] ?? "작업자 미상";
+              String reason = data['project_name'] ?? data['reason'] ?? "";
 
-              // 작업 종류에 따른 색상 및 아이콘 설정
+              // IN/OUT 이면 한글로 변환, 아니면 기존 action 사용
+              String action = "";
+              if (data['type'] == 'OUT')
+                action = "출고 (불출)";
+              else if (data['type'] == 'IN')
+                action = "입고 (반납)";
+              else
+                action = data['action'] ?? "작업";
+
+              int qty = data['qty'] ?? 0;
+              String unit = data['unit'] ?? "EA";
+
               Color actionColor;
               IconData actionIcon;
 
-              if (action.contains('불출')) {
+              if (action.contains('출고') || action.contains('불출')) {
                 actionColor = Colors.orange.shade700;
                 actionIcon = LucideIcons.arrowUpRight;
-              } else if (action.contains('반납') || action.contains('입고')) {
+              } else if (action.contains('입고') || action.contains('반납')) {
                 actionColor = makitaTeal;
                 actionIcon = LucideIcons.arrowDownLeft;
-              } else if (action.contains('신규')) {
+              } else {
                 actionColor = Colors.blue.shade600;
                 actionIcon = LucideIcons.plusCircle;
-              } else {
-                actionColor = slate600;
-                actionIcon = LucideIcons.activity;
               }
 
               return Container(
@@ -107,7 +115,6 @@ class MobileInventoryLogsPage extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 좌측 아이콘
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
@@ -117,8 +124,6 @@ class MobileInventoryLogsPage extends StatelessWidget {
                       child: Icon(actionIcon, color: actionColor, size: 20),
                     ),
                     const SizedBox(width: 12),
-
-                    // 중앙 내용
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -153,23 +158,12 @@ class MobileInventoryLogsPage extends StatelessWidget {
                                   fontSize: 13,
                                 ),
                               ),
-                              const Text(
-                                " • ",
-                                style: TextStyle(color: slate300),
-                              ),
-                              Text(
-                                device,
-                                style: const TextStyle(
-                                  color: slate600,
-                                  fontSize: 12,
-                                ),
-                              ),
                             ],
                           ),
                           if (reason.isNotEmpty) ...[
                             const SizedBox(height: 6),
                             Text(
-                              "사유: $reason",
+                              "프로젝트/사유: $reason",
                               style: TextStyle(
                                 color: Colors.grey.shade600,
                                 fontSize: 12,
@@ -187,17 +181,23 @@ class MobileInventoryLogsPage extends StatelessWidget {
                         ],
                       ),
                     ),
-
-                    // 우측 수량
                     Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          qty > 0 ? "+$qty" : "$qty",
+                          action.contains('출고') ? "-$qty" : "+$qty",
                           style: TextStyle(
                             color: actionColor,
                             fontSize: 20,
                             fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        Text(
+                          unit,
+                          style: const TextStyle(
+                            color: slate600,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
