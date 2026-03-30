@@ -3,19 +3,16 @@ import 'package:flutter/services.dart';
 
 // 🚀 기존 모바일 페이지들 임포트
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_remote_page.dart';
-import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_status_page.dart';
+import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_calculator_page.dart';
 
 // 🚀 스캐너와 뷰어 화면 임포트
 import 'package:tubing_calculator/src/presentation/fabrication/screens/qr_scanner_page.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_only_screen.dart';
 
-// 🚀 자재 로그인 화면 임포트
-import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_login.dart';
+// 🚀 자재 관리 임포트
+import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_login.dart'; // 관리자 등록용
+import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_status_page.dart'; // 불출/반납용 (현황)
 
-// 🚀 스와이프형 모바일 계산기 임포트
-import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_calculator_page.dart';
-
-// 🎨 테마 컬러 정의
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
 const Color slate600 = Color(0xFF475569);
@@ -23,6 +20,9 @@ const Color slate100 = Color(0xFFF1F5F9);
 const Color pureWhite = Color(0xFFFFFFFF);
 
 class MobileMenuPage extends StatelessWidget {
+  // 📡 작업자 이름을 관리하기 위해 상수로 두거나, 추후 로그인 정보에서 받아오도록 설정합니다.
+  final String currentWorker = "현장작업자";
+
   const MobileMenuPage({super.key});
 
   @override
@@ -54,7 +54,7 @@ class MobileMenuPage extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Column(
                   children: [
-                    // 🚀 1. 현장 작업용 QR 스캔 버튼
+                    // 1. 현장 작업용 QR 스캔 버튼
                     _buildMenuButton(
                       context: context,
                       title: "현장 도면 스캔 (QR)",
@@ -146,7 +146,7 @@ class MobileMenuPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
 
-                    // 🚀 2. 스와이프형 모바일 계산기 버튼
+                    // 2. 스와이프형 모바일 계산기 버튼
                     _buildMenuButton(
                       context: context,
                       title: "모바일 계산기",
@@ -165,7 +165,7 @@ class MobileMenuPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
 
-                    // 🚀 3. 벤딩 리모컨 버튼 (유지)
+                    // 3. 벤딩 리모컨 버튼
                     _buildMenuButton(
                       context: context,
                       title: "벤딩 리모컨",
@@ -182,15 +182,51 @@ class MobileMenuPage extends StatelessWidget {
                         );
                       },
                     ),
+
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24.0),
+                      child: Divider(height: 1, color: Colors.black12),
+                    ),
+
+                    const Text(
+                      "자재 관리 시스템",
+                      style: TextStyle(
+                        color: slate600,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
                     const SizedBox(height: 16),
 
-                    // 🚀 4. 자재 관리 (입/출고) 버튼
+                    // 🚀 4. 자재 현황 및 불출/반납 버튼 (에러 해결 지점)
                     _buildMenuButton(
                       context: context,
-                      title: "자재 관리 (입/출고)",
-                      subtitle: "신규 자재 등록 및 수량 변경",
-                      icon: Icons.inventory_2,
-                      color: const Color(0xFFD97706),
+                      title: "자재 현황 (불출 / 반납)",
+                      subtitle: "현재 재고 확인 및 현장 자재 입출고 처리",
+                      icon: Icons.fact_check_outlined,
+                      color: const Color(0xFF2563EB), // 파란색
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => MobileInventoryStatusPage(
+                              workerName: currentWorker, // 📡 에러 해결: 필수 인자값 전달
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 🚀 5. 자재 관리자 전용 버튼 (마스터 등록)
+                    _buildMenuButton(
+                      context: context,
+                      title: "자재 마스터 관리",
+                      subtitle: "관리자 전용 · 신규 자재 등록 및 삭제",
+                      icon: Icons.admin_panel_settings,
+                      color: const Color(0xFFD97706), // 주황색
                       onTap: () {
                         HapticFeedback.lightImpact();
                         Navigator.push(
@@ -202,26 +238,7 @@ class MobileMenuPage extends StatelessWidget {
                         );
                       },
                     ),
-                    const SizedBox(height: 16),
 
-                    // 🚀 5. 자재 현황 (실시간) 버튼
-                    _buildMenuButton(
-                      context: context,
-                      title: "자재 현황 (실시간)",
-                      subtitle: "파이어베이스 재고 및 위치 조회",
-                      icon: Icons.fact_check_outlined,
-                      color: const Color(0xFF2563EB),
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                const MobileInventoryStatusPage(),
-                          ),
-                        );
-                      },
-                    ),
                     const SizedBox(height: 40),
                   ],
                 ),
@@ -245,7 +262,7 @@ class MobileMenuPage extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: makitaTeal.withValues(alpha: 0.3),
+            color: makitaTeal.withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -256,7 +273,7 @@ class MobileMenuPage extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: pureWhite.withValues(alpha: 0.2),
+              color: pureWhite.withOpacity(0.2),
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Icon(Icons.rocket_launch, size: 36, color: pureWhite),
@@ -290,7 +307,7 @@ class MobileMenuPage extends StatelessWidget {
                     Text(
                       "DB 서버 연결됨 (Online)",
                       style: TextStyle(
-                        color: pureWhite.withValues(alpha: 0.8),
+                        color: pureWhite.withOpacity(0.8),
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -320,7 +337,7 @@ class MobileMenuPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -338,7 +355,7 @@ class MobileMenuPage extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
+                    color: color.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(icon, size: 32, color: color),

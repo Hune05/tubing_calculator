@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'mobile_menu_page.dart'; // 모바일 메뉴 페이지 임포트
+// 🚀 절대 경로로 정확하게 지정하여 MobileMenuPage를 찾지 못하는 에러 해결
+import 'package:tubing_calculator/src/presentation/menu/page/mobile_menu_page.dart';
 
 class MobileLoadingScreen extends StatefulWidget {
   const MobileLoadingScreen({super.key});

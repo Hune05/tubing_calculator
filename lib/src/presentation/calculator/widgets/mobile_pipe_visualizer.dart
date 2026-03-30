@@ -15,6 +15,9 @@ class MobilePipeVisualizer extends StatefulWidget {
   final bool startFit;
   final bool endFit;
 
+  // 🚀 [에러 수정] 앞서 추가했던 총 컷팅 기장 변수를 여기서 받아줍니다.
+  final double totalCutLength;
+
   const MobilePipeVisualizer({
     super.key,
     required this.bendList,
@@ -25,6 +28,7 @@ class MobilePipeVisualizer extends StatefulWidget {
     this.isLightMode = false,
     this.startFit = false,
     this.endFit = false,
+    this.totalCutLength = 0.0, // 기본값 설정
   });
 
   @override
@@ -131,7 +135,7 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
                 panY: _panY,
                 isFlippedX: _isFlippedX,
                 isFlippedY: _isFlippedY,
-                startDirection: _startDir,
+                startDirection: _startDir, // 현재 선택된 방향 주입
                 selectedSegmentIndex: widget.selectedSegmentIndex,
                 isLightMode: widget.isLightMode,
                 startFit: widget.startFit,
@@ -141,7 +145,14 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
           ),
         ),
 
-        // 🌟 2. 모바일 전용 컴팩트 컨트롤러 (하단 중앙 플로팅 바)
+        // 🌟 2. 좌측 상단: 시작 방향 변경 컨트롤러
+        Positioned(top: 16, left: 16, child: _buildStartDirSelector()),
+
+        // 🌟 3. 우측 상단: 총 컷팅 기장 표시 뱃지
+        if (widget.totalCutLength > 0)
+          Positioned(top: 16, right: 16, child: _buildTotalCutBadge()),
+
+        // 🌟 4. 모바일 전용 컴팩트 컨트롤러 (하단 중앙 플로팅 바)
         if (!widget.isLightMode)
           Positioned(
             bottom: 16,
@@ -208,6 +219,115 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
             ),
           ),
       ],
+    );
+  }
+
+  // 🚀 좌측 상단: 시작 방향 드롭다운 위젯
+  Widget _buildStartDirSelector() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: widget.isLightMode
+            ? Colors.white.withValues(alpha: 0.9)
+            : const Color(0xFF2B3643).withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
+        ],
+        border: Border.all(
+          color: widget.isLightMode ? Colors.grey.shade300 : Colors.transparent,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            "시작 방향:",
+            style: TextStyle(
+              fontSize: 12,
+              color: widget.isLightMode ? Colors.black54 : Colors.white70,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 8),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _startDir,
+              isDense: true,
+              dropdownColor: widget.isLightMode
+                  ? Colors.white
+                  : const Color(0xFF2B3643),
+              icon: Icon(
+                Icons.arrow_drop_down,
+                color: widget.isLightMode ? Colors.black87 : Colors.white,
+              ),
+              style: TextStyle(
+                color: widget.isLightMode ? Colors.black87 : Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+              items: ['UP', 'DOWN', 'LEFT', 'RIGHT', 'FRONT', 'BACK'].map((
+                dir,
+              ) {
+                return DropdownMenuItem(value: dir, child: Text(dir));
+              }).toList(),
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() => _startDir = val);
+                  if (widget.onStartDirChanged != null) {
+                    widget.onStartDirChanged!(val);
+                  }
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🚀 우측 상단: 총 컷팅 기장 뱃지 위젯
+  Widget _buildTotalCutBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: widget.isLightMode
+            ? Colors.white.withValues(alpha: 0.9)
+            : const Color(0xFF2B3643).withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
+        ],
+        border: Border.all(
+          color: widget.isLightMode ? Colors.grey.shade300 : Colors.transparent,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.straighten, size: 14, color: makitaTeal),
+          const SizedBox(width: 6),
+          Text(
+            "총 기장: ",
+            style: TextStyle(
+              fontSize: 12,
+              color: widget.isLightMode ? Colors.black54 : Colors.white70,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            "${widget.totalCutLength.round()} mm",
+            style: TextStyle(
+              fontSize: 13,
+              color: widget.isLightMode
+                  ? Colors.red.shade700
+                  : Colors.redAccent,
+              fontWeight: FontWeight.w900,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -603,18 +723,20 @@ class MobileIsoPipePainter extends CustomPainter {
       ..color = isLightMode ? Colors.grey.shade300 : const Color(0xFF2C3948)
       ..strokeWidth = 1.5 * sf;
     double step = 30.0 * sf;
-    for (double i = 0; i < size.width; i += step)
+    for (double i = 0; i < size.width; i += step) {
       canvas.drawLine(
         Offset(i, 0),
         Offset(i, size.height),
         i % (step * 5) == 0 ? majorPaint : minorPaint,
       );
-    for (double i = 0; i < size.height; i += step)
+    }
+    for (double i = 0; i < size.height; i += step) {
       canvas.drawLine(
         Offset(0, i),
         Offset(size.width, i),
         i % (step * 5) == 0 ? majorPaint : minorPaint,
       );
+    }
   }
 
   @override
@@ -664,8 +786,9 @@ class MobileIsoPipePainter extends CustomPainter {
         } else {
           if (currentDir.dot(targetDir) < -0.9) {
             vmath.Vector3 fallback = vmath.Vector3(0, 0, 1);
-            if (currentDir.cross(fallback).length2 < 0.001)
+            if (currentDir.cross(fallback).length2 < 0.001) {
               fallback = vmath.Vector3(0, 1, 0);
+            }
             bendAxis = currentDir.cross(fallback)..normalize();
             vmath.Quaternion bendQuat = vmath.Quaternion.axisAngle(
               bendAxis,

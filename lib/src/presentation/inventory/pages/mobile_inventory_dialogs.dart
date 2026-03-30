@@ -66,8 +66,9 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                 int? newQty = int.tryParse(qtyController.text);
                 if (newQty != null && newQty >= 0) {
                   setState(() {
-                    if (!_localEdits.containsKey(docId))
+                    if (!_localEdits.containsKey(docId)) {
                       _localEdits[docId] = ItemData();
+                    }
                     _localEdits[docId]!.qty = newQty;
                   });
                 }
@@ -88,13 +89,21 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
   }
 
   void _showAddNewItemDialog(String categoryId) {
+    TextEditingController makerController = TextEditingController();
     TextEditingController nameController = TextEditingController();
     TextEditingController specController = TextEditingController();
 
     String autoMaterial = "";
     String autoHeatNo = "";
 
-    // 🚀 1/8인치 제거된 콤팩트 리스트
+    List<String> makerOptions = [
+      "HY-LOK",
+      "SWAGELOK",
+      "PARKER",
+      "TSK",
+      "SANDVIK",
+      "세아특수강",
+    ];
     List<String> inchOptions = ["1/4\"", "3/8\"", "1/2\"", "3/4\"", "1\""];
     List<String> mmOptions = ["6mm", "8mm", "10mm", "12mm", "25mm"];
 
@@ -159,6 +168,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                                         capture.barcodes;
                                     if (barcodes.isNotEmpty &&
                                         barcodes.first.rawValue != null) {
+                                      if (!context.mounted) return;
                                       Navigator.pop(
                                         context,
                                         barcodes.first.rawValue,
@@ -205,6 +215,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                           final result = await OcrService.scanAndClassify(
                             context,
                           );
+                          if (!context.mounted) return;
                           if (result != null) {
                             setDialogState(() {
                               nameController.text = result['name'] ?? "";
@@ -218,6 +229,62 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                     const SizedBox(height: 16),
 
                     const Text(
+                      "제조사 (Maker)",
+                      style: TextStyle(
+                        color: slate600,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: makerController,
+                      // 🚀 대문자 강제 입력 해제
+                      style: const TextStyle(
+                        color: slate900,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: "선택 또는 직접 입력",
+                        filled: true,
+                        fillColor: slate100,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none,
+                        ),
+                        suffixIcon: PopupMenuButton<String>(
+                          color: pureWhite,
+                          surfaceTintColor: pureWhite,
+                          icon: const Icon(
+                            Icons.arrow_drop_down_circle,
+                            color: makitaTeal,
+                          ),
+                          offset: const Offset(0, 50),
+                          onSelected: (String value) {
+                            HapticFeedback.lightImpact();
+                            setDialogState(() => makerController.text = value);
+                          },
+                          itemBuilder: (BuildContext context) => makerOptions
+                              .map(
+                                (opt) => PopupMenuItem<String>(
+                                  value: opt,
+                                  child: Text(
+                                    opt,
+                                    style: const TextStyle(
+                                      color: slate900,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    const Text(
                       "자재명",
                       style: TextStyle(
                         color: slate600,
@@ -228,13 +295,14 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                     const SizedBox(height: 4),
                     TextField(
                       controller: nameController,
+                      // 🚀 대문자 강제 입력 해제 (Union 등 대소문자 혼용 가능)
                       style: const TextStyle(
                         color: slate900,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
                       decoration: InputDecoration(
-                        hintText: "스캔 또는 직접 입력",
+                        hintText: "스캔 또는 직접 입력 (예: Union)",
                         filled: true,
                         fillColor: slate100,
                         border: OutlineInputBorder(
@@ -256,6 +324,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                     const SizedBox(height: 4),
                     TextField(
                       controller: specController,
+                      // 🚀 대문자 강제 입력 해제
                       style: const TextStyle(
                         color: makitaTeal,
                         fontSize: 16,
@@ -273,7 +342,6 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide.none,
                         ),
-                        // 🚀 까만 배경 해결 및 가로 4줄 콤팩트 팝업
                         suffixIcon: PopupMenuButton<String>(
                           color: pureWhite,
                           surfaceTintColor: pureWhite,
@@ -430,9 +498,35 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                     ),
                   ),
                   onPressed: () {
+                    // 🚀 대문자 강제 변환(.toUpperCase()) 제거: 사용자가 입력한 대소문자 그대로 유지!
+                    String maker = makerController.text.trim();
                     String name = nameController.text.trim();
                     String spec = specController.text.trim();
-                    String finalName = spec.isNotEmpty ? "$name $spec" : name;
+
+                    if (name.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("자재명을 입력해주세요."),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
+                      return;
+                    }
+
+                    // 🚀 [태블릿 완벽 동기화] 공식 양식: [제조사] 규격 명칭
+                    String finalName = "";
+                    if (maker.isNotEmpty) {
+                      finalName += "[$maker] "; // 제조사 양옆에 대괄호 씌우기
+                    }
+                    if (spec.isNotEmpty) {
+                      finalName += "$spec "; // 규격 띄어쓰기
+                    }
+                    finalName += name; // 마지막에 이름(Union 등) 붙이기
+
+                    // 다중 공백 제거 (사용자가 띄어쓰기 두 번 눌러도 한 번으로 예쁘게 보정)
+                    finalName = finalName
+                        .replaceAll(RegExp(r'\s+'), ' ')
+                        .trim();
 
                     if (finalName.isNotEmpty) {
                       setState(() {
@@ -444,6 +538,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                         };
                         _localEdits[tempId] = ItemData()
                           ..qty = 0
+                          ..maker = maker
                           ..material = autoMaterial
                           ..heatNo = autoHeatNo;
                       });
@@ -479,13 +574,10 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
 
     List<String> quickOptions = [];
 
-    // 🚀 제조사(Maker) 클릭 시 카테고리별 맞춤 버튼 제공
     if (infoType == 'Maker') {
       if (_categories[_currentCategory]['id'] == 'TUBE') {
-        // 튜브일 경우 튜브 전문 메이커 세팅
         quickOptions = ["TSK", "SANDVIK", "세아특수강", "코리녹스"];
       } else {
-        // 피팅, 밸브 등일 경우 기존 메이커 세팅
         quickOptions = ["HY-LOK", "SWAGELOK", "PARKER"];
       }
     }
@@ -522,7 +614,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
             children: [
               TextField(
                 controller: ctrl,
-                textCapitalization: TextCapitalization.characters,
+                // 🚀 상세정보 창에서도 대문자 강제 해제 (위치, 재질 등 대소문자 혼용 가능)
                 style: const TextStyle(
                   color: slate900,
                   fontSize: 18,
@@ -553,8 +645,10 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                             HapticFeedback.lightImpact();
                             final String? scannedText =
                                 await OcrService.scanLabelText(context);
+                            if (!context.mounted) return;
                             if (scannedText != null && scannedText.isNotEmpty) {
-                              ctrl.text = scannedText.toUpperCase();
+                              ctrl.text = scannedText
+                                  .toUpperCase(); // OCR 스캔은 대문자가 편하니까 유지
                             }
                           },
                         )
@@ -606,26 +700,15 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                     _localEdits[docId] = data;
                   }
                   try {
-                    if (infoType == 'HeatNo') {
-                      _localEdits[docId]!.heatNo = ctrl.text
-                          .trim()
-                          .toUpperCase();
-                    }
-                    if (infoType == 'Maker') {
-                      _localEdits[docId]!.maker = ctrl.text
-                          .trim()
-                          .toUpperCase();
-                    }
-                    if (infoType == 'Material') {
-                      _localEdits[docId]!.material = ctrl.text
-                          .trim()
-                          .toUpperCase();
-                    }
-                    if (infoType == 'Location') {
-                      _localEdits[docId]!.location = ctrl.text
-                          .trim()
-                          .toUpperCase();
-                    }
+                    // 🚀 저장할 때도 대문자 강제 끄기!
+                    if (infoType == 'HeatNo')
+                      _localEdits[docId]!.heatNo = ctrl.text.trim();
+                    if (infoType == 'Maker')
+                      _localEdits[docId]!.maker = ctrl.text.trim();
+                    if (infoType == 'Material')
+                      _localEdits[docId]!.material = ctrl.text.trim();
+                    if (infoType == 'Location')
+                      _localEdits[docId]!.location = ctrl.text.trim();
                   } catch (_) {}
                 });
                 Navigator.pop(context);

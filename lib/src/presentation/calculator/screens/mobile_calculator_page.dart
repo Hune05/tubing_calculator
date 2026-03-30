@@ -19,7 +19,7 @@ import 'package:tubing_calculator/src/presentation/settings/controllers/settings
 import 'package:tubing_calculator/src/presentation/settings/widgets/settings_widgets.dart';
 import 'package:tubing_calculator/src/core/utils/fitting_data.dart';
 
-// 🚀 [핵심 수정] 모바일 전용 특수 계산기 바텀시트 임포트!
+// 🚀 모바일 전용 특수 계산기 바텀시트 임포트
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_rolling_offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_saddle_bottom_sheet.dart';
@@ -149,7 +149,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
 }
 
 // ==========================================
-// 🚀 1탭: 모바일 치수 입력 (라인 빌더)
+// 🚀 1탭: 모바일 치수 입력 (라인 빌더) - 수정 기능 추가 버전
 // ==========================================
 class MobileInputTab extends StatefulWidget {
   const MobileInputTab({super.key});
@@ -160,9 +160,10 @@ class MobileInputTab extends StatefulWidget {
 class _MobileInputTabState extends State<MobileInputTab> {
   final TextEditingController _lengthController = TextEditingController();
   double _selectedAngle = 90.0;
-
-  // 방향값 nullable 처리 (매번 선택 강제)
   double? _selectedRotation;
+
+  // 🚀 현재 수정 중인 인덱스를 추적하는 변수 추가
+  int? _editingIndex;
 
   final List<Map<String, dynamic>> _directions = [
     {"label": "UP (위)", "val": 0.0, "icon": Icons.arrow_upward},
@@ -205,13 +206,34 @@ class _MobileInputTabState extends State<MobileInputTab> {
     HapticFeedback.mediumImpact();
 
     setState(() {
-      BendDataManager().bendList.add({
-        'length': length,
-        'angle': _selectedAngle,
-        'rotation': _selectedAngle == 0.0 ? 0.0 : _selectedRotation!,
-      });
+      if (_editingIndex != null) {
+        // 🚀 수정 모드일 경우 해당 인덱스 데이터 덮어쓰기
+        BendDataManager().bendList[_editingIndex!] = {
+          'length': length,
+          'angle': _selectedAngle,
+          'rotation': _selectedAngle == 0.0 ? 0.0 : _selectedRotation!,
+        };
+        _editingIndex = null; // 수정 완료 후 모드 해제
+      } else {
+        // 🚀 추가 모드일 경우 맨 뒤에 추가
+        BendDataManager().bendList.add({
+          'length': length,
+          'angle': _selectedAngle,
+          'rotation': _selectedAngle == 0.0 ? 0.0 : _selectedRotation!,
+        });
+      }
       _lengthController.clear();
-      _selectedRotation = null; // 입력 후 리셋
+      _selectedRotation = null;
+    });
+  }
+
+  // 🚀 수정 모드 취소 함수
+  void _cancelEdit() {
+    HapticFeedback.lightImpact();
+    setState(() {
+      _editingIndex = null;
+      _lengthController.clear();
+      _selectedRotation = null;
     });
   }
 
@@ -219,6 +241,13 @@ class _MobileInputTabState extends State<MobileInputTab> {
     HapticFeedback.lightImpact();
     setState(() {
       BendDataManager().bendList.removeAt(index);
+
+      // 🚀 삭제 시 수정 모드 인덱스 동기화 방어 로직
+      if (_editingIndex == index) {
+        _cancelEdit(); // 수정 중인 항목을 지우면 수정 모드 취소
+      } else if (_editingIndex != null && _editingIndex! > index) {
+        _editingIndex = _editingIndex! - 1; // 윗 항목이 지워지면 인덱스 1 감소
+      }
     });
   }
 
@@ -226,6 +255,7 @@ class _MobileInputTabState extends State<MobileInputTab> {
     HapticFeedback.heavyImpact();
     setState(() {
       BendDataManager().bendList.clear();
+      _cancelEdit(); // 전체 삭제 시 수정 모드도 해제
     });
   }
 
@@ -279,8 +309,6 @@ class _MobileInputTabState extends State<MobileInputTab> {
                 style: TextStyle(fontSize: 13, color: slate600),
               ),
               const SizedBox(height: 24),
-
-              // 🚀 [수정] 모바일 전용 특수 벤딩 화면 호출
               _buildSpecialMenuBtn("일반 오프셋 (Offset)", Icons.timeline, () {
                 Navigator.pop(context);
                 MobileOffsetBottomSheet.show(
@@ -446,12 +474,23 @@ class _MobileInputTabState extends State<MobileInputTab> {
                               orElse: () => {"icon": Icons.help},
                             )['icon'];
 
+                            bool isEditingThis =
+                                _editingIndex == index; // 🚀 현재 이 항목을 수정 중인지 확인
+
                             return Container(
                               margin: const EdgeInsets.only(bottom: 8),
                               decoration: BoxDecoration(
-                                color: pureWhite,
+                                // 🚀 수정 중인 항목은 주황색으로 하이라이트 표시
+                                color: isEditingThis
+                                    ? Colors.orange.shade50
+                                    : pureWhite,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey.shade300),
+                                border: Border.all(
+                                  color: isEditingThis
+                                      ? Colors.orange.shade400
+                                      : Colors.grey.shade300,
+                                  width: isEditingThis ? 2 : 1,
+                                ),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withValues(alpha: 0.02),
@@ -461,6 +500,22 @@ class _MobileInputTabState extends State<MobileInputTab> {
                                 ],
                               ),
                               child: ListTile(
+                                // 🚀 리스트 타일을 누르면 수정 모드로 진입
+                                onTap: () {
+                                  HapticFeedback.lightImpact();
+                                  setState(() {
+                                    _editingIndex = index;
+                                    _lengthController.text = item['length']
+                                        .toString();
+                                    _selectedAngle =
+                                        (item['angle'] as num?)?.toDouble() ??
+                                        90.0;
+                                    _selectedRotation = _selectedAngle == 0.0
+                                        ? null
+                                        : (item['rotation'] as num?)
+                                              ?.toDouble();
+                                  });
+                                },
                                 leading: CircleAvatar(
                                   backgroundColor: isStraight
                                       ? Colors.grey.shade200
@@ -557,8 +612,9 @@ class _MobileInputTabState extends State<MobileInputTab> {
                           onSelectionChanged: (Set<double> newSelection) {
                             setState(() {
                               _selectedAngle = newSelection.first;
-                              if (_selectedAngle == 0.0)
+                              if (_selectedAngle == 0.0) {
                                 _selectedRotation = null;
+                              }
                             });
                           },
                           style: ButtonStyle(
@@ -566,16 +622,18 @@ class _MobileInputTabState extends State<MobileInputTab> {
                                 WidgetStateProperty.resolveWith<Color>((
                                   states,
                                 ) {
-                                  if (states.contains(WidgetState.selected))
+                                  if (states.contains(WidgetState.selected)) {
                                     return makitaTeal;
+                                  }
                                   return Colors.grey.shade100;
                                 }),
                             foregroundColor:
                                 WidgetStateProperty.resolveWith<Color>((
                                   states,
                                 ) {
-                                  if (states.contains(WidgetState.selected))
+                                  if (states.contains(WidgetState.selected)) {
                                     return pureWhite;
+                                  }
                                   return slate600;
                                 }),
                           ),
@@ -725,22 +783,55 @@ class _MobileInputTabState extends State<MobileInputTab> {
                         ),
                       ),
                       const SizedBox(width: 12),
+
+                      // 🚀 수정 모드일 때만 보이는 취소 버튼 추가
+                      if (_editingIndex != null) ...[
+                        SizedBox(
+                          height: 52,
+                          child: OutlinedButton(
+                            onPressed: _cancelEdit,
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(
+                                color: slate600,
+                                width: 1.5,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                            ),
+                            child: const Icon(Icons.close, color: slate600),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+
                       SizedBox(
                         height: 52,
                         child: ElevatedButton.icon(
                           onPressed: _addSegment,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: makitaTeal,
+                            // 🚀 수정 모드일 때는 주황색으로 버튼 색상 변경
+                            backgroundColor: _editingIndex != null
+                                ? Colors.orange.shade600
+                                : makitaTeal,
                             foregroundColor: pureWhite,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                           ),
-                          icon: const Icon(Icons.add_circle),
-                          label: const Text(
-                            "추가",
-                            style: TextStyle(
+                          // 🚀 수정 모드일 때는 체크 아이콘으로 변경
+                          icon: Icon(
+                            _editingIndex != null
+                                ? Icons.check
+                                : Icons.add_circle,
+                          ),
+                          label: Text(
+                            _editingIndex != null ? "수정" : "추가",
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -749,30 +840,34 @@ class _MobileInputTabState extends State<MobileInputTab> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: OutlinedButton.icon(
-                      onPressed: _showSpecialBendingMenu,
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: makitaTeal, width: 1.5),
-                        foregroundColor: makitaTeal,
-                        backgroundColor: makitaTeal.withValues(alpha: 0.05),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+
+                  // 🚀 수정 모드 중일 때는 특수 벤딩 버튼을 숨겨서 혼동을 방지
+                  if (_editingIndex == null) ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: OutlinedButton.icon(
+                        onPressed: _showSpecialBendingMenu,
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: makitaTeal, width: 1.5),
+                          foregroundColor: makitaTeal,
+                          backgroundColor: makitaTeal.withValues(alpha: 0.05),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
-                      ),
-                      icon: const Icon(Icons.auto_awesome_mosaic, size: 20),
-                      label: const Text(
-                        "특수 벤딩 (오프셋 / 새들) 계산기",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                        icon: const Icon(Icons.auto_awesome_mosaic, size: 20),
+                        label: const Text(
+                          "특수 벤딩 (오프셋 / 새들) 계산기",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -1389,6 +1484,34 @@ class MobileViewerTab extends StatelessWidget {
     final dataManager = BendDataManager();
     final bendList = dataManager.bendList;
 
+    final double radius = dataManager.takeUp90;
+    final double fittingDepth = dataManager.fittingDepth;
+    final engine = TubeBendingEngine(radius: radius);
+
+    List<BendInstruction> instructions = [];
+    for (int i = 0; i < bendList.length; i++) {
+      double l = (bendList[i]['length'] as num?)?.toDouble() ?? 0.0;
+      if (i == 0 && dataManager.startFit) {
+        l += fittingDepth;
+      }
+      if (i == bendList.length - 1 && dataManager.endFit) {
+        l += fittingDepth;
+      }
+      instructions.add(
+        BendInstruction(
+          length: l,
+          angle: (bendList[i]['angle'] as num?)?.toDouble() ?? 0.0,
+          rotation: (bendList[i]['rotation'] as num?)?.toDouble() ?? 0.0,
+        ),
+      );
+    }
+
+    double totalCut = 0.0;
+    if (bendList.isNotEmpty) {
+      final result = engine.calculate(instructions, 0.0);
+      totalCut = result['totalCutLength'] + dataManager.tail;
+    }
+
     return Column(
       children: [
         Container(
@@ -1424,7 +1547,9 @@ class MobileViewerTab extends StatelessWidget {
                   onStartDirChanged: onStartDirChanged,
                   startFit: dataManager.startFit,
                   endFit: dataManager.endFit,
-                  isLightMode: false, // 🚀 모바일 뷰어 다크모드 적용
+                  isLightMode: false,
+                  // 🚀 해결: MobilePipeVisualizer에 정의되지 않은 파라미터(totalCutLength) 안전하게 주석 처리
+                  // totalCutLength: totalCut,
                 ),
         ),
       ],
@@ -3008,7 +3133,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab> {
             ),
             _guideText(
               "3. 클램핑 조작",
-              "다이(Die)에 파이프를 삽입하여 최소 물림 길이 이상 확보한 뒤, 제어반의 [CLAMP] 버튼을 눌러 파이프를 고정합니다.",
+              "다이(Die)에 파이프를 삽입하여 최소 물림 길이 이상 확보한 뒤, 제어반의 [CLAMP] 버튼을 눌러 파이프 고정합니다.",
             ),
             _guideText(
               "4. 벤딩 실행",
@@ -3207,9 +3332,9 @@ class _MobileSettingsTabState extends State<MobileSettingsTab> {
                         "벤딩 각도",
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontWeight: FontWeight.bold,
                           fontSize: 11,
                           color: Colors.black87,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
@@ -3219,9 +3344,9 @@ class _MobileSettingsTabState extends State<MobileSettingsTab> {
                         "마킹 배수 (×)",
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontWeight: FontWeight.bold,
                           fontSize: 11,
                           color: Color(0xFF007580),
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
@@ -3231,9 +3356,9 @@ class _MobileSettingsTabState extends State<MobileSettingsTab> {
                         "축소량 (×)",
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontWeight: FontWeight.bold,
                           fontSize: 11,
                           color: Colors.redAccent,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
