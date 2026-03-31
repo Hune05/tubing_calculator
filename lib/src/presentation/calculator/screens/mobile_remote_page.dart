@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 
 // 💡 셋팅값을 불러오기 위해 SettingsManager 임포트
 import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
@@ -12,9 +11,9 @@ import '../widgets/remote_widgets.dart';
 
 // 🎨 화이트 & 마키타 테마 컬러
 const Color makitaTeal = Color(0xFF007580);
-const Color slate900 = Color(0xFF0F172A);
-const Color slate600 = Color(0xFF475569);
-const Color slate100 = Color(0xFFF1F5F9);
+const Color slate900 = Color(0xFF191F28); // 토스 스타일의 부드러운 검정
+const Color slate600 = Color(0xFF8B95A1); // 토스 스타일의 세련된 회색
+const Color slate100 = Color(0xFFF2F4F6); // 토스 스타일의 배경 회색
 const Color pureWhite = Color(0xFFFFFFFF);
 
 class MobileRemotePage extends StatefulWidget {
@@ -88,17 +87,15 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     _val2FocusNodes = List.generate(_modeCount, (_) => FocusNode());
     _angleFocusNodes = List.generate(_modeCount, (_) => FocusNode());
 
-    // 💡 초기화 시 셋팅값 불러오기
     _loadRadiusSetting();
   }
 
-  // 💡 SettingsManager에서 금형 반경(CLR) 값을 불러오는 함수
   Future<void> _loadRadiusSetting() async {
     try {
       final data = await SettingsManager.loadSettings();
       if (mounted) {
         setState(() {
-          double rValue = data['bendRadius'] ?? 45.0; // 값이 없으면 기본 45.0
+          double rValue = data['bendRadius'] ?? 45.0;
           _serverRadius = rValue.toStringAsFixed(1);
         });
       }
@@ -141,8 +138,9 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         double angle = angleInput;
         if (h > 0 && angle > 0 && angle < 90) {
           double sinVal = math.sin(angle * (math.pi / 180));
-          if (sinVal != 0)
+          if (sinVal != 0) {
             _safeUpdate(_val2Ctrls[m], (h / sinVal).toStringAsFixed(1));
+          }
         } else if (angle == 0) {
           _safeUpdate(_val2Ctrls[m], "");
         }
@@ -162,8 +160,9 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
       double angle = angleInput;
       if (h > 0 && angle > 0 && angle < 90) {
         double sinVal = math.sin(angle * (math.pi / 180));
-        if (sinVal != 0)
+        if (sinVal != 0) {
           _safeUpdate(_result1Ctrls[m], (h / sinVal).toStringAsFixed(1));
+        }
       } else {
         _safeUpdate(_result1Ctrls[m], "");
       }
@@ -182,8 +181,9 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         double angle = angleInput;
         if (trueH > 0 && angle > 0 && angle < 90) {
           double sinVal = math.sin(angle * (math.pi / 180));
-          if (sinVal != 0)
+          if (sinVal != 0) {
             _safeUpdate(_result2Ctrls[m], (trueH / sinVal).toStringAsFixed(1));
+          }
         } else {
           _safeUpdate(_result2Ctrls[m], "");
         }
@@ -202,7 +202,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
   void _onPageChanged(int modeIndex) {
     if (_isTransmitting) return;
     setState(() => _currentMode = modeIndex);
-    _loadRadiusSetting(); // 💡 스와이프 할 때마다 최신 설정값 갱신
+    _loadRadiusSetting();
   }
 
   bool _validateInputs() {
@@ -230,30 +230,34 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     setState(() => _isTransmitting = true);
 
     int m = _currentMode;
-    String sendVal1 = _val1Ctrls[m].text;
+    String sendVal1 = "";
     String sendVal2 = "";
     String sendAngle = "";
 
     if (m == 0) {
-      // STRAIGHT
+      sendVal1 = _val1Ctrls[m].text;
     } else if (m == 1) {
+      sendVal1 = _val1Ctrls[m].text;
       sendAngle = "90";
     } else if (m == 2) {
+      sendVal1 = _val1Ctrls[m].text;
       if (_innerTabs[m] == 0) {
+        sendVal2 = _val2Ctrls[m].text;
         sendAngle = _angleCtrls[m].text;
       } else {
         sendVal2 = _val2Ctrls[m].text;
         sendAngle = _angleCtrls[m].text;
       }
     } else if (m == 3) {
+      sendVal1 = _val1Ctrls[m].text;
       if (_innerTabs[m] == 1) sendVal2 = _val2Ctrls[m].text;
       sendAngle = _angleCtrls[m].text;
     } else if (m == 4) {
+      sendVal1 = _val1Ctrls[m].text;
       sendVal2 = _val2Ctrls[m].text;
       if (_innerTabs[m] == 0) {
         sendAngle = _angleCtrls[m].text;
       } else {
-        sendVal1 = "${_val1Ctrls[m].text}|${_angleCtrls[m].text}";
         sendAngle = _result2Ctrls[m].text;
       }
     }
@@ -279,8 +283,12 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text("서버로 데이터 전송 중..."),
+        content: Text(
+          "서버로 데이터 전송 중...",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: makitaTeal,
+        behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: 1),
       ),
     );
@@ -327,8 +335,12 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text("태블릿 전송 완료!"),
+          content: const Text(
+            "태블릿 전송 완료!",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           backgroundColor: Colors.green.shade700,
+          behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 1),
         ),
       );
@@ -341,8 +353,12 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("전송 실패: $e"),
+          content: Text(
+            "전송 실패: $e",
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
           backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
@@ -353,7 +369,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     var modeColor = _modes[_currentMode]['color'];
 
     return Scaffold(
-      backgroundColor: slate100,
+      backgroundColor: pureWhite, // 전체 배경 흰색 통일
       resizeToAvoidBottomInset: true,
       body: AbsorbPointer(
         absorbing: _isTransmitting,
@@ -395,7 +411,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
               ),
               if (_isTransmitting)
                 Container(
-                  color: Colors.white.withValues(alpha: 0.6),
+                  color: pureWhite.withValues(alpha: 0.8), // 투명도 있는 하얀 장막
                   width: double.infinity,
                   height: double.infinity,
                   child: const Center(
@@ -406,21 +422,29 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _isTransmitting ? null : _showHistorySheet,
-        backgroundColor: _isTransmitting ? Colors.grey.shade300 : pureWhite,
-        elevation: 4,
-        child: Icon(
-          Icons.history,
-          color: _isTransmitting ? Colors.grey.shade400 : slate900,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 80.0), // 바텀 버튼 위로 살짝 올리기
+        child: FloatingActionButton(
+          onPressed: _isTransmitting ? null : _showHistorySheet,
+          backgroundColor: _isTransmitting ? slate100 : pureWhite,
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ), // 둥근 모서리
+          child: Icon(
+            Icons.history,
+            color: _isTransmitting ? slate600 : slate900,
+            size: 28,
+          ),
         ),
       ),
     );
   }
 
+  // 🌟 토스 감성: 크고 시원한 헤더
   Widget _buildHeader(Color modeColor) {
     return Container(
-      height: 80,
+      height: 110, // 여백 확장
       width: double.infinity,
       color: modeColor,
       child: Column(
@@ -429,16 +453,18 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
           Text(
             "좌우로 스와이프하여 모드 변경",
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
-              fontSize: 12,
+              color: pureWhite.withValues(alpha: 0.8),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             _modes[_currentMode]['name'],
             style: const TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
+              fontSize: 30, // 폰트 크기 확대
+              fontWeight: FontWeight.w900, // 폰트 굵기 극대화
+              letterSpacing: -0.5, // 세련된 자간
               color: pureWhite,
             ),
           ),
@@ -447,6 +473,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     );
   }
 
+  // 🌟 프리뷰: 밑줄 제거, 깨끗한 여백
   Widget _build2DPreview(Color modeColor) {
     int m = _currentMode;
     double val1 = double.tryParse(_val1Ctrls[m].text) ?? 50.0;
@@ -457,11 +484,9 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     return Container(
       height: 160,
       width: double.infinity,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: pureWhite,
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade300, width: 1),
-        ),
+        // 거슬리던 Border 제거
       ),
       child: CustomPaint(
         painter: Preview2DPainter(
@@ -477,10 +502,15 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     );
   }
 
+  // 🌟 입력 영역: 입력창 사이의 광활한 여백 (SizedBox 32 적용)
   Widget _buildInputStep(int index) {
     var modeColor = _modes[index]['color'];
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 24,
+        vertical: 32,
+      ), // 패딩 빵빵하게
       child: Column(
         children: [
           if (index == 2)
@@ -519,17 +549,21 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                 _result2Ctrls[index].clear();
               }),
             ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 32), // 여백 확장
           ..._buildDynamicInputs(index, modeColor),
-          const SizedBox(height: 40),
+          const SizedBox(height: 48), // 여백 확장
           ElevatedButton(
             onPressed: () {
               FocusScope.of(context).unfocus();
               if (!_validateInputs()) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: const Text("필수 수치를 입력해주세요!"),
+                    content: const Text(
+                      "필수 수치를 입력해주세요!",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     backgroundColor: Colors.redAccent.shade700,
+                    behavior: SnackBarBehavior.floating,
                   ),
                 );
                 HapticFeedback.lightImpact();
@@ -541,10 +575,10 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
               backgroundColor: pureWhite,
               foregroundColor: modeColor,
               elevation: 0,
-              side: BorderSide(color: modeColor, width: 2),
-              minimumSize: const Size.fromHeight(56),
+              side: BorderSide(color: modeColor, width: 2), // 얇은 선보다 확실한 굵기
+              minimumSize: const Size.fromHeight(60), // 버튼 키우기
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16), // 완전 둥글게
               ),
             ),
             child: Row(
@@ -555,15 +589,15 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                   style: TextStyle(
                     fontSize: 18,
                     color: modeColor,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(Icons.arrow_forward, color: modeColor, size: 20),
+                Icon(Icons.arrow_forward_rounded, color: modeColor, size: 24),
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -578,6 +612,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     return [];
   }
 
+  // 🌟 입력 필드 간 간격을 32로 통일
   List<Widget> _buildStraightInputs(int m, Color color) {
     return [
       RemoteTextField(
@@ -597,7 +632,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         currentFocus: _val1FocusNodes[m],
         focusColor: color,
       ),
-      const SizedBox(height: 20),
+      const SizedBox(height: 32),
       _buildRadiusInfo(color),
     ];
   }
@@ -612,7 +647,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
           focusColor: color,
           nextFocus: _angleFocusNodes[m],
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 32),
         RemoteTextField(
           label: "벤딩 각도 (θ)",
           ctrl: _angleCtrls[m],
@@ -620,7 +655,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
           focusColor: color,
           showQuickAngles: true,
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 32),
         RemoteReadOnlyField(
           label: "자동 계산된 대각 길이 (D)",
           ctrl: _val2Ctrls[m],
@@ -636,14 +671,14 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
           focusColor: color,
           nextFocus: _val2FocusNodes[m],
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 32),
         RemoteTextField(
           label: "대각 길이 (D)",
           ctrl: _val2Ctrls[m],
           currentFocus: _val2FocusNodes[m],
           focusColor: color,
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 32),
         RemoteReadOnlyField(
           label: "자동 계산된 각도 (θ)",
           ctrl: _angleCtrls[m],
@@ -664,7 +699,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
             ? _val2FocusNodes[m]
             : _angleFocusNodes[m],
       ),
-      const SizedBox(height: 20),
+      const SizedBox(height: 32),
     ];
     if (_innerTabs[m] == 1) {
       inputs.add(
@@ -676,7 +711,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
           nextFocus: _angleFocusNodes[m],
         ),
       );
-      inputs.add(const SizedBox(height: 20));
+      inputs.add(const SizedBox(height: 32));
     }
     inputs.addAll([
       RemoteTextField(
@@ -686,7 +721,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         focusColor: color,
         showQuickAngles: true,
       ),
-      const SizedBox(height: 20),
+      const SizedBox(height: 32),
       RemoteReadOnlyField(
         label: "자동 계산된 마킹 간격 (D)",
         ctrl: _result1Ctrls[m],
@@ -700,13 +735,13 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     bool isReverse = _innerTabs[m] == 1;
     return [
       RemoteTextField(
-        label: "수직 단차 (H)",
+        label: "수직 높이 (H)",
         ctrl: _val1Ctrls[m],
         currentFocus: _val1FocusNodes[m],
         focusColor: color,
         nextFocus: _val2FocusNodes[m],
       ),
-      const SizedBox(height: 20),
+      const SizedBox(height: 32),
       RemoteTextField(
         label: "수평 롤 (Roll)",
         ctrl: _val2Ctrls[m],
@@ -714,54 +749,70 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         focusColor: color,
         nextFocus: _angleFocusNodes[m],
       ),
-      const SizedBox(height: 20),
+      const SizedBox(height: 32),
       RemoteReadOnlyField(
-        label: "자동 계산된 진단차 (True H)",
+        label: "진단차 (True H) - 자동 계산",
         ctrl: _result1Ctrls[m],
         textColor: Colors.purple.shade700,
       ),
-      const SizedBox(height: 20),
-      RemoteTextField(
-        label: isReverse ? "대각 길이 (D) 입력" : "벤딩 각도 (θ) 입력",
-        ctrl: _angleCtrls[m],
-        currentFocus: _angleFocusNodes[m],
-        focusColor: color,
-        showQuickAngles: !isReverse,
-      ),
-      const SizedBox(height: 20),
-      RemoteReadOnlyField(
-        label: isReverse ? "자동 계산된 각도 (θ)" : "자동 계산된 대각 길이 (D)",
-        ctrl: _result2Ctrls[m],
-        textColor: isReverse ? Colors.green.shade700 : Colors.blue.shade700,
-      ),
+      const SizedBox(height: 32),
+      if (!isReverse) ...[
+        RemoteTextField(
+          label: "벤딩 각도 (θ) 입력",
+          ctrl: _angleCtrls[m],
+          currentFocus: _angleFocusNodes[m],
+          focusColor: color,
+          showQuickAngles: true,
+        ),
+        const SizedBox(height: 32),
+        RemoteReadOnlyField(
+          label: "마킹 간격 (D) - 자동 계산",
+          ctrl: _result2Ctrls[m],
+          textColor: Colors.blue.shade700,
+        ),
+      ] else ...[
+        RemoteTextField(
+          label: "마킹 간격 (D) 입력",
+          ctrl: _angleCtrls[m],
+          currentFocus: _angleFocusNodes[m],
+          focusColor: color,
+          showQuickAngles: false,
+        ),
+        const SizedBox(height: 32),
+        RemoteReadOnlyField(
+          label: "벤딩 각도 (θ) - 자동 계산",
+          ctrl: _result2Ctrls[m],
+          textColor: Colors.green.shade700,
+        ),
+      ],
     ];
   }
 
-  // 💡 [수정] 수동/자동 갱신이 가능한 연동 반경 정보 위젯
+  // 🌟 토스 감성: 둥글고 선 없는 박스
   Widget _buildRadiusInfo(Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        color: slate100,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
+        color: slate100, // 배경으로만 구분
+        borderRadius: BorderRadius.circular(16), // 완전 둥글게
+        // 거슬리는 border 제거
       ),
       child: Row(
         children: [
-          Icon(Icons.link, color: color, size: 20),
-          const SizedBox(width: 10),
+          Icon(Icons.link_rounded, color: color, size: 24),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
-              "태블릿 연동 반경(R): $_serverRadius mm",
+              "태블릿 연동 금형 반경(R): $_serverRadius mm",
               style: const TextStyle(
-                color: slate600,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
+                color: slate900,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.refresh, size: 22, color: slate600),
+            icon: const Icon(Icons.refresh_rounded, size: 24, color: slate600),
             constraints: const BoxConstraints(),
             padding: EdgeInsets.zero,
             onPressed: () {
@@ -769,8 +820,12 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
               _loadRadiusSetting();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text("연동 반경 값을 최신화했습니다."),
+                  content: Text(
+                    "연동 반경 값을 최신화했어요.",
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                   backgroundColor: makitaTeal,
+                  behavior: SnackBarBehavior.floating,
                   duration: Duration(seconds: 1),
                 ),
               );
@@ -787,14 +842,14 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const Text(
-          "벤딩 방향축 (6-Axis)",
+          "어느 방향으로 꺾을까요?", // 문구 부드럽게
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 22,
             color: slate900,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(height: 30),
+        const SizedBox(height: 48), // 여백 빵빵하게
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: DirectionSelector(
@@ -805,27 +860,39 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
             }),
           ),
         ),
-        const SizedBox(height: 40),
+        const SizedBox(height: 56), // 여백 빵빵하게
         TextButton.icon(
           onPressed: () => setState(() => _isInputFinishedList[index] = false),
-          icon: const Icon(Icons.edit, color: slate600),
+          icon: const Icon(Icons.edit_rounded, color: slate600),
           label: const Text(
-            "수치 입력으로 돌아가기",
-            style: TextStyle(color: slate600, fontSize: 16),
+            "수치 다시 입력하기",
+            style: TextStyle(
+              color: slate600,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
     );
   }
 
+  // 🌟 하단 고정 버튼: 둥글고 거대한 버튼 (그림자로 살짝 띄우기)
   Widget _buildBottomButton(Color modeColor) {
     return SafeArea(
       top: false,
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: pureWhite,
-          border: Border(top: BorderSide(color: Colors.grey.shade200)),
+          // 상단 선 대신 은은한 그림자
+          boxShadow: [
+            BoxShadow(
+              color: slate900.withValues(alpha: 0.05),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
+            ),
+          ],
         ),
         child: ElevatedButton(
           onPressed: (_isInputFinishedList[_currentMode] && !_isTransmitting)
@@ -833,24 +900,26 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
               : null,
           style: ElevatedButton.styleFrom(
             backgroundColor: modeColor,
-            disabledBackgroundColor: Colors.grey.shade300,
-            minimumSize: const Size.fromHeight(60),
+            disabledBackgroundColor: slate100, // 토스식 비활성 색상
+            disabledForegroundColor: slate600,
+            minimumSize: const Size.fromHeight(64), // 버튼 더 크게
+            elevation: 0,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16), // 완전 둥글게
             ),
           ),
           child: _isTransmitting
               ? const CircularProgressIndicator(color: pureWhite)
               : Text(
                   _isInputFinishedList[_currentMode]
-                      ? "태블릿으로 데이터 전송"
-                      : "수치를 입력하세요",
+                      ? "태블릿으로 전송하기"
+                      : "수치를 먼저 입력해주세요",
                   style: TextStyle(
                     fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w800,
                     color: _isInputFinishedList[_currentMode]
                         ? pureWhite
-                        : Colors.grey.shade600,
+                        : slate600,
                   ),
                 ),
         ),
@@ -874,69 +943,98 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                 width: 40,
                 height: 5,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: slate100, // 연하게
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
               const Text(
-                "전송 기록 (태블릿 전송 데이터)",
+                "최근 전송 기록",
                 style: TextStyle(
                   color: slate900,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 16),
               Expanded(
                 child: _historyLogs.isEmpty
                     ? const Center(
                         child: Text(
-                          "기록이 없습니다.",
-                          style: TextStyle(color: slate600),
+                          "아직 전송한 기록이 없어요.",
+                          style: TextStyle(
+                            color: slate600,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       )
                     : ListView.separated(
+                        physics: const BouncingScrollPhysics(),
                         itemCount: _historyLogs.length,
-                        separatorBuilder: (context, index) =>
-                            const Divider(height: 1),
+                        // 🌟 Divider를 아주 연하게
+                        separatorBuilder: (context, index) => Divider(
+                          height: 1,
+                          color: slate100,
+                          indent: 24,
+                          endIndent: 24,
+                        ),
                         itemBuilder: (context, index) {
                           var log = _historyLogs[index];
                           bool isCompleted = log['status'] == 'completed';
+
                           String subtitleText = "H/L: ${log['val1']}";
                           if (log['val2'] != "")
                             subtitleText += " / W/D/Roll: ${log['val2']}";
                           if (log['angle'] != "")
                             subtitleText += " / 각도: ${log['angle']}°";
-                          subtitleText += "  •  ${log['time']}";
+
                           return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: Color(log['color']),
-                              radius: 16,
-                              child: const Icon(
-                                Icons.check,
-                                color: pureWhite,
-                                size: 16,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ), // 패딩 넉넉하게
+                            leading: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Color(
+                                  log['color'],
+                                ).withValues(alpha: 0.1), // 배경을 투명하게
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.check_rounded,
+                                color: Color(log['color']),
+                                size: 20,
                               ),
                             ),
                             title: Text(
                               "${log['modeName']} (${log['dir']})",
                               style: const TextStyle(
                                 color: slate900,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
                               ),
                             ),
-                            subtitle: Text(
-                              subtitleText,
-                              style: const TextStyle(
-                                color: slate600,
-                                fontSize: 13,
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Text(
+                                "$subtitleText\n${log['time']}",
+                                style: const TextStyle(
+                                  color: slate600,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.4,
+                                ),
                               ),
                             ),
                             trailing: Icon(
-                              isCompleted ? Icons.check_circle : Icons.schedule,
+                              isCompleted
+                                  ? Icons.check_circle_rounded
+                                  : Icons.schedule_rounded,
                               color: isCompleted
                                   ? Colors.green.shade600
                                   : Colors.orange.shade600,
+                              size: 28,
                             ),
                           );
                         },
@@ -981,8 +1079,10 @@ class Preview2DPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round;
 
     final shadowPaint = Paint()
-      ..color = themeColor.withValues(alpha: 0.2)
-      ..strokeWidth = 14.0
+      ..color = themeColor
+          .withValues(alpha: 0.15) // 그림자도 더 부드럽게
+      ..strokeWidth =
+          16.0 // 살짝 더 두껍게 해서 네온사인처럼
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
@@ -1074,10 +1174,11 @@ class Preview2DPainter extends CustomPainter {
 
     final path = Path();
     for (int i = 0; i < finalPoints.length; i++) {
-      if (i == 0)
+      if (i == 0) {
         path.moveTo(finalPoints[i].dx, finalPoints[i].dy);
-      else
+      } else {
         path.lineTo(finalPoints[i].dx, finalPoints[i].dy);
+      }
     }
 
     canvas.drawPath(path, shadowPaint);

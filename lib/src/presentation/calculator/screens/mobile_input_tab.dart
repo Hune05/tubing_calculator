@@ -65,7 +65,7 @@ class _MobileInputTabState extends State<MobileInputTab>
     if (_bendType == "custom" && _selectedAngle <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("자유 각도를 정확히 입력해주세요."),
+          content: Text("각도를 정확히 입력해주세요."),
           backgroundColor: Colors.deepOrange,
         ),
       );
@@ -482,37 +482,48 @@ class _MobileInputTabState extends State<MobileInputTab>
                               fontSize: 13,
                             ),
                           ),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: 8), // 🚀 공간 확보를 위해 넓이 축소
                           Expanded(
                             child: SegmentedButton<String>(
+                              showSelectedIcon:
+                                  false, // 🚀 글자 밀림 방지 (선택 시 체크마크 숨김)
                               segments: const [
                                 ButtonSegment(
                                   value: "90",
-                                  label: Text(
-                                    "90° 벤딩",
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
+                                  label: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      "90° 벤딩",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
                                     ),
                                   ),
                                 ),
                                 ButtonSegment(
                                   value: "custom",
-                                  label: Text(
-                                    "자유 각도",
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
+                                  label: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      "직관+각도",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
                                     ),
                                   ),
                                 ),
                                 ButtonSegment(
                                   value: "0",
-                                  label: Text(
-                                    "0° 직관",
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
+                                  label: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      "0° 직관",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
                                     ),
                                   ),
                                 ),
