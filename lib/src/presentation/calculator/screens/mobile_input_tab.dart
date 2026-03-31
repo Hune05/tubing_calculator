@@ -26,6 +26,9 @@ class _MobileInputTabState extends State<MobileInputTab>
   bool get wantKeepAlive => true;
 
   final TextEditingController _lengthController = TextEditingController();
+  final TextEditingController _customAngleController = TextEditingController();
+
+  String _bendType = "90";
   double _selectedAngle = 90.0;
   double? _selectedRotation;
   int? _editingIndex;
@@ -42,6 +45,7 @@ class _MobileInputTabState extends State<MobileInputTab>
   @override
   void dispose() {
     _lengthController.dispose();
+    _customAngleController.dispose();
     super.dispose();
   }
 
@@ -53,6 +57,16 @@ class _MobileInputTabState extends State<MobileInputTab>
         const SnackBar(
           content: Text("정확한 길이를 입력해주세요."),
           backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    if (_bendType == "custom" && _selectedAngle <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("자유 각도를 정확히 입력해주세요."),
+          backgroundColor: Colors.deepOrange,
         ),
       );
       return;
@@ -95,6 +109,9 @@ class _MobileInputTabState extends State<MobileInputTab>
       _editingIndex = null;
       _lengthController.clear();
       _selectedRotation = null;
+      _bendType = "90";
+      _selectedAngle = 90.0;
+      _customAngleController.clear();
     });
   }
 
@@ -363,10 +380,24 @@ class _MobileInputTabState extends State<MobileInputTab>
                                         _editingIndex = index;
                                         _lengthController.text = item['length']
                                             .toString();
-                                        _selectedAngle =
+
+                                        double editedAngle =
                                             (item['angle'] as num?)
                                                 ?.toDouble() ??
                                             90.0;
+                                        if (editedAngle == 90.0) {
+                                          _bendType = "90";
+                                          _selectedAngle = 90.0;
+                                        } else if (editedAngle == 0.0) {
+                                          _bendType = "0";
+                                          _selectedAngle = 0.0;
+                                        } else {
+                                          _bendType = "custom";
+                                          _selectedAngle = editedAngle;
+                                          _customAngleController.text =
+                                              editedAngle.toString();
+                                        }
+
                                         _selectedRotation =
                                             _selectedAngle == 0.0
                                             ? null
@@ -388,7 +419,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                                     title: Text(
                                       isStraight
                                           ? "직관 (Straight)"
-                                          : "${(item['angle'] as num?)?.round()}° 벤딩 ($dirLabel)",
+                                          : "${(item['angle'] as num?)?.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '')}° 벤딩 ($dirLabel)",
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         color: isStraight ? slate600 : slate900,
@@ -453,33 +484,54 @@ class _MobileInputTabState extends State<MobileInputTab>
                           ),
                           const SizedBox(width: 16),
                           Expanded(
-                            child: SegmentedButton<double>(
+                            child: SegmentedButton<String>(
                               segments: const [
                                 ButtonSegment(
-                                  value: 90.0,
+                                  value: "90",
                                   label: Text(
                                     "90° 벤딩",
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
+                                      fontSize: 12,
                                     ),
                                   ),
                                 ),
                                 ButtonSegment(
-                                  value: 0.0,
+                                  value: "custom",
+                                  label: Text(
+                                    "자유 각도",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                                ButtonSegment(
+                                  value: "0",
                                   label: Text(
                                     "0° 직관",
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
+                                      fontSize: 12,
                                     ),
                                   ),
                                 ),
                               ],
-                              selected: {_selectedAngle},
-                              onSelectionChanged: (Set<double> newSelection) {
+                              selected: {_bendType},
+                              onSelectionChanged: (Set<String> newSelection) {
                                 setState(() {
-                                  _selectedAngle = newSelection.first;
-                                  if (_selectedAngle == 0.0) {
+                                  _bendType = newSelection.first;
+                                  if (_bendType == "90") {
+                                    _selectedAngle = 90.0;
+                                  } else if (_bendType == "0") {
+                                    _selectedAngle = 0.0;
                                     _selectedRotation = null;
+                                  } else {
+                                    _selectedAngle =
+                                        double.tryParse(
+                                          _customAngleController.text,
+                                        ) ??
+                                        0.0;
                                   }
                                 });
                               },
@@ -503,6 +555,58 @@ class _MobileInputTabState extends State<MobileInputTab>
                           ),
                         ],
                       ),
+                      if (_bendType == "custom") ...[
+                        const SizedBox(height: 12),
+                        InkWell(
+                          onTap: () async {
+                            await MakitaNumpad.show(
+                              context,
+                              controller: _customAngleController,
+                              title: "벤딩 각도 입력 (°)",
+                            );
+                            setState(() {
+                              _selectedAngle =
+                                  double.tryParse(
+                                    _customAngleController.text,
+                                  ) ??
+                                  0.0;
+                              if (_selectedAngle == 0.0)
+                                _selectedRotation = null;
+                            });
+                          },
+                          child: AbsorbPointer(
+                            child: TextField(
+                              controller: _customAngleController,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.deepOrange,
+                                fontFamily: 'monospace',
+                              ),
+                              decoration: InputDecoration(
+                                hintText: "원하는 각도를 입력하세요 (예: 45)",
+                                filled: true,
+                                fillColor: Colors.orange.shade50,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(
+                                    color: Colors.orange.shade200,
+                                  ),
+                                ),
+                                suffixIcon: const Icon(
+                                  Icons.edit,
+                                  color: Colors.deepOrange,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       if (_selectedAngle > 0) ...[
                         Row(

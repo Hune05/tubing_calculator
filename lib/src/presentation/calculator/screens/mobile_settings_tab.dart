@@ -14,9 +14,6 @@ const Color slate600 = Color(0xFF475569);
 const Color pureWhite = Color(0xFFFFFFFF);
 const Color toolGripBlack = Color(0xFF222222);
 
-// ==========================================
-// 🚀 5탭: 모바일 설정 (Settings) 화면 및 가이드
-// ==========================================
 class MobileSettingsTab extends StatefulWidget {
   const MobileSettingsTab({super.key});
   @override

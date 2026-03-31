@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-// 🚀 분리된 탭 파일들 임포트 (경로는 프로젝트 구조에 맞게 수정하세요)
+import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
+
+// 🚀 아래 3개의 파일은 동일한 폴더에 있다고 가정합니다.
 import 'mobile_input_tab.dart';
 import 'mobile_result_tabs.dart';
 import 'mobile_settings_tab.dart';
@@ -24,6 +26,13 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
   final PageController _pageController = PageController();
   int _currentIndex = 0;
   String _startDir = "RIGHT";
+
+  @override
+  void initState() {
+    super.initState();
+    // 🚀 앱이 켜질 때 딱 한 번 과거 데이터를 무조건 불러와서 꽉 쥡니다!
+    MobileBendDataManager().loadSavedSettings();
+  }
 
   void _onPageChanged(int index) {
     setState(() {

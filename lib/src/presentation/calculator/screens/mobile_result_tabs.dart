@@ -15,9 +15,6 @@ const Color slate600 = Color(0xFF475569);
 const Color slate100 = Color(0xFFF1F5F9);
 const Color pureWhite = Color(0xFFFFFFFF);
 
-// ==========================================
-// 🚀 2탭: 모바일 결과 (Marking) 화면
-// ==========================================
 class MobileResultTab extends StatefulWidget {
   final String startDir;
   const MobileResultTab({super.key, required this.startDir});
