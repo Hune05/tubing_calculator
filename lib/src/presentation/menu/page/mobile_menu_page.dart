@@ -20,10 +20,11 @@ const Color slate100 = Color(0xFFF1F5F9);
 const Color pureWhite = Color(0xFFFFFFFF);
 
 class MobileMenuPage extends StatelessWidget {
-  // 📡 작업자 이름을 관리하기 위해 상수로 두거나, 추후 로그인 정보에서 받아오도록 설정합니다.
-  final String currentWorker = "현장작업자";
+  // 🚀 핵심 변경 사항: 로그인 화면에서 전달받을 작업자 이름 변수
+  final String currentWorker;
 
-  const MobileMenuPage({super.key});
+  // 🚀 생성자에 required를 추가하여 반드시 이름을 전달받도록 강제합니다.
+  const MobileMenuPage({super.key, required this.currentWorker});
 
   @override
   Widget build(BuildContext context) {
@@ -199,7 +200,7 @@ class MobileMenuPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
 
-                    // 🚀 4. 자재 현황 및 불출/반납 버튼 (에러 해결 지점)
+                    // 🚀 4. 자재 현황 및 불출/반납 버튼
                     _buildMenuButton(
                       context: context,
                       title: "자재 현황 (불출 / 반납)",
@@ -211,8 +212,9 @@ class MobileMenuPage extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
+                            // 🚀 전달받은 작업자 이름(currentWorker)을 그대로 넘겨줍니다.
                             builder: (context) => MobileInventoryStatusPage(
-                              workerName: currentWorker, // 📡 에러 해결: 필수 인자값 전달
+                              workerName: currentWorker,
                             ),
                           ),
                         );
@@ -304,8 +306,9 @@ class MobileMenuPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
+                    // 🚀 헤더에 현재 로그인한 작업자 이름을 표시해주는 센스 추가!
                     Text(
-                      "DB 서버 연결됨 (Online)",
+                      "DB 서버 연결됨 - 환영합니다, $currentWorker님",
                       style: TextStyle(
                         color: pureWhite.withOpacity(0.8),
                         fontSize: 13,

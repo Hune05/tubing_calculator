@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'inventory_model.dart';
 
-class InventoryItemCard extends StatelessWidget {
+const Color slate900 = Color(0xFF0F172A);
+const Color slate600 = Color(0xFF475569);
+const Color slate100 = Color(0xFFF1F5F9);
+const Color pureWhite = Color(0xFFFFFFFF);
+
+class InventoryItemCard extends StatefulWidget {
   final String itemName;
   final ItemData data;
   final int categoryIndex;
@@ -22,108 +27,184 @@ class InventoryItemCard extends StatelessWidget {
     required this.onExtraInfoTap,
   });
 
-  final Color darkBg = const Color(0xFF1E2124);
-  final Color cardBg = const Color(0xFF2A2E33);
-  final Color mutedWhite = const Color(0xFFD0D4D9);
+  @override
+  State<InventoryItemCard> createState() => _InventoryItemCardState();
+}
+
+class _InventoryItemCardState extends State<InventoryItemCard> {
+  bool _isExpanded = false;
 
   @override
   Widget build(BuildContext context) {
-    bool hasQty = data.qty > 0;
+    bool hasQty = widget.data.qty > 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
-        color: cardBg,
+        color: pureWhite,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: hasQty ? themeColor : Colors.white.withValues(alpha: 0.05),
+          color: hasQty ? widget.themeColor : Colors.grey.shade300,
           width: hasQty ? 2 : 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  itemName,
-                  style: TextStyle(
-                    color: mutedWhite,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Row(
+          InkWell(
+            onTap: () {
+              setState(() {
+                _isExpanded = !_isExpanded;
+              });
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildRoundButton(
-                    Icons.remove,
-                    () => onUpdateQuantity(-1),
-                    false,
-                  ),
-                  GestureDetector(
-                    onTap: onQuantityTap,
-                    child: Container(
-                      width: 50,
-                      alignment: Alignment.center,
-                      color: Colors.transparent,
-                      child: Text(
-                        data.qty.toString(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: widget.themeColor,
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            widget.itemName,
+                            style: const TextStyle(
+                              color: slate900,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  _buildRoundButton(Icons.add, () => onUpdateQuantity(1), true),
+                  Row(
+                    children: [
+                      _buildRoundButton(
+                        Icons.remove,
+                        () => widget.onUpdateQuantity(-1),
+                        false,
+                      ),
+                      GestureDetector(
+                        onTap: widget.onQuantityTap,
+                        child: Container(
+                          width: 44,
+                          alignment: Alignment.center,
+                          color: Colors.transparent,
+                          child: Text(
+                            widget.data.qty.toString(),
+                            style: TextStyle(
+                              color: hasQty ? widget.themeColor : slate900,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ),
+                      _buildRoundButton(
+                        Icons.add,
+                        () => widget.onUpdateQuantity(1),
+                        true,
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        _isExpanded ? Icons.expand_less : Icons.expand_more,
+                        color: slate600,
+                      ),
+                    ],
+                  ),
                 ],
               ),
-            ],
+            ),
           ),
 
-          // 수량이 1개 이상일 때만 추가 정보 입력창 표시
-          if (hasQty) ...[
-            const SizedBox(height: 16),
+          if (_isExpanded) ...[
+            Padding(
+              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+              child: Column(
+                children: [
+                  Divider(color: Colors.grey.shade200),
+                  const SizedBox(height: 8),
 
-            // ★ 변경됨: 카테고리(categoryIndex) 제한을 없애고 모든 속성을 개방
-            // 1. 보관 위치 (신규 추가)
-            _buildFullWidthInputBtn(
-              'Location',
-              "보관 위치(Location) 입력",
-              data.location,
-              Icons.location_on,
-            ),
-            const SizedBox(height: 8),
+                  _buildFullWidthInputBtn(
+                    'Location',
+                    "보관 위치",
+                    widget.data.location,
+                    Icons.location_on,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildFullWidthInputBtn(
+                    'Material',
+                    "재질",
+                    widget.data.material,
+                    Icons.category,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildFullWidthInputBtn(
+                    'Maker',
+                    "제조사",
+                    widget.data.maker,
+                    Icons.factory,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildFullWidthInputBtn(
+                    'Spec',
+                    "규격",
+                    widget.data.spec,
+                    Icons.straighten,
+                  ),
+                  const SizedBox(height: 8),
 
-            // 2. 재질
-            _buildFullWidthInputBtn(
-              'Material',
-              "재질(Material) 선택",
-              data.material,
-              Icons.category,
-            ),
-            const SizedBox(height: 8),
+                  // ★ 신규: 담당 부서/팀
+                  _buildFullWidthInputBtn(
+                    'Department',
+                    "담당 부서/팀",
+                    widget.data.department,
+                    Icons.groups,
+                  ),
+                  const SizedBox(height: 8),
 
-            // 3. 제조사
-            _buildFullWidthInputBtn(
-              'Maker',
-              "제조사(Maker) 선택",
-              data.maker,
-              Icons.factory,
-            ),
-            const SizedBox(height: 8),
-
-            // 4. 히트 넘버
-            _buildFullWidthInputBtn(
-              'HeatNo',
-              "히트 넘버(Heat No) 입력",
-              data.heatNo,
-              Icons.tag,
+                  _buildFullWidthInputBtn(
+                    'Project',
+                    "프로젝트",
+                    widget.data.projectName,
+                    Icons.assignment,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildFullWidthInputBtn(
+                    'MinQty',
+                    "최소 유지 수량",
+                    widget.data.minQty == 0
+                        ? ""
+                        : widget.data.minQty.toString(),
+                    Icons.security,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildFullWidthInputBtn(
+                    'HeatNo',
+                    "히트 넘버",
+                    widget.data.heatNo,
+                    Icons.tag,
+                  ),
+                ],
+              ),
             ),
           ],
         ],
@@ -139,33 +220,33 @@ class InventoryItemCard extends StatelessWidget {
   ) {
     bool isEmpty = value.isEmpty;
     return InkWell(
-      onTap: () => onExtraInfoTap(infoType),
+      onTap: () => widget.onExtraInfoTap(infoType),
       borderRadius: BorderRadius.circular(8),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
-          color: darkBg,
+          color: slate100,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isEmpty
-                ? Colors.redAccent.withValues(alpha: 0.4) // 미입력 시 붉은 테두리
-                : Colors.greenAccent.withValues(alpha: 0.4), // 입력 완료 시 녹색 테두리
+                ? Colors.grey.shade300
+                : widget.themeColor.withValues(alpha: 0.5),
           ),
         ),
         child: Row(
           children: [
             Icon(
               icon,
-              color: isEmpty ? Colors.grey : Colors.greenAccent,
+              color: isEmpty ? Colors.grey.shade400 : widget.themeColor,
               size: 18,
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                isEmpty ? hint : "$infoType: $value",
+                isEmpty ? "$hint 입력" : "$infoType: $value",
                 style: TextStyle(
-                  color: isEmpty ? Colors.grey.shade500 : Colors.greenAccent,
+                  color: isEmpty ? Colors.grey.shade500 : slate900,
                   fontSize: 14,
                   fontWeight: isEmpty ? FontWeight.normal : FontWeight.bold,
                 ),
@@ -182,15 +263,15 @@ class InventoryItemCard extends StatelessWidget {
       onTap: onPressed,
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: isAdd ? themeColor : Colors.transparent,
+          color: isAdd ? widget.themeColor : slate100,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isAdd ? themeColor : Colors.white.withValues(alpha: 0.2),
+            color: isAdd ? widget.themeColor : Colors.grey.shade300,
           ),
         ),
-        child: Icon(icon, color: isAdd ? Colors.white : mutedWhite, size: 24),
+        child: Icon(icon, color: isAdd ? pureWhite : slate600, size: 20),
       ),
     );
   }

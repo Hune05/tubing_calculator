@@ -69,6 +69,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
 
           DocumentReference newDocRef = _inventoryDb.doc();
 
+          // 🚀 신규 자재: 필수로 들어가는 기본 데이터
           Map<String, dynamic> newDocData = {
             'name': itemName,
             'category': category,
@@ -80,7 +81,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
             'createdAt': FieldValue.serverTimestamp(),
           };
 
-          // 🚀 재질, 제조사, 히트넘버, 위치 추가 전송
+          // 🚀 신규 자재: 상세 정보(옵션) 추가 (증발 문제 해결 지점)
           try {
             if (data.material.isNotEmpty)
               newDocData['material'] = data.material;
@@ -88,17 +89,23 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
             if (data.maker.isNotEmpty) newDocData['maker'] = data.maker;
             if (data.location.isNotEmpty)
               newDocData['location'] = data.location;
+            if (data.spec.isNotEmpty) newDocData['spec'] = data.spec; // ★ 추가
+            if (data.projectName.isNotEmpty)
+              newDocData['projectName'] = data.projectName; // ★ 추가
+            if (data.department.isNotEmpty)
+              newDocData['department'] = data.department; // ★ 추가
+            newDocData['minQty'] = data.minQty; // ★ 추가 (기본값이 0이더라도 전송)
           } catch (_) {}
 
           batch.set(newDocRef, newDocData);
 
           batch.set(_logsDb.doc(), {
-            'type': 'IN',
+            'type': 'INIT',
             'project_name': '📱 모바일 현장 신규등록',
             'material_name': itemName,
             'qty': data.qty,
             'unit': 'EA',
-            'worker_name': widget.workerName, // 🚀 로그인한 작업자 이름 로깅 (증거 확보)
+            'worker_name': widget.workerName,
             'timestamp': FieldValue.serverTimestamp(),
           });
         }
@@ -113,14 +120,21 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
             int systemQty = dbData['qty'] ?? 0;
             int diff = data.qty - systemQty;
 
+            // 🚀 기존 자재: 변경될 필수 데이터
             Map<String, dynamic> updates = {'qty': data.qty};
 
-            // 🚀 업데이트 시에도 재질 등 상세정보가 수정되었다면 전송
+            // 🚀 기존 자재: 상세정보가 수정되었다면 전송 (증발 문제 해결 지점)
             try {
               if (data.material.isNotEmpty) updates['material'] = data.material;
               if (data.heatNo.isNotEmpty) updates['heatNo'] = data.heatNo;
               if (data.maker.isNotEmpty) updates['maker'] = data.maker;
               if (data.location.isNotEmpty) updates['location'] = data.location;
+              if (data.spec.isNotEmpty) updates['spec'] = data.spec; // ★ 추가
+              if (data.projectName.isNotEmpty)
+                updates['projectName'] = data.projectName; // ★ 추가
+              if (data.department.isNotEmpty)
+                updates['department'] = data.department; // ★ 추가
+              updates['minQty'] = data.minQty; // ★ 추가 (최소 수량 변경 사항 반영)
             } catch (_) {}
 
             batch.update(existingDocRef, updates);
@@ -133,7 +147,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
                 'qty': diff.abs(),
                 'sign': diff > 0 ? '+' : '-',
                 'unit': dbData['unit'] ?? 'EA',
-                'worker_name': widget.workerName, // 🚀 실사(수정)한 작업자 이름 로깅
+                'worker_name': widget.workerName,
                 'timestamp': FieldValue.serverTimestamp(),
               });
             }

@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:image_cropper/image_cropper.dart'; // 🚀 자르기 패키지 추가
+import 'package:image_cropper/image_cropper.dart'; // 🚀 자르기 패키지
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 class OcrService {
@@ -32,14 +32,14 @@ class OcrService {
         sourcePath: image.path,
         uiSettings: [
           AndroidUiSettings(
-            toolbarTitle: '라벨 구역만 잘라주세요',
+            toolbarTitle: '라벨 전체 구역을 지정해주세요',
             toolbarColor: const Color(0xFF007580), // 마키타 틸 색상
             toolbarWidgetColor: Colors.white,
             initAspectRatio: CropAspectRatioPreset.original,
             lockAspectRatio: false,
             hideBottomControls: false,
           ),
-          IOSUiSettings(title: '라벨 구역만 잘라주세요'),
+          IOSUiSettings(title: '라벨 전체 구역을 지정해주세요'),
         ],
       );
 
@@ -128,18 +128,22 @@ class OcrService {
 
       if (image == null) return null;
 
-      // 🚀 개별 스캔할 때도 자르기 창 띄움
+      // 🚀 핵심 수정 포인트: 비율을 5:1로 강제하여 아주 좁고 긴 직사각형이 기본으로 뜨게 만듭니다.
       CroppedFile? croppedFile = await ImageCropper().cropImage(
         sourcePath: image.path,
+        aspectRatio: const CropAspectRatio(ratioX: 5, ratioY: 1),
         uiSettings: [
           AndroidUiSettings(
-            toolbarTitle: '글자 구역만 잘라주세요',
+            toolbarTitle: '해당 글자 한 줄만 좁게 잘라주세요',
             toolbarColor: const Color(0xFF007580),
             toolbarWidgetColor: Colors.white,
-            initAspectRatio: CropAspectRatioPreset.original,
-            lockAspectRatio: false,
+            initAspectRatio: CropAspectRatioPreset.ratio16x9,
+            lockAspectRatio: false, // 사용자가 모서리를 당겨서 미세 조정하는 것은 허용
           ),
-          IOSUiSettings(title: '글자 구역만 잘라주세요'),
+          IOSUiSettings(
+            title: '해당 글자 한 줄만 좁게 잘라주세요',
+            aspectRatioLockEnabled: false,
+          ),
         ],
       );
 

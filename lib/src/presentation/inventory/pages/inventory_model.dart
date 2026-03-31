@@ -3,13 +3,21 @@ class ItemData {
   String heatNo;
   String maker;
   String material;
-  String location; // ★ 신규: 보관 위치 속성 추가
+  String location;
+  String spec;
+  String projectName;
+  int minQty;
+  String department; // ★ 신규: 담당 부서/팀 추가
 
   ItemData({
     this.qty = 0,
     this.heatNo = "",
     this.maker = "",
     this.material = "",
-    this.location = "", // ★ 신규: 기본값 빈 문자열로 초기화
+    this.location = "",
+    this.spec = "",
+    this.projectName = "",
+    this.minQty = 0,
+    this.department = "", // ★ 신규: 기본값 초기화
   });
 }
