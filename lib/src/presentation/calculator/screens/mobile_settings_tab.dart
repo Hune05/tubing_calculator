@@ -330,12 +330,14 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     );
   }
 
+  // 🚀 4열 테이블 통합 헬퍼 (새 꿀단지 표와 기존 전동 가이드 표 모두 호환)
   TableRow _buildGuideRow4Col(
     String col1,
     String col2,
     String col3,
     String col4, {
     bool isHighlight = false,
+    Color? textColor4,
   }) {
     Color bgColor = isHighlight
         ? Colors.orange.withValues(alpha: 0.1)
@@ -386,8 +388,10 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 11,
-              color: Colors.black87,
-              fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal,
+              color: textColor4 ?? Colors.black87,
+              fontWeight: (isHighlight || textColor4 != null)
+                  ? FontWeight.bold
+                  : FontWeight.normal,
             ),
           ),
         ),
@@ -1810,6 +1814,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     );
   }
 
+  // 🚀 4가지 필수 실무 제원표가 꽉 채워진 꿀단지 영역
   Widget _buildHoneyJarReferenceCard() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1830,7 +1835,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
               ),
               const SizedBox(width: 8),
               Text(
-                "공통 실무 꿀단지 참고표",
+                "배관 실무 꿀단지 참고표",
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
                   fontSize: 16,
@@ -1840,17 +1845,19 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             ],
           ),
           const SizedBox(height: 16),
+
+          // 🍯 1. 180도 U-벤딩 표
           const Text(
-            "🍯 1. 180° U-벤딩 최소 간격 (Return Bend)",
+            "🍯 1. 180° U-벤딩 (Return Bend)",
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 13,
               color: Colors.black87,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           const Text(
-            "배관이 180도로 완전히 돌아나올 때 파이프끼리 닿지 않는 최소 C-to-C 간격입니다. (표준 벤더 기준)",
+            "180도 연속 벤딩 시 90도 연신율의 2배보다 파이프가 더 늘어납니다. (재단 시 더 많이 잘라야 함)",
             style: TextStyle(
               fontSize: 11,
               color: Colors.black54,
@@ -1869,6 +1876,127 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 0: FlexColumnWidth(1),
                 1: FlexColumnWidth(1),
                 2: FlexColumnWidth(1.2),
+                3: FlexColumnWidth(1.2),
+              },
+              border: TableBorder.symmetric(
+                inside: BorderSide(color: Colors.grey.shade200),
+              ),
+              children: [
+                TableRow(
+                  decoration: BoxDecoration(color: Colors.grey.shade100),
+                  children: const [
+                    Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Text(
+                        "OD",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Text(
+                        "표준 R",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Text(
+                        "최소 간격(C-C)",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Text(
+                        "180° 연신율",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                          color: Colors.redAccent,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                _buildGuideRow4Col(
+                  "1/4\"",
+                  "R14.2",
+                  "28.4 mm",
+                  "약 19 mm",
+                  textColor4: Colors.redAccent,
+                ),
+                _buildGuideRow4Col(
+                  "3/8\"",
+                  "R23.8",
+                  "47.6 mm",
+                  "약 30 mm",
+                  textColor4: Colors.redAccent,
+                ),
+                _buildGuideRow4Col(
+                  "1/2\"",
+                  "R38.1",
+                  "76.2 mm",
+                  "약 49 mm",
+                  textColor4: Colors.redAccent,
+                ),
+                _buildGuideRow4Col(
+                  "3/4\"",
+                  "R76.2",
+                  "152.4 mm",
+                  "약 98 mm",
+                  textColor4: Colors.redAccent,
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 32, color: Colors.black12),
+
+          // 🍯 2. 피팅 삽입 깊이표
+          const Text(
+            "🍯 2. 튜브 삽입 깊이 (Insertion Depth)",
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            "Twin Ferrule 피팅 체결 시 튜브가 부속 안으로 들어가는 깊이. (총 기장 계산 시 양쪽 삽입 깊이를 더해야 함)",
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.black54,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Table(
+              columnWidths: const {
+                0: FlexColumnWidth(1),
+                1: FlexColumnWidth(1.2),
               },
               border: TableBorder.symmetric(
                 inside: BorderSide(color: Colors.grey.shade200),
@@ -1892,74 +2020,59 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                     Padding(
                       padding: EdgeInsets.all(8),
                       child: Text(
-                        "표준 금형(R)",
+                        "삽입 깊이 (더함)",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 11,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Text(
-                        "최소 간격(C-to-C)",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                          color: Color(0xFF37474F),
+                          color: Color(0xFF007580),
                         ),
                       ),
                     ),
                   ],
                 ),
-                _buildGuideRow3Col(
+                _buildGuideRow2Col(
                   "1/4\" (6.35)",
-                  "R 14.2",
-                  "28.4 mm",
-                  Colors.blueGrey.shade800,
+                  "15.2 mm",
+                  const Color(0xFF007580),
                 ),
-                _buildGuideRow3Col(
+                _buildGuideRow2Col(
                   "3/8\" (9.52)",
-                  "R 23.8",
-                  "47.6 mm",
-                  Colors.blueGrey.shade800,
+                  "16.8 mm",
+                  const Color(0xFF007580),
                 ),
-                _buildGuideRow3Col(
+                _buildGuideRow2Col(
                   "1/2\" (12.7)",
-                  "R 38.1",
-                  "76.2 mm",
-                  Colors.blueGrey.shade800,
+                  "22.9 mm",
+                  const Color(0xFF007580),
                 ),
-                _buildGuideRow3Col(
+                _buildGuideRow2Col(
                   "3/4\" (19.05)",
-                  "R 76.2",
-                  "152.4 mm",
-                  Colors.blueGrey.shade800,
+                  "24.4 mm",
+                  const Color(0xFF007580),
                 ),
-                _buildGuideRow3Col(
+                _buildGuideRow2Col(
                   "1\" (25.4)",
-                  "R 101.6",
-                  "203.2 mm",
-                  Colors.blueGrey.shade800,
+                  "31.2 mm",
+                  const Color(0xFF007580),
                 ),
               ],
             ),
           ),
           const Divider(height: 32, color: Colors.black12),
+
+          // 🍯 3. NPT 체결 깊이표
           const Text(
-            "🍯 2. NPT / PT 나사산 체결 깊이 (Engagement)",
+            "🍯 3. NPT 나사산 체결 깊이 (Engagement)",
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 13,
               color: Colors.black87,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           const Text(
-            "나사 조립 시 피팅이 포트 안으로 먹어 들어가는 길이입니다. 총 기장 산출 시 이 값을 빼주어야 정확합니다.",
+            "나사 조립 시 피팅이 암나사 안으로 먹어 들어가는 길이. (총 기장 산출 시 이 값을 빼주어야 정확함)",
             style: TextStyle(
               fontSize: 11,
               color: Colors.black54,
@@ -2000,48 +2113,30 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                     Padding(
                       padding: EdgeInsets.all(8),
                       child: Text(
-                        "체결 깊이 (근사치)",
+                        "체결 깊이 (차감)",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 11,
-                          color: Color(0xFF37474F),
+                          color: Colors.deepOrange,
                         ),
                       ),
                     ),
                   ],
                 ),
-                _buildGuideRow2Col(
-                  "1/4\" NPT",
-                  "약 10.0 mm",
-                  Colors.blueGrey.shade800,
-                ),
-                _buildGuideRow2Col(
-                  "3/8\" NPT",
-                  "약 10.5 mm",
-                  Colors.blueGrey.shade800,
-                ),
-                _buildGuideRow2Col(
-                  "1/2\" NPT",
-                  "약 13.5 mm",
-                  Colors.blueGrey.shade800,
-                ),
-                _buildGuideRow2Col(
-                  "3/4\" NPT",
-                  "약 14.0 mm",
-                  Colors.blueGrey.shade800,
-                ),
-                _buildGuideRow2Col(
-                  "1\" NPT",
-                  "약 17.5 mm",
-                  Colors.blueGrey.shade800,
-                ),
+                _buildGuideRow2Col("1/4\" NPT", "약 10.0 mm", Colors.deepOrange),
+                _buildGuideRow2Col("3/8\" NPT", "약 10.5 mm", Colors.deepOrange),
+                _buildGuideRow2Col("1/2\" NPT", "약 13.5 mm", Colors.deepOrange),
+                _buildGuideRow2Col("3/4\" NPT", "약 14.0 mm", Colors.deepOrange),
+                _buildGuideRow2Col("1\" NPT", "약 17.5 mm", Colors.deepOrange),
               ],
             ),
           ),
           const Divider(height: 32, color: Colors.black12),
+
+          // 🍯 4. 인치-미리 환산표
           const Text(
-            "🍯 3. 인치 분수 ↔ mm 환산표",
+            "🍯 4. 인치 분수 ↔ mm 환산표",
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 13,

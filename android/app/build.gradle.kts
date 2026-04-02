@@ -14,6 +14,9 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // 🔥 flutter_local_notifications 최신 버전을 위한 디슈가링 활성화
+        isCoreLibraryDesugaringEnabled = true
+        
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -27,7 +30,10 @@ android {
         applicationId = "com.example.tubing_calculator"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        
+        // 🔥 FCM 알림의 안정적인 작동을 위해 최소 SDK를 21로 명시
+        minSdk = flutter.minSdkVersion 
+        
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -46,8 +52,11 @@ flutter {
     source = "../.."
 }
 
-// 🔥 구글 ML Kit 스캐너 언어팩 추가 (R8 빌드 에러 해결용) 🔥
 dependencies {
+    // 🔥 [수정됨] 에러에서 요구한 대로 2.1.4 버전으로 올림!
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    
+    // 🔥 구글 ML Kit 스캐너 언어팩 추가 (R8 빌드 에러 해결용) 🔥
     implementation("com.google.mlkit:text-recognition-korean:16.0.0")
     implementation("com.google.mlkit:text-recognition-chinese:16.0.0")
     implementation("com.google.mlkit:text-recognition-japanese:16.0.0")

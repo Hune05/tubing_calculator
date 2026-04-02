@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:math' as math;
+
+// 🚀 SettingsManager import (경로는 프로젝트에 맞게 수정하세요)
+import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
 
 const Color makitaTeal = Color(0xFF007580);
@@ -46,6 +49,11 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
   bool _isInverted = false;
   double? _selectedRotation;
 
+  // 🚀 장비 제원 데이터 변수 추가
+  double _machineRadius = 0.0;
+  double _machineGain = 0.0;
+  double _userOffsetShrink = 0.0;
+
   final TextEditingController _heightCtrl = TextEditingController(text: "100");
   final TextEditingController _angleCtrl = TextEditingController(text: "45");
   final TextEditingController _travelCtrl = TextEditingController(text: "150");
@@ -66,6 +74,21 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     _heightCtrl.addListener(() => setState(() {}));
     _angleCtrl.addListener(() => setState(() {}));
     _travelCtrl.addListener(() => setState(() {}));
+
+    // 🚀 초기화 시 설정 데이터 불러오기
+    _loadMachineSettings();
+  }
+
+  // 🚀 SettingsManager에서 장비 제원 불러오기
+  Future<void> _loadMachineSettings() async {
+    final data = await SettingsManager.loadSettings();
+    if (mounted) {
+      setState(() {
+        _machineRadius = data['bendRadius'] ?? 0.0;
+        _machineGain = data['gain'] ?? 0.0; // 주로 90도 기준 연신율
+        _userOffsetShrink = data['offsetShrink'] ?? 0.0;
+      });
+    }
   }
 
   @override
@@ -113,7 +136,6 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     Navigator.pop(context);
   }
 
-  // 🚀 [수정] 가로 3칸 x 세로 2칸 Grid 배열 방향 선택기
   Widget _buildDirectionSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,16 +226,50 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     bool inverseError = false;
 
     if (t > 0 && h > 0) {
-      if (h > t)
+      if (h > t) {
         inverseError = true;
-      else
+      } else {
         calcAngle = math.asin(h / t) * 180.0 / math.pi;
+      }
+    }
+
+    // 🚀 [추가] 정밀 수학 계산 로직 (수축량 및 2포인트 연신율 산출)
+    double targetAngle = _tabController.index == 0 ? a : calcAngle;
+    double targetTravel = _tabController.index == 0 ? calcTravel : t;
+
+    double geometricShrink = 0.0;
+    double totalGain = 0.0;
+
+    if (targetAngle > 0 && targetAngle < 90 && h > 0 && targetTravel > 0) {
+      double rad = targetAngle * math.pi / 180.0;
+
+      // 1. 오프셋 축소량(Shrink) = 빗변(Travel) - 바닥변(Run)
+      double run = h / math.tan(rad);
+      geometricShrink = targetTravel - run;
+
+      // 만약 사용자가 설정에서 강제로 여유분을 줬다면 합산
+      if (_userOffsetShrink > 0) {
+        geometricShrink += _userOffsetShrink;
+      }
+
+      // 2. 연신율(Gain) = (2 * Setback) - ArcLength
+      // 오프셋은 밴드가 2개이므로 x2를 해줍니다.
+      double gainPerBend = 0.0;
+      if (_machineRadius > 0) {
+        // 정밀 반경 공식 적용
+        double setback = _machineRadius * math.tan(rad / 2);
+        double arcLength = math.pi * _machineRadius * targetAngle / 180.0;
+        gainPerBend = (2 * setback) - arcLength;
+      } else if (_machineGain > 0) {
+        // R값을 모를 경우 90도 Gain값을 각도 비례로 단순 계산
+        gainPerBend = _machineGain * (targetAngle / 90.0);
+      }
+      totalGain = gainPerBend * 2;
     }
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: Container(
-        // 🚀 고정 높이를 없애고 내용물에 맞게(wrap) 조정
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
@@ -224,7 +280,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
         ),
         child: SingleChildScrollView(
           child: Column(
-            mainAxisSize: MainAxisSize.min, // 🚀 빈 여백 제거의 핵심!
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -281,8 +337,6 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                 ],
               ),
               const SizedBox(height: 16),
-
-              // 🚀 탭바뷰 대신 AnimatedBuilder로 감싸서 높이가 다이나믹하게 변하도록 수정 (여백 완벽 제거)
               AnimatedBuilder(
                 animation: _tabController,
                 builder: (context, _) {
@@ -312,13 +366,15 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                               ],
                             ),
                             const SizedBox(height: 24),
-                            _buildDirectionSelector(), // 🚀 방향 선택기를 하단에 배치!
+                            _buildDirectionSelector(),
                             const SizedBox(height: 12),
                             _buildInvertToggle(),
                             const SizedBox(height: 16),
                             _buildResultBox(
                               title: "계산된 빗변 (Travel)",
                               value: calcTravel,
+                              shrink: geometricShrink,
+                              gain: totalGain,
                               btnText: "적용",
                               onPressed: () => _applyBending(a, calcTravel),
                             ),
@@ -359,13 +415,15 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                                 ),
                               ),
                             const SizedBox(height: 24),
-                            _buildDirectionSelector(), // 🚀 방향 선택기를 하단에 배치!
+                            _buildDirectionSelector(),
                             const SizedBox(height: 12),
                             _buildInvertToggle(),
                             const SizedBox(height: 16),
                             _buildResultBox(
                               title: "계산된 각도 (∠)",
                               value: calcAngle,
+                              shrink: geometricShrink,
+                              gain: totalGain,
                               btnText: "적용",
                               isError: inverseError,
                               isAngle: true,
@@ -502,9 +560,12 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     );
   }
 
+  // 🚀 결과창을 완전히 업그레이드하여 다양한 정보를 표기
   Widget _buildResultBox({
     required String title,
     required double value,
+    required double shrink,
+    required double gain,
     required String btnText,
     required VoidCallback onPressed,
     bool isError = false,
@@ -517,55 +578,134 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: makitaTeal.withOpacity(0.3)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: slate600,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        value > 0 && !isError
+                            ? "${value.toStringAsFixed(1)} ${isAngle ? "°" : "mm"}"
+                            : "입력 대기",
+                        style: TextStyle(
+                          color: value > 0 && !isError
+                              ? makitaTeal
+                              : Colors.redAccent,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: makitaTeal,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
+                ),
+                onPressed: onPressed,
+                child: Text(
+                  btnText,
                   style: const TextStyle(
-                    color: slate600,
-                    fontSize: 12,
+                    color: pureWhite,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    value > 0 && !isError
-                        ? "${value.toStringAsFixed(1)} ${isAngle ? "°" : "mm"}"
-                        : "입력 대기",
-                    style: TextStyle(
-                      color: value > 0 && !isError
-                          ? makitaTeal
-                          : Colors.redAccent,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      fontFamily: 'monospace',
-                    ),
+              ),
+            ],
+          ),
+          // 🚀 추가 정보 패널 (축소량 및 연신율)
+          if (value > 0 && !isError) ...[
+            const SizedBox(height: 16),
+            const Divider(color: Colors.black12, height: 1),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "오프셋 축소량",
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.redAccent,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "+${shrink.toStringAsFixed(1)} mm",
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.redAccent,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                      const Text(
+                        "(총 기장에 더함)",
+                        style: TextStyle(fontSize: 10, color: Colors.black54),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(width: 1, height: 30, color: Colors.black12),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "2포인트 연신율 (Gain)",
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "-${gain.toStringAsFixed(1)} mm",
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange.shade800,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                      const Text(
+                        "(절단 기장에서 뺌)",
+                        style: TextStyle(fontSize: 10, color: Colors.black54),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: 12),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: makitaTeal,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-            ),
-            onPressed: onPressed,
-            child: Text(
-              btnText,
-              style: const TextStyle(
-                color: pureWhite,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
+          ],
         ],
       ),
     );

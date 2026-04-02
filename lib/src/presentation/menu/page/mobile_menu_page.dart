@@ -10,241 +10,226 @@ import 'package:tubing_calculator/src/presentation/fabrication/screens/qr_scanne
 import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_only_screen.dart';
 
 // 🚀 자재 관리 임포트
-import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_login.dart'; // 관리자 등록용
-import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_status_page.dart'; // 불출/반납용 (현황)
+import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_login.dart';
+import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_status_page.dart';
+import 'package:tubing_calculator/src/presentation/material/material_order_page.dart'; // 🔥 신규 발주 페이지 임포트
 
-const Color makitaTeal = Color(0xFF007580);
-const Color slate900 = Color(0xFF0F172A);
-const Color slate600 = Color(0xFF475569);
-const Color slate100 = Color(0xFFF1F5F9);
+// 🎨 토스 스타일 무채색 팔레트
+const Color slate900 = Color(0xFF191F28); // 아주 진한 검정 (타이틀용)
+const Color slate600 = Color(0xFF8B95A1); // 부드러운 회색 (서브타이틀용)
+const Color slate100 = Color(0xFFF2F4F6); // 아주 연한 회색 (배경용)
 const Color pureWhite = Color(0xFFFFFFFF);
 
 class MobileMenuPage extends StatelessWidget {
-  // 🚀 핵심 변경 사항: 로그인 화면에서 전달받을 작업자 이름 변수
   final String currentWorker;
 
-  // 🚀 생성자에 required를 추가하여 반드시 이름을 전달받도록 강제합니다.
   const MobileMenuPage({super.key, required this.currentWorker});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: slate100,
+      backgroundColor: pureWhite, // 전체 배경을 순백색으로
       body: SafeArea(
         bottom: false,
         child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeader(),
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
+
+              // 🌟 현장 작업 그룹
               const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24.0),
+                padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
                 child: Text(
-                  "작업 모드 선택",
+                  "현장 작업",
                   style: TextStyle(
                     color: slate600,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Column(
-                  children: [
-                    // 1. 현장 작업용 QR 스캔 버튼
-                    _buildMenuButton(
-                      context: context,
-                      title: "현장 도면 스캔 (QR)",
-                      subtitle: "오프라인 지시서 스캔 후 3D 뷰어 즉시 실행",
-                      icon: Icons.qr_code_scanner,
-                      color: Colors.deepPurple,
-                      onTap: () async {
-                        HapticFeedback.lightImpact();
+              _buildMenuButton(
+                context: context,
+                title: "현장 도면 스캔 (QR)",
+                subtitle: "오프라인 지시서 스캔 후 3D 뷰어 실행",
+                icon: Icons.qr_code_scanner_rounded,
+                onTap: () async {
+                  HapticFeedback.lightImpact();
+                  final String? scannedData = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const QRScannerPage(),
+                    ),
+                  );
 
-                        final String? scannedData = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const QRScannerPage(),
-                          ),
-                        );
+                  if (scannedData != null && context.mounted) {
+                    try {
+                      Uri uri = Uri.parse(scannedData);
+                      String project =
+                          uri.queryParameters['p'] ?? "Scanned Project";
+                      String pipeSize = uri.queryParameters['s'] ?? "1/4\"";
+                      String bendsStr = uri.queryParameters['b'] ?? "";
+                      bool startFit = uri.queryParameters['sf'] == 'true';
+                      bool endFit = uri.queryParameters['ef'] == 'true';
+                      double tail =
+                          double.tryParse(uri.queryParameters['t'] ?? '0.0') ??
+                          0.0;
+                      String startDir = uri.queryParameters['d'] ?? 'RIGHT';
+                      List<Map<String, double>> parsedBends = [];
 
-                        if (scannedData != null && context.mounted) {
-                          try {
-                            Uri uri = Uri.parse(scannedData);
-
-                            String project =
-                                uri.queryParameters['p'] ?? "Scanned Project";
-                            String pipeSize =
-                                uri.queryParameters['s'] ?? "1/4\"";
-                            String bendsStr = uri.queryParameters['b'] ?? "";
-
-                            bool startFit = uri.queryParameters['sf'] == 'true';
-                            bool endFit = uri.queryParameters['ef'] == 'true';
-                            double tail =
-                                double.tryParse(
-                                  uri.queryParameters['t'] ?? '0.0',
-                                ) ??
-                                0.0;
-                            String startDir =
-                                uri.queryParameters['d'] ?? 'RIGHT';
-
-                            List<Map<String, double>> parsedBends = [];
-
-                            if (bendsStr.isNotEmpty) {
-                              final parts = bendsStr.split('-');
-                              for (var part in parts) {
-                                final vals = part.split('_');
-                                if (vals.length >= 3) {
-                                  double length =
-                                      double.tryParse(vals[0]) ?? 0.0;
-                                  double angle =
-                                      double.tryParse(vals[1]) ?? 0.0;
-                                  double rotation =
-                                      double.tryParse(vals[2]) ?? 0.0;
-                                  double mark = 0.0;
-
-                                  if (vals.length >= 4) {
-                                    mark = double.tryParse(vals[3]) ?? 0.0;
-                                  }
-
-                                  parsedBends.add({
-                                    'length': length,
-                                    'angle': angle,
-                                    'rotation': rotation,
-                                    'mark': mark,
-                                  });
-                                }
-                              }
+                      if (bendsStr.isNotEmpty) {
+                        final parts = bendsStr.split('-');
+                        for (var part in parts) {
+                          final vals = part.split('_');
+                          if (vals.length >= 3) {
+                            double length = double.tryParse(vals[0]) ?? 0.0;
+                            double angle = double.tryParse(vals[1]) ?? 0.0;
+                            double rotation = double.tryParse(vals[2]) ?? 0.0;
+                            double mark = 0.0;
+                            if (vals.length >= 4) {
+                              mark = double.tryParse(vals[3]) ?? 0.0;
                             }
-
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ViewerOnlyScreen(
-                                  project: project,
-                                  pipeSize: pipeSize,
-                                  bendList: parsedBends,
-                                  startFit: startFit,
-                                  endFit: endFit,
-                                  tailLength: tail,
-                                  startDir: startDir,
-                                ),
-                              ),
-                            );
-                          } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("QR 코드 데이터를 해석할 수 없습니다."),
-                              ),
-                            );
+                            parsedBends.add({
+                              'length': length,
+                              'angle': angle,
+                              'rotation': rotation,
+                              'mark': mark,
+                            });
                           }
                         }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // 2. 스와이프형 모바일 계산기 버튼
-                    _buildMenuButton(
-                      context: context,
-                      title: "모바일 계산기",
-                      subtitle: "스마트폰 최적화 · 단계별 치수 입력",
-                      icon: Icons.swipe_right_alt,
-                      color: Colors.teal.shade700,
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const MobileCalculatorPage(),
+                      }
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ViewerOnlyScreen(
+                            project: project,
+                            pipeSize: pipeSize,
+                            bendList: parsedBends,
+                            startFit: startFit,
+                            endFit: endFit,
+                            tailLength: tail,
+                            startDir: startDir,
                           ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // 3. 벤딩 리모컨 버튼
-                    _buildMenuButton(
-                      context: context,
-                      title: "벤딩 리모컨",
-                      subtitle: "스마트폰 권장 · 수치 전송용 리모컨",
-                      icon: Icons.precision_manufacturing,
-                      color: const Color(0xFF00606B),
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const MobileRemotePage(),
+                        ),
+                      );
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text(
+                            "QR 코드 데이터를 해석할 수 없어요.",
+                            style: TextStyle(fontWeight: FontWeight.bold),
                           ),
-                        );
-                      },
+                          backgroundColor: Colors.redAccent.shade400,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+              _buildMenuButton(
+                context: context,
+                title: "수동 벤더 계산기",
+                subtitle: "스마트폰 최적화 · 단계별 치수 입력",
+                icon: Icons.calculate_outlined,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MobileCalculatorPage(),
                     ),
-
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24.0),
-                      child: Divider(height: 1, color: Colors.black12),
+                  );
+                },
+              ),
+              _buildMenuButton(
+                context: context,
+                title: "벤딩 리모컨",
+                subtitle: "수치 전송용 리모컨 (스마트폰 권장)",
+                icon: Icons.settings_remote_rounded,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MobileRemotePage(),
                     ),
+                  );
+                },
+              ),
 
-                    const Text(
-                      "자재 관리 시스템",
-                      style: TextStyle(
-                        color: slate600,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+              const SizedBox(height: 32),
+              const Divider(
+                height: 1,
+                color: slate100,
+                thickness: 8,
+              ), // 굵고 연한 구분선
+              const SizedBox(height: 24),
 
-                    // 🚀 4. 자재 현황 및 불출/반납 버튼
-                    _buildMenuButton(
-                      context: context,
-                      title: "자재 현황 (불출 / 반납)",
-                      subtitle: "현재 재고 확인 및 현장 자재 입출고 처리",
-                      icon: Icons.fact_check_outlined,
-                      color: const Color(0xFF2563EB), // 파란색
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            // 🚀 전달받은 작업자 이름(currentWorker)을 그대로 넘겨줍니다.
-                            builder: (context) => MobileInventoryStatusPage(
-                              workerName: currentWorker,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // 🚀 5. 자재 관리자 전용 버튼 (마스터 등록)
-                    _buildMenuButton(
-                      context: context,
-                      title: "자재 마스터 관리",
-                      subtitle: "관리자 전용 · 신규 자재 등록 및 삭제",
-                      icon: Icons.admin_panel_settings,
-                      color: const Color(0xFFD97706), // 주황색
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                const MobileInventoryLoginScreen(),
-                          ),
-                        );
-                      },
-                    ),
-
-                    const SizedBox(height: 40),
-                  ],
+              // 🌟 자재 관리 그룹
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                child: Text(
+                  "자재 관리",
+                  style: TextStyle(
+                    color: slate600,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
+              // 🔥 신규 추가된 자재 발주 관리 메뉴
+              _buildMenuButton(
+                context: context,
+                title: "자재 발주 및 현황",
+                subtitle: "신규 자재 발주 요청 및 배송 상태 확인",
+                icon: Icons.local_shipping_outlined,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MaterialOrderPage(),
+                    ),
+                  );
+                },
+              ),
+              _buildMenuButton(
+                context: context,
+                title: "자재 현황 (불출 / 반납)",
+                subtitle: "현재 재고 확인 및 현장 자재 입출고 처리",
+                icon: Icons.inventory_2_outlined,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          MobileInventoryStatusPage(workerName: currentWorker),
+                    ),
+                  );
+                },
+              ),
+              _buildMenuButton(
+                context: context,
+                title: "자재 마스터 관리",
+                subtitle: "관리자 전용 · 신규 자재 등록 및 삭제",
+                icon: Icons.admin_panel_settings_outlined,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MobileInventoryLoginScreen(),
+                    ),
+                  );
+                },
+              ),
+
+              const SizedBox(height: 60),
             ],
           ),
         ),
@@ -252,146 +237,106 @@ class MobileMenuPage extends StatelessWidget {
     );
   }
 
-  // 🌟 상단 마키타 테마 헤더
+  // 🌟 토스 감성: 큼직하고 시원한 타이포그래피 헤더 (색상 박스 제거)
   Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.only(left: 24, right: 24, top: 40, bottom: 40),
-      decoration: BoxDecoration(
-        color: makitaTeal,
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(32),
-          bottomRight: Radius.circular(32),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: makitaTeal.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 40, 24, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: pureWhite.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(20),
+          Text(
+            "$currentWorker님,\n오늘도 안전 작업하세요",
+            style: const TextStyle(
+              color: slate900,
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.5,
+              height: 1.4,
             ),
-            child: const Icon(Icons.rocket_launch, size: 36, color: pureWhite),
           ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "TUBING SYSTEM",
-                  style: TextStyle(
-                    color: pureWhite,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1,
-                  ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: Colors.green.shade500, // 연결 상태 점만 살짝 컬러
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Colors.greenAccent,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // 🚀 헤더에 현재 로그인한 작업자 이름을 표시해주는 센스 추가!
-                    Text(
-                      "DB 서버 연결됨 - 환영합니다, $currentWorker님",
-                      style: TextStyle(
-                        color: pureWhite.withOpacity(0.8),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                "메인 서버 연결됨",
+                style: TextStyle(
+                  color: slate600,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  // 🌟 화이트 테마 카드 메뉴 버튼
+  // 🌟 무채색 + 선 없는 깔끔한 리스트 아이템
   Widget _buildMenuButton({
     required BuildContext context,
     required String title,
     required String subtitle,
     required IconData icon,
-    required Color color,
     required VoidCallback onTap,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: pureWhite,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, size: 32, color: color),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: slate900,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(fontSize: 13, color: slate600),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  color: Colors.grey.shade400,
-                  size: 16,
-                ),
-              ],
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        child: Row(
+          children: [
+            // 💡 알록달록한 색을 빼고 세련된 무채색 원형 배경 적용
+            Container(
+              width: 56,
+              height: 56,
+              decoration: const BoxDecoration(
+                color: slate100, // 아주 연한 회색 배경
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 28, color: slate900), // 진한 회색/검정 아이콘
             ),
-          ),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: slate900,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: slate600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: slate600.withOpacity(0.5),
+              size: 28,
+            ),
+          ],
         ),
       ),
     );

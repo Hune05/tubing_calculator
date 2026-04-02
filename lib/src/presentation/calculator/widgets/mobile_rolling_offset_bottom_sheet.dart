@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:math' as math;
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
+import 'package:tubing_calculator/src/core/utils/settings_manager.dart'; // 🚀 SettingsManager 임포트 추가
 
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
@@ -44,6 +45,7 @@ class _MobileRollingOffsetBottomSheetState
     extends State<MobileRollingOffsetBottomSheet> {
   bool _isReverseMode = false;
   double? _selectedRotation;
+  double _bendRadius = 0.0; // 🚀 설정화면에서 불러올 R값 저장 변수
 
   final TextEditingController _riseCtrl = TextEditingController(text: "150");
   final TextEditingController _rollCtrl = TextEditingController(text: "200");
@@ -62,10 +64,25 @@ class _MobileRollingOffsetBottomSheetState
   @override
   void initState() {
     super.initState();
+    _loadSettings(); // 🚀 초기화 시 설정값 불러오기
     _riseCtrl.addListener(() => setState(() {}));
     _rollCtrl.addListener(() => setState(() {}));
     _travelCtrl.addListener(() => setState(() {}));
     _angleCtrl.addListener(() => setState(() {}));
+  }
+
+  // 🚀 설정 파일에서 벤더 R값 끌어오는 함수
+  Future<void> _loadSettings() async {
+    try {
+      final data = await SettingsManager.loadSettings();
+      if (mounted) {
+        setState(() {
+          _bendRadius = data['bendRadius'] ?? 0.0;
+        });
+      }
+    } catch (e) {
+      debugPrint("설정값 로드 실패: $e");
+    }
   }
 
   @override
@@ -224,6 +241,20 @@ class _MobileRollingOffsetBottomSheetState
       }
     }
 
+    // 🚀 [추가] 테이크오프(Take-off) 및 최종 마킹 거리 계산 로직
+    double takeOff = 0;
+    double markingDistance = 0;
+
+    if (_bendRadius > 0 && finalBendAngle > 0) {
+      // 공식: R * tan(각도/2)
+      takeOff =
+          _bendRadius * math.tan((finalBendAngle / 2.0) * (math.pi / 180.0));
+      if (finalTravel > 0) {
+        // 실제 마킹 거리 = 도면상 빗변 - 공제량
+        markingDistance = finalTravel - takeOff;
+      }
+    }
+
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: Container(
@@ -365,7 +396,7 @@ class _MobileRollingOffsetBottomSheetState
               _buildDirectionSelector(),
               const SizedBox(height: 16),
 
-              // 🚀 [핵심 수정] 가이드와 결과값을 위아래로 넓게 분리
+              // 🚀 [UI 핵심 수정] 계산 결과 및 실무용 마킹 데이터 영역
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -382,7 +413,7 @@ class _MobileRollingOffsetBottomSheetState
                         Icon(Icons.info_outline, color: makitaTeal, size: 16),
                         SizedBox(width: 6),
                         Text(
-                          "보조 계산 지표",
+                          "기하학적 계산 지표",
                           style: TextStyle(
                             color: makitaTeal,
                             fontWeight: FontWeight.bold,
@@ -420,9 +451,94 @@ class _MobileRollingOffsetBottomSheetState
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
 
-                    // 2. 메인 결과 및 적용 버튼 영역 (아래쪽)
+                    // 🚀 2. [신규] 현장 실무용 오차 보정 마킹 데이터 영역
+                    if (_bendRadius > 0 && finalTravel > 0) ...[
+                      const Row(
+                        children: [
+                          Icon(
+                            Icons.construction,
+                            color: Colors.deepOrange,
+                            size: 16,
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            "현장 마킹 제원 (설정 R값 적용)",
+                            style: TextStyle(
+                              color: Colors.deepOrange,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.deepOrange.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.deepOrange.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "공제량 (Take-off)",
+                                  style: TextStyle(
+                                    color: Colors.deepOrange.shade800,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  "- ${takeOff.toStringAsFixed(1)} mm",
+                                  style: const TextStyle(
+                                    color: Colors.redAccent,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  "실제 마킹 간격",
+                                  style: TextStyle(
+                                    color: Colors.deepOrange.shade800,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  "${markingDistance.toStringAsFixed(1)} mm",
+                                  style: const TextStyle(
+                                    color: Colors.deepOrange,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+
+                    // 3. 메인 결과 및 적용 버튼 영역 (아래쪽)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -433,7 +549,7 @@ class _MobileRollingOffsetBottomSheetState
                             Text(
                               _isReverseMode
                                   ? "목표 벤딩 각도 (∠)"
-                                  : "필요한 빗변 (Travel)",
+                                  : "이론 빗변 (Travel)",
                               style: const TextStyle(
                                 color: slate600,
                                 fontSize: 13,
@@ -479,10 +595,10 @@ class _MobileRollingOffsetBottomSheetState
                               rollAngle,
                             ),
                             child: const Text(
-                              "적용",
+                              "도면 적용",
                               style: TextStyle(
                                 color: pureWhite,
-                                fontSize: 16,
+                                fontSize: 15,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -500,7 +616,7 @@ class _MobileRollingOffsetBottomSheetState
     );
   }
 
-  // 🚀 미니 결과값 위젯 (보조 지표용)
+  // 🚀 미니 결과값 위젯
   Widget _buildMiniResult(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

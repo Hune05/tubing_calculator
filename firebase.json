@@ -1,1 +1,39 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"tubing-calculator","appId":"1:289974993415:android:3ed9f1e59ff92663d9e0a2","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"tubing-calculator","configurations":{"android":"1:289974993415:android:3ed9f1e59ff92663d9e0a2","ios":"1:289974993415:ios:58f49e5ab65130efd9e0a2","macos":"1:289974993415:ios:58f49e5ab65130efd9e0a2","web":"1:289974993415:web:6976dcaf790fe0ead9e0a2","windows":"1:289974993415:web:c8025b73030df1bdd9e0a2"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "tubing-calculator",
+          "appId": "1:289974993415:android:3ed9f1e59ff92663d9e0a2",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "tubing-calculator",
+          "configurations": {
+            "android": "1:289974993415:android:3ed9f1e59ff92663d9e0a2",
+            "ios": "1:289974993415:ios:58f49e5ab65130efd9e0a2",
+            "macos": "1:289974993415:ios:58f49e5ab65130efd9e0a2",
+            "web": "1:289974993415:web:6976dcaf790fe0ead9e0a2",
+            "windows": "1:289974993415:web:c8025b73030df1bdd9e0a2"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "disallowLegacyRuntimeConfig": true,
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ]
+}

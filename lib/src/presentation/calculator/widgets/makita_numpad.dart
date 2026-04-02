@@ -5,6 +5,7 @@ const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
 const Color slate600 = Color(0xFF475569);
 const Color slate200 = Color(0xFFE2E8F0);
+const Color slate100 = Color(0xFFF1F5F9); // 🚀 이 줄을 추가해 주세요!
 const Color slate50 = Color(0xFFF8FAFC);
 const Color pureWhite = Color(0xFFFFFFFF);
 
@@ -20,7 +21,6 @@ class MakitaNumpad extends StatefulWidget {
     this.title = "수치 입력",
   });
 
-  // 🚀 [Lint 에러 해결] void -> Future<void> 로 변경하고 return 추가
   static Future<void> show(
     BuildContext context, {
     required TextEditingController controller,
@@ -35,17 +35,12 @@ class MakitaNumpad extends StatefulWidget {
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
         child: Container(
-          height: 480,
-          decoration: BoxDecoration(
-            color: slate50,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 10,
-                offset: const Offset(0, -2),
-              ),
-            ],
+          height: 500, // 여백을 위해 높이를 살짝 확보
+          decoration: const BoxDecoration(
+            color: pureWhite, // 토스 스타일의 깨끗한 퓨어 화이트
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(32),
+            ), // 더 둥근 모서리
           ),
           child: MakitaNumpad(
             controller: controller,
@@ -62,14 +57,11 @@ class MakitaNumpad extends StatefulWidget {
 }
 
 class _MakitaNumpadState extends State<MakitaNumpad> {
-  // 🚀 첫 터치 시 기존 값을 지우기 위한 상태값
   bool _isFirstPress = true;
 
   @override
   void didUpdateWidget(covariant MakitaNumpad oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 💡 핵심 수정: 텍스트가 같더라도(예: 1번 라인 100, 2번 라인 100)
-    // title("#1 적용" -> "#2 적용")이 바뀌면 무조건 새로운 입력으로 간주하고 초기화합니다.
     if (oldWidget.title != widget.title ||
         oldWidget.controller.text != widget.controller.text) {
       _isFirstPress = true;
@@ -86,10 +78,8 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
         if (text.isNotEmpty) {
           widget.controller.text = text.substring(0, text.length - 1);
         }
-        // 지우기 버튼을 누르면 이어서 수정하려는 의도이므로 덮어쓰기 해제
         _isFirstPress = false;
       } else {
-        // 🚀 첫 터치 시 기존 값을 완전히 지우고 새로 입력
         if (_isFirstPress) {
           widget.controller.text = '';
           _isFirstPress = false;
@@ -113,54 +103,57 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
     });
   }
 
+  // 🔥 토스/애플 스타일의 평면적이고 세련된 버튼 빌더
   Widget _buildButton(
     String label, {
-    Color? color,
     Color? textColor,
+    bool isAction = false,
+    bool isPrimary = false,
     int flex = 1,
   }) {
-    Color bgColor = color ?? pureWhite;
-    Color txtColor = textColor ?? (color == null ? slate900 : pureWhite);
-
-    if (label == '.') {
-      bgColor = slate200;
-      txtColor = slate900;
-    }
-
     return Expanded(
       flex: flex,
       child: Padding(
-        padding: const EdgeInsets.all(4.0),
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: bgColor,
-            foregroundColor: txtColor,
-            elevation: color == null ? 1 : 2,
-            shadowColor: color != null
-                ? color.withValues(alpha: 0.4)
-                : Colors.black.withValues(alpha: 0.2),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-            padding: EdgeInsets.zero,
-          ),
-          onPressed: () {
-            if (label == '적용') {
-              widget.onApply?.call();
-            } else {
-              _onKeyPressed(label);
-            }
-          },
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: (label == '적용' || label == 'C' || label == 'DEL')
-                  ? 16
-                  : 24,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
+        padding: const EdgeInsets.all(6.0), // 버튼 간 여유 공간
+        child: isPrimary
+            ? ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: makitaTeal,
+                  foregroundColor: pureWhite,
+                  elevation: 0, // 그림자 완전 제거
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24), // 세련된 알약 모양
+                  ),
+                ),
+                onPressed: () => widget.onApply?.call(),
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+              )
+            : TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: textColor ?? slate900, // 기본 숫자 색상 (다크)
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  padding: EdgeInsets.zero,
+                ),
+                onPressed: () => _onKeyPressed(label),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: isAction ? 20 : 28, // 숫자는 거대하게
+                    fontWeight: isAction ? FontWeight.w600 : FontWeight.w400,
+                    fontFamily: isAction ? null : 'monospace', // 숫자는 깔끔한 고정폭
+                  ),
+                ),
+              ),
       ),
     );
   }
@@ -168,73 +161,67 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-      decoration: BoxDecoration(
-        color: slate50,
-        borderRadius: BorderRadius.circular(12),
-      ),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
       child: Column(
         children: [
+          // 🚀 헤더 영역
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 widget.title,
                 style: const TextStyle(
-                  color: makitaTeal,
+                  color: slate900, // 너무 튀지 않게 진한 차콜색으로
                   fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
                 ),
               ),
               if (widget.onApply != null)
-                SizedBox(
-                  height: 24,
-                  width: 24,
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.close, color: slate600, size: 20),
-                    onPressed: widget.onApply,
+                GestureDetector(
+                  onTap: widget.onApply,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: slate100, // 은은한 회색 원형 배경
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.close, color: slate600, size: 18),
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 12),
 
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: slate200,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade300, width: 1.0),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 2,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-            child: AnimatedBuilder(
-              animation: widget.controller,
-              builder: (context, child) {
-                return Text(
+          const Spacer(flex: 1),
+
+          // 🚀 입력 결과 텍스트 (박스 걷어내고 여백 위에 띄움)
+          AnimatedBuilder(
+            animation: widget.controller,
+            builder: (context, child) {
+              return Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
                   widget.controller.text.isEmpty ? '0' : widget.controller.text,
                   style: const TextStyle(
                     color: slate900,
-                    fontSize: 34,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
+                    fontSize: 48, // 압도적인 크기로 가독성 극대화
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -1.5,
+                    fontFamily: 'monospace',
                   ),
-                  textAlign: TextAlign.right,
-                );
-              },
-            ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            },
           ),
-          const SizedBox(height: 16),
 
+          const Spacer(flex: 1),
+
+          // 🚀 키패드 영역
           Expanded(
+            flex: 10,
             child: Column(
               children: [
                 Expanded(
@@ -243,7 +230,11 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
                       _buildButton('7'),
                       _buildButton('8'),
                       _buildButton('9'),
-                      _buildButton('C', color: Colors.orange.shade600),
+                      _buildButton(
+                        'C',
+                        textColor: Colors.orange.shade600,
+                        isAction: true,
+                      ),
                     ],
                   ),
                 ),
@@ -253,7 +244,11 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
                       _buildButton('4'),
                       _buildButton('5'),
                       _buildButton('6'),
-                      _buildButton('DEL', color: Colors.red.shade500),
+                      _buildButton(
+                        'DEL',
+                        textColor: Colors.red.shade500,
+                        isAction: true,
+                      ),
                     ],
                   ),
                 ),
@@ -263,7 +258,7 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
                       _buildButton('1'),
                       _buildButton('2'),
                       _buildButton('3'),
-                      _buildButton('.'),
+                      _buildButton('.', textColor: slate600, isAction: true),
                     ],
                   ),
                 ),
@@ -272,7 +267,11 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
                     children: [
                       _buildButton('00'),
                       _buildButton('0'),
-                      _buildButton('적용', color: makitaTeal, flex: 2),
+                      _buildButton(
+                        '적용',
+                        isPrimary: true,
+                        flex: 2,
+                      ), // 확 눈에 띄는 알약 버튼
                     ],
                   ),
                 ),
