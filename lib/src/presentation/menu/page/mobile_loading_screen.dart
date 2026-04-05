@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // 🚀 오프라인 저장을 위한 패키지
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tubing_calculator/src/presentation/menu/page/mobile_menu_page.dart';
 
 class MobileLoadingScreen extends StatefulWidget {
@@ -13,10 +14,7 @@ class MobileLoadingScreen extends StatefulWidget {
 class _MobileLoadingScreenState extends State<MobileLoadingScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animController;
-
-  // 🚀 구글 로그인 인스턴스 (v7.0)
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
-
   bool _isLoading = true;
 
   @override
@@ -30,19 +28,16 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
     _checkLoginStatus();
   }
 
-  // 💾 기기에 실명 정보 저장
   Future<void> _saveUserData(String name) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_real_name', name);
   }
 
-  // 💾 기기에서 실명 정보 불러오기
   Future<String?> _getSavedName() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('user_real_name');
   }
 
-  // 🚀 앱 시작 시 로그인 상태 확인 (오프라인/온라인 모두 대응)
   Future<void> _checkLoginStatus() async {
     try {
       await _googleSignIn.initialize(
@@ -50,7 +45,6 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
             '289974993415-lhibiid49ncmb5hev53hnasj7vhkvki3.apps.googleusercontent.com',
       );
 
-      // 1. 구글 서버에 자동 로그인 시도
       final GoogleSignInAccount? account = await _googleSignIn
           .attemptLightweightAuthentication();
       await Future.delayed(const Duration(milliseconds: 1500));
@@ -58,62 +52,73 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
       if (!mounted) return;
 
       if (account != null) {
-        // ✨ [온라인 상태] 구글 로그인 성공
+        final GoogleSignInAuthentication googleAuth =
+            await account.authentication;
+        final OAuthCredential credential = GoogleAuthProvider.credential(
+          idToken: googleAuth.idToken,
+        );
+        await FirebaseAuth.instance.signInWithCredential(credential);
+
         String? savedName = await _getSavedName();
         if (savedName != null) {
-          // 기기에 저장된 이름이 있으면 팝업 없이 패스
           _navigateToMainMenu(savedName);
         } else {
-          // 저장된 이름이 없으면 최초 1회 실명 팝업 호출
           await _showNameConfirmDialog(account);
         }
       } else {
-        // 구글 로그인 정보가 아예 없음 (로그아웃 상태)
         setState(() => _isLoading = false);
       }
     } catch (e) {
-      // 🚨 [오프라인 상태 / 통신 에러 발생 시] 🚨
+      print("🚨 자동 로그인 에러: $e");
       if (!mounted) return;
 
       String? savedName = await _getSavedName();
       if (savedName != null) {
-        // 인터넷은 끊겼지만, 기기에 저장된 이름이 있다면 지하(오프라인)로 간주하고 통과!
         _showOfflineLoginSnackBar();
         _navigateToMainMenu(savedName);
       } else {
-        // 인터넷도 안 되고 로그인 기록도 없으면 수동 로그인 창으로
+        // 🔥 [해결] 에러 나도 막지 않고 로딩 풀어서 수동 버튼 누를 수 있게 함
         setState(() => _isLoading = false);
-        _showErrorSnackBar("네트워크 연결을 확인해주세요. (최초 1회 로그인은 인터넷 연결 필요)");
       }
     }
   }
 
-  // 🚀 사용자가 탭해서 수동 로그인 시도
   Future<void> _handleManualSignIn() async {
     try {
-      final GoogleSignInAccount account = await _googleSignIn.authenticate();
+      final GoogleSignInAccount? account = await _googleSignIn.authenticate();
 
-      if (!mounted) return;
-      await _showNameConfirmDialog(account);
+      if (account != null) {
+        final GoogleSignInAuthentication googleAuth =
+            await account.authentication;
+        final OAuthCredential credential = GoogleAuthProvider.credential(
+          idToken: googleAuth.idToken,
+        );
+        await FirebaseAuth.instance.signInWithCredential(credential);
+
+        if (!mounted) return;
+        await _showNameConfirmDialog(account);
+      }
     } catch (error) {
-      // 🚨 지하에서 버튼을 눌렀을 때의 대비책
+      print("🚨 수동 로그인 에러: $error");
       if (!mounted) return;
+
       String? savedName = await _getSavedName();
       if (savedName != null) {
         _showOfflineLoginSnackBar();
         _navigateToMainMenu(savedName);
       } else {
-        _showErrorSnackBar("인터넷 연결이 필요합니다.");
+        // 🔥 [해결] 로그인 실패하고 저장된 이름도 없을 때, 튕겨내지 않고 억지로 이름 입력창을 띄움!!!
+        _showErrorSnackBar("구글 로그인 실패: 오프라인 모드로 강제 진입합니다.");
+        await _showNameConfirmDialog(null); // account 없이 다이얼로그 호출
       }
     }
   }
 
-  // 알림창 기능들
   void _showOfflineLoginSnackBar() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          "📡 오프라인 모드로 접속했습니다. (기존 정보 사용)",
+          "📡 오프라인 모드로 접속했습니다.",
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.orange,
@@ -128,10 +133,10 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
     );
   }
 
-  // 🚀 예쁜 실명 확인 팝업창 (UI 복구)
-  Future<void> _showNameConfirmDialog(GoogleSignInAccount account) async {
+  // 🚀 [해결] account가 null(로그인 실패)이어도 무조건 창이 뜨도록 수정
+  Future<void> _showNameConfirmDialog(GoogleSignInAccount? account) async {
     TextEditingController nameController = TextEditingController(
-      text: account.displayName ?? "",
+      text: account?.displayName ?? "",
     );
 
     await showDialog(
@@ -143,7 +148,7 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
             borderRadius: BorderRadius.circular(16),
           ),
           title: const Text(
-            "작업자 실명 확인",
+            "작업자 실명 입력 (오프라인 가능)",
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           content: Column(
@@ -170,7 +175,7 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
                 onSubmitted: (value) async {
                   String realName = value.trim();
                   if (realName.isNotEmpty) {
-                    await _saveUserData(realName); // 기기에 저장
+                    await _saveUserData(realName);
                     if (context.mounted) {
                       Navigator.pop(context);
                       _navigateToMainMenu(realName);
@@ -196,7 +201,7 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
               onPressed: () async {
                 String realName = nameController.text.trim();
                 if (realName.isNotEmpty) {
-                  await _saveUserData(realName); // 🚀 기기에 저장!
+                  await _saveUserData(realName);
                   if (context.mounted) {
                     Navigator.pop(context);
                     _navigateToMainMenu(realName);
@@ -285,7 +290,7 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
                 FadeTransition(
                   opacity: _animController,
                   child: const Text(
-                    "- TAP TO LOGIN WITH GOOGLE -",
+                    "- TAP TO START -",
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,

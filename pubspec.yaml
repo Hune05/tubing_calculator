@@ -22,7 +22,7 @@ dependencies:
   wakelock_plus: ^1.4.0
   vector_math: ^2.2.0
   
-  # 🚀 [추가됨] OCR(글자 인식) 및 카메라 기능
+  # 🚀 OCR(글자 인식) 및 카메라 기능
   image_picker: ^1.2.1
   google_mlkit_text_recognition: ^0.15.1
   
@@ -43,6 +43,11 @@ dependencies:
   firebase_storage: ^13.2.0
   firebase_messaging: ^16.1.3
   flutter_local_notifications: ^21.0.0
+  firebase_auth: ^6.3.0
+
+  # 🔥 [추가됨] 파이어베이스 스토리지 요금 절약을 위한 이미지 압축 패키지
+  flutter_image_compress: ^2.3.0
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
@@ -52,6 +57,8 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # 🚀 폰트 파일 경로
-  assets:
-    - assets/fonts/NotoSansKR-VariableFont_wght.ttf
+  # 🚀 폰트 파일 경로 (올바른 방식으로 수정됨)
+  fonts:
+    - family: NotoSansKR
+      fonts:
+        - asset: assets/fonts/NotoSansKR-VariableFont_wght.ttf

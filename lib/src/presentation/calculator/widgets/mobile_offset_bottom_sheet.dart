@@ -49,7 +49,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
   bool _isInverted = false;
   double? _selectedRotation;
 
-  // 🚀 장비 제원 데이터 변수 추가
+  // 🚀 장비 제원 데이터 변수
   double _machineRadius = 0.0;
   double _machineGain = 0.0;
   double _userOffsetShrink = 0.0;
@@ -75,17 +75,15 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     _angleCtrl.addListener(() => setState(() {}));
     _travelCtrl.addListener(() => setState(() {}));
 
-    // 🚀 초기화 시 설정 데이터 불러오기
     _loadMachineSettings();
   }
 
-  // 🚀 SettingsManager에서 장비 제원 불러오기
   Future<void> _loadMachineSettings() async {
     final data = await SettingsManager.loadSettings();
     if (mounted) {
       setState(() {
         _machineRadius = data['bendRadius'] ?? 0.0;
-        _machineGain = data['gain'] ?? 0.0; // 주로 90도 기준 연신율
+        _machineGain = data['gain'] ?? 0.0;
         _userOffsetShrink = data['offsetShrink'] ?? 0.0;
       });
     }
@@ -233,35 +231,34 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
       }
     }
 
-    // 🚀 [추가] 정밀 수학 계산 로직 (수축량 및 2포인트 연신율 산출)
     double targetAngle = _tabController.index == 0 ? a : calcAngle;
     double targetTravel = _tabController.index == 0 ? calcTravel : t;
 
+    // 🚀 [추가] 직선 진행 거리(Run) 변수
+    double calcRun = 0.0;
     double geometricShrink = 0.0;
     double totalGain = 0.0;
 
     if (targetAngle > 0 && targetAngle < 90 && h > 0 && targetTravel > 0) {
       double rad = targetAngle * math.pi / 180.0;
 
-      // 1. 오프셋 축소량(Shrink) = 빗변(Travel) - 바닥변(Run)
-      double run = h / math.tan(rad);
-      geometricShrink = targetTravel - run;
+      // 1. 직선 진행 거리(Run) 계산!
+      calcRun = h / math.tan(rad);
 
-      // 만약 사용자가 설정에서 강제로 여유분을 줬다면 합산
+      // 2. 오프셋 축소량(Shrink) = 빗변(Travel) - 바닥변(Run)
+      geometricShrink = targetTravel - calcRun;
+
       if (_userOffsetShrink > 0) {
         geometricShrink += _userOffsetShrink;
       }
 
-      // 2. 연신율(Gain) = (2 * Setback) - ArcLength
-      // 오프셋은 밴드가 2개이므로 x2를 해줍니다.
+      // 3. 연신율(Gain) = (2 * Setback) - ArcLength
       double gainPerBend = 0.0;
       if (_machineRadius > 0) {
-        // 정밀 반경 공식 적용
         double setback = _machineRadius * math.tan(rad / 2);
         double arcLength = math.pi * _machineRadius * targetAngle / 180.0;
         gainPerBend = (2 * setback) - arcLength;
       } else if (_machineGain > 0) {
-        // R값을 모를 경우 90도 Gain값을 각도 비례로 단순 계산
         gainPerBend = _machineGain * (targetAngle / 90.0);
       }
       totalGain = gainPerBend * 2;
@@ -373,6 +370,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                             _buildResultBox(
                               title: "계산된 빗변 (Travel)",
                               value: calcTravel,
+                              runDistance: calcRun, // 🚀 Run 추가
                               shrink: geometricShrink,
                               gain: totalGain,
                               btnText: "적용",
@@ -422,6 +420,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                             _buildResultBox(
                               title: "계산된 각도 (∠)",
                               value: calcAngle,
+                              runDistance: calcRun, // 🚀 Run 추가
                               shrink: geometricShrink,
                               gain: totalGain,
                               btnText: "적용",
@@ -560,10 +559,11 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     );
   }
 
-  // 🚀 결과창을 완전히 업그레이드하여 다양한 정보를 표기
+  // 🚀 결과창 업데이트 (Run 영역 추가)
   Widget _buildResultBox({
     required String title,
     required double value,
+    required double runDistance, // 🚀 새로 추가된 파라미터
     required double shrink,
     required double gain,
     required String btnText,
@@ -574,13 +574,14 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: makitaTeal.withOpacity(0.05),
+        color: makitaTeal.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: makitaTeal.withOpacity(0.3)),
+        border: Border.all(color: makitaTeal.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 1. 기존 메인 결과 (Travel 또는 Angle) & 적용 버튼
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -636,11 +637,47 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
               ),
             ],
           ),
-          // 🚀 추가 정보 패널 (축소량 및 연신율)
+
+          // 2. 🚀 [추가됨] 직선 진행 거리(Run)와 추가 연신율/축소량 정보 패널
           if (value > 0 && !isError) ...[
             const SizedBox(height: 16),
             const Divider(color: Colors.black12, height: 1),
             const SizedBox(height: 12),
+
+            // 👉 Run 표시 영역
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "직선 진행 거리 (Run)",
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: slate600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "${runDistance.toStringAsFixed(1)} mm",
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: slate900,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                const Text(
+                  "(바닥을 타고 앞으로 나아간 실제 직선 거리)",
+                  style: TextStyle(fontSize: 10, color: Colors.black54),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+            const Divider(color: Colors.black12, height: 1),
+            const SizedBox(height: 12),
+
+            // 👉 기존 Shrink & Gain 표시 영역
             Row(
               children: [
                 Expanded(

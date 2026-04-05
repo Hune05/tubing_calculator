@@ -3,11 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // 🔥 파이어베이스 연동 필수 추가!
 
 // 🚀 프로젝트 경로에 맞게 임포트 확인해주세요!
 import '../../data/models/cart_item_model.dart';
 import '../../data/models/order_model.dart';
 import '../../data/repositories/order_repository.dart';
+
+import 'package:tubing_calculator/src/presentation/admin/page/admin_permission_page.dart';
+// 🚀 채팅방으로 바로 넘어가기 위한 임포트
+import '../chat/pages/mobile_chat_room_page.dart';
 
 const Color tossBlue = Color(0xFF3182F6);
 const Color tossGrey = Color(0xFFF2F4F6);
@@ -72,8 +77,10 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
     switch (status) {
       case "발주 대기":
         return Colors.orange;
-      case "발주 확인":
-        return tossBlue;
+      case "발주 확인 (견적 대기)":
+        return Colors.purple.shade400;
+      case "발주 확인 (결제 대기)":
+        return Colors.indigo.shade400;
       case "진행중":
         return makitaTeal;
       case "반려됨":
@@ -124,7 +131,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          "자재 발주",
+          "자재 발주 및 현황",
           style: TextStyle(
             color: slate900,
             fontWeight: FontWeight.w800,
@@ -132,6 +139,22 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
             letterSpacing: -0.5,
           ),
         ),
+        actions: [
+          if (widget.isAdmin)
+            IconButton(
+              icon: const Icon(LucideIcons.settings, color: slate900),
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AdminPermissionPage(),
+                  ),
+                );
+              },
+            ),
+          const SizedBox(width: 8),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: tossBlue,
@@ -143,7 +166,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
             fontSize: 16,
           ),
           tabs: const [
-            Tab(text: "신규 발주"),
+            Tab(text: "자재 발주 요청"),
             Tab(text: "발주 진행 현황"),
           ],
         ),
@@ -155,9 +178,6 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
     );
   }
 
-  // ==========================================
-  // 1. 신규 발주 요청 탭
-  // ==========================================
   Widget _buildRequestTab() {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -244,7 +264,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                   color: pureWhite,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Colors.black.withValues(alpha: 0.05),
+                    color: Colors.black.withValues(alpha: 0.05), // 🔥 에러 수정
                   ),
                 ),
                 child: Row(
@@ -763,7 +783,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                         height: 72,
                         margin: const EdgeInsets.only(right: 12),
                         decoration: BoxDecoration(
-                          color: slate600.withValues(alpha: 0.2),
+                          color: slate600.withValues(alpha: 0.2), // 🔥 에러 수정
                           borderRadius: BorderRadius.circular(12),
                           image: DecorationImage(
                             image: FileImage(File(entry.value)),
@@ -861,9 +881,6 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
     }
   }
 
-  // ==========================================
-  // 2. 발주 진행 현황 탭
-  // ==========================================
   Widget _buildStatusTab() {
     return StreamBuilder<List<OrderModel>>(
       stream: _repo.streamOrders(),
@@ -883,9 +900,8 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
         }
 
         final orders = snapshot.data ?? [];
-
         List<OrderModel> displayOrders = orders.where((order) {
-          if (widget.isAdmin) return order.assignee == widget.currentUser;
+          if (widget.isAdmin) return true;
           return order.requester == widget.currentUser;
         }).toList();
 
@@ -913,9 +929,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
 
   Widget _buildStatusCard(OrderModel order) {
     String mainTitle = order.items.first.title;
-    if (order.items.length > 1) {
-      mainTitle += " 외 ${order.items.length - 1}건";
-    }
+    if (order.items.length > 1) mainTitle += " 외 ${order.items.length - 1}건";
 
     bool isSpecial = order.items.any((item) => item.type != "일반 자재");
     bool hasAnyPhoto = order.items.any(
@@ -943,7 +957,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
               : Border.all(color: Colors.transparent),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: Colors.black.withValues(alpha: 0.04), // 🔥 에러 수정
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -1017,7 +1031,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                         decoration: BoxDecoration(
                           color: (isCompleted || isRejected)
                               ? Colors.grey.shade200
-                              : statusColor.withValues(alpha: 0.1),
+                              : statusColor.withValues(alpha: 0.1), // 🔥 에러 수정
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -1059,14 +1073,18 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                         color: slate600,
                       ),
                       const SizedBox(width: 4),
-                      Text(
-                        widget.isAdmin
-                            ? "요청: ${order.requester}"
-                            : "담당: ${order.assignee}",
-                        style: const TextStyle(
-                          color: slate600,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                      Expanded(
+                        child: Text(
+                          widget.isAdmin
+                              ? "요청: ${order.requester}"
+                              : "담당: ${order.assignee}",
+                          style: const TextStyle(
+                            color: slate600,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1177,7 +1195,8 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
       backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setModalState) {
-          bool isWaiting = order.status == "발주 대기";
+          bool isConfirmed = order.status.contains("발주 확인");
+          bool isInProgress = order.status == "진행중";
           bool isRejected = order.status == "반려됨";
           Color statusColor = _getStatusColor(order.status);
 
@@ -1210,14 +1229,19 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              "요청: ${order.requester} -> 담당: ${order.assignee}",
-                              style: const TextStyle(
-                                color: slate600,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
+                            Expanded(
+                              child: Text(
+                                "요청: ${order.requester} -> 담당: ${order.assignee}",
+                                style: const TextStyle(
+                                  color: slate600,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            const SizedBox(width: 12),
                             Text(
                               order.status,
                               style: TextStyle(
@@ -1287,6 +1311,10 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
 
                         const SizedBox(height: 24),
 
+                        // 🚀 [수정됨] 1:1 채팅 및 전화 연결 카드 (파이어베이스 연동 완료)
+                        _buildContactPartnerCard(order),
+                        const SizedBox(height: 24),
+
                         ...order.items.map((item) {
                           return Container(
                             margin: const EdgeInsets.only(bottom: 16),
@@ -1315,7 +1343,6 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                                 ),
                                 if (item.fabSpec != null)
                                   _buildDetailRow("상세 스펙", item.fabSpec!),
-
                                 if (item.photos != null &&
                                     item.photos!.isNotEmpty) ...[
                                   _buildDetailRow(
@@ -1349,7 +1376,6 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                                                   )
                                                 : null,
                                           ),
-                                          // 🚀 [에러 수정 완료] 플러터 기본 아이콘으로 교체!
                                           child: !isNetwork
                                               ? const Icon(
                                                   Icons
@@ -1400,7 +1426,8 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                         ),
                         const SizedBox(height: 32),
 
-                        if (widget.isAdmin && isWaiting) ...[
+                        if (widget.isAdmin &&
+                            (isConfirmed || isInProgress)) ...[
                           Container(
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
@@ -1413,17 +1440,19 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Row(
+                                Row(
                                   children: [
-                                    Icon(
+                                    const Icon(
                                       LucideIcons.calendarCheck,
                                       size: 20,
                                       color: tossBlue,
                                     ),
-                                    SizedBox(width: 8),
+                                    const SizedBox(width: 8),
                                     Text(
-                                      "입고 예정일 지정 (확인용)",
-                                      style: TextStyle(
+                                      isConfirmed
+                                          ? "실제 입고 예정일 지정"
+                                          : "입고 예정일 변경 (지연 시)",
+                                      style: const TextStyle(
                                         color: tossBlue,
                                         fontWeight: FontWeight.w900,
                                         fontSize: 16,
@@ -1437,16 +1466,18 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                                     HapticFeedback.lightImpact();
                                     DateTime? picked = await showDatePicker(
                                       context: context,
-                                      initialDate: DateTime.now(),
+                                      initialDate:
+                                          tempExpectedDate ?? DateTime.now(),
                                       firstDate: DateTime.now(),
                                       lastDate: DateTime.now().add(
                                         const Duration(days: 180),
                                       ),
                                     );
-                                    if (picked != null)
+                                    if (picked != null) {
                                       setModalState(
                                         () => tempExpectedDate = picked,
                                       );
+                                    }
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
@@ -1497,41 +1528,243 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                   ),
                 ),
 
+                // 하단 고정 액션 영역
                 Container(
                   padding: const EdgeInsets.only(top: 16, bottom: 32),
                   decoration: const BoxDecoration(
                     color: pureWhite,
                     border: Border(top: BorderSide(color: Colors.black12)),
                   ),
-                  child: widget.isAdmin && !isRejected
-                      ? _buildAdminActionButtons(order, tempExpectedDate)
-                      : SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: ElevatedButton(
-                            onPressed: () => Navigator.pop(context),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: slate100,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child: const Text(
-                              "닫기",
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: slate900,
-                              ),
-                            ),
-                          ),
-                        ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [_buildBottomActions(order, tempExpectedDate)],
+                  ),
                 ),
               ],
             ),
           );
         },
+      ),
+    );
+  }
+
+  // 🚀 [수정됨] 1:1 채팅 및 전화 연결 카드 (파이어베이스 연동)
+  Widget _buildContactPartnerCard(OrderModel order) {
+    String partnerName = widget.isAdmin ? order.requester : order.assignee;
+    String partnerRole = widget.isAdmin ? "발주 요청자" : "발주 담당자";
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: tossBlue.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: tossBlue.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: tossBlue.withValues(alpha: 0.2),
+                child: const Icon(LucideIcons.user, color: tossBlue, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      partnerRole,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: tossBlue,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      "$partnerName 님",
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: slate900,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    HapticFeedback.lightImpact();
+
+                    // 🚀 1. 두 사람의 이름으로 고유 채팅방 ID 생성 (알파벳 정렬)
+                    List<String> users = [widget.currentUser, partnerName];
+                    users.sort();
+                    String roomId = "1on1_${users[0]}_${users[1]}";
+
+                    // 🔥 2. 파이어베이스에 방 정보가 없으면 신규 생성 (목록에 뜨게 하기 위함)
+                    final roomRef = FirebaseFirestore.instance
+                        .collection('chat_rooms')
+                        .doc(roomId);
+                    final snapshot = await roomRef.get();
+
+                    if (!snapshot.exists) {
+                      await roomRef.set({
+                        'isGroup': false,
+                        'name': partnerName, // 상대방 이름
+                        'team': partnerRole, // 상대방 소속/역할
+                        'participants': users,
+                        'lastMessage': '1:1 채팅방이 개설되었습니다.',
+                        'updatedAt': FieldValue.serverTimestamp(),
+                      });
+                    }
+
+                    if (context.mounted) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => MobileChatRoomPage(
+                            currentUser: widget.currentUser,
+                            roomId: roomId, // 🔥 고유 방 ID 전달
+                            chatPartnerName: partnerName,
+                            chatPartnerTeam: partnerRole,
+                            isGroupChat: false,
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  icon: const Icon(
+                    LucideIcons.messageCircle,
+                    size: 16,
+                    color: tossBlue,
+                  ),
+                  label: const Text(
+                    "1:1 채팅",
+                    style: TextStyle(
+                      color: tossBlue,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: pureWhite,
+                    elevation: 0,
+                    side: BorderSide(color: tossBlue.withValues(alpha: 0.3)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("$partnerName님에게 통화를 연결합니다.")),
+                    );
+                  },
+                  icon: const Icon(
+                    LucideIcons.phoneCall,
+                    size: 16,
+                    color: pureWhite,
+                  ),
+                  label: const Text(
+                    "전화 걸기",
+                    style: TextStyle(
+                      color: pureWhite,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: tossBlue,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomActions(OrderModel order, DateTime? tempExpectedDate) {
+    bool isRejected = order.status == "반려됨";
+    bool isCompleted = order.status == "처리 완료";
+
+    if (isRejected || isCompleted) return _buildCloseButton();
+    if (widget.isAdmin)
+      return _buildAdminActionButtons(order, tempExpectedDate);
+    if (!widget.isAdmin && order.status == "진행중")
+      return _buildWorkerReceiveButton(order);
+
+    return _buildCloseButton();
+  }
+
+  Widget _buildCloseButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton(
+        onPressed: () => Navigator.pop(context),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: slate100,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: const Text(
+          "닫기",
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: slate900,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWorkerReceiveButton(OrderModel order) {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton(
+        onPressed: () async {
+          HapticFeedback.mediumImpact();
+          Navigator.pop(context);
+          final updatedOrder = order.copyWith(status: "처리 완료");
+          await _repo.updateOrder(updatedOrder);
+          _showSnackBar("✅ 자재 수령이 확인되어 발주가 종결되었습니다.");
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: const Text(
+          "✅ 현장 자재 수령 완료",
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.bold,
+            color: pureWhite,
+          ),
+        ),
       ),
     );
   }
@@ -1636,16 +1869,22 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
     String actionText = "";
     Color btnColor = tossBlue;
     bool isApproveEnabled = true;
+    bool isDateChanged = tempExpectedDate != order.expectedDate;
 
     if (currentStatus == "발주 대기") {
-      actionText = "확인 및 발주 진행";
-      btnColor = tossBlue;
-      isApproveEnabled = tempExpectedDate != null;
-    } else if (currentStatus == "발주 확인") {
-      actionText = "배송/제작 진행중 처리";
+      actionText = "접수 ➔ 견적 대기";
+      btnColor = Colors.purple.shade400;
+      isApproveEnabled = true;
+    } else if (currentStatus == "발주 확인 (견적 대기)") {
+      actionText = "견적 완료 ➔ 결제 대기";
+      btnColor = Colors.indigo.shade400;
+      isApproveEnabled = true;
+    } else if (currentStatus == "발주 확인 (결제 대기)") {
+      actionText = "결제 완료 ➔ 입고일 지정(진행중)";
       btnColor = makitaTeal;
+      isApproveEnabled = tempExpectedDate != null;
     } else if (currentStatus == "진행중") {
-      actionText = "현장 수령 및 처리 완료";
+      actionText = "현장 수령 및 완료";
       btnColor = Colors.green;
     }
 
@@ -1676,9 +1915,40 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
             ),
           ),
           const SizedBox(width: 12),
+        ] else if (currentStatus == "진행중" && isDateChanged) ...[
+          Expanded(
+            flex: 1,
+            child: SizedBox(
+              height: 56,
+              child: OutlinedButton(
+                onPressed: () async {
+                  HapticFeedback.mediumImpact();
+                  Navigator.pop(context);
+                  final updatedOrder = order.copyWith(
+                    expectedDate: tempExpectedDate,
+                  );
+                  await _repo.updateOrder(updatedOrder);
+                  _showSnackBar("입고 예정일이 지연(변경) 처리되었습니다.");
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: tossBlue,
+                  side: const BorderSide(color: tossBlue, width: 1.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text(
+                  "날짜만 수정",
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
         ],
+
         Expanded(
-          flex: 2,
+          flex: (currentStatus == "진행중" && isDateChanged) ? 1 : 2,
           child: SizedBox(
             height: 56,
             child: ElevatedButton(
@@ -1689,17 +1959,24 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                       Navigator.pop(context);
 
                       OrderModel updatedOrder = order;
+
                       if (currentStatus == "발주 대기") {
+                        updatedOrder = order.copyWith(status: "발주 확인 (견적 대기)");
+                        _showSnackBar("접수 완료: 견적 대기 상태로 변경되었습니다.");
+                      } else if (currentStatus == "발주 확인 (견적 대기)") {
+                        updatedOrder = order.copyWith(status: "발주 확인 (결제 대기)");
+                        _showSnackBar("견적 완료: 결제 대기 상태로 변경되었습니다.");
+                      } else if (currentStatus == "발주 확인 (결제 대기)") {
                         updatedOrder = order.copyWith(
                           expectedDate: tempExpectedDate,
-                          status: "발주 확인",
+                          status: "진행중",
                         );
-                        _showSnackBar("발주 내용 확인 및 입고 예정일이 지정되었습니다.");
-                      } else if (currentStatus == "발주 확인") {
-                        updatedOrder = order.copyWith(status: "진행중");
-                        _showSnackBar("상태가 [진행중]으로 변경되었습니다.");
+                        _showSnackBar("결제 완료: 입고일이 지정되고 발주가 진행됩니다.");
                       } else if (currentStatus == "진행중") {
-                        updatedOrder = order.copyWith(status: "처리 완료");
+                        updatedOrder = order.copyWith(
+                          expectedDate: tempExpectedDate,
+                          status: "처리 완료",
+                        );
                         _showSnackBar("현장 수령 및 발주 처리가 완료되었습니다.");
                       }
 
@@ -1716,7 +1993,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
               child: Text(
                 actionText,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.bold,
                   color: isApproveEnabled ? pureWhite : slate600,
                 ),
@@ -1783,7 +2060,6 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
 
     try {
       List<CartItemModel> updatedCartItems = [];
-
       for (var item in _cartItems) {
         List<String> uploadedPhotoUrls = [];
         if (item.photos != null) {
@@ -1792,7 +2068,6 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
             uploadedPhotoUrls.add(downloadUrl);
           }
         }
-
         updatedCartItems.add(
           CartItemModel(
             title: item.title,

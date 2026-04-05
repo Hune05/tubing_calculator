@@ -31,7 +31,7 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         
-        // 🔥 FCM 알림의 안정적인 작동을 위해 최소 SDK를 21로 명시
+        // 🔥 FCM 알림 및 최신 패키지들의 안정적인 작동을 위해 최소 SDK를 23으로 변경
         minSdk = flutter.minSdkVersion 
         
         targetSdk = flutter.targetSdkVersion

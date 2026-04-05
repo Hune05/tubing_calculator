@@ -5,7 +5,7 @@ import 'dart:async';
 // 🚀 Hive 로컬 DB 연동
 import 'package:hive_flutter/hive_flutter.dart';
 
-// 🔥 파이어베이스 & FCM 연동 (필수 추가)
+// 🔥 파이어베이스 & FCM 연동
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -14,7 +14,7 @@ import 'firebase_options.dart';
 // 🚀 딥링크 패키지
 import 'package:app_links/app_links.dart';
 
-// 💡 파이어베이스 DB 시더 및 기존 화면들 임포트
+// 💡 프로젝트 화면 임포트들
 import 'package:tubing_calculator/src/core/utils/db_seeder.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/main_calculator_screen.dart';
 import 'package:tubing_calculator/src/presentation/settings/screens/settings_screen.dart';
@@ -27,43 +27,63 @@ import 'package:tubing_calculator/src/presentation/menu/page/menu_screen.dart';
 import 'package:tubing_calculator/src/presentation/menu/page/mobile_loading_screen.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_only_screen.dart';
 
-// 🚀 [추가 1] 앱이 완전히 꺼져있거나 백그라운드일 때 알림을 받는 함수 (반드시 최상단에 위치!)
+// 🚀 [백그라운드 핸들러]
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   debugPrint("백그라운드 알림 수신: ${message.notification?.title}");
 }
 
-// 🚀 [추가 2] 포그라운드(앱 켜진 상태) 알림을 띄우기 위한 채널 설정
+// 🚀 로컬 알림 플러그인 전역 변수
 late FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
 late AndroidNotificationChannel channel;
-
 bool isFlutterLocalNotificationsInitialized = false;
 
+// 🚀 로컬 알림 초기화 설정
 Future<void> setupFlutterNotifications() async {
   if (isFlutterLocalNotificationsInitialized) return;
 
   channel = const AndroidNotificationChannel(
-    'high_importance_channel', // 채널 ID
-    '현장 중요 알림', // 채널 이름
+    'high_importance_channel',
+    '현장 중요 알림',
     description: '자재 발주 및 중요 현장 알림에 사용됩니다.',
     importance: Importance.high,
   );
 
   flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
-  // 안드로이드 채널 생성
   await flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin
       >()
       ?.createNotificationChannel(channel);
 
-  // iOS 포그라운드 알림 설정
   await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
     alert: true,
     badge: true,
     sound: true,
+  );
+
+  const AndroidInitializationSettings initializationSettingsAndroid =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  const DarwinInitializationSettings initializationSettingsIOS =
+      DarwinInitializationSettings(
+        requestSoundPermission: true,
+        requestBadgePermission: true,
+        requestAlertPermission: true,
+      );
+
+  const InitializationSettings initializationSettings = InitializationSettings(
+    android: initializationSettingsAndroid,
+    iOS: initializationSettingsIOS,
+  );
+
+  await flutterLocalNotificationsPlugin.initialize(
+    settings: initializationSettings,
+    onDidReceiveNotificationResponse: (NotificationResponse response) {
+      debugPrint("앱 실행 중 포그라운드 알림 터치됨: ${response.payload}");
+    },
   );
 
   isFlutterLocalNotificationsInitialized = true;
@@ -72,17 +92,11 @@ Future<void> setupFlutterNotifications() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Hive 초기화
   await Hive.initFlutter();
   await Hive.openBox('projectsBox');
 
-  // Firebase 초기화
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-  // 🚀 [추가 3] 백그라운드 메시지 핸들러 등록
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-  // 🚀 [추가 4] 로컬 알림 초기화
   await setupFlutterNotifications();
 
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -102,18 +116,21 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     _requestNotificationPermission();
     _setupForegroundMessageListener();
-    _printMyFCMToken(); // 🔥 [추가] 앱 시작 시 토큰 출력
+    _setupBackgroundAndTerminatedMessageListener();
+    _handleFCMToken();
   }
 
-  // 🚀 [추가] 기기 고유 토큰 발급 확인용 함수 (터미널에서 확인 후 복사하세요!)
-  void _printMyFCMToken() async {
+  void _handleFCMToken() async {
     String? token = await FirebaseMessaging.instance.getToken();
     debugPrint("=====================================");
     debugPrint("🔥 내 기기 FCM 토큰: $token");
     debugPrint("=====================================");
+
+    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+      debugPrint("🔄 FCM 토큰 갱신됨: $newToken");
+    });
   }
 
-  // 🚀 [추가 5] 앱 켰을 때 사용자에게 알림 권한 묻기
   void _requestNotificationPermission() async {
     FirebaseMessaging messaging = FirebaseMessaging.instance;
     NotificationSettings settings = await messaging.requestPermission(
@@ -122,12 +139,9 @@ class _MyAppState extends State<MyApp> {
       sound: true,
     );
     debugPrint('사용자 알림 권한 상태: ${settings.authorizationStatus}');
-
-    // (선택) 특정 주제(Topic) 구독 - 나중에 "orders" 그룹으로 단체 알람 보낼 때 유용함
     await messaging.subscribeToTopic("field_orders");
   }
 
-  // 🚀 [추가 6] 앱을 켜놓고 보고 있을 때 알림이 오면 화면 위에 팝업 띄우기
   void _setupForegroundMessageListener() {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       RemoteNotification? notification = message.notification;
@@ -143,12 +157,26 @@ class _MyAppState extends State<MyApp> {
               channel.id,
               channel.name,
               channelDescription: channel.description,
-              icon: '@mipmap/ic_launcher', // 앱 기본 아이콘 사용
+              icon: '@mipmap/ic_launcher',
               importance: Importance.high,
               priority: Priority.high,
             ),
           ),
         );
+      }
+    });
+  }
+
+  void _setupBackgroundAndTerminatedMessageListener() {
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      debugPrint('백그라운드에서 알림 터치 진입: ${message.data}');
+    });
+
+    FirebaseMessaging.instance.getInitialMessage().then((
+      RemoteMessage? message,
+    ) {
+      if (message != null) {
+        debugPrint('앱 종료 상태에서 알림 터치 진입: ${message.data}');
       }
     });
   }
@@ -176,7 +204,7 @@ class _MyAppState extends State<MyApp> {
 }
 
 // ---------------------------------------------------------
-// 🚀 딥링크 핸들러 및 라우터 로직 (기존과 동일하게 유지)
+// 🚀 딥링크 핸들러 및 라우터 로직
 // ---------------------------------------------------------
 class DeepLinkHandler extends StatefulWidget {
   final Widget child;
