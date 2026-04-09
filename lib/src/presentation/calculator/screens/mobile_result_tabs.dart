@@ -14,7 +14,7 @@ const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF191F28);
 const Color slate600 = Color(0xFF8B95A1);
 const Color slate100 = Color(0xFFF2F4F6);
-const Color slate50 = Color(0xFFF8FAFC); // 토스 스타일의 연한 배경색
+const Color slate50 = Color(0xFFF8FAFC);
 const Color pureWhite = Color(0xFFFFFFFF);
 
 // ==========================================
@@ -94,9 +94,14 @@ class _MobileResultTabState extends State<MobileResultTab>
       builder: (context, child) {
         final dataManager = MobileBendDataManager();
         final bendList = dataManager.bendList;
-        final double radius = dataManager.takeUp90;
+
+        // 🚀 버그 픽스 완료: radius 값을 온전히 가져옵니다!
+        final double radius = dataManager.radius;
         final double fittingDepth = dataManager.fittingDepth;
-        final engine = TubeBendingEngine(radius: radius);
+        final engine = TubeBendingEngine(
+          radius: radius,
+          userGain90: dataManager.gain90, // 🚀 실측 연신율 엔진으로 전달!
+        );
 
         List<BendInstruction> instructions = [];
         for (int i = 0; i < bendList.length; i++) {
@@ -132,6 +137,11 @@ class _MobileResultTabState extends State<MobileResultTab>
           double currentLength =
               (bendList[i]['length'] as num?)?.toDouble() ?? 0.0;
 
+          double appliedFit = 0.0;
+          if (i == 0 && _includeStartFitting) appliedFit += fittingDepth;
+          if (i == bendList.length - 1 && _includeEndFitting)
+            appliedFit += fittingDepth;
+
           if (currentMark > lastMarkingPoint) {
             lastMarkingPoint = currentMark;
           }
@@ -145,6 +155,7 @@ class _MobileResultTabState extends State<MobileResultTab>
               'mark_num': 0,
               'marking_point': currentMark,
               'incremental_mark': 0.0,
+              'applied_fit': appliedFit,
             });
             continue;
           }
@@ -158,6 +169,7 @@ class _MobileResultTabState extends State<MobileResultTab>
               'mark_num': 0,
               'marking_point': currentMark,
               'incremental_mark': 0.0,
+              'applied_fit': appliedFit,
             });
           } else {
             displayMarks.add({
@@ -168,6 +180,7 @@ class _MobileResultTabState extends State<MobileResultTab>
               'marking_point': currentMark,
               'incremental_mark':
                   steps[i].incrementalMark + accumulatedIncremental,
+              'applied_fit': appliedFit,
             });
             markNumber++;
             accumulatedIncremental = 0.0;
@@ -177,13 +190,12 @@ class _MobileResultTabState extends State<MobileResultTab>
         double totalCut = bendList.isEmpty ? 0.0 : pureCutLength + _tailLength;
         double diffAfterLastMark = (totalCut - lastMarkingPoint) - radius;
 
-        // 💡 Lint 에러 해결: 중괄호 추가
         if (diffAfterLastMark < 0) {
           diffAfterLastMark = 0;
         }
 
         return Container(
-          color: pureWhite, // 전체 배경 화이트 통일
+          color: pureWhite,
           child: Column(
             children: [
               // 1. 상단 토탈 컷 카드
@@ -269,7 +281,7 @@ class _MobileResultTabState extends State<MobileResultTab>
                 ),
               ),
 
-              // 2. 피팅 & 여유 기장 옵션 박스 (토스 스타일)
+              // 2. 피팅 & 여유 기장 옵션 박스
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 20),
                 decoration: BoxDecoration(
@@ -387,6 +399,12 @@ class _MobileResultTabState extends State<MobileResultTab>
                           int originalLength =
                               (item['length'] as num?)?.round() ?? 0;
 
+                          double appliedFit =
+                              (item['applied_fit'] as num?)?.toDouble() ?? 0.0;
+                          String fitText = appliedFit > 0
+                              ? " (+피팅 ${appliedFit.round()})"
+                              : "";
+
                           if (item['is_straight'] == true) {
                             return Container(
                               margin: const EdgeInsets.only(bottom: 12),
@@ -408,7 +426,7 @@ class _MobileResultTabState extends State<MobileResultTab>
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      "직관 연장: +$originalLength mm",
+                                      "직관 연장: +$originalLength$fitText mm",
                                       style: const TextStyle(
                                         color: slate600,
                                         fontWeight: FontWeight.bold,
@@ -500,7 +518,7 @@ class _MobileResultTabState extends State<MobileResultTab>
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
                                     Text(
-                                      "배관: $originalLength",
+                                      "배관: $originalLength$fitText",
                                       style: const TextStyle(
                                         color: slate600,
                                         fontSize: 13,
@@ -603,7 +621,6 @@ class _MobileResultTabState extends State<MobileResultTab>
         includeEnd: _includeEndFitting,
         tailLength: _tailLength,
         startDir: widget.startDir,
-        // 🚀 도면 저장 버그 완벽 해결: null로 지정하여 SmartSavePad 내부의 DB 저장 로직이 정상 작동하도록 복구
         onSaveCallback: null,
       ),
     );
@@ -618,7 +635,6 @@ class _MobileResultTabState extends State<MobileResultTab>
       controller: _tailController,
       title: "절단 여유 기장 (mm)",
     );
-    // 💡 Lint 에러 해결: 중괄호 추가
     if (!mounted) {
       return;
     }
@@ -695,7 +711,6 @@ class _MobileViewerTabState extends State<MobileViewerTab>
                           style: TextStyle(color: slate600, fontSize: 14),
                         ),
                       )
-                    // 🚀 여백 없이 꽉 찬 다크모드 3D 뷰어로 원상 복구 완료!
                     : MobilePipeVisualizer(
                         bendList: bendList,
                         tailLength: dataManager.tail,
@@ -748,7 +763,6 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
   Future<void> _refreshHistory() async {
     setState(() => _isLoading = true);
     final data = await DatabaseHelper.instance.getHistory();
-    // 💡 Lint 에러 해결: 중괄호 추가
     if (!mounted) {
       return;
     }
@@ -809,7 +823,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
     }
 
     return Container(
-      color: pureWhite, // 전체 배경 통일
+      color: pureWhite,
       child: Column(
         children: [
           Container(
@@ -870,7 +884,6 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                       ],
                     ),
                   )
-                // 🚀 당겨서 새로고침 기능 유지
                 : RefreshIndicator(
                     onRefresh: _refreshHistory,
                     color: makitaTeal,
@@ -898,7 +911,6 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: ExpansionTile(
-                              // 💡 오타 수정 (initiallyExpanded)
                               initiallyExpanded:
                                   index == 0 || _searchQuery.isNotEmpty,
                               iconColor: slate900,
@@ -966,7 +978,6 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                                               ),
                                         ),
                                       );
-                                      // 💡 Lint 에러 해결: 중괄호 추가
                                       if (!context.mounted) {
                                         return;
                                       }
@@ -1081,7 +1092,6 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                                         if (confirm == true) {
                                           await DatabaseHelper.instance
                                               .deleteHistory(item['id']);
-                                          // 💡 Lint 에러 해결: 중괄호 추가
                                           if (!context.mounted) {
                                             return;
                                           }

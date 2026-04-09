@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -24,8 +25,103 @@ class MobileChatPage extends StatefulWidget {
 
 class _MobileChatPageState extends State<MobileChatPage> {
   final TextEditingController _messageCtrl = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
-  // 🔥 1. 시간 포맷 변환 업데이트
+  final List<DocumentSnapshot> _messages = [];
+  StreamSubscription<QuerySnapshot>? _realtimeSub;
+  DocumentSnapshot? _lastDoc;
+  bool _isFetching = false;
+  bool _hasMore = true;
+  static const int _perPage = 20;
+
+  @override
+  void initState() {
+    super.initState();
+    _initChatStream();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _realtimeSub?.cancel();
+    _messageCtrl.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      _fetchMoreMessages();
+    }
+  }
+
+  void _initChatStream() {
+    Query query = FirebaseFirestore.instance
+        .collection('global_chats')
+        .orderBy('timestamp', descending: true)
+        .limit(_perPage);
+
+    _realtimeSub = query.snapshots().listen((snapshot) {
+      if (!mounted) return;
+
+      setState(() {
+        if (_messages.isEmpty) {
+          _messages.addAll(snapshot.docs);
+          if (snapshot.docs.isNotEmpty) _lastDoc = snapshot.docs.last;
+          _hasMore = snapshot.docs.length == _perPage;
+        } else {
+          for (var change in snapshot.docChanges) {
+            if (change.type == DocumentChangeType.added) {
+              final exists = _messages.any((doc) => doc.id == change.doc.id);
+              if (!exists) _messages.insert(0, change.doc);
+            } else if (change.type == DocumentChangeType.modified) {
+              final index = _messages.indexWhere(
+                (doc) => doc.id == change.doc.id,
+              );
+              if (index != -1) _messages[index] = change.doc;
+            } else if (change.type == DocumentChangeType.removed) {
+              _messages.removeWhere((doc) => doc.id == change.doc.id);
+            }
+          }
+        }
+      });
+    });
+  }
+
+  Future<void> _fetchMoreMessages() async {
+    if (_isFetching || !_hasMore || _lastDoc == null) return;
+
+    setState(() => _isFetching = true);
+
+    try {
+      Query query = FirebaseFirestore.instance
+          .collection('global_chats')
+          .orderBy('timestamp', descending: true)
+          .startAfterDocument(_lastDoc!)
+          .limit(_perPage);
+
+      final snapshot = await query.get();
+
+      if (snapshot.docs.isEmpty) {
+        setState(() {
+          _hasMore = false;
+          _isFetching = false;
+        });
+        return;
+      }
+
+      setState(() {
+        _messages.addAll(snapshot.docs);
+        _lastDoc = snapshot.docs.last;
+        _hasMore = snapshot.docs.length == _perPage;
+        _isFetching = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _isFetching = false);
+    }
+  }
+
   String _formatTime(Timestamp? timestamp) {
     if (timestamp == null) return '';
     final dt = timestamp.toDate();
@@ -57,12 +153,6 @@ class _MobileChatPageState extends State<MobileChatPage> {
       'text': message,
       'timestamp': FieldValue.serverTimestamp(),
     });
-  }
-
-  @override
-  void dispose() {
-    _messageCtrl.dispose();
-    super.dispose();
   }
 
   @override
@@ -102,49 +192,47 @@ class _MobileChatPageState extends State<MobileChatPage> {
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('global_chats')
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
+            child: _messages.isEmpty && _hasMore
+                ? const Center(
                     child: CircularProgressIndicator(color: tossBlue),
-                  );
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
+                  )
+                : _messages.isEmpty
+                ? const Center(
                     child: Text(
                       "채팅 내역이 없습니다.",
                       style: TextStyle(color: slate600),
                     ),
-                  );
-                }
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    reverse: true,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 20,
+                    ),
+                    itemCount: _messages.length + (_hasMore ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index == _messages.length) {
+                        return const Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: Center(
+                            child: CircularProgressIndicator(color: tossBlue),
+                          ),
+                        );
+                      }
 
-                final chats = snapshot.data!.docs;
+                      final chat =
+                          _messages[index].data() as Map<String, dynamic>;
+                      final isMe = chat['sender'] == widget.currentUser;
 
-                return ListView.builder(
-                  reverse: true,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 20,
+                      return _buildChatBubble(
+                        text: chat['text'] ?? '',
+                        sender: chat['sender'] ?? '알 수 없음',
+                        time: _formatTime(chat['timestamp'] as Timestamp?),
+                        isMe: isMe,
+                      );
+                    },
                   ),
-                  itemCount: chats.length,
-                  itemBuilder: (context, index) {
-                    final chat = chats[index].data() as Map<String, dynamic>;
-                    final isMe = chat['sender'] == widget.currentUser;
-
-                    return _buildChatBubble(
-                      text: chat['text'] ?? '',
-                      sender: chat['sender'] ?? '알 수 없음',
-                      time: _formatTime(chat['timestamp'] as Timestamp?),
-                      isMe: isMe,
-                    );
-                  },
-                );
-              },
-            ),
           ),
           _buildInputArea(),
         ],

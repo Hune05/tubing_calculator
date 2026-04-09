@@ -1,12 +1,16 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
 
 // 🚀 1. 현장 작업 페이지들 임포트
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_remote_page.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_calculator_page.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/qr_scanner_page.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_only_screen.dart';
+import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart';
 
 // 🚀 2. 자재 관리 페이지들 임포트
 import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_login.dart';
@@ -20,27 +24,118 @@ import 'package:tubing_calculator/src/presentation/chat/pages/mobile_chat_list_p
 
 // 🚀 4. 프로젝트 관리 페이지 임포트
 import 'package:tubing_calculator/src/presentation/project/pages/mobile_project_list_page.dart';
-import 'package:tubing_calculator/src/presentation/project/pages/mobile_project_admin_page.dart'; // 관리자 전용
+import 'package:tubing_calculator/src/presentation/project/pages/mobile_project_admin_page.dart';
 
 // 🚀 5. 공용 차량 및 장비 페이지 임포트
 import 'package:tubing_calculator/src/presentation/vehicle/pages/mobile_vehicle_management_page.dart';
-import 'package:tubing_calculator/src/presentation/vehicle/pages/mobile_vehicle_admin_page.dart'; // 관리자 전용
+import 'package:tubing_calculator/src/presentation/vehicle/pages/mobile_vehicle_admin_page.dart';
 
+// 🚀 6. 사내 일정 관리 캘린더 페이지 임포트
+import 'package:tubing_calculator/src/presentation/schedule/pages/mobile_schedule_page.dart';
+
+const Color tossBlue = Color(0xFF3182F6);
+const Color purpleBadge = Color(0xFF8A2BE2);
 const Color slate900 = Color(0xFF191F28);
 const Color slate600 = Color(0xFF8B95A1);
 const Color slate100 = Color(0xFFF2F4F6);
 const Color pureWhite = Color(0xFFFFFFFF);
 const Color warningRed = Color(0xFFF04438);
+const Color makitaTeal = Color(0xFF007580);
 
-class MobileMenuPage extends StatelessWidget {
+class MobileMenuPage extends StatefulWidget {
   final String currentWorker;
-  final bool isAdmin; // 🚀 관리자 권한 여부 (테스트를 위해 기본값 true 설정)
+  final bool isAdmin;
 
   const MobileMenuPage({
     super.key,
     required this.currentWorker,
     this.isAdmin = true,
   });
+
+  @override
+  State<MobileMenuPage> createState() => _MobileMenuPageState();
+}
+
+class _MobileMenuPageState extends State<MobileMenuPage> {
+  String _weatherGreeting = "날씨 정보를 불러오는 중입니다...";
+  String? _weatherSubText;
+  bool _isWeatherLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchBusanWeather();
+  }
+
+  Future<void> _fetchBusanWeather() async {
+    try {
+      const String apiKey = 'ce796b79713bbdf70ec6a7cfb98f2b11';
+
+      final url = Uri.parse(
+        'https://api.openweathermap.org/data/2.5/weather?q=Busan&appid=$apiKey&units=metric&lang=kr',
+      );
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final int weatherId = data['weather'][0]['id'];
+        final double temp = data['main']['temp'];
+
+        String greeting = "";
+        String subText = "부산 ${temp.round()}℃";
+
+        // 이모지 제거 및 세련된 문구로 통일
+        if (weatherId >= 200 && weatherId < 600) {
+          greeting = "${widget.currentWorker}님, 비가 내리고 있습니다.\n현장 미끄러짐에 주의하세요.";
+        } else if (weatherId >= 600 && weatherId < 700) {
+          greeting =
+              "${widget.currentWorker}님, 눈이 내리고 있습니다.\n자재 결빙 및 체온 유지에 신경 쓰세요.";
+        } else if (temp >= 32.0) {
+          greeting = "폭염이 지속되고 있습니다.\n충분히 휴식하며 안전하게 작업하세요.";
+        } else if (temp <= 0.0) {
+          greeting = "한파가 지속되고 있습니다.\n손끝 미끄러짐에 각별히 유의하세요.";
+        } else {
+          greeting = _getTimeBasedGreeting();
+        }
+
+        if (mounted) {
+          setState(() {
+            _weatherGreeting = greeting;
+            _weatherSubText = subText;
+            _isWeatherLoaded = true;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _weatherGreeting = _getTimeBasedGreeting();
+            _isWeatherLoaded = true;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _weatherGreeting = _getTimeBasedGreeting();
+          _isWeatherLoaded = true;
+        });
+      }
+    }
+  }
+
+  // 깔끔한 시간대별 인사말
+  String _getTimeBasedGreeting() {
+    int hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 11) {
+      return "${widget.currentWorker}님,\n활기찬 아침입니다.";
+    } else if (hour >= 11 && hour < 14) {
+      return "${widget.currentWorker}님,\n맛있는 점심 드셨나요?";
+    } else if (hour >= 14 && hour < 18) {
+      return "${widget.currentWorker}님,\n오후 작업도 안전하게 진행하세요.";
+    } else {
+      return "${widget.currentWorker}님,\n오늘 하루도 고생 많으셨습니다.";
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,12 +148,9 @@ class MobileMenuPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(context),
+              _buildSmartHeader(context),
               const SizedBox(height: 16),
 
-              // ==========================================
-              // 🌟 1. 프로젝트 관리 그룹
-              // ==========================================
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
                 child: Text(
@@ -86,7 +178,7 @@ class MobileMenuPage extends StatelessWidget {
                 },
               ),
 
-              if (isAdmin)
+              if (widget.isAdmin)
                 _buildMenuButton(
                   context: context,
                   title: "프로젝트 통합 세팅 (관리자)",
@@ -109,9 +201,6 @@ class MobileMenuPage extends StatelessWidget {
               const Divider(height: 1, color: slate100, thickness: 8),
               const SizedBox(height: 24),
 
-              // ==========================================
-              // 🌟 2. 현장 작업 그룹
-              // ==========================================
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
                 child: Text(
@@ -122,6 +211,26 @@ class MobileMenuPage extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+              ),
+
+              // 🚀 벤딩 마킹 계산기에 마키타 틸 포인트 부여
+              _buildMenuButton(
+                context: context,
+                title: "벤딩 마킹 계산기",
+                subtitle: "스마트폰 최적화 · 단계별 치수 입력",
+                icon: Icons.calculate_rounded, // 아이콘을 조금 더 꽉 찬 느낌으로 변경 (선택사항)
+                iconColor: makitaTeal, // 메인 컬러 적용
+                badgeText: "Main", // 뱃지 추가
+                badgeColor: makitaTeal, // 뱃지 색상도 마키타 틸로 맞춤
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MobileCalculatorPage(),
+                    ),
+                  );
+                },
               ),
               _buildMenuButton(
                 context: context,
@@ -157,18 +266,13 @@ class MobileMenuPage extends StatelessWidget {
                         for (var part in parts) {
                           final vals = part.split('_');
                           if (vals.length >= 3) {
-                            double length = double.tryParse(vals[0]) ?? 0.0;
-                            double angle = double.tryParse(vals[1]) ?? 0.0;
-                            double rotation = double.tryParse(vals[2]) ?? 0.0;
-                            double mark = 0.0;
-                            if (vals.length >= 4) {
-                              mark = double.tryParse(vals[3]) ?? 0.0;
-                            }
                             parsedBends.add({
-                              'length': length,
-                              'angle': angle,
-                              'rotation': rotation,
-                              'mark': mark,
+                              'length': double.tryParse(vals[0]) ?? 0.0,
+                              'angle': double.tryParse(vals[1]) ?? 0.0,
+                              'rotation': double.tryParse(vals[2]) ?? 0.0,
+                              'mark': vals.length >= 4
+                                  ? (double.tryParse(vals[3]) ?? 0.0)
+                                  : 0.0,
                             });
                           }
                         }
@@ -204,21 +308,6 @@ class MobileMenuPage extends StatelessWidget {
               ),
               _buildMenuButton(
                 context: context,
-                title: "벤딩 마킹 계산기",
-                subtitle: "스마트폰 최적화 · 단계별 치수 입력",
-                icon: Icons.calculate_outlined,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const MobileCalculatorPage(),
-                    ),
-                  );
-                },
-              ),
-              _buildMenuButton(
-                context: context,
                 title: "벤딩 리모컨",
                 subtitle: "수치 전송용 리모컨 (스마트폰 권장)",
                 icon: Icons.settings_remote_rounded,
@@ -233,13 +322,29 @@ class MobileMenuPage extends StatelessWidget {
                 },
               ),
 
+              // 🚀 새로 추가된 튜브 규격 및 실측 도표 메뉴
+              _buildMenuButton(
+                context: context,
+                title: "튜브 규격 및 실측 도표",
+                subtitle: "3/8\", 1/2\" 외경·반지름 및 실측 가이드",
+                icon: Icons.table_chart_rounded, // 도표 느낌의 아이콘
+                iconColor: Colors.blueGrey, // 차분한 색상 적용
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      // 앞에서 만든 도표 페이지 파일명에 맞춰 호출
+                      builder: (context) => const TubeReferencePage(),
+                    ),
+                  );
+                },
+              ),
+
               const SizedBox(height: 32),
               const Divider(height: 1, color: slate100, thickness: 8),
               const SizedBox(height: 24),
 
-              // ==========================================
-              // 🌟 3. 현장 소통 그룹
-              // ==========================================
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
                 child: Text(
@@ -262,7 +367,25 @@ class MobileMenuPage extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (context) =>
-                          MobileChatListPage(currentUser: currentWorker),
+                          MobileChatListPage(currentUser: widget.currentWorker),
+                    ),
+                  );
+                },
+              ),
+              _buildMenuButton(
+                context: context,
+                title: "회사 행사 및 일정",
+                subtitle: "사내 공지, 회식, 주요 작업 캘린더",
+                icon: Icons.calendar_month_rounded,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => MobileSchedulePage(
+                        isAdmin: widget.isAdmin,
+                        currentUser: widget.currentWorker,
+                      ),
                     ),
                   );
                 },
@@ -272,9 +395,6 @@ class MobileMenuPage extends StatelessWidget {
               const Divider(height: 1, color: slate100, thickness: 8),
               const SizedBox(height: 24),
 
-              // ==========================================
-              // 🚚 4. 공용 차량 및 장비 그룹
-              // ==========================================
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
                 child: Text(
@@ -297,13 +417,13 @@ class MobileMenuPage extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (context) => MobileVehicleManagementPage(
-                        currentUser: currentWorker,
+                        currentUser: widget.currentWorker,
                       ),
                     ),
                   );
                 },
               ),
-              if (isAdmin)
+              if (widget.isAdmin)
                 _buildMenuButton(
                   context: context,
                   title: "차량 통합 세팅 (관리자)",
@@ -326,9 +446,6 @@ class MobileMenuPage extends StatelessWidget {
               const Divider(height: 1, color: slate100, thickness: 8),
               const SizedBox(height: 24),
 
-              // ==========================================
-              // 🌟 5. 자재 관리 그룹
-              // ==========================================
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
                 child: Text(
@@ -351,8 +468,8 @@ class MobileMenuPage extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (context) => MaterialOrderPage(
-                        isAdmin: isAdmin,
-                        currentUser: currentWorker,
+                        isAdmin: widget.isAdmin,
+                        currentUser: widget.currentWorker,
                       ),
                     ),
                   );
@@ -383,8 +500,9 @@ class MobileMenuPage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) =>
-                          MobileInventoryStatusPage(workerName: currentWorker),
+                      builder: (context) => MobileInventoryStatusPage(
+                        workerName: widget.currentWorker,
+                      ),
                     ),
                   );
                 },
@@ -413,50 +531,133 @@ class MobileMenuPage extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  // ========================================================
+  // 🚀 스마트 알림판
+  // ========================================================
+  Widget _buildSmartHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 40, 24, 20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "$currentWorker님,\n오늘도 안전 작업하세요",
-                style: const TextStyle(
-                  color: slate900,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.5,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade500,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    "메인 서버 연결됨",
-                    style: TextStyle(
-                      color: slate600,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('vehicles')
+                  .where('currentUser', isEqualTo: widget.currentWorker)
+                  .snapshots(),
+              builder: (context, vehicleSnap) {
+                // 1순위: 내 차량 상태 확인
+                if (vehicleSnap.hasData && vehicleSnap.data!.docs.isNotEmpty) {
+                  var vehicleData =
+                      vehicleSnap.data!.docs.first.data()
+                          as Map<String, dynamic>;
+                  var status = vehicleData['status'];
+                  var number = vehicleData['number'] ?? '';
+
+                  if (status == '예약 중') {
+                    return _buildHeaderContent(
+                      title: "곧 $number 차량 운행이\n예정되어 있습니다.",
+                      titleIcon: LucideIcons.calendarClock,
+                      subText: "터치하여 예약 상태를 확인해 주세요.",
+                      isActionable: true,
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => MobileVehicleManagementPage(
+                              currentUser: widget.currentWorker,
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  } else if (status == '운행 중') {
+                    return _buildHeaderContent(
+                      title: "현재 $number 차량을\n운행 중입니다.",
+                      titleIcon: LucideIcons.car,
+                      subText: "안전 운행하시고, 사용 후 반납해 주세요.",
+                      isActionable: true,
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => MobileVehicleManagementPage(
+                              currentUser: widget.currentWorker,
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  }
+                }
+
+                // 2순위: 공지사항 / 회식 감지
+                return StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('announcements')
+                      .where('isActive', isEqualTo: true)
+                      .orderBy('createdAt', descending: true)
+                      .limit(1)
+                      .snapshots(),
+                  builder: (context, noticeSnap) {
+                    if (noticeSnap.hasData &&
+                        noticeSnap.data!.docs.isNotEmpty) {
+                      var noticeData =
+                          noticeSnap.data!.docs.first.data()
+                              as Map<String, dynamic>;
+                      String noticeTitle =
+                          noticeData['title'] ?? "새로운 사내 공지가 있습니다.";
+
+                      if (noticeTitle.contains("회식")) {
+                        return _buildHeaderContent(
+                          title: "오늘 사내 회식 일정이\n등록되어 있습니다.",
+                          titleIcon: LucideIcons.bellRing,
+                          subText: "터치하여 장소를 확인하세요.",
+                          isActionable: true,
+                          onTap: () {
+                            HapticFeedback.heavyImpact();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("회식 일정을 확인해 주세요.")),
+                            );
+                          },
+                        );
+                      }
+
+                      return _buildHeaderContent(
+                        title: "새로운 사내 공지가\n등록되었습니다.",
+                        titleIcon: LucideIcons.clipboardList,
+                        subText: noticeTitle,
+                        isActionable: true,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("공지사항 세부 내용은 준비 중입니다."),
+                            ),
+                          );
+                        },
+                      );
+                    }
+
+                    // 3순위: 기본 인사말 + 날씨
+                    return _buildHeaderContent(
+                      title: _weatherGreeting,
+                      subText: _isWeatherLoaded
+                          ? _weatherSubText ?? ""
+                          : "날씨 정보 동기화 중...",
+                      isActionable: false,
+                      onTap: null,
+                    );
+                  },
+                );
+              },
+            ),
           ),
+          const SizedBox(width: 16),
           InkWell(
             onTap: () {
               HapticFeedback.lightImpact();
@@ -464,7 +665,7 @@ class MobileMenuPage extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (context) =>
-                      MobileProfilePage(currentWorker: currentWorker),
+                      MobileProfilePage(currentWorker: widget.currentWorker),
                 ),
               );
             },
@@ -484,6 +685,80 @@ class MobileMenuPage extends StatelessWidget {
     );
   }
 
+  Widget _buildHeaderContent({
+    required String title,
+    IconData? titleIcon,
+    required String subText,
+    required bool isActionable,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        color: Colors.transparent,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (titleIcon != null) ...[
+              Padding(
+                padding: const EdgeInsets.only(top: 2.0),
+                child: Icon(titleIcon, size: 24, color: slate900),
+              ),
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: Text(
+                      title,
+                      key: ValueKey<String>(title),
+                      style: const TextStyle(
+                        color: slate900,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          subText,
+                          style: const TextStyle(
+                            color: slate600,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (isActionable) ...[
+                        const SizedBox(width: 2),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 16,
+                          color: slate600,
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 🚀 badgeColor 파라미터가 추가되었습니다!
   Widget _buildMenuButton({
     required BuildContext context,
     required String title,
@@ -492,6 +767,7 @@ class MobileMenuPage extends StatelessWidget {
     required VoidCallback onTap,
     Color? iconColor,
     String? badgeText,
+    Color? badgeColor, // 뱃지 색상 커스텀 지원
   }) {
     return InkWell(
       onTap: onTap,
@@ -521,7 +797,7 @@ class MobileMenuPage extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w800,
-                            color: iconColor ?? slate900,
+                            color: iconColor ?? slate900, // 타이틀 색상도 아이콘 컬러 따라감
                             letterSpacing: -0.5,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -535,7 +811,7 @@ class MobileMenuPage extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: warningRed,
+                            color: badgeColor ?? warningRed, // 커스텀 색상 혹은 기본 경고색
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(

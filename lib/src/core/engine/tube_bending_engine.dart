@@ -27,11 +27,15 @@ class StepResult {
   });
 }
 
-/// 🚀 정밀 3D 튜빙 연산 엔진 (줄자 누적 추적 방식)
+/// 🚀 정밀 3D 튜빙 연산 엔진 (줄자 누적 추적 방식 + 실측 연신율 반영)
 class TubeBendingEngine {
-  final double radius; // 벤더기 곡률 반경 (TakeUp90과 동일한 개념)
+  final double radius; // 벤더기 곡률 반경
+  final double userGain90; // 💡 사용자가 입력한 90도 기준 연신율 (추가됨)
 
-  TubeBendingEngine({required this.radius});
+  TubeBendingEngine({
+    required this.radius,
+    this.userGain90 = 0.0, // 기본값 처리
+  });
 
   /// 각 노드별 마킹 지점과 총 절단 기장 계산
   Map<String, dynamic> calculate(
@@ -42,8 +46,6 @@ class TubeBendingEngine {
       return {'totalCutLength': 0.0, 'steps': <StepResult>[]};
     }
 
-    // 🚀 기존의 '가상 길이 누적 방식'을 버리고,
-    // 현장 방식인 '실제 파이프 줄자 눈금(Tape Position) 추적 방식'으로 완전히 교체했습니다.
     double currentTapePos = startFitting;
     double prevSetBack = 0.0;
     double prevMarkPoint = 0.0;
@@ -55,10 +57,7 @@ class TubeBendingEngine {
       final inst = instructions[i];
 
       if (inst.isStraight) {
-        // 💡 [핵심 수술 부위] 직관(0도) 모드: 순수 물리적 연장선
-        // 현장에서 새들이나 엘보 이후 직관을 추가한다는 것은,
-        // 허공의 가상 교차점이 아니라 '앞서 꺾인 곡선의 실물 끝단'부터 길이를 연장한다는 뜻입니다.
-        // 따라서 이전 셋백(SetBack)을 차감하지 않고, 입력한 직관 길이를 100% 그대로 더해줍니다.
+        // 직관(0도) 모드: 순수 물리적 연장선
         double markPoint = currentTapePos + inst.length;
         double incremental = steps.isEmpty
             ? markPoint
@@ -68,52 +67,59 @@ class TubeBendingEngine {
           StepResult(
             markingPoint: markPoint,
             incrementalMark: incremental,
-            sectionGain: 0.0, // 직관은 게인이 없습니다.
+            sectionGain: 0.0,
           ),
         );
 
-        // 직관이므로 곡선이 파이프를 잡아먹지 않습니다. 현재 마킹 지점이 곧 파이프의 끝단입니다.
         currentTapePos = markPoint;
-
-        // ★ 직관 끝에서는 다음 벤딩과 공유하는 가상 교차점이 없으므로 이전 셋백을 0으로 리셋합니다!
         prevSetBack = 0.0;
         prevMarkPoint = markPoint;
       } else {
         // 💡 벤딩 모드: C-to-C (교차점) 기준 계산
         final double thetaRad = inst.angle * (math.pi / 180.0);
+
+        // 1. 기하학적 셋백 (SetBack) - 탄젠트 시작점 찾기 (이건 R값 기반이 맞음)
         double setBack = radius * math.tan(thetaRad / 2.0);
-        double bendAllowance = (math.pi * radius * inst.angle) / 180.0;
-        double currentGain = (2 * setBack) - bendAllowance;
 
-        // 순수 직선 파이프 물리량 = (도면 치수) - (앞 벤딩 셋백) - (이번 벤딩 셋백)
+        // 2. 직선 파이프 물리량 및 마킹 포인트
         double straightPart = inst.length - prevSetBack - setBack;
-
-        // 마킹 포인트 = 현재까지 파이프가 끝난 지점 + 순수 직선 물리량
         double markPoint = currentTapePos + straightPart;
         double incremental = steps.isEmpty
             ? markPoint
             : (markPoint - prevMarkPoint);
 
+        // 3. 🚀 [핵심 수정] 연신율(Gain) 적용
+        double appliedGain;
+        if (userGain90 > 0) {
+          // 사용자가 입력한 게인이 있으면 각도 비례로 환산 적용 (실무 방식)
+          appliedGain = userGain90 * (inst.angle / 90.0);
+        } else {
+          // 입력된 게인이 없으면 이론상 중심선 게인으로 대체 (Fallback)
+          double theoreticalBA = (math.pi * radius * inst.angle) / 180.0;
+          appliedGain = (2 * setBack) - theoreticalBA;
+        }
+
+        // 4. 🚀 파이프가 굽혀지며 실제로 소모하는 길이 (Real Bend Allowance)
+        // 공식: Gain = 2*SetBack - Real_BA  =>  Real_BA = 2*SetBack - Gain
+        double realBendAllowance = (2 * setBack) - appliedGain;
+
         steps.add(
           StepResult(
             markingPoint: markPoint,
             incrementalMark: incremental,
-            sectionGain: currentGain,
+            sectionGain: appliedGain,
           ),
         );
 
-        // 곡선을 접었으므로, 파이프의 끝단(줄자 눈금)은 곡선 길이(BA)만큼 더 전진합니다.
-        currentTapePos = markPoint + bendAllowance;
+        // 곡선을 접었으므로, 파이프의 끝단(줄자 눈금)은 '실제 곡선 소모량'만큼 전진
+        currentTapePos = markPoint + realBendAllowance;
 
-        totalGain += currentGain;
+        totalGain += appliedGain;
         prevSetBack = setBack;
         prevMarkPoint = markPoint;
       }
     }
 
-    // 🚀 최종 절단 기장의 혁명:
-    // 복잡한 연신율 가감 수식을 다 버렸습니다. 마지막 작업이 끝난 줄자의 '최종 눈금(currentTapePos)'이
-    // 곧 우리가 잘라야 할 파이프의 진짜 기장입니다. 1mm 오차도 날 수 없습니다.
     return {
       'totalCutLength': currentTapePos,
       'steps': steps,

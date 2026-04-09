@@ -3,6 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:math' as math;
 
 import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
+import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
 
 const Color makitaTeal = Color(0xFF007580);
@@ -51,10 +52,10 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
   double _machineGain = 0.0;
   double _userOffsetShrink = 0.0;
 
-  final TextEditingController _heightCtrl = TextEditingController(text: "100");
-  final TextEditingController _widthCtrl = TextEditingController(text: "200");
-  final TextEditingController _angle3PtCtrl = TextEditingController(text: "45");
-  final TextEditingController _angle4PtCtrl = TextEditingController(text: "30");
+  final TextEditingController _heightCtrl = TextEditingController();
+  final TextEditingController _widthCtrl = TextEditingController();
+  final TextEditingController _angle3PtCtrl = TextEditingController();
+  final TextEditingController _angle4PtCtrl = TextEditingController();
 
   final List<Map<String, dynamic>> _directions = [
     {"label": "UP (위)", "val": 0.0, "icon": Icons.arrow_upward},
@@ -65,14 +66,38 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     {"label": "BACK (뒤)", "val": 450.0, "icon": Icons.call_received},
   ];
 
+  String _formatNum(double val) {
+    return val % 1 == 0 ? val.toInt().toString() : val.toString();
+  }
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _heightCtrl.addListener(() => setState(() {}));
-    _widthCtrl.addListener(() => setState(() {}));
-    _angle3PtCtrl.addListener(() => setState(() {}));
-    _angle4PtCtrl.addListener(() => setState(() {}));
+
+    final dm = MobileBendDataManager();
+    _heightCtrl.text = _formatNum(dm.saddleHeight);
+    _widthCtrl.text = _formatNum(dm.saddleWidth);
+    _angle3PtCtrl.text = _formatNum(dm.saddleAngle3Pt);
+    _angle4PtCtrl.text = _formatNum(dm.saddleAngle4Pt);
+
+    _heightCtrl.addListener(() {
+      dm.saddleHeight = double.tryParse(_heightCtrl.text) ?? 0.0;
+      setState(() {});
+    });
+    _widthCtrl.addListener(() {
+      dm.saddleWidth = double.tryParse(_widthCtrl.text) ?? 0.0;
+      setState(() {});
+    });
+    _angle3PtCtrl.addListener(() {
+      dm.saddleAngle3Pt = double.tryParse(_angle3PtCtrl.text) ?? 0.0;
+      setState(() {});
+    });
+    _angle4PtCtrl.addListener(() {
+      dm.saddleAngle4Pt = double.tryParse(_angle4PtCtrl.text) ?? 0.0;
+      setState(() {});
+    });
+
     _loadMachineSettings();
   }
 
@@ -110,7 +135,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     return (currentRot + 180.0) % 360.0;
   }
 
-  void _apply3Point(double travel3Pt, double a3) {
+  void _apply3Point(double travel3Pt, double a3, double shrink) {
     if (_selectedRotation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -122,16 +147,25 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     }
     if (travel3Pt > 0 && a3 > 0) {
       double roundedTravel = double.parse(travel3Pt.toStringAsFixed(1));
+      double roundedShrink = double.parse(shrink.toStringAsFixed(1));
       double sideAngle = a3 / 2;
       double oppRot = _getOppositeRotation(_selectedRotation!);
-      widget.onAddBend(0.0, sideAngle, _selectedRotation!);
+
+      widget.onAddBend(roundedShrink, sideAngle, _selectedRotation!);
       widget.onAddBend(roundedTravel, a3, oppRot);
       widget.onAddBend(roundedTravel, sideAngle, _selectedRotation!);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("축소값(+${roundedShrink}mm)이 첫 번째 마킹에 자동 적용되었습니다."),
+          backgroundColor: makitaTeal,
+        ),
+      );
       Navigator.pop(context);
     }
   }
 
-  void _apply4Point(double travel4Pt, double w, double a4) {
+  void _apply4Point(double travel4Pt, double w, double a4, double shrink) {
     if (_selectedRotation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -144,11 +178,20 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     if (travel4Pt > 0 && w > 0 && a4 > 0) {
       double roundedTravel = double.parse(travel4Pt.toStringAsFixed(1));
       double roundedW = double.parse(w.toStringAsFixed(1));
+      double roundedShrink = double.parse(shrink.toStringAsFixed(1));
       double oppRot = _getOppositeRotation(_selectedRotation!);
-      widget.onAddBend(0.0, a4, _selectedRotation!);
+
+      widget.onAddBend(roundedShrink, a4, _selectedRotation!);
       widget.onAddBend(roundedTravel, a4, oppRot);
       widget.onAddBend(roundedW, a4, oppRot);
       widget.onAddBend(roundedTravel, a4, _selectedRotation!);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("축소값(+${roundedShrink}mm)이 첫 번째 마킹에 자동 적용되었습니다."),
+          backgroundColor: makitaTeal,
+        ),
+      );
       Navigator.pop(context);
     }
   }
@@ -238,66 +281,99 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     double a3 = double.tryParse(_angle3PtCtrl.text) ?? 0;
     double a4 = double.tryParse(_angle4PtCtrl.text) ?? 0;
 
-    // 🚀 3-Point 계산
+    // --- 3-Point 계산 ---
     double travel3Pt = 0;
     double run3PtTotal = 0;
     double pipeUsed3Pt = 0;
     double shrink3Pt = 0.0;
     double gain3Pt = 0.0;
+    String gainDetails3Pt = "";
+    double totalConsumed3Pt = 0.0;
 
     if (a3 > 0 && h > 0) {
       double radSide = (a3 / 2) * math.pi / 180.0;
       travel3Pt = h / math.sin(radSide);
-      double run3 = h / math.tan(radSide); // 한 쪽 빗변의 바닥 직선거리
+      double run3 = h / math.tan(radSide);
 
-      pipeUsed3Pt = travel3Pt * 2; // 실제 굽혀진 전체 파이프 길이
-      run3PtTotal = run3 * 2; // 앞으로 나아간 총 직선거리
+      pipeUsed3Pt = travel3Pt * 2;
+      run3PtTotal = run3 * 2;
 
       shrink3Pt = pipeUsed3Pt - run3PtTotal;
       if (_userOffsetShrink > 0) shrink3Pt += (_userOffsetShrink * 2);
 
+      double gainCenter = 0.0;
+      double gainSide = 0.0;
+
       if (_machineRadius > 0) {
         double centerRad = a3 * math.pi / 180.0;
-        double gainCenter =
+        gainCenter =
             (2 * _machineRadius * math.tan(centerRad / 2)) -
             (math.pi * _machineRadius * a3 / 180.0);
-        double gainSide =
+        gainSide =
             (2 * _machineRadius * math.tan(radSide / 2)) -
             (math.pi * _machineRadius * (a3 / 2) / 180.0);
         gain3Pt = gainCenter + (gainSide * 2);
       } else if (_machineGain > 0) {
-        gain3Pt =
-            (_machineGain * (a3 / 90.0)) +
-            2 * (_machineGain * ((a3 / 2) / 90.0));
+        gainCenter = (_machineGain * (a3 / 90.0));
+        gainSide = (_machineGain * ((a3 / 2) / 90.0));
+        gain3Pt = gainCenter + (gainSide * 2);
       }
+
+      // 🚀 직관적인 연신율 텍스트 적용 (3-Point)
+      if (gainCenter > 0 || gainSide > 0) {
+        gainDetails3Pt =
+            "센터(${a3.toInt()}°): +${gainCenter.toStringAsFixed(1)} mm\n"
+            "사이드(${(a3 / 2).toInt()}°): +${gainSide.toStringAsFixed(1)} mm x 2곳\n"
+            "▶ 총 연신율(늘어난 길이): +${gain3Pt.toStringAsFixed(1)} mm";
+      } else {
+        gainDetails3Pt = "설정된 연신율 데이터 없음";
+      }
+
+      totalConsumed3Pt = pipeUsed3Pt + gain3Pt;
     }
 
-    // 🚀 4-Point 계산
+    // --- 4-Point 계산 ---
     double travel4Pt = 0;
     double run4PtTotal = 0;
     double pipeUsed4Pt = 0;
     double shrink4Pt = 0.0;
     double gain4Pt = 0.0;
+    String gainDetails4Pt = "";
+    double totalConsumed4Pt = 0.0;
 
     if (a4 > 0 && h > 0) {
       double rad4 = a4 * math.pi / 180.0;
       travel4Pt = h / math.sin(rad4);
-      double run4 = h / math.tan(rad4); // 한 쪽 빗변의 바닥 직선거리
+      double run4 = h / math.tan(rad4);
 
-      pipeUsed4Pt = (travel4Pt * 2) + w; // (빗변*2) + 중앙 넓이
-      run4PtTotal = (run4 * 2) + w; // 앞으로 나아간 총 직선거리
+      pipeUsed4Pt = (travel4Pt * 2) + w;
+      run4PtTotal = (run4 * 2) + w;
 
       shrink4Pt = pipeUsed4Pt - run4PtTotal;
       if (_userOffsetShrink > 0) shrink4Pt += (_userOffsetShrink * 2);
 
+      double gainBend = 0.0;
+
       if (_machineRadius > 0) {
-        double gainBend =
+        gainBend =
             (2 * _machineRadius * math.tan(rad4 / 2)) -
             (math.pi * _machineRadius * a4 / 180.0);
         gain4Pt = gainBend * 4;
       } else if (_machineGain > 0) {
-        gain4Pt = 4 * (_machineGain * (a4 / 90.0));
+        gainBend = (_machineGain * (a4 / 90.0));
+        gain4Pt = gainBend * 4;
       }
+
+      // 🚀 직관적인 연신율 텍스트 적용 (4-Point)
+      if (gainBend > 0) {
+        gainDetails4Pt =
+            "1개소당(${a4.toInt()}°): +${gainBend.toStringAsFixed(1)} mm x 4곳\n"
+            "▶ 총 연신율(늘어난 길이): +${gain4Pt.toStringAsFixed(1)} mm";
+      } else {
+        gainDetails4Pt = "설정된 연신율 데이터 없음";
+      }
+
+      totalConsumed4Pt = pipeUsed4Pt + gain4Pt;
     }
 
     return Padding(
@@ -360,9 +436,9 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                           a3,
                           travel3Pt,
                           pipeUsed3Pt,
-                          run3PtTotal,
                           shrink3Pt,
-                          gain3Pt,
+                          gainDetails3Pt,
+                          totalConsumed3Pt,
                         )
                       : _build4PointTab(
                           h,
@@ -370,9 +446,9 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                           a4,
                           travel4Pt,
                           pipeUsed4Pt,
-                          run4PtTotal,
                           shrink4Pt,
-                          gain4Pt,
+                          gainDetails4Pt,
+                          totalConsumed4Pt,
                         );
                 },
               ),
@@ -388,9 +464,9 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     double a3,
     double travel,
     double pipeUsed,
-    double runTotal,
     double shrink,
-    double gain,
+    String gainDetails,
+    double totalConsumed,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -433,11 +509,10 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         _buildResultBox(
           travel: travel,
           pipeUsed: pipeUsed,
-          runTotal: runTotal,
           shrink: shrink,
-          gain: gain,
-          points: 3,
-          onPressed: () => _apply3Point(travel, a3),
+          gainDetails: gainDetails,
+          totalConsumed: totalConsumed,
+          onPressed: () => _apply3Point(travel, a3, shrink),
         ),
       ],
     );
@@ -449,9 +524,9 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     double a4,
     double travel,
     double pipeUsed,
-    double runTotal,
     double shrink,
-    double gain,
+    String gainDetails,
+    double totalConsumed,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -523,11 +598,10 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         _buildResultBox(
           travel: travel,
           pipeUsed: pipeUsed,
-          runTotal: runTotal,
           shrink: shrink,
-          gain: gain,
-          points: 4,
-          onPressed: () => _apply4Point(travel, w, a4),
+          gainDetails: gainDetails,
+          totalConsumed: totalConsumed,
+          onPressed: () => _apply4Point(travel, w, a4, shrink),
         ),
       ],
     );
@@ -653,14 +727,13 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     );
   }
 
-  // 🚀 새들 전용 명확한 결과 패널
+  // 🚀 완전 무결점 결과 박스 (UI 깨짐 방지 및 직관성 강화 적용 + 바깥선 실측 참고 추가)
   Widget _buildResultBox({
     required double travel,
     required double pipeUsed,
-    required double runTotal,
     required double shrink,
-    required double gain,
-    required int points,
+    required String gainDetails,
+    required double totalConsumed,
     required VoidCallback onPressed,
   }) {
     return Container(
@@ -673,15 +746,15 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 핵심: 구간의 실제 파이프 소비량 vs 전진 거리
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    "직선 진행 거리 (Run)",
+                    "마킹 빗변 (Travel)",
                     style: TextStyle(
                       color: slate600,
                       fontSize: 12,
@@ -690,9 +763,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    runTotal > 0
-                        ? "${runTotal.toStringAsFixed(1)} mm"
-                        : "0.0 mm",
+                    travel > 0 ? "${travel.toStringAsFixed(1)} mm" : "0.0 mm",
                     style: const TextStyle(
                       color: slate900,
                       fontSize: 16,
@@ -701,7 +772,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                     ),
                   ),
                   const Text(
-                    "전체 라인 길이에서 차감할 값",
+                    "C to C 마킹 치수",
                     style: TextStyle(color: Colors.black54, fontSize: 10),
                   ),
                 ],
@@ -710,9 +781,9 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   const Text(
-                    "파이프 소요량 (Travel Total)",
+                    "도면상 합계 (이론값)",
                     style: TextStyle(
-                      color: makitaTeal,
+                      color: slate600,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
@@ -723,24 +794,155 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                         ? "${pipeUsed.toStringAsFixed(1)} mm"
                         : "0.0 mm",
                     style: const TextStyle(
-                      color: makitaTeal,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
+                      color: slate900,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                       fontFamily: 'monospace',
                     ),
                   ),
                   const Text(
-                    "구간을 만드는 데 들어가는 파이프 양",
+                    "연신율 적용 전 기본 합계",
                     style: TextStyle(color: Colors.black54, fontSize: 10),
                   ),
                 ],
               ),
             ],
           ),
+
           const SizedBox(height: 16),
           const Divider(color: Colors.black12, height: 1),
           const SizedBox(height: 16),
-          // 보상값 및 버튼
+
+          // 🚀 발생한 연신율 (상세 내역)
+          const Text(
+            "📍 연신율 상세 내역 (Gain)",
+            style: TextStyle(
+              color: makitaTeal,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: pureWhite,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: makitaTeal.withOpacity(0.3)),
+            ),
+            child: Text(
+              gainDetails,
+              style: const TextStyle(
+                color: slate900,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.5,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // 🚀 진짜 총 기장 (이론값 + 연신율)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: makitaTeal.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: makitaTeal, width: 2),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "실제 커팅 기장 (총 기장)",
+                        style: TextStyle(
+                          color: makitaTeal,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        "도면합계 + 총 연신율 (파이프 소모량)",
+                        style: TextStyle(color: slate600, fontSize: 10),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  totalConsumed > 0
+                      ? "${totalConsumed.toStringAsFixed(1)} mm"
+                      : "0.0 mm",
+                  style: const TextStyle(
+                    color: makitaTeal,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // 🚀 현장 검수용 바깥선 실측 참고 (새로 추가된 핵심 기능)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.amber.shade400, width: 1.5),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(LucideIcons.ruler, size: 20, color: Colors.orange),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "현장 검수용 실측 참고 (바깥선/등 기준)",
+                        style: TextStyle(
+                          color: slate900,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "줄자 측정값 ≈ 도면상 합계(${pipeUsed > 0 ? pipeUsed.toStringAsFixed(1) : '0'}) + 튜브 반지름",
+                        style: const TextStyle(color: slate600, fontSize: 11),
+                      ),
+                      if (pipeUsed > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Text(
+                            "※ 3/8\" 기준 약 ${(pipeUsed + 5.0).toStringAsFixed(1)} ~ ${(pipeUsed + 6.0).toStringAsFixed(1)} mm 예상",
+                            style: const TextStyle(
+                              color: Colors.deepOrange,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -750,7 +952,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      "기장 보상값 (Shrink / Gain)",
+                      "자동 적용 옵션",
                       style: TextStyle(
                         color: Colors.redAccent,
                         fontSize: 11,
@@ -759,7 +961,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      "추가 파이프: +${shrink.toStringAsFixed(1)} mm\n연신율 차감: -${gain.toStringAsFixed(1)} mm",
+                      "1번 마킹 축소값: +${shrink.toStringAsFixed(1)} mm",
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
@@ -771,11 +973,11 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                 ),
               ),
               SizedBox(
-                width: 100,
                 height: 48,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: makitaTeal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -788,6 +990,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
                     ),
+                    maxLines: 1,
                   ),
                 ),
               ),

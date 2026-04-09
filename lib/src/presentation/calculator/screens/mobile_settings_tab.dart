@@ -126,6 +126,18 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         }
       });
       _onSpecsChanged(isInitialLoad: true);
+
+      // 🚀 데이터 매니저 실시간 동기화 (모든 값 반영)
+      final dataManager = MobileBendDataManager();
+      dataManager.takeUp90 = double.tryParse(_takeUpController.text) ?? 0.0;
+      dataManager.fittingDepth =
+          double.tryParse(_fittingDepthController.text) ?? 0.0;
+      dataManager.gain90 = double.tryParse(_gainController.text) ?? 0.0;
+      dataManager.radius = double.tryParse(_rController.text) ?? 0.0;
+      dataManager.benderOffset =
+          double.tryParse(_benderOffsetController.text) ?? 0.0;
+      dataManager.springback =
+          double.tryParse(_springbackController.text) ?? 0.0;
     }
   }
 
@@ -163,6 +175,17 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       autoOffset: _autoStates['offset'] ?? true,
       autoFittingDepth: _autoStates['fittingDepth'] ?? true,
     );
+
+    // 🚀 저장 시 데이터 매니저 실시간 동기화 (모든 값 반영)
+    final dataManager = MobileBendDataManager();
+    dataManager.takeUp90 = double.tryParse(_takeUpController.text) ?? 0.0;
+    dataManager.fittingDepth =
+        double.tryParse(_fittingDepthController.text) ?? 0.0;
+    dataManager.gain90 = double.tryParse(_gainController.text) ?? 0.0;
+    dataManager.radius = double.tryParse(_rController.text) ?? 0.0;
+    dataManager.benderOffset =
+        double.tryParse(_benderOffsetController.text) ?? 0.0;
+    dataManager.springback = double.tryParse(_springbackController.text) ?? 0.0;
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -330,7 +353,6 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     );
   }
 
-  // 🚀 4열 테이블 통합 헬퍼 (새 꿀단지 표와 기존 전동 가이드 표 모두 호환)
   TableRow _buildGuideRow4Col(
     String col1,
     String col2,
@@ -1507,7 +1529,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           const Row(
             children: [
               Icon(Icons.construction, color: makitaTeal, size: 28),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
                 "수동 벤더 실무 조작 가이드",
                 style: TextStyle(
@@ -1759,9 +1781,9 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                         "벤딩 각도",
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontWeight: FontWeight.bold,
                           fontSize: 11,
                           color: Colors.black87,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
@@ -1771,9 +1793,9 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                         "마킹 배수 (×)",
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontWeight: FontWeight.bold,
                           fontSize: 11,
-                          color: makitaTeal,
+                          color: Color(0xFF007580),
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
@@ -1783,9 +1805,9 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                         "축소량 (×)",
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontWeight: FontWeight.bold,
                           fontSize: 11,
                           color: Colors.redAccent,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
@@ -1814,7 +1836,6 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     );
   }
 
-  // 🚀 4가지 필수 실무 제원표가 꽉 채워진 꿀단지 영역
   Widget _buildHoneyJarReferenceCard() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -2034,28 +2055,24 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 _buildGuideRow2Col(
                   "1/4\" (6.35)",
                   "15.2 mm",
-                  const Color(0xFF007580),
+                  Color(0xFF007580),
                 ),
                 _buildGuideRow2Col(
                   "3/8\" (9.52)",
                   "16.8 mm",
-                  const Color(0xFF007580),
+                  Color(0xFF007580),
                 ),
                 _buildGuideRow2Col(
                   "1/2\" (12.7)",
                   "22.9 mm",
-                  const Color(0xFF007580),
+                  Color(0xFF007580),
                 ),
                 _buildGuideRow2Col(
                   "3/4\" (19.05)",
                   "24.4 mm",
-                  const Color(0xFF007580),
+                  Color(0xFF007580),
                 ),
-                _buildGuideRow2Col(
-                  "1\" (25.4)",
-                  "31.2 mm",
-                  const Color(0xFF007580),
-                ),
+                _buildGuideRow2Col("1\" (25.4)", "31.2 mm", Color(0xFF007580)),
               ],
             ),
           ),

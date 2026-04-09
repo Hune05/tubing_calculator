@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // 🔥 Firestore 연동
-import 'package:firebase_auth/firebase_auth.dart'; // 🔥 현재 유저 UID 확인용
-import 'package:shared_preferences/shared_preferences.dart'; // 🔥 로컬 데이터 업데이트용
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // 🎨 색상 팔레트
 const Color slate900 = Color(0xFF191F28);
@@ -13,6 +13,7 @@ const Color slate300 = Color(0xFFD1D6DB);
 const Color slate100 = Color(0xFFF2F4F6);
 const Color pureWhite = Color(0xFFFFFFFF);
 const Color blue500 = Color(0xFF3182F6);
+const Color red500 = Color(0xFFF04452); // 🔥 에러용 빨간색 추가
 
 class MobileProfileEditPage extends StatefulWidget {
   final String initialName;
@@ -39,25 +40,26 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
     _roleController = TextEditingController();
     _phoneController = TextEditingController();
 
-    _loadUserProfile(); // 🔥 Firestore에서 기존 내 정보 불러오기
+    _loadUserProfile();
   }
 
-  // 🚀 Firestore에서 로그인한 유저의 정보 가져오기
+  // 🚀 Firestore에서 로그인한 유저의 정보 가져오기 (이름 기준)
   Future<void> _loadUserProfile() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
+    // uid 대신 widget.initialName (이름)으로 문서를 찾습니다!
+    if (widget.initialName.isNotEmpty && widget.initialName != "로그인 필요") {
       try {
         final doc = await FirebaseFirestore.instance
             .collection('users')
-            .doc(user.uid)
+            .doc(widget.initialName)
             .get();
+
         if (doc.exists && doc.data() != null) {
           final data = doc.data()!;
           setState(() {
             _nameController.text = data['name'] ?? widget.initialName;
             _teamController.text = data['team'] ?? "";
             _roleController.text = data['role'] ?? "";
-            _phoneController.text = data['phone'] ?? "";
+            _phoneController.text = data['phoneNumber'] ?? ""; // 🔥 키값 통일
           });
         }
       } catch (e) {
@@ -141,8 +143,9 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
                           ),
                           const SizedBox(height: 24),
 
+                          // 🔥 연락처 필드 (필수)
                           _buildInputField(
-                            label: "연락처",
+                            label: "연락처 (필수)",
                             controller: _phoneController,
                             keyboardType: TextInputType.phone,
                           ),
@@ -297,27 +300,34 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
         onTap: () async {
           HapticFeedback.mediumImpact();
 
-          final user = FirebaseAuth.instance.currentUser;
-          if (user != null) {
-            // 🔥 1. Firestore 'users' 컬렉션에 프로필 저장 (SetOptions로 병합)
-            await FirebaseFirestore.instance
-                .collection('users')
-                .doc(user.uid)
-                .set({
-                  'name': _nameController.text.trim(),
-                  'team': _teamController.text.trim(),
-                  'role': _roleController.text.trim(),
-                  'phone': _phoneController.text.trim(),
-                  'updatedAt': FieldValue.serverTimestamp(),
-                }, SetOptions(merge: true));
+          final String userName = _nameController.text.trim();
+          final String phoneNumber = _phoneController.text.trim();
 
-            // 🔥 2. 기기 로컬 저장소(오프라인 대응용) 이름 갱신
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setString(
-              'user_real_name',
-              _nameController.text.trim(),
-            );
+          // 🔥 1. 무조건 번호(또는 이름)를 넣게 강제!
+          if (userName.isEmpty) {
+            _showErrorSnackBar('이름을 입력해주세요.');
+            return;
           }
+          if (phoneNumber.isEmpty) {
+            _showErrorSnackBar('연락처는 필수 입력 항목입니다.');
+            return;
+          }
+
+          // 🔥 2. Firestore 'users' 컬렉션에 프로필 저장 (이름을 ID로 사용!)
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userName)
+              .set({
+                'name': userName,
+                'team': _teamController.text.trim(),
+                'role': _roleController.text.trim(),
+                'phoneNumber': phoneNumber, // 🔥 채팅방이랑 키값 일치시킴
+                'updatedAt': FieldValue.serverTimestamp(),
+              }, SetOptions(merge: true));
+
+          // 🔥 3. 기기 로컬 저장소(오프라인 대응용) 이름 갱신
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('user_real_name', userName);
 
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -347,6 +357,17 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // 에러 스낵바 헬퍼 함수
+  void _showErrorSnackBar(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: red500,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }

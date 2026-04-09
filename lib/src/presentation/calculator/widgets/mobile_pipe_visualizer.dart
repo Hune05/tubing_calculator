@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' as vmath;
+import 'package:shared_preferences/shared_preferences.dart'; // 🚀 SharedPreferences 추가
 
 const Color makitaTeal = Color(0xFF007580);
 
@@ -15,7 +16,7 @@ class MobilePipeVisualizer extends StatefulWidget {
   final bool startFit;
   final bool endFit;
 
-  // 🚀 [에러 수정] 앞서 추가했던 총 컷팅 기장 변수를 여기서 받아줍니다.
+  // 🚀 앞서 추가했던 총 컷팅 기장 변수
   final double totalCutLength;
 
   const MobilePipeVisualizer({
@@ -28,7 +29,7 @@ class MobilePipeVisualizer extends StatefulWidget {
     this.isLightMode = false,
     this.startFit = false,
     this.endFit = false,
-    this.totalCutLength = 0.0, // 기본값 설정
+    this.totalCutLength = 0.0,
   });
 
   @override
@@ -55,18 +56,27 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
   @override
   void initState() {
     super.initState();
-    _startDir = widget.initialStartDir;
+    _startDir = widget.initialStartDir; // 1. 우선 기본값으로 세팅
+    _loadSavedDirection(); // 2. 🚀 기기에 저장된 방향이 있다면 무조건 덮어씌움
   }
 
-  @override
-  void didUpdateWidget(MobilePipeVisualizer oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.initialStartDir != widget.initialStartDir) {
+  // 🚀 [추가됨] 앱을 껐다 켜도, 탭을 이동해도 무조건 기억하도록 로드하는 함수
+  Future<void> _loadSavedDirection() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedDir = prefs.getString('mobile_saved_start_dir');
+    if (savedDir != null && mounted) {
       setState(() {
-        _startDir = widget.initialStartDir;
+        _startDir = savedDir;
       });
+      // 🚀 불러온 값을 부모에게도 동기화
+      if (widget.onStartDirChanged != null) {
+        widget.onStartDirChanged!(savedDir);
+      }
     }
   }
+
+  // 🚀 [삭제됨] 부모 위젯이 강제로 초기값으로 덮어씌우는 didUpdateWidget 로직을 제거했습니다.
+  // 이제 사용자가 직접 드롭다운을 누르기 전까지는 절대 값이 바뀌지 않습니다.
 
   void _resetView() {
     setState(() {
@@ -166,7 +176,7 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
                 ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF2B3643).withValues(alpha: 0.9),
-                  borderRadius: BorderRadius.circular(30), // 둥근 캡슐 형태
+                  borderRadius: BorderRadius.circular(30),
                   boxShadow: const [
                     BoxShadow(
                       color: Colors.black45,
@@ -271,9 +281,15 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
               ) {
                 return DropdownMenuItem(value: dir, child: Text(dir));
               }).toList(),
-              onChanged: (val) {
+              // 🚀 [수정됨] 사용자가 방향을 바꿀 때 무조건 기기에 영구 저장합니다.
+              onChanged: (val) async {
                 if (val != null) {
                   setState(() => _startDir = val);
+
+                  // 🚀 기기 내부에 저장
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('mobile_saved_start_dir', val);
+
                   if (widget.onStartDirChanged != null) {
                     widget.onStartDirChanged!(val);
                   }

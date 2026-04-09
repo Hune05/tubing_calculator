@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:tubing_calculator/src/presentation/chat/pages/mobile_chat_room_page.dart';
 import 'package:tubing_calculator/src/presentation/chat/pages/user_selection_page.dart';
@@ -23,6 +25,135 @@ class MobileChatListPage extends StatefulWidget {
 }
 
 class _MobileChatListPageState extends State<MobileChatListPage> {
+  final ScrollController _scrollController = ScrollController();
+
+  final List<DocumentSnapshot> _rooms = [];
+  StreamSubscription<QuerySnapshot>? _realtimeSub;
+  DocumentSnapshot? _lastDoc;
+  bool _isFetching = false;
+  bool _hasMore = true;
+  static const int _perPage = 20;
+
+  @override
+  void initState() {
+    super.initState();
+    _initRoomsStream();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _realtimeSub?.cancel();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      _fetchMoreRooms();
+    }
+  }
+
+  void _initRoomsStream() {
+    Query query = FirebaseFirestore.instance
+        .collection('chat_rooms')
+        .where('participants', arrayContains: widget.currentUser)
+        .orderBy('updatedAt', descending: true)
+        .limit(_perPage);
+
+    _realtimeSub = query.snapshots().listen(
+      (snapshot) {
+        if (!mounted) return;
+
+        setState(() {
+          if (_rooms.isEmpty) {
+            _rooms.addAll(snapshot.docs);
+            if (snapshot.docs.isNotEmpty) _lastDoc = snapshot.docs.last;
+            _hasMore = snapshot.docs.length == _perPage;
+          } else {
+            for (var change in snapshot.docChanges) {
+              if (change.type == DocumentChangeType.added) {
+                final exists = _rooms.any((doc) => doc.id == change.doc.id);
+                if (!exists) _rooms.insert(0, change.doc);
+              } else if (change.type == DocumentChangeType.modified) {
+                final index = _rooms.indexWhere(
+                  (doc) => doc.id == change.doc.id,
+                );
+                if (index != -1) _rooms[index] = change.doc;
+              } else if (change.type == DocumentChangeType.removed) {
+                _rooms.removeWhere((doc) => doc.id == change.doc.id);
+              }
+            }
+
+            // 🔥 시간 null 처리 완벽 방어
+            _rooms.sort((a, b) {
+              final aData = a.data() as Map<String, dynamic>;
+              final bData = b.data() as Map<String, dynamic>;
+
+              final aTime = aData['updatedAt'] as Timestamp?;
+              final bTime = bData['updatedAt'] as Timestamp?;
+
+              final aDate = aTime?.toDate() ?? DateTime.now();
+              final bDate = bTime?.toDate() ?? DateTime.now();
+
+              return bDate.compareTo(aDate);
+            });
+          }
+        });
+      },
+      onError: (error) {
+        // 🔥 에러 발생 시 무한 로딩 방지 및 로그 출력
+        debugPrint("채팅방 목록 스트림 에러 (색인 필요 확인): $error");
+        if (mounted) {
+          setState(() {
+            _hasMore = false;
+            _isFetching = false;
+          });
+        }
+      },
+    );
+  }
+
+  Future<void> _fetchMoreRooms() async {
+    if (_isFetching || !_hasMore || _lastDoc == null) return;
+
+    setState(() => _isFetching = true);
+
+    try {
+      Query query = FirebaseFirestore.instance
+          .collection('chat_rooms')
+          .where('participants', arrayContains: widget.currentUser)
+          .orderBy('updatedAt', descending: true)
+          .startAfterDocument(_lastDoc!)
+          .limit(_perPage);
+
+      final snapshot = await query.get();
+
+      if (snapshot.docs.isEmpty) {
+        setState(() {
+          _hasMore = false;
+          _isFetching = false;
+        });
+        return;
+      }
+
+      setState(() {
+        for (var doc in snapshot.docs) {
+          if (!_rooms.any((r) => r.id == doc.id)) {
+            _rooms.add(doc);
+          }
+        }
+        _lastDoc = snapshot.docs.last;
+        _hasMore = snapshot.docs.length == _perPage;
+        _isFetching = false;
+      });
+    } catch (e) {
+      debugPrint("과거 채팅방 목록 호출 에러: $e");
+      if (mounted) setState(() => _isFetching = false);
+    }
+  }
+
   String _formatTime(Timestamp? timestamp) {
     if (timestamp == null) return '';
     final dt = timestamp.toDate();
@@ -43,11 +174,9 @@ class _MobileChatListPageState extends State<MobileChatListPage> {
     }
   }
 
-  // 🔥 수정됨: 방 전체 삭제가 아니라, 참여자 목록에서 '나'만 제거하도록 변경
   Future<void> _deleteChatRoom(String roomId) async {
     try {
       final firestore = FirebaseFirestore.instance;
-
       await firestore.collection('chat_rooms').doc(roomId).update({
         'participants': FieldValue.arrayRemove([widget.currentUser]),
       });
@@ -85,58 +214,99 @@ class _MobileChatListPageState extends State<MobileChatListPage> {
             icon: const Icon(LucideIcons.search, color: slate900),
             onPressed: () => HapticFeedback.lightImpact(),
           ),
+          // 🔥 아이콘 변경 및 바텀시트 호출 연결
           IconButton(
-            icon: const Icon(LucideIcons.plus, color: slate900),
+            icon: const Icon(LucideIcons.messageSquarePlus, color: slate900),
             onPressed: () {
               HapticFeedback.lightImpact();
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      UserSelectionPage(currentUser: widget.currentUser),
-                ),
-              );
+              _showCreateChatBottomSheet(context);
             },
           ),
           const SizedBox(width: 8),
         ],
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        // 🔥 수정됨: 내가 participants 배열에 포함된 채팅방만 가져오기
-        stream: FirebaseFirestore.instance
-            .collection('chat_rooms')
-            .where('participants', arrayContains: widget.currentUser)
-            .orderBy('updatedAt', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: tossBlue),
-            );
-          }
+      body: _rooms.isEmpty && _hasMore
+          ? const Center(child: CircularProgressIndicator(color: tossBlue))
+          : _rooms.isEmpty
+          ? const Center(
+              child: Text(
+                "참 참여 중인 대화가 없습니다.",
+                style: TextStyle(color: slate600),
+              ),
+            )
+          : ListView.separated(
+              controller: _scrollController,
+              physics: const BouncingScrollPhysics(),
+              itemCount: _rooms.length + (_hasMore ? 1 : 0),
+              separatorBuilder: (context, index) =>
+                  const Divider(height: 1, color: tossGrey, indent: 76),
+              itemBuilder: (context, index) {
+                if (index == _rooms.length) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(
+                      child: CircularProgressIndicator(color: tossBlue),
+                    ),
+                  );
+                }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(
-              child: Text("참여 중인 대화가 없습니다.", style: TextStyle(color: slate600)),
-            );
-          }
+                final doc = _rooms[index];
+                final room = doc.data() as Map<String, dynamic>;
+                room['id'] = doc.id;
 
-          final rooms = snapshot.data!.docs;
+                return _buildChatListItem(room);
+              },
+            ),
+    );
+  }
 
-          return ListView.separated(
-            physics: const BouncingScrollPhysics(),
-            itemCount: rooms.length,
-            separatorBuilder: (context, index) =>
-                const Divider(height: 1, color: tossGrey, indent: 76),
-            itemBuilder: (context, index) {
-              final doc = rooms[index];
-              final room = doc.data() as Map<String, dynamic>;
-              room['id'] = doc.id;
+  Widget _buildRoomAvatar(bool isGroup, String? imageUrl) {
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      return Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.black12),
+        ),
+        child: ClipOval(
+          child: CachedNetworkImage(
+            imageUrl: imageUrl,
+            fit: BoxFit.cover,
+            placeholder: (context, url) => Container(
+              color: slate100,
+              child: const Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    color: tossBlue,
+                    strokeWidth: 2,
+                  ),
+                ),
+              ),
+            ),
+            errorWidget: (context, url, error) => _buildDefaultAvatar(isGroup),
+          ),
+        ),
+      );
+    }
+    return _buildDefaultAvatar(isGroup);
+  }
 
-              return _buildChatListItem(room);
-            },
-          );
-        },
+  Widget _buildDefaultAvatar(bool isGroup) {
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        color: isGroup ? tossBlue.withValues(alpha: 0.1) : slate100,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.black12),
+      ),
+      child: Icon(
+        isGroup ? LucideIcons.users : LucideIcons.user,
+        color: isGroup ? tossBlue : slate600,
+        size: 24,
       ),
     );
   }
@@ -144,7 +314,10 @@ class _MobileChatListPageState extends State<MobileChatListPage> {
   Widget _buildChatListItem(Map<String, dynamic> room) {
     bool isGroup = room['isGroup'] ?? false;
     int unreadCount = room['unread'] ?? 0;
-    bool hasUnread = unreadCount > 0;
+
+    // 🔥 내가 보낸 메시지면 알림 배지 끄기
+    bool isMyLastMessage = room['lastSender'] == widget.currentUser;
+    bool hasUnread = unreadCount > 0 && !isMyLastMessage;
 
     String title = isGroup
         ? (room['groupTitle'] ?? '단톡방')
@@ -196,6 +369,10 @@ class _MobileChatListPageState extends State<MobileChatListPage> {
         );
       },
       onDismissed: (direction) {
+        // 🔥 화면에서 즉시 지워서 잔상 방지
+        setState(() {
+          _rooms.removeWhere((r) => r.id == room['id']);
+        });
         _deleteChatRoom(room['id']);
       },
       child: InkWell(
@@ -230,20 +407,7 @@ class _MobileChatListPageState extends State<MobileChatListPage> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Row(
             children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: isGroup ? tossBlue.withValues(alpha: 0.1) : slate100,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.black12),
-                ),
-                child: Icon(
-                  isGroup ? LucideIcons.users : LucideIcons.user,
-                  color: isGroup ? tossBlue : slate600,
-                  size: 24,
-                ),
-              ),
+              _buildRoomAvatar(isGroup, room['imageUrl']),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -330,6 +494,115 @@ class _MobileChatListPageState extends State<MobileChatListPage> {
           ),
         ),
       ),
+    );
+  }
+
+  // 🔥 새로운 대화 생성을 위한 바텀 시트 메뉴
+  void _showCreateChatBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 손잡이 (핸들)
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: tossGrey,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(left: 20, bottom: 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      "새로운 대화",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: slate900,
+                      ),
+                    ),
+                  ),
+                ),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: const BoxDecoration(
+                      color: slate100,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(LucideIcons.user, color: slate900),
+                  ),
+                  title: const Text(
+                    "1:1 개인 채팅",
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                  ),
+                  subtitle: const Text(
+                    "동료와 1:1로 대화합니다.",
+                    style: TextStyle(color: slate600, fontSize: 13),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => UserSelectionPage(
+                          currentUser: widget.currentUser,
+                          isGroupMode: false, // 1:1 모드
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: tossBlue.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(LucideIcons.users, color: tossBlue),
+                  ),
+                  title: const Text(
+                    "팀/그룹 채팅 생성",
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                  ),
+                  subtitle: const Text(
+                    "여러 명과 동시에 소통할 단톡방을 만듭니다.",
+                    style: TextStyle(color: slate600, fontSize: 13),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    // 🔥 이제 준비 중 스낵바 대신 바로 다중 선택 페이지로 넘어갑니다!
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => UserSelectionPage(
+                          currentUser: widget.currentUser,
+                          isGroupMode: true, // 🔥 그룹 모드로 열기!
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

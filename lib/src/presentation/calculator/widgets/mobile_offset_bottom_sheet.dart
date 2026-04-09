@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:math' as math;
 
-// 🚀 SettingsManager import (경로는 프로젝트에 맞게 수정하세요)
 import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
+import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
 
 const Color makitaTeal = Color(0xFF007580);
@@ -49,14 +49,18 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
   bool _isInverted = false;
   double? _selectedRotation;
 
-  // 🚀 장비 제원 데이터 변수
   double _machineRadius = 0.0;
   double _machineGain = 0.0;
   double _userOffsetShrink = 0.0;
 
-  final TextEditingController _heightCtrl = TextEditingController(text: "100");
-  final TextEditingController _angleCtrl = TextEditingController(text: "45");
-  final TextEditingController _travelCtrl = TextEditingController(text: "150");
+  final TextEditingController _heightCtrl = TextEditingController();
+  final TextEditingController _angleCtrl = TextEditingController();
+  final TextEditingController _travelCtrl = TextEditingController();
+
+  // 🚀 장애물까지의 시작 거리를 입력받는 컨트롤러
+  final TextEditingController _startDistanceCtrl = TextEditingController(
+    text: "0",
+  );
 
   final List<Map<String, dynamic>> _directions = [
     {"label": "UP (위)", "val": 0.0, "icon": Icons.arrow_upward},
@@ -67,13 +71,33 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     {"label": "BACK (뒤)", "val": 450.0, "icon": Icons.call_received},
   ];
 
+  String _formatNum(double val) {
+    return val % 1 == 0 ? val.toInt().toString() : val.toString();
+  }
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _heightCtrl.addListener(() => setState(() {}));
-    _angleCtrl.addListener(() => setState(() {}));
-    _travelCtrl.addListener(() => setState(() {}));
+
+    final dm = MobileBendDataManager();
+    _heightCtrl.text = _formatNum(dm.offsetHeight);
+    _angleCtrl.text = _formatNum(dm.offsetAngle);
+    _travelCtrl.text = _formatNum(dm.offsetTravel);
+
+    _heightCtrl.addListener(() {
+      dm.offsetHeight = double.tryParse(_heightCtrl.text) ?? 0.0;
+      setState(() {});
+    });
+    _angleCtrl.addListener(() {
+      dm.offsetAngle = double.tryParse(_angleCtrl.text) ?? 0.0;
+      setState(() {});
+    });
+    _travelCtrl.addListener(() {
+      dm.offsetTravel = double.tryParse(_travelCtrl.text) ?? 0.0;
+      setState(() {});
+    });
+    _startDistanceCtrl.addListener(() => setState(() {}));
 
     _loadMachineSettings();
   }
@@ -95,6 +119,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     _heightCtrl.dispose();
     _angleCtrl.dispose();
     _travelCtrl.dispose();
+    _startDistanceCtrl.dispose();
     super.dispose();
   }
 
@@ -105,7 +130,8 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     ctrl.text = next.toStringAsFixed(next % 1 == 0 ? 0 : 1);
   }
 
-  void _applyBending(double angle, double travel) {
+  // 🚀 핵심 로직: 1번 마킹(거리+축소값)과 2번 마킹(빗변)을 정확히 리스트에 삽입합니다.
+  void _applyBending(double angle, double travel, double shrink) {
     if (_selectedRotation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -119,6 +145,16 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
 
     double roundedAngle = double.parse(angle.toStringAsFixed(1));
     double roundedTravel = double.parse(travel.toStringAsFixed(1));
+    double roundedShrink = double.parse(shrink.toStringAsFixed(1));
+
+    // 사용자가 입력한 장애물 앞 거리
+    double startDistance = double.tryParse(_startDistanceCtrl.text) ?? 0.0;
+
+    // 💡 1번 구간 길이 = (장애물 거리) + (오프셋 축소값 보상)
+    double firstSegmentLength = startDistance + roundedShrink;
+
+    // 💡 2번 구간 길이 = 빗변(Travel) 거리
+    double secondSegmentLength = roundedTravel;
 
     double r1 = _isInverted
         ? (_selectedRotation! + 180.0) % 360.0
@@ -127,10 +163,23 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
         ? _selectedRotation!
         : (_selectedRotation! + 180.0) % 360.0;
 
+    // 리스트에 2개의 벤딩 포인트 추가
     widget.onAddMultipleBends([
-      {'length': 0.0, 'angle': roundedAngle, 'rotation': r1},
-      {'length': roundedTravel, 'angle': roundedAngle, 'rotation': r2},
+      {'length': firstSegmentLength, 'angle': roundedAngle, 'rotation': r1},
+      {'length': secondSegmentLength, 'angle': roundedAngle, 'rotation': r2},
     ]);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          startDistance > 0
+              ? "1번 마킹에 거리(${startDistance}mm) + 축소값(${roundedShrink}mm)이 적용되었습니다."
+              : "축소값(${roundedShrink}mm)과 빗변(${roundedTravel}mm)이 리스트에 추가되었습니다.",
+        ),
+        backgroundColor: makitaTeal,
+      ),
+    );
+
     Navigator.pop(context);
   }
 
@@ -234,7 +283,6 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     double targetAngle = _tabController.index == 0 ? a : calcAngle;
     double targetTravel = _tabController.index == 0 ? calcTravel : t;
 
-    // 🚀 [추가] 직선 진행 거리(Run) 변수
     double calcRun = 0.0;
     double geometricShrink = 0.0;
     double totalGain = 0.0;
@@ -242,17 +290,13 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     if (targetAngle > 0 && targetAngle < 90 && h > 0 && targetTravel > 0) {
       double rad = targetAngle * math.pi / 180.0;
 
-      // 1. 직선 진행 거리(Run) 계산!
       calcRun = h / math.tan(rad);
-
-      // 2. 오프셋 축소량(Shrink) = 빗변(Travel) - 바닥변(Run)
       geometricShrink = targetTravel - calcRun;
 
       if (_userOffsetShrink > 0) {
         geometricShrink += _userOffsetShrink;
       }
 
-      // 3. 연신율(Gain) = (2 * Setback) - ArcLength
       double gainPerBend = 0.0;
       if (_machineRadius > 0) {
         double setback = _machineRadius * math.tan(rad / 2);
@@ -304,6 +348,47 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                 ],
               ),
               const SizedBox(height: 12),
+
+              // 🚀 장애물까지의 시작 거리 입력 박스
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blueGrey.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blueGrey.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "장애물 앞 시작 거리 (옵션)",
+                            style: TextStyle(
+                              color: slate900,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            "입력 시 축소값이 이 거리에 자동 합산됩니다.",
+                            style: TextStyle(color: slate600, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 120,
+                      child: _buildTextField(_startDistanceCtrl, "거리 mm"),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
               TabBar(
                 controller: _tabController,
                 indicatorColor: makitaTeal,
@@ -370,11 +455,12 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                             _buildResultBox(
                               title: "계산된 빗변 (Travel)",
                               value: calcTravel,
-                              runDistance: calcRun, // 🚀 Run 추가
+                              runDistance: calcRun,
                               shrink: geometricShrink,
                               gain: totalGain,
                               btnText: "적용",
-                              onPressed: () => _applyBending(a, calcTravel),
+                              onPressed: () =>
+                                  _applyBending(a, calcTravel, geometricShrink),
                             ),
                           ],
                         )
@@ -420,13 +506,14 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                             _buildResultBox(
                               title: "계산된 각도 (∠)",
                               value: calcAngle,
-                              runDistance: calcRun, // 🚀 Run 추가
+                              runDistance: calcRun,
                               shrink: geometricShrink,
                               gain: totalGain,
                               btnText: "적용",
                               isError: inverseError,
                               isAngle: true,
-                              onPressed: () => _applyBending(calcAngle, t),
+                              onPressed: () =>
+                                  _applyBending(calcAngle, t, geometricShrink),
                             ),
                           ],
                         );
@@ -491,7 +578,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
       ),
       decoration: InputDecoration(
         filled: true,
-        fillColor: slate100,
+        fillColor: pureWhite,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 12,
@@ -559,11 +646,10 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     );
   }
 
-  // 🚀 결과창 업데이트 (Run 영역 추가)
   Widget _buildResultBox({
     required String title,
     required double value,
-    required double runDistance, // 🚀 새로 추가된 파라미터
+    required double runDistance,
     required double shrink,
     required double gain,
     required String btnText,
@@ -581,7 +667,6 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. 기존 메인 결과 (Travel 또는 Angle) & 적용 버튼
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -638,13 +723,11 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
             ],
           ),
 
-          // 2. 🚀 [추가됨] 직선 진행 거리(Run)와 추가 연신율/축소량 정보 패널
           if (value > 0 && !isError) ...[
             const SizedBox(height: 16),
             const Divider(color: Colors.black12, height: 1),
             const SizedBox(height: 12),
 
-            // 👉 Run 표시 영역
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -677,7 +760,6 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
             const Divider(color: Colors.black12, height: 1),
             const SizedBox(height: 12),
 
-            // 👉 기존 Shrink & Gain 표시 영역
             Row(
               children: [
                 Expanded(

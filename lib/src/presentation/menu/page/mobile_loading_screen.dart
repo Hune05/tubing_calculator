@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // 🔥 추가됨
+import 'package:firebase_messaging/firebase_messaging.dart'; // 🔥 추가됨
 import 'package:tubing_calculator/src/presentation/menu/page/mobile_menu_page.dart';
 
 class MobileLoadingScreen extends StatefulWidget {
@@ -15,7 +17,6 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animController;
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
-  bool _isLoading = true;
 
   @override
   void initState() {
@@ -25,21 +26,55 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
       duration: const Duration(seconds: 1),
     )..repeat(reverse: true);
 
-    _checkLoginStatus();
+    // 🔥 앱 켜지자마자 바로 로그인 상태 체크 시작
+    _checkLoginStatusAndRoute();
+
+    // 🔥 토큰이 앱 사용 중 자동으로 갱신될 때를 대비한 리스너
+    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+      final prefs = await SharedPreferences.getInstance();
+      String? savedName = prefs.getString('user_real_name');
+      if (savedName != null && savedName.isNotEmpty && savedName != "로그인 필요") {
+        await FirebaseFirestore.instance.collection('users').doc(savedName).set(
+          {'fcmToken': newToken, 'updatedAt': FieldValue.serverTimestamp()},
+          SetOptions(merge: true),
+        );
+      }
+    });
   }
 
-  Future<void> _saveUserData(String name) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_real_name', name);
-  }
-
-  Future<String?> _getSavedName() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('user_real_name');
-  }
-
-  Future<void> _checkLoginStatus() async {
+  // 🚀 공통 FCM 토큰 저장 함수 추가
+  Future<void> _saveUserToken(String userName) async {
+    if (userName == "로그인 필요") return;
     try {
+      String? token = await FirebaseMessaging.instance.getToken();
+      if (token != null) {
+        await FirebaseFirestore.instance.collection('users').doc(userName).set({
+          'fcmToken': token,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+        debugPrint("✅ FCM 토큰 업데이트 완료: $userName");
+      }
+    } catch (e) {
+      debugPrint("🚨 FCM 토큰 저장 에러: $e");
+    }
+  }
+
+  Future<void> _checkLoginStatusAndRoute() async {
+    try {
+      // 1. 스플래시 화면(로고)을 최소 1.5초간 보여주기 위함
+      await Future.delayed(const Duration(milliseconds: 1500));
+
+      // 2. 기기에 저장된 오프라인 이름이 있는지 최우선 확인
+      final prefs = await SharedPreferences.getInstance();
+      String? savedName = prefs.getString('user_real_name');
+
+      if (savedName != null && savedName.isNotEmpty) {
+        await _saveUserToken(savedName); // 🔥 자동 로그인 성공 시 토큰 갱신
+        if (mounted) _navigateToMainMenu(savedName);
+        return;
+      }
+
+      // 3. 저장된 이름이 없다면 구글 '자동 로그인(Silent)'만 시도
       await _googleSignIn.initialize(
         serverClientId:
             '289974993415-lhibiid49ncmb5hev53hnasj7vhkvki3.apps.googleusercontent.com',
@@ -47,189 +82,44 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
 
       final GoogleSignInAccount? account = await _googleSignIn
           .attemptLightweightAuthentication();
-      await Future.delayed(const Duration(milliseconds: 1500));
-
-      if (!mounted) return;
 
       if (account != null) {
-        final GoogleSignInAuthentication googleAuth =
-            await account.authentication;
+        final GoogleSignInAuthentication googleAuth = account.authentication;
+
         final OAuthCredential credential = GoogleAuthProvider.credential(
           idToken: googleAuth.idToken,
         );
         await FirebaseAuth.instance.signInWithCredential(credential);
 
-        String? savedName = await _getSavedName();
-        if (savedName != null) {
-          _navigateToMainMenu(savedName);
-        } else {
-          await _showNameConfirmDialog(account);
-        }
+        String name = account.displayName ?? "작업자";
+        await prefs.setString('user_real_name', name);
+
+        await _saveUserToken(name); // 🔥 구글 자동 로그인 성공 시 토큰 갱신
+
+        if (mounted) _navigateToMainMenu(name);
       } else {
-        setState(() => _isLoading = false);
+        // 4. 정보가 아무것도 없으면? => 가두지 않고 '게스트'로 메인화면 통과!
+        if (mounted) _navigateToMainMenu("로그인 필요");
       }
     } catch (e) {
-      print("🚨 자동 로그인 에러: $e");
-      if (!mounted) return;
-
-      String? savedName = await _getSavedName();
-      if (savedName != null) {
-        _showOfflineLoginSnackBar();
-        _navigateToMainMenu(savedName);
-      } else {
-        // 🔥 [해결] 에러 나도 막지 않고 로딩 풀어서 수동 버튼 누를 수 있게 함
-        setState(() => _isLoading = false);
-      }
+      debugPrint("🚨 자동 로그인 체크 에러: $e");
+      // 에러가 나더라도 무한 로딩에 빠지지 않도록 게스트로 넘깁니다.
+      if (mounted) _navigateToMainMenu("로그인 필요");
     }
   }
 
-  Future<void> _handleManualSignIn() async {
-    try {
-      final GoogleSignInAccount? account = await _googleSignIn.authenticate();
-
-      if (account != null) {
-        final GoogleSignInAuthentication googleAuth =
-            await account.authentication;
-        final OAuthCredential credential = GoogleAuthProvider.credential(
-          idToken: googleAuth.idToken,
-        );
-        await FirebaseAuth.instance.signInWithCredential(credential);
-
-        if (!mounted) return;
-        await _showNameConfirmDialog(account);
-      }
-    } catch (error) {
-      print("🚨 수동 로그인 에러: $error");
-      if (!mounted) return;
-
-      String? savedName = await _getSavedName();
-      if (savedName != null) {
-        _showOfflineLoginSnackBar();
-        _navigateToMainMenu(savedName);
-      } else {
-        // 🔥 [해결] 로그인 실패하고 저장된 이름도 없을 때, 튕겨내지 않고 억지로 이름 입력창을 띄움!!!
-        _showErrorSnackBar("구글 로그인 실패: 오프라인 모드로 강제 진입합니다.");
-        await _showNameConfirmDialog(null); // account 없이 다이얼로그 호출
-      }
-    }
-  }
-
-  void _showOfflineLoginSnackBar() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          "📡 오프라인 모드로 접속했습니다.",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.orange,
-        duration: Duration(seconds: 3),
-      ),
-    );
-  }
-
-  void _showErrorSnackBar(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.red.shade600),
-    );
-  }
-
-  // 🚀 [해결] account가 null(로그인 실패)이어도 무조건 창이 뜨도록 수정
-  Future<void> _showNameConfirmDialog(GoogleSignInAccount? account) async {
-    TextEditingController nameController = TextEditingController(
-      text: account?.displayName ?? "",
-    );
-
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            "작업자 실명 입력 (오프라인 가능)",
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                "현장에서 사용할 정확한 본인 실명을 입력해주세요.",
-                style: TextStyle(fontSize: 14, color: Colors.black87),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF007580), width: 2),
-                  ),
-                  labelText: "이름",
-                  labelStyle: TextStyle(color: Color(0xFF007580)),
-                  hintText: "예: 홍길동",
-                  prefixIcon: Icon(Icons.person, color: Color(0xFF007580)),
-                ),
-                textInputAction: TextInputAction.done,
-                onSubmitted: (value) async {
-                  String realName = value.trim();
-                  if (realName.isNotEmpty) {
-                    await _saveUserData(realName);
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      _navigateToMainMenu(realName);
-                    }
-                  }
-                },
-              ),
-            ],
-          ),
-          actions: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF007580),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-              ),
-              onPressed: () async {
-                String realName = nameController.text.trim();
-                if (realName.isNotEmpty) {
-                  await _saveUserData(realName);
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    _navigateToMainMenu(realName);
-                  }
-                } else {
-                  _showErrorSnackBar("이름을 입력해주세요.");
-                }
-              },
-              child: const Text(
-                "확인 및 시작",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
+  // 🚀 메인 메뉴(껍데기 화면)로 이동하는 함수
   void _navigateToMainMenu(String userName) {
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            MobileMenuPage(currentWorker: userName),
+        pageBuilder: (context, animation, secondaryAnimation) => MobileMenuPage(
+          currentWorker: userName,
+        ), // 🔥 전달받은 이름 또는 "로그인 필요" 전달
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },
+        transitionDuration: const Duration(milliseconds: 800),
       ),
     );
   }
@@ -244,63 +134,53 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF1E2124),
-      body: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          if (!_isLoading) {
-            _handleManualSignIn();
-          }
-        },
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF007580).withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.engineering,
-                  size: 80,
-                  color: Color(0xFF007580),
-                ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: const Color(0xFF007580).withValues(alpha: 0.1),
+                shape: BoxShape.circle,
               ),
-              const SizedBox(height: 32),
-              const Text(
-                "FIELD HELPER",
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  letterSpacing: 4,
-                ),
+              child: const Icon(
+                Icons.engineering,
+                size: 80,
+                color: Color(0xFF007580),
               ),
-              const SizedBox(height: 12),
-              const Text(
-                "모바일 현장 지원 시스템 v2.0",
-                style: TextStyle(color: Colors.grey, fontSize: 16),
+            ),
+            const SizedBox(height: 32),
+            const Text(
+              "FIELD HELPER",
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                letterSpacing: 4,
               ),
-              const SizedBox(height: 100),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              "모바일 현장 지원 시스템 v2.0",
+              style: TextStyle(color: Colors.grey, fontSize: 16),
+            ),
+            const SizedBox(height: 100),
 
-              if (_isLoading)
-                const CircularProgressIndicator(color: Color(0xFF007580))
-              else
-                FadeTransition(
-                  opacity: _animController,
-                  child: const Text(
-                    "- TAP TO START -",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF007580),
-                      letterSpacing: 2,
-                    ),
-                  ),
+            // 깜빡거리는 로딩 텍스트
+            FadeTransition(
+              opacity: _animController,
+              child: const Text(
+                "SYSTEM LOADING...",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF007580),
+                  letterSpacing: 2,
                 ),
-            ],
-          ),
+              ),
+            ),
+          ],
         ),
       ),
     );

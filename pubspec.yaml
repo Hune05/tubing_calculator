@@ -48,6 +48,9 @@ dependencies:
   # 🔥 [추가됨] 파이어베이스 스토리지 요금 절약을 위한 이미지 압축 패키지
   flutter_image_compress: ^2.3.0
   url_launcher: ^6.3.2
+  cached_network_image: ^3.4.1
+  http: ^1.6.0
+  table_calendar: ^3.2.0
 
 dev_dependencies:
   flutter_test:

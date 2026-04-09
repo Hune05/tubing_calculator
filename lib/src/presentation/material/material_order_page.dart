@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // 🔥 파이어베이스 연동 필수 추가!
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // 🚀 프로젝트 경로에 맞게 임포트 확인해주세요!
 import '../../data/models/cart_item_model.dart';
@@ -11,7 +12,6 @@ import '../../data/models/order_model.dart';
 import '../../data/repositories/order_repository.dart';
 
 import 'package:tubing_calculator/src/presentation/admin/page/admin_permission_page.dart';
-// 🚀 채팅방으로 바로 넘어가기 위한 임포트
 import '../chat/pages/mobile_chat_room_page.dart';
 
 const Color tossBlue = Color(0xFF3182F6);
@@ -52,9 +52,11 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
   final TextEditingController _qtyCtrl = TextEditingController();
   final TextEditingController _fabSpecCtrl = TextEditingController();
   final TextEditingController _noteCtrl = TextEditingController();
+  final TextEditingController _linkCtrl = TextEditingController();
 
   List<String> _attachedPhotos = [];
-  final List<String> _managers = ["김반장", "이소장", "박주임", "최공무"];
+
+  // 🔥 더미 데이터( _managers ) 삭제 완료!
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -70,6 +72,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
     _qtyCtrl.dispose();
     _fabSpecCtrl.dispose();
     _noteCtrl.dispose();
+    _linkCtrl.dispose();
     super.dispose();
   }
 
@@ -96,6 +99,15 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
     return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
   }
 
+  String _formatTime(Timestamp? timestamp) {
+    if (timestamp == null) return '';
+    final dt = timestamp.toDate();
+    final ampm = dt.hour < 12 ? '오전' : '오후';
+    final h = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+    final m = dt.minute.toString().padLeft(2, '0');
+    return '${dt.month}/${dt.day} $ampm $h:$m';
+  }
+
   Map<String, dynamic>? _calculateDDay(DateTime? expectedDate) {
     if (expectedDate == null) return null;
     final now = DateTime.now();
@@ -116,6 +128,128 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
       "color": warningRed,
       "isUrgent": true,
     };
+  }
+
+  Future<void> _exportOrderData(OrderModel order) async {
+    HapticFeedback.lightImpact();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) =>
+          const Center(child: CircularProgressIndicator(color: tossBlue)),
+    );
+
+    StringBuffer buffer = StringBuffer();
+    buffer.writeln("📦 [발주 내역 요약]");
+    buffer.writeln("요청자: ${order.requester}");
+    buffer.writeln("담당자: ${order.assignee}");
+    buffer.writeln("현재 상태: ${order.status}");
+    buffer.writeln("작업자 희망일: ${_formatDate(order.requestDate)}");
+    if (order.expectedDate != null) {
+      buffer.writeln("확정 입고 예정: ${_formatDate(order.expectedDate!)}");
+    }
+    if (order.note != null && order.note!.isNotEmpty) {
+      buffer.writeln("전체 요청사항: ${order.note}");
+    }
+
+    buffer.writeln("\n📋 [요청 품목 목록]");
+    for (int i = 0; i < order.items.length; i++) {
+      var item = order.items[i];
+      buffer.writeln("${i + 1}. ${item.title}");
+      buffer.writeln("   - 수량: ${item.qty}");
+      buffer.writeln("   - 가공 타입: ${item.type}");
+      if (item.fabSpec != null && item.fabSpec!.isNotEmpty) {
+        buffer.writeln("   - 상세/링크: ${item.fabSpec?.replaceAll('\n', ' ')}");
+      }
+    }
+
+    buffer.writeln("\n💬 [관련 채팅 기록]");
+    try {
+      String roomId = "order_${order.id}";
+      var chatSnapshot = await FirebaseFirestore.instance
+          .collection('chat_rooms')
+          .doc(roomId)
+          .collection('messages')
+          .orderBy('timestamp')
+          .get();
+
+      if (chatSnapshot.docs.isEmpty) {
+        buffer.writeln("- 대화 기록이 없습니다.");
+      } else {
+        for (var doc in chatSnapshot.docs) {
+          var data = doc.data();
+          bool isSystem = data['isSystem'] == true;
+          String sender = data['senderName'] ?? "알림";
+          String text = data['text'] ?? "";
+          if (data['imageUrl'] != null &&
+              data['imageUrl'].toString().isNotEmpty) {
+            text = "[사진 첨부됨] $text";
+          }
+          String timeStr = _formatTime(data['timestamp'] as Timestamp?);
+
+          if (isSystem) {
+            buffer.writeln("[$timeStr] 📢 $text");
+          } else {
+            buffer.writeln("[$timeStr] $sender: $text");
+          }
+        }
+      }
+    } catch (e) {
+      buffer.writeln("- 채팅 기록을 불러오지 못했습니다.");
+    }
+
+    if (!mounted) return;
+    Navigator.pop(context);
+
+    await Clipboard.setData(ClipboardData(text: buffer.toString()));
+
+    _showSnackBar("발주서 및 채팅 기록이 클립보드에 복사되었습니다.\n(카카오톡 등에 붙여넣기 하세요)");
+  }
+
+  Future<void> _deleteOrderConfirm(OrderModel order) async {
+    HapticFeedback.heavyImpact();
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: pureWhite,
+        title: const Row(
+          children: [
+            Icon(LucideIcons.trash2, color: warningRed),
+            SizedBox(width: 8),
+            Text('발주 삭제', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text('이 발주 건을 완전히 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소', style: TextStyle(color: slate600)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: warningRed),
+            child: const Text(
+              '삭제',
+              style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      Navigator.pop(context);
+      try {
+        await FirebaseFirestore.instance
+            .collection('orders')
+            .doc(order.id)
+            .delete();
+        _showSnackBar("발주 건이 성공적으로 삭제되었습니다.");
+      } catch (e) {
+        _showSnackBar("삭제 중 오류가 발생했습니다.", isError: true);
+      }
+    }
   }
 
   @override
@@ -214,6 +348,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                 _buildSimpleInput("수량", "예: 50 (ea/m)", _qtyCtrl),
                 _buildProcessingOptions(),
                 _buildPhotoAttachment(),
+                _buildLinkInput(),
                 const SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,
@@ -264,7 +399,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                   color: pureWhite,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Colors.black.withValues(alpha: 0.05), // 🔥 에러 수정
+                    color: Colors.black.withValues(alpha: 0.05),
                   ),
                 ),
                 child: Row(
@@ -288,6 +423,15 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                                 const SizedBox(width: 8),
                                 const Icon(
                                   LucideIcons.image,
+                                  size: 14,
+                                  color: tossBlue,
+                                ),
+                              ],
+                              if (item.fabSpec != null &&
+                                  item.fabSpec!.contains('http')) ...[
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  LucideIcons.link,
                                   size: 14,
                                   color: tossBlue,
                                 ),
@@ -374,19 +518,35 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
       _showSnackBar("자재명과 수량을 입력해주세요.", isError: true);
       return;
     }
+
+    String specText = _processingType != "일반 자재"
+        ? _fabSpecCtrl.text.trim()
+        : "";
+    String linkText = _linkCtrl.text.trim();
+    String? combinedSpec;
+
+    if (specText.isNotEmpty && linkText.isNotEmpty) {
+      combinedSpec = "$specText\n🔗 참고 링크: $linkText";
+    } else if (specText.isNotEmpty) {
+      combinedSpec = specText;
+    } else if (linkText.isNotEmpty) {
+      combinedSpec = "🔗 참고 링크: $linkText";
+    }
+
     setState(() {
       _cartItems.add(
         CartItemModel(
           title: _itemCtrl.text.trim(),
           qty: _qtyCtrl.text.trim(),
           type: _processingType,
-          fabSpec: _processingType != "일반 자재" ? _fabSpecCtrl.text : null,
+          fabSpec: combinedSpec,
           photos: List.from(_attachedPhotos),
         ),
       );
       _itemCtrl.clear();
       _qtyCtrl.clear();
       _fabSpecCtrl.clear();
+      _linkCtrl.clear();
       _processingType = "일반 자재";
       _attachedPhotos.clear();
     });
@@ -433,6 +593,52 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
               ),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLinkInput() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "참고 링크 첨부 (선택)",
+            style: TextStyle(
+              color: slate600,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: slate100,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: TextField(
+              controller: _linkCtrl,
+              keyboardType: TextInputType.url,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: slate900,
+              ),
+              cursorColor: tossBlue,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(LucideIcons.link, color: slate600, size: 18),
+                hintText: "인터넷 쇼핑몰 등의 제품 URL을 붙여넣으세요",
+                hintStyle: TextStyle(color: Colors.black26, fontSize: 14),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+              ),
             ),
           ),
         ],
@@ -494,6 +700,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
     );
   }
 
+  // 🌟 [핵심 변경] Firestore에서 실제 유저를 불러오도록 수정된 바텀시트
   void _showManagerBottomSheet() {
     showModalBottomSheet(
       context: context,
@@ -517,24 +724,70 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
               ),
             ),
             const SizedBox(height: 16),
-            ..._managers.map(
-              (manager) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  manager,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: slate900,
-                  ),
-                ),
-                trailing: _selectedManager == manager
-                    ? const Icon(Icons.check_circle, color: tossBlue)
-                    : null,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  setState(() => _selectedManager = manager);
-                  Navigator.pop(context);
+            // 🔥 Firestore 연결 부분!
+            Container(
+              constraints: const BoxConstraints(
+                maxHeight: 400,
+              ), // 리스트가 길어질 경우 방어
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('users')
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: tossBlue),
+                    );
+                  }
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return const Center(child: Text("등록된 직원이 없습니다."));
+                  }
+
+                  final userDocs = snapshot.data!.docs;
+
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: userDocs.length,
+                    itemBuilder: (context, index) {
+                      final data =
+                          userDocs[index].data() as Map<String, dynamic>;
+                      final userName = data['name'] ?? userDocs[index].id;
+                      final userTeam = data['team'] ?? '소속 없음';
+
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const CircleAvatar(
+                          backgroundColor: slate100,
+                          child: Icon(
+                            LucideIcons.user,
+                            color: slate600,
+                            size: 20,
+                          ),
+                        ),
+                        title: Text(
+                          userName,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: slate900,
+                          ),
+                        ),
+                        subtitle: Text(
+                          userTeam,
+                          style: const TextStyle(color: slate600, fontSize: 12),
+                        ),
+                        trailing: _selectedManager == userName
+                            ? const Icon(Icons.check_circle, color: tossBlue)
+                            : null,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          setState(() => _selectedManager = userName);
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  );
                 },
               ),
             ),
@@ -783,7 +1036,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                         height: 72,
                         margin: const EdgeInsets.only(right: 12),
                         decoration: BoxDecoration(
-                          color: slate600.withValues(alpha: 0.2), // 🔥 에러 수정
+                          color: slate600.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                           image: DecorationImage(
                             image: FileImage(File(entry.value)),
@@ -871,7 +1124,9 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
     try {
       final XFile? image = await _picker.pickImage(
         source: source,
-        imageQuality: 80,
+        maxWidth: 1080,
+        maxHeight: 1080,
+        imageQuality: 50,
       );
       if (image != null) {
         setState(() => _attachedPhotos.add(image.path));
@@ -902,7 +1157,8 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
         final orders = snapshot.data ?? [];
         List<OrderModel> displayOrders = orders.where((order) {
           if (widget.isAdmin) return true;
-          return order.requester == widget.currentUser;
+          return order.requester == widget.currentUser ||
+              order.assignee == widget.currentUser;
         }).toList();
 
         if (displayOrders.isEmpty) {
@@ -957,7 +1213,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
               : Border.all(color: Colors.transparent),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04), // 🔥 에러 수정
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -1031,7 +1287,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                         decoration: BoxDecoration(
                           color: (isCompleted || isRejected)
                               ? Colors.grey.shade200
-                              : statusColor.withValues(alpha: 0.1), // 🔥 에러 수정
+                              : statusColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -1075,9 +1331,9 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          widget.isAdmin
-                              ? "요청: ${order.requester}"
-                              : "담당: ${order.assignee}",
+                          order.requester == widget.currentUser
+                              ? "담당: ${order.assignee}"
+                              : "요청: ${order.requester}",
                           style: const TextStyle(
                             color: slate600,
                             fontSize: 13,
@@ -1198,6 +1454,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
           bool isConfirmed = order.status.contains("발주 확인");
           bool isInProgress = order.status == "진행중";
           bool isRejected = order.status == "반려됨";
+          bool isCompleted = order.status == "처리 완료";
           Color statusColor = _getStatusColor(order.status);
 
           return Container(
@@ -1241,28 +1498,78 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Text(
-                              order.status,
-                              style: TextStyle(
-                                color: (order.status == "처리 완료" || isRejected)
-                                    ? slate600
-                                    : statusColor,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  onPressed: () => _exportOrderData(order),
+                                  icon: const Icon(
+                                    LucideIcons.copy,
+                                    color: slate600,
+                                    size: 22,
+                                  ),
+                                  tooltip: '내보내기 (복사)',
+                                  constraints: const BoxConstraints(),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                ),
+                                if (widget.isAdmin)
+                                  IconButton(
+                                    onPressed: () => _deleteOrderConfirm(order),
+                                    icon: const Icon(
+                                      LucideIcons.trash2,
+                                      color: warningRed,
+                                      size: 22,
+                                    ),
+                                    tooltip: '삭제',
+                                    constraints: const BoxConstraints(),
+                                    padding: const EdgeInsets.only(left: 8),
+                                  ),
+                              ],
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          "요청 품목 총 ${order.items.length}건",
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            color: slate900,
-                            letterSpacing: -0.5,
-                          ),
+                        const SizedBox(height: 4),
+
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                "요청 품목 총 ${order.items.length}건",
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                  color: slate900,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: (isCompleted || isRejected)
+                                    ? Colors.grey.shade200
+                                    : statusColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                order.status,
+                                style: TextStyle(
+                                  color: (isCompleted || isRejected)
+                                      ? slate600
+                                      : statusColor,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
 
                         if (isRejected && order.rejectReason != null) ...[
@@ -1310,8 +1617,6 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                         ],
 
                         const SizedBox(height: 24),
-
-                        // 🚀 [수정됨] 1:1 채팅 및 전화 연결 카드 (파이어베이스 연동 완료)
                         _buildContactPartnerCard(order),
                         const SizedBox(height: 24),
 
@@ -1342,7 +1647,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                                   isHighlight: item.type != "일반 자재",
                                 ),
                                 if (item.fabSpec != null)
-                                  _buildDetailRow("상세 스펙", item.fabSpec!),
+                                  _buildDetailRow("상세/링크", item.fabSpec!),
                                 if (item.photos != null &&
                                     item.photos!.isNotEmpty) ...[
                                   _buildDetailRow(
@@ -1528,7 +1833,6 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                   ),
                 ),
 
-                // 하단 고정 액션 영역
                 Container(
                   padding: const EdgeInsets.only(top: 16, bottom: 32),
                   decoration: const BoxDecoration(
@@ -1548,10 +1852,12 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
     );
   }
 
-  // 🚀 [수정됨] 1:1 채팅 및 전화 연결 카드 (파이어베이스 연동)
   Widget _buildContactPartnerCard(OrderModel order) {
-    String partnerName = widget.isAdmin ? order.requester : order.assignee;
-    String partnerRole = widget.isAdmin ? "발주 요청자" : "발주 담당자";
+    bool iAmRequester = order.requester == widget.currentUser;
+    String partnerName = iAmRequester ? order.assignee : order.requester;
+    String partnerRole = iAmRequester ? "발주 담당자" : "발주 요청자";
+
+    if (order.requester == order.assignee) return const SizedBox.shrink();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1601,39 +1907,43 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                 child: ElevatedButton.icon(
                   onPressed: () async {
                     HapticFeedback.lightImpact();
+                    String mainItemName = order.items.first.title;
+                    if (order.items.length > 1)
+                      mainItemName += " 외 ${order.items.length - 1}건";
+                    String roomTitle = "[발주 문의] $mainItemName";
+                    String safeOrderId = order.id.isNotEmpty
+                        ? order.id
+                        : DateTime.now().millisecondsSinceEpoch.toString();
+                    String roomId = "order_$safeOrderId";
 
-                    // 🚀 1. 두 사람의 이름으로 고유 채팅방 ID 생성 (알파벳 정렬)
-                    List<String> users = [widget.currentUser, partnerName];
-                    users.sort();
-                    String roomId = "1on1_${users[0]}_${users[1]}";
-
-                    // 🔥 2. 파이어베이스에 방 정보가 없으면 신규 생성 (목록에 뜨게 하기 위함)
                     final roomRef = FirebaseFirestore.instance
                         .collection('chat_rooms')
                         .doc(roomId);
                     final snapshot = await roomRef.get();
-
                     if (!snapshot.exists) {
                       await roomRef.set({
-                        'isGroup': false,
-                        'name': partnerName, // 상대방 이름
-                        'team': partnerRole, // 상대방 소속/역할
-                        'participants': users,
-                        'lastMessage': '1:1 채팅방이 개설되었습니다.',
+                        'isGroup': true,
+                        'groupTitle': roomTitle,
+                        'participants': [widget.currentUser, partnerName],
+                        'lastMessage': '발주 관련 채팅방이 개설되었습니다.',
                         'updatedAt': FieldValue.serverTimestamp(),
+                        'unread': 0,
                       });
                     }
-
                     if (context.mounted) {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => MobileChatRoomPage(
                             currentUser: widget.currentUser,
-                            roomId: roomId, // 🔥 고유 방 ID 전달
-                            chatPartnerName: partnerName,
-                            chatPartnerTeam: partnerRole,
-                            isGroupChat: false,
+                            roomId: roomId,
+                            isGroupChat: true,
+                            groupTitle: roomTitle,
+                            groupParticipants: [
+                              widget.currentUser,
+                              partnerName,
+                            ],
+                            order: order,
                           ),
                         ),
                       );
@@ -1645,7 +1955,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                     color: tossBlue,
                   ),
                   label: const Text(
-                    "1:1 채팅",
+                    "채팅 문의",
                     style: TextStyle(
                       color: tossBlue,
                       fontWeight: FontWeight.bold,
@@ -1665,11 +1975,32 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
               const SizedBox(width: 8),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {
+                  onPressed: () async {
                     HapticFeedback.lightImpact();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("$partnerName님에게 통화를 연결합니다.")),
-                    );
+                    try {
+                      final userDoc = await FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(partnerName)
+                          .get();
+                      if (!context.mounted) return;
+                      if (userDoc.exists &&
+                          userDoc.data()!.containsKey('phoneNumber')) {
+                        final String phoneNumber =
+                            userDoc.data()!['phoneNumber'] ?? '';
+                        if (phoneNumber.isNotEmpty) {
+                          final Uri url = Uri.parse('tel:$phoneNumber');
+                          if (await canLaunchUrl(url))
+                            await launchUrl(url);
+                          else
+                            _showSnackBar("전화 앱을 실행할 수 없습니다.", isError: true);
+                        } else
+                          _showSnackBar("상대방의 등록된 전화번호가 없습니다.", isError: true);
+                      } else
+                        _showSnackBar("상대방의 등록된 전화번호가 없습니다.", isError: true);
+                    } catch (e) {
+                      if (context.mounted)
+                        _showSnackBar("전화번호를 불러오는데 실패했습니다.", isError: true);
+                    }
                   },
                   icon: const Icon(
                     LucideIcons.phoneCall,
@@ -1700,71 +2031,38 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
     );
   }
 
-  Widget _buildBottomActions(OrderModel order, DateTime? tempExpectedDate) {
-    bool isRejected = order.status == "반려됨";
-    bool isCompleted = order.status == "처리 완료";
-
-    if (isRejected || isCompleted) return _buildCloseButton();
-    if (widget.isAdmin)
-      return _buildAdminActionButtons(order, tempExpectedDate);
-    if (!widget.isAdmin && order.status == "진행중")
-      return _buildWorkerReceiveButton(order);
-
-    return _buildCloseButton();
-  }
-
-  Widget _buildCloseButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: () => Navigator.pop(context),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: slate100,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+  Widget _buildDetailRow(
+    String label,
+    String value, {
+    bool isHighlight = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 90,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: slate600,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
-        ),
-        child: const Text(
-          "닫기",
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: slate900,
+          Expanded(
+            child: SelectableText(
+              value,
+              style: TextStyle(
+                color: isHighlight ? tossBlue : slate900,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWorkerReceiveButton(OrderModel order) {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: () async {
-          HapticFeedback.mediumImpact();
-          Navigator.pop(context);
-          final updatedOrder = order.copyWith(status: "처리 완료");
-          await _repo.updateOrder(updatedOrder);
-          _showSnackBar("✅ 자재 수령이 확인되어 발주가 종결되었습니다.");
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        child: const Text(
-          "✅ 현장 자재 수령 완료",
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.bold,
-            color: pureWhite,
-          ),
-        ),
+        ],
       ),
     );
   }
@@ -1874,11 +2172,9 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
     if (currentStatus == "발주 대기") {
       actionText = "접수 ➔ 견적 대기";
       btnColor = Colors.purple.shade400;
-      isApproveEnabled = true;
     } else if (currentStatus == "발주 확인 (견적 대기)") {
       actionText = "견적 완료 ➔ 결제 대기";
       btnColor = Colors.indigo.shade400;
-      isApproveEnabled = true;
     } else if (currentStatus == "발주 확인 (결제 대기)") {
       actionText = "결제 완료 ➔ 입고일 지정(진행중)";
       btnColor = makitaTeal;
@@ -2005,38 +2301,71 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
     );
   }
 
-  Widget _buildDetailRow(
-    String label,
-    String value, {
-    bool isHighlight = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 90,
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: slate600,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+  Widget _buildWorkerReceiveButton(OrderModel order) {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton(
+        onPressed: () async {
+          HapticFeedback.mediumImpact();
+          Navigator.pop(context);
+          final updatedOrder = order.copyWith(status: "처리 완료");
+          await _repo.updateOrder(updatedOrder);
+          _showSnackBar("✅ 자재 수령이 확인되어 발주가 종결되었습니다.");
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                color: isHighlight ? tossBlue : slate900,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+        ),
+        child: const Text(
+          "✅ 현장 자재 수령 완료",
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.bold,
+            color: pureWhite,
           ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomActions(OrderModel order, DateTime? tempExpectedDate) {
+    bool isRejected = order.status == "반려됨";
+    bool isCompleted = order.status == "처리 완료";
+
+    if (isRejected || isCompleted) return _buildCloseButton();
+    if (widget.isAdmin)
+      return _buildAdminActionButtons(order, tempExpectedDate);
+    if (!widget.isAdmin && order.status == "진행중")
+      return _buildWorkerReceiveButton(order);
+
+    return _buildCloseButton();
+  }
+
+  Widget _buildCloseButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton(
+        onPressed: () => Navigator.pop(context),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: slate100,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: const Text(
+          "닫기",
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: slate900,
+          ),
+        ),
       ),
     );
   }
@@ -2136,6 +2465,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
