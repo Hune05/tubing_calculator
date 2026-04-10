@@ -96,18 +96,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _markThicknessController.text = (data['markThickness'] ?? 0.0).toString();
       _offsetShrinkController.text = (data['offsetShrink'] ?? 0.0).toString();
 
-      if (_autoStates['radius'] == false)
+      if (_autoStates['radius'] == false) {
         _rController.text = (data['bendRadius'] ?? 0.0).toString();
-      if (_autoStates['takeUp'] == false)
+      }
+      if (_autoStates['takeUp'] == false) {
         _takeUpController.text = (data['takeUp'] ?? 0.0).toString();
-      if (_autoStates['gain'] == false)
+      }
+      if (_autoStates['gain'] == false) {
         _gainController.text = (data['gain'] ?? 0.0).toString();
-      if (_autoStates['minStraight'] == false)
+      }
+      if (_autoStates['minStraight'] == false) {
         _minStraightController.text = (data['minStraight'] ?? 0.0).toString();
-      if (_autoStates['offset'] == false)
+      }
+      if (_autoStates['offset'] == false) {
         _benderOffsetController.text = (data['benderOffset'] ?? 0.0).toString();
-      if (_autoStates['fittingDepth'] == false)
+      }
+      if (_autoStates['fittingDepth'] == false) {
         _fittingDepthController.text = (data['fittingDepth'] ?? 0.0).toString();
+      }
     });
     _onSpecsChanged(isInitialLoad: true);
   }
@@ -168,16 +174,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final specs = SettingsController.getStandardSpecs(_benderBrand, _currentOD);
     setState(() {
       if (specs != null) {
-        if (_autoStates['radius'] == true)
+        if (_autoStates['radius'] == true) {
           _rController.text = specs.bendRadius.toString();
-        if (_autoStates['takeUp'] == true)
+        }
+        if (_autoStates['takeUp'] == true) {
           _takeUpController.text = specs.takeUp.toString();
-        if (_autoStates['gain'] == true)
+        }
+        if (_autoStates['gain'] == true) {
           _gainController.text = specs.gain.toString();
-        if (_autoStates['minStraight'] == true)
+        }
+        if (_autoStates['minStraight'] == true) {
           _minStraightController.text = specs.minStraight.toString();
-        if (_autoStates['offset'] == true)
+        }
+        if (_autoStates['offset'] == true) {
           _benderOffsetController.text = specs.benderOffset.toString();
+        }
       }
       if (_autoStates['fittingDepth'] == true) {
         if (_fittingType == "Twin Ferrule") {
@@ -314,8 +325,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             }
           : null,
       onTap: () {
-        if (key == null || _autoStates[key] != true)
+        if (key == null || _autoStates[key] != true) {
           MakitaNumpad.show(context, controller: controller, title: label);
+        }
       },
     );
   }
@@ -716,7 +728,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Text(
+            const Text(
               "🔧 제어반(Pendant) 조작 매뉴얼",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
@@ -908,7 +920,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Text(
+            const Text(
               "🔧 제어반(HMI) 조작 매뉴얼",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
@@ -1590,8 +1602,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 TableRow(
                   decoration: BoxDecoration(color: Colors.grey.shade100),
-                  children: [
-                    const Padding(
+                  children: const [
+                    Padding(
                       padding: EdgeInsets.all(8),
                       child: Text(
                         "규격 (OD)",
@@ -1603,7 +1615,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                     ),
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.all(8),
                       child: Text(
                         "표준 금형(R)",
@@ -1616,14 +1628,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.all(8),
+                      padding: EdgeInsets.all(8),
                       child: Text(
                         "최소 간격(C-to-C)",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 11,
-                          color: Colors.blueGrey.shade800,
+                          color: Colors.blueGrey,
                         ),
                       ),
                     ),
@@ -1701,8 +1713,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 TableRow(
                   decoration: BoxDecoration(color: Colors.grey.shade100),
-                  children: [
-                    const Padding(
+                  children: const [
+                    Padding(
                       padding: EdgeInsets.all(8),
                       child: Text(
                         "나사 규격",
@@ -1715,14 +1727,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.all(8),
+                      padding: EdgeInsets.all(8),
                       child: Text(
                         "체결 깊이 (근사치)",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 11,
-                          color: Colors.blueGrey.shade800,
+                          color: Colors.blueGrey,
                         ),
                       ),
                     ),
@@ -1787,8 +1799,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 TableRow(
                   decoration: BoxDecoration(color: Colors.grey.shade100),
-                  children: [
-                    const Padding(
+                  children: const [
+                    Padding(
                       padding: EdgeInsets.all(8),
                       child: Text(
                         "분수 (Inch)",
@@ -1800,7 +1812,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                     ),
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.all(8),
                       child: Text(
                         "소수점 (Inch)",
@@ -1813,14 +1825,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.all(8),
+                      padding: EdgeInsets.all(8),
                       child: Text(
                         "mm 환산",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 11,
-                          color: Colors.blueGrey.shade800,
+                          color: Colors.blueGrey,
                         ),
                       ),
                     ),

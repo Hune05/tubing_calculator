@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -594,6 +593,7 @@ class _OrderLogPageState extends State<OrderLogPage> {
       );
     }
     await Clipboard.setData(ClipboardData(text: csv.toString()));
+    if (!mounted) return;
     _showSnackBar("✅ 목록이 복사되었습니다! 엑셀에 붙여넣기 하세요.");
   }
 
@@ -624,8 +624,10 @@ class _OrderLogPageState extends State<OrderLogPage> {
     } catch (e) {
       buffer.writeln("채팅 기록 없음");
     }
+    if (!mounted) return;
     Navigator.pop(context);
     await Clipboard.setData(ClipboardData(text: buffer.toString()));
+    if (!mounted) return;
     _showSnackBar("내역이 클립보드에 복사되었습니다.");
   }
 
@@ -652,7 +654,8 @@ class _OrderLogPageState extends State<OrderLogPage> {
           .collection('orders')
           .doc(order.id)
           .delete();
-      if (mounted) Navigator.pop(context);
+      if (!mounted) return;
+      Navigator.pop(context);
       _showSnackBar("삭제되었습니다.");
     }
   }

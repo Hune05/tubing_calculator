@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:lucide_icons/lucide_icons.dart';
 
-// 🚀 [수정] 사용하지 않는 bend_data_manager.dart import 제거 완료
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/offset_bottom_sheet.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/saddle_bottom_sheet.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/rolling_offset_bottom_sheet.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/pipe_visualizer.dart';
+// 🚀 [수정] Mobile 접두사가 붙은 최신 파일 경로로 수정
+import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_offset_bottom_sheet.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_saddle_bottom_sheet.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_rolling_offset_bottom_sheet.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_pipe_visualizer.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
@@ -543,7 +543,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     });
   }
 
-  // 🚀 [추가] 화면이 튀지 않도록 오프셋 등 여러 개의 벤딩을 한 번에 삽입하는 함수
+  // 🚀 화면이 튀지 않도록 오프셋 등 여러 개의 벤딩을 한 번에 삽입하는 함수
   void _executeMultipleMacros(List<Map<String, double>> bends) {
     List<Map<String, double>> newList = List.from(widget.bendList);
     setState(() {
@@ -608,7 +608,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                       child: Icon(Icons.grid_4x4, size: 500, color: slate100),
                     ),
                   ),
-                  PipeVisualizer(
+                  // 🚀 [수정] MobilePipeVisualizer로 이름 교체됨
+                  MobilePipeVisualizer(
                     bendList: widget.bendList,
                     initialStartDir: _localStartDir,
                     onStartDirChanged: (newDir) =>
@@ -761,18 +762,19 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                                 child: Row(
                                   children: [
                                     _buildToolChip("오프셋", null, () {
-                                      OffsetBottomSheet.show(
+                                      // 🚀 [수정] Mobile 접두사 클래스명 적용
+                                      MobileOffsetBottomSheet.show(
                                         context,
                                         currentRotation:
                                             _currentRotation ?? 0.0,
-                                        // 🚀 [해결됨] 에러 나던 부분: 다중 추가 함수로 교체
                                         onAddMultipleBends: (bends) =>
                                             _executeMultipleMacros(bends),
                                       );
                                     }),
                                     const SizedBox(width: 6),
                                     _buildToolChip("새들", null, () {
-                                      SaddleBottomSheet.show(
+                                      // 🚀 [수정] Mobile 접두사 클래스명 적용
+                                      MobileSaddleBottomSheet.show(
                                         context,
                                         currentRotation:
                                             _currentRotation ?? 0.0,
@@ -782,7 +784,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                                     }),
                                     const SizedBox(width: 6),
                                     _buildToolChip("롤링", LucideIcons.orbit, () {
-                                      RollingOffsetBottomSheet.show(
+                                      // 🚀 [수정] Mobile 접두사 클래스명 적용
+                                      MobileRollingOffsetBottomSheet.show(
                                         context,
                                         currentRotation:
                                             _currentRotation ?? 0.0,

@@ -1,6 +1,6 @@
 part of 'inventory_page.dart';
 
-extension InventoryDialogsExt on _InventoryPageState {
+extension _InventoryDialogsExt on _InventoryPageState {
   void _showMainStockActionDialog({
     required bool isDispatch,
     required String docId,
@@ -147,7 +147,9 @@ extension InventoryDialogsExt on _InventoryPageState {
               String proj = projCtrl.text.trim();
               String reason = reasonCtrl.text.trim();
 
-              if (qty <= 0 || (isDispatch && proj.isEmpty)) return;
+              if (qty <= 0 || (isDispatch && proj.isEmpty)) {
+                return;
+              }
 
               try {
                 // 안전 증감 연산 처리
@@ -195,6 +197,7 @@ extension InventoryDialogsExt on _InventoryPageState {
 
                 if (context.mounted) {
                   Navigator.pop(ctx);
+                  // ignore: invalid_use_of_protected_member
                   setState(() {
                     _selectedDocId = null;
                     _selectedItemData = null;
@@ -305,6 +308,7 @@ extension InventoryDialogsExt on _InventoryPageState {
                 ),
                 child: Column(
                   children: [
+                    // ignore: deprecated_member_use
                     RadioListTile<String>(
                       title: const Text(
                         "정상품 (본 재고 합침)",
@@ -320,6 +324,7 @@ extension InventoryDialogsExt on _InventoryPageState {
                       activeColor: makitaTeal,
                       onChanged: (v) => setDialogState(() => returnStatus = v!),
                     ),
+                    // ignore: deprecated_member_use
                     RadioListTile<String>(
                       title: const Text(
                         "장기 보관 (희귀부속)",
@@ -359,7 +364,9 @@ extension InventoryDialogsExt on _InventoryPageState {
                 int qty = int.tryParse(qtyCtrl.text) ?? 0;
                 int currentProjQty = pItem['qty'] ?? 0;
 
-                if (qty <= 0 || qty > currentProjQty) return;
+                if (qty <= 0 || qty > currentProjQty) {
+                  return;
+                }
 
                 try {
                   if (currentProjQty - qty == 0) {
@@ -372,13 +379,15 @@ extension InventoryDialogsExt on _InventoryPageState {
 
                   String targetMatName = pItem['material_name'];
                   if (returnStatus != "정상" &&
-                      !targetMatName.contains("($returnStatus)"))
+                      !targetMatName.contains("($returnStatus)")) {
                     targetMatName = "$targetMatName ($returnStatus)";
+                  }
 
                   final snapshot = await _inventoryDb
                       .where('name', isEqualTo: targetMatName)
                       .limit(1)
                       .get();
+
                   if (snapshot.docs.isNotEmpty) {
                     await _inventoryDb.doc(snapshot.docs.first.id).update({
                       'qty': FieldValue.increment(qty),
@@ -411,6 +420,7 @@ extension InventoryDialogsExt on _InventoryPageState {
 
                   if (context.mounted) {
                     Navigator.pop(ctx);
+                    // ignore: invalid_use_of_protected_member
                     setState(() {
                       _selectedDocId = null;
                       _selectedItemData = null;
@@ -462,11 +472,13 @@ extension InventoryDialogsExt on _InventoryPageState {
             ),
             onPressed: () {
               _inventoryDb.doc(docId).delete();
-              if (_selectedDocId == docId)
+              if (_selectedDocId == docId) {
+                // ignore: invalid_use_of_protected_member
                 setState(() {
                   _selectedDocId = null;
                   _selectedItemData = null;
                 });
+              }
               Navigator.pop(ctx);
             },
             child: const Text(
@@ -650,12 +662,16 @@ extension InventoryDialogsExt on _InventoryPageState {
                       onPressed: () async {
                         if (nameCtrl.text.isEmpty ||
                             sizeCtrl.text.isEmpty ||
-                            makerCtrl.text.isEmpty)
+                            makerCtrl.text.isEmpty) {
                           return;
+                        }
+
                         String fullName =
                             "[${makerCtrl.text}] ${sizeCtrl.text} ${nameCtrl.text}";
-                        if (heatNoCtrl.text.isNotEmpty)
+
+                        if (heatNoCtrl.text.isNotEmpty) {
                           fullName += " (H:${heatNoCtrl.text})";
+                        }
 
                         await _inventoryDb.add({
                           "name": fullName,
@@ -673,7 +689,10 @@ extension InventoryDialogsExt on _InventoryPageState {
                           "is_reorder_needed": false,
                           "createdAt": FieldValue.serverTimestamp(),
                         });
-                        if (context.mounted) Navigator.pop(context);
+
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                        }
                       },
                       child: const Text(
                         "자재등록 완료",
@@ -761,10 +780,11 @@ extension InventoryDialogsExt on _InventoryPageState {
             }
           }
           await batch.commit();
-          if (mounted)
+          if (mounted) {
             ScaffoldMessenger.of(
               context,
             ).showSnackBar(const SnackBar(content: Text("삭제 완료")));
+          }
         } catch (e) {
           debugPrint("오류: $e");
         }
@@ -907,8 +927,10 @@ extension InventoryDialogsExt on _InventoryPageState {
             onPressed: () async {
               int physicalQty = int.tryParse(physicalQtyCtrl.text) ?? -1;
               if (physicalQty < 0) return;
+
               int systemQty = item['qty'] ?? 0;
               int diff = physicalQty - systemQty;
+
               if (diff == 0) {
                 Navigator.pop(ctx);
                 return;
@@ -925,7 +947,9 @@ extension InventoryDialogsExt on _InventoryPageState {
                   'unit': item['unit'],
                   'timestamp': FieldValue.serverTimestamp(),
                 });
-                if (context.mounted) Navigator.pop(ctx);
+                if (context.mounted) {
+                  Navigator.pop(ctx);
+                }
               } catch (e) {
                 debugPrint("Error: $e");
               }

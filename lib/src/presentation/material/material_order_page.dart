@@ -54,7 +54,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
   final TextEditingController _noteCtrl = TextEditingController();
   final TextEditingController _linkCtrl = TextEditingController();
 
-  List<String> _attachedPhotos = [];
+  final List<String> _attachedPhotos = [];
 
   // 🔥 더미 데이터( _managers ) 삭제 완료!
   final ImagePicker _picker = ImagePicker();
@@ -119,10 +119,12 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
     );
     final diff = target.difference(today).inDays;
 
-    if (diff == 0)
+    if (diff == 0) {
       return {"text": "D-Day", "color": warningRed, "isUrgent": true};
-    if (diff > 0)
+    }
+    if (diff > 0) {
       return {"text": "D-$diff", "color": tossBlue, "isUrgent": false};
+    }
     return {
       "text": "D+${diff.abs()} (지연)",
       "color": warningRed,
@@ -203,6 +205,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
     Navigator.pop(context);
 
     await Clipboard.setData(ClipboardData(text: buffer.toString()));
+    if (!mounted) return;
 
     _showSnackBar("발주서 및 채팅 기록이 클립보드에 복사되었습니다.\n(카카오톡 등에 붙여넣기 하세요)");
   }
@@ -245,8 +248,10 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
             .collection('orders')
             .doc(order.id)
             .delete();
+        if (!mounted) return;
         _showSnackBar("발주 건이 성공적으로 삭제되었습니다.");
       } catch (e) {
+        if (!mounted) return;
         _showSnackBar("삭제 중 오류가 발생했습니다.", isError: true);
       }
     }
@@ -824,7 +829,9 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                 firstDate: DateTime.now(),
                 lastDate: DateTime.now().add(const Duration(days: 365)),
               );
-              if (picked != null) setState(() => _selectedDate = picked);
+              if (picked != null) {
+                setState(() => _selectedDate = picked);
+              }
             },
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1185,7 +1192,9 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
 
   Widget _buildStatusCard(OrderModel order) {
     String mainTitle = order.items.first.title;
-    if (order.items.length > 1) mainTitle += " 외 ${order.items.length - 1}건";
+    if (order.items.length > 1) {
+      mainTitle += " 외 ${order.items.length - 1}건";
+    }
 
     bool isSpecial = order.items.any((item) => item.type != "일반 자재");
     bool hasAnyPhoto = order.items.any(
@@ -1908,8 +1917,9 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                   onPressed: () async {
                     HapticFeedback.lightImpact();
                     String mainItemName = order.items.first.title;
-                    if (order.items.length > 1)
+                    if (order.items.length > 1) {
                       mainItemName += " 외 ${order.items.length - 1}건";
+                    }
                     String roomTitle = "[발주 문의] $mainItemName";
                     String safeOrderId = order.id.isNotEmpty
                         ? order.id
@@ -1930,24 +1940,20 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                         'unread': 0,
                       });
                     }
-                    if (context.mounted) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => MobileChatRoomPage(
-                            currentUser: widget.currentUser,
-                            roomId: roomId,
-                            isGroupChat: true,
-                            groupTitle: roomTitle,
-                            groupParticipants: [
-                              widget.currentUser,
-                              partnerName,
-                            ],
-                            order: order,
-                          ),
+                    if (!mounted) return;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => MobileChatRoomPage(
+                          currentUser: widget.currentUser,
+                          roomId: roomId,
+                          isGroupChat: true,
+                          groupTitle: roomTitle,
+                          groupParticipants: [widget.currentUser, partnerName],
+                          order: order,
                         ),
-                      );
-                    }
+                      ),
+                    );
                   },
                   icon: const Icon(
                     LucideIcons.messageCircle,
@@ -1982,24 +1988,30 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                           .collection('users')
                           .doc(partnerName)
                           .get();
-                      if (!context.mounted) return;
+                      if (!mounted) return;
                       if (userDoc.exists &&
                           userDoc.data()!.containsKey('phoneNumber')) {
                         final String phoneNumber =
                             userDoc.data()!['phoneNumber'] ?? '';
                         if (phoneNumber.isNotEmpty) {
                           final Uri url = Uri.parse('tel:$phoneNumber');
-                          if (await canLaunchUrl(url))
+                          if (await canLaunchUrl(url)) {
                             await launchUrl(url);
-                          else
+                          } else {
+                            if (!mounted) return;
                             _showSnackBar("전화 앱을 실행할 수 없습니다.", isError: true);
-                        } else
+                          }
+                        } else {
+                          if (!mounted) return;
                           _showSnackBar("상대방의 등록된 전화번호가 없습니다.", isError: true);
-                      } else
+                        }
+                      } else {
+                        if (!mounted) return;
                         _showSnackBar("상대방의 등록된 전화번호가 없습니다.", isError: true);
+                      }
                     } catch (e) {
-                      if (context.mounted)
-                        _showSnackBar("전화번호를 불러오는데 실패했습니다.", isError: true);
+                      if (!mounted) return;
+                      _showSnackBar("전화번호를 불러오는데 실패했습니다.", isError: true);
                     }
                   },
                   icon: const Icon(
@@ -2139,6 +2151,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                 rejectReason: reasonCtrl.text.trim(),
               );
               await _repo.updateOrder(updatedOrder);
+              if (!mounted) return;
               _showSnackBar("발주가 반려 처리되었습니다.", isError: true);
             },
             style: ElevatedButton.styleFrom(
@@ -2224,6 +2237,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                     expectedDate: tempExpectedDate,
                   );
                   await _repo.updateOrder(updatedOrder);
+                  if (!mounted) return;
                   _showSnackBar("입고 예정일이 지연(변경) 처리되었습니다.");
                 },
                 style: OutlinedButton.styleFrom(
@@ -2258,22 +2272,30 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
 
                       if (currentStatus == "발주 대기") {
                         updatedOrder = order.copyWith(status: "발주 확인 (견적 대기)");
-                        _showSnackBar("접수 완료: 견적 대기 상태로 변경되었습니다.");
+                        if (mounted) {
+                          _showSnackBar("접수 완료: 견적 대기 상태로 변경되었습니다.");
+                        }
                       } else if (currentStatus == "발주 확인 (견적 대기)") {
                         updatedOrder = order.copyWith(status: "발주 확인 (결제 대기)");
-                        _showSnackBar("견적 완료: 결제 대기 상태로 변경되었습니다.");
+                        if (mounted) {
+                          _showSnackBar("견적 완료: 결제 대기 상태로 변경되었습니다.");
+                        }
                       } else if (currentStatus == "발주 확인 (결제 대기)") {
                         updatedOrder = order.copyWith(
                           expectedDate: tempExpectedDate,
                           status: "진행중",
                         );
-                        _showSnackBar("결제 완료: 입고일이 지정되고 발주가 진행됩니다.");
+                        if (mounted) {
+                          _showSnackBar("결제 완료: 입고일이 지정되고 발주가 진행됩니다.");
+                        }
                       } else if (currentStatus == "진행중") {
                         updatedOrder = order.copyWith(
                           expectedDate: tempExpectedDate,
                           status: "처리 완료",
                         );
-                        _showSnackBar("현장 수령 및 발주 처리가 완료되었습니다.");
+                        if (mounted) {
+                          _showSnackBar("현장 수령 및 발주 처리가 완료되었습니다.");
+                        }
                       }
 
                       await _repo.updateOrder(updatedOrder);
@@ -2311,6 +2333,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
           Navigator.pop(context);
           final updatedOrder = order.copyWith(status: "처리 완료");
           await _repo.updateOrder(updatedOrder);
+          if (!mounted) return;
           _showSnackBar("✅ 자재 수령이 확인되어 발주가 종결되었습니다.");
         },
         style: ElevatedButton.styleFrom(
@@ -2337,10 +2360,12 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
     bool isCompleted = order.status == "처리 완료";
 
     if (isRejected || isCompleted) return _buildCloseButton();
-    if (widget.isAdmin)
+    if (widget.isAdmin) {
       return _buildAdminActionButtons(order, tempExpectedDate);
-    if (!widget.isAdmin && order.status == "진행중")
+    }
+    if (!widget.isAdmin && order.status == "진행중") {
       return _buildWorkerReceiveButton(order);
+    }
 
     return _buildCloseButton();
   }

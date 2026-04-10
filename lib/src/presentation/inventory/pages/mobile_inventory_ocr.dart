@@ -46,6 +46,7 @@ class OcrService {
       // 자르기를 취소하고 뒤로갔을 경우
       if (croppedFile == null) return null;
 
+      if (!context.mounted) return null;
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -60,30 +61,31 @@ class OcrService {
         inputImage,
       );
 
-      if (context.mounted) Navigator.pop(context);
+      // BuildContext 동기화 경고 해결
+      if (!context.mounted) return null;
+      Navigator.pop(context);
 
       if (recognizedText.text.isEmpty) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("인식된 글자가 없습니다. 범위를 다시 지정해주세요.")),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("인식된 글자가 없습니다. 범위를 다시 지정해주세요.")),
+        );
         return null;
       }
 
       String raw = recognizedText.text.toUpperCase();
 
       String material = "";
-      if (raw.contains("316L"))
+      if (raw.contains("316L")) {
         material = "SS316L";
-      else if (raw.contains("304"))
+      } else if (raw.contains("304")) {
         material = "SS304";
-      else if (raw.contains("MONEL"))
+      } else if (raw.contains("MONEL")) {
         material = "MONEL";
-      else if (raw.contains("CARBON"))
+      } else if (raw.contains("CARBON")) {
         material = "CARBON";
-      else if (raw.contains("TEFLON"))
+      } else if (raw.contains("TEFLON")) {
         material = "TEFLON";
+      }
 
       String heatNo = "";
       RegExp heatRegex = RegExp(r'(?:HEAT|LOT|H/N|HT|NO)\.?[\s:]*([A-Z0-9]+)');
@@ -109,7 +111,9 @@ class OcrService {
 
       return {"name": finalName, "material": material, "heatNo": heatNo};
     } catch (e) {
-      if (context.mounted && Navigator.canPop(context)) Navigator.pop(context);
+      if (context.mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
       debugPrint("OCR 스캔 에러: $e");
       return null;
     }
@@ -149,6 +153,7 @@ class OcrService {
 
       if (croppedFile == null) return null;
 
+      if (!context.mounted) return null;
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -162,14 +167,14 @@ class OcrService {
         inputImage,
       );
 
-      if (context.mounted) Navigator.pop(context);
+      // BuildContext 동기화 경고 해결
+      if (!context.mounted) return null;
+      Navigator.pop(context);
 
       if (recognizedText.text.isEmpty) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("인식된 글자가 없습니다. 범위를 다시 지정해주세요.")),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("인식된 글자가 없습니다. 범위를 다시 지정해주세요.")),
+        );
         return null;
       }
 
@@ -194,7 +199,9 @@ class OcrService {
 
       return finalResult;
     } catch (e) {
-      if (context.mounted && Navigator.canPop(context)) Navigator.pop(context);
+      if (context.mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
       debugPrint("OCR 스캔 에러: $e");
       return null;
     }

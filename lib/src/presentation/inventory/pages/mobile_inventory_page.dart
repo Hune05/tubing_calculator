@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:intl/intl.dart';
 import 'dart:async';
 
 import 'inventory_model.dart';
@@ -33,8 +32,6 @@ class MobileInventoryPage extends StatefulWidget {
 class _MobileInventoryPageState extends State<MobileInventoryPage> {
   final PageController _pageController = PageController();
   int _currentCategory = 0;
-
-  bool _isAdminMode = true;
 
   final CollectionReference _inventoryDb = FirebaseFirestore.instance
       .collection('inventory');
@@ -467,7 +464,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                     bottom: 24,
                     top: 16,
                   ),
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: pureWhite,
                     border: Border(top: BorderSide(color: slate100, width: 1)),
                   ),

@@ -8,12 +8,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 
+// 🚀 [수정] Mobile 접두사가 붙은 최신 파일 경로 및 클래스명으로 모두 교체
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/offset_bottom_sheet.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/saddle_bottom_sheet.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/rolling_offset_bottom_sheet.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/pipe_visualizer.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/parallel_shrink_bottom_sheet.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_offset_bottom_sheet.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_saddle_bottom_sheet.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_rolling_offset_bottom_sheet.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_pipe_visualizer.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_parallel_shrink_bottom_sheet.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 const Color makitaTeal = Color(0xFF007580);
@@ -417,7 +418,8 @@ class _CalculatorPageState extends State<CalculatorPage>
                         child: Icon(Icons.grid_4x4, size: 500, color: slate100),
                       ),
                     ),
-                    PipeVisualizer(
+                    // 🚀 [수정] MobilePipeVisualizer로 변경
+                    MobilePipeVisualizer(
                       bendList: widget.bendList,
                       initialStartDir: _localStartDir,
                       onStartDirChanged: (newDir) async {
@@ -578,14 +580,13 @@ class _CalculatorPageState extends State<CalculatorPage>
                                   scrollDirection: Axis.horizontal,
                                   child: Row(
                                     children: [
-                                      // 🚀 [해결됨] 오프셋 버튼 클릭 시 묶음 데이터를 처리합니다.
+                                      // 🚀 [수정] MobileOffsetBottomSheet 로 교체
                                       _buildToolChip("오프셋", null, () {
-                                        OffsetBottomSheet.show(
+                                        MobileOffsetBottomSheet.show(
                                           context,
                                           currentRotation:
                                               _currentRotation ?? 0.0,
                                           onAddMultipleBends: (bends) {
-                                            // 만약 편집 모드에서 오프셋으로 덮어씌울 경우 기존 건 지우고 삽입
                                             if (_editingIndex != null) {
                                               widget.onDeleteBend(
                                                 _editingIndex!,
@@ -596,15 +597,15 @@ class _CalculatorPageState extends State<CalculatorPage>
                                                 _tempController.clear();
                                               });
                                             } else {
-                                              // 신규 추가 시
                                               widget.onAddMultipleBends(bends);
                                             }
                                           },
                                         );
                                       }),
                                       const SizedBox(width: 6),
+                                      // 🚀 [수정] MobileSaddleBottomSheet 로 교체
                                       _buildToolChip("새들", null, () {
-                                        SaddleBottomSheet.show(
+                                        MobileSaddleBottomSheet.show(
                                           context,
                                           currentRotation:
                                               _currentRotation ?? 0.0,
@@ -627,11 +628,12 @@ class _CalculatorPageState extends State<CalculatorPage>
                                         );
                                       }),
                                       const SizedBox(width: 6),
+                                      // 🚀 [수정] MobileRollingOffsetBottomSheet 로 교체
                                       _buildToolChip(
                                         "롤링",
                                         LucideIcons.orbit,
                                         () {
-                                          RollingOffsetBottomSheet.show(
+                                          MobileRollingOffsetBottomSheet.show(
                                             context,
                                             currentRotation:
                                                 _currentRotation ?? 0.0,
@@ -659,11 +661,12 @@ class _CalculatorPageState extends State<CalculatorPage>
                                         },
                                       ),
                                       const SizedBox(width: 6),
+                                      // 🚀 [수정] MobileParallelShrinkBottomSheet 로 교체
                                       _buildToolChip(
                                         "평행/축소",
                                         LucideIcons.layoutGrid,
                                         () {
-                                          ParallelShrinkBottomSheet.show(
+                                          MobileParallelShrinkBottomSheet.show(
                                             context,
                                             currentAngle: _currentAngle,
                                           );
@@ -1130,7 +1133,6 @@ class _CalculatorPageState extends State<CalculatorPage>
             ),
           ),
           const SizedBox(width: 12),
-
           Expanded(
             flex: 6,
             child: Column(

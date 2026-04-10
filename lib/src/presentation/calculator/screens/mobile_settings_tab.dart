@@ -127,17 +127,15 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       });
       _onSpecsChanged(isInitialLoad: true);
 
-      // 🚀 데이터 매니저 실시간 동기화 (모든 값 반영)
-      final dataManager = MobileBendDataManager();
-      dataManager.takeUp90 = double.tryParse(_takeUpController.text) ?? 0.0;
-      dataManager.fittingDepth =
-          double.tryParse(_fittingDepthController.text) ?? 0.0;
-      dataManager.gain90 = double.tryParse(_gainController.text) ?? 0.0;
-      dataManager.radius = double.tryParse(_rController.text) ?? 0.0;
-      dataManager.benderOffset =
-          double.tryParse(_benderOffsetController.text) ?? 0.0;
-      dataManager.springback =
-          double.tryParse(_springbackController.text) ?? 0.0;
+      // 🚀 데이터 매니저 실시간 동기화 (한 번에 묶어서 렉 방지!)
+      MobileBendDataManager().updateMachineSpecs(
+        takeUp90: double.tryParse(_takeUpController.text) ?? 0.0,
+        fittingDepth: double.tryParse(_fittingDepthController.text) ?? 0.0,
+        gain90: double.tryParse(_gainController.text) ?? 0.0,
+        radius: double.tryParse(_rController.text) ?? 0.0,
+        benderOffset: double.tryParse(_benderOffsetController.text) ?? 0.0,
+        springback: double.tryParse(_springbackController.text) ?? 0.0,
+      );
     }
   }
 
@@ -176,16 +174,15 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       autoFittingDepth: _autoStates['fittingDepth'] ?? true,
     );
 
-    // 🚀 저장 시 데이터 매니저 실시간 동기화 (모든 값 반영)
-    final dataManager = MobileBendDataManager();
-    dataManager.takeUp90 = double.tryParse(_takeUpController.text) ?? 0.0;
-    dataManager.fittingDepth =
-        double.tryParse(_fittingDepthController.text) ?? 0.0;
-    dataManager.gain90 = double.tryParse(_gainController.text) ?? 0.0;
-    dataManager.radius = double.tryParse(_rController.text) ?? 0.0;
-    dataManager.benderOffset =
-        double.tryParse(_benderOffsetController.text) ?? 0.0;
-    dataManager.springback = double.tryParse(_springbackController.text) ?? 0.0;
+    // 🚀 저장 시 데이터 매니저 실시간 동기화 (한 번에 묶어서 렉 방지!)
+    MobileBendDataManager().updateMachineSpecs(
+      takeUp90: double.tryParse(_takeUpController.text) ?? 0.0,
+      fittingDepth: double.tryParse(_fittingDepthController.text) ?? 0.0,
+      gain90: double.tryParse(_gainController.text) ?? 0.0,
+      radius: double.tryParse(_rController.text) ?? 0.0,
+      benderOffset: double.tryParse(_benderOffsetController.text) ?? 0.0,
+      springback: double.tryParse(_springbackController.text) ?? 0.0,
+    );
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

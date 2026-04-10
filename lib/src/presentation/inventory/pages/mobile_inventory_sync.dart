@@ -83,17 +83,27 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
 
           // 🚀 신규 자재: 상세 정보(옵션) 추가 (증발 문제 해결 지점)
           try {
-            if (data.material.isNotEmpty)
+            if (data.material.isNotEmpty) {
               newDocData['material'] = data.material;
-            if (data.heatNo.isNotEmpty) newDocData['heatNo'] = data.heatNo;
-            if (data.maker.isNotEmpty) newDocData['maker'] = data.maker;
-            if (data.location.isNotEmpty)
+            }
+            if (data.heatNo.isNotEmpty) {
+              newDocData['heatNo'] = data.heatNo;
+            }
+            if (data.maker.isNotEmpty) {
+              newDocData['maker'] = data.maker;
+            }
+            if (data.location.isNotEmpty) {
               newDocData['location'] = data.location;
-            if (data.spec.isNotEmpty) newDocData['spec'] = data.spec; // ★ 추가
-            if (data.projectName.isNotEmpty)
+            }
+            if (data.spec.isNotEmpty) {
+              newDocData['spec'] = data.spec; // ★ 추가
+            }
+            if (data.projectName.isNotEmpty) {
               newDocData['projectName'] = data.projectName; // ★ 추가
-            if (data.department.isNotEmpty)
+            }
+            if (data.department.isNotEmpty) {
               newDocData['department'] = data.department; // ★ 추가
+            }
             newDocData['minQty'] = data.minQty; // ★ 추가 (기본값이 0이더라도 전송)
           } catch (_) {}
 
@@ -125,15 +135,27 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
 
             // 🚀 기존 자재: 상세정보가 수정되었다면 전송 (증발 문제 해결 지점)
             try {
-              if (data.material.isNotEmpty) updates['material'] = data.material;
-              if (data.heatNo.isNotEmpty) updates['heatNo'] = data.heatNo;
-              if (data.maker.isNotEmpty) updates['maker'] = data.maker;
-              if (data.location.isNotEmpty) updates['location'] = data.location;
-              if (data.spec.isNotEmpty) updates['spec'] = data.spec; // ★ 추가
-              if (data.projectName.isNotEmpty)
+              if (data.material.isNotEmpty) {
+                updates['material'] = data.material;
+              }
+              if (data.heatNo.isNotEmpty) {
+                updates['heatNo'] = data.heatNo;
+              }
+              if (data.maker.isNotEmpty) {
+                updates['maker'] = data.maker;
+              }
+              if (data.location.isNotEmpty) {
+                updates['location'] = data.location;
+              }
+              if (data.spec.isNotEmpty) {
+                updates['spec'] = data.spec; // ★ 추가
+              }
+              if (data.projectName.isNotEmpty) {
                 updates['projectName'] = data.projectName; // ★ 추가
-              if (data.department.isNotEmpty)
+              }
+              if (data.department.isNotEmpty) {
                 updates['department'] = data.department; // ★ 추가
+              }
               updates['minQty'] = data.minQty; // ★ 추가 (최소 수량 변경 사항 반영)
             } catch (_) {}
 

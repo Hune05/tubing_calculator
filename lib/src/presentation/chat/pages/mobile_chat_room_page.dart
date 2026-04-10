@@ -206,7 +206,9 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
         _isFetching = false;
       });
     } catch (e) {
-      if (mounted) setState(() => _isFetching = false);
+      if (mounted) {
+        setState(() => _isFetching = false);
+      }
     }
   }
 
@@ -336,10 +338,11 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
             'lastSender': widget.currentUser,
           }, SetOptions(merge: true));
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('사진 전송에 실패했습니다.')));
+      }
     }
   }
 
@@ -418,27 +421,35 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
                         userDoc.data()!['phoneNumber'] ?? '';
                     if (phoneNumber.isNotEmpty) {
                       final Uri url = Uri.parse('tel:$phoneNumber');
-                      if (await canLaunchUrl(url))
+                      if (await canLaunchUrl(url)) {
                         await launchUrl(url);
-                      else
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('전화 앱을 실행할 수 없습니다.')),
-                        );
+                      } else {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('전화 앱을 실행할 수 없습니다.')),
+                          );
+                        }
+                      }
                     } else {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('등록된 전화번호가 없습니다.')),
+                        );
+                      }
+                    }
+                  } else {
+                    if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('등록된 전화번호가 없습니다.')),
                       );
                     }
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('등록된 전화번호가 없습니다.')),
-                    );
                   }
                 } catch (e) {
-                  if (mounted)
+                  if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('전화번호를 불러오는데 실패했습니다.')),
                     );
+                  }
                 }
               }
             },
@@ -569,7 +580,9 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
             margin: const EdgeInsets.only(bottom: 16),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: slate100.withOpacity(0.6),
+              color: slate100.withValues(
+                alpha: 0.6,
+              ), // 🔥 withOpacity 대신 withValues 사용
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -589,7 +602,7 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
               HapticFeedback.heavyImpact();
               final bool? shouldDelete = await showDialog<bool>(
                 context: context,
-                builder: (context) => AlertDialog(
+                builder: (dialogContext) => AlertDialog(
                   backgroundColor: pureWhite,
                   title: const Text(
                     '메시지 삭제',
@@ -598,20 +611,21 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
                   content: const Text('이 메시지를 삭제하시겠습니까?\n(상대방 창에서도 지워집니다)'),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.pop(context, false),
+                      onPressed: () => Navigator.pop(dialogContext, false),
                       child: const Text(
                         '취소',
                         style: TextStyle(color: slate600),
                       ),
                     ),
                     TextButton(
-                      onPressed: () => Navigator.pop(context, true),
+                      onPressed: () => Navigator.pop(dialogContext, true),
                       child: const Text('삭제', style: TextStyle(color: red500)),
                     ),
                   ],
                 ),
               );
-              if (shouldDelete == true && mounted) {
+
+              if (shouldDelete == true) {
                 await FirebaseFirestore.instance
                     .collection('chat_rooms')
                     .doc(widget.roomId)
@@ -876,7 +890,7 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
+      builder: (bottomSheetContext) {
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -899,7 +913,7 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                   ),
                   onTap: () {
-                    Navigator.pop(context);
+                    Navigator.pop(bottomSheetContext);
                     _showEditGroupNameDialog();
                   },
                 ),
@@ -914,7 +928,7 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
                     ),
                   ),
                   onTap: () {
-                    Navigator.pop(context);
+                    Navigator.pop(bottomSheetContext);
                     _showInviteDialog();
                   },
                 ),
@@ -930,7 +944,7 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
                     ),
                   ),
                   onTap: () {
-                    Navigator.pop(context);
+                    Navigator.pop(bottomSheetContext);
                     _leaveGroupChat();
                   },
                 ),
@@ -949,7 +963,7 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
     );
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: pureWhite,
         title: const Text(
           '채팅방 이름 변경',
@@ -962,7 +976,7 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('취소', style: TextStyle(color: slate600)),
           ),
           TextButton(
@@ -977,7 +991,9 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
                   "${widget.currentUser}님이 채팅방 이름을 '$newTitle'로 변경했습니다.",
                 );
               }
-              if (mounted) Navigator.pop(context);
+              if (dialogContext.mounted) {
+                Navigator.pop(dialogContext);
+              }
             },
             child: const Text('저장', style: TextStyle(color: tossBlue)),
           ),
@@ -995,7 +1011,7 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: pureWhite,
         title: const Text(
           '대화상대 초대',
@@ -1022,7 +1038,7 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
                         style: const TextStyle(fontSize: 12),
                       ),
                       onTap: () async {
-                        Navigator.pop(context);
+                        Navigator.pop(dialogContext);
                         await FirebaseFirestore.instance
                             .collection('chat_rooms')
                             .doc(widget.roomId)
@@ -1047,7 +1063,7 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
   Future<void> _leaveGroupChat() async {
     final bool? confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: pureWhite,
         title: const Text(
           '채팅방 나가기',
@@ -1056,18 +1072,18 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
         content: const Text('나가기를 하면 대화 내용이 모두 삭제되며,\n채팅 목록에서도 사라집니다.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('취소', style: TextStyle(color: slate600)),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('나가기', style: TextStyle(color: red500)),
           ),
         ],
       ),
     );
 
-    if (confirm == true && mounted) {
+    if (confirm == true) {
       // 1. 나간다는 시스템 메시지 먼저 전송
       await _sendSystemMessage("${widget.currentUser}님이 나갔습니다.");
       // 2. participants 배열에서 내 이름 제거
@@ -1078,7 +1094,9 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
             'participants': FieldValue.arrayRemove([widget.currentUser]),
           });
       // 3. 목록 화면으로 튕기기
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        Navigator.pop(context);
+      }
     }
   }
 }

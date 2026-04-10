@@ -2,7 +2,6 @@ import 'dart:io'; // 🔥 File 객체를 사용하기 위해 필수
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart'; // 🔥 파이어베이스 스토리지 필수!
 import '../models/order_model.dart';
-import '../models/cart_item_model.dart';
 
 class OrderRepository {
   final FirebaseFirestore _db = FirebaseFirestore.instance;

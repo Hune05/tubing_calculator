@@ -138,6 +138,29 @@ class MobileBendDataManager extends ChangeNotifier {
     _saveCurrentState();
   }
 
+  // ===============================================
+  // 🚀 [추가됨] 설정 탭 진입 시 렉 걸림 방지용 일괄 업데이트 함수
+  // ===============================================
+  void updateMachineSpecs({
+    double? takeUp90,
+    double? fittingDepth,
+    double? gain90,
+    double? radius,
+    double? benderOffset,
+    double? springback,
+  }) {
+    if (takeUp90 != null) _takeUp90 = takeUp90;
+    if (fittingDepth != null) _fittingDepth = fittingDepth;
+    if (gain90 != null) _gain90 = gain90;
+    if (radius != null) _radius = radius;
+    if (benderOffset != null) _benderOffset = benderOffset;
+    if (springback != null) _springback = springback;
+
+    // 변수를 한 번에 다 바꾼 후, 마지막에 딱 1번만 저장 및 화면 갱신
+    _saveCurrentState();
+    notifyListeners();
+  }
+
   Future<void> loadSavedSettings() async {
     final prefs = await SharedPreferences.getInstance();
 
