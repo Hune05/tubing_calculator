@@ -11,6 +11,7 @@ import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_cal
 import 'package:tubing_calculator/src/presentation/fabrication/screens/qr_scanner_page.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_only_screen.dart';
 import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart';
 
 // 🚀 2. 자재 관리 페이지들 임포트
 import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_login.dart';
@@ -25,6 +26,7 @@ import 'package:tubing_calculator/src/presentation/chat/pages/mobile_chat_list_p
 // 🚀 4. 프로젝트 관리 페이지 임포트
 import 'package:tubing_calculator/src/presentation/project/pages/mobile_project_list_page.dart';
 import 'package:tubing_calculator/src/presentation/project/pages/mobile_project_admin_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/screens/work_log_main_screen.dart';
 
 // 🚀 5. 공용 차량 및 장비 페이지 임포트
 import 'package:tubing_calculator/src/presentation/vehicle/pages/mobile_vehicle_management_page.dart';
@@ -79,6 +81,24 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
     _fetchDetailedWeather();
   }
 
+  // 🚀 날씨 상태 단순화 (맑음, 흐림, 비, 눈)
+  String _simplifyWeather(String mainCondition) {
+    switch (mainCondition) {
+      case 'Clear':
+        return '맑음';
+      case 'Clouds':
+        return '흐림';
+      case 'Rain':
+      case 'Drizzle':
+      case 'Thunderstorm':
+        return '비';
+      case 'Snow':
+        return '눈';
+      default:
+        return '흐림'; // 안개, 연기 등 기타 상태는 모두 '흐림'으로 통일
+    }
+  }
+
   // 🚀 API 3개(현재날씨, 대기질, 일기예보)를 동시에 불러와 분석합니다.
   Future<void> _fetchDetailedWeather() async {
     try {
@@ -109,11 +129,12 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
         final airData = jsonDecode(responses[1].body);
         final forecastData = jsonDecode(responses[2].body);
 
-        // 1. 현재 날씨 상태 및 온도 추출
-        String desc = weatherData['weather'][0]['description'];
+        // 1. 현재 날씨 상태(단순화) 및 온도 추출
+        String mainCondition = weatherData['weather'][0]['main'];
+        String desc = _simplifyWeather(mainCondition);
         double temp = weatherData['main']['temp'];
 
-        // 2. 초미세먼지(AQI) 파싱
+        // 2. 미세먼지(AQI) 파싱
         int aqi = airData['list'][0]['main']['aqi'];
         List<String> pmLabels = ['알 수 없음', '좋음', '보통', '나쁨', '매우 나쁨', '위험'];
         String pm = (aqi > 0 && aqi <= 5) ? pmLabels[aqi] : '알 수 없음';
@@ -130,7 +151,7 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
           if (dt.isAfter(endCheck)) break;
 
           if (item['rain'] != null && item['rain']['3h'] != null) {
-            firstRain ??= dt; // 💡 경고 해결: 조건부 할당 연산자 사용
+            firstRain ??= dt; // 💡 조건부 할당 연산자 사용
             lastRain = dt;
             rainSum += (item['rain']['3h'] as num).toDouble();
           }
@@ -143,8 +164,8 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
             _pmState = pm;
             if (rainSum > 0 && firstRain != null && lastRain != null) {
               _rainExpected = true;
-              _rainStart = "${firstRain.hour}"; // 💡 경고 해결: 불필요한 ! 제거
-              _rainEnd = "${lastRain.hour}"; // 💡 경고 해결: 불필요한 ! 제거
+              _rainStart = "${firstRain.hour}";
+              _rainEnd = "${lastRain.hour}";
               _totalRain = rainSum;
             } else {
               _rainExpected = false;
@@ -263,6 +284,23 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                       );
                     },
                   ),
+
+                _buildMenuButton(
+                  context: context,
+                  title: "내 작업 보관함 (Work Logs)",
+                  subtitle: "개인 작업 일보 · 펀치 리스트 및 자재 기록",
+                  icon: Icons.archive_outlined, // 보관함 느낌의 아이콘
+                  iconColor: tossBlue, // 파란색 포인트
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const WorkLogMainScreen(),
+                      ),
+                    );
+                  },
+                ),
 
                 const SizedBox(height: 32),
                 const Divider(height: 1, color: slate100, thickness: 8),
@@ -404,6 +442,25 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                       context,
                       MaterialPageRoute(
                         builder: (context) => const TubeReferencePage(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMenuButton(
+                  context: context,
+                  title: "자율 작업 배치도",
+                  subtitle: "캐비닛 중판 레이아웃 및 튜빙/결선 스케치",
+                  icon: Icons.architecture_rounded,
+                  iconColor: Colors.deepPurple, // 눈에 띄게 보라색 계열로
+                  badgeText: "New",
+                  badgeColor: tossBlue,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        // 🚀 LayoutBoardPage -> MobileLayoutBoardPage 로 수정됨
+                        builder: (context) => const MobileLayoutBoardPage(),
                       ),
                     );
                   },
@@ -834,7 +891,7 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
               Container(width: 1, height: 10, color: Colors.grey.shade300),
               const SizedBox(width: 8),
               Text(
-                "초미세먼지 : $_pmState",
+                "미세먼지 : $_pmState",
                 style: const TextStyle(color: slate600, fontSize: 12),
               ),
             ],
@@ -957,9 +1014,7 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: (iconColor ?? slate900).withValues(
-                  alpha: 0.05,
-                ), // 💡 경고 해결: withValues 사용
+                color: (iconColor ?? slate900).withValues(alpha: 0.05),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, size: 28, color: iconColor ?? slate900),
@@ -1020,7 +1075,7 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
             ),
             Icon(
               Icons.chevron_right_rounded,
-              color: slate600.withValues(alpha: 0.5), // 💡 경고 해결: withValues 사용
+              color: slate600.withValues(alpha: 0.5),
               size: 28,
             ),
           ],

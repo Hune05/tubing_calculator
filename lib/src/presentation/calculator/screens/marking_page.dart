@@ -3,6 +3,7 @@ import 'package:tubing_calculator/src/data/bend_data_manager.dart';
 import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);

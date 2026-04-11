@@ -56,7 +56,9 @@ class _MobileScheduleLogPageState extends State<MobileScheduleLogPage> {
                     .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: tossBlue));
+                    return const Center(
+                      child: CircularProgressIndicator(color: tossBlue),
+                    );
                   }
 
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -64,14 +66,19 @@ class _MobileScheduleLogPageState extends State<MobileScheduleLogPage> {
                   }
 
                   // 검색 및 필터 적용
-                  final filteredLogs = snapshot.data!.docs.map((doc) => doc.data() as Map<String, dynamic>).where((log) {
-                    bool matchesSearch = (log['target'] ?? "").contains(_searchQuery) ||
-                                         (log['user'] ?? "").contains(_searchQuery);
-                    bool matchesFilter = _selectedFilter == "전체" ||
-                                         log['status'] == _selectedFilter ||
-                                         log['type'] == _selectedFilter;
-                    return matchesSearch && matchesFilter;
-                  }).toList();
+                  final filteredLogs = snapshot.data!.docs
+                      .map((doc) => doc.data() as Map<String, dynamic>)
+                      .where((log) {
+                        bool matchesSearch =
+                            (log['target'] ?? "").contains(_searchQuery) ||
+                            (log['user'] ?? "").contains(_searchQuery);
+                        bool matchesFilter =
+                            _selectedFilter == "전체" ||
+                            log['status'] == _selectedFilter ||
+                            log['type'] == _selectedFilter;
+                        return matchesSearch && matchesFilter;
+                      })
+                      .toList();
 
                   if (filteredLogs.isEmpty) {
                     return _buildEmptyState("검색 조건에 맞는 이력이 없습니다.");
@@ -79,9 +86,13 @@ class _MobileScheduleLogPageState extends State<MobileScheduleLogPage> {
 
                   return ListView.separated(
                     physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 20,
+                      horizontal: 16,
+                    ),
                     itemCount: filteredLogs.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 12),
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       return _buildCleanLogItem(filteredLogs[index]);
                     },
@@ -145,7 +156,10 @@ class _MobileScheduleLogPageState extends State<MobileScheduleLogPage> {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: isSelected ? slate900 : pureWhite,
                       borderRadius: BorderRadius.circular(20),
@@ -157,7 +171,9 @@ class _MobileScheduleLogPageState extends State<MobileScheduleLogPage> {
                       filter,
                       style: TextStyle(
                         color: isSelected ? pureWhite : slate600,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.w600,
                         fontSize: 13,
                       ),
                     ),

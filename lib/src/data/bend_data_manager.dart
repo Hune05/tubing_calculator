@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart'; // 🚀 ChangeNotifier를 위해 추가
 import 'package:shared_preferences/shared_preferences.dart';
 
-class BendDataManager {
+class BendDataManager extends ChangeNotifier {
+  // 🚀 ChangeNotifier 상속
   // 싱글톤 패턴 적용
   static final BendDataManager _instance = BendDataManager._internal();
   factory BendDataManager() => _instance;
@@ -58,6 +60,8 @@ class BendDataManager {
     if (fittingDepth != null) _fittingDepth = fittingDepth;
     if (takeUp90 != null) _takeUp90 = takeUp90;
     if (gain90 != null) _gain90 = gain90;
+
+    notifyListeners(); // 🚀 UI 즉각 반영 (방송)
   }
 
   Future<void> loadSavedSettings() async {
@@ -89,6 +93,8 @@ class BendDataManager {
         bendList = [];
       }
     }
+
+    notifyListeners(); // 🚀 로딩 끝난 후 화면 갱신 방송
   }
 
   Future<void> _saveCurrentState() async {
@@ -104,6 +110,8 @@ class BendDataManager {
     await prefs.setDouble('fittingDepth', _fittingDepth);
     await prefs.setDouble('takeUp', _takeUp90);
     await prefs.setDouble('gain', _gain90);
+
+    notifyListeners(); // 🚀 데이터가 추가/수정/삭제되어 저장될 때마다 화면 갱신 방송!
   }
 
   void addBend(double length, double angle, double rotation) {
@@ -111,10 +119,10 @@ class BendDataManager {
     _saveCurrentState();
   }
 
-  // 🚀 [추가됨] 화면 튀는 현상을 막기 위해 한 번에 묶어서(Batch) 추가하는 함수!
+  // 🚀 화면 튀는 현상을 막기 위해 한 번에 묶어서(Batch) 추가하는 함수!
   void addMultipleBends(List<Map<String, double>> newBends) {
     bendList.addAll(newBends);
-    _saveCurrentState(); // setState 최상단에서 한 번만 호출되도록!
+    _saveCurrentState(); // 여기서 딱 한 번만 _saveCurrentState를 부르므로 렌더링 낭비 방지!
   }
 
   void updateBend(int index, double length, double angle, double rotation) {

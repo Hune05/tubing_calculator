@@ -1,944 +1,986 @@
-import 'dart:convert';
+// lib/src/presentation/calculator/widgets/saddle_bottom_sheet.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:http/http.dart' as http;
+import 'dart:math' as math;
 
-// 🚀 1. 현장 작업 페이지들 임포트
-import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_remote_page.dart';
-import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_calculator_page.dart';
-import 'package:tubing_calculator/src/presentation/fabrication/screens/qr_scanner_page.dart';
-import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_only_screen.dart';
-import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart';
+import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
+import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
 
-// 🚀 2. 자재 관리 페이지들 임포트
-import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_login.dart';
-import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_status_page.dart';
-import 'package:tubing_calculator/src/presentation/material/material_order_page.dart';
-import 'package:tubing_calculator/src/presentation/material/order_log_page.dart';
-
-// 🚀 3. 프로필 및 소통 페이지 임포트
-import 'package:tubing_calculator/src/presentation/profile/pages/mobile_profile_page.dart';
-import 'package:tubing_calculator/src/presentation/chat/pages/mobile_chat_list_page.dart';
-
-// 🚀 4. 프로젝트 관리 페이지 임포트
-import 'package:tubing_calculator/src/presentation/project/pages/mobile_project_list_page.dart';
-import 'package:tubing_calculator/src/presentation/project/pages/mobile_project_admin_page.dart';
-
-// 🚀 5. 공용 차량 및 장비 페이지 임포트
-import 'package:tubing_calculator/src/presentation/vehicle/pages/mobile_vehicle_management_page.dart';
-import 'package:tubing_calculator/src/presentation/vehicle/pages/mobile_vehicle_admin_page.dart';
-
-// 🚀 6. 사내 일정 관리 캘린더 페이지 임포트
-import 'package:tubing_calculator/src/presentation/schedule/pages/mobile_schedule_page.dart';
-
-const Color tossBlue = Color(0xFF3182F6);
-const Color purpleBadge = Color(0xFF8A2BE2);
-const Color slate900 = Color(0xFF191F28);
-const Color slate600 = Color(0xFF8B95A1);
-const Color slate100 = Color(0xFFF2F4F6);
-const Color pureWhite = Color(0xFFFFFFFF);
-const Color warningRed = Color(0xFFF04438);
 const Color makitaTeal = Color(0xFF007580);
+const Color panelBg = Color(0xFF2A2A2A);
+const Color pureWhite = Color(0xFFFFFFFF);
 
-class MobileMenuPage extends StatefulWidget {
-  final String currentWorker;
-  final bool isAdmin;
+class SaddleBottomSheet extends StatefulWidget {
+  final double currentRotation;
+  final Function(double length, double angle, double rotation) onAddBend;
 
-  const MobileMenuPage({
+  const SaddleBottomSheet({
     super.key,
-    required this.currentWorker,
-    this.isAdmin = true,
+    required this.currentRotation,
+    required this.onAddBend,
   });
 
+  static void show(
+    BuildContext context, {
+    required double currentRotation,
+    required Function(double, double, double) onAddBend,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => SaddleBottomSheet(
+        currentRotation: currentRotation,
+        onAddBend: onAddBend,
+      ),
+    );
+  }
+
   @override
-  State<MobileMenuPage> createState() => _MobileMenuPageState();
+  State<SaddleBottomSheet> createState() => _SaddleBottomSheetState();
 }
 
-class _MobileMenuPageState extends State<MobileMenuPage> {
-  String _weatherGreeting = "";
+class _SaddleBottomSheetState extends State<SaddleBottomSheet>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  double? _selectedRotation;
 
-  // 🚀 날씨 상세 데이터 상태 관리
-  String _weatherDesc = "확인 중";
-  String _pmState = "확인 중";
-  bool _rainExpected = false;
-  String _rainStart = "";
-  String _rainEnd = "";
-  double _totalRain = 0.0;
-  bool _isWeatherLoaded = false;
+  // 기계 셋팅값 (모바일 V2 이식)
+  double _machineRadius = 0.0;
+  double _machineGain = 0.0;
+  double _userOffsetShrink = 0.0;
+
+  final TextEditingController _heightCtrl = TextEditingController(text: "100");
+  final TextEditingController _widthCtrl = TextEditingController(text: "200");
+  final TextEditingController _angle3PtCtrl = TextEditingController(text: "45");
+  final TextEditingController _angle4PtCtrl = TextEditingController(text: "30");
+
+  final List<Map<String, dynamic>> _directions = [
+    {"label": "UP (위)", "val": 0.0, "icon": Icons.arrow_upward},
+    {"label": "FRONT (앞)", "val": 360.0, "icon": Icons.call_made},
+    {"label": "LEFT (좌)", "val": 270.0, "icon": Icons.arrow_back},
+    {"label": "RIGHT (우)", "val": 90.0, "icon": Icons.arrow_forward},
+    {"label": "DOWN (아래)", "val": 180.0, "icon": Icons.arrow_downward},
+    {"label": "BACK (뒤)", "val": 450.0, "icon": Icons.call_received},
+  ];
 
   @override
   void initState() {
     super.initState();
-    _weatherGreeting = _getTimeBasedGreeting();
-    _fetchDetailedWeather();
+    _tabController = TabController(length: 2, vsync: this);
+
+    final dm = MobileBendDataManager();
+    // 모바일 V2처럼 DataManager 연동
+    _heightCtrl.text = _formatNum(dm.saddleHeight > 0 ? dm.saddleHeight : 100);
+    _widthCtrl.text = _formatNum(dm.saddleWidth > 0 ? dm.saddleWidth : 200);
+    _angle3PtCtrl.text = _formatNum(
+      dm.saddleAngle3Pt > 0 ? dm.saddleAngle3Pt : 45,
+    );
+    _angle4PtCtrl.text = _formatNum(
+      dm.saddleAngle4Pt > 0 ? dm.saddleAngle4Pt : 30,
+    );
+
+    _heightCtrl.addListener(() {
+      dm.saddleHeight = double.tryParse(_heightCtrl.text) ?? 0.0;
+      setState(() {});
+    });
+    _widthCtrl.addListener(() {
+      dm.saddleWidth = double.tryParse(_widthCtrl.text) ?? 0.0;
+      setState(() {});
+    });
+    _angle3PtCtrl.addListener(() {
+      dm.saddleAngle3Pt = double.tryParse(_angle3PtCtrl.text) ?? 0.0;
+      setState(() {});
+    });
+    _angle4PtCtrl.addListener(() {
+      dm.saddleAngle4Pt = double.tryParse(_angle4PtCtrl.text) ?? 0.0;
+      setState(() {});
+    });
+
+    _loadMachineSettings();
   }
 
-  // 🚀 API 3개(현재날씨, 대기질, 일기예보)를 동시에 불러와 분석합니다.
-  Future<void> _fetchDetailedWeather() async {
-    try {
-      const String apiKey = 'ce796b79713bbdf70ec6a7cfb98f2b11';
-      const double lat = 35.1795;
-      const double lon = 129.0756; // 부산 좌표
-
-      final weatherUrl = Uri.parse(
-        'https://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$lon&appid=$apiKey&units=metric&lang=kr',
-      );
-      final airUrl = Uri.parse(
-        'https://api.openweathermap.org/data/2.5/air_pollution?lat=$lat&lon=$lon&appid=$apiKey',
-      );
-      final forecastUrl = Uri.parse(
-        'https://api.openweathermap.org/data/2.5/forecast?lat=$lat&lon=$lon&appid=$apiKey&units=metric&lang=kr',
-      );
-
-      final responses = await Future.wait([
-        http.get(weatherUrl),
-        http.get(airUrl),
-        http.get(forecastUrl),
-      ]);
-
-      if (responses[0].statusCode == 200 &&
-          responses[1].statusCode == 200 &&
-          responses[2].statusCode == 200) {
-        final weatherData = jsonDecode(responses[0].body);
-        final airData = jsonDecode(responses[1].body);
-        final forecastData = jsonDecode(responses[2].body);
-
-        // 1. 현재 날씨 상태
-        String desc = weatherData['weather'][0]['description'];
-
-        // 2. 초미세먼지(AQI) 파싱
-        int aqi = airData['list'][0]['main']['aqi'];
-        List<String> pmLabels = ['알 수 없음', '좋음', '보통', '나쁨', '매 일 나쁨', '위험'];
-        String pm = (aqi > 0 && aqi <= 5) ? pmLabels[aqi] : '알 수 없음';
-
-        // 3. 향후 24시간 내 강수량 파싱
-        DateTime now = DateTime.now();
-        DateTime endCheck = now.add(const Duration(hours: 24));
-        DateTime? firstRain;
-        DateTime? lastRain;
-        double rainSum = 0.0;
-
-        for (var item in forecastData['list']) {
-          DateTime dt = DateTime.fromMillisecondsSinceEpoch(item['dt'] * 1000);
-          if (dt.isAfter(endCheck)) break;
-
-          if (item['rain'] != null && item['rain']['3h'] != null) {
-            if (firstRain == null) firstRain = dt;
-            lastRain = dt;
-            rainSum += (item['rain']['3h'] as num).toDouble();
-          }
-        }
-
-        if (mounted) {
-          setState(() {
-            _weatherDesc = desc;
-            _pmState = pm;
-            if (rainSum > 0 && firstRain != null && lastRain != null) {
-              _rainExpected = true;
-              _rainStart = "${firstRain.hour}";
-              _rainEnd = "${lastRain.hour}";
-              _totalRain = rainSum;
-            } else {
-              _rainExpected = false;
-            }
-            _isWeatherLoaded = true;
-          });
-        }
-      } else {
-        _setFallback();
-      }
-    } catch (e) {
-      _setFallback();
-    }
+  String _formatNum(double val) {
+    return val % 1 == 0 ? val.toInt().toString() : val.toString();
   }
 
-  void _setFallback() {
+  Future<void> _loadMachineSettings() async {
+    final data = await SettingsManager.loadSettings();
     if (mounted) {
-      setState(() => _isWeatherLoaded = true);
+      setState(() {
+        _machineRadius = data['bendRadius'] ?? 0.0;
+        _machineGain = data['gain'] ?? 0.0;
+        _userOffsetShrink = data['offsetShrink'] ?? 0.0;
+      });
     }
   }
 
-  // 🚀 요청하신 시간대별 깔끔한 인사말 로직
-  String _getTimeBasedGreeting() {
-    int hour = DateTime.now().hour;
-    if (hour >= 5 && hour < 9) {
-      // 오전 9시 이전
-      return "${widget.currentWorker}님,\n활기찬 아침입니다!";
-    } else if (hour >= 11 && hour < 14) {
-      // 점심 시간 (11시 ~ 13시 59분)
-      return "${widget.currentWorker}님,\n맛있는 점심 드시고 오셨나요?";
-    } else if (hour >= 14 && hour < 18) {
-      // 나른한 오후
-      return "${widget.currentWorker}님,\n나른한 오후도 파이팅입니다!";
-    } else {
-      // 그 외 (기본 멘트)
-      return "${widget.currentWorker}님,\n오늘도 안전 작업 하세요!";
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _heightCtrl.dispose();
+    _widthCtrl.dispose();
+    _angle3PtCtrl.dispose();
+    _angle4PtCtrl.dispose();
+    super.dispose();
+  }
+
+  void _adjustValue(TextEditingController ctrl, double amount) {
+    double current = double.tryParse(ctrl.text) ?? 0;
+    double next = current + amount;
+    if (next < 0) next = 0;
+    ctrl.text = next.toStringAsFixed(next % 1 == 0 ? 0 : 1);
+  }
+
+  double _getOppositeRotation(double currentRot) {
+    if (currentRot == 360.0) return 450.0;
+    if (currentRot == 450.0) return 360.0;
+    return (currentRot + 180.0) % 360.0;
+  }
+
+  // 🚀 모바일 V2의 완벽한 3-Point 로직
+  void _apply3Point(double travel3Pt, double a3, double shrink) {
+    if (_selectedRotation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("장애물 회피 방향을 선택해주세요!"),
+          backgroundColor: Colors.deepOrange,
+        ),
+      );
+      return;
+    }
+    if (travel3Pt > 0 && a3 > 0) {
+      double roundedTravel = double.parse(travel3Pt.toStringAsFixed(1));
+      double roundedShrink = double.parse(shrink.toStringAsFixed(1));
+      double sideAngle = a3 / 2;
+      double oppRot = _getOppositeRotation(_selectedRotation!);
+
+      widget.onAddBend(roundedShrink, sideAngle, _selectedRotation!);
+      widget.onAddBend(roundedTravel, a3, oppRot);
+      widget.onAddBend(roundedTravel, sideAngle, _selectedRotation!);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("축소값(+${roundedShrink}mm)이 첫 번째 마킹에 자동 적용되었습니다."),
+          backgroundColor: makitaTeal,
+        ),
+      );
+      Navigator.pop(context);
+    }
+  }
+
+  // 🚀 모바일 V2의 완벽한 4-Point 로직
+  void _apply4Point(double travel4Pt, double w, double a4, double shrink) {
+    if (_selectedRotation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("장애물 회피 방향을 선택해주세요!"),
+          backgroundColor: Colors.deepOrange,
+        ),
+      );
+      return;
+    }
+    if (travel4Pt > 0 && w > 0 && a4 > 0) {
+      double roundedTravel = double.parse(travel4Pt.toStringAsFixed(1));
+      double roundedW = double.parse(w.toStringAsFixed(1));
+      double roundedShrink = double.parse(shrink.toStringAsFixed(1));
+      double oppRot = _getOppositeRotation(_selectedRotation!);
+
+      widget.onAddBend(roundedShrink, a4, _selectedRotation!);
+      widget.onAddBend(roundedTravel, a4, oppRot);
+      widget.onAddBend(roundedW, a4, oppRot);
+      widget.onAddBend(roundedTravel, a4, _selectedRotation!);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("축소값(+${roundedShrink}mm)이 첫 번째 마킹에 자동 적용되었습니다."),
+          backgroundColor: makitaTeal,
+        ),
+      );
+      Navigator.pop(context);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: pureWhite,
-      body: SafeArea(
-        bottom: false,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSmartHeader(context),
-              const SizedBox(height: 16),
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-                child: Text(
-                  "프로젝트 관리",
-                  style: TextStyle(
-                    color: slate600,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              _buildMenuButton(
-                context: context,
-                title: "프로젝트 통합 현황",
-                subtitle: "공정 진척도 · 사급 자재 일정 · 검사 및 펀치",
-                icon: Icons.dashboard_customize_rounded,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const MobileProjectListPage(),
-                    ),
-                  );
-                },
-              ),
+    double h = double.tryParse(_heightCtrl.text) ?? 0;
+    double w = double.tryParse(_widthCtrl.text) ?? 0;
+    double a3 = double.tryParse(_angle3PtCtrl.text) ?? 0;
+    double a4 = double.tryParse(_angle4PtCtrl.text) ?? 0;
 
-              if (widget.isAdmin)
-                _buildMenuButton(
-                  context: context,
-                  title: "프로젝트 통합 세팅 (관리자)",
-                  subtitle: "프로젝트 개설, 공정 강제 변경, 담당자 지정",
-                  icon: Icons.admin_panel_settings_rounded,
-                  iconColor: warningRed,
-                  badgeText: "Admin",
-                  onTap: () {
-                    HapticFeedback.mediumImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const MobileProjectAdminPage(),
-                      ),
-                    );
-                  },
-                ),
+    // --- 3-Point 계산 (모바일 로직 100% 반영) ---
+    double travel3Pt = 0,
+        run3PtTotal = 0,
+        pipeUsed3Pt = 0,
+        shrink3Pt = 0.0,
+        gain3Pt = 0.0,
+        totalConsumed3Pt = 0.0;
+    String gainDetails3Pt = "";
 
-              const SizedBox(height: 32),
-              const Divider(height: 1, color: slate100, thickness: 8),
-              const SizedBox(height: 24),
+    if (a3 > 0 && h > 0) {
+      double radSide = (a3 / 2) * math.pi / 180.0;
+      travel3Pt = h / math.sin(radSide);
+      double run3 = h / math.tan(radSide);
 
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-                child: Text(
-                  "현장 작업",
-                  style: TextStyle(
-                    color: slate600,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
+      pipeUsed3Pt = travel3Pt * 2;
+      run3PtTotal = run3 * 2;
 
-              _buildMenuButton(
-                context: context,
-                title: "벤딩 마킹 계산기",
-                subtitle: "스마트폰 최적화 · 단계별 치수 입력",
-                icon: Icons.calculate_rounded,
-                iconColor: makitaTeal,
-                badgeText: "Main",
-                badgeColor: makitaTeal,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const MobileCalculatorPage(),
-                    ),
-                  );
-                },
-              ),
-              _buildMenuButton(
-                context: context,
-                title: "현장 도면 스캔 (QR)",
-                subtitle: "오프라인 지시서 스캔 후 3D 뷰어 실행",
-                icon: Icons.qr_code_scanner_rounded,
-                onTap: () async {
-                  HapticFeedback.lightImpact();
-                  final String? scannedData = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const QRScannerPage(),
-                    ),
-                  );
+      shrink3Pt = pipeUsed3Pt - run3PtTotal;
+      if (_userOffsetShrink > 0) shrink3Pt += (_userOffsetShrink * 2);
 
-                  if (scannedData != null && context.mounted) {
-                    try {
-                      Uri uri = Uri.parse(scannedData);
-                      String project =
-                          uri.queryParameters['p'] ?? "Scanned Project";
-                      String pipeSize = uri.queryParameters['s'] ?? "1/4\"";
-                      String bendsStr = uri.queryParameters['b'] ?? "";
-                      bool startFit = uri.queryParameters['sf'] == 'true';
-                      bool endFit = uri.queryParameters['ef'] == 'true';
-                      double tail =
-                          double.tryParse(uri.queryParameters['t'] ?? '0.0') ??
-                          0.0;
-                      String startDir = uri.queryParameters['d'] ?? 'RIGHT';
-                      List<Map<String, double>> parsedBends = [];
+      double gainCenter = 0.0, gainSide = 0.0;
 
-                      if (bendsStr.isNotEmpty) {
-                        final parts = bendsStr.split('-');
-                        for (var part in parts) {
-                          final vals = part.split('_');
-                          if (vals.length >= 3) {
-                            parsedBends.add({
-                              'length': double.tryParse(vals[0]) ?? 0.0,
-                              'angle': double.tryParse(vals[1]) ?? 0.0,
-                              'rotation': double.tryParse(vals[2]) ?? 0.0,
-                              'mark': vals.length >= 4
-                                  ? (double.tryParse(vals[3]) ?? 0.0)
-                                  : 0.0,
-                            });
-                          }
-                        }
-                      }
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ViewerOnlyScreen(
-                            project: project,
-                            pipeSize: pipeSize,
-                            bendList: parsedBends,
-                            startFit: startFit,
-                            endFit: endFit,
-                            tailLength: tail,
-                            startDir: startDir,
+      if (_machineRadius > 0) {
+        double centerRad = a3 * math.pi / 180.0;
+        gainCenter =
+            (2 * _machineRadius * math.tan(centerRad / 2)) -
+            (math.pi * _machineRadius * a3 / 180.0);
+        gainSide =
+            (2 * _machineRadius * math.tan(radSide / 2)) -
+            (math.pi * _machineRadius * (a3 / 2) / 180.0);
+        gain3Pt = gainCenter + (gainSide * 2);
+      } else if (_machineGain > 0) {
+        gainCenter = (_machineGain * (a3 / 90.0));
+        gainSide = (_machineGain * ((a3 / 2) / 90.0));
+        gain3Pt = gainCenter + (gainSide * 2);
+      }
+
+      if (gainCenter > 0 || gainSide > 0) {
+        gainDetails3Pt =
+            "센터(${a3.toInt()}°): +${gainCenter.toStringAsFixed(1)} mm\n"
+            "사이드(${(a3 / 2).toInt()}°): +${gainSide.toStringAsFixed(1)} mm x 2곳\n"
+            "▶ 총 연신율(늘어난 길이): +${gain3Pt.toStringAsFixed(1)} mm";
+      } else {
+        gainDetails3Pt = "설정된 연신율 데이터 없음";
+      }
+      totalConsumed3Pt = pipeUsed3Pt + gain3Pt;
+    }
+
+    // --- 4-Point 계산 (모바일 로직 100% 반영) ---
+    double travel4Pt = 0,
+        run4PtTotal = 0,
+        pipeUsed4Pt = 0,
+        shrink4Pt = 0.0,
+        gain4Pt = 0.0,
+        totalConsumed4Pt = 0.0;
+    String gainDetails4Pt = "";
+
+    if (a4 > 0 && h > 0) {
+      double rad4 = a4 * math.pi / 180.0;
+      travel4Pt = h / math.sin(rad4);
+      double run4 = h / math.tan(rad4);
+
+      pipeUsed4Pt = (travel4Pt * 2) + w;
+      run4PtTotal = (run4 * 2) + w;
+
+      shrink4Pt = pipeUsed4Pt - run4PtTotal;
+      if (_userOffsetShrink > 0) shrink4Pt += (_userOffsetShrink * 2);
+
+      double gainBend = 0.0;
+
+      if (_machineRadius > 0) {
+        gainBend =
+            (2 * _machineRadius * math.tan(rad4 / 2)) -
+            (math.pi * _machineRadius * a4 / 180.0);
+        gain4Pt = gainBend * 4;
+      } else if (_machineGain > 0) {
+        gainBend = (_machineGain * (a4 / 90.0));
+        gain4Pt = gainBend * 4;
+      }
+
+      if (gainBend > 0) {
+        gainDetails4Pt =
+            "1개소당(${a4.toInt()}°): +${gainBend.toStringAsFixed(1)} mm x 4곳\n"
+            "▶ 총 연신율(늘어난 길이): +${gain4Pt.toStringAsFixed(1)} mm";
+      } else {
+        gainDetails4Pt = "설정된 연신율 데이터 없음";
+      }
+      totalConsumed4Pt = pipeUsed4Pt + gain4Pt;
+    }
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      // 🚀 핵심 변경: 태블릿의 가로 찢어짐을 방지하는 Align + ConstrainedBox
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 720, // 태블릿 최적화 폭
+            maxHeight: MediaQuery.of(context).size.height * 0.9,
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: const BoxDecoration(
+              color: panelBg,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              border: Border(top: BorderSide(color: makitaTeal, width: 3)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(
+                            LucideIcons.rainbow,
+                            color: makitaTeal,
+                            size: 28,
                           ),
-                        ),
-                      );
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text(
-                            "QR 코드 데이터를 해석할 수 없어요.",
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                          SizedBox(width: 12),
+                          Text(
+                            "새들(Saddle) 패널",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                          backgroundColor: Colors.redAccent.shade400,
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    }
-                  }
-                },
-              ),
-              _buildMenuButton(
-                context: context,
-                title: "벤딩 리모컨",
-                subtitle: "수치 전송용 리모컨 (스마트폰 권장)",
-                icon: Icons.settings_remote_rounded,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const MobileRemotePage(),
-                    ),
-                  );
-                },
-              ),
-              _buildMenuButton(
-                context: context,
-                title: "튜브 규격 및 실측 도표",
-                subtitle: "3/8\", 1/2\" 외경·반지름 및 실측 가이드",
-                icon: Icons.table_chart_rounded,
-                iconColor: Colors.blueGrey,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const TubeReferencePage(),
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 32),
-              const Divider(height: 1, color: slate100, thickness: 8),
-              const SizedBox(height: 24),
-
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-                child: Text(
-                  "현장 소통",
-                  style: TextStyle(
-                    color: slate600,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white54),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-              _buildMenuButton(
-                context: context,
-                title: "업무용 메시지",
-                subtitle: "팀원 및 타 부서 담당자와 실시간 소통",
-                icon: Icons.chat_bubble_outline_rounded,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          MobileChatListPage(currentUser: widget.currentWorker),
-                    ),
-                  );
-                },
-              ),
-              _buildMenuButton(
-                context: context,
-                title: "회사 행사 및 일정",
-                subtitle: "사내 공지, 회식, 주요 작업 캘린더",
-                icon: Icons.calendar_month_rounded,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => MobileSchedulePage(
-                        isAdmin: widget.isAdmin,
-                        currentUser: widget.currentWorker,
-                      ),
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 32),
-              const Divider(height: 1, color: slate100, thickness: 8),
-              const SizedBox(height: 24),
-
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-                child: Text(
-                  "공용 차량 및 장비",
-                  style: TextStyle(
-                    color: slate600,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
+                  const SizedBox(height: 12),
+                  TabBar(
+                    controller: _tabController,
+                    indicatorColor: makitaTeal,
+                    labelColor: makitaTeal,
+                    unselectedLabelColor: Colors.white54,
+                    tabs: const [
+                      Tab(text: "3-Point (원형 배관)"),
+                      Tab(text: "4-Point (사각 빔)"),
+                    ],
                   ),
-                ),
-              ),
-              _buildMenuButton(
-                context: context,
-                title: "차량 및 장비 운행 관리",
-                subtitle: "공용 트럭·지게차 배차 예약 및 내역 확인",
-                icon: LucideIcons.truck,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => MobileVehicleManagementPage(
-                        currentUser: widget.currentWorker,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              if (widget.isAdmin)
-                _buildMenuButton(
-                  context: context,
-                  title: "차량 통합 세팅 (관리자)",
-                  subtitle: "신규 차량 등록, 정비 기록, 마스터 권한 배차",
-                  icon: Icons.admin_panel_settings_rounded,
-                  iconColor: warningRed,
-                  badgeText: "Admin",
-                  onTap: () {
-                    HapticFeedback.mediumImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const MobileVehicleAdminPage(),
-                      ),
-                    );
-                  },
-                ),
-
-              const SizedBox(height: 32),
-              const Divider(height: 1, color: slate100, thickness: 8),
-              const SizedBox(height: 24),
-
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-                child: Text(
-                  "자재 관리",
-                  style: TextStyle(
-                    color: slate600,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
+                  const SizedBox(height: 20),
+                  AnimatedBuilder(
+                    animation: _tabController,
+                    builder: (context, _) {
+                      return _tabController.index == 0
+                          ? _build3PointTab(
+                              h,
+                              a3,
+                              travel3Pt,
+                              pipeUsed3Pt,
+                              shrink3Pt,
+                              gainDetails3Pt,
+                              totalConsumed3Pt,
+                            )
+                          : _build4PointTab(
+                              h,
+                              w,
+                              a4,
+                              travel4Pt,
+                              pipeUsed4Pt,
+                              shrink4Pt,
+                              gainDetails4Pt,
+                              totalConsumed4Pt,
+                            );
+                    },
                   ),
-                ),
+                ],
               ),
-              _buildMenuButton(
-                context: context,
-                title: "자재 발주 및 현황",
-                subtitle: "신규 자재 발주 요청 및 진행 상태 확인",
-                icon: Icons.local_shipping_outlined,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => MaterialOrderPage(
-                        isAdmin: widget.isAdmin,
-                        currentUser: widget.currentWorker,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              _buildMenuButton(
-                context: context,
-                title: "발주 의뢰 내역",
-                subtitle: "과거 발주 및 처리 완료/반려 내역 조회",
-                icon: Icons.history_rounded,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const OrderLogPage(),
-                    ),
-                  );
-                },
-              ),
-              _buildMenuButton(
-                context: context,
-                title: "자재 현황 (불출 / 반납)",
-                subtitle: "현재 재고 확인 및 현장 자재 입출고 처리",
-                icon: Icons.inventory_2_outlined,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => MobileInventoryStatusPage(
-                        workerName: widget.currentWorker,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              _buildMenuButton(
-                context: context,
-                title: "자재 통합 관리",
-                subtitle: "재고조사 · 신규 자재 등록 및 삭제",
-                icon: Icons.admin_panel_settings_outlined,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const MobileInventoryLoginScreen(),
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 60),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  // ========================================================
-  // 🚀 스마트 알림판
-  // ========================================================
-  Widget _buildSmartHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 40, 24, 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('vehicles')
-                  .where('currentUser', isEqualTo: widget.currentWorker)
-                  .snapshots(),
-              builder: (context, vehicleSnap) {
-                // 1순위: 내 차량 상태 확인 (가장 우선순위 높음)
-                if (vehicleSnap.hasData && vehicleSnap.data!.docs.isNotEmpty) {
-                  var vehicleData =
-                      vehicleSnap.data!.docs.first.data()
-                          as Map<String, dynamic>;
-                  var status = vehicleData['status'];
-                  var number = vehicleData['number'] ?? '';
-
-                  if (status == '예약 중') {
-                    return _buildHeaderContent(
-                      title: "곧 $number 차량 운행이\n예정되어 있습니다.",
-                      titleIcon: LucideIcons.calendarClock,
-                      subText: "터치하여 예약 상태를 확인해 주세요.",
-                      isActionable: true,
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => MobileVehicleManagementPage(
-                              currentUser: widget.currentWorker,
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  } else if (status == '운행 중') {
-                    return _buildHeaderContent(
-                      title: "현재 $number 차량을\n운행 중입니다.",
-                      titleIcon: LucideIcons.car,
-                      subText: "안전 운행하시고, 사용 후 반납해 주세요.",
-                      isActionable: true,
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => MobileVehicleManagementPage(
-                              currentUser: widget.currentWorker,
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  }
-                }
-
-                // 2순위: 공지사항 / 회식 알림
-                return StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('announcements')
-                      .where('isActive', isEqualTo: true)
-                      .orderBy('createdAt', descending: true)
-                      .limit(1)
-                      .snapshots(),
-                  builder: (context, noticeSnap) {
-                    if (noticeSnap.hasData &&
-                        noticeSnap.data!.docs.isNotEmpty) {
-                      var noticeData =
-                          noticeSnap.data!.docs.first.data()
-                              as Map<String, dynamic>;
-                      String noticeTitle =
-                          noticeData['title'] ?? "새로운 사내 공지가 있습니다.";
-
-                      if (noticeTitle.contains("회식")) {
-                        return _buildHeaderContent(
-                          title: "오늘 사내 회식 일정이\n등록되어 있습니다.",
-                          titleIcon: LucideIcons.bellRing,
-                          subText: "터치하여 장소를 확인하세요.",
-                          isActionable: true,
-                          onTap: () {
-                            HapticFeedback.heavyImpact();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("회식 일정을 확인해 주세요.")),
-                            );
-                          },
-                        );
-                      }
-
-                      return _buildHeaderContent(
-                        title: "새로운 사내 공지가\n등록되었습니다.",
-                        titleIcon: LucideIcons.clipboardList,
-                        subText: noticeTitle,
-                        isActionable: true,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("공지사항 세부 내용은 준비 중입니다."),
-                            ),
-                          );
-                        },
-                      );
-                    }
-
-                    // 3순위: 기본 멘트 + 날씨 UI
-                    return _buildHeaderContent(
-                      title: _weatherGreeting,
-                      customSubWidget: _buildWeatherWidget(),
-                      isActionable: false,
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-          const SizedBox(width: 16),
-          InkWell(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      MobileProfilePage(currentWorker: widget.currentWorker),
-                ),
-              );
-            },
-            borderRadius: BorderRadius.circular(24),
-            child: Container(
-              width: 48,
-              height: 48,
-              decoration: const BoxDecoration(
-                color: slate100,
-                shape: BoxShape.circle,
+  // 🚀 태블릿 다크 테마용 6축 방향 선택기
+  Widget _buildDirectionSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              "장애물 회피 방향 (6축)",
+              style: TextStyle(
+                color: _selectedRotation == null
+                    ? Colors.redAccent
+                    : Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
               ),
-              child: const Icon(LucideIcons.user, size: 24, color: slate900),
+            ),
+            if (_selectedRotation == null)
+              const Text(
+                " *필수",
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            childAspectRatio: 3.0, // 태블릿 화면에 맞춰 살짝 넓게 조정
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+          ),
+          itemCount: _directions.length,
+          itemBuilder: (context, index) {
+            final dir = _directions[index];
+            bool isSelected = _selectedRotation == dir['val'];
+            return InkWell(
+              onTap: () => setState(() => _selectedRotation = dir['val']),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isSelected ? makitaTeal : Colors.black45,
+                  border: Border.all(
+                    color: isSelected ? makitaTeal : Colors.white12,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      dir['icon'],
+                      size: 18,
+                      color: isSelected ? pureWhite : Colors.white54,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      dir['label'].split(' ')[0],
+                      style: TextStyle(
+                        color: isSelected ? pureWhite : Colors.white70,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _build3PointTab(
+    double h,
+    double a3,
+    double travel,
+    double pipeUsed,
+    double shrink,
+    String gainDetails,
+    double totalConsumed,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "장애물 높이/깊이 (H)",
+          style: TextStyle(color: Colors.white70, fontSize: 13),
+        ),
+        const SizedBox(height: 8),
+        Row(children: [Expanded(child: _buildInputRow(_heightCtrl, "높이 mm"))]),
+        const SizedBox(height: 20),
+        const Text(
+          "센터 각도 (∠)",
+          style: TextStyle(color: Colors.white70, fontSize: 13),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(flex: 2, child: _buildAngleField(_angle3PtCtrl, "각도 °")),
+            const SizedBox(width: 12),
+            ...[
+              22.5,
+              30.0,
+              45.0,
+              60.0,
+            ].map((val) => _buildQuickAngleBtn(_angle3PtCtrl, val)),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _buildDirectionSelector(),
+        const SizedBox(height: 24),
+        _buildResultBox(
+          travel: travel,
+          pipeUsed: pipeUsed,
+          shrink: shrink,
+          gainDetails: gainDetails,
+          totalConsumed: totalConsumed,
+          onPressed: () => _apply3Point(travel, a3, shrink),
+        ),
+      ],
+    );
+  }
+
+  Widget _build4PointTab(
+    double h,
+    double w,
+    double a4,
+    double travel,
+    double pipeUsed,
+    double shrink,
+    String gainDetails,
+    double totalConsumed,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "높이/깊이 (H)",
+                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildInputRow(_heightCtrl, "높이 mm"),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "넓이 (W)",
+                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildInputRow(_widthCtrl, "넓이 mm"),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        const Text(
+          "각도 (∠)",
+          style: TextStyle(color: Colors.white70, fontSize: 13),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(flex: 2, child: _buildAngleField(_angle4PtCtrl, "각도 °")),
+            const SizedBox(width: 12),
+            ...[
+              22.5,
+              30.0,
+              45.0,
+              60.0,
+            ].map((val) => _buildQuickAngleBtn(_angle4PtCtrl, val)),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _buildDirectionSelector(),
+        const SizedBox(height: 24),
+        _buildResultBox(
+          travel: travel,
+          pipeUsed: pipeUsed,
+          shrink: shrink,
+          gainDetails: gainDetails,
+          totalConsumed: totalConsumed,
+          onPressed: () => _apply4Point(travel, w, a4, shrink),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInputRow(TextEditingController ctrl, String hint) {
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: ctrl,
+            readOnly: true,
+            onTap: () =>
+                MakitaNumpadGlass.show(context, controller: ctrl, title: hint),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'monospace',
+            ),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: Colors.black45,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: makitaTeal, width: 2),
+              ),
             ),
           ),
-        ],
+        ),
+        const SizedBox(width: 8),
+        Column(
+          children: [
+            InkWell(
+              onTap: () => _adjustValue(ctrl, 10),
+              child: const Icon(
+                Icons.arrow_drop_up,
+                color: Colors.white54,
+                size: 32,
+              ),
+            ),
+            InkWell(
+              onTap: () => _adjustValue(ctrl, -10),
+              child: const Icon(
+                Icons.arrow_drop_down,
+                color: Colors.white54,
+                size: 32,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAngleField(TextEditingController ctrl, String hint) {
+    return TextField(
+      controller: ctrl,
+      readOnly: true,
+      onTap: () =>
+          MakitaNumpadGlass.show(context, controller: ctrl, title: hint),
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
+        fontFamily: 'monospace',
+      ),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: Colors.white38),
+        filled: true,
+        fillColor: Colors.black45,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: makitaTeal, width: 2),
+        ),
       ),
     );
   }
 
-  // 🚀 날씨 전용 위젯 (배경 제거 & 회색 톤으로 주목도 낮춤)
-  Widget _buildWeatherWidget() {
-    if (!_isWeatherLoaded) {
-      return const Text(
-        "날씨 정보 동기화 중...",
-        style: TextStyle(color: slate600, fontSize: 12),
-      );
-    }
+  Widget _buildQuickAngleBtn(TextEditingController ctrl, double val) {
     return Padding(
-      padding: const EdgeInsets.only(top: 8), // Container 박스 날리고 Padding으로 변경
+      padding: const EdgeInsets.only(right: 6.0),
+      child: InkWell(
+        onTap: () => ctrl.text = val.toStringAsFixed(val % 1 == 0 ? 0 : 1),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.black45,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white12),
+          ),
+          child: Text(
+            val % 1 == 0 ? "${val.toInt()}°" : "$val°",
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 🚀 태블릿용 다크 테마 + 완벽 스펙의 결과 박스
+  Widget _buildResultBox({
+    required double travel,
+    required double pipeUsed,
+    required double shrink,
+    required String gainDetails,
+    required double totalConsumed,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.black26, // 다크테마 베이스
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white12),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                "부산시  /  $_weatherDesc",
-                style: const TextStyle(
-                  color: slate600,
-                  fontSize: 12,
-                ), // 튀지 않는 회색톤
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "마킹 빗변 (Travel)",
+                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    travel > 0 ? "${travel.toStringAsFixed(1)} mm" : "0.0 mm",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                  const Text(
+                    "C to C 마킹 치수",
+                    style: TextStyle(color: Colors.white38, fontSize: 11),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Container(
-                width: 1,
-                height: 10,
-                color: Colors.grey.shade300,
-              ), // 연한 구분선
-              const SizedBox(width: 8),
-              Text(
-                "초미세먼지 : $_pmState",
-                style: const TextStyle(color: slate600, fontSize: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text(
+                    "도면상 합계 (이론값)",
+                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    pipeUsed > 0
+                        ? "${pipeUsed.toStringAsFixed(1)} mm"
+                        : "0.0 mm",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                  const Text(
+                    "연신율 적용 전 기본 합계",
+                    style: TextStyle(color: Colors.white38, fontSize: 11),
+                  ),
+                ],
               ),
             ],
           ),
-          if (_rainExpected) ...[
-            const SizedBox(height: 6),
-            Row(
+
+          const SizedBox(height: 16),
+          const Divider(color: Colors.white12, height: 1),
+          const SizedBox(height: 16),
+
+          const Text(
+            "📍 연신율 상세 내역 (Gain)",
+            style: TextStyle(
+              color: makitaTeal,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.black45,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: makitaTeal.withOpacity(0.3)),
+            ),
+            child: Text(
+              gainDetails,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+                height: 1.5,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: makitaTeal.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: makitaTeal, width: 2),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(
-                  Icons.water_drop,
-                  size: 12,
-                  color: Colors.blueGrey.shade400,
-                ), // 차분한 색상
-                const SizedBox(width: 4),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "실제 커팅 기장 (총 기장)",
+                      style: TextStyle(
+                        color: makitaTeal,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      "도면합계 + 총 연신율",
+                      style: TextStyle(color: Colors.white54, fontSize: 11),
+                    ),
+                  ],
+                ),
                 Text(
-                  "$_rainStart시에 비 예상 ($_rainEnd시까지 ${_totalRain.toStringAsFixed(1)}mm)",
-                  style: TextStyle(
-                    color: Colors.blueGrey.shade600,
-                    fontSize: 12,
+                  totalConsumed > 0
+                      ? "${totalConsumed.toStringAsFixed(1)} mm"
+                      : "0.0 mm",
+                  style: const TextStyle(
+                    color: makitaTeal,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    fontFamily: 'monospace',
                   ),
                 ),
               ],
             ),
-          ],
-        ],
-      ),
-    );
-  }
+          ),
 
-  // 🚀 어색한 줄바꿈 방지를 위해 디자인 정비
-  Widget _buildHeaderContent({
-    required String title,
-    IconData? titleIcon,
-    String? subText,
-    Widget? customSubWidget,
-    required bool isActionable,
-    VoidCallback? onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        color: Colors.transparent,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (titleIcon != null) ...[
-              Padding(
-                padding: const EdgeInsets.only(top: 2.0),
-                child: Icon(titleIcon, size: 24, color: slate900),
-              ),
-              const SizedBox(width: 12),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: slate900,
-                      fontSize: 20, // 글자 크기를 살짝 줄여서 깔끔하게 떨어지게 함
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                      height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  if (customSubWidget != null)
-                    customSubWidget
-                  else if (subText != null)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            subText,
-                            style: const TextStyle(
-                              color: slate600,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (isActionable) ...[
-                          const SizedBox(width: 2),
-                          const Icon(
-                            Icons.chevron_right_rounded,
-                            size: 16,
-                            color: slate600,
-                          ),
-                        ],
-                      ],
-                    ),
-                ],
+          const SizedBox(height: 16),
+
+          // 🚀 바깥선 실측 참고 (다크 테마 앰버 컬러 최적화)
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.amber.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Colors.amber.withOpacity(0.5),
+                width: 1.5,
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMenuButton({
-    required BuildContext context,
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required VoidCallback onTap,
-    Color? iconColor,
-    String? badgeText,
-    Color? badgeColor,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        child: Row(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: (iconColor ?? slate900).withOpacity(0.05),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 28, color: iconColor ?? slate900),
-            ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(LucideIcons.ruler, size: 22, color: Colors.amber),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Flexible(
-                        child: Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                            color: iconColor ?? slate900,
-                            letterSpacing: -0.5,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                      const Text(
+                        "현장 검수용 실측 참고 (바깥선/등 기준)",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      if (badgeText != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: badgeColor ?? warningRed,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
+                      const SizedBox(height: 6),
+                      Text(
+                        "줄자 측정값 ≈ 도면상 합계(${pipeUsed > 0 ? pipeUsed.toStringAsFixed(1) : '0'}) + 튜브 반지름",
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                      if (pipeUsed > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6.0),
                           child: Text(
-                            badgeText,
-                            style: const TextStyle(
-                              color: pureWhite,
-                              fontSize: 10,
+                            "※ 3/8\" 기준 약 ${(pipeUsed + 5.0).toStringAsFixed(1)} ~ ${(pipeUsed + 6.0).toStringAsFixed(1)} mm 예상",
+                            style: TextStyle(
+                              color: Colors.amber.shade400,
+                              fontSize: 13,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
-                      ],
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: slate600,
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "자동 적용 옵션",
+                      style: TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "1번 마킹 축소값: +${shrink.toStringAsFixed(1)} mm",
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.redAccent,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                height: 52,
+                width: 140, // 버튼을 시원하게
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: makitaTeal,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                ],
+                  onPressed: onPressed,
+                  child: const Text(
+                    "도면 적용",
+                    style: TextStyle(
+                      color: pureWhite,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
               ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: slate600.withOpacity(0.5),
-              size: 28,
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }
