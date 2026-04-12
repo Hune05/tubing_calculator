@@ -65,7 +65,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       backgroundColor: tossBg, // 토스 스타일 옅은 회색 배경
       appBar: AppBar(
         title: const Text(
-          '내 작업 보관함',
+          '내 프로젝트',
           style: TextStyle(
             fontWeight: FontWeight.w800,
             fontSize: 20,

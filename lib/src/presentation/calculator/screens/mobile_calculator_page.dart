@@ -62,7 +62,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
       appBar: AppBar(
         backgroundColor: makitaTeal,
         title: const Text(
-          "모바일 벤딩 계산기",
+          "벤딩 마킹 계산기",
           style: TextStyle(fontWeight: FontWeight.bold, color: pureWhite),
         ),
         iconTheme: const IconThemeData(color: pureWhite),

@@ -67,7 +67,7 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
   // 🚀 날씨 상세 데이터 상태 관리
   String _weatherDesc = "확인 중";
   String _pmState = "확인 중";
-  String _currentTemp = "-"; // 🌡️ 온도 변수
+  String _currentTemp = "-";
   bool _rainExpected = false;
   String _rainStart = "";
   String _rainEnd = "";
@@ -95,11 +95,11 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
       case 'Snow':
         return '눈';
       default:
-        return '흐림'; // 안개, 연기 등 기타 상태는 모두 '흐림'으로 통일
+        return '흐림';
     }
   }
 
-  // 🚀 API 3개(현재날씨, 대기질, 일기예보)를 동시에 불러와 분석합니다.
+  // 🚀 API 3개(현재날씨, 대기질, 일기예보)를 동시에 불러와 분석
   Future<void> _fetchDetailedWeather() async {
     try {
       const String apiKey = 'ce796b79713bbdf70ec6a7cfb98f2b11';
@@ -129,17 +129,14 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
         final airData = jsonDecode(responses[1].body);
         final forecastData = jsonDecode(responses[2].body);
 
-        // 1. 현재 날씨 상태(단순화) 및 온도 추출
         String mainCondition = weatherData['weather'][0]['main'];
         String desc = _simplifyWeather(mainCondition);
         double temp = weatherData['main']['temp'];
 
-        // 2. 미세먼지(AQI) 파싱
         int aqi = airData['list'][0]['main']['aqi'];
         List<String> pmLabels = ['알 수 없음', '좋음', '보통', '나쁨', '매우 나쁨', '위험'];
         String pm = (aqi > 0 && aqi <= 5) ? pmLabels[aqi] : '알 수 없음';
 
-        // 3. 향후 24시간 내 강수량 파싱
         DateTime now = DateTime.now();
         DateTime endCheck = now.add(const Duration(hours: 24));
         DateTime? firstRain;
@@ -151,7 +148,7 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
           if (dt.isAfter(endCheck)) break;
 
           if (item['rain'] != null && item['rain']['3h'] != null) {
-            firstRain ??= dt; // 💡 조건부 할당 연산자 사용
+            firstRain ??= dt;
             lastRain = dt;
             rainSum += (item['rain']['3h'] as num).toDouble();
           }
@@ -160,7 +157,7 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
         if (mounted) {
           setState(() {
             _weatherDesc = desc;
-            _currentTemp = temp.toStringAsFixed(1); // 소수점 1자리
+            _currentTemp = temp.toStringAsFixed(1);
             _pmState = pm;
             if (rainSum > 0 && firstRain != null && lastRain != null) {
               _rainExpected = true;
@@ -170,7 +167,6 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
             } else {
               _rainExpected = false;
             }
-            // 당겨서 새로고침 시 시간대별 인사말도 최신화
             _weatherGreeting = _getTimeBasedGreeting();
             _isWeatherLoaded = true;
           });
@@ -189,27 +185,21 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
     }
   }
 
-  // 🚀 시간대별 맞춤 인사말 로직
+  // 🚀 시간대별 맞춤 인사말
   String _getTimeBasedGreeting() {
     int hour = DateTime.now().hour;
 
     if (hour >= 5 && hour < 9) {
-      // 아침 (05:00 ~ 08:59)
       return "${widget.currentWorker}님,\n활기찬 아침입니다! 오늘도 안전 작업 하세요.";
     } else if (hour >= 9 && hour < 11) {
-      // 오전 (09:00 ~ 10:59)
       return "${widget.currentWorker}님,\n오전 작업 중이시군요. 항상 안전 유의하세요!";
     } else if (hour >= 11 && hour < 14) {
-      // 점심 (11:00 ~ 13:59)
       return "${widget.currentWorker}님,\n맛있는 점심 드시고 오셨나요?";
     } else if (hour >= 14 && hour < 17) {
-      // 오후 (14:00 ~ 16:59)
       return "${widget.currentWorker}님,\n나른한 오후도 파이팅입니다!";
     } else if (hour >= 17 && hour <= 23) {
-      // 퇴근/저녁 (17:00 ~ 23:59)
       return "${widget.currentWorker}님,\n오늘 하루도 정말 고생 많으셨습니다. 푹 쉬세요!";
     } else {
-      // 새벽 (00:00 ~ 04:59)
       return "${widget.currentWorker}님,\n늦은 시간까지 고생이 많으십니다.";
     }
   }
@@ -220,13 +210,11 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
       backgroundColor: pureWhite,
       body: SafeArea(
         bottom: false,
-        // 🚀 당겨서 새로고침 기능
         child: RefreshIndicator(
           onRefresh: _fetchDetailedWeather,
-          color: tossBlue, // 로딩 스피너 색상
+          color: tossBlue,
           backgroundColor: pureWhite,
           child: SingleChildScrollView(
-            // 화면 내용이 짧아도 당길 수 있도록 AlwaysScrollableScrollPhysics 적용
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
             ),
@@ -287,10 +275,10 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
 
                 _buildMenuButton(
                   context: context,
-                  title: "내 작업 보관함 (Work Logs)",
-                  subtitle: "개인 작업 일보 · 펀치 리스트 및 자재 기록",
-                  icon: Icons.archive_outlined, // 보관함 느낌의 아이콘
-                  iconColor: tossBlue, // 파란색 포인트
+                  title: "내 프로젝트",
+                  subtitle: "개인 작업 일지 · 이슈 리스트 및 자재 기록",
+                  icon: Icons.archive_outlined,
+                  iconColor: slate900,
                   onTap: () {
                     HapticFeedback.lightImpact();
                     Navigator.push(
@@ -339,6 +327,7 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                     );
                   },
                 ),
+
                 _buildMenuButton(
                   context: context,
                   title: "현장 도면 스캔 (QR)",
@@ -448,10 +437,10 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                 ),
                 _buildMenuButton(
                   context: context,
-                  title: "자율 작업 배치도",
+                  title: "작업 배치도",
                   subtitle: "캐비닛 중판 레이아웃 및 튜빙/결선 스케치",
                   icon: Icons.architecture_rounded,
-                  iconColor: Colors.deepPurple, // 눈에 띄게 보라색 계열로
+                  iconColor: slate900,
                   badgeText: "New",
                   badgeColor: tossBlue,
                   onTap: () {
@@ -459,7 +448,6 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        // 🚀 LayoutBoardPage -> MobileLayoutBoardPage 로 수정됨
                         builder: (context) => const MobileLayoutBoardPage(),
                       ),
                     );
@@ -668,9 +656,6 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
     );
   }
 
-  // ========================================================
-  // 🚀 스마트 알림판
-  // ========================================================
   Widget _buildSmartHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 40, 24, 20),
@@ -685,7 +670,6 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                   .where('currentUser', isEqualTo: widget.currentWorker)
                   .snapshots(),
               builder: (context, vehicleSnap) {
-                // 1순위: 내 차량 상태 확인
                 if (vehicleSnap.hasData && vehicleSnap.data!.docs.isNotEmpty) {
                   var vehicleData =
                       vehicleSnap.data!.docs.first.data()
@@ -732,7 +716,6 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                   }
                 }
 
-                // 2순위: 공지사항 / 회식 / 회의 알림
                 return StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('announcements')
@@ -742,7 +725,7 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                       .snapshots(),
                   builder: (context, noticeSnap) {
                     if (noticeSnap.connectionState == ConnectionState.waiting) {
-                      return const SizedBox(height: 60); // 로딩 중 UI 깜빡임 방지용 여백
+                      return const SizedBox(height: 60);
                     }
 
                     if (noticeSnap.hasData &&
@@ -793,7 +776,6 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                       );
                     }
 
-                    // 3순위: 기본 멘트 + 날씨 UI
                     return _buildHeaderContent(
                       title: _weatherGreeting,
                       customSubWidget: _buildWeatherWidget(),
@@ -805,7 +787,6 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
             ),
           ),
           const SizedBox(width: 16),
-          // 🚀 우측 상단 아이콘 그룹 (알림 종 아이콘 + 프로필 아이콘)
           Row(
             children: [
               InkWell(
@@ -868,7 +849,6 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
     );
   }
 
-  // 🚀 날씨 전용 위젯
   Widget _buildWeatherWidget() {
     if (!_isWeatherLoaded) {
       return const Text(

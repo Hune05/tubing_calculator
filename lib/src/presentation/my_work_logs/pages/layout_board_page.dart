@@ -630,6 +630,128 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
                     ],
                   ),
                   const SizedBox(height: 20),
+
+                  // 🚀 [여기가 핵심 추가본입니다] 회전 & 복사 버튼
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            // 🔄 90도 회전 (가로 세로 길이 교환)
+                            setState(() {
+                              double temp = item.width;
+                              item.width = item.height;
+                              item.height = temp;
+
+                              // 회전 후 도면 밖으로 나가지 않게 위치 보정
+                              item.position = Offset(
+                                item.position.dx.clamp(
+                                  0.0,
+                                  math.max(0.0, _panelWidth - item.width),
+                                ),
+                                item.position.dy.clamp(
+                                  0.0,
+                                  math.max(0.0, _panelHeight - item.height),
+                                ),
+                              );
+                            });
+                            // 바텀시트의 텍스트 필드 값도 함께 업데이트
+                            setModalState(() {
+                              widthCtrl.text = item.width.toInt().toString();
+                              heightCtrl.text = item.height.toInt().toString();
+                            });
+                            HapticFeedback.lightImpact();
+                          },
+                          icon: const Icon(
+                            Icons.rotate_90_degrees_cw_rounded,
+                            size: 18,
+                            color: tossBlue,
+                          ),
+                          label: const Text(
+                            "90° 회전",
+                            style: TextStyle(
+                              color: tossBlue,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: tossBlue.withValues(alpha: 0.1),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            // 📋 모듈 복사
+                            setState(() {
+                              final newItem = PlacedItem(
+                                id: DateTime.now().millisecondsSinceEpoch
+                                    .toString(),
+                                name: item.name,
+                                position: _snapToGrid(
+                                  Offset(
+                                    (item.position.dx + 20).clamp(
+                                      0.0,
+                                      math.max(0.0, _panelWidth - item.width),
+                                    ),
+                                    (item.position.dy + 20).clamp(
+                                      0.0,
+                                      math.max(0.0, _panelHeight - item.height),
+                                    ),
+                                  ),
+                                ),
+                                width: item.width,
+                                height: item.height,
+                                isSelected: false,
+                              );
+                              _placedItems.add(newItem);
+                            });
+                            HapticFeedback.mediumImpact();
+                            Navigator.pop(context); // 복제 후 창 닫기
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text("'${item.name}' 모듈이 복사되었습니다."),
+                                backgroundColor: tossText,
+                                behavior: SnackBarBehavior.floating,
+                                duration: const Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.content_copy_rounded,
+                            size: 18,
+                            color: tossText,
+                          ),
+                          label: const Text(
+                            "모듈 복제",
+                            style: TextStyle(
+                              color: tossText,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: tossBg,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
                   TextField(
                     controller: nameCtrl,
                     style: const TextStyle(
@@ -1713,7 +1835,6 @@ class SmartGuidePainter extends CustomPainter {
       double oTop = other.position.dy,
           oBottom = other.position.dy + other.height;
 
-      // 🚀 센터든 측면이든 레이저(가상선)가 날아가는 경로는 동일하게 cx(수직), cy(수평)를 지나야 함!
       bool hitVerticalRay = (cx >= oLeft) && (cx <= oRight);
       if (hitVerticalRay) {
         if (currentType == DimensionType.center) {

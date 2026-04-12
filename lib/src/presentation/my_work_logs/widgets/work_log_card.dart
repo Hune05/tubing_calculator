@@ -44,34 +44,32 @@ class WorkLogCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: pureWhite,
         borderRadius: BorderRadius.circular(20),
-        // 토스 스타일의 아주 옅은 그림자
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 1. 헤더 영역 (클릭 시 토글)
+          // 1. 헤더 영역
           InkWell(
             onTap: onToggleExpand,
             borderRadius: BorderRadius.circular(20),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              padding: const EdgeInsets.all(20),
               child: Row(
                 children: [
-                  // 아이콘
                   Container(
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
                       color: isCompleted
                           ? Colors.green.withValues(alpha: 0.1)
-                          : tossBlue.withValues(alpha: 0.1),
+                          : tossBlue.withValues(alpha: 0.08),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -91,14 +89,14 @@ class WorkLogCard extends StatelessWidget {
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
                             color: tossText,
-                            letterSpacing: -0.3,
+                            letterSpacing: -0.5,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           "${log['date']} · ${log['revision']}",
                           style: const TextStyle(
-                            fontSize: 13,
+                            fontSize: 14,
                             color: tossSubText,
                             fontWeight: FontWeight.w500,
                           ),
@@ -125,97 +123,110 @@ class WorkLogCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Divider(color: tossBg, thickness: 1, height: 1),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 4),
 
-                  // 토스 스타일 바로가기 버튼들 (가로로 꽉 차게)
+                  // 🚀 용어 수정 반영된 버튼
                   Row(
                     children: [
                       Expanded(
-                        child: _buildQuickButton(
-                          "계산기",
-                          Icons.calculate_rounded,
-                          tossBlue,
-                          onOpenCalculator,
+                        child: _buildUnifiedButton(
+                          label: "계산기",
+                          icon: Icons.calculate_rounded,
+                          onTap: onOpenCalculator,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: _buildQuickButton(
-                          "일보 작성",
-                          Icons.edit_document,
-                          tossText,
-                          onAddDailyReport,
+                        child: _buildUnifiedButton(
+                          label: "작업 일지",
+                          icon: Icons.edit_document,
+                          onTap: onAddDailyReport,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: _buildQuickButton(
-                          "펀치 추가",
-                          Icons.error_outline_rounded,
-                          Colors.orange.shade700,
-                          onAddPunchList,
+                        child: _buildUnifiedButton(
+                          label: "이슈 등록", // 현장 용어(이슈)로 변경
+                          icon: Icons.error_outline_rounded,
+                          onTap: onAddPunchList,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 28),
 
-                  // 📝 작업 일보 목록
+                  // 📝 작업 일지 목록
                   if (dailyReports.isNotEmpty) ...[
                     const Text(
-                      "작업 일보",
+                      "작업 일지",
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
-                        color: tossText,
-                        fontSize: 15,
+                        color: tossSubText,
+                        fontSize: 14,
                       ),
                     ),
                     const SizedBox(height: 12),
                     ...dailyReports.map(
-                      (report) => _buildRecordItem(
+                      (report) => _buildUnifiedRecordItem(
                         context: context,
                         title: "${report['date']} (${report['points']} pt)",
                         content: report['note'],
                         itemData: report,
+                        icon: Icons.article_rounded,
+                        isWarning: false,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                   ],
 
-                  // ⚠️ 펀치 리스트 목록
+                  // ⚠️ 이슈 리스트 목록
                   if (punchLists.isNotEmpty) ...[
                     const Text(
-                      "펀치 리스트",
+                      "이슈 목록", // 타이틀 직관적으로 변경
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
-                        color: warningRed,
-                        fontSize: 15,
+                        color: tossSubText,
+                        fontSize: 14,
                       ),
                     ),
                     const SizedBox(height: 12),
                     ...punchLists.map(
-                      (punch) => _buildRecordItem(
+                      (punch) => _buildUnifiedRecordItem(
                         context: context,
-                        title: "수정/보완 요망",
+                        title: "이슈 확인 요망", // 타이틀 직관적으로 변경
                         content: punch['content'],
                         itemData: punch,
+                        icon: Icons.priority_high_rounded,
                         isWarning: true,
                       ),
                     ),
                     const SizedBox(height: 16),
                   ],
 
-                  // 삭제 버튼 (맨 아래)
+                  // 삭제 버튼
                   Center(
-                    child: TextButton.icon(
-                      onPressed: onDelete,
-                      icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                      label: const Text(
-                        "이 기록 삭제하기",
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: TextButton(
+                        onPressed: onDelete,
+                        style: TextButton.styleFrom(
+                          foregroundColor: tossSubText,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                        ),
+                        child: const Text(
+                          "이 작업 삭제하기",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
                       ),
-                      style: TextButton.styleFrom(foregroundColor: tossSubText),
                     ),
                   ),
                 ],
@@ -226,48 +237,49 @@ class WorkLogCard extends StatelessWidget {
     );
   }
 
-  // 토스 스타일 빠른 액션 버튼 (회색 배경에 텍스트)
-  Widget _buildQuickButton(
-    String label,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: tossBg,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, size: 22, color: color),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-                letterSpacing: -0.3,
+  // 액션 버튼
+  Widget _buildUnifiedButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: tossBg,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 24, color: tossText),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: tossText,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  letterSpacing: -0.3,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // 내부 리스트 아이템 (토스 내역 스타일)
-  Widget _buildRecordItem({
+  // 리스트 아이템
+  Widget _buildUnifiedRecordItem({
     required BuildContext context,
     required String title,
     required String content,
     required Map<String, dynamic> itemData,
-    bool isWarning = false,
+    required IconData icon,
+    required bool isWarning,
   }) {
     bool hasImg = itemData['has_image'] == true;
 
@@ -284,20 +296,21 @@ class WorkLogCard extends StatelessWidget {
           asBuiltReason: itemData['as_built_reason'],
         );
       },
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(16),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           children: [
             Container(
-              width: 4,
-              height: 36,
-              decoration: BoxDecoration(
-                color: isWarning ? warningRed : tossBg,
-                borderRadius: BorderRadius.circular(2),
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(
+                color: tossBg,
+                shape: BoxShape.circle,
               ),
+              child: Icon(icon, color: tossText, size: 20),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,10 +320,11 @@ class WorkLogCard extends StatelessWidget {
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: isWarning ? warningRed : tossText,
-                      fontSize: 14,
+                      fontSize: 15,
+                      letterSpacing: -0.3,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     content,
                     maxLines: 1,
@@ -321,10 +335,17 @@ class WorkLogCard extends StatelessWidget {
               ),
             ),
             if (hasImg)
-              Icon(
-                Icons.image_rounded,
-                size: 20,
-                color: tossSubText.withValues(alpha: 0.5),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: tossBg,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.image_rounded,
+                  size: 16,
+                  color: tossSubText,
+                ),
               ),
           ],
         ),
