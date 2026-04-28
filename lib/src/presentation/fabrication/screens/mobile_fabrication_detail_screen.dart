@@ -67,7 +67,6 @@ class _MobileFabricationDetailScreenState
 
       _bendList = List<Map<String, dynamic>>.from(rawBends);
 
-      // 🚀 PDF 출력을 위해 마킹 번호와 직관 여부를 미리 계산해 둡니다.
       int markNumber = 1;
       for (int i = 0; i < _bendList.length; i++) {
         bool isStraight = (_bendList[i]['angle']?.toDouble() ?? 0.0) == 0.0;
@@ -161,7 +160,6 @@ class _MobileFabricationDetailScreenState
     return "";
   }
 
-  // 🚀 3D 화면 캡처 기능
   Future<Uint8List?> _captureIsoImage() async {
     try {
       RenderRepaintBoundary boundary =
@@ -192,7 +190,6 @@ class _MobileFabricationDetailScreenState
         .join('-');
   }
 
-  // 🚀 PDF 생성 및 공유 기능
   Future<void> _exportToPDFAndShare() async {
     if (_bendList.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -205,7 +202,6 @@ class _MobileFabricationDetailScreenState
     }
 
     setState(() => _isExporting = true);
-    // 3D 뷰어가 라이트 모드로 전환되고 렌더링될 시간을 줍니다.
     await Future.delayed(const Duration(milliseconds: 200));
 
     try {
@@ -338,7 +334,6 @@ class _MobileFabricationDetailScreenState
         );
       }
 
-      // PDF 1페이지: ISO 도면
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
@@ -399,7 +394,6 @@ class _MobileFabricationDetailScreenState
         ),
       );
 
-      // PDF 2페이지: 마킹 데이터 및 메모
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
@@ -541,151 +535,275 @@ class _MobileFabricationDetailScreenState
     }
   }
 
-  // 🚀 도면 정보(P-to-P, Memo 등) 수정 모달
+  // 🚀 도면 정보 수정 모달 (토스 감성 + 안정성/알림 + 데이터 변경 감지 활성화)
   Future<void> _editInfo() async {
-    TextEditingController projCtrl = TextEditingController(text: _projectName);
-    TextEditingController fromCtrl = TextEditingController(
-      text: _pToP['from'] ?? '',
-    );
-    TextEditingController toCtrl = TextEditingController(
-      text: _pToP['to'] ?? '',
-    );
-    TextEditingController memoCtrl = TextEditingController(text: _memoText);
-    String selectedSize = _pipeSize;
+    // 현재 데이터 초기값 저장 (비교용)
+    String initialProj = _projectName;
+    String initialFrom = _pToP['from'] ?? '';
+    String initialTo = _pToP['to'] ?? '';
+    String initialMemo = _memoText;
+    String selectedSize = _pipeSize; // Size는 현재 수정 UI에 없으므로 기본 유지
+
+    TextEditingController projCtrl = TextEditingController(text: initialProj);
+    TextEditingController fromCtrl = TextEditingController(text: initialFrom);
+    TextEditingController toCtrl = TextEditingController(text: initialTo);
+    TextEditingController memoCtrl = TextEditingController(text: initialMemo);
+
+    // 내부 헬퍼 위젯: 입력할 때마다 UI(버튼)를 업데이트하도록 onChanged 추가
+    Widget buildTossTextField({
+      required TextEditingController controller,
+      required String label,
+      int maxLines = 1,
+      TextInputAction textInputAction = TextInputAction.next,
+      void Function(String)? onChanged,
+    }) {
+      return TextField(
+        controller: controller,
+        maxLines: maxLines,
+        textInputAction: textInputAction,
+        onChanged: onChanged, // 입력 변경 감지
+        style: const TextStyle(
+          color: slate900,
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: slate600, fontSize: 14),
+          filled: true,
+          fillColor: slate100,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: makitaTeal, width: 2),
+          ),
+        ),
+      );
+    }
 
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return Container(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-            left: 20,
-            right: 20,
-            top: 24,
-          ),
-          decoration: BoxDecoration(
-            color: pureWhite,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            border: Border.all(color: makitaTeal, width: 2),
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "도면 정보 수정",
-                  style: TextStyle(
-                    color: slate900,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: projCtrl,
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: "PROJECT",
-                    filled: true,
-                    fillColor: slate100,
-                    border: OutlineInputBorder(borderSide: BorderSide.none),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
+        bool isSaving = false;
+
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            // 🚀 데이터가 초기값과 다른지 실시간으로 비교
+            bool hasChanges =
+                projCtrl.text != initialProj ||
+                fromCtrl.text != initialFrom ||
+                toCtrl.text != initialTo ||
+                memoCtrl.text != initialMemo;
+
+            // 텍스트 필드에 글자가 입력될 때마다 State를 갱신해 버튼 색상을 바꿉니다.
+            void onTextChanged(String _) {
+              setModalState(() {});
+            }
+
+            return Container(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                left: 24,
+                right: 24,
+                top: 12,
+              ),
+              decoration: const BoxDecoration(
+                color: pureWhite,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: fromCtrl,
-                        textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          labelText: "FROM",
-                          filled: true,
-                          fillColor: slate100,
-                          border: OutlineInputBorder(
-                            borderSide: BorderSide.none,
-                          ),
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 5,
+                        margin: const EdgeInsets.only(bottom: 24),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: toCtrl,
-                        textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          labelText: "TO",
-                          filled: true,
-                          fillColor: slate100,
-                          border: OutlineInputBorder(
-                            borderSide: BorderSide.none,
+                    const Text(
+                      "도면 정보 수정",
+                      style: TextStyle(
+                        color: slate900,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    buildTossTextField(
+                      controller: projCtrl,
+                      label: "프로젝트 명 (PROJECT)",
+                      onChanged: onTextChanged,
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: buildTossTextField(
+                            controller: fromCtrl,
+                            label: "시작점 (FROM)",
+                            onChanged: onTextChanged,
                           ),
                         ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: buildTossTextField(
+                            controller: toCtrl,
+                            label: "도착점 (TO)",
+                            onChanged: onTextChanged,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    buildTossTextField(
+                      controller: memoCtrl,
+                      label: "특이사항 (MEMO)",
+                      maxLines: 3,
+                      textInputAction: TextInputAction.newline,
+                      onChanged: onTextChanged,
+                    ),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          // 🚀 변경사항이 있으면 마키타 틸(활성), 없으면 슬레이트600(닫기 버튼 느낌)
+                          backgroundColor: hasChanges ? makitaTeal : slate600,
+                          foregroundColor: pureWhite,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        onPressed: isSaving
+                            ? null
+                            : () async {
+                                // 🚀 변경된 게 없으면 DB 안 건드리고 그냥 조용히 닫음!
+                                if (!hasChanges) {
+                                  Navigator.pop(context);
+                                  return;
+                                }
+
+                                // 1. 메신저 객체 미리 확보 (context deactivate 버그 방지)
+                                final messenger = ScaffoldMessenger.of(context);
+
+                                setModalState(() => isSaving = true);
+                                FocusScope.of(context).unfocus();
+
+                                try {
+                                  Map<String, dynamic> newPtoP = {
+                                    "project": projCtrl.text,
+                                    "from": fromCtrl.text,
+                                    "to": toCtrl.text,
+                                    "start_fit": _startFit,
+                                    "end_fit": _endFit,
+                                    "tail": _tailLength,
+                                    "start_dir": _startDir,
+                                    "memo": memoCtrl.text,
+                                  };
+
+                                  await DatabaseHelper.instance
+                                      .updateHistory(widget.itemData['id'], {
+                                        'p_to_p': jsonEncode(newPtoP),
+                                        'pipe_size': selectedSize,
+                                      });
+
+                                  // 부모 위젯 데이터 갱신
+                                  setState(() {
+                                    widget.itemData['p_to_p'] = jsonEncode(
+                                      newPtoP,
+                                    );
+                                    widget.itemData['pipe_size'] = selectedSize;
+                                    _parseData();
+                                  });
+
+                                  // 2. 모달 닫기
+                                  if (!context.mounted) return;
+                                  Navigator.pop(context);
+
+                                  // 3. 미리 빼둔 messenger로 알림 띄우기 (에러 안 남!)
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      content: const Text(
+                                        "도면 정보가 성공적으로 수정되었습니다.",
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      backgroundColor: makitaTeal,
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                } catch (e) {
+                                  debugPrint("저장 에러: $e");
+                                  setModalState(() => isSaving = false);
+                                  messenger.showSnackBar(
+                                    const SnackBar(
+                                      content: Text("저장 중 오류가 발생했습니다."),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              },
+                        child: isSaving
+                            ? const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      color: pureWhite,
+                                      strokeWidth: 2.5,
+                                    ),
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text(
+                                    "저장 중...",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            // 🚀 텍스트도 상태에 맞게 분기 (변경 있음: 수정 완료 / 변경 없음: 닫기)
+                            : Text(
+                                hasChanges ? "수정 완료" : "닫기",
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: memoCtrl,
-                  maxLines: 3,
-                  textInputAction: TextInputAction.newline,
-                  decoration: const InputDecoration(
-                    labelText: "특이사항 (MEMO)",
-                    filled: true,
-                    fillColor: slate100,
-                    border: OutlineInputBorder(borderSide: BorderSide.none),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: makitaTeal,
-                    ),
-                    onPressed: () async {
-                      Map<String, dynamic> newPtoP = {
-                        "project": projCtrl.text,
-                        "from": fromCtrl.text,
-                        "to": toCtrl.text,
-                        "start_fit": _startFit,
-                        "end_fit": _endFit,
-                        "tail": _tailLength,
-                        "start_dir": _startDir,
-                        "memo": memoCtrl.text,
-                      };
-                      await DatabaseHelper.instance.updateHistory(
-                        widget.itemData['id'],
-                        {
-                          'p_to_p': jsonEncode(newPtoP),
-                          'pipe_size': selectedSize,
-                        },
-                      );
-                      setState(() {
-                        widget.itemData['p_to_p'] = jsonEncode(newPtoP);
-                        widget.itemData['pipe_size'] = selectedSize;
-                        _parseData();
-                      });
-                      if (!context.mounted) return;
-                      Navigator.pop(context);
-                    },
-                    child: const Text(
-                      "수정 완료",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -893,44 +1011,45 @@ class _MobileFabricationDetailScreenState
   Widget _buildIsoPage() {
     return Container(
       width: double.infinity,
-      color: slate900,
-      // 🚀 PDF 캡처를 위한 RepaintBoundary 적용
       child: RepaintBoundary(
         key: _isoBoundaryKey,
-        child: MobilePipeVisualizer(
-          bendList: _bendList,
-          tailLength: _tailLength,
-          initialStartDir: _startDir,
-          startFit: _startFit,
-          endFit: _endFit,
-          isLightMode: _isExporting, // 🚀 PDF 캡처 시 하얀 배경으로 자동 변경
-          selectedSegmentIndex: _selectedSegmentIndex,
-          onStartDirChanged: (newDir) async {
-            setState(() {
-              _startDir = newDir;
-            });
-            try {
-              Map<String, dynamic> newPtoP = {
-                "project": _projectName,
-                "from": _pToP['from'] ?? '',
-                "to": _pToP['to'] ?? '',
-                "start_fit": _startFit,
-                "end_fit": _endFit,
-                "tail": _tailLength,
-                "start_dir": newDir,
-                "memo": _memoText,
-              };
-              String newPtoPJson = jsonEncode(newPtoP);
-              await DatabaseHelper.instance.updateHistory(
-                widget.itemData['id'],
-                {'p_to_p': newPtoPJson},
-              );
-              widget.itemData['p_to_p'] = newPtoPJson;
-            } catch (e) {
-              debugPrint("방향 저장 실패: $e");
-            }
-          },
-          totalCutLength: _totalLength,
+        child: Container(
+          color: _isExporting ? pureWhite : slate900,
+          child: MobilePipeVisualizer(
+            bendList: _bendList,
+            tailLength: _tailLength,
+            initialStartDir: _startDir,
+            startFit: _startFit,
+            endFit: _endFit,
+            isLightMode: _isExporting,
+            selectedSegmentIndex: _selectedSegmentIndex,
+            onStartDirChanged: (newDir) async {
+              setState(() {
+                _startDir = newDir;
+              });
+              try {
+                Map<String, dynamic> newPtoP = {
+                  "project": _projectName,
+                  "from": _pToP['from'] ?? '',
+                  "to": _pToP['to'] ?? '',
+                  "start_fit": _startFit,
+                  "end_fit": _endFit,
+                  "tail": _tailLength,
+                  "start_dir": newDir,
+                  "memo": _memoText,
+                };
+                String newPtoPJson = jsonEncode(newPtoP);
+                await DatabaseHelper.instance.updateHistory(
+                  widget.itemData['id'],
+                  {'p_to_p': newPtoPJson},
+                );
+                widget.itemData['p_to_p'] = newPtoPJson;
+              } catch (e) {
+                debugPrint("방향 저장 실패: $e");
+              }
+            },
+            totalCutLength: _totalLength,
+          ),
         ),
       ),
     );

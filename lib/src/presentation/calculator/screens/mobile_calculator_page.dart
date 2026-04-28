@@ -4,7 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 
-// 🚀 아래 3개의 파일은 동일한 폴더에 있다고 가정합니다.
+// 🚀 아래 파일들은 동일한 폴더 또는 적절한 경로에 있다고 가정합니다.
 import 'mobile_input_tab.dart';
 import 'mobile_result_tabs.dart';
 import 'mobile_settings_tab.dart';
@@ -23,7 +23,7 @@ class MobileCalculatorPage extends StatefulWidget {
 }
 
 class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
-  final PageController _pageController = PageController();
+  // 🚀 스와이프를 없앴으므로 PageController는 완전히 삭제합니다.
   int _currentIndex = 0;
   String _startDir = "RIGHT";
 
@@ -34,25 +34,12 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
     MobileBendDataManager().loadSavedSettings();
   }
 
-  void _onPageChanged(int index) {
+  // 🚀 하단 탭바 터치 시 애니메이션 없이 즉각적으로 인덱스만 변경합니다.
+  void _onTabTapped(int index) {
+    HapticFeedback.lightImpact();
     setState(() {
       _currentIndex = index;
     });
-  }
-
-  void _onTabTapped(int index) {
-    HapticFeedback.lightImpact();
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
   }
 
   @override
@@ -68,10 +55,9 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
         iconTheme: const IconThemeData(color: pureWhite),
         elevation: 0,
       ),
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: _onPageChanged,
-        physics: const BouncingScrollPhysics(),
+      // 🚀 PageView 대신 IndexedStack 사용: 스와이프 금지, 렉 제거, 상태 유지 완벽!
+      body: IndexedStack(
+        index: _currentIndex,
         children: [
           const MobileInputTab(),
           MobileResultTab(startDir: _startDir),
@@ -102,11 +88,11 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
           type: BottomNavigationBarType.fixed,
           selectedLabelStyle: const TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 11,
+            fontSize: 12,
           ),
           unselectedLabelStyle: const TextStyle(
             fontWeight: FontWeight.normal,
-            fontSize: 10,
+            fontSize: 12,
           ),
           items: const [
             BottomNavigationBarItem(

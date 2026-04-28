@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:math' as math;
+import 'package:shared_preferences/shared_preferences.dart'; // 🚀 SharedPreferences 임포트 추가
 
 import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
@@ -51,6 +52,10 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
   double _machineRadius = 0.0;
   double _machineGain = 0.0;
   double _userOffsetShrink = 0.0;
+
+  // 🚀 슈 간섭 경고를 위한 변수 추가
+  double _minStraight = 0.0;
+  bool _warnShoeInterference = true;
 
   final TextEditingController _heightCtrl = TextEditingController();
   final TextEditingController _widthCtrl = TextEditingController();
@@ -103,11 +108,16 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
 
   Future<void> _loadMachineSettings() async {
     final data = await SettingsManager.loadSettings();
+    final prefs = await SharedPreferences.getInstance(); // 🚀 설정 불러오기 추가
     if (mounted) {
       setState(() {
         _machineRadius = data['bendRadius'] ?? 0.0;
         _machineGain = data['gain'] ?? 0.0;
         _userOffsetShrink = data['offsetShrink'] ?? 0.0;
+
+        // 🚀 저장된 장비 제원 및 경고 스위치 상태 적용
+        _minStraight = data['minStraight'] ?? 0.0;
+        _warnShoeInterference = prefs.getBool('warnShoeInterference') ?? true;
       });
     }
   }
@@ -135,65 +145,252 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     return (currentRot + 180.0) % 360.0;
   }
 
-  void _apply3Point(double travel3Pt, double a3, double shrink) {
-    if (_selectedRotation == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("장애물 회피 방향을 선택해주세요!"),
-          backgroundColor: Colors.deepOrange,
-        ),
-      );
-      return;
-    }
-    if (travel3Pt > 0 && a3 > 0) {
-      double roundedTravel = double.parse(travel3Pt.toStringAsFixed(1));
-      double roundedShrink = double.parse(shrink.toStringAsFixed(1));
-      double sideAngle = a3 / 2;
-      double oppRot = _getOppositeRotation(_selectedRotation!);
+  // 🚀 [추가] 3포인트 강제 집어넣기용 분리된 로직
+  void _execute3Point(double travel3Pt, double a3, double shrink) {
+    double roundedTravel = double.parse(travel3Pt.toStringAsFixed(1));
+    double roundedShrink = double.parse(shrink.toStringAsFixed(1));
+    double sideAngle = a3 / 2;
+    double oppRot = _getOppositeRotation(_selectedRotation!);
 
-      widget.onAddBend(roundedShrink, sideAngle, _selectedRotation!);
-      widget.onAddBend(roundedTravel, a3, oppRot);
-      widget.onAddBend(roundedTravel, sideAngle, _selectedRotation!);
+    widget.onAddBend(roundedShrink, sideAngle, _selectedRotation!);
+    widget.onAddBend(roundedTravel, a3, oppRot);
+    widget.onAddBend(roundedTravel, sideAngle, _selectedRotation!);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("축소값(+${roundedShrink}mm)이 첫 번째 마킹에 자동 적용되었습니다."),
-          backgroundColor: makitaTeal,
-        ),
-      );
-      Navigator.pop(context);
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("축소값(+${roundedShrink}mm)이 첫 번째 마킹에 자동 적용되었습니다."),
+        backgroundColor: makitaTeal,
+      ),
+    );
+    Navigator.pop(context);
   }
 
-  void _apply4Point(double travel4Pt, double w, double a4, double shrink) {
+  // 🚀 3-Point 새들 계산 적용 및 경고
+  void _apply3Point(double travel3Pt, double a3, double shrink) {
     if (_selectedRotation == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("장애물 회피 방향을 선택해주세요!"),
-          backgroundColor: Colors.deepOrange,
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: pureWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.deepOrange),
+              SizedBox(width: 8),
+              Text(
+                "경고",
+                style: TextStyle(fontWeight: FontWeight.bold, color: slate900),
+              ),
+            ],
+          ),
+          content: const Text(
+            "장애물 회피 방향을 먼저 선택해주세요!",
+            style: TextStyle(color: slate900, fontSize: 15),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepOrange,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("확인", style: TextStyle(color: pureWhite)),
+            ),
+          ],
         ),
       );
       return;
     }
-    if (travel4Pt > 0 && w > 0 && a4 > 0) {
-      double roundedTravel = double.parse(travel4Pt.toStringAsFixed(1));
-      double roundedW = double.parse(w.toStringAsFixed(1));
-      double roundedShrink = double.parse(shrink.toStringAsFixed(1));
-      double oppRot = _getOppositeRotation(_selectedRotation!);
+    if (travel3Pt <= 0 || a3 <= 0) return;
 
-      widget.onAddBend(roundedShrink, a4, _selectedRotation!);
-      widget.onAddBend(roundedTravel, a4, oppRot);
-      widget.onAddBend(roundedW, a4, oppRot);
-      widget.onAddBend(roundedTravel, a4, _selectedRotation!);
+    double roundedTravel = double.parse(travel3Pt.toStringAsFixed(1));
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("축소값(+${roundedShrink}mm)이 첫 번째 마킹에 자동 적용되었습니다."),
-          backgroundColor: makitaTeal,
+    // 🚀 [추가] 슈 간섭 경고 (Soft Warning)
+    if (_warnShoeInterference && roundedTravel < _minStraight) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: pureWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.block, color: Colors.orange.shade800),
+              const SizedBox(width: 8),
+              const Text(
+                "슈 간섭 경고",
+                style: TextStyle(fontWeight: FontWeight.bold, color: slate900),
+              ),
+            ],
+          ),
+          content: Text(
+            "현재 설정된 장비의 최소 물림 길이는 ${_minStraight}mm 입니다.\n\n"
+            "• 계산된 빗변: ${roundedTravel}mm\n\n"
+            "길이가 너무 짧아 벤더기에 물리지 않을 수 있습니다. 그래도 강제로 추가하시겠습니까?",
+            style: const TextStyle(color: slate900, fontSize: 14, height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text(
+                "취소 (다시 입력)",
+                style: TextStyle(color: slate600, fontWeight: FontWeight.bold),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+                _execute3Point(travel3Pt, a3, shrink); // 🚀 고인물 강제 진행
+              },
+              child: const Text(
+                "무시하고 추가",
+                style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
         ),
       );
-      Navigator.pop(context);
+      return;
     }
+
+    _execute3Point(travel3Pt, a3, shrink);
+  }
+
+  // 🚀 [추가] 4포인트 강제 집어넣기용 분리된 로직
+  void _execute4Point(double travel4Pt, double w, double a4, double shrink) {
+    double roundedTravel = double.parse(travel4Pt.toStringAsFixed(1));
+    double roundedW = double.parse(w.toStringAsFixed(1));
+    double roundedShrink = double.parse(shrink.toStringAsFixed(1));
+    double oppRot = _getOppositeRotation(_selectedRotation!);
+
+    widget.onAddBend(roundedShrink, a4, _selectedRotation!);
+    widget.onAddBend(roundedTravel, a4, oppRot);
+    widget.onAddBend(roundedW, a4, oppRot);
+    widget.onAddBend(roundedTravel, a4, _selectedRotation!);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("축소값(+${roundedShrink}mm)이 첫 번째 마킹에 자동 적용되었습니다."),
+        backgroundColor: makitaTeal,
+      ),
+    );
+    Navigator.pop(context);
+  }
+
+  // 🚀 4-Point 새들 계산 적용 및 경고
+  void _apply4Point(double travel4Pt, double w, double a4, double shrink) {
+    if (_selectedRotation == null) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: pureWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.deepOrange),
+              SizedBox(width: 8),
+              Text(
+                "경고",
+                style: TextStyle(fontWeight: FontWeight.bold, color: slate900),
+              ),
+            ],
+          ),
+          content: const Text(
+            "장애물 회피 방향을 먼저 선택해주세요!",
+            style: TextStyle(color: slate900, fontSize: 15),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepOrange,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("확인", style: TextStyle(color: pureWhite)),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    if (travel4Pt <= 0 || w <= 0 || a4 <= 0) return;
+
+    double roundedTravel = double.parse(travel4Pt.toStringAsFixed(1));
+    double roundedW = double.parse(w.toStringAsFixed(1));
+
+    // 🚀 [추가] 슈 간섭 경고 (Soft Warning) 4포인트는 넓이(W)도 짧으면 안물립니다.
+    if (_warnShoeInterference &&
+        (roundedTravel < _minStraight || roundedW < _minStraight)) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: pureWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.block, color: Colors.orange.shade800),
+              const SizedBox(width: 8),
+              const Text(
+                "슈 간섭 경고",
+                style: TextStyle(fontWeight: FontWeight.bold, color: slate900),
+              ),
+            ],
+          ),
+          content: Text(
+            "현재 설정된 장비의 최소 물림 길이는 ${_minStraight}mm 입니다.\n\n"
+            "• 계산된 빗변: ${roundedTravel}mm\n"
+            "• 상단 넓이(W): ${roundedW}mm\n\n"
+            "구간 길이가 너무 짧아 벤더기에 물리지 않을 수 있습니다. 그래도 강제로 추가하시겠습니까?",
+            style: const TextStyle(color: slate900, fontSize: 14, height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text(
+                "취소 (다시 입력)",
+                style: TextStyle(color: slate600, fontWeight: FontWeight.bold),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+                _execute4Point(travel4Pt, w, a4, shrink); // 🚀 고인물 강제 진행
+              },
+              child: const Text(
+                "무시하고 추가",
+                style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    _execute4Point(travel4Pt, w, a4, shrink);
   }
 
   Widget _buildDirectionSelector() {
@@ -319,7 +516,6 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         gain3Pt = gainCenter + (gainSide * 2);
       }
 
-      // 🚀 직관적인 연신율 텍스트 적용 (3-Point)
       if (gainCenter > 0 || gainSide > 0) {
         gainDetails3Pt =
             "센터(${a3.toInt()}°): +${gainCenter.toStringAsFixed(1)} mm\n"
@@ -364,7 +560,6 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         gain4Pt = gainBend * 4;
       }
 
-      // 🚀 직관적인 연신율 텍스트 적용 (4-Point)
       if (gainBend > 0) {
         gainDetails4Pt =
             "1개소당(${a4.toInt()}°): +${gainBend.toStringAsFixed(1)} mm x 4곳\n"
@@ -727,7 +922,6 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     );
   }
 
-  // 🚀 완전 무결점 결과 박스 (UI 깨짐 방지 및 직관성 강화 적용 + 바깥선 실측 참고 추가)
   Widget _buildResultBox({
     required double travel,
     required double pipeUsed,
@@ -813,7 +1007,6 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
           const Divider(color: Colors.black12, height: 1),
           const SizedBox(height: 16),
 
-          // 🚀 발생한 연신율 (상세 내역)
           const Text(
             "📍 연신율 상세 내역 (Gain)",
             style: TextStyle(
@@ -844,7 +1037,6 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
 
           const SizedBox(height: 16),
 
-          // 🚀 진짜 총 기장 (이론값 + 연신율)
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -892,7 +1084,6 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
 
           const SizedBox(height: 12),
 
-          // 🚀 현장 검수용 바깥선 실측 참고 (새로 추가된 핵심 기능)
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(

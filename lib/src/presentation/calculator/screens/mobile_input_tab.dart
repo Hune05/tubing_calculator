@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_rolling_offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_saddle_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_parallel_shrink_bottom_sheet.dart';
+// 🚀 퀵 킥 및 퀵 U-Bend 바텀시트 임포트 추가
+import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_quick_kick_bottom_sheet.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_quick_u_bend_bottom_sheet.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
@@ -33,6 +39,11 @@ class _MobileInputTabState extends State<MobileInputTab>
   double? _selectedRotation;
   int? _editingIndex;
 
+  // 장비 설정값 및 파이프 제원 저장 변수
+  double _minStraight = 0.0;
+  bool _warnShoeInterference = true;
+  double _tubeOD = 12.7; // 기본값 1/2인치(12.7mm)
+
   final List<Map<String, dynamic>> _directions = [
     {"label": "UP (위)", "val": 0.0, "icon": Icons.arrow_upward},
     {"label": "FRONT (앞)", "val": 360.0, "icon": Icons.call_made},
@@ -43,10 +54,37 @@ class _MobileInputTabState extends State<MobileInputTab>
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final data = await SettingsManager.loadSettings();
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _minStraight = data['minStraight'] ?? 0.0;
+        _tubeOD = data['tubeOD'] ?? 12.7;
+        _warnShoeInterference = prefs.getBool('warnShoeInterference') ?? true;
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _lengthController.dispose();
     _customAngleController.dispose();
     super.dispose();
+  }
+
+  // 파이프 외경(OD)에 따른 피팅 조립 최소 안전 직관 거리
+  double _getMinFittingStraight(double od) {
+    if (od <= 6.35) return 21.0; // 1/4"
+    if (od <= 9.52) return 24.0; // 3/8"
+    if (od <= 12.7) return 30.0; // 1/2"
+    if (od <= 19.05) return 32.0; // 3/4"
+    return 38.0; // 1" 이상
   }
 
   void _addSegment() {
@@ -82,13 +120,123 @@ class _MobileInputTabState extends State<MobileInputTab>
       return;
     }
 
+    double finalRotation = _selectedAngle == 0.0 ? 0.0 : _selectedRotation!;
+
+    // 기계 간섭 & 누설 위험 이중 검사 로직
+    double minFittingStraight = _getMinFittingStraight(_tubeOD);
+
+    bool isShoeInterference = _warnShoeInterference && length < _minStraight;
+    bool isLeakRisk = length < minFittingStraight;
+
+    // 만약 둘 중 하나라도 위험 요소가 발견되면 복합 경고창을 띄움
+    if (isShoeInterference || isLeakRisk) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: pureWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.warning_rounded, color: Colors.orange.shade800),
+              const SizedBox(width: 8),
+              const Text(
+                "벤딩 및 누설 경고",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: slate900,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "입력하신 길이(${length.toStringAsFixed(1)}mm)가 너무 짧아 현장에서 문제가 발생할 수 있습니다.\n",
+                style: const TextStyle(color: slate900, fontSize: 13),
+              ),
+              if (isShoeInterference) ...[
+                const SizedBox(height: 4),
+                Text(
+                  "❌ 기계 간섭 위험",
+                  style: TextStyle(
+                    color: Colors.red.shade700,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                Text(
+                  "장비 최소 물림 거리(${_minStraight}mm) 부족",
+                  style: const TextStyle(color: slate600, fontSize: 12),
+                ),
+              ],
+              if (isLeakRisk) ...[
+                const SizedBox(height: 8),
+                Text(
+                  "💧 피팅 누설(Leak) 위험",
+                  style: TextStyle(
+                    color: Colors.blue.shade700,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                Text(
+                  "너트 체결을 위한 완벽한 원형 직관 거리(${minFittingStraight}mm) 부족 (타원형 변형 틈 발생 가능성)",
+                  style: const TextStyle(color: slate600, fontSize: 12),
+                ),
+              ],
+              const SizedBox(height: 12),
+              const Text(
+                "그래도 강제로 도면에 추가하시겠습니까?",
+                style: TextStyle(
+                  color: slate900,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text(
+                "취소 (다시 입력)",
+                style: TextStyle(color: slate600, fontWeight: FontWeight.bold),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+                _executeAddSegment(length, _selectedAngle, finalRotation);
+              },
+              child: const Text(
+                "무시하고 추가",
+                style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    _executeAddSegment(length, _selectedAngle, finalRotation);
+  }
+
+  void _executeAddSegment(double length, double angle, double rotation) {
     HapticFeedback.mediumImpact();
 
-    final newBend = {
-      'length': length,
-      'angle': _selectedAngle,
-      'rotation': _selectedAngle == 0.0 ? 0.0 : _selectedRotation!,
-    };
+    final newBend = {'length': length, 'angle': angle, 'rotation': rotation};
 
     if (_editingIndex != null) {
       MobileBendDataManager().updateBend(_editingIndex!, newBend);
@@ -151,69 +299,94 @@ class _MobileInputTabState extends State<MobileInputTab>
       final lastRot = MobileBendDataManager().bendList.last['rotation'];
       currentRot = (lastRot as num?)?.toDouble() ?? (_selectedRotation ?? 90.0);
     }
+
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true, // 🚀 높이가 오버플로우되지 않도록 허용
       backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "특수 벤딩 계산 및 삽입",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: slate900,
+        child: SingleChildScrollView(
+          // 🚀 스크롤 가능하게 감싸서 픽셀 오버플로우 완벽 해결
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "특수 벤딩 계산 및 삽입",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: slate900,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                "현장 치수를 입력하면 벤딩 데이터가 자동으로 조립됩니다.",
-                style: TextStyle(fontSize: 13, color: slate600),
-              ),
-              const SizedBox(height: 24),
-              _buildSpecialMenuBtn("일반 오프셋 (Offset)", Icons.timeline, () {
-                Navigator.pop(context);
-                MobileOffsetBottomSheet.show(
-                  context,
-                  currentRotation: currentRot,
-                  onAddMultipleBends: _addMultipleBends,
-                );
-              }),
-              _buildSpecialMenuBtn("롤링 오프셋 (Rolling Offset)", Icons.sync, () {
-                Navigator.pop(context);
-                MobileRollingOffsetBottomSheet.show(
-                  context,
-                  currentRotation: currentRot,
-                  onAddBend: _addSingleBend,
-                );
-              }),
-              _buildSpecialMenuBtn("새들 벤딩 (Saddle)", Icons.architecture, () {
-                Navigator.pop(context);
-                MobileSaddleBottomSheet.show(
-                  context,
-                  currentRotation: currentRot,
-                  onAddBend: _addSingleBend,
-                );
-              }),
-              _buildSpecialMenuBtn(
-                "평행 및 축소값 (Parallel & Shrink)",
-                Icons.grid_view,
-                () {
+                const SizedBox(height: 8),
+                const Text(
+                  "현장 치수를 입력하면 벤딩 데이터가 자동으로 조립됩니다.",
+                  style: TextStyle(fontSize: 13, color: slate600),
+                ),
+                const SizedBox(height: 24),
+
+                // 🚀 1. 퀵 킥 (독립 실행형)
+                _buildSpecialMenuBtn("퀵 킥 (단일 단차) 계산기", LucideIcons.zap, () {
                   Navigator.pop(context);
-                  MobileParallelShrinkBottomSheet.show(
+                  MobileQuickKickBottomSheet.show(context);
+                }),
+
+                // 🚀 2. 퀵 U-Bend (독립 실행형) 추가!
+                _buildSpecialMenuBtn(
+                  "퀵 U-Bend (180°) 계산기",
+                  Icons.u_turn_right,
+                  () {
+                    Navigator.pop(context);
+                    MobileQuickUBendBottomSheet.show(context);
+                  },
+                ),
+
+                _buildSpecialMenuBtn("일반 오프셋 (Offset)", Icons.timeline, () {
+                  Navigator.pop(context);
+                  MobileOffsetBottomSheet.show(
                     context,
-                    currentAngle: _selectedAngle,
+                    currentRotation: currentRot,
+                    onAddMultipleBends: _addMultipleBends,
                   );
-                },
-              ),
-            ],
+                }),
+
+                _buildSpecialMenuBtn("롤링 오프셋 (Rolling Offset)", Icons.sync, () {
+                  Navigator.pop(context);
+                  MobileRollingOffsetBottomSheet.show(
+                    context,
+                    currentRotation: currentRot,
+                    onAddBend: _addSingleBend,
+                  );
+                }),
+
+                _buildSpecialMenuBtn("새들 벤딩 (Saddle)", Icons.architecture, () {
+                  Navigator.pop(context);
+                  MobileSaddleBottomSheet.show(
+                    context,
+                    currentRotation: currentRot,
+                    onAddBend: _addSingleBend,
+                  );
+                }),
+
+                _buildSpecialMenuBtn(
+                  "평행 및 축소값 (Parallel & Shrink)",
+                  Icons.grid_view,
+                  () {
+                    Navigator.pop(context);
+                    MobileParallelShrinkBottomSheet.show(
+                      context,
+                      currentAngle: _selectedAngle,
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -251,15 +424,17 @@ class _MobileInputTabState extends State<MobileInputTab>
                 child: Icon(icon, color: makitaTeal, size: 20),
               ),
               const SizedBox(width: 16),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: slate900,
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: slate900,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Spacer(),
               Icon(
                 Icons.arrow_forward_ios,
                 color: Colors.grey.shade400,
@@ -275,6 +450,9 @@ class _MobileInputTabState extends State<MobileInputTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+
+    // 매 렌더링 시마다 최신 장비 설정값 및 튜브 규격을 업데이트
+    _loadSettings();
 
     return ListenableBuilder(
       listenable: MobileBendDataManager(),
@@ -482,11 +660,10 @@ class _MobileInputTabState extends State<MobileInputTab>
                               fontSize: 13,
                             ),
                           ),
-                          const SizedBox(width: 8), // 🚀 공간 확보를 위해 넓이 축소
+                          const SizedBox(width: 8),
                           Expanded(
                             child: SegmentedButton<String>(
-                              showSelectedIcon:
-                                  false, // 🚀 글자 밀림 방지 (선택 시 체크마크 숨김)
+                              showSelectedIcon: false,
                               segments: const [
                                 ButtonSegment(
                                   value: "90",

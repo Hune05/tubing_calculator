@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:math' as math;
+import 'package:shared_preferences/shared_preferences.dart'; // 🚀 설정 연동을 위해 임포트 추가
 
 import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
@@ -53,11 +54,15 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
   double _machineGain = 0.0;
   double _userOffsetShrink = 0.0;
 
+  // 🚀 장비 최소 물림 길이 및 경고 스위치 상태 변수 추가
+  double _minStraight = 0.0;
+  bool _warnShoeInterference = true;
+
   final TextEditingController _heightCtrl = TextEditingController();
   final TextEditingController _angleCtrl = TextEditingController();
   final TextEditingController _travelCtrl = TextEditingController();
 
-  // 🚀 장애물까지의 시작 거리를 입력받는 컨트롤러
+  // 장애물까지의 시작 거리를 입력받는 컨트롤러
   final TextEditingController _startDistanceCtrl = TextEditingController(
     text: "0",
   );
@@ -104,11 +109,16 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
 
   Future<void> _loadMachineSettings() async {
     final data = await SettingsManager.loadSettings();
+    final prefs = await SharedPreferences.getInstance(); // 🚀 설정 불러오기 추가
     if (mounted) {
       setState(() {
         _machineRadius = data['bendRadius'] ?? 0.0;
         _machineGain = data['gain'] ?? 0.0;
         _userOffsetShrink = data['offsetShrink'] ?? 0.0;
+
+        // 🚀 저장된 장비 제원 및 경고 스위치 상태 적용
+        _minStraight = data['minStraight'] ?? 0.0;
+        _warnShoeInterference = prefs.getBool('warnShoeInterference') ?? true;
       });
     }
   }
@@ -130,13 +140,76 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     ctrl.text = next.toStringAsFixed(next % 1 == 0 ? 0 : 1);
   }
 
-  // 🚀 핵심 로직: 1번 마킹(거리+축소값)과 2번 마킹(빗변)을 정확히 리스트에 삽입합니다.
+  // 🚀 실제로 리스트에 꽂아 넣는 기능을 밖으로 뺐습니다.
+  void _executeAdd(
+    double angle,
+    double travel,
+    double shrink,
+    double startDistance,
+  ) {
+    double r1 = _isInverted
+        ? (_selectedRotation! + 180.0) % 360.0
+        : _selectedRotation!;
+    double r2 = _isInverted
+        ? _selectedRotation!
+        : (_selectedRotation! + 180.0) % 360.0;
+
+    widget.onAddMultipleBends([
+      {'length': startDistance + shrink, 'angle': angle, 'rotation': r1},
+      {'length': travel, 'angle': angle, 'rotation': r2},
+    ]);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          startDistance > 0
+              ? "1번 마킹에 거리(${startDistance}mm) + 축소값(${shrink}mm)이 적용되었습니다."
+              : "축소값(${shrink}mm)과 빗변(${travel}mm)이 리스트에 추가되었습니다.",
+        ),
+        backgroundColor: makitaTeal,
+      ),
+    );
+
+    Navigator.pop(context);
+  }
+
+  // 🚀 핵심 로직: 1번 마킹과 2번 마킹 검사 후 실행
   void _applyBending(double angle, double travel, double shrink) {
     if (_selectedRotation == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("돌출 방향(Direction)을 먼저 선택해주세요!"),
-          backgroundColor: Colors.deepOrange,
+      // 💡 모바일에서 가려지는 SnackBar 대신 확실한 중앙 팝업으로 변경!
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: pureWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.deepOrange),
+              SizedBox(width: 8),
+              Text(
+                "경고",
+                style: TextStyle(fontWeight: FontWeight.bold, color: slate900),
+              ),
+            ],
+          ),
+          content: const Text(
+            "돌출 방향(Direction)을 먼저 선택해주세요!",
+            style: TextStyle(color: slate900, fontSize: 15),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepOrange,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("확인", style: TextStyle(color: pureWhite)),
+            ),
+          ],
         ),
       );
       return;
@@ -147,40 +220,76 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     double roundedTravel = double.parse(travel.toStringAsFixed(1));
     double roundedShrink = double.parse(shrink.toStringAsFixed(1));
 
-    // 사용자가 입력한 장애물 앞 거리
     double startDistance = double.tryParse(_startDistanceCtrl.text) ?? 0.0;
-
-    // 💡 1번 구간 길이 = (장애물 거리) + (오프셋 축소값 보상)
     double firstSegmentLength = startDistance + roundedShrink;
-
-    // 💡 2번 구간 길이 = 빗변(Travel) 거리
     double secondSegmentLength = roundedTravel;
 
-    double r1 = _isInverted
-        ? (_selectedRotation! + 180.0) % 360.0
-        : _selectedRotation!;
-    double r2 = _isInverted
-        ? _selectedRotation!
-        : (_selectedRotation! + 180.0) % 360.0;
-
-    // 리스트에 2개의 벤딩 포인트 추가
-    widget.onAddMultipleBends([
-      {'length': firstSegmentLength, 'angle': roundedAngle, 'rotation': r1},
-      {'length': secondSegmentLength, 'angle': roundedAngle, 'rotation': r2},
-    ]);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          startDistance > 0
-              ? "1번 마킹에 거리(${startDistance}mm) + 축소값(${roundedShrink}mm)이 적용되었습니다."
-              : "축소값(${roundedShrink}mm)과 빗변(${roundedTravel}mm)이 리스트에 추가되었습니다.",
+    // 🚀 [추가] 슈 간섭 경고 (Soft Warning)
+    // 설정 스위치가 켜져있고 && 1구간이나 2구간이 최소물림길이보다 짧을 때 발동
+    if (_warnShoeInterference &&
+        ((firstSegmentLength < _minStraight && firstSegmentLength > 0) ||
+            secondSegmentLength < _minStraight)) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: pureWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.block, color: Colors.orange.shade800),
+              const SizedBox(width: 8),
+              const Text(
+                "슈 간섭 경고",
+                style: TextStyle(fontWeight: FontWeight.bold, color: slate900),
+              ),
+            ],
+          ),
+          content: Text(
+            "현재 설정된 장비의 최소 물림 길이는 ${_minStraight}mm 입니다.\n\n"
+            "• 1구간(시작~1번): ${firstSegmentLength.toStringAsFixed(1)}mm\n"
+            "• 2구간(빗변): ${secondSegmentLength.toStringAsFixed(1)}mm\n\n"
+            "길이가 너무 짧아 벤더기에 물리지 않을 수 있습니다. 그래도 강제로 추가하시겠습니까?",
+            style: const TextStyle(color: slate900, fontSize: 14, height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text(
+                "취소 (다시 입력)",
+                style: TextStyle(color: slate600, fontWeight: FontWeight.bold),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+                _executeAdd(
+                  roundedAngle,
+                  roundedTravel,
+                  roundedShrink,
+                  startDistance,
+                ); // 🚀 고인물 강제 집어넣기
+              },
+              child: const Text(
+                "무시하고 추가",
+                style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
         ),
-        backgroundColor: makitaTeal,
-      ),
-    );
+      );
+      return;
+    }
 
-    Navigator.pop(context);
+    // 정상이면 바로 실행
+    _executeAdd(roundedAngle, roundedTravel, roundedShrink, startDistance);
   }
 
   Widget _buildDirectionSelector() {
@@ -349,7 +458,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
               ),
               const SizedBox(height: 12),
 
-              // 🚀 장애물까지의 시작 거리 입력 박스
+              // 장애물까지의 시작 거리 입력 박스
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(

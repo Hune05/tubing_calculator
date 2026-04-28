@@ -5,6 +5,10 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 
+// 🚀 [수정됨] 단일 설정 페이지 대신 통합 네비게이션 페이지 임포트
+// (실제 파일 경로에 맞게 수정해 주세요)
+import 'package:tubing_calculator/src/presentation/conduit/screens/main_navigation_page.dart';
+
 // 🚀 1. 현장 작업 페이지들 임포트
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_remote_page.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_calculator_page.dart';
@@ -309,6 +313,26 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                   ),
                 ),
 
+                // 🚀 [수정됨] 설정 단일 버튼 대신 통합 내비게이션 진입 버튼으로 교체
+                _buildMenuButton(
+                  context: context,
+                  title: "전선관 벤딩 마킹 계산기",
+                  subtitle: "장비 프로필 설정 · 자이로 각도기 · 마킹 뷰어",
+                  icon: Icons.architecture_rounded,
+                  iconColor: Colors.blueGrey, // 메인 기능이므로 파란색 강조
+                  badgeText: "Smart",
+                  badgeColor: Colors.blueGrey,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ConduitMainNavigation(),
+                      ),
+                    );
+                  },
+                ),
+
                 _buildMenuButton(
                   context: context,
                   title: "벤딩 마킹 계산기",
@@ -424,7 +448,7 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                   title: "튜브 규격 및 실측 도표",
                   subtitle: "3/8\", 1/2\" 외경·반지름 및 실측 가이드",
                   icon: Icons.table_chart_rounded,
-                  iconColor: Colors.blueGrey,
+                  iconColor: slate900,
                   onTap: () {
                     HapticFeedback.lightImpact();
                     Navigator.push(
@@ -439,10 +463,11 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                   context: context,
                   title: "작업 배치도",
                   subtitle: "캐비닛 중판 레이아웃 및 튜빙/결선 스케치",
-                  icon: Icons.architecture_rounded,
+                  icon: Icons
+                      .architecture_rounded, // 중복 아이콘 사용 원치 않으시면 Icons.draw_rounded 등으로 변경하셔도 좋습니다.
                   iconColor: slate900,
                   badgeText: "New",
-                  badgeColor: tossBlue,
+                  badgeColor: slate900,
                   onTap: () {
                     HapticFeedback.lightImpact();
                     Navigator.push(

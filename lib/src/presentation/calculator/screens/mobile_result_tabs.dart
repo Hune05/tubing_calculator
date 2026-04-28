@@ -609,6 +609,9 @@ class _MobileResultTabState extends State<MobileResultTab>
       finalSaveData[0]['start_fit_applied'] = _includeStartFitting;
       finalSaveData[finalSaveData.length - 1]['end_fit_applied'] =
           _includeEndFitting;
+
+      // 🚀 아이소 진행 방향 저장 기능 추가 적용 완료
+      finalSaveData[0]['start_dir'] = widget.startDir;
     }
     showModalBottomSheet(
       context: context,

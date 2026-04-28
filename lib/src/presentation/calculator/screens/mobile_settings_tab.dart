@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
@@ -13,7 +14,11 @@ const Color slate900 = Color(0xFF0F172A);
 const Color slate600 = Color(0xFF475569);
 const Color pureWhite = Color(0xFFFFFFFF);
 const Color toolGripBlack = Color(0xFF222222);
+const Color slate100 = Color(0xFFF1F5F9);
 
+// ==========================================
+// 🚀 1. 설정 탭 (MobileSettingsTab)
+// ==========================================
 class MobileSettingsTab extends StatefulWidget {
   const MobileSettingsTab({super.key});
   @override
@@ -28,6 +33,8 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
   bool _isInch = false;
   bool _useHaptic = true;
   bool _saveHistory = true;
+  bool _keepScreenOn = false;
+  bool _warnShoeInterference = true;
 
   String _tubeMaterial = "SUS";
   String _benderBrand = "Swagelok";
@@ -78,6 +85,15 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         _isInch = data['isInch'] ?? false;
         _useHaptic = data['useHaptic'] ?? true;
         _saveHistory = data['saveHistory'] ?? true;
+        _keepScreenOn = prefs.getBool('keepScreenOn') ?? false;
+        _warnShoeInterference = prefs.getBool('warnShoeInterference') ?? true;
+
+        if (_keepScreenOn) {
+          WakelockPlus.enable();
+        } else {
+          WakelockPlus.disable();
+        }
+
         _tubeMaterial = data['tubeMaterial'] ?? "SUS";
         _benderBrand = data['benderBrand'] ?? "Swagelok";
         _benderType = prefs.getString('benderType') ?? "수동 (Hand)";
@@ -127,7 +143,6 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       });
       _onSpecsChanged(isInitialLoad: true);
 
-      // 🚀 데이터 매니저 실시간 동기화 (한 번에 묶어서 렉 방지!)
       MobileBendDataManager().updateMachineSpecs(
         takeUp90: double.tryParse(_takeUpController.text) ?? 0.0,
         fittingDepth: double.tryParse(_fittingDepthController.text) ?? 0.0,
@@ -143,6 +158,8 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     FocusScope.of(context).unfocus();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('benderType', _benderType);
+    await prefs.setBool('keepScreenOn', _keepScreenOn);
+    await prefs.setBool('warnShoeInterference', _warnShoeInterference);
 
     await SettingsManager.saveSettings(
       isInch: _isInch,
@@ -174,7 +191,6 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       autoFittingDepth: _autoStates['fittingDepth'] ?? true,
     );
 
-    // 🚀 저장 시 데이터 매니저 실시간 동기화 (한 번에 묶어서 렉 방지!)
     MobileBendDataManager().updateMachineSpecs(
       takeUp90: double.tryParse(_takeUpController.text) ?? 0.0,
       fittingDepth: double.tryParse(_fittingDepthController.text) ?? 0.0,
@@ -247,10 +263,193 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     super.dispose();
   }
 
+  // ==========================================
+  // 💡 헬퍼(도움말) 아이콘을 포함한 텍스트 위젯 생성 함수
+  // ==========================================
+  Widget _buildLabelWithHelp(
+    BuildContext context,
+    String label,
+    String helpTitle,
+    String helpContent,
+  ) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: slate600,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(width: 4),
+        InkWell(
+          onTap: () {
+            showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                backgroundColor: pureWhite,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                title: Row(
+                  children: [
+                    const Icon(Icons.help_outline, color: makitaTeal),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        helpTitle,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: slate900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                content: Text(
+                  helpContent,
+                  style: const TextStyle(
+                    color: slate900,
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+                actions: [
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: makitaTeal,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text(
+                      "이해했어요!",
+                      style: TextStyle(
+                        color: pureWhite,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 2.0),
+            child: Icon(
+              Icons.help_outline,
+              size: 16,
+              color: Colors.blueGrey.shade400,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownWithAdvancedHelper({
+    required String label,
+    required String helpTitle,
+    required String helpContent,
+    required String value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+    String Function(String)? displayMapper,
+    required String helperText,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabelWithHelp(context, label, helpTitle, helpContent),
+        const SizedBox(height: 6),
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              isExpanded: true,
+              value: value,
+              items: items.map((item) {
+                return DropdownMenuItem<String>(
+                  value: item,
+                  child: Text(
+                    displayMapper != null ? displayMapper(item) : item,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                );
+              }).toList(),
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          helperText,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.blueGrey[700],
+            fontWeight: FontWeight.w600,
+            height: 1.4,
+            letterSpacing: -0.5,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNumpadInputWithHelp(
+    String label,
+    String helpTitle,
+    String helpContent,
+    TextEditingController controller, {
+    String? key,
+    String? helperText,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabelWithHelp(context, label, helpTitle, helpContent),
+        const SizedBox(height: 6),
+        MakitaNumericInput(
+          label: "", // 라벨을 위에서 따로 그렸으므로 빈 문자열 전달
+          controller: controller,
+          helperText: helperText,
+          isAutoMode: key != null ? _autoStates[key] : null,
+          onModeChanged: key != null
+              ? (isAuto) {
+                  setState(() => _autoStates[key] = isAuto);
+                  if (isAuto) {
+                    _onSpecsChanged();
+                  }
+                }
+              : null,
+          onTap: () {
+            if (key == null || _autoStates[key] != true) {
+              MakitaNumpad.show(context, controller: controller, title: label);
+            }
+          },
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
-
     return Column(
       children: [
         Expanded(
@@ -300,6 +499,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     );
   }
 
+  // 기존 헬퍼 위젯들
   Widget _machineSpecText(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -537,39 +737,6 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     );
   }
 
-  Widget _buildDropdownWithHelper({
-    required String label,
-    required String value,
-    required List<String> items,
-    required ValueChanged<String?> onChanged,
-    String Function(String)? displayMapper,
-    required String helperText,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SettingDropdownField(
-          label: label,
-          value: value,
-          items: items,
-          onChanged: onChanged,
-          displayMapper: displayMapper,
-        ),
-        const SizedBox(height: 6),
-        Text(
-          helperText,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.blueGrey[700],
-            fontWeight: FontWeight.w600,
-            height: 1.4,
-            letterSpacing: -0.5,
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildLockedMeasurementMode() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -622,33 +789,6 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildNumpadInput(
-    String label,
-    TextEditingController controller, {
-    String? key,
-    String? helperText,
-  }) {
-    return MakitaNumericInput(
-      label: label,
-      controller: controller,
-      helperText: helperText,
-      isAutoMode: key != null ? _autoStates[key] : null,
-      onModeChanged: key != null
-          ? (isAuto) {
-              setState(() => _autoStates[key] = isAuto);
-              if (isAuto) {
-                _onSpecsChanged();
-              }
-            }
-          : null,
-      onTap: () {
-        if (key == null || _autoStates[key] != true) {
-          MakitaNumpad.show(context, controller: controller, title: label);
-        }
-      },
     );
   }
 
@@ -736,8 +876,11 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             _buildUnitToggle(),
             const SizedBox(height: 8),
             TwoColumnRow(
-              left: _buildDropdownWithHelper(
+              left: _buildDropdownWithAdvancedHelper(
                 label: "외경 (OD) [$_unit]",
+                helpTitle: "외경 (OD: Outside Diameter)",
+                helpContent:
+                    "파이프의 바깥쪽 지름을 의미합니다.\n튜빙에서 가장 중요한 기준이 되며, 기계의 다이(Die)와 피팅 사이즈를 결정하는 핵심 치수입니다.",
                 value: _currentOD,
                 items: _odList,
                 onChanged: (val) {
@@ -748,23 +891,31 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                     SettingsController.getDisplayOD(item, _isInch),
                 helperText: "※ 배관의 바깥쪽 지름",
               ),
-              right: _buildNumpadInput(
-                "두께 (WT) [mm]",
+              right: _buildNumpadInputWithHelp(
+                "두께 (WT)",
+                "두께 (WT: Wall Thickness)",
+                "파이프 벽의 두께입니다.\n두께가 다르면 연신율(파이프가 늘어나는 정도)이 달라지므로 정밀한 계산을 위해 입력이 필요합니다.",
                 _wtController,
                 helperText: "※ 배관 벽의 두께",
               ),
             ),
             const SizedBox(height: 12),
             TwoColumnRow(
-              left: _buildDropdownWithHelper(
+              left: _buildDropdownWithAdvancedHelper(
                 label: "튜브 재질",
+                helpTitle: "튜브 재질",
+                helpContent:
+                    "파이프의 소재입니다.\nSUS(스텐), Copper(구리), Carbon(탄소강) 등 재질에 따라 탄성(스프링백)이 다르기 때문에 벤딩 후 튕겨나오는 각도를 보정할 때 참고합니다.",
                 value: _tubeMaterial,
                 items: const ["SUS", "Copper", "Carbon", "Aluminum"],
                 onChanged: (val) => setState(() => _tubeMaterial = val!),
                 helperText: "※ 재질별 특성",
               ),
-              right: _buildDropdownWithHelper(
+              right: _buildDropdownWithAdvancedHelper(
                 label: "피팅 타입",
+                helpTitle: "피팅 타입",
+                helpContent:
+                    "파이프를 연결하는 부속의 종류입니다.\nTwin Ferrule(스웨즈락 등) 방식은 튜브가 부속 안으로 일정 깊이만큼 삽입되어야 하므로 이를 계산에 반영합니다.",
                 value: _fittingType,
                 items: const ["Twin Ferrule", "Bite Type", "Flare"],
                 onChanged: (val) {
@@ -784,8 +935,11 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           children: [
             TwoColumnRow(
               left: _buildLockedMeasurementMode(),
-              right: _buildDropdownWithHelper(
+              right: _buildDropdownWithAdvancedHelper(
                 label: "기본 회전",
+                helpTitle: "기본 회전 방향",
+                helpContent:
+                    "도면을 그릴 때 기본으로 적용될 파이프의 회전 방향입니다. CW(시계방향) 또는 CCW(반시계)를 설정합니다.",
                 value: _defaultRotation,
                 items: const ["CW (시계방향)", "CCW (반시계)"],
                 onChanged: (val) => setState(() => _defaultRotation = val!),
@@ -794,16 +948,21 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             ),
             const SizedBox(height: 12),
             TwoColumnRow(
-              left: _buildNumpadInput(
+              left: _buildNumpadInputWithHelp(
                 "피팅 삽입 깊이 [mm]",
+                "피팅 삽입 깊이 (Insertion Depth)",
+                "파이프 끝이 피팅(부속) 안으로 완전히 삽입되어야 하는 길이입니다.\n이 값을 정확히 입력해야 벤딩 후 피팅을 조립했을 때 전체 기장(C-C)이 짧아지는 불량(누설)을 막을 수 있습니다.\n[AUTO] 모드 시 규격에 맞춰 자동 입력됩니다.",
                 _fittingDepthController,
                 key: 'fittingDepth',
                 helperText: "※ 전체 체결 기준",
               ),
               right: _isElectric
                   ? const SizedBox.shrink()
-                  : _buildDropdownWithHelper(
+                  : _buildDropdownWithAdvancedHelper(
                       label: "마커 정렬",
+                      helpTitle: "마커 정렬 기준",
+                      helpContent:
+                          "벤더기에 파이프를 고정할 때, 그은 선(마킹)을 어디에 맞출지 결정합니다.\n보통 0(기본/Center)을 기준으로 맞춥니다.",
                       value: _benderMark,
                       items: const [
                         "0 (기본/다양한 각도)",
@@ -823,8 +982,11 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         child: Column(
           children: [
             TwoColumnRow(
-              left: _buildDropdownWithHelper(
+              left: _buildDropdownWithAdvancedHelper(
                 label: "벤더 브랜드",
+                helpTitle: "벤더 브랜드",
+                helpContent:
+                    "사용 중인 벤더 기기의 브랜드입니다.\n브랜드마다 기계의 크기와 반경(Radius)이 다르기 때문에, 이를 선택하면 [AUTO] 모드에서 자동으로 맞는 값을 불러옵니다.",
                 value: _benderBrand,
                 items: const [
                   "Swagelok",
@@ -840,8 +1002,11 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 },
                 helperText: "※ 브랜드별 가이드",
               ),
-              right: _buildDropdownWithHelper(
+              right: _buildDropdownWithAdvancedHelper(
                 label: "장비 타입 선택",
+                helpTitle: "장비 타입 (수동/전동)",
+                helpContent:
+                    "손으로 꺾는 수동(Hand) 벤더인지, 기계가 꺾어주는 전동(Electric) 벤더인지 선택합니다.\n타입에 따라 연신율이나 입력 기준이 달라집니다.",
                 value: _benderType,
                 items: const ["수동 (Hand)", "전동 (Electric)"],
                 onChanged: (val) {
@@ -854,14 +1019,18 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             const SizedBox(height: 16),
             if (_isElectric) ...[
               TwoColumnRow(
-                left: _buildNumpadInput(
+                left: _buildNumpadInputWithHelp(
                   "금형 반경 (CLR) [mm]",
+                  "금형 반경 (Center Line Radius)",
+                  "파이프를 둥글게 꺾어주는 다이(금형)의 중심 반경입니다.\n이 값이 클수록 파이프가 완만하게 꺾이고, 연신율(늘어나는 길이) 계산의 핵심이 됩니다.",
                   _rController,
                   key: 'radius',
                   helperText: "※ 다이 R값",
                 ),
-                right: _buildNumpadInput(
+                right: _buildNumpadInputWithHelp(
                   "클램프 물림 길이 [mm]",
+                  "클램프 물림 길이 (최소 직선 구간)",
+                  "전동 벤더가 파이프를 단단히 잡고 꺾기 위해 필요한 최소한의 직관(일자) 길이입니다.\n이 길이보다 짧게 벤딩을 시도하면 기계에 물리지 않아 작업이 불가능합니다.",
                   _minStraightController,
                   key: 'minStraight',
                   helperText: "※ 최소 구간",
@@ -869,22 +1038,28 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
               ),
               const SizedBox(height: 12),
               TwoColumnRow(
-                left: _buildNumpadInput(
+                left: _buildNumpadInputWithHelp(
                   "연신율 (Gain) [mm]",
+                  "연신율 (Gain)",
+                  "파이프가 곡선으로 꺾이면서 바깥쪽으로 늘어나는 총 길이입니다.\n전체 자를 길이를 이 값만큼 빼주어야 치수 불량이 안 납니다.\n[AUTO] 시 기계 제원 기반으로 계산됩니다.",
                   _gainController,
                   key: 'gain',
                   helperText: "※ 늘어나는 양",
                 ),
-                right: _buildNumpadInput(
+                right: _buildNumpadInputWithHelp(
                   "스프링백 보상 [°]",
+                  "스프링백 보상 (Springback)",
+                  "파이프를 90도로 꺾어도 금속의 탄성 때문에 원래대로 살짝 튕겨 돌아옵니다.\nSUS 파이프 기준 보통 1~3도 정도를 더 꺾어주도록 보정하는 값입니다.",
                   _springbackController,
                   helperText: "※ 보통 1~3° 입력",
                 ),
               ),
               const SizedBox(height: 12),
               TwoColumnRow(
-                left: _buildNumpadInput(
+                left: _buildNumpadInputWithHelp(
                   "장비 원점 오프셋 [mm]",
+                  "장비 원점 오프셋",
+                  "기계의 클램프 끝에서 실제 벤딩이 시작되는 0점까지의 물리적인 거리 오차입니다.",
                   _benderOffsetController,
                   key: 'offset',
                   helperText: "※ 클램프 끝 ~ 다이 0점",
@@ -893,14 +1068,18 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
               ),
             ] else ...[
               TwoColumnRow(
-                left: _buildNumpadInput(
+                left: _buildNumpadInputWithHelp(
                   "벤드 반경 (R) [mm]",
+                  "벤드 반경 (Radius)",
+                  "수동 벤더 다이(둥근 롤러)의 중심에서 파이프 중심선까지의 반경입니다.\n이 값으로 연신율과 축소량을 계산합니다.",
                   _rController,
                   key: 'radius',
                   helperText: "※ 다이 중심 ~ 튜브 중심",
                 ),
-                right: _buildNumpadInput(
+                right: _buildNumpadInputWithHelp(
                   "테이크업 [mm]",
+                  "테이크업 (Take-Up)",
+                  "수동 벤딩 시 90도로 꺾을 때 뒤로 후진해야 하는 거리(보정치)입니다.\n이 치수만큼 빼고 마킹해야 정확한 위치에서 꺾입니다.",
                   _takeUpController,
                   key: 'takeUp',
                   helperText: "※ 차감 보정치",
@@ -908,14 +1087,18 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
               ),
               const SizedBox(height: 12),
               TwoColumnRow(
-                left: _buildNumpadInput(
+                left: _buildNumpadInputWithHelp(
                   "연신율 (Gain) [mm]",
+                  "연신율 (Gain)",
+                  "파이프가 곡선으로 꺾이면서 바깥쪽으로 늘어나는 총 길이입니다.\n전체 자를 길이를 이 값만큼 빼주어야 치수 불량이 안 납니다.\n[AUTO] 시 기계 제원 기반으로 자동 계산됩니다.",
                   _gainController,
                   key: 'gain',
                   helperText: "※ 늘어나는 총 길이",
                 ),
-                right: _buildNumpadInput(
+                right: _buildNumpadInputWithHelp(
                   "최소 직선 구간 [mm]",
+                  "최소 물림 구간 (Minimum Straight)",
+                  "벤더기의 후크(고리)가 파이프를 단단히 물어주기 위해 확보되어야 하는 최소한의 직관 길이입니다.\n연속 벤딩 시 이 길이보다 짧으면 기계에 파이프가 걸려 안 꺾입니다.",
                   _minStraightController,
                   key: 'minStraight',
                   helperText: "※ 벤더 후크 물림 최소장",
@@ -923,14 +1106,18 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
               ),
               const SizedBox(height: 12),
               TwoColumnRow(
-                left: _buildNumpadInput(
+                left: _buildNumpadInputWithHelp(
                   "기준선 오프셋 [mm]",
+                  "기준선 오프셋",
+                  "기계의 0점 마크와 파이프에 그은 선이 완벽히 일치하지 않는 기계적/물리적 오차를 교정하는 값입니다.",
                   _benderOffsetController,
                   key: 'offset',
                   helperText: "※ 다이 0점과 실제 시작점",
                 ),
-                right: _buildNumpadInput(
+                right: _buildNumpadInputWithHelp(
                   "스프링백 [°]",
+                  "스프링백 보상 (Springback)",
+                  "파이프를 원하는 각도만큼 꺾어도 탄성으로 다시 펴지는 성질을 보상하는 각도입니다.",
                   _springbackController,
                   helperText: "※ 탄성 복원 각도 보정치",
                 ),
@@ -946,19 +1133,45 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           children: [
             if (!_isElectric) ...[
               TwoColumnRow(
-                left: _buildNumpadInput(
+                left: _buildNumpadInputWithHelp(
                   "마킹선 두께 [mm]",
+                  "마킹선 두께 보정",
+                  "네임펜이나 마커로 파이프에 선을 그을 때, 선의 두께(약 1~2mm) 때문에 생기는 미세 오차를 보정합니다.",
                   _markThicknessController,
                   helperText: "※ 마커 펜촉 미세 보정",
                 ),
-                right: _buildNumpadInput(
+                right: _buildNumpadInputWithHelp(
                   "오프셋 축소 [mm]",
+                  "오프셋 축소 (간섭 회피 여유)",
+                  "연속 S자 벤딩(오프셋)을 할 때, 파이프를 반대로 뒤집어 기계에 넣으면 기존에 꺾인 부위가 기계 몸통(바디/슈)에 닿아 안 들어가는 경우가 생깁니다.\n이를 피하기 위해 빗변 기장을 강제로 살짝 밀어주는 여유 길이입니다.",
                   _offsetShrinkController,
                   helperText: "※ 간섭 회피용 여유 축소값",
                 ),
               ),
               const Divider(color: Colors.black12, height: 24),
             ],
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildLabelWithHelp(
+                    context,
+                    "물림 길이(간섭) 경고",
+                    "물림 길이 경고 (초보자 권장)",
+                    "파이프 길이가 기계의 '최소 물림 구간'보다 짧게 입력되면 경고창을 띄워 불량을 막아줍니다.\n\n"
+                        "경고창이 귀찮거나, 편법으로 아슬아슬하게 물려서 벤딩을 진행하는 숙련자(고인물)는 이 스위치를 끄고 쾌속으로 작업할 수 있습니다.",
+                  ),
+                  Switch(
+                    value: _warnShoeInterference,
+                    onChanged: (val) =>
+                        setState(() => _warnShoeInterference = val),
+                    activeThumbColor: Colors.white,
+                    activeTrackColor: makitaTeal,
+                  ),
+                ],
+              ),
+            ),
             _buildSwitchRow(
               "진동 피드백 (Haptic)",
               _useHaptic,
@@ -969,12 +1182,21 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
               _saveHistory,
               (val) => setState(() => _saveHistory = val),
             ),
+            _buildSwitchRow("화면 꺼짐 방지", _keepScreenOn, (val) {
+              setState(() => _keepScreenOn = val);
+              if (val) {
+                WakelockPlus.enable();
+              } else {
+                WakelockPlus.disable();
+              }
+            }),
           ],
         ),
       ),
     ];
   }
 
+  // 가이드 패널
   List<Widget> _buildRightGuideGroup() {
     return [
       if (_isElectric)
@@ -1526,7 +1748,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           const Row(
             children: [
               Icon(Icons.construction, color: makitaTeal, size: 28),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text(
                 "수동 벤더 실무 조작 가이드",
                 style: TextStyle(
@@ -1863,8 +2085,6 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             ],
           ),
           const SizedBox(height: 16),
-
-          // 🍯 1. 180도 U-벤딩 표
           const Text(
             "🍯 1. 180° U-벤딩 (Return Bend)",
             style: TextStyle(
@@ -1985,8 +2205,6 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             ),
           ),
           const Divider(height: 32, color: Colors.black12),
-
-          // 🍯 2. 피팅 삽입 깊이표
           const Text(
             "🍯 2. 튜브 삽입 깊이 (Insertion Depth)",
             style: TextStyle(
@@ -2052,30 +2270,32 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 _buildGuideRow2Col(
                   "1/4\" (6.35)",
                   "15.2 mm",
-                  Color(0xFF007580),
+                  const Color(0xFF007580),
                 ),
                 _buildGuideRow2Col(
                   "3/8\" (9.52)",
                   "16.8 mm",
-                  Color(0xFF007580),
+                  const Color(0xFF007580),
                 ),
                 _buildGuideRow2Col(
                   "1/2\" (12.7)",
                   "22.9 mm",
-                  Color(0xFF007580),
+                  const Color(0xFF007580),
                 ),
                 _buildGuideRow2Col(
                   "3/4\" (19.05)",
                   "24.4 mm",
-                  Color(0xFF007580),
+                  const Color(0xFF007580),
                 ),
-                _buildGuideRow2Col("1\" (25.4)", "31.2 mm", Color(0xFF007580)),
+                _buildGuideRow2Col(
+                  "1\" (25.4)",
+                  "31.2 mm",
+                  const Color(0xFF007580),
+                ),
               ],
             ),
           ),
           const Divider(height: 32, color: Colors.black12),
-
-          // 🍯 3. NPT 체결 깊이표
           const Text(
             "🍯 3. NPT 나사산 체결 깊이 (Engagement)",
             style: TextStyle(
@@ -2147,8 +2367,6 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             ),
           ),
           const Divider(height: 32, color: Colors.black12),
-
-          // 🍯 4. 인치-미리 환산표
           const Text(
             "🍯 4. 인치 분수 ↔ mm 환산표",
             style: TextStyle(
@@ -2272,6 +2490,9 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
   }
 }
 
+// ==========================================
+// 🚀 2. MakitaNumericInput 위젯 (분리 유지)
+// ==========================================
 class MakitaNumericInput extends StatelessWidget {
   final String label;
   final TextEditingController controller;
@@ -2279,6 +2500,7 @@ class MakitaNumericInput extends StatelessWidget {
   final bool? isAutoMode;
   final ValueChanged<bool>? onModeChanged;
   final VoidCallback onTap;
+
   const MakitaNumericInput({
     super.key,
     required this.label,
@@ -2293,20 +2515,15 @@ class MakitaNumericInput extends StatelessWidget {
   Widget build(BuildContext context) {
     bool readOnly = isAutoMode == true;
     Color getBgColor() {
-      if (readOnly) {
-        return Colors.grey.shade200;
-      }
-      if (isAutoMode != null && !isAutoMode!) {
-        return Colors.orange.shade50;
-      }
+      if (readOnly) return Colors.grey.shade200;
+      if (isAutoMode != null && !isAutoMode!) return Colors.orange.shade50;
       return Colors.white;
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (label.isNotEmpty) ...[
           Text(
             label,
             style: const TextStyle(
@@ -2316,81 +2533,68 @@ class MakitaNumericInput extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: readOnly ? null : onTap,
-                  child: AbsorbPointer(
-                    child: TextField(
-                      controller: controller,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        border: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: (isAutoMode != null && !isAutoMode!)
-                                ? Colors.orange.shade300
-                                : Colors.grey.shade400,
-                          ),
-                        ),
-                        filled: true,
-                        fillColor: getBgColor(),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: readOnly ? null : onTap,
+                child: AbsorbPointer(
+                  child: TextField(
+                    controller: controller,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
                       ),
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: readOnly ? Colors.black54 : Colors.black87,
+                      border: OutlineInputBorder(
+                        borderSide: BorderSide(
+                          color: (isAutoMode != null && !isAutoMode!)
+                              ? Colors.orange.shade300
+                              : Colors.grey.shade400,
+                        ),
                       ),
+                      filled: true,
+                      fillColor: getBgColor(),
+                    ),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: readOnly ? Colors.black54 : Colors.black87,
                     ),
                   ),
                 ),
-              ),
-              if (isAutoMode != null && onModeChanged != null) ...[
-                const SizedBox(width: 8),
-                InkWell(
-                  onTap: () => onModeChanged!(!isAutoMode!),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isAutoMode! ? makitaTeal : Colors.deepOrange,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      isAutoMode! ? "AUTO" : "MAN",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          if (helperText != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              helperText!,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.blueGrey[700],
-                fontWeight: FontWeight.w600,
-                height: 1.4,
-                letterSpacing: -0.5,
               ),
             ),
+            if (isAutoMode != null && onModeChanged != null) ...[
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () => onModeChanged!(!isAutoMode!),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isAutoMode! ? makitaTeal : Colors.deepOrange,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    isAutoMode! ? "AUTO" : "MAN",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

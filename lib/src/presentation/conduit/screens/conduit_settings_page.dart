@@ -1,0 +1,998 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import 'package:tubing_calculator/src/data/models/bender_spec_data.dart';
+
+const Color makitaTeal = Color(0xFF007580);
+const Color slate900 = Color(0xFF0F172A);
+const Color slate800 = Color(0xFF1E293B);
+const Color slate600 = Color(0xFF475569);
+const Color slate400 = Color(0xFF94A3B8);
+const Color slate200 = Color(0xFFE2E8F0);
+const Color slate100 = Color(0xFFF1F5F9);
+const Color pureWhite = Color(0xFFFFFFFF);
+
+final ValueNotifier<Map<String, dynamic>> globalBenderSettings = ValueNotifier({
+  'benderType': 'hand',
+  'manufacturer': 'Greenlee',
+  'conduitType': 'EMT',
+  'conduitSize': '22mm',
+  'unitSystem': '미터법 (mm)',
+  'fractionPrecision': '1/16"',
+  'applyShrink': true,
+  'applySpringback': true,
+  'springback': 3.0,
+  'clr': 114.3,
+  'takeUp': 152.4,
+  'gain': 81.2,
+  'ramOffset': 0.0,
+  'ramTravel': 0.0,
+  'setback': 0.0,
+  'degPerNotch': 2.5,
+  'notchSpacing': 50.8,
+  'rollerSize': 38.1,
+  'keepScreenOn': true,
+  'couplingDepth': 20.0,
+  'bladeKerf': 0.0,
+  'referenceMark': '화살표 (일반)',
+  'bendRadiusWarning': true,
+});
+
+class ConduitSettingsPage extends StatefulWidget {
+  const ConduitSettingsPage({super.key});
+
+  @override
+  State<ConduitSettingsPage> createState() => _ConduitSettingsPageState();
+}
+
+class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
+  late String _selectedTypeId;
+  late String _manufacturer;
+  late String _conduitType;
+  late String _conduitSize;
+  late String _unitSystem;
+  late String _fractionPrecision;
+  late bool _applyShrink;
+  late bool _applySpringback;
+  late bool _keepScreenOn;
+  late bool _bendRadiusWarning;
+
+  late String _referenceMark;
+  late double _degPerNotch;
+
+  late TextEditingController _springbackController;
+  late TextEditingController _clrController;
+  late TextEditingController _takeUpController;
+  late TextEditingController _gainController;
+  late TextEditingController _ramOffsetController;
+  late TextEditingController _ramTravelController;
+  late TextEditingController _setbackController;
+  late TextEditingController _notchSpacingController;
+  late TextEditingController _rollerSizeController;
+  late TextEditingController _couplingDepthController;
+  late TextEditingController _bladeKerfController;
+
+  final List<String> _koreanConduitSizes = [
+    '16mm',
+    '22mm',
+    '28mm',
+    '36mm',
+    '42mm',
+    '54mm',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    final s = globalBenderSettings.value;
+
+    _selectedTypeId = s['benderType'];
+    _manufacturer = s['manufacturer'];
+    _conduitType = s['conduitType'];
+    _conduitSize = s['conduitSize'];
+    _unitSystem = s['unitSystem'];
+    _fractionPrecision = s['fractionPrecision'];
+    _applyShrink = s['applyShrink'];
+    _applySpringback = s['applySpringback'];
+    _keepScreenOn = s['keepScreenOn'];
+    _degPerNotch = s['degPerNotch'];
+    _referenceMark = s['referenceMark'];
+    _bendRadiusWarning = s['bendRadiusWarning'];
+
+    _springbackController = TextEditingController(
+      text: s['springback'].toString(),
+    );
+    _clrController = TextEditingController(text: s['clr'].toString());
+    _takeUpController = TextEditingController(text: s['takeUp'].toString());
+    _gainController = TextEditingController(text: s['gain'].toString());
+    _ramOffsetController = TextEditingController(
+      text: s['ramOffset'].toString(),
+    );
+    _ramTravelController = TextEditingController(
+      text: s['ramTravel'].toString(),
+    );
+    _setbackController = TextEditingController(text: s['setback'].toString());
+    _notchSpacingController = TextEditingController(
+      text: s['notchSpacing'].toString(),
+    );
+    _rollerSizeController = TextEditingController(
+      text: s['rollerSize'].toString(),
+    );
+    _couplingDepthController = TextEditingController(
+      text: s['couplingDepth'].toString(),
+    );
+    _bladeKerfController = TextEditingController(
+      text: s['bladeKerf'].toString(),
+    );
+
+    _updateDynamicDropdowns();
+  }
+
+  @override
+  void dispose() {
+    _springbackController.dispose();
+    _clrController.dispose();
+    _takeUpController.dispose();
+    _gainController.dispose();
+    _ramOffsetController.dispose();
+    _ramTravelController.dispose();
+    _setbackController.dispose();
+    _notchSpacingController.dispose();
+    _rollerSizeController.dispose();
+    _couplingDepthController.dispose();
+    _bladeKerfController.dispose();
+    super.dispose();
+  }
+
+  // =========================================================
+  // 🚀 목록 동적 생성 (규격 숨김 해제)
+  // =========================================================
+
+  List<String> get _availableManufacturers {
+    final mfrs = benderSpecData[_selectedTypeId]?.keys.toList() ?? [];
+    if (!mfrs.contains('Custom')) {
+      mfrs.add('Custom');
+    }
+    return mfrs;
+  }
+
+  List<String> get _availableConduitTypes {
+    if (_manufacturer == 'Custom') {
+      return ['EMT', 'Rigid', 'PVC', 'Aluminum', 'IMC'];
+    }
+    return benderSpecData[_selectedTypeId]?[_manufacturer]?.keys.toList() ??
+        ['EMT'];
+  }
+
+  // 필터링 박살: 무조건 16~54mm 전체 고정
+  List<String> get _availableConduitSizes {
+    return _koreanConduitSizes;
+  }
+
+  void _updateDynamicDropdowns() {
+    final mfrs = _availableManufacturers;
+    if (!mfrs.contains(_manufacturer)) {
+      _manufacturer = mfrs.isNotEmpty ? mfrs.first : 'Custom';
+    }
+
+    final types = _availableConduitTypes;
+    if (!types.contains(_conduitType)) {
+      _conduitType = types.isNotEmpty ? types.first : 'EMT';
+    }
+
+    final sizes = _availableConduitSizes;
+    if (!sizes.contains(_conduitSize)) {
+      _conduitSize = '22mm';
+    }
+
+    _loadManufacturerDefaults();
+  }
+
+  // =========================================================
+
+  void _loadManufacturerDefaults() {
+    if (_manufacturer == 'Custom') {
+      return;
+    }
+
+    try {
+      final spec =
+          benderSpecData[_selectedTypeId]?[_manufacturer]?[_conduitType]?[_conduitSize];
+
+      if (spec != null) {
+        if (spec.containsKey('clr')) {
+          _clrController.text = spec['clr'].toString();
+        }
+
+        if (_selectedTypeId == 'hand') {
+          if (spec.containsKey('takeUp')) {
+            _takeUpController.text = spec['takeUp'].toString();
+          }
+          if (spec.containsKey('gain')) {
+            _gainController.text = spec['gain'].toString();
+          }
+        } else if (_selectedTypeId == 'ram') {
+          if (spec.containsKey('ramOffset')) {
+            _ramOffsetController.text = spec['ramOffset'].toString();
+          }
+          if (spec.containsKey('ramTravel')) {
+            _ramTravelController.text = spec['ramTravel'].toString();
+          }
+          if (spec.containsKey('setback')) {
+            _setbackController.text = spec['setback'].toString();
+          }
+        } else if (_selectedTypeId == 'chicago') {
+          if (spec.containsKey('degPerNotch')) {
+            _degPerNotch = spec['degPerNotch'] as double;
+          }
+          if (spec.containsKey('notchSpacing')) {
+            _notchSpacingController.text = spec['notchSpacing'].toString();
+          }
+          if (spec.containsKey('rollerSize')) {
+            _rollerSizeController.text = spec['rollerSize'].toString();
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("해당 제원 데이터 없음: $e");
+    }
+  }
+
+  void _onMachineSettingChanged() {
+    setState(() {
+      _loadManufacturerDefaults();
+    });
+  }
+
+  void _saveSettings() {
+    HapticFeedback.mediumImpact();
+    globalBenderSettings.value = {
+      'benderType': _selectedTypeId,
+      'manufacturer': _manufacturer,
+      'conduitType': _conduitType,
+      'conduitSize': _conduitSize,
+      'unitSystem': _unitSystem,
+      'fractionPrecision': _fractionPrecision,
+      'applyShrink': _applyShrink,
+      'applySpringback': _applySpringback,
+      'springback': double.tryParse(_springbackController.text) ?? 3.0,
+      'clr': double.tryParse(_clrController.text) ?? 114.3,
+      'takeUp': double.tryParse(_takeUpController.text) ?? 152.4,
+      'gain': double.tryParse(_gainController.text) ?? 81.2,
+      'ramOffset': double.tryParse(_ramOffsetController.text) ?? 0.0,
+      'ramTravel': double.tryParse(_ramTravelController.text) ?? 0.0,
+      'setback': double.tryParse(_setbackController.text) ?? 0.0,
+      'degPerNotch': _degPerNotch,
+      'notchSpacing': double.tryParse(_notchSpacingController.text) ?? 50.8,
+      'rollerSize': double.tryParse(_rollerSizeController.text) ?? 38.1,
+      'keepScreenOn': _keepScreenOn,
+      'couplingDepth': double.tryParse(_couplingDepthController.text) ?? 20.0,
+      'bladeKerf': double.tryParse(_bladeKerfController.text) ?? 0.0,
+      'referenceMark': _referenceMark,
+      'bendRadiusWarning': _bendRadiusWarning,
+    };
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+          "해당 장비의 제원과 설정이 저장되었습니다.",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: makitaTeal,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      ),
+    );
+  }
+
+  void _showHelpDialog(String title, String content) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: pureWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.info_outline, color: makitaTeal),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: slate900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            content,
+            style: const TextStyle(height: 1.5, fontSize: 14, color: slate800),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text(
+                '확인',
+                style: TextStyle(
+                  color: makitaTeal,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        FocusScope.of(context).unfocus();
+      },
+      child: Scaffold(
+        backgroundColor: slate100,
+        appBar: AppBar(
+          title: const Text(
+            '장비 세팅 마스터',
+            style: TextStyle(
+              color: slate900,
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+            ),
+          ),
+          backgroundColor: pureWhite,
+          elevation: 1,
+          shadowColor: slate200,
+          centerTitle: false,
+          iconTheme: const IconThemeData(color: slate900),
+        ),
+        body: Column(
+          children: [
+            _buildMainTypeSelector(),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 100),
+                child: _buildCurrentSettingsView(),
+              ),
+            ),
+          ],
+        ),
+        bottomSheet: Container(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            12,
+            16,
+            MediaQuery.of(context).padding.bottom + 12,
+          ),
+          decoration: const BoxDecoration(
+            color: pureWhite,
+            border: Border(top: BorderSide(color: slate200, width: 1)),
+          ),
+          child: ElevatedButton(
+            onPressed: _saveSettings,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: makitaTeal,
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              elevation: 0,
+            ),
+            child: const Text(
+              "현재 장비 설정 저장",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: pureWhite,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMainTypeSelector() {
+    return Container(
+      color: pureWhite,
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                "장비 작동 방식 선택",
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: slate600,
+                ),
+              ),
+              const SizedBox(width: 4),
+              InkWell(
+                onTap: () {
+                  _showHelpDialog(
+                    "작동 방식",
+                    "현장에서 사용하는 벤더의 종류(수동, 유압식, 시카고식)를 선택하세요.\n선택한 장비에 맞춰 데이터 파일에서 제조사와 규격을 불러옵니다.",
+                  );
+                },
+                child: Icon(
+                  Icons.help_outline,
+                  size: 16,
+                  color: slate600.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+            decoration: BoxDecoration(
+              color: pureWhite,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: makitaTeal, width: 1.5),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                isExpanded: true,
+                value: _selectedTypeId,
+                icon: const Icon(
+                  Icons.arrow_drop_down,
+                  color: makitaTeal,
+                  size: 24,
+                ),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: makitaTeal,
+                ),
+                items: const [
+                  DropdownMenuItem(
+                    value: 'hand',
+                    child: Text("수동 벤더 (Hand Bender)"),
+                  ),
+                  DropdownMenuItem(
+                    value: 'ram',
+                    child: Text("유압식 벤더 (Ram Bender)"),
+                  ),
+                  DropdownMenuItem(
+                    value: 'chicago',
+                    child: Text("시카고식 벤더 (Chicago Bender)"),
+                  ),
+                ],
+                onChanged: (val) {
+                  if (val != null) {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      _selectedTypeId = val;
+                      // 강제 규격 변경 로직 싹 다 제거! 무조건 유지.
+                      _updateDynamicDropdowns();
+                    });
+                  }
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCurrentSettingsView() {
+    switch (_selectedTypeId) {
+      case 'ram':
+        return _buildRamSettingsView();
+      case 'chicago':
+        return _buildChicagoSettingsView();
+      case 'hand':
+      default:
+        return _buildHandSettingsView();
+    }
+  }
+
+  Widget _buildHandSettingsView() {
+    String unit = _unitSystem.contains('인치') ? '"' : "mm";
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle("수동 장비 프로필"),
+        _buildSettingsCard([
+          _buildDropdownRow(
+            "제조사",
+            _availableManufacturers,
+            _manufacturer,
+            helpText:
+                "데이터 파일에 등록된 제조사 목록입니다. 선택 시 해당 장비의 고유 치수(테이크업, 반경 등)가 자동 입력됩니다.",
+            (v) {
+              if (v != null) {
+                setState(() {
+                  _manufacturer = v;
+                  _updateDynamicDropdowns();
+                });
+              }
+            },
+          ),
+          _buildDropdownRow(
+            "전선관 재질",
+            _availableConduitTypes,
+            _conduitType,
+            helpText: "선택한 제조사에서 지원하는 파이프 재질 목록입니다.",
+            (v) {
+              if (v != null) {
+                setState(() {
+                  _conduitType = v;
+                  _updateDynamicDropdowns();
+                });
+              }
+            },
+          ),
+          _buildDropdownRow(
+            "규격 사이즈",
+            _availableConduitSizes,
+            _conduitSize,
+            helpText: "작업할 전선관의 외경(KS 규격)을 선택하세요.",
+            (v) {
+              if (v != null) {
+                setState(() {
+                  _conduitSize = v;
+                  _updateDynamicDropdowns();
+                });
+              }
+            },
+          ),
+        ]),
+        _buildSectionTitle("제원 수치 (수동)"),
+        _buildSettingsCard([
+          _buildDropdownRow(
+            "단위",
+            ['인치 (분수)', '인치 (소수점)', '미터법 (mm)'],
+            _unitSystem,
+            helpText: "입력 및 결과 표시에 사용할 단위를 선택합니다.",
+            (v) {
+              if (v != null) {
+                setState(() => _unitSystem = v);
+              }
+            },
+          ),
+          if (_unitSystem == '인치 (분수)')
+            _buildDropdownRow(
+              "줄자 정밀도",
+              ['1/8"', '1/16"', '1/32"'],
+              _fractionPrecision,
+              (v) {
+                if (v != null) {
+                  setState(() => _fractionPrecision = v);
+                }
+              },
+            ),
+          _buildDropdownRow(
+            "기본 마킹 기준",
+            ['화살표 (일반)', '별 (Back-to-Back)', '노치 (새들 중앙)'],
+            _referenceMark,
+            (v) {
+              if (v != null) {
+                setState(() => _referenceMark = v);
+              }
+            },
+          ),
+          _buildInputRow(
+            "90° 테이크업 (Take-up)",
+            _takeUpController,
+            suffix: unit,
+            helpText: "바닥에서 위로 직각 벤딩 시, 벤더 헤드 자체가 차지하는 여유 길이입니다.",
+          ),
+          _buildInputRow(
+            "벤딩 게인 (Gain)",
+            _gainController,
+            suffix: unit,
+            helpText: "파이프가 직각으로 꺾일 때, 곡선으로 지나가면서 절약되는 배관의 길이입니다.",
+          ),
+          _buildInputRow(
+            "슈 중심선 반경 (CLR)",
+            _clrController,
+            suffix: unit,
+            helpText: "벤더 슈가 그리는 곡선의 반지름입니다.",
+          ),
+        ]),
+      ],
+    );
+  }
+
+  Widget _buildRamSettingsView() {
+    String unit = _unitSystem.contains('인치') ? '"' : "mm";
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle("유압식 장비 프로필"),
+        _buildSettingsCard([
+          _buildDropdownRow(
+            "제조사",
+            _availableManufacturers,
+            _manufacturer,
+            helpText: "데이터 파일에 등록된 유압식 장비 제조사 목록입니다.",
+            (v) {
+              if (v != null) {
+                setState(() {
+                  _manufacturer = v;
+                  _updateDynamicDropdowns();
+                });
+              }
+            },
+          ),
+          _buildDropdownRow("전선관 재질", _availableConduitTypes, _conduitType, (
+            v,
+          ) {
+            if (v != null) {
+              setState(() {
+                _conduitType = v;
+                _updateDynamicDropdowns();
+              });
+            }
+          }),
+          _buildDropdownRow("규격 사이즈", _availableConduitSizes, _conduitSize, (
+            v,
+          ) {
+            if (v != null) {
+              setState(() {
+                _conduitSize = v;
+                _updateDynamicDropdowns();
+              });
+            }
+          }),
+        ]),
+        _buildSectionTitle("유압 실린더 제원"),
+        _buildSettingsCard([
+          _buildDropdownRow(
+            "단위",
+            ['인치 (분수)', '인치 (소수점)', '미터법 (mm)'],
+            _unitSystem,
+            (v) {
+              if (v != null) {
+                setState(() => _unitSystem = v);
+              }
+            },
+          ),
+          _buildInputRow(
+            "램(Ram) 오프셋",
+            _ramOffsetController,
+            suffix: unit,
+            helpText: "유압식 벤더에서 목표 각도에 도달하기 위해 실린더를 밀어내는 거리를 계산하기 위한 기준값입니다.",
+          ),
+          _buildInputRow(
+            "램 이동 거리",
+            _ramTravelController,
+            suffix: unit,
+            helpText: "해당 장비의 실린더가 최대로 전진(스트로크)할 수 있는 물리적 거리 한계점입니다.",
+          ),
+          _buildInputRow(
+            "셋백 (Setback)",
+            _setbackController,
+            suffix: unit,
+            helpText: "유압의 힘으로 파이프가 꺾이면서 장비 내에서 뒤로 밀려나는 거리를 보정하는 수치입니다.",
+          ),
+          _buildInputRow("슈 중심선 반경 (CLR)", _clrController, suffix: unit),
+        ]),
+        _buildSectionTitle("보정 설정"),
+        _buildSettingsCard([
+          _buildSwitchRow(
+            "스프링백(Springback) 자동 계산",
+            _applySpringback,
+            helpText: "금속관은 꺾은 후 탄성으로 살짝 펴집니다. 목표 각도 도달 시 살짝 더 꺾도록 계산기에 반영합니다.",
+            (v) {
+              setState(() => _applySpringback = v);
+            },
+          ),
+          if (_applySpringback)
+            _buildInputRow("스프링백 보정 (°)", _springbackController),
+        ]),
+      ],
+    );
+  }
+
+  Widget _buildChicagoSettingsView() {
+    String unit = _unitSystem.contains('인치') ? '"' : "mm";
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle("시카고식 장비 프로필"),
+        _buildSettingsCard([
+          _buildDropdownRow("제조사", _availableManufacturers, _manufacturer, (v) {
+            if (v != null) {
+              setState(() {
+                _manufacturer = v;
+                _updateDynamicDropdowns();
+              });
+            }
+          }),
+          _buildDropdownRow("전선관 재질", _availableConduitTypes, _conduitType, (
+            v,
+          ) {
+            if (v != null) {
+              setState(() {
+                _conduitType = v;
+                _updateDynamicDropdowns();
+              });
+            }
+          }),
+          _buildDropdownRow("규격 사이즈", _availableConduitSizes, _conduitSize, (
+            v,
+          ) {
+            if (v != null) {
+              setState(() {
+                _conduitSize = v;
+                _updateDynamicDropdowns();
+              });
+            }
+          }),
+        ]),
+        _buildSectionTitle("노치 및 제원 (시카고)"),
+        _buildSettingsCard([
+          _buildDropdownRow(
+            "단위",
+            ['인치 (분수)', '인치 (소수점)', '미터법 (mm)'],
+            _unitSystem,
+            (v) {
+              if (v != null) {
+                setState(() => _unitSystem = v);
+              }
+            },
+          ),
+          _buildSliderRow(
+            "노치당 각도",
+            _degPerNotch,
+            helpText: "전동/시카고 벤더에서 노치(기어) 한 칸을 넘길 때마다 구부러지는 단위 각도입니다.",
+            (v) {
+              setState(() => _degPerNotch = v);
+            },
+          ),
+          _buildInputRow(
+            "노치 간격",
+            _notchSpacingController,
+            suffix: unit,
+            helpText: "벤더 슈에 새겨진 노치와 노치 사이의 실제 물리적 거리입니다.",
+          ),
+          _buildInputRow(
+            "롤러 규격",
+            _rollerSizeController,
+            suffix: unit,
+            helpText: "시카고 벤더 구조상 배관을 위에서 눌러주는 롤러(바퀴)의 지름입니다.",
+          ),
+          _buildInputRow("슈 중심선 반경 (CLR)", _clrController, suffix: unit),
+        ]),
+        _buildSectionTitle("공통 보정"),
+        _buildSettingsCard([
+          _buildSwitchRow(
+            "수축량(Shrink) 자동 공제",
+            _applyShrink,
+            helpText: "오프셋(새들)처럼 배관이 우회할 때, 직진 도달 거리가 줄어드는 현상을 자동 계산합니다.",
+            (v) {
+              setState(() => _applyShrink = v);
+            },
+          ),
+        ]),
+      ],
+    );
+  }
+
+  // =====================================
+  // 공통 UI 빌더
+  // =====================================
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+          color: slate900,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsCard(List<Widget> children) {
+    final validChildren = children.whereType<Widget>().toList();
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: pureWhite,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: slate200, width: 1),
+      ),
+      child: Column(
+        children: validChildren.asMap().entries.map((entry) {
+          int idx = entry.key;
+          return Column(
+            children: [
+              entry.value,
+              if (idx != validChildren.length - 1)
+                const Divider(height: 1, thickness: 1, color: slate100),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildLabelWithHelp(String label, String? helpText) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: slate800,
+          ),
+        ),
+        if (helpText != null) ...[
+          const SizedBox(width: 6),
+          InkWell(
+            onTap: () {
+              _showHelpDialog(label, helpText);
+            },
+            borderRadius: BorderRadius.circular(10),
+            child: Icon(
+              Icons.help_outline,
+              size: 16,
+              color: slate600.withValues(alpha: 0.6),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildDropdownRow(
+    String label,
+    List<String> items,
+    String value,
+    ValueChanged<String?> onChanged, {
+    String? helpText,
+  }) {
+    final safeValue = items.contains(value) ? value : items.first;
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+      title: _buildLabelWithHelp(label, helpText),
+      trailing: DropdownButton<String>(
+        value: safeValue,
+        underline: const SizedBox(),
+        icon: const Icon(Icons.keyboard_arrow_down, color: slate600),
+        style: const TextStyle(
+          fontSize: 15,
+          color: makitaTeal,
+          fontWeight: FontWeight.bold,
+        ),
+        items: items
+            .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+            .toList(),
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  Widget _buildSwitchRow(
+    String label,
+    bool value,
+    ValueChanged<bool> onChanged, {
+    String? helpText,
+  }) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+      title: _buildLabelWithHelp(label, helpText),
+      trailing: Switch(
+        value: value,
+        onChanged: onChanged,
+        activeThumbColor: pureWhite,
+        activeTrackColor: makitaTeal,
+        inactiveThumbColor: pureWhite,
+        inactiveTrackColor: slate200,
+      ),
+    );
+  }
+
+  Widget _buildInputRow(
+    String label,
+    TextEditingController controller, {
+    String suffix = "°",
+    String? helpText,
+  }) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+      title: _buildLabelWithHelp(label, helpText),
+      trailing: SizedBox(
+        width: 100,
+        child: TextField(
+          controller: controller,
+          textAlign: TextAlign.end,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+          ],
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: makitaTeal,
+          ),
+          decoration: InputDecoration(
+            border: InputBorder.none,
+            isDense: true,
+            suffixText: " $suffix",
+            suffixStyle: const TextStyle(
+              color: slate600,
+              fontWeight: FontWeight.w500,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSliderRow(
+    String label,
+    double value,
+    ValueChanged<double> onChanged, {
+    String? helpText,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildLabelWithHelp(label, helpText),
+              Text(
+                "${value.toStringAsFixed(1)}°",
+                style: const TextStyle(
+                  color: makitaTeal,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          SliderTheme(
+            data: SliderThemeData(
+              activeTrackColor: makitaTeal,
+              inactiveTrackColor: slate100,
+              thumbColor: pureWhite,
+              trackHeight: 4.0,
+              thumbShape: const RoundSliderThumbShape(
+                enabledThumbRadius: 10.0,
+                elevation: 2,
+              ),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 20.0),
+            ),
+            child: Slider(
+              value: value,
+              min: 1.0,
+              max: 10.0,
+              divisions: 18,
+              onChanged: onChanged,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
