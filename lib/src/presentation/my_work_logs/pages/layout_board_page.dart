@@ -2426,8 +2426,18 @@ class DimensionPainter extends CustomPainter {
     }
   }
 
+  // 🚀 [최적화] 예전엔 무조건 true라 모듈을 드래그해서 setState가 호출될
+  // 때마다(프레임마다) 치수선과 무관한데도 이 레이어 전체가 매번 다시
+  // 그려졌음(버벅임의 실제 원인). dimensions는 같은 List를 in-place로
+  // add/remove하므로 참조 비교 대신 길이로, 나머지는 값이 바뀔 때 항상
+  // 재할당되므로 값 비교로 실제 변경 여부를 판단한다.
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant DimensionPainter oldDelegate) {
+    return oldDelegate.dimensions.length != dimensions.length ||
+        oldDelegate.activePoint != activePoint ||
+        oldDelegate.panelWidth != panelWidth ||
+        oldDelegate.panelHeight != panelHeight;
+  }
 }
 
 // 🚀 [추가] 실제 배관으로 남는 정밀 튜빙 라인(여러 구간) 렌더링
@@ -2524,6 +2534,11 @@ class TubingLinePainter extends CustomPainter {
     _drawPath(canvas, size, draftPoints, isDraft: true);
   }
 
+  // 🚀 [최적화] lines는 in-place로 add/clear되는 같은 List라 길이로,
+  // draftPoints는 매번 재할당되는 새 List라 참조 비교로 실제 변경만 감지.
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant TubingLinePainter oldDelegate) {
+    return oldDelegate.lines.length != lines.length ||
+        oldDelegate.draftPoints != draftPoints;
+  }
 }

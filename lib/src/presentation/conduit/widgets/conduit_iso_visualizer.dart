@@ -1075,6 +1075,21 @@ class ConduitIsoPainter extends CustomPainter {
     }
   }
 
+  // 🚀 [버그 수정] bendList는 ConduitDataManager가 in-place로 add/removeAt/
+  // 원소 교체하는 같은 List라서, 참조 비교(!=)로는 벤딩을 추가/삭제/수정해도
+  // "안 바뀜"으로 판정돼 3D 배관 형상이 예전 상태로 멈춰 있었다. 길이 +
+  // 각 원소(맵) 참조를 순서대로 비교해 실제 변경만 감지한다.
+  bool _bendListChanged(
+    List<Map<String, dynamic>> oldList,
+    List<Map<String, dynamic>> newList,
+  ) {
+    if (oldList.length != newList.length) return true;
+    for (int i = 0; i < newList.length; i++) {
+      if (oldList[i] != newList[i]) return true;
+    }
+    return false;
+  }
+
   @override
   bool shouldRepaint(covariant ConduitIsoPainter oldDelegate) {
     return oldDelegate.rotationX != rotationX ||
@@ -1082,7 +1097,7 @@ class ConduitIsoPainter extends CustomPainter {
         oldDelegate.zoomLevel != zoomLevel ||
         oldDelegate.panX != panX ||
         oldDelegate.panY != panY ||
-        oldDelegate.bendList != bendList ||
+        _bendListChanged(oldDelegate.bendList, bendList) ||
         oldDelegate.isFlippedX != isFlippedX ||
         oldDelegate.isFlippedY != isFlippedY ||
         oldDelegate.startDirection != startDirection ||

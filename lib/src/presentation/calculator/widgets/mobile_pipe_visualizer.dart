@@ -1078,6 +1078,23 @@ class MobileIsoPipePainter extends CustomPainter {
     }
   }
 
+  // 🚀 [버그 수정] bendList는 MobileBendDataManager가 in-place로
+  // add/removeAt/insert/원소 교체하는 같은 List라서, 참조 비교(!=)로는
+  // 벤딩을 추가/삭제/순서변경/수정해도 "안 바뀜"으로 판정돼 3D 배관
+  // 형상이 예전 상태 그대로 멈춰 있었다(사용자가 겪은 "형상이 망가짐"의
+  // 실제 원인 — 값이 틀린 게 아니라 화면이 최신 데이터를 안 그린 것).
+  // 길이 + 각 원소(맵) 참조를 순서대로 비교해 실제 변경만 감지한다.
+  bool _bendListChanged(
+    List<Map<String, dynamic>> oldList,
+    List<Map<String, dynamic>> newList,
+  ) {
+    if (oldList.length != newList.length) return true;
+    for (int i = 0; i < newList.length; i++) {
+      if (oldList[i] != newList[i]) return true;
+    }
+    return false;
+  }
+
   @override
   bool shouldRepaint(covariant MobileIsoPipePainter oldDelegate) {
     return oldDelegate.rotationX != rotationX ||
@@ -1085,7 +1102,7 @@ class MobileIsoPipePainter extends CustomPainter {
         oldDelegate.zoomLevel != zoomLevel ||
         oldDelegate.panX != panX ||
         oldDelegate.panY != panY ||
-        oldDelegate.bendList != bendList ||
+        _bendListChanged(oldDelegate.bendList, bendList) ||
         oldDelegate.isFlippedX != isFlippedX ||
         oldDelegate.isFlippedY != isFlippedY ||
         oldDelegate.startDirection != startDirection ||
