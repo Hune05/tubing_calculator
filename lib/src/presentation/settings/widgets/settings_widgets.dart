@@ -34,19 +34,23 @@ class SettingLabel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
+        // 🚀 [원복] SettingLabel은 TwoColumnRow의 Expanded 안(폭이 정해진
+        // 곳)뿐 아니라, _buildSwitchRow처럼 spaceBetween Row의 일반
+        // 자식(폭이 무한대로 주어지는 곳)으로도 쓰인다. 그런 자리에서
+        // Flexible을 쓰면 "incoming width constraints are unbounded"로
+        // 즉시 크래시하고, IndexedStack이 모든 탭을 미리 빌드하는 구조상
+        // 이 크래시가 화면 전체 렌더 트리를 깨뜨려 다른 탭 버튼까지
+        // 먹통이 되는 심각한 문제로 이어졌다. mobile_settings_tab.dart는
+        // 이미 1칼럼 구조로 바뀌어서 이 라벨이 좁게 눌릴 일이 없으므로,
+        // 원래의 안전한 형태(mainAxisSize.min, Flexible 없음)로 되돌린다.
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // 🚀 [수정] mainAxisSize.min이라 긴 라벨이 좁은 화면에서
-          // RenderFlex 오버플로우를 냈음. Flexible + ellipsis로 감싸서
-          // 공간이 부족하면 줄어들게 한다.
-          Flexible(
-            child: Text(
-              text,
-              style: TextStyle(
-                color: Colors.blueGrey[800],
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
-              overflow: TextOverflow.ellipsis,
+          Text(
+            text,
+            style: TextStyle(
+              color: Colors.blueGrey[800],
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
             ),
           ),
           if (tooltip != null) ...[
