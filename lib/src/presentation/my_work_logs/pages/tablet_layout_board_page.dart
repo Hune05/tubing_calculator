@@ -11,7 +11,8 @@ const Color tossSubText = Color(0xFF8B95A1);
 const Color tossBg = Color(0xFFF2F4F6);
 const Color pureWhite = Color(0xFFFFFFFF);
 const Color warningRed = Color(0xFFF04438);
-const Color dimensionColor = Color(0xFF00C471);
+const Color centerDimColor = Color(0xFF00C471); // 센터 기준: 녹색
+const Color edgeDimColor = Color(0xFFF68657); // 측면 기준: 주황색
 const Color guideColor = tossBlue;
 const Color tubingLineColor = Color(0xFFFF6B35); // 정밀 튜빙 라인: 주황-레드
 
@@ -22,8 +23,12 @@ const Color tubingLineColor = Color(0xFFFF6B35); // 정밀 튜빙 라인: 주황
 // 🚀 [추가] 도면 보드의 3가지 작업 모드
 enum BoardMode { placeModule, measureDimension, drawTubing }
 
+// 🚀 [추가] 치수 측정 기준 (모바일과 동일하게 센터/측면 두 가지 지원)
+enum DimensionType { center, edge }
+
 abstract class MeasurePoint {
   Offset get center;
+  Rect get boundingBox;
   String get id;
 }
 
@@ -48,6 +53,10 @@ class PlacedItem implements MeasurePoint {
   @override
   Offset get center =>
       Offset(position.dx + width / 2, position.dy + height / 2);
+
+  @override
+  Rect get boundingBox =>
+      Rect.fromLTWH(position.dx, position.dy, width, height);
 }
 
 class WallPoint implements MeasurePoint {
@@ -60,14 +69,23 @@ class WallPoint implements MeasurePoint {
 
   @override
   Offset get center => position;
+
+  @override
+  Rect get boundingBox => Rect.fromLTWH(position.dx, position.dy, 0, 0);
 }
 
-class CenterDimension {
+class PlacedDimension {
   final String id;
   final MeasurePoint p1;
   final MeasurePoint p2;
+  final DimensionType type;
 
-  CenterDimension({required this.id, required this.p1, required this.p2});
+  PlacedDimension({
+    required this.id,
+    required this.p1,
+    required this.p2,
+    required this.type,
+  });
 }
 
 // 🚀 [추가] 실제 배관으로 도면에 남는 정밀 튜빙 라인 (여러 구간/꺾임 가능)
@@ -104,9 +122,10 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
   final double _gridSize = 5.0;
 
   BoardMode _mode = BoardMode.placeModule;
+  DimensionType _currentDimType = DimensionType.center;
 
   final List<PlacedItem> _placedItems = [];
-  final List<CenterDimension> _dimensions = [];
+  final List<PlacedDimension> _dimensions = [];
   // 🚀 [추가] 완료되어 저장된 튜빙 라인들과, 지금 찍고 있는 중인 임시 경로
   final List<PlacedTubingLine> _tubingLines = [];
   List<Offset> _tubingDraftPoints = [];
@@ -139,7 +158,18 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
   void _addTubingPoint(Offset point) {
     HapticFeedback.lightImpact();
     setState(() {
-      _tubingDraftPoints = [..._tubingDraftPoints, _snapToGrid(point)];
+      Offset snapped = _snapToGrid(point);
+      if (_tubingDraftPoints.isNotEmpty) {
+        // 🚀 실제 배관은 대각선으로 가지 않고 직각으로 꺾이므로, 이전
+        // 지점 기준으로 수평/수직 중 더 가까운 축에 자동으로 맞춘다.
+        final prev = _tubingDraftPoints.last;
+        final dx = (snapped.dx - prev.dx).abs();
+        final dy = (snapped.dy - prev.dy).abs();
+        snapped = dx >= dy
+            ? Offset(snapped.dx, prev.dy)
+            : Offset(prev.dx, snapped.dy);
+      }
+      _tubingDraftPoints = [..._tubingDraftPoints, snapped];
     });
   }
 
@@ -247,10 +277,11 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
 
           if (!exists) {
             _dimensions.add(
-              CenterDimension(
+              PlacedDimension(
                 id: DateTime.now().millisecondsSinceEpoch.toString(),
                 p1: _dimensionStartPoint!,
                 p2: point,
+                type: _currentDimType,
               ),
             );
             HapticFeedback.heavyImpact();
@@ -499,34 +530,42 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
             ),
           ),
           Expanded(
-            child: ListView(
+            child: Padding(
               padding: const EdgeInsets.all(16),
-              children: [
-                Draggable<String>(
-                  data: "신규 박스",
-                  feedback: Material(
-                    color: Colors.transparent,
-                    child: Opacity(
-                      opacity: 0.8,
-                      child: _buildPaletteItem("드래그 중.."),
+              // 🚀 [수정] 항목이 딱 2개(박스 1개 + 안내문)뿐이라 스크롤이
+              // 필요 없는데도 ListView를 써서, 세로 드래그 제스처를 리스트
+              // 스크롤이 항상 먼저 가로채 모듈이 전혀 드래그되지 않는
+              // 문제가 있었다(실기기 태블릿에서 확인됨). 스크롤이 필요
+              // 없는 Column으로 바꿔 이 제스처 경합 자체를 없앤다.
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Draggable<String>(
+                    data: "신규 박스",
+                    feedback: Material(
+                      color: Colors.transparent,
+                      child: Opacity(
+                        opacity: 0.8,
+                        child: _buildPaletteItem("드래그 중.."),
+                      ),
+                    ),
+                    childWhenDragging: Opacity(
+                      opacity: 0.3,
+                      child: _buildPaletteItem("배치 중"),
+                    ),
+                    child: _buildPaletteItem("신규 박스 모듈"),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "위 박스를 우측 도면으로 드래그하여 배치하세요.\n배치 후 터치하면 우측 패널에서 명칭과 크기를 수정할 수 있습니다.",
+                    style: TextStyle(
+                      color: tossSubText,
+                      fontSize: 13,
+                      height: 1.5,
                     ),
                   ),
-                  childWhenDragging: Opacity(
-                    opacity: 0.3,
-                    child: _buildPaletteItem("배치 중"),
-                  ),
-                  child: _buildPaletteItem("신규 박스 모듈"),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  "위 박스를 우측 도면으로 드래그하여 배치하세요.\n배치 후 터치하면 우측 패널에서 명칭과 크기를 수정할 수 있습니다.",
-                  style: TextStyle(
-                    color: tossSubText,
-                    fontSize: 13,
-                    height: 1.5,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -600,7 +639,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
                     ButtonSegment(
                       value: BoardMode.measureDimension,
                       label: Text(
-                        "센터 치수 측정",
+                        "고정 치수 측정",
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -674,6 +713,12 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
             minScale: 0.1,
             maxScale: 4.0,
             boundaryMargin: const EdgeInsets.all(2000),
+            // 🚀 [수정] 한 손가락 팬이 늘 켜져 있으면 실제 터치스크린에서는
+            // 모듈을 옮기려는 드래그나 치수 측정 탭을 InteractiveViewer의
+            // 팬 제스처가 먼저 가로채서 "패널만 움직이고 모듈은 안 움직이는"
+            // 문제가 있었다(실기기에서 확인됨). 핀치줌(2손가락)은 그대로
+            // 유지하고 한 손가락 팬만 끈다.
+            panEnabled: false,
             child: Center(
               child: DragTarget<String>(
                 onAcceptWithDetails: (details) {
@@ -718,7 +763,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
 
                               CustomPaint(
                                 size: Size.infinite,
-                                painter: CenterDimensionPainter(
+                                painter: DimensionPainter(
                                   dimensions: _dimensions,
                                   activePoint: _dimensionStartPoint,
                                 ),
@@ -740,6 +785,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
                                     allItems: _placedItems,
                                     panelWidth: _panelWidth,
                                     panelHeight: _panelHeight,
+                                    currentType: _currentDimType,
                                   ),
                                 ),
 
@@ -901,6 +947,8 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
               padding: const EdgeInsets.all(24),
               child: _mode == BoardMode.drawTubing
                   ? _buildTubingInspector()
+                  : _mode == BoardMode.measureDimension
+                  ? _buildDimensionInspector()
                   : _selectedItem == null
                   ? const Center(
                       child: Padding(
@@ -1123,6 +1171,114 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
     );
   }
 
+  // 🚀 [추가] 고정 치수 측정 컨트롤(우측 패널) - 모바일과 동일하게
+  // 센터/측면 기준을 전환할 수 있다.
+  Widget _buildDimensionInspector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "측정 기준",
+          style: TextStyle(
+            color: tossText,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            ChoiceChip(
+              label: const Text("센터(중심) 기준"),
+              selected: _currentDimType == DimensionType.center,
+              selectedColor: centerDimColor.withValues(alpha: 0.2),
+              labelStyle: TextStyle(
+                color: _currentDimType == DimensionType.center
+                    ? centerDimColor
+                    : tossSubText,
+                fontWeight: FontWeight.bold,
+              ),
+              onSelected: (val) {
+                setState(() => _currentDimType = DimensionType.center);
+              },
+            ),
+            ChoiceChip(
+              label: const Text("측면(여백) 기준"),
+              selected: _currentDimType == DimensionType.edge,
+              selectedColor: edgeDimColor.withValues(alpha: 0.2),
+              labelStyle: TextStyle(
+                color: _currentDimType == DimensionType.edge
+                    ? edgeDimColor
+                    : tossSubText,
+                fontWeight: FontWeight.bold,
+              ),
+              onSelected: (val) {
+                setState(() => _currentDimType = DimensionType.edge);
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        Text(
+          _dimensionStartPoint == null
+              ? "💡 측정할 두 지점(모듈 or 벽면)을 순서대로 도면에서 탭하세요."
+              : "💡 다음 측정 지점을 탭하면 치수선이 연결됩니다.",
+          style: TextStyle(
+            color: _dimensionStartPoint == null
+                ? tossSubText
+                : (_currentDimType == DimensionType.center
+                      ? centerDimColor
+                      : edgeDimColor),
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            height: 1.5,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _currentDimType == DimensionType.center
+              ? "⚠️ 현재 '센터(중앙점)' 간의 거리를 측정 중입니다."
+              : "⚠️ 현재 박스 '끝단(측면/여백)' 간의 거리를 측정 중입니다.",
+          style: TextStyle(
+            color: _currentDimType == DimensionType.center
+                ? centerDimColor
+                : edgeDimColor,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (_dimensions.isNotEmpty) ...[
+          const SizedBox(height: 28),
+          Row(
+            children: [
+              const Text(
+                "배치된 치수선",
+                style: TextStyle(
+                  color: tossText,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () => setState(() => _dimensions.clear()),
+                child: const Text(
+                  "전체 삭제",
+                  style: TextStyle(
+                    color: warningRed,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
   // 🚀 [추가] 정밀 튜빙 라인 그리기 컨트롤(우측 패널)
   Widget _buildTubingInspector() {
     final double draftLength = _tubingDraftPoints.length < 2
@@ -1134,7 +1290,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
       children: [
         Text(
           _tubingDraftPoints.isEmpty
-              ? "💡 튜빙 라인이 지날 지점들을 순서대로 도면에서 탭하세요. 꺾이는 지점마다 탭하면 됩니다."
+              ? "💡 튜빙 라인이 지날 지점들을 순서대로 도면에서 탭하세요. 꺾이는 지점마다 탭하면 되고, 항상 직각(수평/수직)으로 자동 정렬됩니다."
               : "💡 다음 지점을 계속 탭해서 이어가거나, 완료를 눌러 확정하세요.\n(현재 ${_tubingDraftPoints.length}개 지점, ${draftLength.toInt()} mm)",
           style: TextStyle(
             color: _tubingDraftPoints.isEmpty ? tossSubText : tubingLineColor,
@@ -1304,17 +1460,20 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
 // Helper Painters
 // ---------------------------------------------------------
 
+// 🚀 [수정] 모바일과 동일하게 센터/측면 기준을 전환할 수 있도록 확장
 class SmartGuidePainter extends CustomPainter {
   final PlacedItem item;
   final List<PlacedItem> allItems;
   final double panelWidth;
   final double panelHeight;
+  final DimensionType currentType;
 
   SmartGuidePainter({
     required this.item,
     required this.allItems,
     required this.panelWidth,
     required this.panelHeight,
+    required this.currentType,
   });
 
   void _drawGuideLine(
@@ -1322,11 +1481,13 @@ class SmartGuidePainter extends CustomPainter {
     Offset start,
     Offset end,
     double distance,
+    Color color,
+    String prefix,
   ) {
     if (distance <= 2) return;
 
     final linePaint = Paint()
-      ..color = guideColor.withValues(alpha: 0.6)
+      ..color = color.withValues(alpha: 0.6)
       ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke;
     canvas.drawLine(start, end, linePaint);
@@ -1334,7 +1495,7 @@ class SmartGuidePainter extends CustomPainter {
     // 🚀 [수정] 5mm 스냅으로 인해 10mm 이상일 때부터 텍스트 표시
     if (distance >= 10) {
       final textSpan = TextSpan(
-        text: "${distance.toInt()} mm",
+        text: "$prefix ${distance.toInt()} mm",
         style: const TextStyle(
           color: pureWhite,
           fontSize: 11,
@@ -1358,7 +1519,7 @@ class SmartGuidePainter extends CustomPainter {
         ),
         const Radius.circular(12),
       );
-      canvas.drawRRect(bgRect, Paint()..color = guideColor);
+      canvas.drawRRect(bgRect, Paint()..color = color);
       textPainter.paint(
         canvas,
         Offset(
@@ -1371,6 +1532,9 @@ class SmartGuidePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    Color c = currentType == DimensionType.center ? guideColor : edgeDimColor;
+    String p = currentType == DimensionType.center ? "센터" : "측면";
+
     double left = item.position.dx;
     double right = item.position.dx + item.width;
     double top = item.position.dy;
@@ -1378,10 +1542,7 @@ class SmartGuidePainter extends CustomPainter {
     double cx = item.center.dx;
     double cy = item.center.dy;
 
-    double boundLeft = 0;
-    double boundRight = panelWidth;
-    double boundTop = 0;
-    double boundBottom = panelHeight;
+    double bL = 0, bR = panelWidth, bT = 0, bB = panelHeight;
 
     for (var other in allItems) {
       if (other.id == item.id) continue;
@@ -1390,40 +1551,40 @@ class SmartGuidePainter extends CustomPainter {
       double oTop = other.position.dy;
       double oBottom = other.position.dy + other.height;
 
-      if ((left < oRight) && (right > oLeft)) {
-        if (oBottom <= top && oBottom > boundTop) boundTop = oBottom;
-        if (oTop >= bottom && oTop < boundBottom) boundBottom = oTop;
+      bool hitVerticalRay = (cx >= oLeft) && (cx <= oRight);
+      if (hitVerticalRay) {
+        if (currentType == DimensionType.center) {
+          if (other.center.dy <= cy && other.center.dy > bT) bT = other.center.dy;
+          if (other.center.dy >= cy && other.center.dy < bB) bB = other.center.dy;
+        } else {
+          if (oBottom <= top && oBottom > bT) bT = oBottom;
+          if (oTop >= bottom && oTop < bB) bB = oTop;
+        }
       }
-      if ((top < oBottom) && (bottom > oTop)) {
-        if (oRight <= left && oRight > boundLeft) boundLeft = oRight;
-        if (oLeft >= right && oLeft < boundRight) boundRight = oLeft;
+
+      bool hitHorizontalRay = (cy >= oTop) && (cy <= oBottom);
+      if (hitHorizontalRay) {
+        if (currentType == DimensionType.center) {
+          if (other.center.dx <= cx && other.center.dx > bL) bL = other.center.dx;
+          if (other.center.dx >= cx && other.center.dx < bR) bR = other.center.dx;
+        } else {
+          if (oRight <= left && oRight > bL) bL = oRight;
+          if (oLeft >= right && oLeft < bR) bR = oLeft;
+        }
       }
     }
 
-    _drawGuideLine(
-      canvas,
-      Offset(cx, top),
-      Offset(cx, boundTop),
-      top - boundTop,
-    );
-    _drawGuideLine(
-      canvas,
-      Offset(cx, bottom),
-      Offset(cx, boundBottom),
-      boundBottom - bottom,
-    );
-    _drawGuideLine(
-      canvas,
-      Offset(left, cy),
-      Offset(boundLeft, cy),
-      left - boundLeft,
-    );
-    _drawGuideLine(
-      canvas,
-      Offset(right, cy),
-      Offset(boundRight, cy),
-      boundRight - right,
-    );
+    if (currentType == DimensionType.center) {
+      _drawGuideLine(canvas, Offset(cx, cy), Offset(cx, bT), (cy - bT).abs(), c, p);
+      _drawGuideLine(canvas, Offset(cx, cy), Offset(cx, bB), (bB - cy).abs(), c, p);
+      _drawGuideLine(canvas, Offset(cx, cy), Offset(bL, cy), (cx - bL).abs(), c, p);
+      _drawGuideLine(canvas, Offset(cx, cy), Offset(bR, cy), (bR - cx).abs(), c, p);
+    } else {
+      _drawGuideLine(canvas, Offset(cx, top), Offset(cx, bT), (top - bT).abs(), c, p);
+      _drawGuideLine(canvas, Offset(cx, bottom), Offset(cx, bB), (bB - bottom).abs(), c, p);
+      _drawGuideLine(canvas, Offset(left, cy), Offset(bL, cy), (left - bL).abs(), c, p);
+      _drawGuideLine(canvas, Offset(right, cy), Offset(bR, cy), (bR - right).abs(), c, p);
+    }
   }
 
   @override
@@ -1468,53 +1629,86 @@ class GridPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-class CenterDimensionPainter extends CustomPainter {
-  final List<CenterDimension> dimensions;
+// 🚀 [수정] 모바일과 동일하게 센터/측면 두 기준의 치수선을 지원
+class DimensionPainter extends CustomPainter {
+  final List<PlacedDimension> dimensions;
   final MeasurePoint? activePoint;
 
-  CenterDimensionPainter({required this.dimensions, this.activePoint});
+  DimensionPainter({required this.dimensions, this.activePoint});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final linePaint = Paint()
-      ..color = dimensionColor.withValues(alpha: 0.8)
-      ..strokeWidth = 2.0
-      ..strokeCap = StrokeCap.round;
-
-    final dotPaint = Paint()..color = dimensionColor;
-
     for (var dim in dimensions) {
-      Offset c1 = dim.p1.center;
-      Offset c2 = dim.p2.center;
+      Color dColor = dim.type == DimensionType.center
+          ? centerDimColor
+          : edgeDimColor;
+      String labelPrefix = dim.type == DimensionType.center ? "센터" : "측면";
 
-      double dx = (c1.dx - c2.dx).abs();
-      double dy = (c1.dy - c2.dy).abs();
-      if (dx > dy) {
-        c2 = Offset(c2.dx, c1.dy);
+      final linePaint = Paint()
+        ..color = dColor.withValues(alpha: 0.8)
+        ..strokeWidth = 2.0
+        ..strokeCap = StrokeCap.round;
+      final dotPaint = Paint()..color = dColor;
+
+      Rect r1 = dim.p1.boundingBox;
+      Rect r2 = dim.p2.boundingBox;
+
+      double dxCenter = (r1.center.dx - r2.center.dx).abs();
+      double dyCenter = (r1.center.dy - r2.center.dy).abs();
+
+      Offset startPt, endPt;
+      double distance = 0;
+
+      if (dim.type == DimensionType.center) {
+        startPt = r1.center;
+        endPt = r2.center;
+        if (dxCenter > dyCenter) {
+          endPt = Offset(endPt.dx, startPt.dy);
+        } else {
+          endPt = Offset(startPt.dx, endPt.dy);
+        }
+        distance = (startPt - endPt).distance;
       } else {
-        c2 = Offset(c1.dx, c2.dy);
+        if (dxCenter > dyCenter) {
+          bool isR1Left = r1.center.dx < r2.center.dx;
+          double x1 = isR1Left ? r1.right : r1.left;
+          double x2 = isR1Left ? r2.left : r2.right;
+          double y = (r1.center.dy + r2.center.dy) / 2;
+          startPt = Offset(x1, y);
+          endPt = Offset(x2, y);
+          distance = (x1 - x2).abs();
+        } else {
+          bool isR1Top = r1.center.dy < r2.center.dy;
+          double y1 = isR1Top ? r1.bottom : r1.top;
+          double y2 = isR1Top ? r2.top : r2.bottom;
+          double x = (r1.center.dx + r2.center.dx) / 2;
+          startPt = Offset(x, y1);
+          endPt = Offset(x, y2);
+          distance = (y1 - y2).abs();
+        }
       }
 
-      canvas.drawLine(c1, c2, linePaint);
-      canvas.drawCircle(c1, 4, dotPaint);
-      canvas.drawCircle(c2, 4, dotPaint);
+      canvas.drawLine(startPt, endPt, linePaint);
+      canvas.drawCircle(startPt, 4, dotPaint);
+      canvas.drawCircle(endPt, 4, dotPaint);
 
-      double distance = (c1 - c2).distance;
-      if (distance >= 10) {
+      if (distance >= 5) {
         final textSpan = TextSpan(
-          text: "${distance.toInt()} mm",
+          text: "$labelPrefix ${distance.toInt()} mm",
           style: const TextStyle(
             color: pureWhite,
             fontSize: 11,
             fontWeight: FontWeight.w800,
           ),
         );
-
         final textPainter = TextPainter(
           text: textSpan,
           textDirection: TextDirection.ltr,
         )..layout();
-        final centerOffset = Offset((c1.dx + c2.dx) / 2, (c1.dy + c2.dy) / 2);
+        final centerOffset = Offset(
+          (startPt.dx + endPt.dx) / 2,
+          (startPt.dy + endPt.dy) / 2,
+        );
 
         final bgRect = RRect.fromRectAndRadius(
           Rect.fromCenter(
@@ -1524,7 +1718,7 @@ class CenterDimensionPainter extends CustomPainter {
           ),
           const Radius.circular(12),
         );
-        canvas.drawRRect(bgRect, Paint()..color = dimensionColor);
+        canvas.drawRRect(bgRect, Paint()..color = dColor);
         textPainter.paint(
           canvas,
           Offset(
@@ -1536,16 +1730,12 @@ class CenterDimensionPainter extends CustomPainter {
     }
 
     if (activePoint != null && activePoint is WallPoint) {
-      canvas.drawCircle(
-        activePoint!.center,
-        6,
-        Paint()..color = dimensionColor,
-      );
+      canvas.drawCircle(activePoint!.center, 6, Paint()..color = tossText);
       canvas.drawCircle(
         activePoint!.center,
         16,
         Paint()
-          ..color = dimensionColor.withValues(alpha: 0.2)
+          ..color = tossText.withValues(alpha: 0.2)
           ..style = PaintingStyle.fill,
       );
     }

@@ -211,7 +211,18 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
   void _addTubingPoint(Offset point) {
     HapticFeedback.lightImpact();
     setState(() {
-      _tubingDraftPoints = [..._tubingDraftPoints, _snapToGrid(point)];
+      Offset snapped = _snapToGrid(point);
+      if (_tubingDraftPoints.isNotEmpty) {
+        // 🚀 실제 배관은 대각선으로 가지 않고 직각으로 꺾이므로, 이전
+        // 지점 기준으로 수평/수직 중 더 가까운 축에 자동으로 맞춘다.
+        final prev = _tubingDraftPoints.last;
+        final dx = (snapped.dx - prev.dx).abs();
+        final dy = (snapped.dy - prev.dy).abs();
+        snapped = dx >= dy
+            ? Offset(snapped.dx, prev.dy)
+            : Offset(prev.dx, snapped.dy);
+      }
+      _tubingDraftPoints = [..._tubingDraftPoints, snapped];
     });
   }
 
@@ -1204,6 +1215,12 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
               maxScale: 4.0,
               boundaryMargin: const EdgeInsets.all(2000),
               constrained: false,
+              // 🚀 [수정] 한 손가락 팬이 늘 켜져 있으면 실제 터치스크린에서는
+              // 모듈을 옮기려는 드래그나 치수/튜빙 측정 탭을
+              // InteractiveViewer의 팬 제스처가 먼저 가로채는 문제가 있다
+              // (태블릿 실기기에서 확인됨). 핀치줌(2손가락)은 유지하고
+              // 한 손가락 팬만 끈다.
+              panEnabled: false,
               child: DragTarget<String>(
                 onMove: (details) {
                   final RenderBox box =
@@ -1758,7 +1775,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
         children: [
           Text(
             _tubingDraftPoints.isEmpty
-                ? "💡 튜빙 라인이 지날 지점들을 순서대로 탭하세요. 꺾이는 지점마다 탭하면 됩니다."
+                ? "💡 튜빙 라인이 지날 지점들을 순서대로 탭하세요. 꺾이는 지점마다 탭하면 되고, 항상 직각(수평/수직)으로 자동 정렬됩니다."
                 : "💡 다음 지점을 계속 탭해서 이어가거나, 완료를 눌러 확정하세요. (현재 ${_tubingDraftPoints.length}개 지점, ${draftLength.toInt()} mm)",
             style: TextStyle(
               color: _tubingDraftPoints.isEmpty
