@@ -23,7 +23,9 @@ const Color pureWhite = Color(0xFFFFFFFF);
 const Color warningRed = Color(0xFFF04438);
 
 // 🚀 치수선 색상 분리
-const Color centerDimColor = Color(0xFF00C471); // 센터: 녹색
+// 🚀 [수정] 수동 측정(센터)이 녹색, 자동 가이드(센터)가 파란색으로
+// 서로 달라 헷갈렸음. "센터"는 수동/자동 어디서나 항상 파란색으로 통일.
+const Color centerDimColor = tossBlue; // 센터: 파란색(자동 가이드와 통일)
 const Color edgeDimColor = Color(0xFFF68657); // 측면: 주황색
 const Color guideCenterColor = tossBlue; // 가상선(센터): 파란색
 const Color tubingLineColor = Color(0xFFFF6B35); // 정밀 튜빙 라인: 주황-레드
@@ -1506,48 +1508,72 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
                       ),
                     ),
                   ),
-                  // 🚀 [추가] 모드와 무관하게 항상 켜고 끌 수 있는 자동
-                  // 가이드선 토글(센터선/외곽선 독립 on/off)
+                  // 🚀 [수정] 모드와 무관하게 항상 켜고 끌 수 있는 자동
+                  // 가이드선 토글(센터선/외곽선 독립 on/off). 별도 그룹으로
+                  // 시각적으로 묶어서 위 모드 선택과 구분되게 표시.
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          FilterChip(
-                            label: const Text("센터선"),
-                            selected: _showCenterGuide,
-                            selectedColor: guideCenterColor.withValues(
-                              alpha: 0.15,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: tossBg,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(right: 6),
+                              child: Icon(
+                                Icons.visibility_outlined,
+                                size: 16,
+                                color: tossSubText,
+                              ),
                             ),
-                            checkmarkColor: guideCenterColor,
-                            labelStyle: TextStyle(
-                              color: _showCenterGuide
-                                  ? guideCenterColor
-                                  : tossSubText,
-                              fontWeight: FontWeight.bold,
+                            FilterChip(
+                              label: const Text("센터선"),
+                              selected: _showCenterGuide,
+                              selectedColor: guideCenterColor.withValues(
+                                alpha: 0.15,
+                              ),
+                              checkmarkColor: guideCenterColor,
+                              backgroundColor: pureWhite,
+                              side: BorderSide.none,
+                              labelStyle: TextStyle(
+                                color: _showCenterGuide
+                                    ? guideCenterColor
+                                    : tossSubText,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              onSelected: (val) =>
+                                  setState(() => _showCenterGuide = val),
                             ),
-                            onSelected: (val) =>
-                                setState(() => _showCenterGuide = val),
-                          ),
-                          const SizedBox(width: 8),
-                          FilterChip(
-                            label: const Text("외곽선"),
-                            selected: _showEdgeGuide,
-                            selectedColor: edgeDimColor.withValues(
-                              alpha: 0.15,
+                            const SizedBox(width: 6),
+                            FilterChip(
+                              label: const Text("외곽선"),
+                              selected: _showEdgeGuide,
+                              selectedColor: edgeDimColor.withValues(
+                                alpha: 0.15,
+                              ),
+                              checkmarkColor: edgeDimColor,
+                              backgroundColor: pureWhite,
+                              side: BorderSide.none,
+                              labelStyle: TextStyle(
+                                color: _showEdgeGuide
+                                    ? edgeDimColor
+                                    : tossSubText,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              onSelected: (val) =>
+                                  setState(() => _showEdgeGuide = val),
                             ),
-                            checkmarkColor: edgeDimColor,
-                            labelStyle: TextStyle(
-                              color: _showEdgeGuide
-                                  ? edgeDimColor
-                                  : tossSubText,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            onSelected: (val) =>
-                                setState(() => _showEdgeGuide = val),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -2069,6 +2095,73 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
 // Helper Painters
 // ---------------------------------------------------------
 
+// 🚀 [수정] 산업 도면(CAD)처럼 얇은 치수선 + 끝단 눈금 + 항상 보이는
+// 라벨로 통일. 예전엔 두꺼운 색상 알약(pill) 라벨이 10mm 미만
+// 거리에서는 아예 안 보였는데, 라벨을 선 옆으로 살짝 띄워서 거리와
+// 무관하게 항상 표시되게 한다.
+void drawCadDimensionLine(
+  Canvas canvas,
+  Offset start,
+  Offset end,
+  double distance,
+  Color color,
+  String prefix,
+) {
+  if (distance < 1) return; // 사실상 붙어있으면 표시할 게 없음
+
+  final linePaint = Paint()
+    ..color = color
+    ..strokeWidth = 1.3
+    ..style = PaintingStyle.stroke;
+  canvas.drawLine(start, end, linePaint);
+
+  final dx = end.dx - start.dx;
+  final dy = end.dy - start.dy;
+  final len = math.sqrt(dx * dx + dy * dy);
+  final double px = len == 0 ? 0 : -dy / len;
+  final double py = len == 0 ? 0 : dx / len;
+
+  // 끝단 눈금(CAD 치수선의 tick mark)
+  final tick = Offset(px, py) * 5;
+  canvas.drawLine(start - tick, start + tick, linePaint);
+  canvas.drawLine(end - tick, end + tick, linePaint);
+
+  final mid = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
+  final label = mid + Offset(px, py) * 15;
+
+  final textSpan = TextSpan(
+    text: "$prefix ${distance.toInt()} mm",
+    style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w800),
+  );
+  final textPainter = TextPainter(
+    text: textSpan,
+    textDirection: TextDirection.ltr,
+  )..layout();
+
+  final bgRect = RRect.fromRectAndRadius(
+    Rect.fromCenter(
+      center: label,
+      width: textPainter.width + 10,
+      height: textPainter.height + 6,
+    ),
+    const Radius.circular(4),
+  );
+  // 라벨-치수선 연결용 짧은 리더선
+  canvas.drawLine(mid, label, Paint()..color = color.withValues(alpha: 0.5)..strokeWidth = 1);
+  canvas.drawRRect(bgRect, Paint()..color = pureWhite);
+  canvas.drawRRect(
+    bgRect,
+    Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1,
+  );
+  textPainter.paint(
+    canvas,
+    Offset(label.dx - textPainter.width / 2, label.dy - textPainter.height / 2),
+  );
+}
+
 // 🚀 [핵심 해결] 측면 모드에서도 레이캐스트(Raycast) 물리 법칙 완벽 적용
 class SmartGuidePainter extends CustomPainter {
   final PlacedItem item;
@@ -2093,49 +2186,7 @@ class SmartGuidePainter extends CustomPainter {
     Color color,
     String prefix,
   ) {
-    if (distance <= 2) return;
-
-    final linePaint = Paint()
-      ..color = color.withValues(alpha: 0.6)
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke;
-    canvas.drawLine(start, end, linePaint);
-
-    if (distance >= 10) {
-      final textSpan = TextSpan(
-        text: "$prefix ${distance.toInt()} mm",
-        style: const TextStyle(
-          color: pureWhite,
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-        ),
-      );
-      final textPainter = TextPainter(
-        text: textSpan,
-        textDirection: TextDirection.ltr,
-      )..layout();
-      final centerOffset = Offset(
-        (start.dx + end.dx) / 2,
-        (start.dy + end.dy) / 2,
-      );
-
-      final bgRect = RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: centerOffset,
-          width: textPainter.width + 16,
-          height: textPainter.height + 10,
-        ),
-        const Radius.circular(12),
-      );
-      canvas.drawRRect(bgRect, Paint()..color = color);
-      textPainter.paint(
-        canvas,
-        Offset(
-          centerOffset.dx - textPainter.width / 2,
-          centerOffset.dy - textPainter.height / 2,
-        ),
-      );
-    }
+    drawCadDimensionLine(canvas, start, end, distance, color, prefix);
   }
 
   @override
@@ -2315,12 +2366,6 @@ class DimensionPainter extends CustomPainter {
           : edgeDimColor;
       String labelPrefix = dim.type == DimensionType.center ? "센터" : "측면";
 
-      final linePaint = Paint()
-        ..color = dColor.withValues(alpha: 0.8)
-        ..strokeWidth = 2.0
-        ..strokeCap = StrokeCap.round;
-      final dotPaint = Paint()..color = dColor;
-
       Rect r1 = dim.p1.boundingBox;
       Rect r2 = dim.p2.boundingBox;
 
@@ -2359,45 +2404,14 @@ class DimensionPainter extends CustomPainter {
         }
       }
 
-      canvas.drawLine(startPt, endPt, linePaint);
-      canvas.drawCircle(startPt, 4, dotPaint);
-      canvas.drawCircle(endPt, 4, dotPaint);
-
-      if (distance >= 5) {
-        final textSpan = TextSpan(
-          text: "$labelPrefix ${distance.toInt()} mm",
-          style: const TextStyle(
-            color: pureWhite,
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-          ),
-        );
-        final textPainter = TextPainter(
-          text: textSpan,
-          textDirection: TextDirection.ltr,
-        )..layout();
-        final centerOffset = Offset(
-          (startPt.dx + endPt.dx) / 2,
-          (startPt.dy + endPt.dy) / 2,
-        );
-
-        final bgRect = RRect.fromRectAndRadius(
-          Rect.fromCenter(
-            center: centerOffset,
-            width: textPainter.width + 16,
-            height: textPainter.height + 10,
-          ),
-          const Radius.circular(12),
-        );
-        canvas.drawRRect(bgRect, Paint()..color = dColor);
-        textPainter.paint(
-          canvas,
-          Offset(
-            centerOffset.dx - textPainter.width / 2,
-            centerOffset.dy - textPainter.height / 2,
-          ),
-        );
-      }
+      drawCadDimensionLine(
+        canvas,
+        startPt,
+        endPt,
+        distance,
+        dColor,
+        labelPrefix,
+      );
     }
 
     if (activePoint != null && activePoint is WallPoint) {
