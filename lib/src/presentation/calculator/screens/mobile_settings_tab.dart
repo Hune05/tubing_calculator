@@ -920,6 +920,26 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     );
   }
 
+  // 🚀 [수정] 데스크톱 스타일 2칼럼(TwoColumnRow)을 억지로 좁은 폰/폴더블
+  // 화면에 우겨넣다 보니 라벨이 조금만 길어도 RenderFlex 오버플로우가
+  // 반복적으로 발생했다. 모바일에 맞게 필드 하나가 화면 전체 폭을 쓰는
+  // 세로 한 줄 배치로 다시 짠다 - 그러면 폭이 부족해서 넘치는 이 종류의
+  // 문제 자체가 구조적으로 생기지 않는다.
+  Widget _stackedFields(List<Widget> fields) {
+    final visible = fields.where((w) {
+      return !(w is SizedBox && w.width == 0 && w.height == 0);
+    }).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (int i = 0; i < visible.length; i++) ...[
+          if (i > 0) const SizedBox(height: 16),
+          visible[i],
+        ],
+      ],
+    );
+  }
+
   List<Widget> _buildLeftInputSettingsGroup() {
     return [
       SettingSection(
@@ -929,8 +949,8 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           children: [
             _buildUnitToggle(),
             const SizedBox(height: 8),
-            TwoColumnRow(
-              left: _buildDropdownWithAdvancedHelper(
+            _stackedFields([
+              _buildDropdownWithAdvancedHelper(
                 label: "외경 (OD) [$_unit]",
                 helpTitle: "외경 (OD: Outside Diameter)",
                 helpContent:
@@ -945,17 +965,17 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                     SettingsController.getDisplayOD(item, _isInch),
                 helperText: "※ 배관의 바깥쪽 지름",
               ),
-              right: _buildNumpadInputWithHelp(
+              _buildNumpadInputWithHelp(
                 "두께 (WT) [$_unit]",
                 "두께 (WT: Wall Thickness)",
                 "파이프 벽의 두께입니다.\n두께가 다르면 연신율(파이프가 늘어나는 정도)이 달라지므로 정밀한 계산을 위해 입력이 필요합니다.",
                 _wtController,
                 helperText: "※ 배관 벽의 두께",
               ),
-            ),
+            ]),
             const SizedBox(height: 12),
-            TwoColumnRow(
-              left: _buildDropdownWithAdvancedHelper(
+            _stackedFields([
+              _buildDropdownWithAdvancedHelper(
                 label: "튜브 재질",
                 helpTitle: "튜브 재질",
                 helpContent:
@@ -965,7 +985,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 onChanged: (val) => setState(() => _tubeMaterial = val!),
                 helperText: "※ 재질별 특성",
               ),
-              right: _buildDropdownWithAdvancedHelper(
+              _buildDropdownWithAdvancedHelper(
                 label: "피팅 타입",
                 helpTitle: "피팅 타입",
                 helpContent:
@@ -978,7 +998,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 },
                 helperText: "※ 삽입 깊이 기준",
               ),
-            ),
+            ]),
           ],
         ),
       ),
@@ -987,9 +1007,9 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         icon: Icons.straighten,
         child: Column(
           children: [
-            TwoColumnRow(
-              left: _buildLockedMeasurementMode(),
-              right: _buildDropdownWithAdvancedHelper(
+            _stackedFields([
+              _buildLockedMeasurementMode(),
+              _buildDropdownWithAdvancedHelper(
                 label: "기본 회전",
                 helpTitle: "기본 회전 방향",
                 helpContent:
@@ -999,10 +1019,10 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 onChanged: (val) => setState(() => _defaultRotation = val!),
                 helperText: "※ 도면 기준 방향",
               ),
-            ),
+            ]),
             const SizedBox(height: 12),
-            TwoColumnRow(
-              left: _buildNumpadInputWithHelp(
+            _stackedFields([
+              _buildNumpadInputWithHelp(
                 "피팅 삽입 깊이 [mm]",
                 "피팅 삽입 깊이 (Insertion Depth)",
                 "파이프 끝이 피팅(부속) 안으로 완전히 삽입되어야 하는 길이입니다.\n이 값을 정확히 입력해야 벤딩 후 피팅을 조립했을 때 전체 기장(C-C)이 짧아지는 불량(누설)을 막을 수 있습니다.\n[AUTO] 모드 시 규격에 맞춰 자동 입력됩니다.",
@@ -1010,7 +1030,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 key: 'fittingDepth',
                 helperText: "※ 전체 체결 기준",
               ),
-              right: _isElectric
+              _isElectric
                   ? const SizedBox.shrink()
                   : _buildDropdownWithAdvancedHelper(
                       label: "마커 정렬",
@@ -1026,7 +1046,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                       onChanged: (val) => setState(() => _benderMark = val!),
                       helperText: "• 0: 기본\n• L/R: 90도 전용",
                     ),
-            ),
+            ]),
           ],
         ),
       ),
@@ -1035,8 +1055,8 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         icon: Icons.build,
         child: Column(
           children: [
-            TwoColumnRow(
-              left: _buildDropdownWithAdvancedHelper(
+            _stackedFields([
+              _buildDropdownWithAdvancedHelper(
                 label: "벤더 브랜드",
                 helpTitle: "벤더 브랜드",
                 helpContent:
@@ -1056,7 +1076,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 },
                 helperText: "※ 브랜드별 가이드",
               ),
-              right: _buildDropdownWithAdvancedHelper(
+              _buildDropdownWithAdvancedHelper(
                 label: "장비 타입 선택",
                 helpTitle: "장비 타입 (수동/전동)",
                 helpContent:
@@ -1069,11 +1089,11 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 },
                 helperText: "※ 수동/전동 가이드",
               ),
-            ),
+            ]),
             const SizedBox(height: 16),
             if (_isElectric) ...[
-              TwoColumnRow(
-                left: _buildNumpadInputWithHelp(
+              _stackedFields([
+                _buildNumpadInputWithHelp(
                   "금형 반경 (CLR) [mm]",
                   "금형 반경 (Center Line Radius)",
                   "파이프를 둥글게 꺾어주는 다이(금형)의 중심 반경입니다.\n이 값이 클수록 파이프가 완만하게 꺾이고, 연신율(늘어나는 길이) 계산의 핵심이 됩니다.",
@@ -1081,7 +1101,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                   key: 'radius',
                   helperText: "※ 다이 R값",
                 ),
-                right: _buildNumpadInputWithHelp(
+                _buildNumpadInputWithHelp(
                   "클램프 물림 길이 [mm]",
                   "클램프 물림 길이 (최소 직선 구간)",
                   "전동 벤더가 파이프를 단단히 잡고 꺾기 위해 필요한 최소한의 직관(일자) 길이입니다.\n이 길이보다 짧게 벤딩을 시도하면 기계에 물리지 않아 작업이 불가능합니다.",
@@ -1089,10 +1109,10 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                   key: 'minStraight',
                   helperText: "※ 최소 구간",
                 ),
-              ),
+              ]),
               const SizedBox(height: 12),
-              TwoColumnRow(
-                left: _buildNumpadInputWithHelp(
+              _stackedFields([
+                _buildNumpadInputWithHelp(
                   "연신율 (Gain) [mm]",
                   "연신율 (Gain)",
                   "파이프가 곡선으로 꺾이면서 바깥쪽으로 늘어나는 총 길이입니다.\n전체 자를 길이를 이 값만큼 빼주어야 치수 불량이 안 납니다.\n[AUTO] 시 기계 제원 기반으로 계산됩니다.",
@@ -1100,17 +1120,17 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                   key: 'gain',
                   helperText: "※ 늘어나는 양",
                 ),
-                right: _buildNumpadInputWithHelp(
+                _buildNumpadInputWithHelp(
                   "스프링백 보상 [°]",
                   "스프링백 보상 (Springback)",
                   "파이프를 90도로 꺾어도 금속의 탄성 때문에 원래대로 살짝 튕겨 돌아옵니다.\nSUS 파이프 기준 보통 1~3도 정도를 더 꺾어주도록 보정하는 값입니다.",
                   _springbackController,
                   helperText: "※ 보통 1~3° 입력",
                 ),
-              ),
+              ]),
               const SizedBox(height: 12),
-              TwoColumnRow(
-                left: _buildNumpadInputWithHelp(
+              _stackedFields([
+                _buildNumpadInputWithHelp(
                   "장비 원점 오프셋 [mm]",
                   "장비 원점 오프셋",
                   "기계의 클램프 끝에서 실제 벤딩이 시작되는 0점까지의 물리적인 거리 오차입니다.",
@@ -1118,11 +1138,10 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                   key: 'offset',
                   helperText: "※ 클램프 끝 ~ 다이 0점",
                 ),
-                right: const SizedBox.shrink(),
-              ),
+              ]),
             ] else ...[
-              TwoColumnRow(
-                left: _buildNumpadInputWithHelp(
+              _stackedFields([
+                _buildNumpadInputWithHelp(
                   "벤드 반경 (R) [mm]",
                   "벤드 반경 (Radius)",
                   "수동 벤더 다이(둥근 롤러)의 중심에서 파이프 중심선까지의 반경입니다.\n이 값으로 연신율과 축소량을 계산합니다.",
@@ -1130,7 +1149,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                   key: 'radius',
                   helperText: "※ 다이 중심 ~ 튜브 중심",
                 ),
-                right: _buildNumpadInputWithHelp(
+                _buildNumpadInputWithHelp(
                   "테이크업 [mm]",
                   "테이크업 (Take-Up)",
                   "수동 벤딩 시 90도로 꺾을 때 뒤로 후진해야 하는 거리(보정치)입니다.\n이 치수만큼 빼고 마킹해야 정확한 위치에서 꺾입니다.",
@@ -1138,10 +1157,10 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                   key: 'takeUp',
                   helperText: "※ 차감 보정치",
                 ),
-              ),
+              ]),
               const SizedBox(height: 12),
-              TwoColumnRow(
-                left: _buildNumpadInputWithHelp(
+              _stackedFields([
+                _buildNumpadInputWithHelp(
                   "연신율 (Gain) [mm]",
                   "연신율 (Gain)",
                   "파이프가 곡선으로 꺾이면서 바깥쪽으로 늘어나는 총 길이입니다.\n전체 자를 길이를 이 값만큼 빼주어야 치수 불량이 안 납니다.\n[AUTO] 시 기계 제원 기반으로 자동 계산됩니다.",
@@ -1149,7 +1168,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                   key: 'gain',
                   helperText: "※ 늘어나는 총 길이",
                 ),
-                right: _buildNumpadInputWithHelp(
+                _buildNumpadInputWithHelp(
                   "최소 직선 구간 [mm]",
                   "최소 물림 구간 (Minimum Straight)",
                   "벤더기의 후크(고리)가 파이프를 단단히 물어주기 위해 확보되어야 하는 최소한의 직관 길이입니다.\n연속 벤딩 시 이 길이보다 짧으면 기계에 파이프가 걸려 안 꺾입니다.",
@@ -1157,10 +1176,10 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                   key: 'minStraight',
                   helperText: "※ 벤더 후크 물림 최소장",
                 ),
-              ),
+              ]),
               const SizedBox(height: 12),
-              TwoColumnRow(
-                left: _buildNumpadInputWithHelp(
+              _stackedFields([
+                _buildNumpadInputWithHelp(
                   "기준선 오프셋 [mm]",
                   "기준선 오프셋",
                   "기계의 0점 마크와 파이프에 그은 선이 완벽히 일치하지 않는 기계적/물리적 오차를 교정하는 값입니다.",
@@ -1168,14 +1187,14 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                   key: 'offset',
                   helperText: "※ 다이 0점과 실제 시작점",
                 ),
-                right: _buildNumpadInputWithHelp(
+                _buildNumpadInputWithHelp(
                   "스프링백 [°]",
                   "스프링백 보상 (Springback)",
                   "파이프를 원하는 각도만큼 꺾어도 탄성으로 다시 펴지는 성질을 보상하는 각도입니다.",
                   _springbackController,
                   helperText: "※ 탄성 복원 각도 보정치",
                 ),
-              ),
+              ]),
             ],
           ],
         ),
@@ -1186,22 +1205,22 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         child: Column(
           children: [
             if (!_isElectric) ...[
-              TwoColumnRow(
-                left: _buildNumpadInputWithHelp(
+              _stackedFields([
+                _buildNumpadInputWithHelp(
                   "마킹선 두께 [mm]",
                   "마킹선 두께 보정",
                   "네임펜이나 마커로 파이프에 선을 그을 때, 선의 두께(약 1~2mm) 때문에 생기는 미세 오차를 보정합니다.",
                   _markThicknessController,
                   helperText: "※ 마커 펜촉 미세 보정",
                 ),
-                right: _buildNumpadInputWithHelp(
+                _buildNumpadInputWithHelp(
                   "오프셋 축소 [mm]",
                   "오프셋 축소 (간섭 회피 여유)",
                   "연속 S자 벤딩(오프셋)을 할 때, 파이프를 반대로 뒤집어 기계에 넣으면 기존에 꺾인 부위가 기계 몸통(바디/슈)에 닿아 안 들어가는 경우가 생깁니다.\n이를 피하기 위해 빗변 기장을 강제로 살짝 밀어주는 여유 길이입니다.",
                   _offsetShrinkController,
                   helperText: "※ 간섭 회피용 여유 축소값",
                 ),
-              ),
+              ]),
               const Divider(color: Colors.black12, height: 24),
             ],
             Padding(
