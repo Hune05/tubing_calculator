@@ -34,14 +34,19 @@ class SettingLabel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            text,
-            style: TextStyle(
-              color: Colors.blueGrey[800],
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
+          // 🚀 [수정] mainAxisSize.min이라 긴 라벨이 좁은 화면에서
+          // RenderFlex 오버플로우를 냈음. Flexible + ellipsis로 감싸서
+          // 공간이 부족하면 줄어들게 한다.
+          Flexible(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: Colors.blueGrey[800],
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           if (tooltip != null) ...[
@@ -107,12 +112,15 @@ class SettingInputField extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 8.0),
           child: Row(
             children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: Colors.blueGrey[800],
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.blueGrey[800],
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (tooltip != null) ...[

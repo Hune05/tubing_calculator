@@ -2343,7 +2343,7 @@ class MakitaNumericInput extends StatelessWidget {
                       decoration: InputDecoration(
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
+                          horizontal: 8,
                           vertical: 12,
                         ),
                         border: OutlineInputBorder(
@@ -2366,25 +2366,30 @@ class MakitaNumericInput extends StatelessWidget {
                 ),
               ),
               if (isAutoMode != null && onModeChanged != null) ...[
-                const SizedBox(width: 8),
+                const SizedBox(width: 4),
+                // 🚀 [수정] 좁은 화면에서 오버플로우 나던 것과 동일한
+                // 위젯(mobile_settings_tab.dart와 중복 정의)이라 같이 수정.
+                // 폭을 고정하고 FittedBox로 글자를 맞춰서 화면 폭과
+                // 무관하게 항상 일정한 폭만 차지하게 한다.
                 InkWell(
                   onTap: () => onModeChanged!(!isAutoMode!),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
+                    width: 34,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
                       color: isAutoMode! ? makitaTeal : Colors.deepOrange,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Text(
-                      isAutoMode! ? "AUTO" : "MAN",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        letterSpacing: 0.5,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        isAutoMode! ? "AUTO" : "MAN",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          letterSpacing: 0.3,
+                        ),
                       ),
                     ),
                   ),

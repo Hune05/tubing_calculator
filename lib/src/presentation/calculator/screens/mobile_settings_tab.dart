@@ -310,15 +310,22 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     String helpContent,
   ) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: slate600,
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
+        // 🚀 [수정] Row가 mainAxisSize.min이라 라벨 텍스트("피팅 삽입 깊이
+        // [mm]" 같은 긴 라벨)의 자연스러운 너비만큼 커지려고 했는데,
+        // 폴더블 커버 화면처럼 칼럼 폭이 아주 좁으면(약 344dp) 이게
+        // 넘쳐서 "RIGHT OVERFLOWED BY 3.3 PIXELS"가 났음. Flexible로
+        // 감싸서 공간이 부족하면 말줄임표로 줄어들게 한다.
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: slate600,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         const SizedBox(width: 4),
@@ -2591,7 +2598,7 @@ class MakitaNumericInput extends StatelessWidget {
                     decoration: InputDecoration(
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
+                        horizontal: 8,
                         vertical: 12,
                       ),
                       border: OutlineInputBorder(
@@ -2614,25 +2621,31 @@ class MakitaNumericInput extends StatelessWidget {
               ),
             ),
             if (isAutoMode != null && onModeChanged != null) ...[
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
+              // 🚀 [수정] 폴더블(갤럭시 Z 폴드) 커버 화면처럼 폭이 매우 좁은
+              // 기기(약 344dp)에서 이 버튼 때문에 Row 전체가 "RIGHT
+              // OVERFLOWED"를 냈음. 텍스트 길이에 따라 커지지 않도록 폭을
+              // 고정하고 FittedBox로 글자를 그 안에 맞춰서, 화면 폭과
+              // 무관하게 항상 일정한 폭만 차지하게 한다.
               InkWell(
                 onTap: () => onModeChanged!(!isAutoMode!),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
-                  ),
+                  width: 34,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: BoxDecoration(
                     color: isAutoMode! ? makitaTeal : Colors.deepOrange,
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Text(
-                    isAutoMode! ? "AUTO" : "MAN",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      letterSpacing: 0.5,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      isAutoMode! ? "AUTO" : "MAN",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                        letterSpacing: 0.3,
+                      ),
                     ),
                   ),
                 ),
