@@ -2332,70 +2332,84 @@ class MakitaNumericInput extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: readOnly ? null : onTap,
-                  child: AbsorbPointer(
-                    child: TextField(
-                      controller: controller,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 12,
-                        ),
-                        border: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: (isAutoMode != null && !isAutoMode!)
-                                ? Colors.orange.shade300
-                                : Colors.grey.shade400,
+          // 🚀 [수정] 이 위젯은 TwoColumnRow의 반쪽 칼럼 안에서 쓰이므로
+          // MediaQuery의 전체 화면 폭 기준으로 비율을 잡으면 실제보다 훨씬
+          // 넓게 계산된다. LayoutBuilder로 이 자리에 실제로 주어진 폭을
+          // 기준으로 AUTO/MAN 버튼 크기를 비례 계산한다(오버플로우 방지용
+          // 최소 34, 과도하게 커지지 않을 최대 64로 clamp).
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final double availableWidth = constraints.maxWidth;
+              final double autoButtonWidth = (availableWidth * 0.22).clamp(
+                34.0,
+                64.0,
+              );
+              final double fieldVerticalPadding = (availableWidth * 0.07)
+                  .clamp(10.0, 16.0);
+              return Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: readOnly ? null : onTap,
+                      child: AbsorbPointer(
+                        child: TextField(
+                          controller: controller,
+                          decoration: InputDecoration(
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: fieldVerticalPadding,
+                            ),
+                            border: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: (isAutoMode != null && !isAutoMode!)
+                                    ? Colors.orange.shade300
+                                    : Colors.grey.shade400,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor: getBgColor(),
+                          ),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: readOnly ? Colors.black54 : Colors.black87,
                           ),
                         ),
-                        filled: true,
-                        fillColor: getBgColor(),
-                      ),
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: readOnly ? Colors.black54 : Colors.black87,
                       ),
                     ),
                   ),
-                ),
-              ),
-              if (isAutoMode != null && onModeChanged != null) ...[
-                const SizedBox(width: 4),
-                // 🚀 [수정] 좁은 화면에서 오버플로우 나던 것과 동일한
-                // 위젯(mobile_settings_tab.dart와 중복 정의)이라 같이 수정.
-                // 폭을 고정하고 FittedBox로 글자를 맞춰서 화면 폭과
-                // 무관하게 항상 일정한 폭만 차지하게 한다.
-                InkWell(
-                  onTap: () => onModeChanged!(!isAutoMode!),
-                  child: Container(
-                    width: 34,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: isAutoMode! ? makitaTeal : Colors.deepOrange,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        isAutoMode! ? "AUTO" : "MAN",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                          letterSpacing: 0.3,
+                  if (isAutoMode != null && onModeChanged != null) ...[
+                    const SizedBox(width: 4),
+                    InkWell(
+                      onTap: () => onModeChanged!(!isAutoMode!),
+                      child: Container(
+                        width: autoButtonWidth,
+                        padding: EdgeInsets.symmetric(
+                          vertical: fieldVerticalPadding,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isAutoMode! ? makitaTeal : Colors.deepOrange,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            isAutoMode! ? "AUTO" : "MAN",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-              ],
-            ],
+                  ],
+                ],
+              );
+            },
           ),
           if (helperText != null) ...[
             const SizedBox(height: 6),

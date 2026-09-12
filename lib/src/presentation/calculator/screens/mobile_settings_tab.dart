@@ -2599,6 +2599,17 @@ class MakitaNumericInput extends StatelessWidget {
       return Colors.white;
     }
 
+    // 🚀 [수정] AUTO/MAN 버튼이 항상 고정 34px라 큰 화면(태블릿, 가로모드)
+    // 에서는 답답하게 작아 보였음. 화면 폭 비율로 계산하되, 폴더블 커버
+    // 화면처럼 아주 좁은 화면에서 오버플로우 나지 않을 최소값(34)과
+    // 너무 커지지 않을 최대값(64) 사이로 clamp한다.
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double autoButtonWidth = (screenWidth * 0.11).clamp(34.0, 64.0);
+    final double fieldVerticalPadding = (screenWidth * 0.032).clamp(
+      10.0,
+      16.0,
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2623,9 +2634,9 @@ class MakitaNumericInput extends StatelessWidget {
                     controller: controller,
                     decoration: InputDecoration(
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
+                      contentPadding: EdgeInsets.symmetric(
                         horizontal: 8,
-                        vertical: 12,
+                        vertical: fieldVerticalPadding,
                       ),
                       border: OutlineInputBorder(
                         borderSide: BorderSide(
@@ -2650,14 +2661,14 @@ class MakitaNumericInput extends StatelessWidget {
               const SizedBox(width: 4),
               // 🚀 [수정] 폴더블(갤럭시 Z 폴드) 커버 화면처럼 폭이 매우 좁은
               // 기기(약 344dp)에서 이 버튼 때문에 Row 전체가 "RIGHT
-              // OVERFLOWED"를 냈음. 텍스트 길이에 따라 커지지 않도록 폭을
-              // 고정하고 FittedBox로 글자를 그 안에 맞춰서, 화면 폭과
-              // 무관하게 항상 일정한 폭만 차지하게 한다.
+              // OVERFLOWED"를 냈음. 폭을 화면 비율로 계산해서 clamp하고
+              // FittedBox로 글자를 그 안에 맞춰서, 어떤 화면에서도 안
+              // 넘치면서 화면 크기에 비례해 보이게 한다.
               InkWell(
                 onTap: () => onModeChanged!(!isAutoMode!),
                 child: Container(
-                  width: 34,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  width: autoButtonWidth,
+                  padding: EdgeInsets.symmetric(vertical: fieldVerticalPadding),
                   decoration: BoxDecoration(
                     color: isAutoMode! ? makitaTeal : Colors.deepOrange,
                     borderRadius: BorderRadius.circular(4),
