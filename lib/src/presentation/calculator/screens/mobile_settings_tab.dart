@@ -310,22 +310,24 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     String helpContent,
   ) {
     return Row(
+      // 🚀 [원복] 이 함수는 대부분 Column 안(폭이 정해진 안전한 곳)에서
+      // 쓰이지만, "물림 길이(간섭) 경고" 스위치 줄처럼 Row(spaceBetween)의
+      // 일반 자식으로도 쓰인다. 그런 자리는 Flutter가 자연스러운 크기를
+      // 재려고 폭을 무한대로 주는데, 거기서 Flexible을 쓰면 "incoming
+      // width constraints are unbounded"로 즉시 크래시하고, 이 화면이
+      // IndexedStack으로 항상 미리 빌드되는 구조라 그 크래시가 다른 탭
+      // 버튼까지 먹통으로 만드는 심각한 문제로 이어졌다(실기기로 확인).
+      // 라벨을 줄여야 하는 자리는 함수 내부가 아니라 그 호출부에서
+      // Expanded로 감싸는 방식으로 해결한다.
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // 🚀 [수정] Row가 mainAxisSize.min이라 라벨 텍스트("피팅 삽입 깊이
-        // [mm]" 같은 긴 라벨)의 자연스러운 너비만큼 커지려고 했는데,
-        // 폴더블 커버 화면처럼 칼럼 폭이 아주 좁으면(약 344dp) 이게
-        // 넘쳐서 "RIGHT OVERFLOWED BY 3.3 PIXELS"가 났음. Flexible로
-        // 감싸서 공간이 부족하면 말줄임표로 줄어들게 한다.
-        Flexible(
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: slate600,
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-            ),
-            overflow: TextOverflow.ellipsis,
+        Text(
+          label,
+          style: const TextStyle(
+            color: slate600,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(width: 4),
@@ -1228,12 +1230,17 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildLabelWithHelp(
-                    context,
-                    "물림 길이(간섭) 경고",
-                    "물림 길이 경고 (초보자 권장)",
-                    "파이프 길이가 기계의 '최소 물림 구간'보다 짧게 입력되면 경고창을 띄워 불량을 막아줍니다.\n\n"
-                        "경고창이 귀찮거나, 편법으로 아슬아슬하게 물려서 벤딩을 진행하는 숙련자(고인물)는 이 스위치를 끄고 쾌속으로 작업할 수 있습니다.",
+                  // 🚀 [수정] _buildLabelWithHelp는 내부에 Flexible을 안 쓰므로
+                  // (unbounded Row에서 크래시 방지), 이 자리처럼 폭을
+                  // 줄여야 할 필요가 있으면 호출부에서 Expanded로 감싼다.
+                  Expanded(
+                    child: _buildLabelWithHelp(
+                      context,
+                      "물림 길이(간섭) 경고",
+                      "물림 길이 경고 (초보자 권장)",
+                      "파이프 길이가 기계의 '최소 물림 구간'보다 짧게 입력되면 경고창을 띄워 불량을 막아줍니다.\n\n"
+                          "경고창이 귀찮거나, 편법으로 아슬아슬하게 물려서 벤딩을 진행하는 숙련자(고인물)는 이 스위치를 끄고 쾌속으로 작업할 수 있습니다.",
+                    ),
                   ),
                   Switch(
                     value: _warnShoeInterference,
