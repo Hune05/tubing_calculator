@@ -1432,7 +1432,12 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          // 🚀 [수정] 고정 Row에 칩 2개가 그대로 들어 있어서 좁은 폰
+          // 화면에서 "RIGHT OVERFLOWED" 경고가 떴음. 가로 스크롤을 허용해
+          // 라벨 전체를 안 잘리게 유지하면서 넘치지 않게 한다.
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
             children: [
               ChoiceChip(
                 label: const Text("가상선: 센터(파란색)"),
@@ -1468,6 +1473,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
                 },
               ),
             ],
+            ),
           ),
           const SizedBox(height: 12),
           Row(

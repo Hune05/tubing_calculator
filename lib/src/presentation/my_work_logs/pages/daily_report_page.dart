@@ -6,6 +6,7 @@ import '../../../core/utils/image_picker_helper.dart';
 
 // 🚀 [추가] 방금 만든 배치도 페이지 임포트
 import 'layout_board_page.dart';
+import 'tablet_layout_board_page.dart';
 
 const Color tossBlue = Color(0xFF3182F6);
 const Color tossText = Color(0xFF191F28);
@@ -413,11 +414,16 @@ class _DailyReportPageState extends State<DailyReportPage> {
               InkWell(
                 onTap: () {
                   HapticFeedback.lightImpact();
+                  // 🚀 [수정] 화면 크기를 다시 재서 태블릿 폭이면 좌우 패널형
+                  // 태블릿 버전을, 아니면 기존 바텀시트형 모바일 버전을 연다.
+                  final bool isTabletSize =
+                      MediaQuery.of(context).size.shortestSide >= 600;
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      // 🚀 LayoutBoardPage -> MobileLayoutBoardPage 로 수정 완료
-                      builder: (context) => const MobileLayoutBoardPage(),
+                      builder: (context) => isTabletSize
+                          ? const TabletLayoutBoardPage()
+                          : const MobileLayoutBoardPage(),
                     ),
                   );
                 },

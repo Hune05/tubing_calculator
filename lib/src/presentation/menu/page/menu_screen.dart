@@ -5,6 +5,8 @@ import 'dart:convert';
 import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/electric_bending_workspace.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/electric_marking_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/tablet_layout_board_page.dart';
 
 // 💡 슬레이트 컬러 정의 (눈이 편안한 짙은 회색 톤)
 const Color makitaTeal = Color(0xFF007580);
@@ -336,6 +338,31 @@ class MenuScreen extends StatelessWidget {
           subtitle: '벤더 제원 및 배관 설정',
           iconColor: makitaTeal,
           onTap: () => Navigator.pushNamed(context, '/settings'),
+        ),
+        // 🚀 [추가] 태블릿/데스크톱 폭(이 화면 자체의 진입 조건)에서는
+        // 이 메뉴가 아예 없어서 TabletLayoutBoardPage에 도달할 방법이
+        // 없었음. 모바일 목록형 메뉴의 "작업 배치도"와 같은 기능을 연결.
+        _buildGridCard(
+          context,
+          icon: Icons.architecture_rounded,
+          title: '작업 배치도',
+          subtitle: '캐비닛 중판 레이아웃 스케치',
+          iconColor: makitaTeal,
+          onTap: () {
+            // shortestSide로 판단: width>600이어도 가로모드 폰처럼
+            // 세로 폭(shortestSide)이 좁으면 모바일(바텀시트형) UI가 더
+            // 적합하므로, 진짜 태블릿급 화면일 때만 패널형 UI를 연다.
+            final bool isTabletSize =
+                MediaQuery.of(context).size.shortestSide >= 600;
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => isTabletSize
+                    ? const TabletLayoutBoardPage()
+                    : const MobileLayoutBoardPage(),
+              ),
+            );
+          },
         ),
       ],
     );

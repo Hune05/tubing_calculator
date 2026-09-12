@@ -16,6 +16,7 @@ import 'package:tubing_calculator/src/presentation/fabrication/screens/qr_scanne
 import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_only_screen.dart';
 import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/tablet_layout_board_page.dart';
 
 // 🚀 2. 자재 관리 페이지들 임포트
 import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_login.dart';
@@ -476,10 +477,22 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                   badgeColor: slate900,
                   onTap: () {
                     HapticFeedback.lightImpact();
+                    // 🚀 [수정] 이 화면(MobileMenuPage) 자체는 앱 실행 시점의
+                    // 폭 기준(600 미만)으로만 진입하므로, 그 이후 같은 세션
+                    // 안에서 폰을 가로로 돌리거나 폴더블을 펼치는 등 실제
+                    // 화면이 커진 경우까지는 반영하지 못했다. shortestSide로
+                    // "지금 이 순간"의 화면 크기를 다시 재서, 태블릿 폭이면
+                    // 좌우 패널형 태블릿 버전을, 아니면 기존 바텀시트형
+                    // 모바일 버전을 연다. (shortestSide를 쓰는 이유: width만
+                    // 보면 가로모드 폰이 태블릿으로 잘못 분류될 수 있음)
+                    final bool isTabletSize =
+                        MediaQuery.of(context).size.shortestSide >= 600;
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const MobileLayoutBoardPage(),
+                        builder: (context) => isTabletSize
+                            ? const TabletLayoutBoardPage()
+                            : const MobileLayoutBoardPage(),
                       ),
                     );
                   },
