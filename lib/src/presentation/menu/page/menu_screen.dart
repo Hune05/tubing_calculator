@@ -200,7 +200,11 @@ class MenuScreen extends StatelessWidget {
       crossAxisCount: crossAxisCount,
       crossAxisSpacing: 24,
       mainAxisSpacing: 24,
-      childAspectRatio: 1.1,
+      // 🚀 [수정] 1.1로 고정돼 있으면 아이콘+제목+부제 내용 높이가 카드 높이보다
+      // 커서 모든 카드에서 "BOTTOM OVERFLOWED BY 18 PIXELS"가 발생했음.
+      // crossAxisCount가 늘어날수록(카드가 좁아질수록) 세로 여유가 더 필요해서
+      // 컬럼 수에 따라 비율을 낮춰(카드를 더 높게) 내용이 들어갈 공간을 확보한다.
+      childAspectRatio: crossAxisCount >= 4 ? 0.85 : 1.05,
       children: [
         _buildGridCard(
           context,

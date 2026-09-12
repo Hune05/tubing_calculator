@@ -24,6 +24,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   // 프로젝트 이름을 키(Key)로, 해당 프로젝트의 도면 리스트를 값(Value)으로 가지는 Map
   Map<String, List<Map<String, dynamic>>> _groupedHistory = {};
   bool _isLoading = true;
+  // 🚀 [수정] DB 조회 실패 시 표시할 에러 메시지. null이면 정상 상태.
+  String? _loadError;
 
   // 🚀 [추가] 검색 기능을 위한 상태 변수들
   bool _isSearching = false;
@@ -52,42 +54,56 @@ class _HistoryScreenState extends State<HistoryScreen> {
   // (상세 화면 복귀/삭제 시 목록 전체가 스피너로 바뀌었다 사라지는 깜빡임 방지)
   Future<void> _refreshHistory({bool showFullLoader = true}) async {
     if (showFullLoader) {
-      setState(() => _isLoading = true);
+      setState(() {
+        _isLoading = true;
+        _loadError = null;
+      });
     }
 
-    final data = await DatabaseHelper.instance.getHistory();
+    // 🚀 [수정] DB 조회가 실패해도(파일 손상, 저장공간 부족, 마이그레이션 오류 등)
+    // 예외가 잡히지 않아 _isLoading이 true에 멈춰버려 스피너가 영원히 도는
+    // 문제가 있었음. try/catch로 감싸서 실패 시 안내 화면으로 전환한다.
+    try {
+      final data = await DatabaseHelper.instance.getHistory();
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    // 데이터를 프로젝트(폴더)별로 그룹화
-    Map<String, List<Map<String, dynamic>>> tempGrouped = {};
-    for (var item in data) {
-      String rawPtoP = item['p_to_p'] ?? '{}';
-      String project = "미지정 프로젝트";
-      try {
-        var pData = jsonDecode(rawPtoP);
-        // 저장 시 입력한 프로젝트명이 빈 칸이 아니면 사용
-        if (pData['project'] != null &&
-            pData['project'].toString().trim().isNotEmpty) {
-          project = pData['project'];
+      // 데이터를 프로젝트(폴더)별로 그룹화
+      Map<String, List<Map<String, dynamic>>> tempGrouped = {};
+      for (var item in data) {
+        String rawPtoP = item['p_to_p'] ?? '{}';
+        String project = "미지정 프로젝트";
+        try {
+          var pData = jsonDecode(rawPtoP);
+          // 저장 시 입력한 프로젝트명이 빈 칸이 아니면 사용
+          if (pData['project'] != null &&
+              pData['project'].toString().trim().isNotEmpty) {
+            project = pData['project'];
+          }
+        } catch (_) {}
+
+        if (!tempGrouped.containsKey(project)) {
+          tempGrouped[project] = [];
         }
-      } catch (_) {}
-
-      if (!tempGrouped.containsKey(project)) {
-        tempGrouped[project] = [];
+        tempGrouped[project]!.add(item);
       }
-      tempGrouped[project]!.add(item);
+
+      // 폴더 안의 도면들을 '최신순(ID 내림차순)'으로 정렬
+      tempGrouped.forEach((key, list) {
+        list.sort((a, b) => (b['id'] as int).compareTo(a['id'] as int));
+      });
+
+      setState(() {
+        _groupedHistory = tempGrouped;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _loadError = e.toString();
+      });
     }
-
-    // 폴더 안의 도면들을 '최신순(ID 내림차순)'으로 정렬
-    tempGrouped.forEach((key, list) {
-      list.sort((a, b) => (b['id'] as int).compareTo(a['id'] as int));
-    });
-
-    setState(() {
-      _groupedHistory = tempGrouped;
-      _isLoading = false;
-    });
   }
 
   @override
@@ -170,6 +186,38 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: makitaTeal))
+          : _loadError != null
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 80,
+                    color: Colors.red.shade300,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '도면 보관함을 불러오지 못했습니다.',
+                    style: TextStyle(
+                      color: slate600,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    onPressed: () => _refreshHistory(),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('다시 시도'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: makitaTeal,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            )
           : filteredGroupedHistory.isEmpty
           ? Center(
               child: Column(
