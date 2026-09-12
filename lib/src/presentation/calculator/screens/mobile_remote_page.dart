@@ -159,7 +159,10 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
       double h = val1;
       double angle = angleInput;
       if (h > 0 && angle > 0 && angle < 90) {
-        double sinVal = math.sin(angle * (math.pi / 180));
+        // 🚀 3-Point 새들(원형 배관)은 중심각의 절반(사이드 각)을 기준으로 계산해야 함.
+        // 4-Point는 각도를 그대로 사용. (mobile_saddle_bottom_sheet.dart의 공식과 일치시킴)
+        double effectiveAngle = _innerTabs[m] == 0 ? angle / 2 : angle;
+        double sinVal = math.sin(effectiveAngle * (math.pi / 180));
         if (sinVal != 0) {
           _safeUpdate(_result1Ctrls[m], (h / sinVal).toStringAsFixed(1));
         }

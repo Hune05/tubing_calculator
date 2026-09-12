@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
+import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_offset_bottom_sheet.dart';
@@ -39,11 +38,6 @@ class _MobileInputTabState extends State<MobileInputTab>
   double? _selectedRotation;
   int? _editingIndex;
 
-  // 장비 설정값 및 파이프 제원 저장 변수
-  double _minStraight = 0.0;
-  bool _warnShoeInterference = true;
-  double _tubeOD = 12.7; // 기본값 1/2인치(12.7mm)
-
   final List<Map<String, dynamic>> _directions = [
     {"label": "UP (위)", "val": 0.0, "icon": Icons.arrow_upward},
     {"label": "FRONT (앞)", "val": 360.0, "icon": Icons.call_made},
@@ -53,26 +47,27 @@ class _MobileInputTabState extends State<MobileInputTab>
     {"label": "BACK (뒤)", "val": 450.0, "icon": Icons.call_received},
   ];
 
+  // 🚀 [수정] 이 탭이 자체적으로 SettingsManager/SharedPreferences를 읽어서
+  // 로컬 캐시(_minStraight/_warnShoeInterference/_tubeOD)로 들고 있던 걸
+  // 없애고, AppSettingsController를 직접 구독한다. 설정 탭에서 값을 바꾸면
+  // 이 탭이 열려 있는 상태에서도 즉시 반영된다 (이전에는 탭을 나갔다 다시
+  // 들어와야만 반영됐음).
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    AppSettingsController().ensureLoaded().then((_) {
+      if (mounted) setState(() {});
+    });
+    AppSettingsController().addListener(_onSettingsChanged);
   }
 
-  Future<void> _loadSettings() async {
-    final data = await SettingsManager.loadSettings();
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        _minStraight = data['minStraight'] ?? 0.0;
-        _tubeOD = data['tubeOD'] ?? 12.7;
-        _warnShoeInterference = prefs.getBool('warnShoeInterference') ?? true;
-      });
-    }
+  void _onSettingsChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    AppSettingsController().removeListener(_onSettingsChanged);
     _lengthController.dispose();
     _customAngleController.dispose();
     super.dispose();
@@ -122,10 +117,13 @@ class _MobileInputTabState extends State<MobileInputTab>
 
     double finalRotation = _selectedAngle == 0.0 ? 0.0 : _selectedRotation!;
 
-    // 기계 간섭 & 누설 위험 이중 검사 로직
-    double minFittingStraight = _getMinFittingStraight(_tubeOD);
+    final settings = AppSettingsController();
 
-    bool isShoeInterference = _warnShoeInterference && length < _minStraight;
+    // 기계 간섭 & 누설 위험 이중 검사 로직
+    double minFittingStraight = _getMinFittingStraight(settings.tubeOD);
+
+    bool isShoeInterference =
+        settings.warnShoeInterference && length < settings.minStraight;
     bool isLeakRisk = length < minFittingStraight;
 
     // 만약 둘 중 하나라도 위험 요소가 발견되면 복합 경고창을 띄움
@@ -170,7 +168,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                   ),
                 ),
                 Text(
-                  "장비 최소 물림 거리(${_minStraight}mm) 부족",
+                  "장비 최소 물림 거리(${AppSettingsController().minStraight}mm) 부족",
                   style: const TextStyle(color: slate600, fontSize: 12),
                 ),
               ],
@@ -451,8 +449,9 @@ class _MobileInputTabState extends State<MobileInputTab>
   Widget build(BuildContext context) {
     super.build(context);
 
-    // 매 렌더링 시마다 최신 장비 설정값 및 튜브 규격을 업데이트
-    _loadSettings();
+    // 🚀 [수정] build()에서 매번 _loadSettings()를 호출하면 setState -> 재빌드 ->
+    // _loadSettings() 재호출 이 반복되는 무한 루프가 생겨서 삭제함.
+    // 설정값은 initState()에서 한 번만 불러온다.
 
     return ListenableBuilder(
       listenable: MobileBendDataManager(),
@@ -753,11 +752,15 @@ class _MobileInputTabState extends State<MobileInputTab>
                               title: "벤딩 각도 입력 (°)",
                             );
                             setState(() {
+                              // 🚀 [수정] 음수/180° 초과 입력 방지 (0~180° 범위로 클램프).
+                              // 180°에 가까운 값은 계산 엔진에서 별도로 에러 처리되며,
+                              // U-Bend는 전용 계산기를 사용하도록 안내함.
                               _selectedAngle =
-                                  double.tryParse(
-                                    _customAngleController.text,
-                                  ) ??
-                                  0.0;
+                                  (double.tryParse(
+                                            _customAngleController.text,
+                                          ) ??
+                                          0.0)
+                                      .clamp(0.0, 180.0);
                               if (_selectedAngle == 0.0)
                                 _selectedRotation = null;
                             });

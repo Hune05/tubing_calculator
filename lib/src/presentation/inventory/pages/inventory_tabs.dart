@@ -184,7 +184,7 @@ extension InventoryTabsExt on _InventoryPageState {
     String heatNo = item['heatNo'] ?? "";
     String location = item['location'] ?? "";
     int currentQty = item['qty'] ?? 0;
-    int minQty = item['min_qty'] ?? 10;
+    int minQty = item['minQty'] ?? item['min_qty'] ?? 10;
 
     bool isLowStock = !isDead && (currentQty <= minQty);
     bool isSelected = _selectedDocId == id;

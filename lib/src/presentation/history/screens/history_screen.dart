@@ -42,8 +42,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
     super.dispose();
   }
 
-  Future<void> _refreshHistory() async {
-    setState(() => _isLoading = true);
+  // 🚀 [수정] 날짜 문자열이 10자 미만이어도(빈 문자열 등) 크래시 나지 않도록 안전하게 자름
+  String _safeDatePrefix(dynamic date) {
+    final raw = date?.toString() ?? '';
+    return raw.length >= 10 ? raw.substring(0, 10) : raw;
+  }
+
+  // 🚀 [수정] showFullLoader=false로 호출하면 이미 떠 있는 목록을 유지한 채 조용히 갱신한다.
+  // (상세 화면 복귀/삭제 시 목록 전체가 스피너로 바뀌었다 사라지는 깜빡임 방지)
+  Future<void> _refreshHistory({bool showFullLoader = true}) async {
+    if (showFullLoader) {
+      setState(() => _isLoading = true);
+    }
 
     final data = await DatabaseHelper.instance.getHistory();
 
@@ -265,7 +275,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 ),
                               );
                               if (!mounted) return;
-                              _refreshHistory();
+                              _refreshHistory(showFullLoader: false);
                             },
                             title: Text(
                               fromTo,
@@ -309,7 +319,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    "날짜: ${item['date']?.toString().substring(0, 10) ?? ''}",
+                                    "날짜: ${_safeDatePrefix(item['date'])}",
                                     style: TextStyle(
                                       color: Colors.grey.shade500,
                                       fontSize: 11,
@@ -375,7 +385,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                     item['id'],
                                   );
                                   if (!mounted) return;
-                                  _refreshHistory();
+                                  _refreshHistory(showFullLoader: false);
                                 }
                               },
                             ),

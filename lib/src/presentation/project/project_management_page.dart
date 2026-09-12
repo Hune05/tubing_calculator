@@ -1070,10 +1070,14 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
 
     try {
       final materials = project['materials'] as List<dynamic>;
+      // 🚀 [버그 수정] 여러 건의 Firestore 쓰기를 하나의 배치로 묶어 원자적으로 처리합니다.
+      // (기존에는 자재 하나씩 개별적으로 await 하다가 중간에 실패하면 일부만 차감된 채
+      //  isDeducted가 false로 남아, 재시도 시 이미 차감된 자재가 중복으로 또 차감되는 문제가 있었습니다.)
+      final batch = _db.batch();
       for (var mat in materials) {
         int requiredQty = mat['type'] == 'TUBE'
-            ? ((mat['qty_mm'] as int) / 6000).ceil()
-            : mat['qty_ea'] as int;
+            ? ((mat['qty_mm'] as num) / 6000).ceil()
+            : (mat['qty_ea'] as num).toInt();
         final snapshot = await _db
             .collection('inventory')
             .where('name', isEqualTo: mat['db_name'])
@@ -1081,11 +1085,11 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
             .get();
         if (snapshot.docs.isNotEmpty) {
           final doc = snapshot.docs.first;
-          await _db.collection('inventory').doc(doc.id).update({
+          batch.update(_db.collection('inventory').doc(doc.id), {
             'qty': (doc.data()['qty'] ?? 0) - requiredQty,
           });
         } else {
-          await _db.collection('inventory').add({
+          batch.set(_db.collection('inventory').doc(), {
             "name": mat['db_name'],
             "size": mat['spec'] ?? "규격 확인 필요",
             "category": mat['type'],
@@ -1097,7 +1101,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
             "location": "임시 등록 (확인 요망)",
           });
         }
-        await _db.collection('inventory_logs').add({
+        batch.set(_db.collection('inventory_logs').doc(), {
           "project_name": project['name'],
           "material_name": mat['db_name'],
           "deducted_qty": requiredQty,
@@ -1105,6 +1109,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
           "timestamp": FieldValue.serverTimestamp(),
         });
       }
+      await batch.commit();
 
       if (mounted) Navigator.pop(context);
       setState(() {

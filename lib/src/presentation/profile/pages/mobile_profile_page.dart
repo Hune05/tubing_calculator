@@ -258,7 +258,8 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                     // 3. 이름이 바뀌었으니 토큰도 새 이름 문서에 저장
                     await _saveUserToken(newId);
 
-                    // 4. 화면 즉시 업데이트
+                    // 4. 화면 즉시 업데이트 (그 사이 화면이 닫혔을 수 있으니 mounted 체크)
+                    if (!mounted) return;
                     setState(() {
                       _displayName = newId;
                     });

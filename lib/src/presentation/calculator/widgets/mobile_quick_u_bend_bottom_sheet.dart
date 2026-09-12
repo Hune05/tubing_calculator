@@ -120,12 +120,23 @@ class _MobileQuickUBendBottomSheetState
     double startCutAdd = _isStartFitting ? fittingDepth : 0.0;
     double returnCutAdd = _isReturnFitting ? fittingDepth : 0.0;
 
-    // 총 절단 기장 = 앞 직관 + 뒤 직관 + 호(Arc) 길이 + 피팅 체결 여유분
+    // 🚀 [수정] 실측 연신율(gain90)이 계산에 전혀 반영되지 않고 순수 기하학적
+    // 호 길이(arcLength)만 쓰이고 있었음. 180°는 셋백(setBack = R·tan(θ/2))이
+    // 발산해서 다른 각도처럼 gain90 * (θ/90)을 그대로 쓸 수 없지만, 이 앱의
+    // 설정 화면 참고표(꿀단지 1. 180° U-벤딩)에 이미 "180° 연신율은 90° 연신율의
+    // 2배보다 더 늘어난다"고 명시되어 있으므로, 2×gain90을 최소 보정치(하한선)로
+    // 적용한다. 완전히 무보정(0)인 것보다는 실제값에 훨씬 가깝지만, 여전히
+    // 과소 절단(짧게 잘림) 방향의 근사치이므로 정밀도가 중요하면 실측 180° 연신율을
+    // 직접 측정해서 반영하는 걸 권장한다.
+    final double u180GainEstimate = gain90 > 0 ? gain90 * 2 : 0.0;
+
+    // 총 절단 기장 = 앞 직관 + 뒤 직관 + 호(Arc) 길이 + 연신율 보정 + 피팅 체결 여유분
     if (startStraight > 0 || returnStraight > 0) {
       totalCutLength =
           startStraight +
           returnStraight +
           arcLength +
+          u180GainEstimate +
           startCutAdd +
           returnCutAdd;
     }
@@ -246,6 +257,17 @@ class _MobileQuickUBendBottomSheetState
                               fontWeight: FontWeight.w600,
                             ),
                           ),
+                          if (u180GainEstimate > 0) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              "• 연신율 보정(최소 추정치, 90° 실측값×2): +${u180GainEstimate.toStringAsFixed(1)} mm",
+                              style: TextStyle(
+                                color: Colors.amber.shade900,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

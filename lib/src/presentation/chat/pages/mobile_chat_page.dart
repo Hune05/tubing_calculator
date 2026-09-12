@@ -62,31 +62,42 @@ class _MobileChatPageState extends State<MobileChatPage> {
         .orderBy('timestamp', descending: true)
         .limit(_perPage);
 
-    _realtimeSub = query.snapshots().listen((snapshot) {
-      if (!mounted) return;
+    _realtimeSub = query.snapshots().listen(
+      (snapshot) {
+        if (!mounted) return;
 
-      setState(() {
-        if (_messages.isEmpty) {
-          _messages.addAll(snapshot.docs);
-          if (snapshot.docs.isNotEmpty) _lastDoc = snapshot.docs.last;
-          _hasMore = snapshot.docs.length == _perPage;
-        } else {
-          for (var change in snapshot.docChanges) {
-            if (change.type == DocumentChangeType.added) {
-              final exists = _messages.any((doc) => doc.id == change.doc.id);
-              if (!exists) _messages.insert(0, change.doc);
-            } else if (change.type == DocumentChangeType.modified) {
-              final index = _messages.indexWhere(
-                (doc) => doc.id == change.doc.id,
-              );
-              if (index != -1) _messages[index] = change.doc;
-            } else if (change.type == DocumentChangeType.removed) {
-              _messages.removeWhere((doc) => doc.id == change.doc.id);
+        setState(() {
+          if (_messages.isEmpty) {
+            _messages.addAll(snapshot.docs);
+            if (snapshot.docs.isNotEmpty) _lastDoc = snapshot.docs.last;
+            _hasMore = snapshot.docs.length == _perPage;
+          } else {
+            for (var change in snapshot.docChanges) {
+              if (change.type == DocumentChangeType.added) {
+                final exists = _messages.any((doc) => doc.id == change.doc.id);
+                if (!exists) _messages.insert(0, change.doc);
+              } else if (change.type == DocumentChangeType.modified) {
+                final index = _messages.indexWhere(
+                  (doc) => doc.id == change.doc.id,
+                );
+                if (index != -1) _messages[index] = change.doc;
+              } else if (change.type == DocumentChangeType.removed) {
+                _messages.removeWhere((doc) => doc.id == change.doc.id);
+              }
             }
           }
+        });
+      },
+      onError: (error) {
+        // 🔥 에러 발생 시 무한 로딩 방지 및 로그 출력
+        debugPrint("전체 채팅 스트림 에러: $error");
+        if (mounted) {
+          setState(() {
+            _hasMore = false;
+          });
         }
-      });
-    });
+      },
+    );
   }
 
   Future<void> _fetchMoreMessages() async {

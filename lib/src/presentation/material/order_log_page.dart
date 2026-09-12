@@ -589,7 +589,7 @@ class _OrderLogPageState extends State<OrderLogPage> {
     csv.writeln("요청일자,상태,요청자,담당자,품목,수량,비고");
     for (var log in _currentFilteredLogs) {
       csv.writeln(
-        "${_formatDate(log.requestDate)},${log.status},${log.requester},${log.assignee},${log.items.first.title},${log.items.length},${(log.note ?? "").replaceAll(',', ' ')}",
+        "${_formatDate(log.requestDate)},${log.status},${log.requester},${log.assignee},${log.items.first.title},${log.items.first.qty},${(log.note ?? "").replaceAll(',', ' ')}",
       );
     }
     await Clipboard.setData(ClipboardData(text: csv.toString()));

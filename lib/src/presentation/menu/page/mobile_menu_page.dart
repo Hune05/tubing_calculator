@@ -58,7 +58,7 @@ class MobileMenuPage extends StatefulWidget {
   const MobileMenuPage({
     super.key,
     required this.currentWorker,
-    this.isAdmin = true,
+    this.isAdmin = false,
   });
 
   @override

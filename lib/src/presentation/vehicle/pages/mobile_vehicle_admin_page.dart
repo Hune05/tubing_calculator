@@ -434,11 +434,13 @@ class _MobileVehicleAdminPageState extends State<MobileVehicleAdminPage> {
                               });
                             }
                           } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('사진을 가져오는 중 오류가 발생했습니다.'),
-                              ),
-                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('사진을 가져오는 중 오류가 발생했습니다.'),
+                                ),
+                              );
+                            }
                           }
                         },
                         child: Container(

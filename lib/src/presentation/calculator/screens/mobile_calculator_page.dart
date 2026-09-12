@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
+import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 
 // 🚀 아래 파일들은 동일한 폴더 또는 적절한 경로에 있다고 가정합니다.
 import 'mobile_input_tab.dart';
@@ -32,6 +33,13 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
     super.initState();
     // 🚀 앱이 켜질 때 딱 한 번 과거 데이터를 무조건 불러와서 꽉 쥡니다!
     MobileBendDataManager().loadSavedSettings();
+
+    // 🚀 [추가] 앱 전역 설정(단위, 최소 직선 구간, 화면 꺼짐 방지 등)도
+    // 여기서 한 번 미리 로드해둔다. 이렇게 해두면 사용자가 설정 탭을
+    // 아직 열지 않았어도 "화면 꺼짐 방지" 같은 값이 앱 시작 시점부터
+    // 바로 적용된다. 이미 로드되어 있으면 ensureLoaded()는 아무 것도
+    // 하지 않으므로 여러 곳에서 불러도 안전하다.
+    AppSettingsController().ensureLoaded();
   }
 
   // 🚀 하단 탭바 터치 시 애니메이션 없이 즉각적으로 인덱스만 변경합니다.

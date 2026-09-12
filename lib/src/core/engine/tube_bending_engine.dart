@@ -32,6 +32,11 @@ class TubeBendingEngine {
   final double radius; // 벤더기 곡률 반경
   final double userGain90; // 💡 사용자가 입력한 90도 기준 연신율 (추가됨)
 
+  // 🚀 [추가] 180°에 근접한 각도 (setBack = R*tan(θ/2) 가 발산하는 지점) 방어용 상한.
+  // 180°는 진입/진출 접선이 평행해져 "C-to-C(교차점)" 방식 자체가 정의되지 않으므로,
+  // 이 임계값 이상은 계산하지 않고 명확한 에러를 던진다 (전용 U-Bend 계산기 사용 유도).
+  static const double _maxSafeAngle = 179.9;
+
   TubeBendingEngine({
     required this.radius,
     this.userGain90 = 0.0, // 기본값 처리
@@ -43,7 +48,13 @@ class TubeBendingEngine {
     double startFitting,
   ) {
     if (instructions.isEmpty) {
-      return {'totalCutLength': 0.0, 'steps': <StepResult>[]};
+      return {
+        'totalCutLength': 0.0,
+        'steps': <StepResult>[],
+        // 🚀 [수정] 빈 리스트일 때도 다른 경로와 동일하게 totalGain 키를 항상 포함시켜
+        // result['totalGain']을 무조건 읽는 호출부가 null 캐스팅 에러를 내지 않도록 함
+        'totalGain': 0.0,
+      };
     }
 
     double currentTapePos = startFitting;
@@ -60,7 +71,7 @@ class TubeBendingEngine {
         // 직관(0도) 모드: 순수 물리적 연장선
         double markPoint = currentTapePos + inst.length;
         double incremental = steps.isEmpty
-            ? markPoint
+            ? (markPoint - startFitting)
             : (markPoint - prevMarkPoint);
 
         steps.add(
@@ -75,6 +86,17 @@ class TubeBendingEngine {
         prevSetBack = 0.0;
         prevMarkPoint = markPoint;
       } else {
+        // 🚀 [수정] 0° 초과 180° 근접(179.9°) 미만인지 검증.
+        // 음수/0 이하 각도나 180°에 가까운(또는 그 이상) 각도가 들어오면
+        // setBack = R*tan(θ/2)가 음수이거나 발산(사실상 무한대)하면서
+        // 이후 모든 마킹/절단 길이 계산이 조용히 깨진 값으로 오염된다.
+        if (inst.angle <= 0 || inst.angle >= _maxSafeAngle) {
+          throw ArgumentError(
+            '벤딩 각도(${inst.angle}°)가 유효 범위(0° 초과 ~ $_maxSafeAngle° 미만)를 벗어났습니다. '
+            '180°에 가까운 U-Bend는 전용 U-Bend 계산기를 사용해주세요.',
+          );
+        }
+
         // 💡 벤딩 모드: C-to-C (교차점) 기준 계산
         final double thetaRad = inst.angle * (math.pi / 180.0);
 
@@ -85,7 +107,7 @@ class TubeBendingEngine {
         double straightPart = inst.length - prevSetBack - setBack;
         double markPoint = currentTapePos + straightPart;
         double incremental = steps.isEmpty
-            ? markPoint
+            ? (markPoint - startFitting)
             : (markPoint - prevMarkPoint);
 
         // 3. 🚀 [핵심 수정] 연신율(Gain) 적용

@@ -66,7 +66,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
       item.spec = docData['spec'] ?? '';
       item.projectName = docData['projectName'] ?? '';
       item.department = docData['department'] ?? '';
-      item.minQty = docData['minQty'] ?? 0;
+      item.minQty = docData['minQty'] ?? docData['min_qty'] ?? 0;
     } catch (_) {}
     return item;
   }

@@ -3,10 +3,9 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
+import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 
 // 🚀 [수정] Mobile 접두사가 붙은 최신 파일 경로 및 클래스명으로 모두 교체
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
@@ -73,10 +72,16 @@ class _CalculatorPageState extends State<CalculatorPage>
   StreamSubscription<QuerySnapshot>? _remoteSubscription;
   late int _listenerStartTime;
 
+  // 🚀 [수정] 같은 스냅샷에 여러 명령이 한꺼번에 들어와도 유실되지 않도록 큐로 처리
+  final List<Map<String, dynamic>> _remoteQueue = [];
+
   String _localStartDir = 'RIGHT';
 
   double _safeMargin = 100.0;
-  double _minStraightFromSettings = 50.0;
+
+  // 🚀 [수정] 최소 직선 구간은 더 이상 이 화면이 직접 SettingsManager를 불러서
+  // 캐시하지 않는다 - AppSettingsController().minStraight를 그때그때 읽는다.
+  double get _minStraightFromSettings => AppSettingsController().minStraight;
 
   double get _rawLengthSum {
     if (widget.bendList.isEmpty) return 0.0;
@@ -96,11 +101,22 @@ class _CalculatorPageState extends State<CalculatorPage>
     super.initState();
     _localStartDir = widget.startDir;
     _loadSavedStartDir();
-    _loadMinStraightSetting();
+
+    // 🚀 [수정] 이 화면은 더 이상 wakelock을 직접 켜지 않는다.
+    // "화면 꺼짐 방지"는 사용자의 영속 설정(AppSettingsController.keepScreenOn)에
+    // 따라서만 켜지고 꺼진다 - 이전에는 이 화면에 들어오기만 하면 설정과
+    // 무관하게 무조건 켜져서, 설정에서 꺼도 계산기 화면에서는 계속 켜져
+    // 있는 불일치가 있었다. AppSettingsController가 아직 로드 전이면
+    // 로드가 끝나는 시점에 알아서 wakelock을 적용해준다.
+    AppSettingsController().ensureLoaded();
+    AppSettingsController().addListener(_onSettingsChanged);
 
     _listenerStartTime = DateTime.now().millisecondsSinceEpoch;
     _startRemoteListener();
-    WakelockPlus.enable();
+  }
+
+  void _onSettingsChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -110,19 +126,6 @@ class _CalculatorPageState extends State<CalculatorPage>
       setState(() {
         _localStartDir = widget.startDir;
       });
-    }
-  }
-
-  Future<void> _loadMinStraightSetting() async {
-    try {
-      final data = await SettingsManager.loadSettings();
-      if (mounted) {
-        setState(() {
-          _minStraightFromSettings = data['minStraight'] ?? 50.0;
-        });
-      }
-    } catch (e) {
-      debugPrint("최소 직선 구간 불러오기 실패: $e");
     }
   }
 
@@ -147,21 +150,43 @@ class _CalculatorPageState extends State<CalculatorPage>
         .where('timestamp', isGreaterThan: _listenerStartTime)
         .orderBy('timestamp', descending: false)
         .snapshots()
-        .listen((snapshot) {
-          for (var change in snapshot.docChanges) {
-            if (change.type == DocumentChangeType.added) {
-              final data = change.doc.data();
-              if (data != null) {
-                receiveRemoteData(data);
+        .listen(
+          (snapshot) {
+            for (var change in snapshot.docChanges) {
+              if (change.type == DocumentChangeType.added) {
+                final data = change.doc.data();
+                if (data != null) {
+                  // 🚀 [수정] 즉시 처리하지 않고 큐에 쌓은 뒤 순차 처리 -> 동시 도착 시 유실 방지
+                  _remoteQueue.add(data);
+                }
               }
             }
-          }
-        });
+            _processRemoteQueue();
+          },
+          // 🚀 [수정] 스트림 에러 발생 시 조용히 죽지 않도록 로그를 남김
+          onError: (error, stackTrace) {
+            debugPrint("원격 명령 리스너 오류: $error");
+          },
+        );
+  }
+
+  // 🚀 [추가] 원격 명령 큐를 하나씩 순차적으로 처리
+  Future<void> _processRemoteQueue() async {
+    if (_isAutoProcessing || _remoteQueue.isEmpty || !mounted) return;
+    final data = _remoteQueue.removeAt(0);
+    await receiveRemoteData(data);
+    if (mounted && _remoteQueue.isNotEmpty) {
+      // ignore: unawaited_futures
+      _processRemoteQueue();
+    }
   }
 
   @override
   void dispose() {
-    WakelockPlus.disable();
+    // 🚀 [수정] 이 화면이 wakelock을 켰던 게 아니므로, 나갈 때도 강제로
+    // disable() 하지 않는다 (그러면 설정에서 켜둔 wakelock을 이 화면을
+    // 나가는 순간 꺼버리는 반대 방향의 버그가 생긴다).
+    AppSettingsController().removeListener(_onSettingsChanged);
     _remoteSubscription?.cancel();
     _tempController.dispose();
     super.dispose();
@@ -195,19 +220,22 @@ class _CalculatorPageState extends State<CalculatorPage>
     await MakitaNumpad.show(
       context,
       controller: controller,
-      title: "자유 각도 입력 (0~360°)",
+      // 🚀 [수정] 실제 물리적으로 유효한 범위(0~180°)로 안내 문구 정정
+      title: "자유 각도 입력 (0~180°)",
     );
 
     if (!mounted) return;
     double? val = double.tryParse(controller.text);
     if (val != null) {
       setState(() {
-        _currentAngle = val > 360.0 ? 360.0 : val;
+        // 🚀 [수정] 음수 입력을 막고, 180°를 넘는 값도 클램프
+        // (180°에 근접한 값은 엔진에서 별도로 에러 처리됨 - U-Bend 전용 계산기 사용 권장)
+        _currentAngle = val.clamp(0.0, 180.0);
       });
     }
   }
 
-  void receiveRemoteData(Map<String, dynamic> data) async {
+  Future<void> receiveRemoteData(Map<String, dynamic> data) async {
     if (!mounted || _isAutoProcessing) return;
 
     setState(() => _isAutoProcessing = true);
@@ -232,9 +260,9 @@ class _CalculatorPageState extends State<CalculatorPage>
     await Future.delayed(const Duration(milliseconds: 400));
 
     if (mode == "STRAIGHT" || mode == "직관 (Straight)") {
-      _executeMacro(val1, 0.0, targetRot, docId);
+      await _executeMacro(val1, 0.0, targetRot, docId);
     } else if (mode == "BEND_90" || mode == "90° 벤딩") {
-      _executeMacro(val1, 90.0, targetRot, docId);
+      await _executeMacro(val1, 90.0, targetRot, docId);
     } else if (mode == "OFFSET" || mode == "오프셋") {
       double d = 0;
       double finalAngle = angle;
@@ -246,14 +274,14 @@ class _CalculatorPageState extends State<CalculatorPage>
         finalAngle =
             math.asin((val1 / val2).clamp(-1.0, 1.0)) * (180 / math.pi);
       }
-      _executeMacro(d, finalAngle, targetRot, docId);
+      await _executeMacro(d, finalAngle, targetRot, docId);
     } else if (mode == "SADDLE" || mode == "새들") {
       double d = val1;
       if (angle > 0) {
         double sinVal = math.sin(angle * (math.pi / 180));
         d = sinVal == 0 ? val1 : val1 / sinVal;
       }
-      _executeMacro(d, angle, targetRot, docId);
+      await _executeMacro(d, angle, targetRot, docId);
     } else if (mode == "ROLLING" || mode == "롤링 오프셋") {
       double trueH = math.sqrt((val1 * val1) + (val2 * val2));
       double d = trueH;
@@ -261,7 +289,7 @@ class _CalculatorPageState extends State<CalculatorPage>
         double sinVal = math.sin(angle * (math.pi / 180));
         d = sinVal == 0 ? trueH : trueH / sinVal;
       }
-      _executeMacro(d, angle, targetRot, docId);
+      await _executeMacro(d, angle, targetRot, docId);
     } else {
       setState(() => _isAutoProcessing = false);
     }
@@ -286,7 +314,7 @@ class _CalculatorPageState extends State<CalculatorPage>
     }
   }
 
-  void _executeMacro(
+  Future<void> _executeMacro(
     double length,
     double angle,
     double rot,
@@ -302,14 +330,15 @@ class _CalculatorPageState extends State<CalculatorPage>
 
     if (!mounted) return;
 
-    _handleApply();
+    // 🚀 [수정] 실제 적용 성공 여부를 받아서 원격 쪽에 정확한 상태를 전달
+    final bool success = _handleApply();
 
     if (docId.isNotEmpty) {
       try {
         await FirebaseFirestore.instance
             .collection('remote_commands')
             .doc(docId)
-            .update({'status': 'completed'});
+            .update({'status': success ? 'completed' : 'failed'});
       } catch (e) {
         debugPrint("상태 업데이트 실패: $e");
       }
@@ -329,7 +358,8 @@ class _CalculatorPageState extends State<CalculatorPage>
     return "${rot.toInt()}°";
   }
 
-  void _handleApply() {
+  // 🚀 [수정] 성공 여부를 bool로 반환하도록 변경 (원격 명령 완료 처리에 사용)
+  bool _handleApply() {
     final double? val = double.tryParse(_tempController.text);
     if (val != null && val > 0) {
       if (_currentAngle == null) {
@@ -340,7 +370,7 @@ class _CalculatorPageState extends State<CalculatorPage>
             duration: Duration(milliseconds: 1500),
           ),
         );
-        return;
+        return false;
       }
 
       if (_currentRotation == null) {
@@ -351,7 +381,7 @@ class _CalculatorPageState extends State<CalculatorPage>
             duration: Duration(milliseconds: 1500),
           ),
         );
-        return;
+        return false;
       }
 
       if (_editingIndex != null) {
@@ -372,7 +402,18 @@ class _CalculatorPageState extends State<CalculatorPage>
         _currentRotation = null;
       });
       FocusScope.of(context).unfocus();
+      return true;
     }
+
+    // 🚀 [수정] 길이가 비어있거나 0 이하일 때도 다른 검증들과 일관되게 안내
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("⚠️ 올바른 길이를 입력해주세요."),
+        backgroundColor: slate600,
+        duration: Duration(milliseconds: 1500),
+      ),
+    );
+    return false;
   }
 
   void _startEdit(int index) {
@@ -1504,7 +1545,9 @@ class _MakitaBtnState extends State<_MakitaBtn> {
         onTapDown: (_) => setState(() => _isPressed = true),
         onTapUp: (_) async {
           await Future.delayed(const Duration(milliseconds: 100));
-          if (mounted) setState(() => _isPressed = false);
+          // 🚀 [수정] 지연 중 위젯이 사라졌으면 onTap을 호출하지 않음
+          if (!mounted) return;
+          setState(() => _isPressed = false);
           widget.onTap();
         },
         onTapCancel: () => setState(() => _isPressed = false),

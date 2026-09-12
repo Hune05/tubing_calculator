@@ -351,9 +351,18 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
   @override
   Widget build(BuildContext context) {
     final dataManager = BendDataManager();
-    final double radius = dataManager.takeUp90;
+    // 🚀 [수정] 반경을 takeUp90이 아니라 실제 radius 필드에서 읽는다.
+    // 예전엔 테이크업 값을 반경으로 잘못 대입해서, 이 화면의 모든 마킹
+    // 포인트/총 절단 길이 계산이 틀린 값 기준으로 나오고 있었다
+    // (데스크톱 MarkingPage에 있던 것과 완전히 같은 버그).
+    final double radius = dataManager.radius;
     final double fittingDepth = dataManager.fittingDepth;
-    final engine = TubeBendingEngine(radius: radius);
+    // 🚀 [수정] 사용자가 입력한 실측 연신율(gain90)을 엔진에 전달한다.
+    // 예전엔 이게 빠져 있어서 항상 이론상 공식으로만 계산됐다.
+    final engine = TubeBendingEngine(
+      radius: radius,
+      userGain90: dataManager.gain90,
+    );
 
     List<BendInstruction> instructions = [];
     for (int i = 0; i < widget.bendList.length; i++) {
@@ -370,7 +379,61 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
       );
     }
 
-    final result = engine.calculate(instructions, 0.0);
+    // 🚀 [수정] 180°에 가까운 벤딩 등 엔진이 계산할 수 없는 입력이 있으면
+    // 화면 전체가 빨간 에러 화면으로 크래시하는 대신 안내 카드로 대체한다.
+    Map<String, dynamic>? result;
+    String? calcError;
+    try {
+      result = engine.calculate(instructions, 0.0);
+    } catch (e) {
+      calcError = e.toString();
+    }
+
+    if (calcError != null || result == null) {
+      return Scaffold(
+        backgroundColor: slate100,
+        appBar: AppBar(
+          title: const Text("MARKING GUIDE"),
+          backgroundColor: Colors.orange.shade800,
+          foregroundColor: Colors.white,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.error_outline_rounded,
+                  color: Colors.red.shade400,
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  "이 도면은 계산할 수 없습니다.",
+                  style: TextStyle(
+                    color: slate900,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  calcError ?? "알 수 없는 오류",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: slate600, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final double pureCutLength = result['totalCutLength'];
     final List<StepResult> steps = result['steps'];
 

@@ -106,16 +106,21 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
           .collection('chat_rooms')
           .doc(widget.roomId)
           .snapshots()
-          .listen((doc) {
-            if (doc.exists && mounted) {
-              setState(() {
-                _currentGroupTitle = doc.data()?['groupTitle'] ?? "그룹 채팅방";
-                _currentParticipants = List<String>.from(
-                  doc.data()?['participants'] ?? [],
-                );
-              });
-            }
-          });
+          .listen(
+            (doc) {
+              if (doc.exists && mounted) {
+                setState(() {
+                  _currentGroupTitle = doc.data()?['groupTitle'] ?? "그룹 채팅방";
+                  _currentParticipants = List<String>.from(
+                    doc.data()?['participants'] ?? [],
+                  );
+                });
+              }
+            },
+            onError: (error) {
+              debugPrint("채팅방 정보 스트림 에러: $error");
+            },
+          );
     }
   }
 
@@ -127,52 +132,67 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
         .orderBy('timestamp', descending: true)
         .limit(_perPage);
 
-    _realtimeSub = query.snapshots().listen((snapshot) {
-      if (!mounted) return;
+    _realtimeSub = query.snapshots().listen(
+      (snapshot) {
+        if (!mounted) return;
 
-      final batch = FirebaseFirestore.instance.batch();
-      bool hasUpdates = false;
-      for (var doc in snapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        final List readBy = data['readBy'] ?? [];
-        if (!readBy.contains(widget.currentUser)) {
-          batch.update(doc.reference, {
-            'readBy': FieldValue.arrayUnion([widget.currentUser]),
+        _handleChatSnapshot(snapshot);
+      },
+      onError: (error) {
+        // 🔥 에러 발생 시 무한 로딩 방지 및 로그 출력
+        debugPrint("채팅방 메시지 스트림 에러: $error");
+        if (mounted) {
+          setState(() {
+            _hasMore = false;
           });
-          hasUpdates = true;
         }
-      }
-      if (hasUpdates) {
-        batch.update(
-          FirebaseFirestore.instance
-              .collection('chat_rooms')
-              .doc(widget.roomId),
-          {'unread': 0},
-        );
-        batch.commit();
-      }
+      },
+    );
+  }
 
-      setState(() {
-        if (_messages.isEmpty) {
-          _messages.addAll(snapshot.docs);
-          if (snapshot.docs.isNotEmpty) _lastDoc = snapshot.docs.last;
-          _hasMore = snapshot.docs.length == _perPage;
-        } else {
-          for (var change in snapshot.docChanges) {
-            if (change.type == DocumentChangeType.added) {
-              final exists = _messages.any((doc) => doc.id == change.doc.id);
-              if (!exists) _messages.insert(0, change.doc);
-            } else if (change.type == DocumentChangeType.modified) {
-              final index = _messages.indexWhere(
-                (doc) => doc.id == change.doc.id,
-              );
-              if (index != -1) _messages[index] = change.doc;
-            } else if (change.type == DocumentChangeType.removed) {
-              _messages.removeWhere((doc) => doc.id == change.doc.id);
-            }
+  void _handleChatSnapshot(QuerySnapshot snapshot) {
+    final batch = FirebaseFirestore.instance.batch();
+    bool hasUpdates = false;
+    for (var doc in snapshot.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final List readBy = data['readBy'] ?? [];
+      if (!readBy.contains(widget.currentUser)) {
+        batch.update(doc.reference, {
+          'readBy': FieldValue.arrayUnion([widget.currentUser]),
+        });
+        hasUpdates = true;
+      }
+    }
+    if (hasUpdates) {
+      batch.update(
+        FirebaseFirestore.instance
+            .collection('chat_rooms')
+            .doc(widget.roomId),
+        {'unread': 0},
+      );
+      batch.commit();
+    }
+
+    setState(() {
+      if (_messages.isEmpty) {
+        _messages.addAll(snapshot.docs);
+        if (snapshot.docs.isNotEmpty) _lastDoc = snapshot.docs.last;
+        _hasMore = snapshot.docs.length == _perPage;
+      } else {
+        for (var change in snapshot.docChanges) {
+          if (change.type == DocumentChangeType.added) {
+            final exists = _messages.any((doc) => doc.id == change.doc.id);
+            if (!exists) _messages.insert(0, change.doc);
+          } else if (change.type == DocumentChangeType.modified) {
+            final index = _messages.indexWhere(
+              (doc) => doc.id == change.doc.id,
+            );
+            if (index != -1) _messages[index] = change.doc;
+          } else if (change.type == DocumentChangeType.removed) {
+            _messages.removeWhere((doc) => doc.id == change.doc.id);
           }
         }
-      });
+      }
     });
   }
 

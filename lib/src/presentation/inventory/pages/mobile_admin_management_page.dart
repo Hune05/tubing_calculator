@@ -92,7 +92,7 @@ class _MobileAdminManagementPageState extends State<MobileAdminManagementPage> {
   // 관리자 권한 삭제
   void _deleteAdmin(String email) async {
     // ⚠️ 최고 관리자(본인)는 삭제되지 않도록 보호
-    if (email == 'gnsl5@gmail.com') {
+    if (email == 'a01020020271@gmail.com') {
       // 💡 여기에 사용자님 이메일을 적어두면 안전합니다!
       ScaffoldMessenger.of(
         context,

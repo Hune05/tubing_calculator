@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
-import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
+import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/presentation/settings/controllers/settings_controller.dart';
 import 'package:tubing_calculator/src/presentation/settings/widgets/settings_widgets.dart';
 import 'package:tubing_calculator/src/core/utils/fitting_data.dart';
@@ -15,6 +13,9 @@ const Color slate600 = Color(0xFF475569);
 const Color pureWhite = Color(0xFFFFFFFF);
 const Color toolGripBlack = Color(0xFF222222);
 const Color slate100 = Color(0xFFF1F5F9);
+
+// 🚀 [추가] mm <-> inch 변환 계수
+const double _mmPerInch = 25.4;
 
 // ==========================================
 // 🚀 1. 설정 탭 (MobileSettingsTab)
@@ -77,71 +78,67 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     _loadData();
   }
 
+  // 🚀 [수정] SettingsManager/SharedPreferences를 직접 부르는 대신,
+  // 앱 전역에서 공유하는 AppSettingsController에서 값을 읽어온다.
+  // (이 탭에서 저장하면 AppSettingsController가 notifyListeners()를 호출해서
+  //  MobileInputTab/CalculatorPage 등 이걸 구독하는 다른 화면도 즉시 최신값을
+  //  반영하게 된다 - 예전에는 각 화면이 따로 로드해서 서로 어긋날 수 있었음)
   Future<void> _loadData() async {
-    final data = await SettingsManager.loadSettings();
-    final prefs = await SharedPreferences.getInstance();
+    await AppSettingsController().ensureLoaded();
+    final c = AppSettingsController();
     if (mounted) {
       setState(() {
-        _isInch = data['isInch'] ?? false;
-        _useHaptic = data['useHaptic'] ?? true;
-        _saveHistory = data['saveHistory'] ?? true;
-        _keepScreenOn = prefs.getBool('keepScreenOn') ?? false;
-        _warnShoeInterference = prefs.getBool('warnShoeInterference') ?? true;
+        _isInch = c.isInch;
+        _useHaptic = c.useHaptic;
+        _saveHistory = c.saveHistory;
+        _keepScreenOn = c.keepScreenOn;
+        _warnShoeInterference = c.warnShoeInterference;
 
-        if (_keepScreenOn) {
-          WakelockPlus.enable();
-        } else {
-          WakelockPlus.disable();
-        }
+        _tubeMaterial = c.tubeMaterial;
+        _benderBrand = c.benderBrand;
+        _benderType = c.benderType;
+        _defaultRotation = c.defaultRotation;
+        _fittingType = c.fittingType;
+        _benderMark = c.benderMark;
 
-        _tubeMaterial = data['tubeMaterial'] ?? "SUS";
-        _benderBrand = data['benderBrand'] ?? "Swagelok";
-        _benderType = prefs.getString('benderType') ?? "수동 (Hand)";
-        _defaultRotation = data['defaultRotation'] ?? "CW (시계방향)";
-        _fittingType = data['fittingType'] ?? "Twin Ferrule";
-        _benderMark = data['benderMark'] ?? "0 (기본/다양한 각도)";
-
-        String loadedOD = (data['tubeOD'] ?? (_isInch ? 0.5 : 12.7)).toString();
+        String loadedOD = c.tubeOD.toString();
         if (!loadedOD.contains('.')) {
           loadedOD += ".0";
         }
         _currentOD = _odList.contains(loadedOD) ? loadedOD : _odList.first;
 
-        _autoStates['radius'] = data['auto_radius'] ?? true;
-        _autoStates['takeUp'] = data['auto_takeUp'] ?? true;
-        _autoStates['gain'] = data['auto_gain'] ?? true;
-        _autoStates['minStraight'] = data['auto_minStraight'] ?? true;
-        _autoStates['offset'] = data['auto_offset'] ?? true;
-        _autoStates['fittingDepth'] = data['auto_fittingDepth'] ?? true;
+        _autoStates['radius'] = c.autoRadius;
+        _autoStates['takeUp'] = c.autoTakeUp;
+        _autoStates['gain'] = c.autoGain;
+        _autoStates['minStraight'] = c.autoMinStraight;
+        _autoStates['offset'] = c.autoOffset;
+        _autoStates['fittingDepth'] = c.autoFittingDepth;
 
-        _wtController.text = (data['tubeWT'] ?? 0.0).toString();
-        _springbackController.text = (data['springback'] ?? 0.0).toString();
-        _markThicknessController.text = (data['markThickness'] ?? 0.0)
-            .toString();
-        _offsetShrinkController.text = (data['offsetShrink'] ?? 0.0).toString();
+        _wtController.text = c.tubeWT.toString();
+        _springbackController.text = c.springback.toString();
+        _markThicknessController.text = c.markThickness.toString();
+        _offsetShrinkController.text = c.offsetShrink.toString();
 
         if (_autoStates['radius'] == false) {
-          _rController.text = (data['bendRadius'] ?? 0.0).toString();
+          _rController.text = c.bendRadius.toString();
         }
         if (_autoStates['takeUp'] == false) {
-          _takeUpController.text = (data['takeUp'] ?? 0.0).toString();
+          _takeUpController.text = c.takeUp.toString();
         }
         if (_autoStates['gain'] == false) {
-          _gainController.text = (data['gain'] ?? 0.0).toString();
+          _gainController.text = c.gain.toString();
         }
         if (_autoStates['minStraight'] == false) {
-          _minStraightController.text = (data['minStraight'] ?? 0.0).toString();
+          _minStraightController.text = c.minStraight.toString();
         }
         if (_autoStates['offset'] == false) {
-          _benderOffsetController.text = (data['benderOffset'] ?? 0.0)
-              .toString();
+          _benderOffsetController.text = c.benderOffset.toString();
         }
         if (_autoStates['fittingDepth'] == false) {
-          _fittingDepthController.text = (data['fittingDepth'] ?? 0.0)
-              .toString();
+          _fittingDepthController.text = c.fittingDepth.toString();
         }
       });
-      _onSpecsChanged(isInitialLoad: true);
+      _onSpecsChanged();
 
       MobileBendDataManager().updateMachineSpecs(
         takeUp90: double.tryParse(_takeUpController.text) ?? 0.0,
@@ -154,42 +151,47 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     }
   }
 
+  // 🚀 [수정] "저장" 버튼을 누르면 이 화면의 임시(초안) 값들을
+  // AppSettingsController에 반영한 뒤 controller.save()를 호출한다.
+  // controller.save()가 내부적으로 SettingsManager.saveSettings()로 영속
+  // 저장하고, notifyListeners()로 이 설정을 구독하는 다른 화면들도 즉시
+  // 갱신한다.
   Future<void> _saveData() async {
     FocusScope.of(context).unfocus();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('benderType', _benderType);
-    await prefs.setBool('keepScreenOn', _keepScreenOn);
-    await prefs.setBool('warnShoeInterference', _warnShoeInterference);
 
-    await SettingsManager.saveSettings(
-      isInch: _isInch,
-      useHaptic: _useHaptic,
-      saveHistory: _saveHistory,
-      tubeMaterial: _tubeMaterial,
-      benderBrand: _benderBrand,
-      measurementMode: _measurementMode,
-      defaultRotation: _defaultRotation,
-      fittingType: _fittingType,
-      benderMark: _benderMark,
-      tubeOD: double.tryParse(_currentOD) ?? 0.0,
-      tubeWT: double.tryParse(_wtController.text) ?? 0.0,
-      bendRadius: double.tryParse(_rController.text) ?? 0.0,
-      takeUp: double.tryParse(_takeUpController.text) ?? 0.0,
-      springback: double.tryParse(_springbackController.text) ?? 0.0,
-      gain: double.tryParse(_gainController.text) ?? 0.0,
-      minStraight: double.tryParse(_minStraightController.text) ?? 0.0,
-      benderOffset: double.tryParse(_benderOffsetController.text) ?? 0.0,
-      fittingDepth: double.tryParse(_fittingDepthController.text) ?? 0.0,
-      markThickness: double.tryParse(_markThicknessController.text) ?? 0.0,
-      offsetShrink: double.tryParse(_offsetShrinkController.text) ?? 0.0,
-      cutMargin: 0.0,
-      autoRadius: _autoStates['radius'] ?? true,
-      autoTakeUp: _autoStates['takeUp'] ?? true,
-      autoGain: _autoStates['gain'] ?? true,
-      autoMinStraight: _autoStates['minStraight'] ?? true,
-      autoOffset: _autoStates['offset'] ?? true,
-      autoFittingDepth: _autoStates['fittingDepth'] ?? true,
-    );
+    final c = AppSettingsController();
+    c.isInch = _isInch;
+    c.useHaptic = _useHaptic;
+    c.saveHistory = _saveHistory;
+    c.tubeMaterial = _tubeMaterial;
+    c.benderBrand = _benderBrand;
+    c.measurementMode = _measurementMode;
+    c.defaultRotation = _defaultRotation;
+    c.fittingType = _fittingType;
+    c.benderMark = _benderMark;
+    c.benderType = _benderType;
+    c.tubeOD = double.tryParse(_currentOD) ?? 0.0;
+    c.tubeWT = double.tryParse(_wtController.text) ?? 0.0;
+    c.bendRadius = double.tryParse(_rController.text) ?? 0.0;
+    c.takeUp = double.tryParse(_takeUpController.text) ?? 0.0;
+    c.springback = double.tryParse(_springbackController.text) ?? 0.0;
+    c.gain = double.tryParse(_gainController.text) ?? 0.0;
+    c.minStraight = double.tryParse(_minStraightController.text) ?? 0.0;
+    c.benderOffset = double.tryParse(_benderOffsetController.text) ?? 0.0;
+    c.fittingDepth = double.tryParse(_fittingDepthController.text) ?? 0.0;
+    c.markThickness = double.tryParse(_markThicknessController.text) ?? 0.0;
+    c.offsetShrink = double.tryParse(_offsetShrinkController.text) ?? 0.0;
+    c.cutMargin = 0.0;
+    c.autoRadius = _autoStates['radius'] ?? true;
+    c.autoTakeUp = _autoStates['takeUp'] ?? true;
+    c.autoGain = _autoStates['gain'] ?? true;
+    c.autoMinStraight = _autoStates['minStraight'] ?? true;
+    c.autoOffset = _autoStates['offset'] ?? true;
+    c.autoFittingDepth = _autoStates['fittingDepth'] ?? true;
+    c.keepScreenOn = _keepScreenOn;
+    c.warnShoeInterference = _warnShoeInterference;
+
+    await c.save();
 
     MobileBendDataManager().updateMachineSpecs(
       takeUp90: double.tryParse(_takeUpController.text) ?? 0.0,
@@ -214,25 +216,31 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     }
   }
 
-  void _onSpecsChanged({bool isInitialLoad = false}) {
+  // 🚀 [수정] isInitialLoad 파라미터는 실제로 아무 곳에서도 사용되지 않던 죽은 코드라 제거함
+  void _onSpecsChanged() {
     final specs = SettingsController.getStandardSpecs(_benderBrand, _currentOD);
     setState(() {
-      if (specs != null) {
-        if (_autoStates['radius'] == true) {
-          _rController.text = specs.bendRadius.toString();
-        }
-        if (_autoStates['takeUp'] == true) {
-          _takeUpController.text = specs.takeUp.toString();
-        }
-        if (_autoStates['gain'] == true) {
-          _gainController.text = specs.gain.toString();
-        }
-        if (_autoStates['minStraight'] == true) {
-          _minStraightController.text = specs.minStraight.toString();
-        }
-        if (_autoStates['offset'] == true) {
-          _benderOffsetController.text = specs.benderOffset.toString();
-        }
+      // 🚀 [수정] specs가 null(해당 브랜드/규격 조합의 표준 제원이 없는 경우)이면
+      // 이전 선택에서 남아있던 값을 그대로 보여주지 않고 필드를 비워서
+      // "AUTO인데 실제로는 계산 안 됨"이 조용히 숨겨지지 않도록 함
+      if (_autoStates['radius'] == true) {
+        _rController.text = specs != null ? specs.bendRadius.toString() : "";
+      }
+      if (_autoStates['takeUp'] == true) {
+        _takeUpController.text = specs != null ? specs.takeUp.toString() : "";
+      }
+      if (_autoStates['gain'] == true) {
+        _gainController.text = specs != null ? specs.gain.toString() : "";
+      }
+      if (_autoStates['minStraight'] == true) {
+        _minStraightController.text = specs != null
+            ? specs.minStraight.toString()
+            : "";
+      }
+      if (_autoStates['offset'] == true) {
+        _benderOffsetController.text = specs != null
+            ? specs.benderOffset.toString()
+            : "";
       }
       if (_autoStates['fittingDepth'] == true) {
         if (_fittingType == "Twin Ferrule") {
@@ -246,6 +254,35 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         }
       }
     });
+  }
+
+  // 🚀 [추가] mm <-> inch 전환 시 길이 단위를 쓰는 수동 입력값들을 실제로 변환한다.
+  // (기존에는 OD 드롭다운만 바뀌고 두께/스프링백/마킹선 두께/오프셋 축소/AUTO OFF 상태의
+  //  반경·테이크업·연신율·최소직선·오프셋·피팅깊이 값은 텍스트가 그대로 남아있어서,
+  //  숫자는 그대로인데 단위 해석만 바뀌는 심각한 치수 오류가 날 수 있었음)
+  void _convertLengthControllers(bool toInch) {
+    final controllers = [
+      _wtController,
+      _rController,
+      _takeUpController,
+      _gainController,
+      _minStraightController,
+      _benderOffsetController,
+      _fittingDepthController,
+      _markThicknessController,
+      _offsetShrinkController,
+    ];
+    for (final c in controllers) {
+      final val = double.tryParse(c.text);
+      if (val == null || val == 0) continue;
+      final converted = toInch ? val / _mmPerInch : val * _mmPerInch;
+      String text = converted.toStringAsFixed(toInch ? 4 : 2);
+      if (text.contains('.')) {
+        text = text.replaceAll(RegExp(r'0+$'), '');
+        text = text.replaceAll(RegExp(r'\.$'), '');
+      }
+      c.text = text;
+    }
   }
 
   @override
@@ -842,9 +879,19 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
   Widget _buildUnitBtn(String text, bool isSelected) {
     return InkWell(
       onTap: () {
+        final bool newIsInch = (text == "inch");
+        if (newIsInch == _isInch) return; // 이미 선택된 단위면 아무 것도 하지 않음
+
+        // 🚀 [수정] 단위를 실제로 바꾸기 전에, 길이 값을 갖는 수동 입력 필드들을
+        // 새 단위로 변환한다 (예전에는 텍스트가 그대로 남아 숫자는 같은데
+        // 단위 해석만 바뀌는 심각한 치수 오류가 날 수 있었음).
+        _convertLengthControllers(newIsInch);
+
         setState(() {
-          _isInch = (text == "inch");
-          String targetOD = _isInch ? "0.5" : "12.0";
+          _isInch = newIsInch;
+          // 🚀 [수정] mm 기본값이 "12.0"이 아니라 "12.7"이어야
+          // 최초 로드 시 기본값(1/2" = 12.7mm)과 일치함
+          String targetOD = _isInch ? "0.5" : "12.7";
           _currentOD = _odList.contains(targetOD) ? targetOD : _odList.first;
         });
         _onSpecsChanged();
@@ -892,7 +939,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 helperText: "※ 배관의 바깥쪽 지름",
               ),
               right: _buildNumpadInputWithHelp(
-                "두께 (WT)",
+                "두께 (WT) [$_unit]",
                 "두께 (WT: Wall Thickness)",
                 "파이프 벽의 두께입니다.\n두께가 다르면 연신율(파이프가 늘어나는 정도)이 달라지므로 정밀한 계산을 위해 입력이 필요합니다.",
                 _wtController,
@@ -1182,13 +1229,12 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
               _saveHistory,
               (val) => setState(() => _saveHistory = val),
             ),
+            // 🚀 [수정] 토글 즉시 AppSettingsController를 통해서만 wakelock을
+            // 적용한다 (다른 화면이 제멋대로 enable()을 부르지 않으므로,
+            // 여기서 끄면 계산기 화면에 들어가도 다시 켜지지 않는다).
             _buildSwitchRow("화면 꺼짐 방지", _keepScreenOn, (val) {
               setState(() => _keepScreenOn = val);
-              if (val) {
-                WakelockPlus.enable();
-              } else {
-                WakelockPlus.disable();
-              }
+              AppSettingsController().setKeepScreenOn(val);
             }),
           ],
         ),

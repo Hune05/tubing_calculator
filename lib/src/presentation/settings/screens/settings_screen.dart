@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
+import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/presentation/settings/controllers/settings_controller.dart';
 import 'package:tubing_calculator/src/presentation/settings/widgets/settings_widgets.dart';
 import 'package:tubing_calculator/src/core/utils/fitting_data.dart';
@@ -10,6 +9,9 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_num
 const Color makitaTeal = Color(0xFF007580);
 const Color toolGripBlack = Color(0xFF222222);
 const Color hardwareButtonTeal = Color(0xFF005C63);
+
+// 🚀 [추가] mm <-> inch 변환 계수
+const double _mmPerInch = 25.4;
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -65,93 +67,102 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadData();
   }
 
+  // 🚀 [수정] SettingsManager/SharedPreferences를 직접 부르는 대신,
+  // 앱 전역에서 공유하는 AppSettingsController에서 값을 읽어온다.
+  // (모바일 설정 탭에서 저장한 값도 여기서 그대로 보이고, 여기서 저장하면
+  //  모바일 쪽도 즉시 최신값을 반영하게 된다)
   Future<void> _loadData() async {
-    final data = await SettingsManager.loadSettings();
-    final prefs = await SharedPreferences.getInstance();
+    await AppSettingsController().ensureLoaded();
+    final c = AppSettingsController();
 
     setState(() {
-      _isInch = data['isInch'] ?? false;
-      _useHaptic = data['useHaptic'] ?? true;
-      _saveHistory = data['saveHistory'] ?? true;
-      _tubeMaterial = data['tubeMaterial'] ?? "SUS";
-      _benderBrand = data['benderBrand'] ?? "Swagelok";
-      _benderType = prefs.getString('benderType') ?? "수동 (Hand)";
-      _defaultRotation = data['defaultRotation'] ?? "CW (시계방향)";
-      _fittingType = data['fittingType'] ?? "Twin Ferrule";
-      _benderMark = data['benderMark'] ?? "0 (기본/다양한 각도)";
+      _isInch = c.isInch;
+      _useHaptic = c.useHaptic;
+      _saveHistory = c.saveHistory;
+      _tubeMaterial = c.tubeMaterial;
+      _benderBrand = c.benderBrand;
+      _benderType = c.benderType;
+      _defaultRotation = c.defaultRotation;
+      _fittingType = c.fittingType;
+      _benderMark = c.benderMark;
 
-      String loadedOD = (data['tubeOD'] ?? (_isInch ? 0.5 : 12.7)).toString();
+      String loadedOD = c.tubeOD.toString();
       if (!loadedOD.contains('.')) loadedOD += ".0";
       _currentOD = _odList.contains(loadedOD) ? loadedOD : _odList.first;
 
-      _autoStates['radius'] = data['auto_radius'] ?? true;
-      _autoStates['takeUp'] = data['auto_takeUp'] ?? true;
-      _autoStates['gain'] = data['auto_gain'] ?? true;
-      _autoStates['minStraight'] = data['auto_minStraight'] ?? true;
-      _autoStates['offset'] = data['auto_offset'] ?? true;
-      _autoStates['fittingDepth'] = data['auto_fittingDepth'] ?? true;
+      _autoStates['radius'] = c.autoRadius;
+      _autoStates['takeUp'] = c.autoTakeUp;
+      _autoStates['gain'] = c.autoGain;
+      _autoStates['minStraight'] = c.autoMinStraight;
+      _autoStates['offset'] = c.autoOffset;
+      _autoStates['fittingDepth'] = c.autoFittingDepth;
 
-      _wtController.text = (data['tubeWT'] ?? 0.0).toString();
-      _springbackController.text = (data['springback'] ?? 0.0).toString();
-      _markThicknessController.text = (data['markThickness'] ?? 0.0).toString();
-      _offsetShrinkController.text = (data['offsetShrink'] ?? 0.0).toString();
+      _wtController.text = c.tubeWT.toString();
+      _springbackController.text = c.springback.toString();
+      _markThicknessController.text = c.markThickness.toString();
+      _offsetShrinkController.text = c.offsetShrink.toString();
 
       if (_autoStates['radius'] == false) {
-        _rController.text = (data['bendRadius'] ?? 0.0).toString();
+        _rController.text = c.bendRadius.toString();
       }
       if (_autoStates['takeUp'] == false) {
-        _takeUpController.text = (data['takeUp'] ?? 0.0).toString();
+        _takeUpController.text = c.takeUp.toString();
       }
       if (_autoStates['gain'] == false) {
-        _gainController.text = (data['gain'] ?? 0.0).toString();
+        _gainController.text = c.gain.toString();
       }
       if (_autoStates['minStraight'] == false) {
-        _minStraightController.text = (data['minStraight'] ?? 0.0).toString();
+        _minStraightController.text = c.minStraight.toString();
       }
       if (_autoStates['offset'] == false) {
-        _benderOffsetController.text = (data['benderOffset'] ?? 0.0).toString();
+        _benderOffsetController.text = c.benderOffset.toString();
       }
       if (_autoStates['fittingDepth'] == false) {
-        _fittingDepthController.text = (data['fittingDepth'] ?? 0.0).toString();
+        _fittingDepthController.text = c.fittingDepth.toString();
       }
     });
-    _onSpecsChanged(isInitialLoad: true);
+    _onSpecsChanged();
   }
 
+  // 🚀 [수정] "저장" 버튼을 누르면 이 화면의 초안 값들을 AppSettingsController에
+  // 반영한 뒤 controller.save()를 호출한다. 이 화면엔 keepScreenOn/
+  // warnShoeInterference용 UI가 없으므로 그 두 값은 건드리지 않고
+  // 컨트롤러가 이미 갖고 있는 값(모바일 설정 탭 등에서 저장된 값) 그대로 유지된다.
   Future<void> _saveData() async {
     FocusScope.of(context).unfocus();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('benderType', _benderType);
 
-    await SettingsManager.saveSettings(
-      isInch: _isInch,
-      useHaptic: _useHaptic,
-      saveHistory: _saveHistory,
-      tubeMaterial: _tubeMaterial,
-      benderBrand: _benderBrand,
-      measurementMode: _measurementMode,
-      defaultRotation: _defaultRotation,
-      fittingType: _fittingType,
-      benderMark: _benderMark,
-      tubeOD: double.tryParse(_currentOD) ?? 0.0,
-      tubeWT: double.tryParse(_wtController.text) ?? 0.0,
-      bendRadius: double.tryParse(_rController.text) ?? 0.0,
-      takeUp: double.tryParse(_takeUpController.text) ?? 0.0,
-      springback: double.tryParse(_springbackController.text) ?? 0.0,
-      gain: double.tryParse(_gainController.text) ?? 0.0,
-      minStraight: double.tryParse(_minStraightController.text) ?? 0.0,
-      benderOffset: double.tryParse(_benderOffsetController.text) ?? 0.0,
-      fittingDepth: double.tryParse(_fittingDepthController.text) ?? 0.0,
-      markThickness: double.tryParse(_markThicknessController.text) ?? 0.0,
-      offsetShrink: double.tryParse(_offsetShrinkController.text) ?? 0.0,
-      cutMargin: 0.0,
-      autoRadius: _autoStates['radius'] ?? true,
-      autoTakeUp: _autoStates['takeUp'] ?? true,
-      autoGain: _autoStates['gain'] ?? true,
-      autoMinStraight: _autoStates['minStraight'] ?? true,
-      autoOffset: _autoStates['offset'] ?? true,
-      autoFittingDepth: _autoStates['fittingDepth'] ?? true,
-    );
+    final c = AppSettingsController();
+    c.isInch = _isInch;
+    c.useHaptic = _useHaptic;
+    c.saveHistory = _saveHistory;
+    c.tubeMaterial = _tubeMaterial;
+    c.benderBrand = _benderBrand;
+    c.measurementMode = _measurementMode;
+    c.defaultRotation = _defaultRotation;
+    c.fittingType = _fittingType;
+    c.benderMark = _benderMark;
+    c.benderType = _benderType;
+    c.tubeOD = double.tryParse(_currentOD) ?? 0.0;
+    c.tubeWT = double.tryParse(_wtController.text) ?? 0.0;
+    c.bendRadius = double.tryParse(_rController.text) ?? 0.0;
+    c.takeUp = double.tryParse(_takeUpController.text) ?? 0.0;
+    c.springback = double.tryParse(_springbackController.text) ?? 0.0;
+    c.gain = double.tryParse(_gainController.text) ?? 0.0;
+    c.minStraight = double.tryParse(_minStraightController.text) ?? 0.0;
+    c.benderOffset = double.tryParse(_benderOffsetController.text) ?? 0.0;
+    c.fittingDepth = double.tryParse(_fittingDepthController.text) ?? 0.0;
+    c.markThickness = double.tryParse(_markThicknessController.text) ?? 0.0;
+    c.offsetShrink = double.tryParse(_offsetShrinkController.text) ?? 0.0;
+    c.cutMargin = 0.0;
+    c.autoRadius = _autoStates['radius'] ?? true;
+    c.autoTakeUp = _autoStates['takeUp'] ?? true;
+    c.autoGain = _autoStates['gain'] ?? true;
+    c.autoMinStraight = _autoStates['minStraight'] ?? true;
+    c.autoOffset = _autoStates['offset'] ?? true;
+    c.autoFittingDepth = _autoStates['fittingDepth'] ?? true;
+    // keepScreenOn / warnShoeInterference: 이 화면엔 UI가 없으므로 손대지 않는다.
+
+    await c.save();
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -170,25 +181,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  void _onSpecsChanged({bool isInitialLoad = false}) {
+  // 🚀 [수정] isInitialLoad 파라미터는 실제로 쓰이지 않던 죽은 코드라 제거함
+  void _onSpecsChanged() {
     final specs = SettingsController.getStandardSpecs(_benderBrand, _currentOD);
     setState(() {
-      if (specs != null) {
-        if (_autoStates['radius'] == true) {
-          _rController.text = specs.bendRadius.toString();
-        }
-        if (_autoStates['takeUp'] == true) {
-          _takeUpController.text = specs.takeUp.toString();
-        }
-        if (_autoStates['gain'] == true) {
-          _gainController.text = specs.gain.toString();
-        }
-        if (_autoStates['minStraight'] == true) {
-          _minStraightController.text = specs.minStraight.toString();
-        }
-        if (_autoStates['offset'] == true) {
-          _benderOffsetController.text = specs.benderOffset.toString();
-        }
+      // 🚀 [수정] specs가 null이면(해당 브랜드/규격 조합의 표준 제원이 없으면)
+      // 이전 값을 그대로 남겨두지 않고 필드를 비워서, "AUTO인데 실제로는
+      // 계산 안 됨"이 조용히 숨겨지지 않도록 한다.
+      if (_autoStates['radius'] == true) {
+        _rController.text = specs != null ? specs.bendRadius.toString() : "";
+      }
+      if (_autoStates['takeUp'] == true) {
+        _takeUpController.text = specs != null ? specs.takeUp.toString() : "";
+      }
+      if (_autoStates['gain'] == true) {
+        _gainController.text = specs != null ? specs.gain.toString() : "";
+      }
+      if (_autoStates['minStraight'] == true) {
+        _minStraightController.text = specs != null
+            ? specs.minStraight.toString()
+            : "";
+      }
+      if (_autoStates['offset'] == true) {
+        _benderOffsetController.text = specs != null
+            ? specs.benderOffset.toString()
+            : "";
       }
       if (_autoStates['fittingDepth'] == true) {
         if (_fittingType == "Twin Ferrule") {
@@ -202,6 +219,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
       }
     });
+  }
+
+  // 🚀 [추가] mm <-> inch 전환 시 길이 단위를 쓰는 수동 입력값들을 실제로 변환한다.
+  // (기존엔 OD 드롭다운만 바뀌고 두께/스프링백/마킹선 두께/오프셋 축소/AUTO OFF
+  //  상태의 반경·테이크업·연신율·최소직선·오프셋·피팅깊이 값은 텍스트가 그대로
+  //  남아서, 숫자는 같은데 단위 해석만 바뀌는 치수 오류가 날 수 있었다)
+  void _convertLengthControllers(bool toInch) {
+    final controllers = [
+      _wtController,
+      _rController,
+      _takeUpController,
+      _gainController,
+      _minStraightController,
+      _benderOffsetController,
+      _fittingDepthController,
+      _markThicknessController,
+      _offsetShrinkController,
+    ];
+    for (final c in controllers) {
+      final val = double.tryParse(c.text);
+      if (val == null || val == 0) continue;
+      final converted = toInch ? val / _mmPerInch : val * _mmPerInch;
+      String text = converted.toStringAsFixed(toInch ? 4 : 2);
+      if (text.contains('.')) {
+        text = text.replaceAll(RegExp(r'0+$'), '');
+        text = text.replaceAll(RegExp(r'\.$'), '');
+      }
+      c.text = text;
+    }
   }
 
   @override
@@ -382,9 +428,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildUnitBtn(String text, bool isSelected) {
     return InkWell(
       onTap: () {
+        final bool newIsInch = (text == "inch");
+        if (newIsInch == _isInch) return; // 이미 선택된 단위면 아무 것도 하지 않음
+
+        // 🚀 [수정] 단위를 바꾸기 전에 길이 값을 갖는 수동 입력 필드들을
+        // 새 단위로 변환한다.
+        _convertLengthControllers(newIsInch);
+
         setState(() {
-          _isInch = (text == "inch");
-          String targetOD = _isInch ? "0.5" : "12.0";
+          _isInch = newIsInch;
+          // 🚀 [수정] mm 기본값은 "12.0"이 아니라 "12.7"이어야
+          // 최초 로드 시 기본값(1/2" = 12.7mm)과 일치한다
+          String targetOD = _isInch ? "0.5" : "12.7";
           _currentOD = _odList.contains(targetOD) ? targetOD : _odList.first;
         });
         _onSpecsChanged();
@@ -432,7 +487,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 helperText: "※ 배관의 바깥쪽 지름 (관경)",
               ),
               right: _buildNumpadInput(
-                "두께 (WT) [mm]",
+                "두께 (WT) [$_unit]",
                 _wtController,
                 helperText: "※ 배관 벽의 두께",
               ),

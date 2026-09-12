@@ -89,11 +89,16 @@ class MobileBendDataManager extends ChangeNotifier {
   // ===============================================
   // 새들(Saddle) & 오프셋(Offset) 마지막 입력값 기억 변수
   // ===============================================
+  // 🚀 [수정] 아래 7개 세터에 notifyListeners() 호출이 빠져 있었다.
+  // 다른 세터들은 전부 _saveCurrentState()와 notifyListeners()를 같이
+  // 부르는데, 이것들만 저장만 하고 구독자에게 알리지 않아서 이 값들을
+  // 실시간으로 구독하는 화면이 있다면 갱신이 안 되는 비대칭이 있었다.
   double _saddleHeight = 100.0;
   double get saddleHeight => _saddleHeight;
   set saddleHeight(double value) {
     _saddleHeight = value;
     _saveCurrentState();
+    notifyListeners();
   }
 
   double _saddleWidth = 200.0;
@@ -101,6 +106,7 @@ class MobileBendDataManager extends ChangeNotifier {
   set saddleWidth(double value) {
     _saddleWidth = value;
     _saveCurrentState();
+    notifyListeners();
   }
 
   double _saddleAngle3Pt = 45.0;
@@ -108,6 +114,7 @@ class MobileBendDataManager extends ChangeNotifier {
   set saddleAngle3Pt(double value) {
     _saddleAngle3Pt = value;
     _saveCurrentState();
+    notifyListeners();
   }
 
   double _saddleAngle4Pt = 30.0;
@@ -115,6 +122,7 @@ class MobileBendDataManager extends ChangeNotifier {
   set saddleAngle4Pt(double value) {
     _saddleAngle4Pt = value;
     _saveCurrentState();
+    notifyListeners();
   }
 
   double _offsetHeight = 100.0;
@@ -122,6 +130,7 @@ class MobileBendDataManager extends ChangeNotifier {
   set offsetHeight(double value) {
     _offsetHeight = value;
     _saveCurrentState();
+    notifyListeners();
   }
 
   double _offsetAngle = 45.0;
@@ -129,6 +138,7 @@ class MobileBendDataManager extends ChangeNotifier {
   set offsetAngle(double value) {
     _offsetAngle = value;
     _saveCurrentState();
+    notifyListeners();
   }
 
   double _offsetTravel = 150.0;
@@ -136,6 +146,7 @@ class MobileBendDataManager extends ChangeNotifier {
   set offsetTravel(double value) {
     _offsetTravel = value;
     _saveCurrentState();
+    notifyListeners();
   }
 
   // ===============================================
@@ -268,14 +279,15 @@ class MobileBendDataManager extends ChangeNotifier {
   }
 
   void reorderBend(int oldIndex, int newIndex) {
-    if (oldIndex >= 0 &&
-        oldIndex < bendList.length &&
-        newIndex >= 0 &&
-        newIndex <= bendList.length) {
-      final item = bendList.removeAt(oldIndex);
-      bendList.insert(newIndex, item);
-      _saveCurrentState();
-      notifyListeners();
-    }
+    if (oldIndex < 0 || oldIndex >= bendList.length) return;
+
+    final item = bendList.removeAt(oldIndex);
+    // 🚀 [수정] 제거 후 길이를 기준으로 clamp - 호출자가 Flutter의
+    // ReorderableListView 특유의 "oldIndex<newIndex면 newIndex-1" 보정을
+    // 안 해줘도 마지막 위치로 옮길 때 RangeError가 나지 않는다.
+    final clampedIndex = newIndex.clamp(0, bendList.length);
+    bendList.insert(clampedIndex, item);
+    _saveCurrentState();
+    notifyListeners();
   }
 }

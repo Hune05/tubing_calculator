@@ -526,22 +526,50 @@ class MobileVehicleDetailPage extends StatelessWidget {
 
                       String targetStatus = isNow ? '운행 중' : '예약 중';
 
-                      await FirebaseFirestore.instance
+                      // 🚀 동시에 여러 명이 같은 차량을 배차/예약하는 것을 막기 위해
+                      // 트랜잭션 내에서 현재 상태가 여전히 '사용 가능'인지 재확인 후 갱신
+                      bool alreadyTaken = false;
+                      final vehicleRef = FirebaseFirestore.instance
                           .collection('vehicles')
-                          .doc(vehicle['id'])
-                          .update({
-                            'status': targetStatus,
-                            'currentUser': currentUser,
-                            'destination': destinationCtrl.text.trim(),
-                            'useType': isLongTerm ? "장기 출장" : "단기/일반",
-                            'startTimeStamp': Timestamp.fromDate(
-                              isNow ? DateTime.now() : selectedStartTime,
+                          .doc(vehicle['id']);
+
+                      await FirebaseFirestore.instance.runTransaction((
+                        transaction,
+                      ) async {
+                        final freshSnap = await transaction.get(vehicleRef);
+                        final freshStatus = freshSnap.data()?['status'];
+                        if (freshStatus != '사용 가능') {
+                          alreadyTaken = true;
+                          return;
+                        }
+                        transaction.update(vehicleRef, {
+                          'status': targetStatus,
+                          'currentUser': currentUser,
+                          'destination': destinationCtrl.text.trim(),
+                          'useType': isLongTerm ? "장기 출장" : "단기/일반",
+                          'startTimeStamp': Timestamp.fromDate(
+                            isNow ? DateTime.now() : selectedStartTime,
+                          ),
+                          'returnTimeStamp': Timestamp.fromDate(
+                            selectedReturnTime,
+                          ),
+                          'returnTime': formatDateTime(selectedReturnTime),
+                        });
+                      });
+
+                      if (alreadyTaken) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                "다른 사용자가 방금 먼저 배차했습니다. 목록을 새로고침 해주세요.",
+                              ),
+                              backgroundColor: warningRed,
                             ),
-                            'returnTimeStamp': Timestamp.fromDate(
-                              selectedReturnTime,
-                            ),
-                            'returnTime': formatDateTime(selectedReturnTime),
-                          });
+                          );
+                        }
+                        return;
+                      }
 
                       await FirebaseFirestore.instance
                           .collection('vehicle_logs')

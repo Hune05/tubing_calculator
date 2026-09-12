@@ -19,6 +19,7 @@ class BendDataManager extends ChangeNotifier {
   set startFit(bool value) {
     _startFit = value;
     _saveCurrentState();
+    notifyListeners();
   }
 
   bool _endFit = false;
@@ -26,6 +27,7 @@ class BendDataManager extends ChangeNotifier {
   set endFit(bool value) {
     _endFit = value;
     _saveCurrentState();
+    notifyListeners();
   }
 
   double _tail = 0.0;
@@ -33,16 +35,61 @@ class BendDataManager extends ChangeNotifier {
   set tail(double value) {
     _tail = value;
     _saveCurrentState();
+    notifyListeners();
   }
 
   double _fittingDepth = 0.0;
   double get fittingDepth => _fittingDepth;
+  set fittingDepth(double value) {
+    _fittingDepth = value;
+    _saveCurrentState();
+    notifyListeners();
+  }
 
   double _takeUp90 = 0.0;
   double get takeUp90 => _takeUp90;
+  set takeUp90(double value) {
+    _takeUp90 = value;
+    _saveCurrentState();
+    notifyListeners();
+  }
 
   double _gain90 = 0.0;
   double get gain90 => _gain90;
+  set gain90(double value) {
+    _gain90 = value;
+    _saveCurrentState();
+    notifyListeners();
+  }
+
+  // 🚀 [추가] 실제 벤드 반경. 예전엔 이 필드가 아예 없어서
+  // MarkingPage가 반경 대신 takeUp90 값을 잘못 가져다 쓰고 있었다.
+  double _radius = 0.0;
+  double get radius => _radius;
+  set radius(double value) {
+    _radius = value;
+    _saveCurrentState();
+    notifyListeners();
+  }
+
+  // 🚀 [추가] MobileBendDataManager에는 있지만 여기엔 없던 필드들.
+  // 지금 당장 MarkingPage가 쓰진 않지만, 나중에 데스크톱 쪽 설정 화면이
+  // 이 값들을 다루게 되면 저장/로드가 가능하도록 같이 채워둔다.
+  double _benderOffset = 0.0;
+  double get benderOffset => _benderOffset;
+  set benderOffset(double value) {
+    _benderOffset = value;
+    _saveCurrentState();
+    notifyListeners();
+  }
+
+  double _springback = 0.0;
+  double get springback => _springback;
+  set springback(double value) {
+    _springback = value;
+    _saveCurrentState();
+    notifyListeners();
+  }
 
   void updateSettings({
     String? pipeSize,
@@ -52,6 +99,9 @@ class BendDataManager extends ChangeNotifier {
     double? fittingDepth,
     double? takeUp90,
     double? gain90,
+    double? radius,
+    double? benderOffset,
+    double? springback,
   }) {
     if (pipeSize != null) _pipeSize = pipeSize;
     if (startFit != null) _startFit = startFit;
@@ -60,7 +110,13 @@ class BendDataManager extends ChangeNotifier {
     if (fittingDepth != null) _fittingDepth = fittingDepth;
     if (takeUp90 != null) _takeUp90 = takeUp90;
     if (gain90 != null) _gain90 = gain90;
+    if (radius != null) _radius = radius;
+    if (benderOffset != null) _benderOffset = benderOffset;
+    if (springback != null) _springback = springback;
 
+    // 🚀 [수정] 예전엔 여기서 저장 호출이 빠져 있어서, 이 함수로 바뀐 값이
+    // 화면엔 바로 보이지만 앱을 재시작하면 사라지는 버그가 있었다.
+    _saveCurrentState();
     notifyListeners(); // 🚀 UI 즉각 반영 (방송)
   }
 
@@ -78,6 +134,10 @@ class BendDataManager extends ChangeNotifier {
     _fittingDepth = prefs.getDouble('fittingDepth') ?? 0.0;
     _takeUp90 = prefs.getDouble('takeUp') ?? 0.0;
     _gain90 = prefs.getDouble('gain') ?? 0.0;
+    // 🚀 [추가] 예전엔 반경/오프셋/스프링백을 아예 불러오지 않았다.
+    _radius = prefs.getDouble('bendRadius') ?? 0.0;
+    _benderOffset = prefs.getDouble('benderOffset') ?? 0.0;
+    _springback = prefs.getDouble('springback') ?? 0.0;
 
     final savedBends = prefs.getString('current_bend_list');
     if (savedBends != null) {
@@ -97,6 +157,11 @@ class BendDataManager extends ChangeNotifier {
     notifyListeners(); // 🚀 로딩 끝난 후 화면 갱신 방송
   }
 
+  // 🚀 [수정] notifyListeners()를 이 안에서 더 이상 부르지 않는다.
+  // 예전엔 여기서만 불렀기 때문에, await 체인이 다 끝난 뒤에야(디스크 I/O
+  // 완료 후) 알림이 갔다 - 세터를 호출한 시점과 리스너가 반응하는 시점 사이에
+  // 지연이 생겼었다. 이제는 각 세터/메서드가 저장을 던져놓고 그 자리에서
+  // 바로 notifyListeners()를 불러서 UI가 즉시 반응한다.
   Future<void> _saveCurrentState() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -110,19 +175,22 @@ class BendDataManager extends ChangeNotifier {
     await prefs.setDouble('fittingDepth', _fittingDepth);
     await prefs.setDouble('takeUp', _takeUp90);
     await prefs.setDouble('gain', _gain90);
-
-    notifyListeners(); // 🚀 데이터가 추가/수정/삭제되어 저장될 때마다 화면 갱신 방송!
+    await prefs.setDouble('bendRadius', _radius);
+    await prefs.setDouble('benderOffset', _benderOffset);
+    await prefs.setDouble('springback', _springback);
   }
 
   void addBend(double length, double angle, double rotation) {
     bendList.add({'length': length, 'angle': angle, 'rotation': rotation});
     _saveCurrentState();
+    notifyListeners();
   }
 
   // 🚀 화면 튀는 현상을 막기 위해 한 번에 묶어서(Batch) 추가하는 함수!
   void addMultipleBends(List<Map<String, double>> newBends) {
     bendList.addAll(newBends);
-    _saveCurrentState(); // 여기서 딱 한 번만 _saveCurrentState를 부르므로 렌더링 낭비 방지!
+    _saveCurrentState();
+    notifyListeners();
   }
 
   void updateBend(int index, double length, double angle, double rotation) {
@@ -133,29 +201,35 @@ class BendDataManager extends ChangeNotifier {
         'rotation': rotation,
       };
       _saveCurrentState();
+      notifyListeners();
     }
   }
 
   void clearBends() {
     bendList.clear();
     _saveCurrentState();
+    notifyListeners();
   }
 
   void removeBendAt(int index) {
     if (index >= 0 && index < bendList.length) {
       bendList.removeAt(index);
       _saveCurrentState();
+      notifyListeners();
     }
   }
 
   void reorderBend(int oldIndex, int newIndex) {
-    if (oldIndex >= 0 &&
-        oldIndex < bendList.length &&
-        newIndex >= 0 &&
-        newIndex <= bendList.length) {
-      final item = bendList.removeAt(oldIndex);
-      bendList.insert(newIndex, item);
-      _saveCurrentState();
-    }
+    if (oldIndex < 0 || oldIndex >= bendList.length) return;
+
+    final item = bendList.removeAt(oldIndex);
+    // 🚀 [수정] 제거 후의 길이를 기준으로 clamp한다. 예전엔 제거 전 길이
+    // 기준으로만 범위를 검사해서, 호출자가 Flutter ReorderableListView 특유의
+    // "oldIndex<newIndex면 newIndex-1" 보정을 안 해주면 항목을 리스트 맨
+    // 끝으로 옮길 때 RangeError가 났다.
+    final clampedIndex = newIndex.clamp(0, bendList.length);
+    bendList.insert(clampedIndex, item);
+    _saveCurrentState();
+    notifyListeners();
   }
 }

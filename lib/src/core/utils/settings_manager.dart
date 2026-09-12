@@ -34,6 +34,14 @@ class SettingsManager {
     required bool autoMinStraight,
     required bool autoOffset,
     required bool autoFittingDepth,
+
+    // 🚀 [추가] 예전엔 MobileSettingsTab이 SharedPreferences로 따로 저장하던
+    // 값들. 설정이 여러 군데(SettingsManager + 개별 prefs 호출)에 흩어져 있으면
+    // 화면마다 다른 로딩 로직을 짜야 하고 동기화가 쉽게 어긋나므로,
+    // 여기 한 곳으로 모은다.
+    required String benderType,
+    required bool keepScreenOn,
+    required bool warnShoeInterference,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -69,6 +77,11 @@ class SettingsManager {
     await prefs.setBool('auto_minStraight', autoMinStraight);
     await prefs.setBool('auto_offset', autoOffset);
     await prefs.setBool('auto_fittingDepth', autoFittingDepth);
+
+    // 🚀 [추가] 예전엔 개별적으로 저장되던 값들도 이제 여기서 함께 저장
+    await prefs.setString('benderType', benderType);
+    await prefs.setBool('keepScreenOn', keepScreenOn);
+    await prefs.setBool('warnShoeInterference', warnShoeInterference);
   }
 
   static Future<Map<String, dynamic>> loadSettings() async {
@@ -103,6 +116,13 @@ class SettingsManager {
       'auto_minStraight': prefs.getBool('auto_minStraight'),
       'auto_offset': prefs.getBool('auto_offset'),
       'auto_fittingDepth': prefs.getBool('auto_fittingDepth'),
+
+      // 🚀 [추가] 예전엔 SettingsManager 밖에서 SharedPreferences로 따로
+      // 읽던 값들 (benderType/keepScreenOn/warnShoeInterference)도
+      // 이제 한 번의 loadSettings() 호출로 같이 반환한다.
+      'benderType': prefs.getString('benderType'),
+      'keepScreenOn': prefs.getBool('keepScreenOn'),
+      'warnShoeInterference': prefs.getBool('warnShoeInterference'),
     };
   }
 }

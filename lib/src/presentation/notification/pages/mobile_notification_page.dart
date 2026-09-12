@@ -49,6 +49,12 @@ class MobileNotificationPage extends StatelessWidget {
             );
           }
 
+          // 🔥 스트림 에러(권한/색인 문제 등)를 "알림 없음"으로 숨기지 않고 표시
+          if (snapshot.hasError) {
+            debugPrint("알림 스트림 에러: ${snapshot.error}");
+            return _buildErrorState();
+          }
+
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return _buildEmptyState();
           }
@@ -174,6 +180,30 @@ class MobileNotificationPage extends StatelessWidget {
           const SizedBox(height: 16),
           const Text(
             "새로운 알림이 없습니다.",
+            style: TextStyle(
+              color: slate600,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            LucideIcons.alertTriangle,
+            size: 48,
+            color: Color(0xFFF04438),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            "알림을 불러오지 못했습니다.",
             style: TextStyle(
               color: slate600,
               fontSize: 16,

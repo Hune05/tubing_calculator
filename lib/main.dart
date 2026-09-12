@@ -258,19 +258,28 @@ class _DeepLinkHandlerState extends State<DeepLinkHandler> {
       final String proj = uri.queryParameters['p'] ?? 'Unknown';
       final String size = uri.queryParameters['s'] ?? 'Unknown';
       final String compressedBends = uri.queryParameters['b'] ?? '';
+      final bool startFit = uri.queryParameters['sf'] == 'true';
+      final bool endFit = uri.queryParameters['ef'] == 'true';
+      final double tail =
+          double.tryParse(uri.queryParameters['t'] ?? '0.0') ?? 0.0;
+      final String startDir = uri.queryParameters['d'] ?? 'RIGHT';
 
       List<Map<String, dynamic>> parsedBends = [];
       if (compressedBends.isNotEmpty) {
         List<String> segments = compressedBends.split('-');
         for (String seg in segments) {
           List<String> parts = seg.split('_');
-          if (parts.length == 3) {
+          // 🚀 [수정] 마킹값(4번째 항목)이 포함된 최신 압축 포맷도 인식하도록 >= 3으로 완화
+          if (parts.length >= 3) {
             double a = double.tryParse(parts[1]) ?? 0.0;
             parsedBends.add({
               'length': double.tryParse(parts[0]) ?? 0.0,
               'angle': a,
               'rotation': double.tryParse(parts[2]) ?? 0.0,
               'is_straight': a == 0.0,
+              'mark': parts.length >= 4
+                  ? (double.tryParse(parts[3]) ?? 0.0)
+                  : 0.0,
             });
           }
         }
@@ -283,6 +292,10 @@ class _DeepLinkHandlerState extends State<DeepLinkHandler> {
               project: proj,
               pipeSize: size,
               bendList: parsedBends,
+              startFit: startFit,
+              endFit: endFit,
+              tailLength: tail,
+              startDir: startDir,
             ),
           ),
         );

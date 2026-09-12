@@ -114,10 +114,19 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
     setState(() {
       for (var item in _placedItems) item.isSelected = false;
 
+      double clampedX = localPosition.dx.clamp(
+        0.0,
+        math.max(0.0, _panelWidth - 80.0),
+      );
+      double clampedY = localPosition.dy.clamp(
+        0.0,
+        math.max(0.0, _panelHeight - 80.0),
+      );
+
       final newItem = PlacedItem(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: defaultName,
-        position: _snapToGrid(localPosition),
+        position: _snapToGrid(Offset(clampedX, clampedY)),
         isSelected: true,
       );
       _placedItems.add(newItem);
@@ -268,6 +277,19 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
                 setState(() {
                   _panelWidth = double.tryParse(widthCtrl.text) ?? 600.0;
                   _panelHeight = double.tryParse(heightCtrl.text) ?? 800.0;
+
+                  for (var item in _placedItems) {
+                    item.position = Offset(
+                      item.position.dx.clamp(
+                        0.0,
+                        math.max(0.0, _panelWidth - item.width),
+                      ),
+                      item.position.dy.clamp(
+                        0.0,
+                        math.max(0.0, _panelHeight - item.height),
+                      ),
+                    );
+                  }
                   _dimensions.removeWhere(
                     (dim) => dim.p1 is WallPoint || dim.p2 is WallPoint,
                   );
@@ -847,10 +869,20 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
                                 "가로 (mm)",
                                 _selectedItem!.width.toInt().toString(),
                                 (val) {
-                                  setState(
-                                    () => _selectedItem!.width =
-                                        (double.tryParse(val) ?? 80.0),
-                                  );
+                                  setState(() {
+                                    _selectedItem!.width =
+                                        (double.tryParse(val) ?? 80.0);
+                                    _selectedItem!.position = Offset(
+                                      _selectedItem!.position.dx.clamp(
+                                        0.0,
+                                        math.max(
+                                          0.0,
+                                          _panelWidth - _selectedItem!.width,
+                                        ),
+                                      ),
+                                      _selectedItem!.position.dy,
+                                    );
+                                  });
                                 },
                               ),
                             ),
@@ -860,10 +892,20 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
                                 "세로 (mm)",
                                 _selectedItem!.height.toInt().toString(),
                                 (val) {
-                                  setState(
-                                    () => _selectedItem!.height =
-                                        (double.tryParse(val) ?? 80.0),
-                                  );
+                                  setState(() {
+                                    _selectedItem!.height =
+                                        (double.tryParse(val) ?? 80.0);
+                                    _selectedItem!.position = Offset(
+                                      _selectedItem!.position.dx,
+                                      _selectedItem!.position.dy.clamp(
+                                        0.0,
+                                        math.max(
+                                          0.0,
+                                          _panelHeight - _selectedItem!.height,
+                                        ),
+                                      ),
+                                    );
+                                  });
                                 },
                               ),
                             ),
@@ -887,12 +929,19 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
                                 "X (mm)",
                                 _selectedItem!.position.dx.toInt().toString(),
                                 (val) {
-                                  setState(
-                                    () => _selectedItem!.position = Offset(
-                                      (double.tryParse(val) ?? 0),
+                                  setState(() {
+                                    double newX = double.tryParse(val) ?? 0;
+                                    _selectedItem!.position = Offset(
+                                      newX.clamp(
+                                        0.0,
+                                        math.max(
+                                          0.0,
+                                          _panelWidth - _selectedItem!.width,
+                                        ),
+                                      ),
                                       _selectedItem!.position.dy,
-                                    ),
-                                  );
+                                    );
+                                  });
                                 },
                               ),
                             ),
@@ -902,12 +951,19 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
                                 "Y (mm)",
                                 _selectedItem!.position.dy.toInt().toString(),
                                 (val) {
-                                  setState(
-                                    () => _selectedItem!.position = Offset(
+                                  setState(() {
+                                    double newY = double.tryParse(val) ?? 0;
+                                    _selectedItem!.position = Offset(
                                       _selectedItem!.position.dx,
-                                      (double.tryParse(val) ?? 0),
-                                    ),
-                                  );
+                                      newY.clamp(
+                                        0.0,
+                                        math.max(
+                                          0.0,
+                                          _panelHeight - _selectedItem!.height,
+                                        ),
+                                      ),
+                                    );
+                                  });
                                 },
                               ),
                             ),

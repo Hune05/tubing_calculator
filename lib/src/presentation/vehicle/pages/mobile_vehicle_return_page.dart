@@ -405,11 +405,34 @@ class _MobileVehicleReturnPageState extends State<MobileVehicleReturnPage> {
       return;
     }
 
+    int? finalMileage = int.tryParse(_mileageCtrl.text.trim());
+    if (finalMileage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("주행거리를 올바르게 입력해 주세요."),
+          backgroundColor: warningRed,
+        ),
+      );
+      return;
+    }
+
+    // 🚀 이전 주행거리보다 작은 값(역주행)이 입력되는 것을 방지
+    final previousMileage = int.tryParse(
+      widget.vehicle['currentMileage']?.toString() ?? '',
+    );
+    if (previousMileage != null && finalMileage < previousMileage) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("입력한 주행거리가 이전 기록(${previousMileage}km)보다 작습니다. 다시 확인해 주세요."),
+          backgroundColor: warningRed,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
-      int finalMileage = int.parse(_mileageCtrl.text.trim());
-
       // 🚀 Firestore 업데이트
       await FirebaseFirestore.instance
           .collection('vehicles')

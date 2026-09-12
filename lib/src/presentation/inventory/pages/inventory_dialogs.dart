@@ -146,8 +146,11 @@ extension _InventoryDialogsExt on _InventoryPageState {
               int qty = int.tryParse(qtyCtrl.text) ?? 0;
               String proj = projCtrl.text.trim();
               String reason = reasonCtrl.text.trim();
+              int currentStock = item['qty'] ?? 0;
 
-              if (qty <= 0 || (isDispatch && proj.isEmpty)) {
+              if (qty <= 0 ||
+                  (isDispatch && proj.isEmpty) ||
+                  (isDispatch && qty > currentStock)) {
                 return;
               }
 

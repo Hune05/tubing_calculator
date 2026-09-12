@@ -95,6 +95,13 @@ class _MobileResultTabState extends State<MobileResultTab>
         final dataManager = MobileBendDataManager();
         final bendList = dataManager.bendList;
 
+        // 🚀 [수정] dataManager가 다른 화면(예: 저장된 도면 불러오기)에서 바뀌어도
+        // 이 탭이 예전 캐시값으로 계산하지 않도록, 재빌드될 때마다 항상 최신값으로 동기화한다.
+        // (Switch/입력 자체는 여전히 아래 로컬 필드를 그대로 사용하므로 동작은 동일함)
+        _includeStartFitting = dataManager.startFit;
+        _includeEndFitting = dataManager.endFit;
+        _tailLength = dataManager.tail;
+
         // 🚀 버그 픽스 완료: radius 값을 온전히 가져옵니다!
         final double radius = dataManager.radius;
         final double fittingDepth = dataManager.fittingDepth;
@@ -121,7 +128,50 @@ class _MobileResultTabState extends State<MobileResultTab>
           );
         }
 
-        final result = engine.calculate(instructions, 0.0);
+        // 🚀 [수정] 180°에 가까운 벤딩 등 엔진이 계산할 수 없는 입력이 있으면
+        // 전체 탭이 빨간 에러 화면으로 크래시하는 대신, 안내 카드로 대체한다.
+        Map<String, dynamic>? result;
+        String? calcError;
+        try {
+          result = engine.calculate(instructions, 0.0);
+        } catch (e) {
+          calcError = e.toString();
+        }
+
+        if (calcError != null || result == null) {
+          return Container(
+            color: pureWhite,
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.error_outline_rounded,
+                    color: Colors.red.shade400,
+                    size: 48,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "이 도면은 계산할 수 없습니다.",
+                    style: TextStyle(
+                      color: slate900,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    calcError ?? "알 수 없는 오류",
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: slate600, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
         final double pureCutLength = result['totalCutLength'];
         final List<StepResult> steps = result['steps'];
 
@@ -263,9 +313,10 @@ class _MobileResultTabState extends State<MobileResultTab>
                               vertical: 12,
                             ),
                           ),
+                          // ✅ 수정 완료: UI 전용 데이터(displayMarks) 대신 순수 데이터(bendList) 저장
                           onPressed: bendList.isEmpty
                               ? null
-                              : () => _handleSave(totalCut, displayMarks),
+                              : () => _handleSave(totalCut, bendList),
                           icon: const Icon(Icons.save_alt_rounded, size: 18),
                           label: const Text(
                             "도면 저장",
@@ -763,8 +814,18 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
     super.dispose();
   }
 
-  Future<void> _refreshHistory() async {
-    setState(() => _isLoading = true);
+  // 🚀 [수정] 날짜 문자열이 10자 미만이어도(빈 문자열 등) 크래시 나지 않도록 안전하게 자름
+  String _safeDatePrefix(dynamic date) {
+    final raw = date?.toString() ?? '';
+    return raw.length >= 10 ? raw.substring(0, 10) : raw;
+  }
+
+  // 🚀 [수정] showFullLoader=false로 호출하면 이미 떠 있는 목록을 유지한 채 조용히 갱신한다.
+  // (당겨서 새로고침 시 목록 전체가 스피너로 바뀌었다 사라지는 깜빡임 방지)
+  Future<void> _refreshHistory({bool showFullLoader = true}) async {
+    if (showFullLoader) {
+      setState(() => _isLoading = true);
+    }
     final data = await DatabaseHelper.instance.getHistory();
     if (!mounted) {
       return;
@@ -888,7 +949,8 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                     ),
                   )
                 : RefreshIndicator(
-                    onRefresh: _refreshHistory,
+                    // 🚀 [수정] 당겨서 새로고침할 땐 전체 스피너로 바꾸지 않고 조용히 갱신
+                    onRefresh: () => _refreshHistory(showFullLoader: false),
                     color: makitaTeal,
                     backgroundColor: pureWhite,
                     child: ListView.builder(
@@ -904,6 +966,9 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                             filteredGroupedHistory[folderName]!;
 
                         return Theme(
+                          // 🚀 [수정] 폴더 이름 기준 key를 줘서, 검색으로 목록 순서/개수가
+                          // 바뀌어도 ExpansionTile의 펼침 상태가 엉뚱한 폴더에 붙지 않게 함
+                          key: ValueKey(folderName),
                           data: Theme.of(
                             context,
                           ).copyWith(dividerColor: Colors.transparent),
@@ -984,7 +1049,8 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                                       if (!context.mounted) {
                                         return;
                                       }
-                                      _refreshHistory();
+                                      // 🚀 [수정] 상세화면에서 돌아올 때는 조용히 갱신
+                                      _refreshHistory(showFullLoader: false);
                                     },
                                     title: Text(
                                       fromTo,
@@ -1029,7 +1095,8 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                                           ),
                                           const SizedBox(height: 6),
                                           Text(
-                                            "날짜: ${item['date']?.toString().substring(0, 10) ?? ''}",
+                                            // 🚀 [수정] substring(0,10) 크래시 방지
+                                            "날짜: ${_safeDatePrefix(item['date'])}",
                                             style: TextStyle(
                                               color: slate600.withValues(
                                                 alpha: 0.5,
@@ -1098,7 +1165,10 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                                           if (!context.mounted) {
                                             return;
                                           }
-                                          _refreshHistory();
+                                          // 🚀 [수정] 삭제 후에도 조용히 갱신
+                                          _refreshHistory(
+                                            showFullLoader: false,
+                                          );
                                         }
                                       },
                                     ),
