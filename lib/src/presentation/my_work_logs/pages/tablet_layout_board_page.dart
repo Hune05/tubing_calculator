@@ -13,10 +13,15 @@ const Color pureWhite = Color(0xFFFFFFFF);
 const Color warningRed = Color(0xFFF04438);
 const Color dimensionColor = Color(0xFF00C471);
 const Color guideColor = tossBlue;
+const Color tubingLineColor = Color(0xFFFF6B35); // 정밀 튜빙 라인: 주황-레드
 
 // ---------------------------------------------------------
 // 1. 데이터 모델
 // ---------------------------------------------------------
+
+// 🚀 [추가] 도면 보드의 3가지 작업 모드
+enum BoardMode { placeModule, measureDimension, drawTubing }
+
 abstract class MeasurePoint {
   Offset get center;
   String get id;
@@ -65,6 +70,22 @@ class CenterDimension {
   CenterDimension({required this.id, required this.p1, required this.p2});
 }
 
+// 🚀 [추가] 실제 배관으로 도면에 남는 정밀 튜빙 라인 (여러 구간/꺾임 가능)
+class PlacedTubingLine {
+  final String id;
+  final List<Offset> points;
+
+  PlacedTubingLine({required this.id, required this.points});
+
+  double get totalLength {
+    double total = 0;
+    for (int i = 0; i < points.length - 1; i++) {
+      total += (points[i + 1] - points[i]).distance;
+    }
+    return total;
+  }
+}
+
 // ---------------------------------------------------------
 // 2. 메인 페이지 화면 (Tablet Layout)
 // ---------------------------------------------------------
@@ -82,10 +103,13 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
   // 🚀 [핵심] 스냅 단위를 5mm로 초정밀화
   final double _gridSize = 5.0;
 
-  bool _isDimensionMode = false;
+  BoardMode _mode = BoardMode.placeModule;
 
   final List<PlacedItem> _placedItems = [];
   final List<CenterDimension> _dimensions = [];
+  // 🚀 [추가] 완료되어 저장된 튜빙 라인들과, 지금 찍고 있는 중인 임시 경로
+  final List<PlacedTubingLine> _tubingLines = [];
+  List<Offset> _tubingDraftPoints = [];
 
   MeasurePoint? _dimensionStartPoint;
   PlacedItem? _selectedItem;
@@ -104,8 +128,54 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
     setState(() {
       _placedItems.clear();
       _dimensions.clear();
+      _tubingLines.clear();
+      _tubingDraftPoints = [];
       _dimensionStartPoint = null;
       _selectedItem = null;
+    });
+  }
+
+  // 🚀 [추가] 튜빙 라인 그리기 모드에서 점 추가/실행취소/완료/취소
+  void _addTubingPoint(Offset point) {
+    HapticFeedback.lightImpact();
+    setState(() {
+      _tubingDraftPoints = [..._tubingDraftPoints, _snapToGrid(point)];
+    });
+  }
+
+  void _undoTubingPoint() {
+    if (_tubingDraftPoints.isEmpty) return;
+    setState(() {
+      _tubingDraftPoints = _tubingDraftPoints.sublist(
+        0,
+        _tubingDraftPoints.length - 1,
+      );
+    });
+  }
+
+  void _finishTubingLine() {
+    if (_tubingDraftPoints.length < 2) return;
+    setState(() {
+      _tubingLines.add(
+        PlacedTubingLine(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          points: _tubingDraftPoints,
+        ),
+      );
+      _tubingDraftPoints = [];
+    });
+    HapticFeedback.heavyImpact();
+  }
+
+  void _cancelTubingDraft() {
+    setState(() {
+      _tubingDraftPoints = [];
+    });
+  }
+
+  void _deleteTubingLine(String id) {
+    setState(() {
+      _tubingLines.removeWhere((line) => line.id == id);
     });
   }
 
@@ -193,8 +263,11 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
 
   void _onTapItem(PlacedItem item) {
     HapticFeedback.lightImpact();
-    if (_isDimensionMode) {
+    if (_mode == BoardMode.measureDimension) {
       _handleDimensionPoint(item);
+    } else if (_mode == BoardMode.drawTubing) {
+      // 튜빙 라인 그리기 중엔 모듈을 탭하면 그 모듈의 중심에 정확히 붙는다
+      _addTubingPoint(item.center);
     } else {
       setState(() {
         for (var i in _placedItems) i.isSelected = false;
@@ -205,10 +278,12 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
   }
 
   void _onTapBoard(Offset localPosition) {
-    if (_isDimensionMode) {
+    if (_mode == BoardMode.measureDimension) {
       HapticFeedback.lightImpact();
       WallPoint nearestWall = _getNearestWallPoint(localPosition);
       _handleDimensionPoint(nearestWall);
+    } else if (_mode == BoardMode.drawTubing) {
+      _addTubingPoint(localPosition);
     } else {
       setState(() {
         for (var i in _placedItems) i.isSelected = false;
@@ -504,76 +579,92 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
             color: pureWhite,
             border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment(
-                    value: false,
-                    label: Text(
-                      "모듈 배치/이동",
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SegmentedButton<BoardMode>(
+                  segments: const [
+                    ButtonSegment(
+                      value: BoardMode.placeModule,
+                      label: Text(
+                        "모듈 배치/이동",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
+                      icon: Icon(Icons.pan_tool_rounded, size: 16),
                     ),
-                    icon: Icon(Icons.pan_tool_rounded, size: 16),
-                  ),
-                  ButtonSegment(
-                    value: true,
-                    label: Text(
-                      "센터 치수 측정",
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                    ButtonSegment(
+                      value: BoardMode.measureDimension,
+                      label: Text(
+                        "센터 치수 측정",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
+                      icon: Icon(Icons.straighten_rounded, size: 16),
                     ),
-                    icon: Icon(Icons.straighten_rounded, size: 16),
+                    ButtonSegment(
+                      value: BoardMode.drawTubing,
+                      label: Text(
+                        "정밀 튜빙 라인",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      icon: Icon(Icons.timeline_rounded, size: 16),
+                    ),
+                  ],
+                  selected: {_mode},
+                  style: ButtonStyle(
+                    backgroundColor: WidgetStateProperty.resolveWith<Color>((
+                      Set<WidgetState> states,
+                    ) {
+                      if (states.contains(WidgetState.selected)) return tossText;
+                      return pureWhite;
+                    }),
+                    foregroundColor: WidgetStateProperty.resolveWith<Color>((
+                      Set<WidgetState> states,
+                    ) {
+                      if (states.contains(WidgetState.selected)) return pureWhite;
+                      return tossText;
+                    }),
                   ),
-                ],
-                selected: {_isDimensionMode},
-                style: ButtonStyle(
-                  backgroundColor: WidgetStateProperty.resolveWith<Color>((
-                    Set<WidgetState> states,
-                  ) {
-                    if (states.contains(WidgetState.selected)) return tossText;
-                    return pureWhite;
-                  }),
-                  foregroundColor: WidgetStateProperty.resolveWith<Color>((
-                    Set<WidgetState> states,
-                  ) {
-                    if (states.contains(WidgetState.selected)) return pureWhite;
-                    return tossText;
-                  }),
+                  onSelectionChanged: (Set<BoardMode> newSelection) {
+                    setState(() {
+                      _mode = newSelection.first;
+                      _dimensionStartPoint = null;
+                      _tubingDraftPoints = [];
+                      for (var i in _placedItems) i.isSelected = false;
+                      _selectedItem = null;
+                    });
+                  },
                 ),
-                onSelectionChanged: (Set<bool> newSelection) {
-                  setState(() {
-                    _isDimensionMode = newSelection.first;
-                    _dimensionStartPoint = null;
-                    for (var i in _placedItems) i.isSelected = false;
-                    _selectedItem = null;
-                  });
-                },
-              ),
-              const SizedBox(width: 16),
-              if (_isDimensionMode && _dimensions.isNotEmpty)
-                TextButton.icon(
-                  onPressed: () => setState(() => _dimensions.clear()),
-                  icon: const Icon(
-                    Icons.cleaning_services_rounded,
-                    size: 16,
-                    color: warningRed,
-                  ),
-                  label: const Text(
-                    "치수 삭제",
-                    style: TextStyle(
+                const SizedBox(width: 16),
+                if (_mode == BoardMode.measureDimension &&
+                    _dimensions.isNotEmpty)
+                  TextButton.icon(
+                    onPressed: () => setState(() => _dimensions.clear()),
+                    icon: const Icon(
+                      Icons.cleaning_services_rounded,
+                      size: 16,
                       color: warningRed,
-                      fontWeight: FontWeight.w700,
+                    ),
+                    label: const Text(
+                      "치수 삭제",
+                      style: TextStyle(
+                        color: warningRed,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
 
@@ -632,8 +723,16 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
                                   activePoint: _dimensionStartPoint,
                                 ),
                               ),
+                              CustomPaint(
+                                size: Size.infinite,
+                                painter: TubingLinePainter(
+                                  lines: _tubingLines,
+                                  draftPoints: _tubingDraftPoints,
+                                ),
+                              ),
 
-                              if (_selectedItem != null && !_isDimensionMode)
+                              if (_selectedItem != null &&
+                                  _mode == BoardMode.placeModule)
                                 CustomPaint(
                                   size: Size.infinite,
                                   painter: SmartGuidePainter(
@@ -649,7 +748,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
                                   left: item.position.dx,
                                   top: item.position.dy,
                                   child: GestureDetector(
-                                    onPanStart: !_isDimensionMode
+                                    onPanStart: _mode == BoardMode.placeModule
                                         ? (details) {
                                             setState(() {
                                               _dragRawPosition = item.position;
@@ -660,7 +759,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
                                             });
                                           }
                                         : null,
-                                    onPanUpdate: !_isDimensionMode
+                                    onPanUpdate: _mode == BoardMode.placeModule
                                         ? (details) {
                                             setState(() {
                                               _dragRawPosition += details.delta;
@@ -729,7 +828,8 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
 
   Widget _buildBoardItem(PlacedItem item) {
     bool isMeasuringStart =
-        _isDimensionMode && _dimensionStartPoint?.id == item.id;
+        _mode == BoardMode.measureDimension &&
+        _dimensionStartPoint?.id == item.id;
 
     return Container(
       width: item.width,
@@ -799,7 +899,9 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
-              child: _selectedItem == null
+              child: _mode == BoardMode.drawTubing
+                  ? _buildTubingInspector()
+                  : _selectedItem == null
                   ? const Center(
                       child: Padding(
                         padding: EdgeInsets.only(top: 40),
@@ -1018,6 +1120,138 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
           ),
         ],
       ),
+    );
+  }
+
+  // 🚀 [추가] 정밀 튜빙 라인 그리기 컨트롤(우측 패널)
+  Widget _buildTubingInspector() {
+    final double draftLength = _tubingDraftPoints.length < 2
+        ? 0
+        : PlacedTubingLine(id: 'draft', points: _tubingDraftPoints).totalLength;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _tubingDraftPoints.isEmpty
+              ? "💡 튜빙 라인이 지날 지점들을 순서대로 도면에서 탭하세요. 꺾이는 지점마다 탭하면 됩니다."
+              : "💡 다음 지점을 계속 탭해서 이어가거나, 완료를 눌러 확정하세요.\n(현재 ${_tubingDraftPoints.length}개 지점, ${draftLength.toInt()} mm)",
+          style: TextStyle(
+            color: _tubingDraftPoints.isEmpty ? tossSubText : tubingLineColor,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            height: 1.5,
+          ),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Tooltip(
+              message: "마지막 지점 실행 취소",
+              child: OutlinedButton(
+                onPressed: _tubingDraftPoints.isEmpty
+                    ? null
+                    : _undoTubingPoint,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: tossText,
+                  side: BorderSide(color: Colors.grey.shade300),
+                  padding: const EdgeInsets.all(12),
+                  minimumSize: const Size(44, 44),
+                ),
+                child: const Icon(Icons.undo_rounded, size: 18),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _tubingDraftPoints.isEmpty
+                    ? null
+                    : _cancelTubingDraft,
+                icon: const Icon(Icons.close_rounded, size: 16),
+                label: const Text("취소"),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: warningRed,
+                  side: const BorderSide(color: warningRed),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _tubingDraftPoints.length < 2
+                ? null
+                : _finishTubingLine,
+            icon: const Icon(Icons.check_rounded, size: 16, color: pureWhite),
+            label: const Text("완료", style: TextStyle(color: pureWhite)),
+            style: ElevatedButton.styleFrom(backgroundColor: tubingLineColor),
+          ),
+        ),
+        if (_tubingLines.isNotEmpty) ...[
+          const SizedBox(height: 28),
+          Row(
+            children: [
+              const Text(
+                "배치된 튜빙 라인",
+                style: TextStyle(
+                  color: tossText,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () => setState(() => _tubingLines.clear()),
+                child: const Text(
+                  "전체 삭제",
+                  style: TextStyle(
+                    color: warningRed,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          ..._tubingLines.asMap().entries.map((entry) {
+            final index = entry.key;
+            final line = entry.value;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              decoration: BoxDecoration(
+                color: tubingLineColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    "${index + 1} · ${line.totalLength.toInt()} mm",
+                    style: const TextStyle(
+                      color: tubingLineColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const Spacer(),
+                  InkWell(
+                    onTap: () => _deleteTubingLine(line.id),
+                    child: const Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: tubingLineColor,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ],
     );
   }
 
@@ -1315,6 +1549,106 @@ class CenterDimensionPainter extends CustomPainter {
           ..style = PaintingStyle.fill,
       );
     }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+// 🚀 [추가] 실제 배관으로 남는 정밀 튜빙 라인(여러 구간) 렌더링
+class TubingLinePainter extends CustomPainter {
+  final List<PlacedTubingLine> lines;
+  final List<Offset> draftPoints;
+
+  TubingLinePainter({required this.lines, required this.draftPoints});
+
+  Offset _pointAtArcMidpoint(List<Offset> points, double totalLength) {
+    if (totalLength <= 0) return points.first;
+    double target = totalLength / 2;
+    double accumulated = 0;
+    for (int i = 0; i < points.length - 1; i++) {
+      final segLength = (points[i + 1] - points[i]).distance;
+      if (accumulated + segLength >= target) {
+        final t = segLength == 0 ? 0.0 : (target - accumulated) / segLength;
+        return Offset.lerp(points[i], points[i + 1], t)!;
+      }
+      accumulated += segLength;
+    }
+    return points.last;
+  }
+
+  void _drawPath(
+    Canvas canvas,
+    Size boardSize,
+    List<Offset> points, {
+    required bool isDraft,
+  }) {
+    if (points.isEmpty) return;
+
+    final linePaint = Paint()
+      ..color = tubingLineColor.withValues(alpha: isDraft ? 0.5 : 0.9)
+      ..strokeWidth = isDraft ? 3.0 : 5.0
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    final dotPaint = Paint()..color = tubingLineColor;
+
+    for (int i = 0; i < points.length - 1; i++) {
+      canvas.drawLine(points[i], points[i + 1], linePaint);
+    }
+    for (final p in points) {
+      canvas.drawCircle(p, isDraft ? 4 : 5, dotPaint);
+    }
+
+    if (!isDraft && points.length >= 2) {
+      double total = 0;
+      for (int i = 0; i < points.length - 1; i++) {
+        total += (points[i + 1] - points[i]).distance;
+      }
+      final textSpan = TextSpan(
+        text: "${total.toInt()} mm",
+        style: const TextStyle(
+          color: pureWhite,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+        ),
+      );
+      final textPainter = TextPainter(
+        text: textSpan,
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      final labelW = textPainter.width + 16;
+      final labelH = textPainter.height + 10;
+      final rawMid = _pointAtArcMidpoint(points, total);
+      final mid = Offset(
+        rawMid.dx.clamp(
+          labelW / 2,
+          math.max(labelW / 2, boardSize.width - labelW / 2),
+        ),
+        rawMid.dy.clamp(
+          labelH / 2,
+          math.max(labelH / 2, boardSize.height - labelH / 2),
+        ),
+      );
+
+      final bgRect = RRect.fromRectAndRadius(
+        Rect.fromCenter(center: mid, width: labelW, height: labelH),
+        const Radius.circular(12),
+      );
+      canvas.drawRRect(bgRect, Paint()..color = tubingLineColor);
+      textPainter.paint(
+        canvas,
+        Offset(mid.dx - textPainter.width / 2, mid.dy - textPainter.height / 2),
+      );
+    }
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final line in lines) {
+      _drawPath(canvas, size, line.points, isDraft: false);
+    }
+    _drawPath(canvas, size, draftPoints, isDraft: true);
   }
 
   @override

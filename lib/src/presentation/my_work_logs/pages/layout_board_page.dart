@@ -26,11 +26,15 @@ const Color warningRed = Color(0xFFF04438);
 const Color centerDimColor = Color(0xFF00C471); // 센터: 녹색
 const Color edgeDimColor = Color(0xFFF68657); // 측면: 주황색
 const Color guideCenterColor = tossBlue; // 가상선(센터): 파란색
+const Color tubingLineColor = Color(0xFFFF6B35); // 정밀 튜빙 라인: 주황-레드
 
 // ---------------------------------------------------------
 // 1. 데이터 모델
 // ---------------------------------------------------------
 enum DimensionType { center, edge }
+
+// 🚀 [추가] 도면 보드의 3가지 작업 모드
+enum BoardMode { placeModule, measureDimension, drawTubing }
 
 abstract class MeasurePoint {
   Offset get center;
@@ -121,6 +125,27 @@ class PlacedDimension {
   };
 }
 
+// 🚀 [추가] 실제 배관으로 도면에 남는 정밀 튜빙 라인 (여러 구간/꺾임 가능)
+class PlacedTubingLine {
+  final String id;
+  final List<Offset> points;
+
+  PlacedTubingLine({required this.id, required this.points});
+
+  double get totalLength {
+    double total = 0;
+    for (int i = 0; i < points.length - 1; i++) {
+      total += (points[i + 1] - points[i]).distance;
+    }
+    return total;
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'points': points.map((p) => {'x': p.dx, 'y': p.dy}).toList(),
+  };
+}
+
 // ---------------------------------------------------------
 // 2. 메인 페이지 화면
 // ---------------------------------------------------------
@@ -138,12 +163,15 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
   double _panelHeight = 800.0;
   final double _gridSize = 5.0;
 
-  bool _isDimensionMode = false;
+  BoardMode _mode = BoardMode.placeModule;
   DimensionType _currentDimType = DimensionType.center;
   bool _isSaving = false;
 
   final List<PlacedItem> _placedItems = [];
   final List<PlacedDimension> _dimensions = [];
+  // 🚀 [추가] 완료되어 저장된 튜빙 라인들과, 지금 찍고 있는 중인 임시 경로
+  final List<PlacedTubingLine> _tubingLines = [];
+  List<Offset> _tubingDraftPoints = [];
 
   MeasurePoint? _dimensionStartPoint;
   PlacedItem? _activeItem;
@@ -171,9 +199,55 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
     setState(() {
       _placedItems.clear();
       _dimensions.clear();
+      _tubingLines.clear();
+      _tubingDraftPoints = [];
       _dimensionStartPoint = null;
       _activeItem = null;
       _previewItem = null;
+    });
+  }
+
+  // 🚀 [추가] 튜빙 라인 그리기 모드에서 점 추가/실행취소/완료/취소
+  void _addTubingPoint(Offset point) {
+    HapticFeedback.lightImpact();
+    setState(() {
+      _tubingDraftPoints = [..._tubingDraftPoints, _snapToGrid(point)];
+    });
+  }
+
+  void _undoTubingPoint() {
+    if (_tubingDraftPoints.isEmpty) return;
+    setState(() {
+      _tubingDraftPoints = _tubingDraftPoints.sublist(
+        0,
+        _tubingDraftPoints.length - 1,
+      );
+    });
+  }
+
+  void _finishTubingLine() {
+    if (_tubingDraftPoints.length < 2) return;
+    setState(() {
+      _tubingLines.add(
+        PlacedTubingLine(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          points: _tubingDraftPoints,
+        ),
+      );
+      _tubingDraftPoints = [];
+    });
+    HapticFeedback.heavyImpact();
+  }
+
+  void _cancelTubingDraft() {
+    setState(() {
+      _tubingDraftPoints = [];
+    });
+  }
+
+  void _deleteTubingLine(String id) {
+    setState(() {
+      _tubingLines.removeWhere((line) => line.id == id);
     });
   }
 
@@ -302,6 +376,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
         'createdAt': FieldValue.serverTimestamp(),
         'items': _placedItems.map((e) => e.toJson()).toList(),
         'dimensions': _dimensions.map((e) => e.toJson()).toList(),
+        'tubingLines': _tubingLines.map((e) => e.toJson()).toList(),
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -403,8 +478,11 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
 
   void _onTapItem(PlacedItem item) {
     HapticFeedback.lightImpact();
-    if (_isDimensionMode) {
+    if (_mode == BoardMode.measureDimension) {
       _handleDimensionPoint(item);
+    } else if (_mode == BoardMode.drawTubing) {
+      // 튜빙 라인 그리기 중엔 모듈을 탭하면 그 모듈의 중심에 정확히 붙는다
+      _addTubingPoint(item.center);
     } else {
       setState(() {
         for (var i in _placedItems) i.isSelected = false;
@@ -416,10 +494,12 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
   }
 
   void _onTapBoard(Offset localPosition) {
-    if (_isDimensionMode) {
+    if (_mode == BoardMode.measureDimension) {
       HapticFeedback.lightImpact();
       WallPoint nearestWall = _getNearestWallPoint(localPosition);
       _handleDimensionPoint(nearestWall);
+    } else if (_mode == BoardMode.drawTubing) {
+      _addTubingPoint(localPosition);
     } else {
       setState(() {
         for (var i in _placedItems) i.isSelected = false;
@@ -1198,9 +1278,16 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
                                     panelHeight: _panelHeight,
                                   ),
                                 ),
+                                CustomPaint(
+                                  size: Size.infinite,
+                                  painter: TubingLinePainter(
+                                    lines: _tubingLines,
+                                    draftPoints: _tubingDraftPoints,
+                                  ),
+                                ),
 
                                 if (_previewItem != null &&
-                                    !_isDimensionMode) ...[
+                                    _mode == BoardMode.placeModule) ...[
                                   CustomPaint(
                                     size: Size.infinite,
                                     painter: SmartGuidePainter(
@@ -1221,7 +1308,8 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
                                   ),
                                 ],
 
-                                if (_activeItem != null && !_isDimensionMode)
+                                if (_activeItem != null &&
+                                    _mode == BoardMode.placeModule)
                                   CustomPaint(
                                     size: Size.infinite,
                                     painter: SmartGuidePainter(
@@ -1238,7 +1326,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
                                     left: item.position.dx,
                                     top: item.position.dy,
                                     child: GestureDetector(
-                                      onPanStart: !_isDimensionMode
+                                      onPanStart: _mode == BoardMode.placeModule
                                           ? (details) {
                                               setState(() {
                                                 _dragRawPosition =
@@ -1251,7 +1339,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
                                               });
                                             }
                                           : null,
-                                      onPanUpdate: !_isDimensionMode
+                                      onPanUpdate: _mode == BoardMode.placeModule
                                           ? (details) {
                                               setState(() {
                                                 _dragRawPosition +=
@@ -1280,7 +1368,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
                                               });
                                             }
                                           : null,
-                                      onPanEnd: !_isDimensionMode
+                                      onPanEnd: _mode == BoardMode.placeModule
                                           ? (details) {
                                               setState(() {
                                                 _activeItem = null;
@@ -1350,71 +1438,83 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: SegmentedButton<bool>(
-                            segments: const [
-                              ButtonSegment(
-                                value: false,
-                                label: Text(
-                                  "모듈 배치/이동",
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
+                    // 🚀 [수정] 세그먼트가 2개→3개(모듈/치수/튜빙)로 늘어나면
+                    // 좁은 폰 폭에서 넘칠 수 있어 가로 스크롤로 감쌌다.
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SegmentedButton<BoardMode>(
+                        segments: const [
+                          ButtonSegment(
+                            value: BoardMode.placeModule,
+                            label: Text(
+                              "모듈 배치/이동",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
                               ),
-                              ButtonSegment(
-                                value: true,
-                                label: Text(
-                                  "고정 치수 측정",
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                            selected: {_isDimensionMode},
-                            style: ButtonStyle(
-                              backgroundColor:
-                                  WidgetStateProperty.resolveWith<Color>((
-                                    Set<WidgetState> states,
-                                  ) {
-                                    if (states.contains(WidgetState.selected))
-                                      return tossText;
-                                    return pureWhite;
-                                  }),
-                              foregroundColor:
-                                  WidgetStateProperty.resolveWith<Color>((
-                                    Set<WidgetState> states,
-                                  ) {
-                                    if (states.contains(WidgetState.selected))
-                                      return pureWhite;
-                                    return tossText;
-                                  }),
                             ),
-                            onSelectionChanged: (Set<bool> newSelection) {
-                              setState(() {
-                                _isDimensionMode = newSelection.first;
-                                _dimensionStartPoint = null;
-                                _activeItem = null;
-                                for (var i in _placedItems) {
-                                  i.isSelected = false;
-                                }
-                              });
-                            },
                           ),
+                          ButtonSegment(
+                            value: BoardMode.measureDimension,
+                            label: Text(
+                              "고정 치수 측정",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          ButtonSegment(
+                            value: BoardMode.drawTubing,
+                            label: Text(
+                              "정밀 튜빙 라인",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                        selected: {_mode},
+                        style: ButtonStyle(
+                          backgroundColor:
+                              WidgetStateProperty.resolveWith<Color>((
+                                Set<WidgetState> states,
+                              ) {
+                                if (states.contains(WidgetState.selected))
+                                  return tossText;
+                                return pureWhite;
+                              }),
+                          foregroundColor:
+                              WidgetStateProperty.resolveWith<Color>((
+                                Set<WidgetState> states,
+                              ) {
+                                if (states.contains(WidgetState.selected))
+                                  return pureWhite;
+                                return tossText;
+                              }),
                         ),
-                      ],
+                        onSelectionChanged: (Set<BoardMode> newSelection) {
+                          setState(() {
+                            _mode = newSelection.first;
+                            _dimensionStartPoint = null;
+                            _activeItem = null;
+                            _tubingDraftPoints = [];
+                            for (var i in _placedItems) {
+                              i.isSelected = false;
+                            }
+                          });
+                        },
+                      ),
                     ),
                   ),
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 200),
-                    child: _isDimensionMode
-                        ? _buildDimensionToolBar()
-                        : _buildModulePalette(),
+                    child: switch (_mode) {
+                      BoardMode.measureDimension => _buildDimensionToolBar(),
+                      BoardMode.drawTubing => _buildTubingToolBar(),
+                      BoardMode.placeModule => _buildModulePalette(),
+                    },
                   ),
                 ],
               ),
@@ -1641,9 +1741,156 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
     );
   }
 
+  // 🚀 [추가] 정밀 튜빙 라인 그리기 툴바
+  Widget _buildTubingToolBar() {
+    final double draftLength = _tubingDraftPoints.length < 2
+        ? 0
+        : PlacedTubingLine(
+            id: 'draft',
+            points: _tubingDraftPoints,
+          ).totalLength;
+
+    return Padding(
+      key: const ValueKey("tubing"),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _tubingDraftPoints.isEmpty
+                ? "💡 튜빙 라인이 지날 지점들을 순서대로 탭하세요. 꺾이는 지점마다 탭하면 됩니다."
+                : "💡 다음 지점을 계속 탭해서 이어가거나, 완료를 눌러 확정하세요. (현재 ${_tubingDraftPoints.length}개 지점, ${draftLength.toInt()} mm)",
+            style: TextStyle(
+              color: _tubingDraftPoints.isEmpty
+                  ? tossSubText
+                  : tubingLineColor,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              // 🚀 [수정] 3개 버튼이 한 줄에 다 들어가야 해서 "실행 취소"는
+              // 라벨 없는 아이콘 버튼으로 바꿔 공간을 확보(텍스트가 좁은
+              // 폭에서 두 줄로 감싸지던 문제 해결).
+              Tooltip(
+                message: "마지막 지점 실행 취소",
+                child: OutlinedButton(
+                  onPressed: _tubingDraftPoints.isEmpty
+                      ? null
+                      : _undoTubingPoint,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: tossText,
+                    side: BorderSide(color: Colors.grey.shade300),
+                    padding: const EdgeInsets.all(12),
+                    minimumSize: const Size(44, 44),
+                  ),
+                  child: const Icon(Icons.undo_rounded, size: 18),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _tubingDraftPoints.isEmpty
+                      ? null
+                      : _cancelTubingDraft,
+                  icon: const Icon(Icons.close_rounded, size: 16),
+                  label: const Text("취소"),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: warningRed,
+                    side: const BorderSide(color: warningRed),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _tubingDraftPoints.length < 2
+                      ? null
+                      : _finishTubingLine,
+                  icon: const Icon(
+                    Icons.check_rounded,
+                    size: 16,
+                    color: pureWhite,
+                  ),
+                  label: const Text(
+                    "완료",
+                    style: TextStyle(color: pureWhite),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: tubingLineColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (_tubingLines.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Text(
+                  "배치된 튜빙 라인",
+                  style: TextStyle(
+                    color: tossText,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () => setState(() => _tubingLines.clear()),
+                  child: const Text(
+                    "전체 삭제",
+                    style: TextStyle(
+                      color: warningRed,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _tubingLines.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final line = entry.value;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Chip(
+                      backgroundColor: tubingLineColor.withValues(alpha: 0.1),
+                      label: Text(
+                        "${index + 1} · ${line.totalLength.toInt()} mm",
+                        style: const TextStyle(
+                          color: tubingLineColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                      deleteIcon: const Icon(
+                        Icons.close_rounded,
+                        size: 16,
+                        color: tubingLineColor,
+                      ),
+                      onDeleted: () => _deleteTubingLine(line.id),
+                      side: BorderSide.none,
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildBoardItem(PlacedItem item) {
     bool isMeasuringStart =
-        _isDimensionMode && _dimensionStartPoint?.id == item.id;
+        _mode == BoardMode.measureDimension &&
+        _dimensionStartPoint?.id == item.id;
     Color activeColor = _currentDimType == DimensionType.center
         ? centerDimColor
         : edgeDimColor;
@@ -2091,6 +2338,104 @@ class DimensionPainter extends CustomPainter {
           ..style = PaintingStyle.fill,
       );
     }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+// 🚀 [추가] 실제 배관으로 남는 정밀 튜빙 라인(여러 구간) 렌더링
+class TubingLinePainter extends CustomPainter {
+  final List<PlacedTubingLine> lines;
+  final List<Offset> draftPoints;
+
+  TubingLinePainter({required this.lines, required this.draftPoints});
+
+  // 🚀 호(arc-length) 기준 경로의 정중앙 지점을 계산 (꺾이는 지점이 아니라
+  // 실제 총 길이의 절반이 되는 좌표를 찾는다)
+  Offset _pointAtArcMidpoint(List<Offset> points, double totalLength) {
+    if (totalLength <= 0) return points.first;
+    double target = totalLength / 2;
+    double accumulated = 0;
+    for (int i = 0; i < points.length - 1; i++) {
+      final segLength = (points[i + 1] - points[i]).distance;
+      if (accumulated + segLength >= target) {
+        final t = segLength == 0 ? 0.0 : (target - accumulated) / segLength;
+        return Offset.lerp(points[i], points[i + 1], t)!;
+      }
+      accumulated += segLength;
+    }
+    return points.last;
+  }
+
+  void _drawPath(
+    Canvas canvas,
+    Size boardSize,
+    List<Offset> points, {
+    required bool isDraft,
+  }) {
+    if (points.isEmpty) return;
+
+    final linePaint = Paint()
+      ..color = tubingLineColor.withValues(alpha: isDraft ? 0.5 : 0.9)
+      ..strokeWidth = isDraft ? 3.0 : 5.0
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    final dotPaint = Paint()..color = tubingLineColor;
+
+    for (int i = 0; i < points.length - 1; i++) {
+      canvas.drawLine(points[i], points[i + 1], linePaint);
+    }
+    for (final p in points) {
+      canvas.drawCircle(p, isDraft ? 4 : 5, dotPaint);
+    }
+
+    if (!isDraft && points.length >= 2) {
+      double total = 0;
+      for (int i = 0; i < points.length - 1; i++) {
+        total += (points[i + 1] - points[i]).distance;
+      }
+      final textSpan = TextSpan(
+        text: "${total.toInt()} mm",
+        style: const TextStyle(
+          color: pureWhite,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+        ),
+      );
+      final textPainter = TextPainter(
+        text: textSpan,
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      final labelW = textPainter.width + 16;
+      final labelH = textPainter.height + 10;
+      final rawMid = _pointAtArcMidpoint(points, total);
+      // 🚀 [수정] 벽 근처에서 그린 라인은 라벨 박스가 도면 밖으로 나가
+      // 잘려 보였음. 라벨 중심을 보드 경계 안쪽으로 클램프한다.
+      final mid = Offset(
+        rawMid.dx.clamp(labelW / 2, math.max(labelW / 2, boardSize.width - labelW / 2)),
+        rawMid.dy.clamp(labelH / 2, math.max(labelH / 2, boardSize.height - labelH / 2)),
+      );
+
+      final bgRect = RRect.fromRectAndRadius(
+        Rect.fromCenter(center: mid, width: labelW, height: labelH),
+        const Radius.circular(12),
+      );
+      canvas.drawRRect(bgRect, Paint()..color = tubingLineColor);
+      textPainter.paint(
+        canvas,
+        Offset(mid.dx - textPainter.width / 2, mid.dy - textPainter.height / 2),
+      );
+    }
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final line in lines) {
+      _drawPath(canvas, size, line.points, isDraft: false);
+    }
+    _drawPath(canvas, size, draftPoints, isDraft: true);
   }
 
   @override
