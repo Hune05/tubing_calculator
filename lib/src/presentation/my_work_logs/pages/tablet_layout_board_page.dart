@@ -123,6 +123,11 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
 
   BoardMode _mode = BoardMode.placeModule;
   DimensionType _currentDimType = DimensionType.center;
+  // 🚀 [추가] 모듈 배치/이동 중 자동으로 뜨는 가이드선을 모드 전환 없이
+  // 그때그때 켜고 끌 수 있는 토글. 센터선/외곽선은 독립적으로 켤 수
+  // 있어서 둘 다 동시에 볼 수도 있다.
+  bool _showCenterGuide = true;
+  bool _showEdgeGuide = false;
 
   final List<PlacedItem> _placedItems = [];
   final List<PlacedDimension> _dimensions = [];
@@ -132,6 +137,9 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
 
   MeasurePoint? _dimensionStartPoint;
   PlacedItem? _selectedItem;
+  // 🚀 [추가] 사이드바에서 새 모듈을 도면 위로 끌고 오는 중에도 미리보기와
+  // 가이드선을 보여주기 위한 임시 아이템(모바일과 동일)
+  PlacedItem? _previewItem;
   Offset _dragRawPosition = Offset.zero;
 
   final GlobalKey _boardKey = GlobalKey();
@@ -574,8 +582,16 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
   }
 
   Widget _buildPaletteItem(String defaultName) {
+    // 🚀 [수정] width: double.infinity였는데, 사이드바 안에서는 부모
+    // Column의 stretch 정렬로 어차피 꽉 차 보여서 문제없었지만, 이
+    // 위젯을 Draggable의 feedback(드래그 중 화면에 떠다니는 복사본)으로
+    // 쓰면 Overlay가 무한 폭 제약을 줘서 "BoxConstraints forces an
+    // infinite width" 예외가 터지고 그 뒤로 레이아웃이 전부 깨져 드래그
+    // 자체가 동작하지 않았다(실기기 로그로 확인). 고정 폭으로 바꾸면
+    // 사이드바에서도(부모가 stretch라 그대로 꽉 차 보임) feedback으로
+    // 써도 둘 다 문제없다.
     return Container(
-      width: double.infinity,
+      width: 208,
       height: 90,
       decoration: BoxDecoration(
         color: pureWhite,
@@ -607,6 +623,35 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
         ),
       ),
     );
+  }
+
+  // 🚀 [추가] 센터선/외곽선 토글에 따라 최대 2개(둘 다 켜면 동시에)의
+  // 가이드선 페인터를 만들어준다.
+  List<Widget> _buildGuidePaints(PlacedItem item) {
+    return [
+      if (_showCenterGuide)
+        CustomPaint(
+          size: Size.infinite,
+          painter: SmartGuidePainter(
+            item: item,
+            allItems: _placedItems,
+            panelWidth: _panelWidth,
+            panelHeight: _panelHeight,
+            currentType: DimensionType.center,
+          ),
+        ),
+      if (_showEdgeGuide)
+        CustomPaint(
+          size: Size.infinite,
+          painter: SmartGuidePainter(
+            item: item,
+            allItems: _placedItems,
+            panelWidth: _panelWidth,
+            panelHeight: _panelHeight,
+            currentType: DimensionType.edge,
+          ),
+        ),
+    ];
   }
 
   Widget _buildMainBoard() {
@@ -685,6 +730,33 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
                   },
                 ),
                 const SizedBox(width: 16),
+                // 🚀 [추가] 모드와 무관하게 항상 켜고 끌 수 있는 자동
+                // 가이드선 토글(센터선/외곽선 독립 on/off)
+                FilterChip(
+                  label: const Text("센터선"),
+                  selected: _showCenterGuide,
+                  selectedColor: guideColor.withValues(alpha: 0.15),
+                  checkmarkColor: guideColor,
+                  labelStyle: TextStyle(
+                    color: _showCenterGuide ? guideColor : tossSubText,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  onSelected: (val) =>
+                      setState(() => _showCenterGuide = val),
+                ),
+                const SizedBox(width: 8),
+                FilterChip(
+                  label: const Text("외곽선"),
+                  selected: _showEdgeGuide,
+                  selectedColor: edgeDimColor.withValues(alpha: 0.15),
+                  checkmarkColor: edgeDimColor,
+                  labelStyle: TextStyle(
+                    color: _showEdgeGuide ? edgeDimColor : tossSubText,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  onSelected: (val) => setState(() => _showEdgeGuide = val),
+                ),
+                const SizedBox(width: 16),
                 if (_mode == BoardMode.measureDimension &&
                     _dimensions.isNotEmpty)
                   TextButton.icon(
@@ -709,18 +781,39 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
 
         // 도면 캔버스
         Expanded(
+          // 🚀 실제 드래그 불가 원인은 팔레트 아이템의 width:double.infinity가
+          // Draggable feedback으로 쓰일 때 무한 폭 제약 크래시를 일으킨
+          // 것이었음(_buildPaletteItem에서 수정). 그 크래시가 원인이었으므로
+          // InteractiveViewer(핀치줌)는 원래대로 되돌린다.
           child: InteractiveViewer(
             minScale: 0.1,
             maxScale: 4.0,
             boundaryMargin: const EdgeInsets.all(2000),
-            // 🚀 [수정] 한 손가락 팬이 늘 켜져 있으면 실제 터치스크린에서는
-            // 모듈을 옮기려는 드래그나 치수 측정 탭을 InteractiveViewer의
-            // 팬 제스처가 먼저 가로채서 "패널만 움직이고 모듈은 안 움직이는"
-            // 문제가 있었다(실기기에서 확인됨). 핀치줌(2손가락)은 그대로
-            // 유지하고 한 손가락 팬만 끈다.
-            panEnabled: false,
             child: Center(
-              child: DragTarget<String>(
+            child: DragTarget<String>(
+                onMove: (details) {
+                  final RenderBox box =
+                      _boardKey.currentContext!.findRenderObject() as RenderBox;
+                  Offset localPos = box.globalToLocal(details.offset);
+                  double clampedX = localPos.dx.clamp(
+                    0.0,
+                    math.max(0.0, _panelWidth - 80.0),
+                  );
+                  double clampedY = localPos.dy.clamp(
+                    0.0,
+                    math.max(0.0, _panelHeight - 80.0),
+                  );
+                  setState(() {
+                    _previewItem = PlacedItem(
+                      id: 'preview',
+                      name: details.data,
+                      position: _snapToGrid(Offset(clampedX, clampedY)),
+                      width: 80,
+                      height: 80,
+                    );
+                  });
+                },
+                onLeave: (data) => setState(() => _previewItem = null),
                 onAcceptWithDetails: (details) {
                   final RenderBox box =
                       _boardKey.currentContext!.findRenderObject() as RenderBox;
@@ -728,6 +821,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
                     details.data,
                     box.globalToLocal(details.offset),
                   );
+                  setState(() => _previewItem = null);
                 },
                 builder: (context, candidateData, rejectedData) {
                   return Stack(
@@ -778,16 +872,20 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage> {
 
                               if (_selectedItem != null &&
                                   _mode == BoardMode.placeModule)
-                                CustomPaint(
-                                  size: Size.infinite,
-                                  painter: SmartGuidePainter(
-                                    item: _selectedItem!,
-                                    allItems: _placedItems,
-                                    panelWidth: _panelWidth,
-                                    panelHeight: _panelHeight,
-                                    currentType: _currentDimType,
+                                ..._buildGuidePaints(_selectedItem!),
+
+                              if (_previewItem != null &&
+                                  _mode == BoardMode.placeModule) ...[
+                                ..._buildGuidePaints(_previewItem!),
+                                Positioned(
+                                  left: _previewItem!.position.dx,
+                                  top: _previewItem!.position.dy,
+                                  child: Opacity(
+                                    opacity: 0.5,
+                                    child: _buildBoardItem(_previewItem!),
                                   ),
                                 ),
+                              ],
 
                               ..._placedItems.map((item) {
                                 return Positioned(

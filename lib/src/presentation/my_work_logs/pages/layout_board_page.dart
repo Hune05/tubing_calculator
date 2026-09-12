@@ -165,6 +165,11 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
 
   BoardMode _mode = BoardMode.placeModule;
   DimensionType _currentDimType = DimensionType.center;
+  // 🚀 [추가] 모듈 배치/이동 중 자동으로 뜨는 가이드선을 모드 전환 없이
+  // 그때그때 켜고 끌 수 있는 토글. 센터선/외곽선은 독립적으로 켤 수
+  // 있어서 둘 다 동시에 볼 수도 있다.
+  bool _showCenterGuide = true;
+  bool _showEdgeGuide = false;
   bool _isSaving = false;
 
   final List<PlacedItem> _placedItems = [];
@@ -1215,12 +1220,6 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
               maxScale: 4.0,
               boundaryMargin: const EdgeInsets.all(2000),
               constrained: false,
-              // 🚀 [수정] 한 손가락 팬이 늘 켜져 있으면 실제 터치스크린에서는
-              // 모듈을 옮기려는 드래그나 치수/튜빙 측정 탭을
-              // InteractiveViewer의 팬 제스처가 먼저 가로채는 문제가 있다
-              // (태블릿 실기기에서 확인됨). 핀치줌(2손가락)은 유지하고
-              // 한 손가락 팬만 끈다.
-              panEnabled: false,
               child: DragTarget<String>(
                 onMove: (details) {
                   final RenderBox box =
@@ -1305,16 +1304,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
 
                                 if (_previewItem != null &&
                                     _mode == BoardMode.placeModule) ...[
-                                  CustomPaint(
-                                    size: Size.infinite,
-                                    painter: SmartGuidePainter(
-                                      item: _previewItem!,
-                                      allItems: _placedItems,
-                                      panelWidth: _panelWidth,
-                                      panelHeight: _panelHeight,
-                                      currentType: _currentDimType,
-                                    ),
-                                  ),
+                                  ..._buildGuidePaints(_previewItem!),
                                   Positioned(
                                     left: _previewItem!.position.dx,
                                     top: _previewItem!.position.dy,
@@ -1327,16 +1317,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
 
                                 if (_activeItem != null &&
                                     _mode == BoardMode.placeModule)
-                                  CustomPaint(
-                                    size: Size.infinite,
-                                    painter: SmartGuidePainter(
-                                      item: _activeItem!,
-                                      allItems: _placedItems,
-                                      panelWidth: _panelWidth,
-                                      panelHeight: _panelHeight,
-                                      currentType: _currentDimType,
-                                    ),
-                                  ),
+                                  ..._buildGuidePaints(_activeItem!),
 
                                 ..._placedItems.map((item) {
                                   return Positioned(
@@ -1525,6 +1506,51 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
                       ),
                     ),
                   ),
+                  // 🚀 [추가] 모드와 무관하게 항상 켜고 끌 수 있는 자동
+                  // 가이드선 토글(센터선/외곽선 독립 on/off)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          FilterChip(
+                            label: const Text("센터선"),
+                            selected: _showCenterGuide,
+                            selectedColor: guideCenterColor.withValues(
+                              alpha: 0.15,
+                            ),
+                            checkmarkColor: guideCenterColor,
+                            labelStyle: TextStyle(
+                              color: _showCenterGuide
+                                  ? guideCenterColor
+                                  : tossSubText,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            onSelected: (val) =>
+                                setState(() => _showCenterGuide = val),
+                          ),
+                          const SizedBox(width: 8),
+                          FilterChip(
+                            label: const Text("외곽선"),
+                            selected: _showEdgeGuide,
+                            selectedColor: edgeDimColor.withValues(
+                              alpha: 0.15,
+                            ),
+                            checkmarkColor: edgeDimColor,
+                            labelStyle: TextStyle(
+                              color: _showEdgeGuide
+                                  ? edgeDimColor
+                                  : tossSubText,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            onSelected: (val) =>
+                                setState(() => _showEdgeGuide = val),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 200),
                     child: switch (_mode) {
@@ -1540,6 +1566,35 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
         ],
       ),
     );
+  }
+
+  // 🚀 [추가] 센터선/외곽선 토글에 따라 최대 2개(둘 다 켜면 동시에)의
+  // 가이드선 페인터를 만들어준다.
+  List<Widget> _buildGuidePaints(PlacedItem item) {
+    return [
+      if (_showCenterGuide)
+        CustomPaint(
+          size: Size.infinite,
+          painter: SmartGuidePainter(
+            item: item,
+            allItems: _placedItems,
+            panelWidth: _panelWidth,
+            panelHeight: _panelHeight,
+            currentType: DimensionType.center,
+          ),
+        ),
+      if (_showEdgeGuide)
+        CustomPaint(
+          size: Size.infinite,
+          painter: SmartGuidePainter(
+            item: item,
+            allItems: _placedItems,
+            panelWidth: _panelWidth,
+            panelHeight: _panelHeight,
+            currentType: DimensionType.edge,
+          ),
+        ),
+    ];
   }
 
   Widget _buildModulePalette() {
