@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-// 🚀 에러 해결: 없는 파일 대신 전역 변수가 있는 '마킹 탭'을 정확히 임포트합니다.
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_result_tab.dart';
 
 const Color paperBg = Color(0xFFF2F0E9);
@@ -8,7 +7,7 @@ const Color strokeColor = Color(0xFF2D2D2D);
 const Color accentRed = Color(0xFFD32F2F);
 const Color tapeYellow = Color(0xFFFFD54F);
 const Color tableHeaderGray = Color(0xFFDFDDD3);
-const Color highlightColor = Colors.deepOrange; // 💡 선택 시 강조될 주황색
+const Color highlightColor = Colors.deepOrange; // 선택 시 강조될 주황색
 
 class LandscapeMarkingScreen extends StatefulWidget {
   final VoidCallback? onCloseTab;
@@ -23,7 +22,7 @@ class _LandscapeMarkingScreenState extends State<LandscapeMarkingScreen> {
   final ScrollController _mainScrollController = ScrollController();
   final double mmToPixel = 2.0;
 
-  // 💡 선택된 마킹 포인트의 인덱스를 저장하는 변수
+  // 선택된 마킹 포인트의 인덱스를 저장하는 변수
   int? _selectedIndex;
 
   final List<Map<String, dynamic>> _directions = [
@@ -136,6 +135,15 @@ class _LandscapeMarkingScreenState extends State<LandscapeMarkingScreen> {
 
         double contentWidth = (totalCutLength * mmToPixel) + 150;
 
+        // 🚀 [개선 3] 선택된 인덱스(_selectedIndex)의 말풍선이 가장 마지막(최상위 레이어)에 오도록 분리
+        final unselectedMarkings = markings.asMap().entries.where(
+          (e) => e.key != _selectedIndex,
+        );
+        final selectedMarking =
+            _selectedIndex != null && _selectedIndex! < markings.length
+            ? markings.asMap().entries.elementAt(_selectedIndex!)
+            : null;
+
         return PopScope(
           canPop: false,
           onPopInvokedWithResult: (didPop, result) {
@@ -161,7 +169,7 @@ class _LandscapeMarkingScreenState extends State<LandscapeMarkingScreen> {
                         child: Stack(
                           clipBehavior: Clip.none, // 애니메이션 커질 때 잘림 방지
                           children: [
-                            // 💡 1. 파이프 위치를 아래로 20px 내림 (140 -> 160)
+                            // 1. 파이프 바디
                             Positioned(
                               top: 160,
                               left: 50,
@@ -169,7 +177,7 @@ class _LandscapeMarkingScreenState extends State<LandscapeMarkingScreen> {
                               height: 30,
                               child: _buildPipeBody(),
                             ),
-                            // 💡 2. 줄자 위치도 아래로 20px 내림 (170 -> 190)
+                            // 2. 줄자 영역
                             Positioned(
                               top: 190,
                               left: 50,
@@ -182,13 +190,7 @@ class _LandscapeMarkingScreenState extends State<LandscapeMarkingScreen> {
                               ),
                             ),
 
-                            // 💡 말풍선 마킹표들
-                            ...markings.asMap().entries.map(
-                              (entry) =>
-                                  _buildMarkingPoint(entry.value, entry.key),
-                            ),
-
-                            // 💡 3. 실제 마킹 선 위치 동기화 (135 -> 155)
+                            // 3. 실제 마킹 수직선 (선택 안 된 것 먼저, 선택된 것 마지막)
                             ...markings.asMap().entries.map((entry) {
                               int index = entry.key;
                               double positionMm = (entry.value['mark'] as num)
@@ -196,8 +198,6 @@ class _LandscapeMarkingScreenState extends State<LandscapeMarkingScreen> {
                               double xPos = 50 + (positionMm * mmToPixel);
                               bool isSelected = _selectedIndex == index;
 
-                              // 파이프 y위치: 160, 높이: 30
-                              // 위로 5px(155), 파이프 30px, 아래(줄자방향)로 5px -> 총 높이 40
                               return Positioned(
                                 left: xPos,
                                 top: 155,
@@ -210,6 +210,19 @@ class _LandscapeMarkingScreenState extends State<LandscapeMarkingScreen> {
                                 ),
                               );
                             }),
+
+                            // 4. 말풍선 렌더링 (선택되지 않은 마킹들 먼저 렌더링)
+                            ...unselectedMarkings.map(
+                              (entry) =>
+                                  _buildMarkingPoint(entry.value, entry.key),
+                            ),
+
+                            // 5. 🚀 선택된 말풍선을 가장 최상위 레이어(Stack 맨 뒤)에 렌더링하여 겹침 방지!
+                            if (selectedMarking != null)
+                              _buildMarkingPoint(
+                                selectedMarking.value,
+                                selectedMarking.key,
+                              ),
                           ],
                         ),
                       ),
@@ -339,11 +352,8 @@ class _LandscapeMarkingScreenState extends State<LandscapeMarkingScreen> {
     double xPos = 50 + (positionMm * mmToPixel);
     bool isEven = index % 2 == 0;
 
-    // 💡 4. 말풍선 높이 재조정 (글자가 3줄이어도 파이프를 침범하지 않는 안전한 높이)
-    // 상단(isEven)은 20, 하단(!isEven)은 80
-    // 하단 말풍선이 길어져도 최대 ~155 근처에서 끝나 파이프(160)에 닿지 않음
+    // 말풍선 높이: 상단(isEven)은 20, 하단(!isEven)은 80
     double topPosition = isEven ? 20 : 80;
-
     bool isSelected = _selectedIndex == index;
 
     return Positioned(
@@ -360,7 +370,10 @@ class _LandscapeMarkingScreenState extends State<LandscapeMarkingScreen> {
               padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
               decoration: BoxDecoration(
                 color: Colors.white,
-                border: Border.all(color: strokeColor, width: 1.5),
+                border: Border.all(
+                  color: isSelected ? highlightColor : strokeColor,
+                  width: isSelected ? 2.0 : 1.5,
+                ),
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: const [
                   BoxShadow(
@@ -377,20 +390,19 @@ class _LandscapeMarkingScreenState extends State<LandscapeMarkingScreen> {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: Colors.grey[700],
+                      color: isSelected ? highlightColor : Colors.grey[700],
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     "${positionMm.toInt()}",
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w900,
-                      color: strokeColor,
+                      color: isSelected ? highlightColor : strokeColor,
                     ),
                   ),
-                  // 세 번째 줄이 있어도 넉넉하도록 상단 여유공간을 줬습니다.
                   if (!isStraight)
                     Text(
                       "↺ $rotText",
@@ -403,7 +415,6 @@ class _LandscapeMarkingScreenState extends State<LandscapeMarkingScreen> {
                 ],
               ),
             ),
-            // 긴 선을 빼고 꼬리표(화살표)만 추가, 말풍선에 딱 붙도록 위치 조정
             Transform.translate(
               offset: const Offset(0, -4),
               child: Icon(
@@ -441,6 +452,21 @@ class _LandscapeMarkingScreenState extends State<LandscapeMarkingScreen> {
                   _selectedIndex = null;
                 } else {
                   _selectedIndex = index;
+
+                  // 🚀 [개선 2] STEP 터치 시 선택한 마킹 위치가 화면 중앙에 오도록 부드럽게 자동 스크롤!
+                  double targetX = (positionMm * mmToPixel) + 50;
+                  double screenWidth = MediaQuery.of(context).size.width;
+
+                  double scrollTo = (targetX - (screenWidth / 2)).clamp(
+                    0.0,
+                    _mainScrollController.position.maxScrollExtent,
+                  );
+
+                  _mainScrollController.animateTo(
+                    scrollTo,
+                    duration: const Duration(milliseconds: 350),
+                    curve: Curves.easeInOutCubic,
+                  );
                 }
               });
             },
@@ -499,9 +525,12 @@ class MetricTapeMeasurePainter extends CustomPainter {
       ..strokeWidth = 1.0;
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
 
-    for (double i = 0; i <= size.width; i += (1 * scale)) {
-      double mmValue = i / scale;
-      double tickHeight = 0;
+    // 🚀 [개선 1] 1mm가 아닌 실제 선을 긋는 최소 단위인 10mm(1cm) 단위로 루프 점프! (연산량 90% 절감)
+    final double step = 10.0 * scale;
+
+    for (double i = 0; i <= size.width; i += step) {
+      double mmValue = (i / scale).roundToDouble(); // 부동소수점 오차 방지
+      double tickHeight = 10; // 기본 10mm 단위 눈꿈선 높이
 
       if (mmValue % 100 == 0) {
         tickHeight = 22;
@@ -515,12 +544,9 @@ class MetricTapeMeasurePainter extends CustomPainter {
         );
       } else if (mmValue % 50 == 0) {
         tickHeight = 15;
-      } else if (mmValue % 10 == 0) {
-        tickHeight = 10;
       }
-      if (tickHeight > 0) {
-        canvas.drawLine(Offset(i, 0), Offset(i, tickHeight), paint);
-      }
+
+      canvas.drawLine(Offset(i, 0), Offset(i, tickHeight), paint);
     }
   }
 
