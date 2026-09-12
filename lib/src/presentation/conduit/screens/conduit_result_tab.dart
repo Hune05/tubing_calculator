@@ -1,7 +1,8 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-// 🚀 1. 매니저 임포트 변경: 전선관 전용 매니저로 교체
+// 🚀 매니저 임포트: 전선관 전용 매니저
 import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_viewer_tab.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
@@ -59,6 +60,25 @@ class _ConduitResultTabState extends State<ConduitResultTab>
   }
 
   // ==========================================
+  // 📐 [수학 알고리즘 보정] 임의 각도 게인(Gain) 연산
+  // ==========================================
+  double _calculateGainForAngle(double angle, double gain90) {
+    if (angle <= 0 || gain90 <= 0) return 0.0;
+    // 부동소수점 오차 방지: 90도 근처면 정확히 90도 게인 반환
+    if ((angle - 90.0).abs() < 0.1) return gain90;
+
+    // 기하학적 배관 절약분 이론 공식에 따른 각도별 비례 연산
+    // Gain(θ) / Gain(90) = [2 * tan(θ/2) - (π * θ / 180)] / [2 - π/2]
+    double radHalf = (angle / 2.0) * (math.pi / 180.0);
+    double radFull = angle * (math.pi / 180.0);
+    double numerator = 2.0 * math.tan(radHalf) - radFull;
+    double denominator = 2.0 - (math.pi / 2.0); // 약 0.42920367
+
+    if (denominator == 0) return 0.0;
+    return gain90 * (numerator / denominator);
+  }
+
+  // ==========================================
   // 🚀 [라우터] 설정값에 따라 계산기 분리
   // ==========================================
   List<Map<String, dynamic>> _calculateMarkings(
@@ -77,7 +97,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
   }
 
   // ------------------------------------------
-  // 🧮 1. 수동 벤더(Hand) - Gain & Springback 적용
+  // 🧮 1. 수동 벤더(Hand) - TakeUp & Gain 보정
   // ------------------------------------------
   List<Map<String, dynamic>> _calculateHandMarkings(
     List<Map<String, dynamic>> bendList,
@@ -106,8 +126,9 @@ class _ConduitResultTabState extends State<ConduitResultTab>
       String note = '';
       double offset = len;
 
+      // 줄자 마킹 위치 계산 (총 자재 길이와 무관한 화살표 마킹 전용)
       if (isFirst) {
-        if (angle == 90.0) {
+        if (angle > 0) {
           offset -= takeUp;
           note += '테이크업(-${takeUp.round()}mm) ';
         }
@@ -132,14 +153,14 @@ class _ConduitResultTabState extends State<ConduitResultTab>
         'gap': offset,
         'note': note.trim(),
         'benderType': 'hand',
-        'targetAngle': targetAngle, // 실제 꺾어야 할 보정 각도
+        'targetAngle': targetAngle,
       });
     }
     return markings;
   }
 
   // ------------------------------------------
-  // 🧮 2. 유압식(Ram) - Springback 적용
+  // 🧮 2. 유압식(Ram) - 3점 벤딩 비선형 공식 적용
   // ------------------------------------------
   List<Map<String, dynamic>> _calculateRamMarkings(
     List<Map<String, dynamic>> bendList,
@@ -168,13 +189,17 @@ class _ConduitResultTabState extends State<ConduitResultTab>
       String note = '';
       double offset = len;
 
-      // 유압 실린더 이동 거리 (보정된 각도 기준)
-      double ramTravelForBend = angle > 0
-          ? (targetAngle / 90.0) * baseRamTravel
-          : 0.0;
+      // 🚀 [보정] 유압 실린더 비선형 삼각함수 이동 거리 연산: Stroke ∝ sin(θ / 2)
+      double ramTravelForBend = 0.0;
+      if (angle > 0 && baseRamTravel > 0) {
+        double radTargetHalf = (targetAngle / 2.0) * (math.pi / 180.0);
+        double rad45 = 45.0 * (math.pi / 180.0);
+        ramTravelForBend =
+            baseRamTravel * (math.sin(radTargetHalf) / math.sin(rad45));
+      }
 
       if (isFirst) {
-        if (angle == 90.0) {
+        if (angle > 0) {
           offset -= setback;
           note += '셋백(-${setback.round()}mm) ';
         }
@@ -207,7 +232,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
   }
 
   // ------------------------------------------
-  // 🧮 3. 시카고식(Chicago) - Springback 적용
+  // 🧮 3. 시카고식(Chicago) - 반올림 보정
   // ------------------------------------------
   List<Map<String, dynamic>> _calculateChicagoMarkings(
     List<Map<String, dynamic>> bendList,
@@ -218,6 +243,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
 
     double couplingDepth = settings['couplingDepth'] ?? 20.0;
     double degPerNotch = settings['degPerNotch'] ?? 2.5;
+    double takeUp = settings['takeUp'] ?? 0.0;
     bool applySpringback = settings['applySpringback'] ?? true;
     double springbackVal = settings['springback'] ?? 3.0;
 
@@ -235,9 +261,16 @@ class _ConduitResultTabState extends State<ConduitResultTab>
       String note = '';
       double offset = len;
 
-      int notches = angle > 0 ? (targetAngle / degPerNotch).ceil() : 0;
+      // 🚀 [보정] 과도한 꺾임(Over-bending) 방지를 위해 ceil 대신 round 적용
+      int notches = angle > 0 ? (targetAngle / degPerNotch).round() : 0;
 
       if (isFirst) {
+        // 🚀 [버그 수정] 시카고식도 슈에 감아 구부리는 구조라 수동 벤더의
+        // 테이크업과 동일한 여유 길이 차감이 필요함 (이전엔 누락되어 있었음).
+        if (angle > 0) {
+          offset -= takeUp;
+          note += '테이크업(-${takeUp.round()}mm) ';
+        }
         if (_useCoupling) {
           offset -= couplingDepth;
           note += '커플링(-${couplingDepth.round()}mm) ';
@@ -271,39 +304,36 @@ class _ConduitResultTabState extends State<ConduitResultTab>
     super.build(context);
 
     return AnimatedBuilder(
-      animation: Listenable.merge([
-        // 🚀 2. 상태 감지 대상을 전선관 전용 매니저로 교체
-        ConduitDataManager(),
-        globalBenderSettings,
-      ]),
+      animation: Listenable.merge([ConduitDataManager(), globalBenderSettings]),
       builder: (context, child) {
-        // 🚀 3. 데이터를 가져오는 매니저를 전선관 전용 매니저로 교체
         final manager = ConduitDataManager();
         final bendList = manager.bendList;
         final currentSettings = globalBenderSettings.value;
 
         final double bladeKerf = currentSettings['bladeKerf'] ?? 0.0;
         final String benderType = currentSettings['benderType'] ?? 'hand';
-        final double gain = currentSettings['gain'] ?? 0.0;
+        final double gain90 = currentSettings['gain'] ?? 0.0;
 
         final markings = _calculateMarkings(bendList, currentSettings);
 
-        // 🚀 핵심: 총 게인(Gain) 공제 계산 로직
-        double accumulatedGain = 0.0;
+        // 🚀 [핵심 보정] 총 절단 길이 독립 연산 (테이크업 이중 차감 원천 차단)
+        double totalLengthSum = 0.0;
+        double totalGainDeduction = 0.0;
         for (var bend in bendList) {
-          if ((bend['angle'] as num).toDouble() == 90.0) {
-            accumulatedGain += gain;
+          double len = (bend['length'] as num).toDouble();
+          double angle = (bend['angle'] as num).toDouble();
+          totalLengthSum += len;
+          if (angle > 0) {
+            totalGainDeduction += _calculateGainForAngle(angle, gain90);
           }
         }
 
         double kerfAdjustment = bendList.isEmpty ? 0.0 : bladeKerf;
 
-        // 총 절단 길이 = (마지막 마킹 + 꼬리 여유분 + 톱날 손실) - 누적된 게인
-        // 주의: manager.tail 부분은 ConduitDataManager에 tail 속성이 없다면 0.0 등으로 처리해야 할 수 있습니다.
-        // 임시로 tail 값이 없다면 0.0으로 둔다고 가정했습니다. (기존 코드 유지 목적인 경우 그대로 두시면 됩니다)
-        double totalCut = markings.isEmpty
+        // 총 원자재 절단 길이 = (모든 구간 설계 길이 합) - (각도별 총 게인 합) + (톱날 손실)
+        double totalCut = bendList.isEmpty
             ? 0.0
-            : (markings.last['mark'] + kerfAdjustment) - accumulatedGain;
+            : (totalLengthSum - totalGainDeduction + kerfAdjustment);
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           globalMarkingState.value = {
@@ -462,8 +492,8 @@ class _ConduitResultTabState extends State<ConduitResultTab>
       title: "총 절단 길이 (시카고식)",
       icon: Icons.settings_backup_restore_rounded,
       themeColor: chicagoPurple,
-      deductionLabel: "노치 간격",
-      deductionValue: settings['notchSpacing'] ?? 0.0,
+      deductionLabel: "설정된 테이크업",
+      deductionValue: settings['takeUp'] ?? 0.0,
       couplingDepth: settings['couplingDepth'] ?? 20.0,
     );
   }
@@ -709,7 +739,6 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // 🚀 스프링백 적용 시 목표 각도를 UI에 명시적으로 보여줌
                         Text(
                           isStraight
                               ? "직관 연장 마킹"

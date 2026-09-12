@@ -86,6 +86,17 @@ class MobileBendDataManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  // 🚀 [추가] 톱날 손실(커프) 보정 - 전선관 계산기의 bladeKerf와 동일한
+  // 역할. 예전엔 설정 모델에 필드만 있고 입력창/계산 반영이 전혀 없던
+  // 미완성 기능이었다.
+  double _cutMargin = 0.0;
+  double get cutMargin => _cutMargin;
+  set cutMargin(double value) {
+    _cutMargin = value;
+    _saveCurrentState();
+    notifyListeners();
+  }
+
   // ===============================================
   // 새들(Saddle) & 오프셋(Offset) 마지막 입력값 기억 변수
   // ===============================================
@@ -159,6 +170,7 @@ class MobileBendDataManager extends ChangeNotifier {
     double? radius,
     double? benderOffset,
     double? springback,
+    double? cutMargin,
   }) {
     if (takeUp90 != null) _takeUp90 = takeUp90;
     if (fittingDepth != null) _fittingDepth = fittingDepth;
@@ -166,6 +178,7 @@ class MobileBendDataManager extends ChangeNotifier {
     if (radius != null) _radius = radius;
     if (benderOffset != null) _benderOffset = benderOffset;
     if (springback != null) _springback = springback;
+    if (cutMargin != null) _cutMargin = cutMargin;
 
     // 변수를 한 번에 다 바꾼 후, 마지막에 딱 1번만 저장 및 화면 갱신
     _saveCurrentState();
@@ -189,6 +202,7 @@ class MobileBendDataManager extends ChangeNotifier {
     _radius = prefs.getDouble('bendRadius') ?? 0.0;
     _benderOffset = prefs.getDouble('benderOffset') ?? 0.0;
     _springback = prefs.getDouble('springback') ?? 0.0;
+    _cutMargin = prefs.getDouble('cutMargin') ?? 0.0;
 
     _saddleHeight = prefs.getDouble('saddleHeight') ?? 100.0;
     _saddleWidth = prefs.getDouble('saddleWidth') ?? 200.0;
@@ -234,6 +248,7 @@ class MobileBendDataManager extends ChangeNotifier {
     await prefs.setDouble('bendRadius', _radius);
     await prefs.setDouble('benderOffset', _benderOffset);
     await prefs.setDouble('springback', _springback);
+    await prefs.setDouble('cutMargin', _cutMargin);
 
     await prefs.setDouble('saddleHeight', _saddleHeight);
     await prefs.setDouble('saddleWidth', _saddleWidth);

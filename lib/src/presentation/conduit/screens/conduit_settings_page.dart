@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -25,7 +27,6 @@ final ValueNotifier<Map<String, dynamic>> globalBenderSettings = ValueNotifier({
   'clr': 114.3,
   'takeUp': 152.4,
   'gain': 81.2,
-  'ramOffset': 0.0,
   'ramTravel': 0.0,
   'setback': 0.0,
   'degPerNotch': 2.5,
@@ -64,7 +65,6 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
   late TextEditingController _clrController;
   late TextEditingController _takeUpController;
   late TextEditingController _gainController;
-  late TextEditingController _ramOffsetController;
   late TextEditingController _ramTravelController;
   late TextEditingController _setbackController;
   late TextEditingController _notchSpacingController;
@@ -105,9 +105,6 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     _clrController = TextEditingController(text: s['clr'].toString());
     _takeUpController = TextEditingController(text: s['takeUp'].toString());
     _gainController = TextEditingController(text: s['gain'].toString());
-    _ramOffsetController = TextEditingController(
-      text: s['ramOffset'].toString(),
-    );
     _ramTravelController = TextEditingController(
       text: s['ramTravel'].toString(),
     );
@@ -134,7 +131,6 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     _clrController.dispose();
     _takeUpController.dispose();
     _gainController.dispose();
-    _ramOffsetController.dispose();
     _ramTravelController.dispose();
     _setbackController.dispose();
     _notchSpacingController.dispose();
@@ -212,14 +208,21 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             _gainController.text = spec['gain'].toString();
           }
         } else if (_selectedTypeId == 'ram') {
-          if (spec.containsKey('ramOffset')) {
-            _ramOffsetController.text = spec['ramOffset'].toString();
-          }
           if (spec.containsKey('ramTravel')) {
             _ramTravelController.text = spec['ramTravel'].toString();
           }
           if (spec.containsKey('setback')) {
             _setbackController.text = spec['setback'].toString();
+          }
+          // 🚀 [버그 수정] 유압식/시카고식은 데이터 파일에 'gain'이 없어서
+          // 이전엔 마지막 수동 모드 값이 그대로 남아 총 절단 길이가
+          // 틀리게 계산됐음. 선택한 CLR로부터 기하학적 게인을 직접
+          // 유도해서 항상 현재 장비와 일치하도록 동기화한다.
+          // Gain(90°) = CLR × (2 − π/2)  (호 형상 기준 이론값)
+          if (spec.containsKey('clr')) {
+            final double clrVal = (spec['clr'] as num).toDouble();
+            _gainController.text = (clrVal * (2 - math.pi / 2))
+                .toStringAsFixed(1);
           }
         } else if (_selectedTypeId == 'chicago') {
           if (spec.containsKey('degPerNotch')) {
@@ -230,6 +233,17 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
           }
           if (spec.containsKey('rollerSize')) {
             _rollerSizeController.text = spec['rollerSize'].toString();
+          }
+          // 🚀 [버그 수정] 시카고식도 슈를 감아 굽히는 방식이라 수동
+          // 벤더처럼 첫 벤딩 지점에서 테이크업 차감이 필요한데 값이
+          // 아예 없었음. 동일 규격 수동 벤더의 테이크업을 근사치로 사용.
+          if (spec.containsKey('takeUp')) {
+            _takeUpController.text = spec['takeUp'].toString();
+          }
+          if (spec.containsKey('clr')) {
+            final double clrVal = (spec['clr'] as num).toDouble();
+            _gainController.text = (clrVal * (2 - math.pi / 2))
+                .toStringAsFixed(1);
           }
         }
       }
@@ -259,7 +273,6 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
       'clr': double.tryParse(_clrController.text) ?? 114.3,
       'takeUp': double.tryParse(_takeUpController.text) ?? 152.4,
       'gain': double.tryParse(_gainController.text) ?? 81.2,
-      'ramOffset': double.tryParse(_ramOffsetController.text) ?? 0.0,
       'ramTravel': double.tryParse(_ramTravelController.text) ?? 0.0,
       'setback': double.tryParse(_setbackController.text) ?? 0.0,
       'degPerNotch': _degPerNotch,
@@ -666,12 +679,6 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             },
           ),
           _buildInputRow(
-            "램(Ram) 오프셋",
-            _ramOffsetController,
-            suffix: unit,
-            helpText: "유압식 벤더에서 목표 각도에 도달하기 위해 실린더를 밀어내는 거리를 계산하기 위한 기준값입니다.",
-          ),
-          _buildInputRow(
             "램 이동 거리",
             _ramTravelController,
             suffix: unit,
@@ -757,6 +764,12 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             (v) {
               setState(() => _degPerNotch = v);
             },
+          ),
+          _buildInputRow(
+            "90° 테이크업 (Take-up)",
+            _takeUpController,
+            suffix: unit,
+            helpText: "시카고식도 슈에 감아 구부리는 방식이라 첫 벤딩점에서 여유 길이 차감이 필요합니다. 동일 규격 수동 벤더 값을 근사치로 사용합니다.",
           ),
           _buildInputRow(
             "노치 간격",

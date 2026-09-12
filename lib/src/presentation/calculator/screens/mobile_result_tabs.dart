@@ -105,9 +105,12 @@ class _MobileResultTabState extends State<MobileResultTab>
         // 🚀 버그 픽스 완료: radius 값을 온전히 가져옵니다!
         final double radius = dataManager.radius;
         final double fittingDepth = dataManager.fittingDepth;
+        // 🚀 [버그 수정] springback(스프링백 보상)이 설정 화면에 저장만 되고
+        // 실제 연산에는 전달되지 않던 문제를 고쳐서 엔진에 넘긴다.
         final engine = TubeBendingEngine(
           radius: radius,
           userGain90: dataManager.gain90, // 🚀 실측 연신율 엔진으로 전달!
+          springbackDeg: dataManager.springback,
         );
 
         List<BendInstruction> instructions = [];
@@ -133,7 +136,9 @@ class _MobileResultTabState extends State<MobileResultTab>
         Map<String, dynamic>? result;
         String? calcError;
         try {
-          result = engine.calculate(instructions, 0.0);
+          // 🚀 [버그 수정] "장비 원점 오프셋"도 설정에 저장만 되고 실제
+          // 마킹 계산의 기준점에는 전혀 반영되지 않고 있었다.
+          result = engine.calculate(instructions, dataManager.benderOffset);
         } catch (e) {
           calcError = e.toString();
         }
@@ -231,13 +236,18 @@ class _MobileResultTabState extends State<MobileResultTab>
               'incremental_mark':
                   steps[i].incrementalMark + accumulatedIncremental,
               'applied_fit': appliedFit,
+              'target_angle': steps[i].targetAngle,
             });
             markNumber++;
             accumulatedIncremental = 0.0;
           }
         }
 
-        double totalCut = bendList.isEmpty ? 0.0 : pureCutLength + _tailLength;
+        // 🚀 [설정값 추가] 톱날 손실(커프) 보정 - 전선관 계산기의 bladeKerf와
+        // 동일하게, 원자재 절단 시 톱날 두께만큼 없어지는 길이를 더해준다.
+        double totalCut = bendList.isEmpty
+            ? 0.0
+            : pureCutLength + _tailLength + dataManager.cutMargin;
         double diffAfterLastMark = (totalCut - lastMarkingPoint) - radius;
 
         if (diffAfterLastMark < 0) {
@@ -502,6 +512,11 @@ class _MobileResultTabState extends State<MobileResultTab>
                               (item['rotation'] as num?)?.toDouble() ?? 0.0;
                           double angleVal =
                               (item['angle'] as num?)?.toDouble() ?? 0.0;
+                          double targetAngleVal =
+                              (item['target_angle'] as num?)?.toDouble() ??
+                              angleVal;
+                          bool hasSpringback =
+                              (targetAngleVal - angleVal).abs() > 0.05;
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: 12),
@@ -605,6 +620,17 @@ class _MobileResultTabState extends State<MobileResultTab>
                                         ],
                                       ),
                                     ),
+                                    if (hasSpringback) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        "스프링백 보정 → ${targetAngleVal.toStringAsFixed(1)}°",
+                                        style: const TextStyle(
+                                          color: makitaTeal,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ],

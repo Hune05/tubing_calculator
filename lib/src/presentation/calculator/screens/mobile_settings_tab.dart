@@ -66,6 +66,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
   final _fittingDepthController = TextEditingController();
   final _markThicknessController = TextEditingController();
   final _offsetShrinkController = TextEditingController();
+  final _cutMarginController = TextEditingController();
 
   String get _unit => _isInch ? "inch" : "mm";
   List<String> get _odList => SettingsController.getOdList(_isInch);
@@ -118,6 +119,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         _springbackController.text = c.springback.toString();
         _markThicknessController.text = c.markThickness.toString();
         _offsetShrinkController.text = c.offsetShrink.toString();
+        _cutMarginController.text = c.cutMargin.toString();
 
         if (_autoStates['radius'] == false) {
           _rController.text = c.bendRadius.toString();
@@ -147,6 +149,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         radius: double.tryParse(_rController.text) ?? 0.0,
         benderOffset: double.tryParse(_benderOffsetController.text) ?? 0.0,
         springback: double.tryParse(_springbackController.text) ?? 0.0,
+        cutMargin: double.tryParse(_cutMarginController.text) ?? 0.0,
       );
     }
   }
@@ -181,7 +184,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     c.fittingDepth = double.tryParse(_fittingDepthController.text) ?? 0.0;
     c.markThickness = double.tryParse(_markThicknessController.text) ?? 0.0;
     c.offsetShrink = double.tryParse(_offsetShrinkController.text) ?? 0.0;
-    c.cutMargin = 0.0;
+    c.cutMargin = double.tryParse(_cutMarginController.text) ?? 0.0;
     c.autoRadius = _autoStates['radius'] ?? true;
     c.autoTakeUp = _autoStates['takeUp'] ?? true;
     c.autoGain = _autoStates['gain'] ?? true;
@@ -200,6 +203,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       radius: double.tryParse(_rController.text) ?? 0.0,
       benderOffset: double.tryParse(_benderOffsetController.text) ?? 0.0,
       springback: double.tryParse(_springbackController.text) ?? 0.0,
+      cutMargin: double.tryParse(_cutMarginController.text) ?? 0.0,
     );
 
     if (mounted) {
@@ -297,6 +301,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     _fittingDepthController.dispose();
     _markThicknessController.dispose();
     _offsetShrinkController.dispose();
+    _cutMarginController.dispose();
     super.dispose();
   }
 
@@ -1225,6 +1230,16 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
               ]),
               const Divider(color: Colors.black12, height: 24),
             ],
+            _stackedFields([
+              _buildNumpadInputWithHelp(
+                "톱날 손실(커프) [mm]",
+                "톱날 손실(커프) 보정",
+                "쇠톱이나 절단기로 파이프를 자를 때 톱날 두께만큼 소재가 갈려 없어집니다.\n원자재에서 여러 구간을 잘라 쓸 때 이만큼을 더 확보해두어야 마지막 구간 길이가 부족해지지 않습니다.",
+                _cutMarginController,
+                helperText: "※ 절단면당 손실량",
+              ),
+            ]),
+            const Divider(color: Colors.black12, height: 24),
             Padding(
               padding: const EdgeInsets.only(bottom: 8.0),
               child: Row(

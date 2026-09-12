@@ -19,18 +19,24 @@ class StepResult {
   final double markingPoint; // 누적 마킹 포인트 (시작점 기준)
   final double incrementalMark; // 이전 마킹 포인트와의 차이
   final double sectionGain; // 이 구간에서 발생한 게인(연신율 늘어남)
+  final double targetAngle; // 🚀 [추가] 스프링백 보정이 반영된 실제 벤딩 각도
 
   StepResult({
     required this.markingPoint,
     required this.incrementalMark,
     required this.sectionGain,
-  });
+    double? targetAngle,
+  }) : targetAngle = targetAngle ?? 0.0;
 }
 
 /// 🚀 정밀 3D 튜빙 연산 엔진 (줄자 누적 추적 방식 + 실측 연신율 반영)
 class TubeBendingEngine {
   final double radius; // 벤더기 곡률 반경
   final double userGain90; // 💡 사용자가 입력한 90도 기준 연신율 (추가됨)
+  // 🚀 [버그 수정] 설정 화면의 "스프링백 보상" 값이 저장만 되고 실제 연산에는
+  // 전혀 반영되지 않고 있었다. 소재는 목표 각도로 꺾어도 탄성으로 살짝
+  // 되돌아오므로, 셋백/게인 계산은 이 보정치만큼 더 꺾은 각도를 기준으로 해야 한다.
+  final double springbackDeg;
 
   // 🚀 [추가] 180°에 근접한 각도 (setBack = R*tan(θ/2) 가 발산하는 지점) 방어용 상한.
   // 180°는 진입/진출 접선이 평행해져 "C-to-C(교차점)" 방식 자체가 정의되지 않으므로,
@@ -40,6 +46,7 @@ class TubeBendingEngine {
   TubeBendingEngine({
     required this.radius,
     this.userGain90 = 0.0, // 기본값 처리
+    this.springbackDeg = 0.0,
   });
 
   /// 각 노드별 마킹 지점과 총 절단 기장 계산
@@ -97,8 +104,16 @@ class TubeBendingEngine {
           );
         }
 
+        // 🚀 [버그 수정] 스프링백 보상 각도를 실제 꺾을 각도에 반영.
+        // 셋백/게인 같은 기하학적 계산은 전부 이 보정된 각도 기준이어야
+        // 스프링백만큼 더 꺾어도 치수가 어긋나지 않는다.
+        final double targetAngle = (inst.angle + springbackDeg).clamp(
+          0.0,
+          _maxSafeAngle,
+        );
+
         // 💡 벤딩 모드: C-to-C (교차점) 기준 계산
-        final double thetaRad = inst.angle * (math.pi / 180.0);
+        final double thetaRad = targetAngle * (math.pi / 180.0);
 
         // 1. 기하학적 셋백 (SetBack) - 탄젠트 시작점 찾기 (이건 R값 기반이 맞음)
         double setBack = radius * math.tan(thetaRad / 2.0);
@@ -114,10 +129,10 @@ class TubeBendingEngine {
         double appliedGain;
         if (userGain90 > 0) {
           // 사용자가 입력한 게인이 있으면 각도 비례로 환산 적용 (실무 방식)
-          appliedGain = userGain90 * (inst.angle / 90.0);
+          appliedGain = userGain90 * (targetAngle / 90.0);
         } else {
           // 입력된 게인이 없으면 이론상 중심선 게인으로 대체 (Fallback)
-          double theoreticalBA = (math.pi * radius * inst.angle) / 180.0;
+          double theoreticalBA = (math.pi * radius * targetAngle) / 180.0;
           appliedGain = (2 * setBack) - theoreticalBA;
         }
 
@@ -130,6 +145,7 @@ class TubeBendingEngine {
             markingPoint: markPoint,
             incrementalMark: incremental,
             sectionGain: appliedGain,
+            targetAngle: targetAngle,
           ),
         );
 

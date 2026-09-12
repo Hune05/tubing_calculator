@@ -359,9 +359,12 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
     final double fittingDepth = dataManager.fittingDepth;
     // 🚀 [수정] 사용자가 입력한 실측 연신율(gain90)을 엔진에 전달한다.
     // 예전엔 이게 빠져 있어서 항상 이론상 공식으로만 계산됐다.
+    // 🚀 [버그 수정] springback(스프링백 보상)/benderOffset(장비 원점 오프셋)이
+    // 설정 화면에 저장만 되고 실제 연산에는 전달되지 않던 문제를 고쳤다.
     final engine = TubeBendingEngine(
       radius: radius,
       userGain90: dataManager.gain90,
+      springbackDeg: dataManager.springback,
     );
 
     List<BendInstruction> instructions = [];
@@ -384,7 +387,7 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
     Map<String, dynamic>? result;
     String? calcError;
     try {
-      result = engine.calculate(instructions, 0.0);
+      result = engine.calculate(instructions, dataManager.benderOffset);
     } catch (e) {
       calcError = e.toString();
     }
