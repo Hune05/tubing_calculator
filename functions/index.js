@@ -6,9 +6,16 @@ const admin = require("firebase-admin");
 admin.initializeApp();
 
 // ============================================================================
-// 1. [수정됨] 자재 발주 알림 요정 (토픽 전체 방송 -> 개별 타겟팅으로 변경)
-// ============================================================================
-// 신규 생성뿐만 아니라 상태 변경(업데이트)도 감지하기 위해 onDocumentWritten 사용
+// 1. [수정됨] 자재 발주 알림 - 담당자 이름으로 특정 유저를 찾아 보내던 방식은
+//    개인용 앱에서 버그였다. "담당자 지정" 피커가 고르는 users 문서(예:
+//    "생산팀 차재훈", 직원 목록용 옛 문서)와, 로그인/토큰이 실제로 저장되는
+//    users 문서(예: "차재훈", user_real_name 기준)가 서로 다른 문서라서,
+//    항상 존재하지도 않거나 몇 달 전에 멈춰버린 낡은 토큰을 대상으로
+//    발송하고 있었다 - 그래서 발주 알림이 하나도 안 온 것. 게다가
+//    "requester === assignee면 자기 자신에게 보낸 거니 생략"하는 로직도
+//    있어서, 개인용(요청자=담당자=본인)에서는 애초에 알림 자체가
+//    무조건 생략되고 있었다. 이제는 등록된 모든 기기(사실상 본인 폰
+//    하나)에 방송하는 방식으로 통일한다 (다른 알림들과 동일한 패턴).
 exports.sendOrderNotification = onDocumentWritten("orders/{orderId}", async (event) => {
     // 문서가 삭제된 경우는 무시
     if (!event.data.after.exists) return;
@@ -16,66 +23,46 @@ exports.sendOrderNotification = onDocumentWritten("orders/{orderId}", async (eve
     const beforeData = event.data.before.data();
     const afterData = event.data.after.data();
 
-    let targetUserName = "";
     let title = "";
     let body = "";
 
     // 1️⃣ [신규 발주] 새로 생성되었을 때
     if (!beforeData) {
-        targetUserName = afterData.assignee; // 수신자(담당자)에게 보냄
-        
-        // 혹시 자기가 자기한테 발주를 넣은 거라면 알림 생략!
-        if (targetUserName === afterData.requester) {
-            console.log("자신에게 보낸 발주이므로 알림 생략");
-            return;
-        }
-
         const itemsCount = afterData.items ? afterData.items.length : 0;
         title = "📦 신규 자재 발주 요청";
         body = `${afterData.requester}님이 ${itemsCount}건의 자재를 발주했습니다.`;
-    } 
-    // 2️⃣ [상태 변경] 관리자가 발주 상태를 바꿨을 때 (반려, 진행중, 완료 등)
+    }
+    // 2️⃣ [상태 변경] 발주 상태를 바꿨을 때 (반려, 진행중, 완료 등)
     else if (beforeData.status !== afterData.status) {
-        targetUserName = afterData.requester; // 원래 요청했던 사람에게 결과 전송
-        
-        // 내가 내 발주 상태를 바꾼 거면 알림 생략
-        if (targetUserName === afterData.assignee) return;
-
         title = "📝 발주 상태 업데이트";
         body = `요청하신 발주 건이 [${afterData.status}](으)로 변경되었습니다.`;
-        
+
         if (afterData.status === "반려됨") {
             title = "🚨 발주 반려 안내";
             body = `요청하신 발주가 반려되었습니다. 사유: ${afterData.rejectReason}`;
         }
-    } 
+    }
     // 그 외의 단순 수정은 알림 안 보냄
     else {
         return;
     }
 
     try {
-        // 🎯 타겟 유저(받을 사람)의 토큰을 DB에서 찾아서 알림 쏘기
-        const userDoc = await admin.firestore().collection('users').doc(targetUserName).get();
-        
-        if (userDoc.exists) {
-            const fcmToken = userDoc.data().fcmToken;
-            
-            if (fcmToken) {
-                const payload = {
-                    notification: {
-                        title: title,
-                        body: body,
-                    },
-                    token: fcmToken, // 토픽(topic) 대신 특정 기기 토큰(token) 사용!
-                };
+        const usersSnap = await admin.firestore().collection('users').get();
+        const tokens = usersSnap.docs
+            .map((d) => d.data().fcmToken)
+            .filter((t) => !!t);
 
-                await admin.messaging().send(payload);
-                console.log(`✅ ${targetUserName}님에게 발주 알림 전송 성공!`);
-            } else {
-                console.log(`⚠️ ${targetUserName}님의 토큰이 없습니다.`);
-            }
+        if (tokens.length === 0) {
+            console.log("⚠️ 발주 알림을 보낼 기기 토큰이 없습니다.");
+            return;
         }
+
+        const response = await admin.messaging().sendEachForMulticast({
+            notification: { title, body },
+            tokens,
+        });
+        console.log(`✅ 발주 알림 전송 성공 (발송된 기기 수: ${response.successCount})`);
     } catch (error) {
         console.error("❌ 발주 알림 전송 에러:", error);
     }
@@ -170,27 +157,32 @@ function kstDateString(date) {
     return kst.toISOString().slice(0, 10);
 }
 
-// 발주 건 하나를 대상으로 담당자(없으면 요청자)에게 푸시를 보내는 공통 로직.
+// 🚀 [수정] 예전엔 발주의 담당자(assignee) 이름으로 users 문서를 찾아
+// 그 토큰 하나에만 보냈는데, "담당자 지정" 피커가 고르는 users 문서와
+// 실제 로그인 토큰이 저장되는 users 문서가 서로 달라서 발주 알림이 전혀
+// 가지 않는 버그가 있었다(sendOrderNotification과 동일한 원인). 등록된
+// 모든 기기에 방송하는 방식(sendMulticast)으로 통일해서 고쳤다.
 async function sendPushForOrder(doc, title, body) {
-    const data = doc.data();
-    const targetUserName = data.assignee || data.requester;
-    if (!targetUserName) return false;
-
-    const userDoc = await admin.firestore().collection('users').doc(targetUserName).get();
-    if (!userDoc.exists) return false;
-
-    const fcmToken = userDoc.data().fcmToken;
-    if (!fcmToken) {
-        console.log(`⚠️ ${targetUserName}님의 토큰이 없습니다.`);
+    let tokens = [];
+    try {
+        const usersSnap = await admin.firestore().collection('users').get();
+        tokens = usersSnap.docs
+            .map((d) => d.data().fcmToken)
+            .filter((t) => !!t);
+    } catch (e) {
+        console.error("❌ 발주 알림용 토큰 조회 에러:", e);
+        return false;
+    }
+    if (tokens.length === 0) {
+        console.log("⚠️ 발주 알림을 보낼 기기 토큰이 없습니다.");
         return false;
     }
 
-    await admin.messaging().send({
-        notification: { title, body },
-        token: fcmToken,
-    });
-    console.log(`✅ ${targetUserName}님에게 알림 전송 성공! (주문: ${doc.id}) - ${title}`);
-    return true;
+    const sent = await sendMulticast(tokens, title, body);
+    if (sent) {
+        console.log(`✅ 알림 전송 성공! (주문: ${doc.id}) - ${title}`);
+    }
+    return sent;
 }
 
 exports.checkUpcomingDeliveries = onSchedule("every 15 minutes", async (event) => {
@@ -375,13 +367,48 @@ exports.checkProjectSchedules = onSchedule("every 15 minutes", async (event) => 
 
         for (const schedule of schedules) {
             if (schedule.isCompleted) continue;
+
+            const label = schedule.title || schedule.type || '일정';
+
+            // 🚀 [추가] "자재 요청"인데 아직 입고일을 몰라서 dateTime이
+            // 없는 경우 - 발주 후 입고 소식이 없으면 하루 1회씩 확인해
+            // 보라고 반복 알림을 보낸다(자재 발주의 "발주한 지 며칠 지남"
+            // 알림과 동일한 개념). 입고일을 받아 dateTime이 채워지면
+            // 이 분기 대신 아래 (A)/(B) 로직이 적용된다.
+            if (schedule.type === "자재 요청" && !schedule.dateTime) {
+                if (schedule.lastOverdueReminderDate === today) continue;
+
+                try {
+                    const requestedAt = schedule.requestedAt && schedule.requestedAt.toDate
+                        ? schedule.requestedAt.toDate()
+                        : (schedule.requestedAt ? new Date(schedule.requestedAt) : null);
+                    const daysSince = requestedAt
+                        ? Math.max(0, Math.floor((now - requestedAt.getTime()) / (24 * 60 * 60 * 1000)))
+                        : null;
+                    const body = daysSince && daysSince > 0
+                        ? `[${projectName}] "${label}" 요청한 지 ${daysSince}일 지났는데 아직 입고일 소식이 없습니다. 확인해보세요.`
+                        : `[${projectName}] "${label}" 자재 요청을 확인해주세요.`;
+
+                    const sent = await sendMulticast(tokens, "🚚 자재 요청 확인 필요", body);
+                    if (sent) {
+                        schedule.lastOverdueReminderDate = today;
+                        mutated = true;
+                    }
+                } catch (innerError) {
+                    console.error(
+                        `❌ (일정) 자재 요청 알림 실패 (프로젝트: ${doc.id}, 일정: ${schedule.id}):`,
+                        innerError,
+                    );
+                }
+                continue;
+            }
+
             if (!schedule.dateTime) continue;
 
             const scheduleDate = schedule.dateTime.toDate
                 ? schedule.dateTime.toDate()
                 : new Date(schedule.dateTime);
             const diffMs = scheduleDate.getTime() - now;
-            const label = schedule.title || schedule.type || '일정';
 
             try {
                 // (A) 60~75분 후로 다가옴 - 1회성 사전 알림
