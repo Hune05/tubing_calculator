@@ -1,9 +1,7 @@
 import 'dart:io';
-import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_colors.dart';
@@ -11,6 +9,7 @@ import 'project_list_item.dart';
 
 import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
+import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
 
 // 🚀 [수정 완료] 새로 만든 Workspace를 import 합니다!
 import 'package:tubing_calculator/src/presentation/calculator/screens/electric_bending_workspace.dart'
@@ -30,8 +29,9 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final ImagePicker _picker = ImagePicker();
 
-  final Box _myBox = Hive.box('projectsBox');
+  final WorkProjectRepository _projectRepo = WorkProjectRepository();
   List<Map<String, dynamic>> projects = [];
+  bool _isLoadingProjects = true;
 
   @override
   void initState() {
@@ -39,18 +39,31 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
     _loadData();
   }
 
-  void _loadData() {
-    final String? jsonString = _myBox.get('projectList');
-    if (jsonString != null) {
-      final List<dynamic> decoded = jsonDecode(jsonString);
+  Future<void> _loadData() async {
+    try {
+      final loaded = await _projectRepo.fetchAllProjects();
+      if (!mounted) return;
       setState(() {
-        projects = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+        projects = loaded;
+        _isLoadingProjects = false;
       });
+    } catch (e) {
+      debugPrint("⚠️ 내 프로젝트 불러오기 실패: $e");
+      if (!mounted) return;
+      setState(() => _isLoadingProjects = false);
     }
   }
 
+  // 🚀 [수정] "내 프로젝트"가 로컬(Hive) 저장에서 Firestore로 이전되면서,
+  // 리스트 전체를 통째로 다시 쓰던 방식 대신 지금 화면에 있는 프로젝트를
+  // 각각 자기 문서로 다시 쓰는 방식으로 바뀌었다. 호출부(13곳)를 전부
+  // 고치는 대신, 이 메서드 하나만 "현재 projects 리스트를 전부 다시
+  // 저장"하도록 바꿔서 기존 호출부는 그대로 두었다 - 프로젝트 개수가
+  // 몇 안 되는 개인용 앱이라 매번 전체를 다시 쓰는 비용은 무시할 만하다.
   void _saveData() {
-    _myBox.put('projectList', jsonEncode(projects));
+    for (final project in projects) {
+      _projectRepo.upsertProject(project);
+    }
   }
 
   Future<String?> _pickImageSource() async {
@@ -152,6 +165,9 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
     );
 
     if (confirm == true) {
+      // 🚀 _saveData()는 "지금 남아있는 프로젝트들"만 다시 쓰기 때문에,
+      // 삭제된 프로젝트의 Firestore 문서는 따로 지워줘야 한다.
+      final deletedId = projects[index]['id']?.toString();
       setState(() {
         projects.removeAt(index);
         if (_expandedIndex == index) {
@@ -161,6 +177,9 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
         }
         _saveData();
       });
+      if (deletedId != null) {
+        _projectRepo.deleteProject(deletedId);
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1503,7 +1522,9 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
         foregroundColor: pureWhite,
         elevation: 0,
       ),
-      body: projects.isEmpty
+      body: _isLoadingProjects
+          ? const Center(child: CircularProgressIndicator(color: makitaTeal))
+          : projects.isEmpty
           ? const Center(
               child: Text(
                 "등록된 프로젝트가 없습니다.\n우측 하단 버튼을 눌러 추가하세요.",

@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'; // debugPrint 사용을 위해 추가
-import 'package:hive_flutter/hive_flutter.dart';
 
 // 🚀 [수정됨] Dialog가 아니라 새로 만든 Page를 임포트합니다.
 // 경로가 본인 프로젝트 폴더와 맞는지 꼭 확인해 주세요!
@@ -9,6 +7,7 @@ import '../widgets/create_log_sheet.dart';
 import '../widgets/work_log_card.dart';
 import '../pages/daily_report_page.dart'; // 다이얼로그 대신 Page 임포트
 import '../pages/punch_list_page.dart'; // 다이얼로그 대신 Page 임포트
+import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
 
 // 토스 스타일 색상 팔레트
 const Color tossBlue = Color(0xFF3182F6);
@@ -25,9 +24,10 @@ class WorkLogMainScreen extends StatefulWidget {
 }
 
 class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
-  final Box _myBox = Hive.box('projectsBox');
+  final WorkProjectRepository _repo = WorkProjectRepository();
   List<Map<String, dynamic>> _workLogs = [];
   int? _expandedIndex;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -35,18 +35,26 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     _loadData();
   }
 
-  void _loadData() {
-    final String? jsonString = _myBox.get('projectList');
-    if (jsonString != null) {
-      final List<dynamic> decoded = jsonDecode(jsonString);
+  Future<void> _loadData() async {
+    try {
+      final projects = await _repo.fetchAllProjects();
+      if (!mounted) return;
       setState(() {
-        _workLogs = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+        _workLogs = projects;
+        _isLoading = false;
       });
+    } catch (e) {
+      debugPrint("⚠️ 내 프로젝트 불러오기 실패: $e");
+      if (!mounted) return;
+      setState(() => _isLoading = false);
     }
   }
 
-  void _saveData() {
-    _myBox.put('projectList', jsonEncode(_workLogs));
+  // 🚀 [수정] 예전엔 리스트 전체를 통째로 Hive에 다시 썼는데, 이제
+  // 프로젝트가 Firestore 문서 하나하나로 나뉘어 있어서 "방금 바뀐
+  // 프로젝트 하나만" 저장하면 된다.
+  void _saveProject(Map<String, dynamic> log) {
+    _repo.upsertProject(log);
   }
 
   void _showCreateSheet() async {
@@ -54,8 +62,8 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     if (newLog != null) {
       setState(() {
         _workLogs.insert(0, newLog);
-        _saveData();
       });
+      _saveProject(newLog);
     }
   }
 
@@ -79,7 +87,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         scrolledUnderElevation: 0,
         centerTitle: false,
       ),
-      body: _workLogs.isEmpty
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: tossBlue))
+          : _workLogs.isEmpty
           ? const Center(
               child: Text(
                 "아직 등록된 작업 기록이 없어요.\n아래 버튼을 눌러 새로 시작해 보세요.",
@@ -129,8 +139,8 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                     if (newReport != null) {
                       setState(() {
                         log['daily_reports'].insert(0, newReport);
-                        _saveData();
                       });
+                      _saveProject(log);
                     }
                   },
 
@@ -146,11 +156,12 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                     if (newPunch != null) {
                       setState(() {
                         log['punch_lists'].insert(0, newPunch);
-                        _saveData();
                       });
+                      _saveProject(log);
                     }
                   },
                   onDelete: () {
+                    final deletedId = log['id']?.toString();
                     setState(() {
                       _workLogs.removeAt(index);
 
@@ -161,9 +172,10 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                           _expandedIndex! > index) {
                         _expandedIndex = _expandedIndex! - 1;
                       }
-
-                      _saveData();
                     });
+                    if (deletedId != null) {
+                      _repo.deleteProject(deletedId);
+                    }
                   },
                 );
               },

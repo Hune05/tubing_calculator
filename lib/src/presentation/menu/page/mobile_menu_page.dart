@@ -29,8 +29,6 @@ import 'package:tubing_calculator/src/presentation/profile/pages/mobile_profile_
 import 'package:tubing_calculator/src/presentation/chat/pages/mobile_chat_list_page.dart';
 
 // 🚀 4. 프로젝트 관리 페이지 임포트
-import 'package:tubing_calculator/src/presentation/project/pages/mobile_project_list_page.dart';
-import 'package:tubing_calculator/src/presentation/project/pages/mobile_project_admin_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/screens/work_log_main_screen.dart';
 
 // 🚀 5. 공용 차량 및 장비 페이지 임포트
@@ -249,41 +247,6 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                     ),
                   ),
                 ),
-                _buildMenuButton(
-                  context: context,
-                  title: "프로젝트 통합 현황",
-                  subtitle: "공정 진척도 · 사급 자재 일정 · 검사 및 펀치",
-                  icon: Icons.dashboard_customize_rounded,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const MobileProjectListPage(),
-                      ),
-                    );
-                  },
-                ),
-
-                if (widget.isAdmin)
-                  _buildMenuButton(
-                    context: context,
-                    title: "프로젝트 통합 세팅 (관리자)",
-                    subtitle: "프로젝트 개설, 공정 강제 변경, 담당자 지정",
-                    icon: Icons.admin_panel_settings_rounded,
-                    iconColor: warningRed,
-                    badgeText: "Admin",
-                    onTap: () {
-                      HapticFeedback.mediumImpact();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const MobileProjectAdminPage(),
-                        ),
-                      );
-                    },
-                  ),
-
                 _buildMenuButton(
                   context: context,
                   title: "내 프로젝트",
