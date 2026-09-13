@@ -501,7 +501,13 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
       double gainCenter = 0.0;
       double gainSide = 0.0;
 
-      if (_machineRadius > 0) {
+      // 🚀 [버그 수정] 실측 연신율보다 반경 기반 이론값이 먼저 적용되던
+      // 문제 (메인 마킹 엔진과 우선순위가 반대였음 - mobile_offset_bottom_sheet.dart와 동일한 버그).
+      if (_machineGain > 0) {
+        gainCenter = (_machineGain * (a3 / 90.0));
+        gainSide = (_machineGain * ((a3 / 2) / 90.0));
+        gain3Pt = gainCenter + (gainSide * 2);
+      } else if (_machineRadius > 0) {
         double centerRad = a3 * math.pi / 180.0;
         gainCenter =
             (2 * _machineRadius * math.tan(centerRad / 2)) -
@@ -509,10 +515,6 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         gainSide =
             (2 * _machineRadius * math.tan(radSide / 2)) -
             (math.pi * _machineRadius * (a3 / 2) / 180.0);
-        gain3Pt = gainCenter + (gainSide * 2);
-      } else if (_machineGain > 0) {
-        gainCenter = (_machineGain * (a3 / 90.0));
-        gainSide = (_machineGain * ((a3 / 2) / 90.0));
         gain3Pt = gainCenter + (gainSide * 2);
       }
 
@@ -550,13 +552,14 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
 
       double gainBend = 0.0;
 
-      if (_machineRadius > 0) {
+      // 🚀 [버그 수정] 3-Point와 동일한 우선순위 버그.
+      if (_machineGain > 0) {
+        gainBend = (_machineGain * (a4 / 90.0));
+        gain4Pt = gainBend * 4;
+      } else if (_machineRadius > 0) {
         gainBend =
             (2 * _machineRadius * math.tan(rad4 / 2)) -
             (math.pi * _machineRadius * a4 / 180.0);
-        gain4Pt = gainBend * 4;
-      } else if (_machineGain > 0) {
-        gainBend = (_machineGain * (a4 / 90.0));
         gain4Pt = gainBend * 4;
       }
 

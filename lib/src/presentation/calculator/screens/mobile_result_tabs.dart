@@ -17,6 +17,77 @@ const Color slate100 = Color(0xFFF2F4F6);
 const Color slate50 = Color(0xFFF8FAFC);
 const Color pureWhite = Color(0xFFFFFFFF);
 
+// 🚀 [추가] "현장" 탭(가로 모드 줄자 화면)이 필요한 최소 데이터(총 길이 +
+// 마킹 지점 목록)만 MobileBendDataManager에서 직접 다시 계산해주는 함수.
+// 🚀 [버그 수정] 처음엔 MobileResultTab의 build() 안에서 계산한 값을
+// postFrameCallback으로 전역 ValueNotifier에 밀어넣고 "현장" 탭이 그걸
+// 구독하는 방식이었는데, IndexedStack 안에서 두 위젯의 빌드 타이밍이
+// 어긋나면 "현장" 탭이 한 프레임 늦게 텅 빈 초기값을 보여주는 문제가
+// 있었다(사용자가 "결과 값을 안 가져오는 것 같다"고 확인). 다른 위젯의
+// 빌드 시점에 기대지 않도록, "현장" 탭이 자기 build() 안에서 이 함수를
+// 직접 호출해서 그 자리에서 항상 최신값을 스스로 계산하게 바꿨다.
+({double totalCutLength, List<Map<String, dynamic>> markings, String? error})
+computeLandscapeMarkingData() {
+  final dataManager = MobileBendDataManager();
+  final bendList = dataManager.bendList;
+
+  if (bendList.isEmpty) {
+    return (totalCutLength: 0.0, markings: const [], error: null);
+  }
+
+  final engine = TubeBendingEngine(
+    radius: dataManager.radius,
+    userGain90: dataManager.gain90,
+    springbackDeg: dataManager.springback,
+  );
+
+  final List<BendInstruction> instructions = [];
+  for (int i = 0; i < bendList.length; i++) {
+    double l = (bendList[i]['length'] as num?)?.toDouble() ?? 0.0;
+    if (i == 0 && dataManager.startFit) l += dataManager.fittingDepth;
+    if (i == bendList.length - 1 && dataManager.endFit) {
+      l += dataManager.fittingDepth;
+    }
+    instructions.add(
+      BendInstruction(
+        length: l,
+        angle: (bendList[i]['angle'] as num?)?.toDouble() ?? 0.0,
+        rotation: (bendList[i]['rotation'] as num?)?.toDouble() ?? 0.0,
+      ),
+    );
+  }
+
+  Map<String, dynamic> result;
+  try {
+    result = engine.calculate(instructions, dataManager.benderOffset);
+  } catch (e) {
+    return (totalCutLength: 0.0, markings: const [], error: e.toString());
+  }
+
+  final double pureCutLength = result['totalCutLength'];
+  final List<StepResult> steps = result['steps'];
+
+  final List<Map<String, dynamic>> markings = [];
+  for (int i = 0; i < bendList.length; i++) {
+    final double currentLength =
+        (bendList[i]['length'] as num?)?.toDouble() ?? 0.0;
+    final double angleValue = (bendList[i]['angle'] as num?)?.toDouble() ?? 0.0;
+    final bool isStraight = angleValue == 0.0;
+    if (currentLength <= 0.01 && isStraight) continue; // 길이 0짜리 더미 구간 제외
+
+    markings.add({
+      'mark': steps[i].markingPoint,
+      'angle': angleValue,
+      'rotation': (bendList[i]['rotation'] as num?)?.toDouble() ?? 0.0,
+    });
+  }
+
+  final double totalCut =
+      pureCutLength + dataManager.tail + dataManager.cutMargin;
+
+  return (totalCutLength: totalCut, markings: markings, error: null);
+}
+
 // ==========================================
 // 🚀 2탭: 모바일 결과 (Result) 화면
 // ==========================================

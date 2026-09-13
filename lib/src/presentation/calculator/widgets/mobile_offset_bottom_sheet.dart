@@ -406,13 +406,18 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
         geometricShrink += _userOffsetShrink;
       }
 
+      // 🚀 [버그 수정] 반경 기반 이론 게인이 사용자가 실측해서 입력한
+      // "실측 연신율"보다 먼저 적용되고 있었다. 메인 마킹 엔진
+      // (tube_bending_engine.dart)은 반대로 실측값을 항상 우선하는데,
+      // 여기서는 반경까지 입력된 경우(거의 항상) 힘들게 현장에서 실측한
+      // 값이 조용히 무시되고 있었다. 우선순위를 엔진과 동일하게 맞춘다.
       double gainPerBend = 0.0;
-      if (_machineRadius > 0) {
+      if (_machineGain > 0) {
+        gainPerBend = _machineGain * (targetAngle / 90.0);
+      } else if (_machineRadius > 0) {
         double setback = _machineRadius * math.tan(rad / 2);
         double arcLength = math.pi * _machineRadius * targetAngle / 180.0;
         gainPerBend = (2 * setback) - arcLength;
-      } else if (_machineGain > 0) {
-        gainPerBend = _machineGain * (targetAngle / 90.0);
       }
       totalGain = gainPerBend * 2;
     }

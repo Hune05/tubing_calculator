@@ -85,12 +85,13 @@ class _MobileParallelShrinkBottomSheetState
     }
 
     if (_isParallelMode) {
+      // 🚀 [버그 수정] 90°일 때만 tan(45°)=1.0 대신 엉뚱하게 π/2(1.5708)를
+      // 하드코딩해놔서 결과가 약 57% 더 크게 나오고 있었다. tan(각도/2)는
+      // 90°에서도(45°) 특이점 없이 정상 계산되므로 예외 처리 자체가
+      // 필요 없다 - 그냥 일반식 하나로 통일.
       if (angle > 0 && spacing > 0) {
-        if (angle == 90.0)
-          finalResult = spacing * _pipeIndex * 1.5708;
-        else
-          finalResult =
-              spacing * _pipeIndex * math.tan((angle / 2) * (math.pi / 180));
+        finalResult =
+            spacing * _pipeIndex * math.tan((angle / 2) * (math.pi / 180));
       }
     } else {
       if (angle > 0 && angle < 90.0 && trueRise > 0) {
@@ -143,40 +144,32 @@ class _MobileParallelShrinkBottomSheetState
                 "평행 계산기",
                 "축소값 계산기",
                 _isParallelMode,
-                () => setState(() => _isParallelMode = true),
+                // 🚀 [개선] "3D 입체" 모드는 축소값(Shrink) 계산에만 실제로
+                // 반영되고, 평행(Stagger) 계산은 spacing/각도만 쓰고
+                // trueRise를 아예 쓰지 않아 3D를 켜도 결과가 그대로였다
+                // (토글만 있고 실제로는 무시되는 눈속임 상태). 평행
+                // 계산기로 전환할 때 3D 상태를 꺼서, 아래 토글 자체가
+                // 평행 모드에선 아예 안 보이게(= 적용 안 되는 옵션을
+                // 숨겨서) 오해의 소지를 없앤다.
+                () => setState(() {
+                  _isParallelMode = true;
+                  _is3DMode = false;
+                }),
                 () => setState(() => _isParallelMode = false),
               ),
               const SizedBox(height: 12),
-              _buildToggleBox(
-                "2D 평면 (일반)",
-                "3D 입체 (롤링)",
-                !_is3DMode,
-                () => setState(() => _is3DMode = false),
-                () => setState(() => _is3DMode = true),
-              ),
-              const SizedBox(height: 24),
+              if (!_isParallelMode) ...[
+                _buildToggleBox(
+                  "2D 평면 (일반)",
+                  "3D 입체 (롤링)",
+                  !_is3DMode,
+                  () => setState(() => _is3DMode = false),
+                  () => setState(() => _is3DMode = true),
+                ),
+                const SizedBox(height: 12),
+              ],
               if (_isParallelMode) ...[
                 _buildCompactInputRow(_spacingCtrl, "배관 간격 (Spacing)"),
-                if (_is3DMode) ...[
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildCompactInputRow(
-                          _riseCtrl,
-                          "장애물 수직 높이 (Rise)",
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildCompactInputRow(
-                          _rollCtrl,
-                          "장애물 수평 이동 (Roll)",
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ] else ...[
                 if (!_is3DMode)
                   _buildCompactInputRow(_riseCtrl, "목표 높이 (Rise)")
