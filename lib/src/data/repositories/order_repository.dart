@@ -33,6 +33,17 @@ class OrderRepository {
     }
   }
 
+  // 🚀 [추가] 입고 예정일이 새로 잡히거나 변경됐을 때, 서버의 "입고 예정
+  // 알림 발송 여부" 플래그를 초기화한다. 이걸 안 해주면 날짜를 지연/변경
+  // 해도 예전 날짜 기준으로 이미 보낸 걸로 남아있어서 새 날짜에는 알림이
+  // 안 온다.
+  Future<void> resetDeliveryReminder(String orderId) async {
+    if (orderId.isEmpty) return;
+    await _db.collection(collectionPath).doc(orderId).update({
+      'deliveryReminderSent': false,
+    });
+  }
+
   // 🚀 사진 업로드 (Firebase Storage 완벽 연동)
   Future<String> uploadImage(String localPath) async {
     try {

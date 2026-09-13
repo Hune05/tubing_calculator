@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 // 🚀 사용자님의 모바일 자재 관리 페이지를 임포트합니다!
 import 'mobile_inventory_page.dart';
 
@@ -39,24 +38,11 @@ class _MobileInventoryLoginScreenState
       if (!mounted) return;
 
       if (user != null) {
-        bool hasPermission = false;
-
-        // 1. 최고 관리자인지 확인 (프리패스)
+        // 🚀 [정리] 여러 사람이 쓰는 걸 상정해서 Firestore 'admins' 목록에
+        // 등록된 다른 이메일도 통과시키던 로직을 제거했다. 개인용으로는
+        // 본인 계정 하나만 통과하면 되고, 다른 이메일을 관리자로 추가하는
+        // 화면(mobile_admin_management_page.dart)도 함께 삭제했다.
         if (user.email == _masterEmail) {
-          hasPermission = true;
-        } else {
-          // 2. Firebase DB 'admins' 컬렉션에 등록된 이메일인지 검사
-          final doc = await FirebaseFirestore.instance
-              .collection('admins')
-              .doc(user.email)
-              .get();
-
-          if (doc.exists) {
-            hasPermission = true;
-          }
-        }
-
-        if (hasPermission) {
           // ✨ 권한 통과! 모바일 마스터 페이지로 이동하면서 닉네임을 넘겨줌
           Navigator.pushReplacement(
             context,
@@ -66,8 +52,8 @@ class _MobileInventoryLoginScreenState
             ),
           );
         } else {
-          // ❌ 권한 없음! 접근 거부
-          _showErrorAndPop("⚠️ 관리자 권한이 없습니다. 최고 관리자에게 승인을 요청하세요.");
+          // ❌ 본인 계정이 아님! 접근 거부
+          _showErrorAndPop("⚠️ 본인 계정으로 로그인해주세요.");
         }
       } else {
         _showErrorAndPop("로그인 정보를 찾을 수 없습니다.");
@@ -118,7 +104,7 @@ class _MobileInventoryLoginScreenState
             const CircularProgressIndicator(color: Color(0xFF007580)),
             const SizedBox(height: 24),
             Text(
-              "DB에서 승인 여부를 조회하고 있습니다.",
+              "본인 계정인지 확인하고 있습니다.",
               style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
             ),
           ],

@@ -11,7 +11,6 @@ import '../../data/models/cart_item_model.dart';
 import '../../data/models/order_model.dart';
 import '../../data/repositories/order_repository.dart';
 
-import 'package:tubing_calculator/src/presentation/admin/page/admin_permission_page.dart';
 import '../chat/pages/mobile_chat_room_page.dart';
 
 const Color tossBlue = Color(0xFF3182F6);
@@ -99,6 +98,18 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
     return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
   }
 
+  // 🚀 [추가] 입고 예정 "시간"까지 함께 보여주기 위한 포맷터. 자정(00:00)
+  // 그대로면 시간을 따로 지정하지 않은 것이므로 날짜만 표시한다.
+  String _formatDateWithTime(DateTime date) {
+    if (date.hour == 0 && date.minute == 0) {
+      return _formatDate(date);
+    }
+    final ampm = date.hour < 12 ? '오전' : '오후';
+    final h = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final m = date.minute.toString().padLeft(2, '0');
+    return "${_formatDate(date)} $ampm $h:$m";
+  }
+
   String _formatTime(Timestamp? timestamp) {
     if (timestamp == null) return '';
     final dt = timestamp.toDate();
@@ -149,7 +160,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
     buffer.writeln("현재 상태: ${order.status}");
     buffer.writeln("작업자 희망일: ${_formatDate(order.requestDate)}");
     if (order.expectedDate != null) {
-      buffer.writeln("확정 입고 예정: ${_formatDate(order.expectedDate!)}");
+      buffer.writeln("확정 입고 예정: ${_formatDateWithTime(order.expectedDate!)}");
     }
     if (order.note != null && order.note!.isNotEmpty) {
       buffer.writeln("전체 요청사항: ${order.note}");
@@ -278,22 +289,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
             letterSpacing: -0.5,
           ),
         ),
-        actions: [
-          if (widget.isAdmin)
-            IconButton(
-              icon: const Icon(LucideIcons.settings, color: slate900),
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AdminPermissionPage(),
-                  ),
-                );
-              },
-            ),
-          const SizedBox(width: 8),
-        ],
+        actions: const [SizedBox(width: 8)],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: tossBlue,
@@ -1361,7 +1357,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                       const SizedBox(width: 4),
                       Text(
                         order.expectedDate != null
-                            ? "입고 예정: ${_formatDate(order.expectedDate!)}"
+                            ? "입고 예정: ${_formatDateWithTime(order.expectedDate!)}"
                             : "희망일: ${_formatDate(order.requestDate)}",
                         style: TextStyle(
                           color: order.expectedDate != null
@@ -1461,7 +1457,6 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
       builder: (context) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setModalState) {
           bool isConfirmed = order.status.contains("발주 확인");
-          bool isInProgress = order.status == "진행중";
           bool isRejected = order.status == "반려됨";
           bool isCompleted = order.status == "처리 완료";
           Color statusColor = _getStatusColor(order.status);
@@ -1716,7 +1711,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                         if (tempExpectedDate != null)
                           _buildDetailRow(
                             "확정 입고 예정",
-                            _formatDate(tempExpectedDate!),
+                            _formatDateWithTime(tempExpectedDate!),
                             isHighlight: true,
                           ),
 
@@ -1740,8 +1735,14 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                         ),
                         const SizedBox(height: 32),
 
-                        if (widget.isAdmin &&
-                            (isConfirmed || isInProgress)) ...[
+                        // 🚀 [수정] 예전엔 "발주 확인" 또는 "진행중" 상태여야만
+                        // 입고 예정일을 지정할 수 있어서, 상태를 몇 단계
+                        // 넘겨야만 날짜를 넣을 수 있었다. 개인이 요청+확정을
+                        // 혼자 다 하는 구조에서는 이 단계 구분이 의미가 없고,
+                        // 거래처에서 입고일을 알려주는 시점은 주문 상태와
+                        // 무관하므로 종결된(완료/반려) 건이 아니면 언제든
+                        // 바로 입고일(+시간)을 넣을 수 있게 한다.
+                        if (widget.isAdmin && !isRejected && !isCompleted) ...[
                           Container(
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
@@ -1778,7 +1779,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                                 InkWell(
                                   onTap: () async {
                                     HapticFeedback.lightImpact();
-                                    DateTime? picked = await showDatePicker(
+                                    DateTime? pickedDate = await showDatePicker(
                                       context: context,
                                       initialDate:
                                           tempExpectedDate ?? DateTime.now(),
@@ -1787,11 +1788,32 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                                         const Duration(days: 180),
                                       ),
                                     );
-                                    if (picked != null) {
-                                      setModalState(
-                                        () => tempExpectedDate = picked,
+                                    if (pickedDate == null) return;
+                                    if (!context.mounted) return;
+                                    // 🚀 [추가] 날짜만 있으면 알림을 몇 시에
+                                    // 보내야 할지 알 수 없어서, 입고 예정
+                                    // "시간"도 같이 받는다 (기본 오전 9시).
+                                    final TimeOfDay? pickedTime =
+                                        await showTimePicker(
+                                          context: context,
+                                          initialTime: tempExpectedDate != null
+                                              ? TimeOfDay.fromDateTime(
+                                                  tempExpectedDate!,
+                                                )
+                                              : const TimeOfDay(
+                                                  hour: 9,
+                                                  minute: 0,
+                                                ),
+                                        );
+                                    setModalState(() {
+                                      tempExpectedDate = DateTime(
+                                        pickedDate.year,
+                                        pickedDate.month,
+                                        pickedDate.day,
+                                        pickedTime?.hour ?? 9,
+                                        pickedTime?.minute ?? 0,
                                       );
-                                    }
+                                    });
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
@@ -1812,7 +1834,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                                         Text(
                                           tempExpectedDate == null
                                               ? "달력을 눌러 날짜 선택"
-                                              : _formatDate(tempExpectedDate!),
+                                              : _formatDateWithTime(tempExpectedDate!),
                                           style: TextStyle(
                                             fontSize: 16,
                                             fontWeight: tempExpectedDate == null
@@ -2197,68 +2219,82 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
       btnColor = Colors.green;
     }
 
+    // 🚀 [수정] 예전엔 "날짜만 수정" 버튼이 "진행중" 상태에서만 보여서,
+    // 그 전 단계(발주 대기/견적 대기/결제 대기)에서 거래처가 입고일을
+    // 알려줘도 상태를 몇 단계 넘기기 전까진 저장할 방법이 없었다. 이제
+    // 상태 단계와 무관하게 입고일이 바뀌어 있으면 언제든 그것만 따로
+    // 저장할 수 있다. "반려"와 동시에 뜰 수도 있어서 둘 다 접었다 폈다
+    // 하지 않고 나란히 두는 대신 리스트로 만들어 유연하게 배치한다.
+    final List<Widget> leadingButtons = [];
+
+    if (currentStatus == "발주 대기") {
+      leadingButtons.add(
+        Expanded(
+          child: SizedBox(
+            height: 56,
+            child: OutlinedButton(
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                _showRejectDialog(order);
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: warningRed,
+                side: const BorderSide(color: Colors.black12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: const Text(
+                "반려",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (isDateChanged) {
+      leadingButtons.add(
+        Expanded(
+          child: SizedBox(
+            height: 56,
+            child: OutlinedButton(
+              onPressed: () async {
+                HapticFeedback.mediumImpact();
+                Navigator.pop(context);
+                final updatedOrder = order.copyWith(
+                  expectedDate: tempExpectedDate,
+                );
+                await _repo.updateOrder(updatedOrder);
+                // 🚀 날짜가 바뀌었으니 새 날짜 기준으로 입고 예정 알림이
+                // 다시 나가도록 발송 여부 플래그를 초기화한다.
+                await _repo.resetDeliveryReminder(order.id);
+                if (!mounted) return;
+                _showSnackBar("입고 예정일이 저장되었습니다.");
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: tossBlue,
+                side: const BorderSide(color: tossBlue, width: 1.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: const Text(
+                "입고일만 저장",
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Row(
       children: [
-        if (currentStatus == "발주 대기") ...[
-          Expanded(
-            flex: 1,
-            child: SizedBox(
-              height: 56,
-              child: OutlinedButton(
-                onPressed: () {
-                  HapticFeedback.lightImpact();
-                  _showRejectDialog(order);
-                },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: warningRed,
-                  side: const BorderSide(color: Colors.black12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: const Text(
-                  "반려",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-        ] else if (currentStatus == "진행중" && isDateChanged) ...[
-          Expanded(
-            flex: 1,
-            child: SizedBox(
-              height: 56,
-              child: OutlinedButton(
-                onPressed: () async {
-                  HapticFeedback.mediumImpact();
-                  Navigator.pop(context);
-                  final updatedOrder = order.copyWith(
-                    expectedDate: tempExpectedDate,
-                  );
-                  await _repo.updateOrder(updatedOrder);
-                  if (!mounted) return;
-                  _showSnackBar("입고 예정일이 지연(변경) 처리되었습니다.");
-                },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: tossBlue,
-                  side: const BorderSide(color: tossBlue, width: 1.5),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: const Text(
-                  "날짜만 수정",
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-        ],
-
+        for (final btn in leadingButtons) ...[btn, const SizedBox(width: 12)],
         Expanded(
-          flex: (currentStatus == "진행중" && isDateChanged) ? 1 : 2,
+          flex: 2,
           child: SizedBox(
             height: 56,
             child: ElevatedButton(
@@ -2271,12 +2307,18 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                       OrderModel updatedOrder = order;
 
                       if (currentStatus == "발주 대기") {
-                        updatedOrder = order.copyWith(status: "발주 확인 (견적 대기)");
+                        updatedOrder = order.copyWith(
+                          expectedDate: tempExpectedDate,
+                          status: "발주 확인 (견적 대기)",
+                        );
                         if (mounted) {
                           _showSnackBar("접수 완료: 견적 대기 상태로 변경되었습니다.");
                         }
                       } else if (currentStatus == "발주 확인 (견적 대기)") {
-                        updatedOrder = order.copyWith(status: "발주 확인 (결제 대기)");
+                        updatedOrder = order.copyWith(
+                          expectedDate: tempExpectedDate,
+                          status: "발주 확인 (결제 대기)",
+                        );
                         if (mounted) {
                           _showSnackBar("견적 완료: 결제 대기 상태로 변경되었습니다.");
                         }
@@ -2299,6 +2341,11 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                       }
 
                       await _repo.updateOrder(updatedOrder);
+                      // 🚀 이번 액션으로 입고일이 함께 바뀐 경우에만 알림
+                      // 발송 플래그를 초기화한다.
+                      if (isDateChanged) {
+                        await _repo.resetDeliveryReminder(order.id);
+                      }
                     },
               style: ElevatedButton.styleFrom(
                 backgroundColor: btnColor,

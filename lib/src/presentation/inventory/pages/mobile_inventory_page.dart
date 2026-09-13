@@ -8,7 +8,6 @@ import 'dart:async';
 import 'inventory_model.dart';
 import 'inventory_item_card.dart';
 import 'mobile_inventory_ocr.dart';
-import 'mobile_admin_management_page.dart';
 
 part 'mobile_inventory_dialogs.dart';
 part 'mobile_inventory_sync.dart';
@@ -127,36 +126,14 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                       right: 16,
                       top: 0,
                       bottom: 0,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.add_circle_outline,
-                              color: Colors.white,
-                              size: 32,
-                            ),
-                            onPressed: () => _showAddNewItemDialog(catId),
-                            tooltip: "현장에서 신규 자재 추가",
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.manage_accounts,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                            tooltip: "관리자 권한 관리",
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const MobileAdminManagementPage(),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.add_circle_outline,
+                          color: Colors.white,
+                          size: 32,
+                        ),
+                        onPressed: () => _showAddNewItemDialog(catId),
+                        tooltip: "현장에서 신규 자재 추가",
                       ),
                     ),
                     Positioned(
