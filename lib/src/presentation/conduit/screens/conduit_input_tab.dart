@@ -83,9 +83,12 @@ class _ConduitInputTabState extends State<ConduitInputTab>
         final manager = ConduitDataManager(); // 변경: 전선관 매니저 인스턴스
         final bendList = manager.bendList;
 
-        return Scaffold(
-          backgroundColor: slate100,
-          body: SafeArea(
+        // 🚀 [수정] 폴더블 대응으로 넓은 화면에서 마킹 탭과 나란히 붙여
+        // 보여줄 수 있도록, 자체 Scaffold 대신 배경색만 칠하는 ColoredBox로
+        // 바꿨다 (이 탭은 AppBar가 없으므로 내용 변화는 없다).
+        return ColoredBox(
+          color: slate100,
+          child: SafeArea(
             bottom: false,
             child: Column(
               children: [

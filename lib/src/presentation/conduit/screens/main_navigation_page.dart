@@ -34,48 +34,47 @@ class ConduitMainNavigation extends StatefulWidget {
 }
 
 class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
+  // 🚀 [수정] 폴더블 대응. 예전엔 PageView+PageController로 탭을
+  // 넘겼는데, 넓은 화면에서 "입력"과 "마킹" 탭을 한 페이지로 합치면
+  // 탭 개수가 6→5로 줄어들어 PageController가 들고 있던 스크롤
+  // 페이지 번호가 범위를 벗어나 죽을 수 있었다(예: 설정 탭(5)에
+  // 있다가 화면을 펼치면 5칸짜리 PageView엔 인덱스 5가 없음).
+  // 이 화면은 이미 NeverScrollableScrollPhysics라 스와이프를 안 쓰고
+  // 있었으므로, 인덱스만 바꿔주면 되는 IndexedStack으로 교체해 이
+  // 위험을 원천적으로 없앴다.
+  //
+  // _selectedIndex는 항상 "좁은 화면" 기준 인덱스(0입력/1마킹/2보관함/
+  // 3현장/4아이소/5설정)로만 저장하고, 넓은 화면에서 보여줄 때만
+  // _wideIndexFor로 변환한다.
   int _selectedIndex = 0;
-  late PageController _pageController;
 
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController(initialPage: _selectedIndex);
+  bool _isWide(BuildContext context) =>
+      MediaQuery.of(context).size.shortestSide >= 600;
+
+  // 넓은 화면: 0=입력+마킹 합침, 1=보관함, 2=현장, 3=아이소, 4=설정 (5개)
+  int _wideIndexFor(int narrowIndex) {
+    if (narrowIndex <= 1) return 0;
+    return narrowIndex - 1;
   }
 
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
+  int _narrowIndexFor(int wideIndex, {required bool wasOnMarking}) {
+    if (wideIndex == 0) return wasOnMarking ? 1 : 0;
+    return wideIndex + 1;
   }
 
   void _goToMarkingTab() {
     setState(() => _selectedIndex = 1);
-    _pageController.jumpToPage(1);
   }
 
   @override
   Widget build(BuildContext context) {
+    final bool isWide = _isWide(context);
+    final bool isFieldTab = _selectedIndex == 3; // '현장'(가로) 탭
+
     return Scaffold(
       backgroundColor: slate100,
-      body: PageView(
-        controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(),
-        onPageChanged: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        children: [
-          const ConduitInputTab(), // 1. 입력 (인덱스 0)
-          const ConduitResultTab(), // 2. 마킹 (인덱스 1)
-          const ConduitHistoryTab(), // 3. 보관함 (인덱스 2)
-          LandscapeMarkingScreen(onCloseTab: _goToMarkingTab), // 4. 현장 (인덱스 3)
-          const ConduitViewerTab(), // 5. 아이소 (인덱스 4) 🚀 새로 추가된 탭!
-          const ConduitSettingsPage(), // 6. 설정 (인덱스 5)
-        ],
-      ),
-      bottomNavigationBar: _selectedIndex == 3
+      body: isWide ? _buildWideBody() : _buildNarrowBody(),
+      bottomNavigationBar: isFieldTab
           ? const SizedBox.shrink() // 현장(가로) 탭일 때만 네비바 숨김
           : Container(
               decoration: BoxDecoration(
@@ -101,7 +100,9 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
                     backgroundColor: Colors.transparent,
                     elevation: 0,
                     type: BottomNavigationBarType.fixed,
-                    currentIndex: _selectedIndex,
+                    currentIndex: isWide
+                        ? _wideIndexFor(_selectedIndex)
+                        : _selectedIndex,
                     selectedItemColor: makitaTeal,
                     unselectedItemColor: slate600,
                     selectedLabelStyle: const TextStyle(
@@ -112,49 +113,99 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
                       fontWeight: FontWeight.w600,
                       fontSize: 10,
                     ),
-                    onTap: (index) {
+                    onTap: (tappedIndex) {
                       HapticFeedback.selectionClick();
-                      _pageController.jumpToPage(index);
+                      setState(() {
+                        _selectedIndex = isWide
+                            ? _narrowIndexFor(
+                                tappedIndex,
+                                wasOnMarking: _selectedIndex == 1,
+                              )
+                            : tappedIndex;
+                      });
                     },
-                    items: [
-                      _buildNavItem(
-                        Icons.edit_document,
-                        Icons.edit_outlined,
-                        '입력',
-                        0,
-                      ),
-                      _buildNavItem(
-                        Icons.format_list_numbered_rounded,
-                        Icons.format_list_numbered_rtl_outlined,
-                        '마킹',
-                        1,
-                      ),
-                      _buildNavItem(
-                        Icons.folder_rounded,
-                        Icons.folder_outlined,
-                        '보관함',
-                        2,
-                      ),
-                      _buildNavItem(
-                        Icons.architecture_rounded,
-                        Icons.architecture_outlined,
-                        '현장',
-                        3,
-                      ),
-                      // 🚀 기존 5개 탭 사이에 '아이소' 탭 정확히 추가!
-                      _buildNavItem(
-                        Icons.view_in_ar_rounded,
-                        Icons.view_in_ar_outlined,
-                        '아이소',
-                        4,
-                      ),
-                      _buildNavItem(
-                        Icons.settings_rounded,
-                        Icons.settings_outlined,
-                        '설정',
-                        5,
-                      ),
-                    ],
+                    items: isWide
+                        ? [
+                            _buildNavItem(
+                              Icons.edit_document,
+                              Icons.edit_outlined,
+                              '입력/마킹',
+                              0,
+                              isWide: true,
+                            ),
+                            _buildNavItem(
+                              Icons.folder_rounded,
+                              Icons.folder_outlined,
+                              '보관함',
+                              1,
+                              isWide: true,
+                            ),
+                            _buildNavItem(
+                              Icons.architecture_rounded,
+                              Icons.architecture_outlined,
+                              '현장',
+                              2,
+                              isWide: true,
+                            ),
+                            _buildNavItem(
+                              Icons.view_in_ar_rounded,
+                              Icons.view_in_ar_outlined,
+                              '아이소',
+                              3,
+                              isWide: true,
+                            ),
+                            _buildNavItem(
+                              Icons.settings_rounded,
+                              Icons.settings_outlined,
+                              '설정',
+                              4,
+                              isWide: true,
+                            ),
+                          ]
+                        : [
+                            _buildNavItem(
+                              Icons.edit_document,
+                              Icons.edit_outlined,
+                              '입력',
+                              0,
+                              isWide: false,
+                            ),
+                            _buildNavItem(
+                              Icons.format_list_numbered_rounded,
+                              Icons.format_list_numbered_rtl_outlined,
+                              '마킹',
+                              1,
+                              isWide: false,
+                            ),
+                            _buildNavItem(
+                              Icons.folder_rounded,
+                              Icons.folder_outlined,
+                              '보관함',
+                              2,
+                              isWide: false,
+                            ),
+                            _buildNavItem(
+                              Icons.architecture_rounded,
+                              Icons.architecture_outlined,
+                              '현장',
+                              3,
+                              isWide: false,
+                            ),
+                            _buildNavItem(
+                              Icons.view_in_ar_rounded,
+                              Icons.view_in_ar_outlined,
+                              '아이소',
+                              4,
+                              isWide: false,
+                            ),
+                            _buildNavItem(
+                              Icons.settings_rounded,
+                              Icons.settings_outlined,
+                              '설정',
+                              5,
+                              isWide: false,
+                            ),
+                          ],
                   ),
                 ),
               ),
@@ -162,17 +213,64 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
     );
   }
 
+  Widget _buildNarrowBody() {
+    return IndexedStack(
+      index: _selectedIndex,
+      children: [
+        const ConduitInputTab(), // 0. 입력
+        const ConduitResultTab(), // 1. 마킹
+        const ConduitHistoryTab(), // 2. 보관함
+        LandscapeMarkingScreen(
+          onCloseTab: _goToMarkingTab,
+          isActive: _selectedIndex == 3,
+        ), // 3. 현장
+        const ConduitViewerTab(), // 4. 아이소
+        const ConduitSettingsPage(), // 5. 설정
+      ],
+    );
+  }
+
+  Widget _buildWideBody() {
+    return IndexedStack(
+      index: _wideIndexFor(_selectedIndex),
+      children: [
+        // 🚀 넓은 화면에서는 입력과 마킹을 좌우로 나란히 - 둘 다
+        // ConduitDataManager를 직접 구독하므로 왼쪽에서 입력하면
+        // 오른쪽 마킹 결과가 즉시 갱신된다.
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: const [
+            Expanded(flex: 5, child: ConduitInputTab()),
+            VerticalDivider(width: 1, color: slate100),
+            Expanded(flex: 6, child: ConduitResultTab()),
+          ],
+        ),
+        const ConduitHistoryTab(),
+        LandscapeMarkingScreen(
+          onCloseTab: _goToMarkingTab,
+          isActive: _selectedIndex == 3,
+        ),
+        const ConduitViewerTab(),
+        const ConduitSettingsPage(),
+      ],
+    );
+  }
+
   BottomNavigationBarItem _buildNavItem(
     IconData activeIcon,
     IconData inactiveIcon,
     String label,
-    int index,
-  ) {
+    int index, {
+    required bool isWide,
+  }) {
+    final int currentDisplayIndex = isWide
+        ? _wideIndexFor(_selectedIndex)
+        : _selectedIndex;
     return BottomNavigationBarItem(
       icon: Padding(
         padding: const EdgeInsets.only(bottom: 4),
         child: Icon(
-          _selectedIndex == index ? activeIcon : inactiveIcon,
+          currentDisplayIndex == index ? activeIcon : inactiveIcon,
           size: 24,
         ),
       ),
@@ -216,8 +314,21 @@ class ConduitViewerTab extends StatelessWidget {
 // =========================================================
 class LandscapeMarkingScreen extends StatefulWidget {
   final VoidCallback? onCloseTab;
+  // 🚀 [버그 수정] ConduitMainNavigation이 IndexedStack으로 바뀌면서 이
+  // 화면이 실제로 보이지 않을 때도(다른 탭을 보고 있어도) 계속 마운트된
+  // 상태로 남아있게 됐다. 아래 PopScope(canPop:false)가 항상 켜져 있으면
+  // 다른 탭을 보고 있을 때 폰 뒤로가기를 눌러도 이 화면이 가로채서
+  // "마킹 탭으로 전환"만 하고 실제로는 메인 메뉴로 못 나가지는 버그가
+  // 생긴다. 이 탭이 화면에 실제로 보이고 있을 때만(isActive) 뒤로가기를
+  // 가로채도록 한다. 별도 라우트로 그냥 push된 경우(예: 마킹 탭의 "가로
+  // 도면 보기" 버튼)는 항상 활성 상태이므로 기본값을 true로 둔다.
+  final bool isActive;
 
-  const LandscapeMarkingScreen({super.key, this.onCloseTab});
+  const LandscapeMarkingScreen({
+    super.key,
+    this.onCloseTab,
+    this.isActive = true,
+  });
 
   @override
   State<LandscapeMarkingScreen> createState() => _LandscapeMarkingScreenState();
@@ -251,7 +362,26 @@ class _LandscapeMarkingScreenState extends State<LandscapeMarkingScreen> {
   @override
   void initState() {
     super.initState();
-    _setLandscapeMode();
+    // 🚀 [버그 수정] IndexedStack이 이 탭을 항상 미리 마운트해두기 때문에,
+    // 무조건 가로 고정을 걸면 "현장" 탭이 선택되지 않은 채로 전선관
+    // 계산기에 처음 들어가도 앱 전체가 강제로 가로 화면이 되어버렸다.
+    // 이 탭이 실제로 활성 상태일 때만 가로로 고정한다.
+    if (widget.isActive) {
+      _setLandscapeMode();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant LandscapeMarkingScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 🚀 IndexedStack 안에서 위젯이 dispose되지 않고 계속 살아있는 채로
+    // 다른 탭으로 넘어갔다 돌아왔다 하므로, isActive가 바뀔 때마다
+    // 화면 방향을 맞춰 전환해줘야 한다.
+    if (widget.isActive && !oldWidget.isActive) {
+      _setLandscapeMode();
+    } else if (!widget.isActive && oldWidget.isActive) {
+      _restorePortraitMode();
+    }
   }
 
   void _setLandscapeMode() {
@@ -296,9 +426,9 @@ class _LandscapeMarkingScreenState extends State<LandscapeMarkingScreen> {
 
         if (markings.isEmpty) {
           return PopScope(
-            canPop: false,
+            canPop: !widget.isActive,
             onPopInvokedWithResult: (didPop, result) {
-              if (!didPop) _handleClose(context);
+              if (!didPop && widget.isActive) _handleClose(context);
             },
             child: Scaffold(
               backgroundColor: paperBg,
@@ -339,9 +469,9 @@ class _LandscapeMarkingScreenState extends State<LandscapeMarkingScreen> {
         double contentWidth = (totalCutLength * mmToPixel) + 150;
 
         return PopScope(
-          canPop: false,
+          canPop: !widget.isActive,
           onPopInvokedWithResult: (didPop, result) {
-            if (!didPop) _handleClose(context);
+            if (!didPop && widget.isActive) _handleClose(context);
           },
           child: Scaffold(
             backgroundColor: paperBg,

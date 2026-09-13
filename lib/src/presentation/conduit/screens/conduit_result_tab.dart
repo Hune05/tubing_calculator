@@ -342,9 +342,13 @@ class _ConduitResultTabState extends State<ConduitResultTab>
           };
         });
 
-        return Scaffold(
-          backgroundColor: slate100,
-          body: SafeArea(
+        // 🚀 [수정] 폴더블 대응으로 넓은 화면에서 입력 탭과 나란히 붙여
+        // 보여줄 수 있도록, 자체 Scaffold 대신 배경색만 칠하는 ColoredBox로
+        // 바꿨다. SliverAppBar는 Scaffold 없이 CustomScrollView 안에서도
+        // 그대로 동작한다.
+        return ColoredBox(
+          color: slate100,
+          child: SafeArea(
             bottom: false,
             child: CustomScrollView(
               physics: const BouncingScrollPhysics(),
