@@ -684,6 +684,105 @@ class TubeReferencePage extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 16),
+
+        // 🚀 4. 유압식/시카고식 - 내 장비 실측 캘리브레이션 (제조사/모델마다
+        // 테이크업·게인·셋백·램이동거리·노치각도가 전부 달라서, 브랜드
+        // 하나로 정해지는 "만능 표"가 없다 - Greenlee 등 실제 제조사
+        // 매뉴얼도 전부 "본인 장비로 실측하라"고 안내한다. 그래서 숫자
+        // 표 대신, 한 번만 재두면 평생 쓰는 실측 절차를 안내한다.
+        _buildTossCard(
+          title: "4. 유압식(Ram)/시카고식 - 내 장비 실측 캘리브레이션",
+          subtitle: "제조사 표는 기계마다 다 달라서 못 믿습니다 - 딱 한 번 실측해서 설정에 저장해두세요",
+          icon: Icons.straighten_rounded,
+          iconColor: Colors.deepPurple,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.deepPurple.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.deepPurple.shade100),
+              ),
+              child: const Text(
+                "테이크업·게인·셋백·램 이동거리·노치 각도는 브랜드는 물론 같은 브랜드의 모델별로도 다릅니다. "
+                "그래서 어디에도 \"공식 만능 표\"는 없고, 제조사 매뉴얼도 결국 \"본인 장비로 확인하라\"고 안내합니다. "
+                "아래 방법대로 딱 한 번만 실측해서 설정 화면에 입력해두면, 그 다음부턴 이 값을 이 장비의 고유 값으로 영구히 기억해서 자동 계산해줍니다.",
+                style: TextStyle(fontSize: 13, color: textMain, height: 1.5),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildButtonGuide(
+              btnName: "① 테이크업 / 셋백 실측 (수동·시카고·유압 공통)",
+              purpose: "첫 벤딩점에서 차감해야 할 여유 길이 확인",
+              action:
+                  "직선 파이프에 끝에서 약 300~500mm 지점에 기준선을 긋습니다.\n"
+                  "이 선을 벤더의 0점(화살표/스타 마크)에 정확히 맞추고 90°까지 꺾습니다.\n"
+                  "벤딩 후 파이프 끝단에서 꺾이기 시작하는 지점(접선)까지의 직선 길이를 줄자로 잽니다.\n"
+                  "테이크업(셋백) = 처음 그은 기준선까지의 거리 − 방금 잰 실측 거리.",
+            ),
+            const Divider(height: 24, color: bgColor),
+            _buildButtonGuide(
+              btnName: "② 연신율(Gain) 실측 (전 기종 공통)",
+              purpose: "90° 벤딩 시 곡선으로 절약되는 길이 확인",
+              action:
+                  "직선 파이프에 정확히 두 지점(예: 500mm 간격)을 마킹합니다.\n"
+                  "앞쪽 마킹을 0점에 맞추고 90°로 꺾습니다.\n"
+                  "벤딩 후 두 마킹 사이의 실제 곡선 구간을 뺀 순수 직선 구간들의 합을 실측합니다.\n"
+                  "게인 = 원래 마킹 간격(500mm) − 방금 잰 직선 구간 합.",
+            ),
+            const Divider(height: 24, color: bgColor),
+            _buildButtonGuide(
+              btnName: "③ 유압식 - 램(Ram) 이동거리 실측",
+              purpose: "각도별 실린더 전진 거리 확인",
+              action:
+                  "대부분의 유압 벤더는 램 자체에 이동거리 눈금자가 붙어 있습니다.\n"
+                  "①의 테이크업 실측과 동시에, 90°에 도달했을 때 램 눈금이 가리키는 값을 그대로 기록합니다.\n"
+                  "가능하면 45° 등 다른 각도로도 한 번 더 재두면, 이 앱이 두 각도 사이의 실제 곡선을 더 정확히 보정합니다.",
+            ),
+            const Divider(height: 24, color: bgColor),
+            _buildButtonGuide(
+              btnName: "④ 시카고식 - 노치당 각도 / 노치 간격 실측",
+              purpose: "기어(노치) 한 칸이 몇 도인지 확인",
+              action:
+                  "노치 휠을 0점에 맞춘 뒤, 정확히 90°가 될 때까지 크랭크를 돌리며 넘어간 노치 칸 수를 셉니다.\n"
+                  "노치당 각도 = 90 ÷ 넘어간 칸 수.\n"
+                  "노치 간격은 휠에 새겨진 이웃한 두 노치 사이의 실제 거리를 캘리퍼스나 자로 직접 잽니다.",
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: makitaTeal.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: makitaTeal.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.check_circle_outline_rounded,
+                    color: makitaTeal,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      "실측한 값은 계산기 '설정' 탭(수동/유압식/시카고식 각각의 제원 입력란)에 그대로 입력해두세요. "
+                      "한 번만 해두면 이 장비로 작업하는 한 평생 다시 계산할 필요 없이 자동으로 적용됩니다.",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: makitaTeal,
+                        fontWeight: FontWeight.bold,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 40),
       ],
     );
