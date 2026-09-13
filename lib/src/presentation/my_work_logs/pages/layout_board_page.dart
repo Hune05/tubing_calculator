@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -7,6 +9,7 @@ import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 // ignore: deprecated_member_use
 import 'package:share_plus/share_plus.dart';
 import 'package:pdf/pdf.dart';
@@ -15,7 +18,7 @@ import 'package:pdf/widgets.dart' as pw;
 // ---------------------------------------------------------
 // 🎨 토스(Toss) 디자인 시스템 색상
 // ---------------------------------------------------------
-const Color tossBlue = Color(0xFF3182F6);
+const Color tossBlue = Color(0xFF007580); // 🚀 마키타 틸로 통일
 const Color tossText = Color(0xFF191F28);
 const Color tossSubText = Color(0xFF8B95A1);
 const Color tossBg = Color(0xFFF2F4F6);
@@ -28,15 +31,37 @@ const Color warningRed = Color(0xFFF04438);
 const Color centerDimColor = tossBlue; // 센터: 파란색(자동 가이드와 통일)
 const Color edgeDimColor = Color(0xFFF68657); // 측면: 주황색
 const Color guideCenterColor = tossBlue; // 가상선(센터): 파란색
-const Color tubingLineColor = Color(0xFFFF6B35); // 정밀 튜빙 라인: 주황-레드
 
 // ---------------------------------------------------------
 // 1. 데이터 모델
 // ---------------------------------------------------------
 enum DimensionType { center, edge }
 
-// 🚀 [추가] 도면 보드의 3가지 작업 모드
-enum BoardMode { placeModule, measureDimension, drawTubing }
+// 🚀 [정리] 정밀 튜빙 라인 모드는 폰 화면에서 점을 하나하나 정밀하게
+// 찍어야 해서 부담이 크다는 판단으로 제거. 모듈 배치/이동, 고정 치수
+// 측정 두 가지만 남긴다.
+enum BoardMode { placeModule, measureDimension }
+
+// 🚀 [추가] 드래그로 도면에 놓을 모듈의 기본값(이름+가로/세로)을 함께
+// 실어 나르기 위한 드래그 페이로드. 예전엔 이름(String)만 옮기고 크기는
+// 무조건 80×80으로 고정되어 있어서, ABS 덕트처럼 폭이 정해진 자재를
+// 매번 배치 후 수동으로 크기를 고쳐야 했다.
+class ModulePreset {
+  final String name;
+  final double width;
+  final double height;
+  const ModulePreset(this.name, this.width, this.height);
+}
+
+// 🚀 [수정] 실제 현장에서 쓰는 폭(40/60/80/100mm)만 남김.
+// 세로(길이)는 배선 경로에 따라 달라지므로 기본값만 두고, 배치 후
+// "모듈 속성 편집"에서 실제 길이에 맞게 조정하면 된다.
+const List<ModulePreset> kDuctPresets = [
+  ModulePreset("ABS덕트 40mm", 40, 200),
+  ModulePreset("ABS덕트 60mm", 60, 200),
+  ModulePreset("ABS덕트 80mm", 80, 200),
+  ModulePreset("ABS덕트 100mm", 100, 200),
+];
 
 abstract class MeasurePoint {
   Offset get center;
@@ -81,6 +106,14 @@ class PlacedItem implements MeasurePoint {
     'w': width,
     'h': height,
   };
+
+  factory PlacedItem.fromJson(Map<String, dynamic> j) => PlacedItem(
+    id: j['id'] as String,
+    name: j['name'] as String? ?? "이름 없음",
+    position: Offset((j['x'] as num).toDouble(), (j['y'] as num).toDouble()),
+    width: (j['w'] as num?)?.toDouble() ?? 80.0,
+    height: (j['h'] as num?)?.toDouble() ?? 80.0,
+  );
 }
 
 class WallPoint implements MeasurePoint {
@@ -104,6 +137,17 @@ class WallPoint implements MeasurePoint {
     'x': position.dx,
     'y': position.dy,
   };
+
+  factory WallPoint.fromJson(Map<String, dynamic> j) => WallPoint(
+    position: Offset((j['x'] as num).toDouble(), (j['y'] as num).toDouble()),
+  );
+}
+
+// 🚀 [추가] 저장된 p1/p2는 "item"/"wall" 중 하나라 type 필드로 구분해서
+// 복원한다. item 쪽은 저장 당시 좌표를 담은 별개의 PlacedItem이라, 불러온
+// 뒤 실제 모듈을 옮겨도 이미 찍힌 치수선은 저장 시점 위치에 고정된다.
+MeasurePoint _measurePointFromJson(Map<String, dynamic> j) {
+  return j['type'] == 'wall' ? WallPoint.fromJson(j) : PlacedItem.fromJson(j);
 }
 
 class PlacedDimension {
@@ -125,27 +169,46 @@ class PlacedDimension {
     'p2': p2.toJson(),
     'type': type.name,
   };
+
+  factory PlacedDimension.fromJson(Map<String, dynamic> j) => PlacedDimension(
+    id: j['id'] as String,
+    p1: _measurePointFromJson(Map<String, dynamic>.from(j['p1'] as Map)),
+    p2: _measurePointFromJson(Map<String, dynamic>.from(j['p2'] as Map)),
+    type: DimensionType.values.byName(j['type'] as String),
+  );
 }
 
-// 🚀 [추가] 실제 배관으로 도면에 남는 정밀 튜빙 라인 (여러 구간/꺾임 가능)
-class PlacedTubingLine {
-  final String id;
-  final List<Offset> points;
+// 🚀 [정리] 손으로 앵커를 옮기는 기능은 폰에서 쓰기 부담스럽다는 판단으로
+// 제거하고, 센터/측면 자동 계산만 남겼다.
+({Offset p1, Offset p2, double distance}) computeDimensionEndpoints(
+  PlacedDimension dim,
+) {
+  final Rect r1 = dim.p1.boundingBox;
+  final Rect r2 = dim.p2.boundingBox;
 
-  PlacedTubingLine({required this.id, required this.points});
+  final double dxCenter = (r1.center.dx - r2.center.dx).abs();
+  final double dyCenter = (r1.center.dy - r2.center.dy).abs();
 
-  double get totalLength {
-    double total = 0;
-    for (int i = 0; i < points.length - 1; i++) {
-      total += (points[i + 1] - points[i]).distance;
-    }
-    return total;
+  if (dim.type == DimensionType.center) {
+    Offset p1 = r1.center;
+    Offset p2 = r2.center;
+    p2 = dxCenter > dyCenter ? Offset(p2.dx, p1.dy) : Offset(p1.dx, p2.dy);
+    return (p1: p1, p2: p2, distance: (p1 - p2).distance);
   }
 
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'points': points.map((p) => {'x': p.dx, 'y': p.dy}).toList(),
-  };
+  if (dxCenter > dyCenter) {
+    final bool isR1Left = r1.center.dx < r2.center.dx;
+    final double x1 = isR1Left ? r1.right : r1.left;
+    final double x2 = isR1Left ? r2.left : r2.right;
+    final double y = (r1.center.dy + r2.center.dy) / 2;
+    return (p1: Offset(x1, y), p2: Offset(x2, y), distance: (x1 - x2).abs());
+  } else {
+    final bool isR1Top = r1.center.dy < r2.center.dy;
+    final double y1 = isR1Top ? r1.bottom : r1.top;
+    final double y2 = isR1Top ? r2.top : r2.bottom;
+    final double x = (r1.center.dx + r2.center.dx) / 2;
+    return (p1: Offset(x, y1), p2: Offset(x, y2), distance: (y1 - y2).abs());
+  }
 }
 
 // ---------------------------------------------------------
@@ -160,25 +223,25 @@ class MobileLayoutBoardPage extends StatefulWidget {
   State<MobileLayoutBoardPage> createState() => _MobileLayoutBoardPageState();
 }
 
-class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
+class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
+    with WidgetsBindingObserver {
   double _panelWidth = 600.0;
   double _panelHeight = 800.0;
   final double _gridSize = 5.0;
 
   BoardMode _mode = BoardMode.placeModule;
   DimensionType _currentDimType = DimensionType.center;
-  // 🚀 [추가] 모듈 배치/이동 중 자동으로 뜨는 가이드선을 모드 전환 없이
-  // 그때그때 켜고 끌 수 있는 토글. 센터선/외곽선은 독립적으로 켤 수
-  // 있어서 둘 다 동시에 볼 수도 있다.
-  bool _showCenterGuide = true;
-  bool _showEdgeGuide = false;
   bool _isSaving = false;
+  // 🚀 [추가] 저장된 프로젝트를 불러오는 동안 표시할 로딩 상태, 그리고
+  // 한 번이라도 저장/불러오기가 된 프로젝트의 ID. null이면 "아직 서버에
+  // 저장된 적 없는 새 도면" - 이 경우 저장을 누르면 새 문서가 생성되고,
+  // 이후엔 이 ID로 계속 같은 문서를 갱신(update)한다.
+  bool _isLoadingProject = false;
+  String? _currentProjectId;
+  String _projectName = "";
 
   final List<PlacedItem> _placedItems = [];
   final List<PlacedDimension> _dimensions = [];
-  // 🚀 [추가] 완료되어 저장된 튜빙 라인들과, 지금 찍고 있는 중인 임시 경로
-  final List<PlacedTubingLine> _tubingLines = [];
-  List<Offset> _tubingDraftPoints = [];
 
   MeasurePoint? _dimensionStartPoint;
   PlacedItem? _activeItem;
@@ -188,11 +251,183 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
   final GlobalKey _boardKey = GlobalKey();
   final GlobalKey _captureKey = GlobalKey();
 
+  // 🚀 [추가] 서버에 정식 저장하기 전에 앱을 껐다 켜거나 화면을 나가면
+  // 작업 중이던 배치가 전부 사라지던 문제(휘발성)를 막기 위한 로컬
+  // 임시 저장. 주기적으로 + 앱이 백그라운드로 갈 때 기기에만 저장해두고,
+  // 정식으로 서버 저장을 하면 더 이상 필요 없으니 지운다.
+  static const String _draftPrefsKey = 'layout_board_draft_v1';
+  Timer? _draftTimer;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (widget.projectId != null) {
-      // TODO: Firebase 로드 로직
+      _loadProject(widget.projectId!);
+    } else {
+      _checkAndOfferDraftRecovery();
+    }
+    _draftTimer = Timer.periodic(
+      const Duration(seconds: 20),
+      (_) => _saveDraftToPrefs(),
+    );
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _draftTimer?.cancel();
+    _saveDraftToPrefs();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      _saveDraftToPrefs();
+    }
+  }
+
+  bool get _hasAnyContent =>
+      _placedItems.isNotEmpty || _dimensions.isNotEmpty;
+
+  Map<String, dynamic> _buildSnapshotJson() => {
+    'projectId': _currentProjectId,
+    'projectName': _projectName,
+    'panelWidth': _panelWidth,
+    'panelHeight': _panelHeight,
+    'items': _placedItems.map((e) => e.toJson()).toList(),
+    'dimensions': _dimensions.map((e) => e.toJson()).toList(),
+  };
+
+  Future<void> _saveDraftToPrefs() async {
+    if (!_hasAnyContent) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_draftPrefsKey, jsonEncode(_buildSnapshotJson()));
+    } catch (_) {
+      // 로컬 임시 저장은 실패해도 사용자 작업 흐름을 막을 필요는 없다.
+    }
+  }
+
+  Future<void> _clearDraftPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_draftPrefsKey);
+    } catch (_) {}
+  }
+
+  void _applySnapshotJson(Map<String, dynamic> data) {
+    _currentProjectId = data['projectId'] as String?;
+    _projectName = data['projectName'] as String? ?? "";
+    _panelWidth = (data['panelWidth'] as num?)?.toDouble() ?? _panelWidth;
+    _panelHeight = (data['panelHeight'] as num?)?.toDouble() ?? _panelHeight;
+    _placedItems
+      ..clear()
+      ..addAll(
+        ((data['items'] as List?) ?? []).map(
+          (e) => PlacedItem.fromJson(Map<String, dynamic>.from(e as Map)),
+        ),
+      );
+    _dimensions
+      ..clear()
+      ..addAll(
+        ((data['dimensions'] as List?) ?? []).map(
+          (e) =>
+              PlacedDimension.fromJson(Map<String, dynamic>.from(e as Map)),
+        ),
+      );
+  }
+
+  // 🚀 [추가] 새 도면으로 들어왔을 때(특정 프로젝트를 불러온 게 아닐 때)
+  // 이전에 저장 안 하고 나간 임시 작업이 남아있으면 이어할지 물어본다.
+  Future<void> _checkAndOfferDraftRecovery() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_draftPrefsKey);
+      if (raw == null) return;
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      if (!mounted) return;
+      final bool resume =
+          await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              backgroundColor: pureWhite,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: const Text(
+                "이어서 작업하시겠습니까?",
+                style: TextStyle(fontWeight: FontWeight.w800, color: tossText),
+              ),
+              content: const Text(
+                "저장하지 않고 나간 작업 내용이 남아있습니다.",
+                style: TextStyle(color: tossSubText),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text(
+                    "새로 시작",
+                    style: TextStyle(color: tossSubText),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text(
+                    "이어하기",
+                    style: TextStyle(
+                      color: tossBlue,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+
+      if (!mounted) return;
+      if (resume) {
+        setState(() => _applySnapshotJson(data));
+      } else {
+        await _clearDraftPrefs();
+      }
+    } catch (_) {
+      // 임시 저장 데이터가 깨져있으면 그냥 무시하고 새로 시작한다.
+    }
+  }
+
+  Future<void> _loadProject(String id) async {
+    setState(() => _isLoadingProject = true);
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('layouts')
+          .doc(id)
+          .get();
+      if (!mounted) return;
+      if (!doc.exists) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("프로젝트를 찾을 수 없습니다."),
+            backgroundColor: warningRed,
+          ),
+        );
+        return;
+      }
+      final data = doc.data()!;
+      data['projectId'] = doc.id;
+      setState(() => _applySnapshotJson(data));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("불러오기 실패: $e"), backgroundColor: warningRed),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoadingProject = false);
     }
   }
 
@@ -206,66 +441,9 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
     setState(() {
       _placedItems.clear();
       _dimensions.clear();
-      _tubingLines.clear();
-      _tubingDraftPoints = [];
       _dimensionStartPoint = null;
       _activeItem = null;
       _previewItem = null;
-    });
-  }
-
-  // 🚀 [추가] 튜빙 라인 그리기 모드에서 점 추가/실행취소/완료/취소
-  void _addTubingPoint(Offset point) {
-    HapticFeedback.lightImpact();
-    setState(() {
-      Offset snapped = _snapToGrid(point);
-      if (_tubingDraftPoints.isNotEmpty) {
-        // 🚀 실제 배관은 대각선으로 가지 않고 직각으로 꺾이므로, 이전
-        // 지점 기준으로 수평/수직 중 더 가까운 축에 자동으로 맞춘다.
-        final prev = _tubingDraftPoints.last;
-        final dx = (snapped.dx - prev.dx).abs();
-        final dy = (snapped.dy - prev.dy).abs();
-        snapped = dx >= dy
-            ? Offset(snapped.dx, prev.dy)
-            : Offset(prev.dx, snapped.dy);
-      }
-      _tubingDraftPoints = [..._tubingDraftPoints, snapped];
-    });
-  }
-
-  void _undoTubingPoint() {
-    if (_tubingDraftPoints.isEmpty) return;
-    setState(() {
-      _tubingDraftPoints = _tubingDraftPoints.sublist(
-        0,
-        _tubingDraftPoints.length - 1,
-      );
-    });
-  }
-
-  void _finishTubingLine() {
-    if (_tubingDraftPoints.length < 2) return;
-    setState(() {
-      _tubingLines.add(
-        PlacedTubingLine(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          points: _tubingDraftPoints,
-        ),
-      );
-      _tubingDraftPoints = [];
-    });
-    HapticFeedback.heavyImpact();
-  }
-
-  void _cancelTubingDraft() {
-    setState(() {
-      _tubingDraftPoints = [];
-    });
-  }
-
-  void _deleteTubingLine(String id) {
-    setState(() {
-      _tubingLines.removeWhere((line) => line.id == id);
     });
   }
 
@@ -382,20 +560,33 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
     }
   }
 
+  // 🚀 [수정] 예전엔 저장할 때마다 새 문서를 만들어서, 같은 프로젝트를
+  // 다시 열어 고치고 저장하면 서버에 중복 문서가 계속 쌓이고 "불러오기"로
+  // 되돌아갈 방법도 없었다. 이제 이미 저장/불러온 적 있는 프로젝트면
+  // (_currentProjectId) 그 문서를 그대로 갱신(update)하고, 처음 저장하는
+  // 새 도면일 때만 새 문서를 만든다.
   Future<void> _saveToFirebase(String projectName) async {
     setState(() => _isSaving = true);
     try {
-      final docRef = FirebaseFirestore.instance.collection('layouts').doc();
+      final bool isNew = _currentProjectId == null;
+      final docRef = isNew
+          ? FirebaseFirestore.instance.collection('layouts').doc()
+          : FirebaseFirestore.instance
+                .collection('layouts')
+                .doc(_currentProjectId);
       await docRef.set({
         'projectId': docRef.id,
         'projectName': projectName,
         'panelWidth': _panelWidth,
         'panelHeight': _panelHeight,
-        'createdAt': FieldValue.serverTimestamp(),
+        if (isNew) 'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
         'items': _placedItems.map((e) => e.toJson()).toList(),
         'dimensions': _dimensions.map((e) => e.toJson()).toList(),
-        'tubingLines': _tubingLines.map((e) => e.toJson()).toList(),
-      });
+      }, SetOptions(merge: true));
+      _currentProjectId = docRef.id;
+      _projectName = projectName;
+      await _clearDraftPrefs();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("프로젝트 저장 완료!"), backgroundColor: tossBlue),
@@ -410,24 +601,26 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
     }
   }
 
-  void _onAcceptItem(String defaultName, Offset localPosition) {
+  void _onAcceptItem(ModulePreset preset, Offset localPosition) {
     HapticFeedback.mediumImpact();
     setState(() {
       for (var item in _placedItems) item.isSelected = false;
 
       double clampedX = localPosition.dx.clamp(
         0.0,
-        math.max(0.0, _panelWidth - 80.0),
+        math.max(0.0, _panelWidth - preset.width),
       );
       double clampedY = localPosition.dy.clamp(
         0.0,
-        math.max(0.0, _panelHeight - 80.0),
+        math.max(0.0, _panelHeight - preset.height),
       );
 
       final newItem = PlacedItem(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: defaultName,
+        name: preset.name,
         position: _snapToGrid(Offset(clampedX, clampedY)),
+        width: preset.width,
+        height: preset.height,
         isSelected: true,
       );
 
@@ -438,7 +631,15 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
     _showInspectorBottomSheet(_placedItems.last);
   }
 
-  WallPoint _getNearestWallPoint(Offset touchPosition) {
+  // 🚀 [버그 수정] 벽까지 실제 거리와 무관하게 빈 도면 공간을 탭하면
+  // 무조건 "가장 가까운 벽" 지점으로 확정되어 버렸다. 모듈을 살짝
+  // 빗맞히거나 그냥 도면 가운데를 눌러도 항상 치수 시작점이 잡히는
+  // 게 "시작점이 무조건 벽이 된다" + "그냥 터치만 해도 치수가 생긴다"
+  // 두 증상의 원인이었다. 이제 실제로 벽에서 가까울 때(_wallTapTolerance
+  // 이내)만 벽 기준점으로 인정하고, 그 밖의 빈 허공 탭은 무시(null)한다.
+  static const double _wallTapTolerance = 50.0;
+
+  WallPoint? _getNearestWallPoint(Offset touchPosition) {
     double distLeft = touchPosition.dx;
     double distRight = _panelWidth - touchPosition.dx;
     double distTop = touchPosition.dy;
@@ -450,6 +651,8 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
       distTop,
       distBottom,
     ].reduce(math.min);
+    if (minDist > _wallTapTolerance) return null;
+
     Offset wallPos;
     if (minDist == distLeft)
       wallPos = Offset(0, touchPosition.dy);
@@ -469,12 +672,18 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
         _dimensionStartPoint = point;
       } else {
         if (_dimensionStartPoint!.id != point.id) {
+          // 🚀 [버그 수정] type을 비교 조건에서 빼먹어서, 같은 두 지점을
+          // "센터 기준"으로 한 번 측정하고 나면 "측면 기준"으로는 다시
+          // 측정이 안 되고 아무 반응 없이 무시되던 문제. 이게 마치 "첫
+          // 치수가 고정되어 안 바뀐다"처럼 보였던 원인이었다. 이제는
+          // 같은 두 지점이라도 기준(type)이 다르면 별도 치수로 추가된다.
           bool exists = _dimensions.any(
             (dim) =>
-                (dim.p1.id == _dimensionStartPoint!.id &&
-                    dim.p2.id == point.id) ||
-                (dim.p1.id == point.id &&
-                    dim.p2.id == _dimensionStartPoint!.id),
+                dim.type == _currentDimType &&
+                ((dim.p1.id == _dimensionStartPoint!.id &&
+                        dim.p2.id == point.id) ||
+                    (dim.p1.id == point.id &&
+                        dim.p2.id == _dimensionStartPoint!.id)),
           );
 
           if (!exists) {
@@ -498,9 +707,6 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
     HapticFeedback.lightImpact();
     if (_mode == BoardMode.measureDimension) {
       _handleDimensionPoint(item);
-    } else if (_mode == BoardMode.drawTubing) {
-      // 튜빙 라인 그리기 중엔 모듈을 탭하면 그 모듈의 중심에 정확히 붙는다
-      _addTubingPoint(item.center);
     } else {
       setState(() {
         for (var i in _placedItems) i.isSelected = false;
@@ -513,11 +719,10 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
 
   void _onTapBoard(Offset localPosition) {
     if (_mode == BoardMode.measureDimension) {
+      final WallPoint? nearestWall = _getNearestWallPoint(localPosition);
+      if (nearestWall == null) return; // 벽에서 너무 먼 빈 허공 탭은 무시
       HapticFeedback.lightImpact();
-      WallPoint nearestWall = _getNearestWallPoint(localPosition);
       _handleDimensionPoint(nearestWall);
-    } else if (_mode == BoardMode.drawTubing) {
-      _addTubingPoint(localPosition);
     } else {
       setState(() {
         for (var i in _placedItems) i.isSelected = false;
@@ -541,8 +746,12 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
   }
 
   void _showSaveActionSheet() {
+    // 🚀 [수정] 기존에 불러온 프로젝트를 다시 저장할 땐 그 프로젝트 이름을
+    // 그대로 채워줘서, 실수로 다른 이름을 입력해 새 문서로 갈라지는 걸 방지.
     final TextEditingController projectCtrl = TextEditingController(
-      text: "현장 레이아웃_${DateTime.now().day}일",
+      text: _projectName.isNotEmpty
+          ? _projectName
+          : "현장 레이아웃_${DateTime.now().day}일",
     );
     showModalBottomSheet(
       context: context,
@@ -1164,14 +1373,29 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
         backgroundColor: pureWhite,
         elevation: 0,
         centerTitle: true,
-        title: const Text(
-          "스마트 레이아웃 설계",
-          style: TextStyle(
-            color: tossText,
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.5,
-          ),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "스마트 레이아웃 설계",
+              style: TextStyle(
+                color: tossText,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+              ),
+            ),
+            if (_projectName.isNotEmpty)
+              Text(
+                _projectName,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: tossSubText,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+          ],
         ),
         leading: IconButton(
           icon: const Icon(
@@ -1214,34 +1438,36 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(
-            child: InteractiveViewer(
+          Column(
+            children: [
+              Expanded(
+                child: InteractiveViewer(
               minScale: 0.1,
               maxScale: 4.0,
               boundaryMargin: const EdgeInsets.all(2000),
               constrained: false,
-              child: DragTarget<String>(
+              child: DragTarget<ModulePreset>(
                 onMove: (details) {
                   final RenderBox box =
                       _boardKey.currentContext!.findRenderObject() as RenderBox;
                   Offset localPos = box.globalToLocal(details.offset);
                   double clampedX = localPos.dx.clamp(
                     0.0,
-                    math.max(0.0, _panelWidth - 80.0),
+                    math.max(0.0, _panelWidth - details.data.width),
                   );
                   double clampedY = localPos.dy.clamp(
                     0.0,
-                    math.max(0.0, _panelHeight - 80.0),
+                    math.max(0.0, _panelHeight - details.data.height),
                   );
                   setState(() {
                     _previewItem = PlacedItem(
                       id: 'preview',
-                      name: details.data,
+                      name: details.data.name,
                       position: _snapToGrid(Offset(clampedX, clampedY)),
-                      width: 80,
-                      height: 80,
+                      width: details.data.width,
+                      height: details.data.height,
                     );
                   });
                 },
@@ -1296,14 +1522,6 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
                                     panelHeight: _panelHeight,
                                   ),
                                 ),
-                                CustomPaint(
-                                  size: Size.infinite,
-                                  painter: TubingLinePainter(
-                                    lines: _tubingLines,
-                                    draftPoints: _tubingDraftPoints,
-                                  ),
-                                ),
-
                                 if (_previewItem != null &&
                                     _mode == BoardMode.placeModule) ...[
                                   ..._buildGuidePaints(_previewItem!),
@@ -1436,248 +1654,147 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // 🚀 [재구성] 기본 SegmentedButton은 선택된 항목 배경이
+                  // 검정(tossText)이라 마키타 톤과 안 어울렸다. 설정 화면의
+                  // AUTO/MAN 토글과 같은 방식(알약형 배경 안에 세그먼트,
+                  // 선택된 쪽만 마키타 틸로 채움)으로 직접 만들어서 앱
+                  // 전체 톤을 통일했다.
                   Padding(
                     padding: const EdgeInsets.all(16.0),
-                    // 🚀 [수정] 세그먼트가 2개→3개(모듈/치수/튜빙)로 늘어나면
-                    // 좁은 폰 폭에서 넘칠 수 있어 가로 스크롤로 감쌌다.
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: SegmentedButton<BoardMode>(
-                        segments: const [
-                          ButtonSegment(
-                            value: BoardMode.placeModule,
-                            label: Text(
-                              "모듈 배치/이동",
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          ButtonSegment(
-                            value: BoardMode.measureDimension,
-                            label: Text(
-                              "고정 치수 측정",
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          ButtonSegment(
-                            value: BoardMode.drawTubing,
-                            label: Text(
-                              "정밀 튜빙 라인",
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                        selected: {_mode},
-                        style: ButtonStyle(
-                          backgroundColor:
-                              WidgetStateProperty.resolveWith<Color>((
-                                Set<WidgetState> states,
-                              ) {
-                                if (states.contains(WidgetState.selected))
-                                  return tossText;
-                                return pureWhite;
-                              }),
-                          foregroundColor:
-                              WidgetStateProperty.resolveWith<Color>((
-                                Set<WidgetState> states,
-                              ) {
-                                if (states.contains(WidgetState.selected))
-                                  return pureWhite;
-                                return tossText;
-                              }),
-                        ),
-                        onSelectionChanged: (Set<BoardMode> newSelection) {
-                          setState(() {
-                            _mode = newSelection.first;
-                            _dimensionStartPoint = null;
-                            _activeItem = null;
-                            _tubingDraftPoints = [];
-                            for (var i in _placedItems) {
-                              i.isSelected = false;
-                            }
-                          });
+                    child: _buildModeSegmentedControl(),
+                  ),
+                  // 🚀 [정리] 모듈 배치/이동 중에는 가상선이 항상 나오는 게
+                  // 자연스럽다는 판단으로 켜고/끄는 토글 UI 자체를 없앴다.
+                  // (안 그러면 매번 껐다 켰다 하며 신경 써야 함) 이제 카드
+                  // 안에는 모드별 옵션 패널만 남아서 하단부가 한결 정리됨.
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: tossBg,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: switch (_mode) {
+                          BoardMode.measureDimension =>
+                            _buildDimensionToolBar(),
+                          BoardMode.placeModule => _buildModulePalette(),
                         },
                       ),
                     ),
-                  ),
-                  // 🚀 [수정] 모드와 무관하게 항상 켜고 끌 수 있는 자동
-                  // 가이드선 토글(센터선/외곽선 독립 on/off). 별도 그룹으로
-                  // 시각적으로 묶어서 위 모드 선택과 구분되게 표시.
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: tossBg,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.only(right: 6),
-                              child: Icon(
-                                Icons.visibility_outlined,
-                                size: 16,
-                                color: tossSubText,
-                              ),
-                            ),
-                            FilterChip(
-                              label: const Text("센터선"),
-                              selected: _showCenterGuide,
-                              selectedColor: guideCenterColor.withValues(
-                                alpha: 0.15,
-                              ),
-                              checkmarkColor: guideCenterColor,
-                              backgroundColor: pureWhite,
-                              side: BorderSide.none,
-                              labelStyle: TextStyle(
-                                color: _showCenterGuide
-                                    ? guideCenterColor
-                                    : tossSubText,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              onSelected: (val) =>
-                                  setState(() => _showCenterGuide = val),
-                            ),
-                            const SizedBox(width: 6),
-                            FilterChip(
-                              label: const Text("외곽선"),
-                              selected: _showEdgeGuide,
-                              selectedColor: edgeDimColor.withValues(
-                                alpha: 0.15,
-                              ),
-                              checkmarkColor: edgeDimColor,
-                              backgroundColor: pureWhite,
-                              side: BorderSide.none,
-                              labelStyle: TextStyle(
-                                color: _showEdgeGuide
-                                    ? edgeDimColor
-                                    : tossSubText,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              onSelected: (val) =>
-                                  setState(() => _showEdgeGuide = val),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: switch (_mode) {
-                      BoardMode.measureDimension => _buildDimensionToolBar(),
-                      BoardMode.drawTubing => _buildTubingToolBar(),
-                      BoardMode.placeModule => _buildModulePalette(),
-                    },
                   ),
                 ],
               ),
             ),
           ),
+            ],
+          ),
+          // 🚀 [추가] 저장된 프로젝트를 불러오는 동안 화면을 덮어서 빈
+          // 도면이 잠깐 보였다가 내용이 채워지는 깜빡임을 막는다.
+          if (_isLoadingProject)
+            Container(
+              color: Colors.black.withValues(alpha: 0.15),
+              child: const Center(
+                child: CircularProgressIndicator(color: tossBlue),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  // 🚀 [추가] 센터선/외곽선 토글에 따라 최대 2개(둘 다 켜면 동시에)의
-  // 가이드선 페인터를 만들어준다.
+  // 🚀 [정리] 켜고/끄는 토글 없이, 모듈 배치/이동 중에는 항상 현재
+  // 선택된 가상선 색상(_currentDimType)의 가이드선 하나만 그려준다.
   List<Widget> _buildGuidePaints(PlacedItem item) {
     return [
-      if (_showCenterGuide)
-        CustomPaint(
-          size: Size.infinite,
-          painter: SmartGuidePainter(
-            item: item,
-            allItems: _placedItems,
-            panelWidth: _panelWidth,
-            panelHeight: _panelHeight,
-            currentType: DimensionType.center,
-          ),
+      CustomPaint(
+        size: Size.infinite,
+        painter: SmartGuidePainter(
+          item: item,
+          allItems: _placedItems,
+          panelWidth: _panelWidth,
+          panelHeight: _panelHeight,
+          currentType: _currentDimType,
         ),
-      if (_showEdgeGuide)
-        CustomPaint(
-          size: Size.infinite,
-          painter: SmartGuidePainter(
-            item: item,
-            allItems: _placedItems,
-            panelWidth: _panelWidth,
-            panelHeight: _panelHeight,
-            currentType: DimensionType.edge,
-          ),
-        ),
+      ),
     ];
   }
 
+  // 🚀 [추가] 설정 화면의 AUTO/MAN 알약형 토글과 같은 스타일 - 회색
+  // 알약 배경 안에서 선택된 세그먼트만 마키타 틸로 채운다. 검정 배경
+  // 대신 앱 전체와 통일된 톤을 쓴다.
+  Widget _buildModeSegmentedControl() {
+    final segments = <(BoardMode, String)>[
+      (BoardMode.placeModule, "모듈 배치/이동"),
+      (BoardMode.measureDimension, "고정 치수 측정"),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: tossBg,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: segments.map((seg) {
+          final isSelected = _mode == seg.$1;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () {
+                if (isSelected) return;
+                setState(() {
+                  _mode = seg.$1;
+                  _dimensionStartPoint = null;
+                  _activeItem = null;
+                  for (var i in _placedItems) {
+                    i.isSelected = false;
+                  }
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: isSelected ? tossBlue : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  seg.$2,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: isSelected ? pureWhite : tossSubText,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // 🚀 [재구성] 예전엔 "가상선: 센터/측면" 칩 2개 + 드래그 박스 + 2줄
+  // 설명 텍스트가 세로로 쌓여서 공간을 많이 차지했다. 이제 원형 버튼
+  // 하나로 색상을 전환하는 방식(탭할 때마다 센터↔측면 전환)으로 줄이고,
+  // 드래그 박스와 한 줄에 묶어서 패널 높이를 크게 줄였다. 이 가상선은
+  // 모듈 배치/이동 중 항상 표시되며 별도 켜고/끄는 토글은 없다.
   Widget _buildModulePalette() {
     return Padding(
       key: const ValueKey("palette"),
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // 🚀 [수정] 고정 Row에 칩 2개가 그대로 들어 있어서 좁은 폰
-          // 화면에서 "RIGHT OVERFLOWED" 경고가 떴음. 가로 스크롤을 허용해
-          // 라벨 전체를 안 잘리게 유지하면서 넘치지 않게 한다.
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-            children: [
-              ChoiceChip(
-                label: const Text("가상선: 센터(파란색)"),
-                selected: _currentDimType == DimensionType.center,
-                selectedColor: guideCenterColor.withValues(alpha: 0.2),
-                labelStyle: TextStyle(
-                  color: _currentDimType == DimensionType.center
-                      ? guideCenterColor
-                      : tossSubText,
-                  fontWeight: FontWeight.bold,
-                ),
-                onSelected: (val) {
-                  setState(() {
-                    _currentDimType = DimensionType.center;
-                  });
-                },
-              ),
-              const SizedBox(width: 8),
-              ChoiceChip(
-                label: const Text("가상선: 측면(주황색)"),
-                selected: _currentDimType == DimensionType.edge,
-                selectedColor: edgeDimColor.withValues(alpha: 0.2),
-                labelStyle: TextStyle(
-                  color: _currentDimType == DimensionType.edge
-                      ? edgeDimColor
-                      : tossSubText,
-                  fontWeight: FontWeight.bold,
-                ),
-                onSelected: (val) {
-                  setState(() {
-                    _currentDimType = DimensionType.edge;
-                  });
-                },
-              ),
-            ],
-            ),
-          ),
-          const SizedBox(height: 12),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Draggable<String>(
-                data: "신규 박스",
+              Draggable<ModulePreset>(
+                data: const ModulePreset("신규 모듈", 80, 80),
                 feedback: Material(
                   color: Colors.transparent,
                   child: Opacity(
@@ -1691,19 +1808,133 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
                 ),
                 child: _buildPaletteItem("신규 모듈"),
               ),
-              const SizedBox(width: 20),
-              const Expanded(
-                child: Text(
-                  "도면으로 박스를 드래그하세요.\n위에 설정된 가상선 모드가 드래그 시 적용됩니다.",
+              const SizedBox(width: 14),
+              Expanded(child: _buildGuideColorSwitch()),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 🚀 [추가] ABS 배선덕트 - 폭이 정해진 자재라 매번 배치 후 크기를
+          // 손으로 고칠 필요 없이 원하는 폭을 바로 드래그해서 놓을 수 있게.
+          // (참고용 명목 폭 - 실제 발주 규격 확인 필요, kDuctPresets 주석 참고)
+          const Text(
+            "ABS 덕트 (폭 mm, 드래그)",
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: tossSubText,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 44,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: kDuctPresets.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final preset = kDuctPresets[index];
+                return Draggable<ModulePreset>(
+                  data: preset,
+                  feedback: Material(
+                    color: Colors.transparent,
+                    child: Opacity(
+                      opacity: 0.8,
+                      child: _buildDuctChip(preset),
+                    ),
+                  ),
+                  childWhenDragging: Opacity(
+                    opacity: 0.3,
+                    child: _buildDuctChip(preset),
+                  ),
+                  child: _buildDuctChip(preset),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDuctChip(ModulePreset preset) {
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: tossBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: tossSubText.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.view_agenda_outlined, size: 16, color: tossText),
+          const SizedBox(width: 6),
+          Text(
+            preset.width.toInt().toString(),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: tossText,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🚀 [추가] "원 버튼식 전환" - 칩 2개 대신 원형 버튼 하나를 탭할 때마다
+  // 센터(파란)/측면(주황) 가상선 색상이 서로 전환된다.
+  Widget _buildGuideColorSwitch() {
+    final bool isCenter = _currentDimType == DimensionType.center;
+    final Color color = isCenter ? guideCenterColor : edgeDimColor;
+    final String label = isCenter ? "센터(파란색)" : "측면(주황색)";
+
+    return GestureDetector(
+      onTap: () => setState(() {
+        _currentDimType = isCenter
+            ? DimensionType.edge
+            : DimensionType.center;
+      }),
+      child: Row(
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            child: const Icon(
+              Icons.sync_alt_rounded,
+              color: pureWhite,
+              size: 16,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "드래그 시 적용될 가상선",
                   style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                     color: tossSubText,
-                    fontSize: 13,
-                    height: 1.5,
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1712,11 +1943,11 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
 
   Widget _buildPaletteItem(String defaultName) {
     return Container(
-      width: 80,
-      height: 80,
+      width: 64,
+      height: 64,
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: tossBlue.withValues(alpha: 0.4), width: 2),
         boxShadow: [
           BoxShadow(
@@ -1730,12 +1961,13 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.add_box_rounded, color: tossBlue, size: 28),
-            const SizedBox(height: 6),
+            const Icon(Icons.add_box_rounded, color: tossBlue, size: 22),
+            const SizedBox(height: 4),
             Text(
               defaultName,
+              textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 11,
+                fontSize: 9,
                 fontWeight: FontWeight.w700,
                 color: tossBlue,
               ),
@@ -1746,240 +1978,120 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage> {
     );
   }
 
+  // 🚀 [정리] 배치가 끝난 뒤 치수를 "확인"하는 용도라는 점에 맞춰,
+  // 칩 2개 + 안내문 2줄로 나뉘어 있던 걸 한 줄로 압축했다. 기준(센터/
+  // 측면) 전환은 모듈 팔레트와 같은 원 버튼식으로 통일하고, 상태
+  // 안내는 한 줄만 남기고, "전체 삭제"는 텍스트 버튼 대신 아이콘
+  // 버튼으로 줄여서 자리를 덜 차지하게 했다.
   Widget _buildDimensionToolBar() {
+    final bool isCenter = _currentDimType == DimensionType.center;
+    final Color activeColor = isCenter ? centerDimColor : edgeDimColor;
+
     return Padding(
       key: const ValueKey("dimension"),
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              ChoiceChip(
-                label: const Text("센터(중심) 기준"),
-                selected: _currentDimType == DimensionType.center,
-                selectedColor: centerDimColor.withValues(alpha: 0.2),
-                labelStyle: TextStyle(
-                  color: _currentDimType == DimensionType.center
-                      ? centerDimColor
-                      : tossSubText,
-                  fontWeight: FontWeight.bold,
-                ),
-                onSelected: (val) {
-                  setState(() {
-                    _currentDimType = DimensionType.center;
-                  });
-                },
-              ),
-              const SizedBox(width: 8),
-              ChoiceChip(
-                label: const Text("측면(여백) 기준"),
-                selected: _currentDimType == DimensionType.edge,
-                selectedColor: edgeDimColor.withValues(alpha: 0.2),
-                labelStyle: TextStyle(
-                  color: _currentDimType == DimensionType.edge
-                      ? edgeDimColor
-                      : tossSubText,
-                  fontWeight: FontWeight.bold,
-                ),
-                onSelected: (val) {
-                  setState(() {
-                    _currentDimType = DimensionType.edge;
-                  });
-                },
-              ),
-              const Spacer(),
-              if (_dimensions.isNotEmpty)
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _dimensions.clear();
-                    });
-                  },
-                  child: const Text(
-                    "전체 삭제",
-                    style: TextStyle(
-                      color: warningRed,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            _dimensionStartPoint == null
-                ? "💡 측정할 두 지점(모듈 or 벽면)을 순서대로 터치하세요."
-                : "💡 다음 측정 지점을 터치하면 치수선이 연결됩니다.",
-            style: TextStyle(
-              color: _dimensionStartPoint == null
-                  ? tossSubText
-                  : (_currentDimType == DimensionType.center
-                        ? centerDimColor
-                        : edgeDimColor),
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _currentDimType == DimensionType.center
-                ? "⚠️ 현재 '센터(중앙점)' 간의 거리를 측정 중입니다."
-                : "⚠️ 현재 박스 '끝단(측면/여백)' 간의 거리를 측정 중입니다.",
-            style: TextStyle(
-              color: _currentDimType == DimensionType.center
-                  ? centerDimColor
-                  : edgeDimColor,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 🚀 [추가] 정밀 튜빙 라인 그리기 툴바
-  Widget _buildTubingToolBar() {
-    final double draftLength = _tubingDraftPoints.length < 2
-        ? 0
-        : PlacedTubingLine(
-            id: 'draft',
-            points: _tubingDraftPoints,
-          ).totalLength;
-
-    return Padding(
-      key: const ValueKey("tubing"),
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            _tubingDraftPoints.isEmpty
-                ? "💡 튜빙 라인이 지날 지점들을 순서대로 탭하세요. 꺾이는 지점마다 탭하면 되고, 항상 직각(수평/수직)으로 자동 정렬됩니다."
-                : "💡 다음 지점을 계속 탭해서 이어가거나, 완료를 눌러 확정하세요. (현재 ${_tubingDraftPoints.length}개 지점, ${draftLength.toInt()} mm)",
-            style: TextStyle(
-              color: _tubingDraftPoints.isEmpty
-                  ? tossSubText
-                  : tubingLineColor,
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              // 🚀 [수정] 3개 버튼이 한 줄에 다 들어가야 해서 "실행 취소"는
-              // 라벨 없는 아이콘 버튼으로 바꿔 공간을 확보(텍스트가 좁은
-              // 폭에서 두 줄로 감싸지던 문제 해결).
-              Tooltip(
-                message: "마지막 지점 실행 취소",
-                child: OutlinedButton(
-                  onPressed: _tubingDraftPoints.isEmpty
-                      ? null
-                      : _undoTubingPoint,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: tossText,
-                    side: BorderSide(color: Colors.grey.shade300),
-                    padding: const EdgeInsets.all(12),
-                    minimumSize: const Size(44, 44),
-                  ),
-                  child: const Icon(Icons.undo_rounded, size: 18),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _tubingDraftPoints.isEmpty
-                      ? null
-                      : _cancelTubingDraft,
-                  icon: const Icon(Icons.close_rounded, size: 16),
-                  label: const Text("취소"),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: warningRed,
-                    side: const BorderSide(color: warningRed),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _tubingDraftPoints.length < 2
-                      ? null
-                      : _finishTubingLine,
-                  icon: const Icon(
-                    Icons.check_rounded,
-                    size: 16,
-                    color: pureWhite,
-                  ),
-                  label: const Text(
-                    "완료",
-                    style: TextStyle(color: pureWhite),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: tubingLineColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (_tubingLines.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Row(
+          GestureDetector(
+            onTap: () => setState(() {
+              _currentDimType = isCenter
+                  ? DimensionType.edge
+                  : DimensionType.center;
+            }),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  "배치된 튜빙 라인",
-                  style: TextStyle(
-                    color: tossText,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: activeColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.sync_alt_rounded,
+                    color: pureWhite,
+                    size: 16,
                   ),
                 ),
-                const Spacer(),
-                TextButton(
-                  onPressed: () => setState(() => _tubingLines.clear()),
-                  child: const Text(
-                    "전체 삭제",
-                    style: TextStyle(
-                      color: warningRed,
-                      fontWeight: FontWeight.w700,
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "측정 기준",
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: tossSubText,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isCenter ? "센터(중심)" : "측면(여백)",
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: activeColor,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _tubingLines.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final line = entry.value;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Chip(
-                      backgroundColor: tubingLineColor.withValues(alpha: 0.1),
-                      label: Text(
-                        "${index + 1} · ${line.totalLength.toInt()} mm",
-                        style: const TextStyle(
-                          color: tubingLineColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                      deleteIcon: const Icon(
-                        Icons.close_rounded,
-                        size: 16,
-                        color: tubingLineColor,
-                      ),
-                      onDeleted: () => _deleteTubingLine(line.id),
-                      side: BorderSide.none,
-                    ),
-                  );
-                }).toList(),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              _dimensionStartPoint == null
+                  ? "측정할 두 지점을 순서대로 터치하세요"
+                  : "다음 지점을 터치하면 연결됩니다",
+              style: const TextStyle(
+                color: tossSubText,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-          ],
+          ),
+          // 🚀 [추가] 첫 지점을 잘못 찍었을 때 두 번째 지점을 억지로 찍어
+          // 엉뚱한 치수를 만들지 않고도 취소할 수 있는 버튼.
+          if (_dimensionStartPoint != null)
+            IconButton(
+              tooltip: "첫 지점 취소",
+              onPressed: () {
+                setState(() {
+                  _dimensionStartPoint = null;
+                });
+              },
+              icon: const Icon(
+                Icons.undo_rounded,
+                color: tossSubText,
+                size: 20,
+              ),
+              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.all(6),
+            ),
+          if (_dimensions.isNotEmpty)
+            IconButton(
+              tooltip: "치수 전체 삭제",
+              onPressed: () {
+                setState(() {
+                  _dimensions.clear();
+                });
+              },
+              icon: const Icon(
+                Icons.delete_outline_rounded,
+                color: warningRed,
+                size: 20,
+              ),
+              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.all(6),
+            ),
         ],
       ),
     );
@@ -2366,55 +2478,24 @@ class DimensionPainter extends CustomPainter {
           : edgeDimColor;
       String labelPrefix = dim.type == DimensionType.center ? "센터" : "측면";
 
-      Rect r1 = dim.p1.boundingBox;
-      Rect r2 = dim.p2.boundingBox;
-
-      double dxCenter = (r1.center.dx - r2.center.dx).abs();
-      double dyCenter = (r1.center.dy - r2.center.dy).abs();
-
-      Offset startPt, endPt;
-      double distance = 0;
-
-      if (dim.type == DimensionType.center) {
-        startPt = r1.center;
-        endPt = r2.center;
-        if (dxCenter > dyCenter) {
-          endPt = Offset(endPt.dx, startPt.dy);
-        } else {
-          endPt = Offset(startPt.dx, endPt.dy);
-        }
-        distance = (startPt - endPt).distance;
-      } else {
-        if (dxCenter > dyCenter) {
-          bool isR1Left = r1.center.dx < r2.center.dx;
-          double x1 = isR1Left ? r1.right : r1.left;
-          double x2 = isR1Left ? r2.left : r2.right;
-          double y = (r1.center.dy + r2.center.dy) / 2;
-          startPt = Offset(x1, y);
-          endPt = Offset(x2, y);
-          distance = (x1 - x2).abs();
-        } else {
-          bool isR1Top = r1.center.dy < r2.center.dy;
-          double y1 = isR1Top ? r1.bottom : r1.top;
-          double y2 = isR1Top ? r2.top : r2.bottom;
-          double x = (r1.center.dx + r2.center.dx) / 2;
-          startPt = Offset(x, y1);
-          endPt = Offset(x, y2);
-          distance = (y1 - y2).abs();
-        }
-      }
+      final endpoints = computeDimensionEndpoints(dim);
 
       drawCadDimensionLine(
         canvas,
-        startPt,
-        endPt,
-        distance,
+        endpoints.p1,
+        endpoints.p2,
+        endpoints.distance,
         dColor,
         labelPrefix,
       );
     }
 
-    if (activePoint != null && activePoint is WallPoint) {
+    // 🚀 [개선] 예전엔 벽 기준점(WallPoint)일 때만 대기 중 표시를 그려서,
+    // 모듈을 첫 지점으로 찍었을 땐 "측정 대기 중"이라는 표시가 전혀
+    // 없었다. 그래서 다음 터치가 바로 두 번째 지점으로 이어져 치수가
+    // 생기는 게 예상치 못하게 느껴졌다. 이제 첫 지점 종류와 상관없이
+    // 항상 표시해서 측정이 진행 중임을 분명히 보여준다.
+    if (activePoint != null) {
       canvas.drawCircle(activePoint!.center, 6, Paint()..color = tossText);
       canvas.drawCircle(
         activePoint!.center,
@@ -2440,105 +2521,3 @@ class DimensionPainter extends CustomPainter {
   }
 }
 
-// 🚀 [추가] 실제 배관으로 남는 정밀 튜빙 라인(여러 구간) 렌더링
-class TubingLinePainter extends CustomPainter {
-  final List<PlacedTubingLine> lines;
-  final List<Offset> draftPoints;
-
-  TubingLinePainter({required this.lines, required this.draftPoints});
-
-  // 🚀 호(arc-length) 기준 경로의 정중앙 지점을 계산 (꺾이는 지점이 아니라
-  // 실제 총 길이의 절반이 되는 좌표를 찾는다)
-  Offset _pointAtArcMidpoint(List<Offset> points, double totalLength) {
-    if (totalLength <= 0) return points.first;
-    double target = totalLength / 2;
-    double accumulated = 0;
-    for (int i = 0; i < points.length - 1; i++) {
-      final segLength = (points[i + 1] - points[i]).distance;
-      if (accumulated + segLength >= target) {
-        final t = segLength == 0 ? 0.0 : (target - accumulated) / segLength;
-        return Offset.lerp(points[i], points[i + 1], t)!;
-      }
-      accumulated += segLength;
-    }
-    return points.last;
-  }
-
-  void _drawPath(
-    Canvas canvas,
-    Size boardSize,
-    List<Offset> points, {
-    required bool isDraft,
-  }) {
-    if (points.isEmpty) return;
-
-    final linePaint = Paint()
-      ..color = tubingLineColor.withValues(alpha: isDraft ? 0.5 : 0.9)
-      ..strokeWidth = isDraft ? 3.0 : 5.0
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-    final dotPaint = Paint()..color = tubingLineColor;
-
-    for (int i = 0; i < points.length - 1; i++) {
-      canvas.drawLine(points[i], points[i + 1], linePaint);
-    }
-    for (final p in points) {
-      canvas.drawCircle(p, isDraft ? 4 : 5, dotPaint);
-    }
-
-    if (!isDraft && points.length >= 2) {
-      double total = 0;
-      for (int i = 0; i < points.length - 1; i++) {
-        total += (points[i + 1] - points[i]).distance;
-      }
-      final textSpan = TextSpan(
-        text: "${total.toInt()} mm",
-        style: const TextStyle(
-          color: pureWhite,
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-        ),
-      );
-      final textPainter = TextPainter(
-        text: textSpan,
-        textDirection: TextDirection.ltr,
-      )..layout();
-
-      final labelW = textPainter.width + 16;
-      final labelH = textPainter.height + 10;
-      final rawMid = _pointAtArcMidpoint(points, total);
-      // 🚀 [수정] 벽 근처에서 그린 라인은 라벨 박스가 도면 밖으로 나가
-      // 잘려 보였음. 라벨 중심을 보드 경계 안쪽으로 클램프한다.
-      final mid = Offset(
-        rawMid.dx.clamp(labelW / 2, math.max(labelW / 2, boardSize.width - labelW / 2)),
-        rawMid.dy.clamp(labelH / 2, math.max(labelH / 2, boardSize.height - labelH / 2)),
-      );
-
-      final bgRect = RRect.fromRectAndRadius(
-        Rect.fromCenter(center: mid, width: labelW, height: labelH),
-        const Radius.circular(12),
-      );
-      canvas.drawRRect(bgRect, Paint()..color = tubingLineColor);
-      textPainter.paint(
-        canvas,
-        Offset(mid.dx - textPainter.width / 2, mid.dy - textPainter.height / 2),
-      );
-    }
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (final line in lines) {
-      _drawPath(canvas, size, line.points, isDraft: false);
-    }
-    _drawPath(canvas, size, draftPoints, isDraft: true);
-  }
-
-  // 🚀 [최적화] lines는 in-place로 add/clear되는 같은 List라 길이로,
-  // draftPoints는 매번 재할당되는 새 List라 참조 비교로 실제 변경만 감지.
-  @override
-  bool shouldRepaint(covariant TubingLinePainter oldDelegate) {
-    return oldDelegate.lines.length != lines.length ||
-        oldDelegate.draftPoints != draftPoints;
-  }
-}
