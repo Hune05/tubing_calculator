@@ -7,6 +7,7 @@ import '../../../core/utils/image_picker_helper.dart';
 // 🚀 [추가] 방금 만든 배치도 페이지 임포트
 import 'layout_board_page.dart';
 import 'tablet_layout_board_page.dart';
+import '../widgets/photo_detail_modal.dart';
 
 const Color tossBlue = Color(0xFF3182F6);
 const Color tossText = Color(0xFF191F28);
@@ -597,13 +598,26 @@ class _DailyReportPageState extends State<DailyReportPage> {
                         child: Stack(
                           alignment: Alignment.topRight,
                           children: [
-                            ClipRRect(
+                            InkWell(
                               borderRadius: BorderRadius.circular(12),
-                              child: Image.file(
-                                File(entry.value),
-                                width: 80,
-                                height: 80,
-                                fit: BoxFit.cover,
+                              // 🚀 [추가] 첨부한 사진을 탭하면 삭제밖에
+                              // 못 하던 걸 고쳐서, 눌렀을 때 크게(줌 가능)
+                              // 볼 수 있게 했다.
+                              onTap: () => PhotoDetailModal.show(
+                                context: context,
+                                title: "현장 사진",
+                                content: "",
+                                imagePaths: _attachedImages,
+                                initialIndex: entry.key,
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.file(
+                                  File(entry.value),
+                                  width: 80,
+                                  height: 80,
+                                  fit: BoxFit.cover,
+                                ),
                               ),
                             ),
                             InkWell(

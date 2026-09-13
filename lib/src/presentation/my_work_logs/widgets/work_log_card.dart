@@ -244,19 +244,12 @@ class WorkLogCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    ...dailyReports.map(
-                      (report) => _buildUnifiedRecordItem(
-                        context: context,
-                        title: "${report['date']} (${report['points']} pt)",
-                        content: report['note'],
-                        itemData: report,
-                        icon: Icons.article_rounded,
-                        isWarning: false,
-                        // 🚀 [변경] 예전엔 탭하면 사진만 뜨는 모달이 떴는데,
-                        // 이제 그날 작업 일보 전체(작업유형/인원/포인트/
-                        // 메모/사진)를 볼 수 있는 화면으로 들어간다.
-                        onTap: () => onOpenDailyReport(report),
-                      ),
+                    // 🚀 [추가] 매일 하나씩 쌓이는 목록이라 오래 진행되는
+                    // 현장은 카드 하나가 한없이 길어진다 - 5개씩 페이지로
+                    // 나눠서 보여준다.
+                    _DailyReportPager(
+                      reports: dailyReports,
+                      onOpenReport: onOpenDailyReport,
                     ),
                     const SizedBox(height: 20),
                   ],
@@ -359,101 +352,187 @@ class WorkLogCard extends StatelessWidget {
     );
   }
 
-  // 리스트 아이템
-  Widget _buildUnifiedRecordItem({
-    required BuildContext context,
-    required String title,
-    required String content,
-    required Map<String, dynamic> itemData,
-    required IconData icon,
-    required bool isWarning,
-    bool isCompleted = false,
-    VoidCallback? onTap,
-  }) {
-    bool hasImg = itemData['has_image'] == true;
+}
 
-    return InkWell(
-      onTap:
-          onTap ??
-          () {
-            PhotoDetailModal.show(
-              context: context,
-              title: title,
-              content: content,
-              imagePaths:
-                  itemData['image_paths'] ??
-                  (itemData['image_path'] != null
-                      ? [itemData['image_path']]
-                      : []),
-              isAsBuilt: itemData['is_as_built'] ?? false,
-              asBuiltReason: itemData['as_built_reason'],
-            );
-          },
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          children: [
+// 리스트 아이템 (WorkLogCard와 아래 _DailyReportPager가 함께 쓰므로
+// 최상위 함수로 뺐다)
+Widget _buildUnifiedRecordItem({
+  required BuildContext context,
+  required String title,
+  required String content,
+  required Map<String, dynamic> itemData,
+  required IconData icon,
+  required bool isWarning,
+  bool isCompleted = false,
+  VoidCallback? onTap,
+}) {
+  bool hasImg = itemData['has_image'] == true;
+
+  return InkWell(
+    onTap:
+        onTap ??
+        () {
+          PhotoDetailModal.show(
+            context: context,
+            title: title,
+            content: content,
+            imagePaths:
+                itemData['image_paths'] ??
+                (itemData['image_path'] != null
+                    ? [itemData['image_path']]
+                    : []),
+            isAsBuilt: itemData['is_as_built'] ?? false,
+            asBuiltReason: itemData['as_built_reason'],
+          );
+        },
+    borderRadius: BorderRadius.circular(16),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: isCompleted
+                  ? Colors.green.withValues(alpha: 0.12)
+                  : tossBg,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isCompleted ? Icons.check_rounded : icon,
+              color: isCompleted ? Colors.green : tossText,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: isCompleted
+                        ? tossSubText
+                        : (isWarning ? warningRed : tossText),
+                    fontSize: 15,
+                    letterSpacing: -0.3,
+                    decoration: isCompleted
+                        ? TextDecoration.lineThrough
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  content,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: tossSubText, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          if (hasImg)
             Container(
-              width: 40,
-              height: 40,
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: isCompleted
-                    ? Colors.green.withValues(alpha: 0.12)
-                    : tossBg,
-                shape: BoxShape.circle,
+                color: tossBg,
+                borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(
-                isCompleted ? Icons.check_rounded : icon,
-                color: isCompleted ? Colors.green : tossText,
-                size: 20,
+              child: const Icon(
+                Icons.image_rounded,
+                size: 16,
+                color: tossSubText,
               ),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: isCompleted
-                          ? tossSubText
-                          : (isWarning ? warningRed : tossText),
-                      fontSize: 15,
-                      letterSpacing: -0.3,
-                      decoration: isCompleted
-                          ? TextDecoration.lineThrough
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    content,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: tossSubText, fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
-            if (hasImg)
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: tossBg,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.image_rounded,
-                  size: 16,
-                  color: tossSubText,
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
+    ),
+  );
+}
+
+// 🚀 [신규] 작업 일지가 매일 쌓이는 걸 고려해, 5개씩 페이지로 나눠서
+// 보여주는 위젯. WorkLogCard는 setState가 잦아서(펼침/접힘 등) 페이지
+// 상태를 카드 안에 그냥 두면 리렌더 때마다 흔들릴 수 있어, 별도
+// StatefulWidget으로 분리해 페이지 번호를 독립적으로 기억한다.
+class _DailyReportPager extends StatefulWidget {
+  final List<dynamic> reports;
+  final void Function(Map<String, dynamic> report) onOpenReport;
+
+  const _DailyReportPager({required this.reports, required this.onOpenReport});
+
+  @override
+  State<_DailyReportPager> createState() => _DailyReportPagerState();
+}
+
+class _DailyReportPagerState extends State<_DailyReportPager> {
+  static const int _pageSize = 5;
+  int _page = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final int totalPages = (widget.reports.length / _pageSize).ceil();
+    // 🚀 목록 길이가 줄어들 수도 있으니(항목 삭제 등) 범위를 벗어나지
+    // 않게 보정한다.
+    final int page = _page.clamp(0, totalPages - 1);
+    final int start = page * _pageSize;
+    final int end = (start + _pageSize).clamp(0, widget.reports.length);
+    final List<dynamic> pageItems = widget.reports.sublist(start, end);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...pageItems.map(
+          (report) => _buildUnifiedRecordItem(
+            context: context,
+            title: "${report['date']} (${report['points']} pt)",
+            content: report['note'],
+            itemData: report,
+            icon: Icons.article_rounded,
+            isWarning: false,
+            // 🚀 탭하면 그날 작업 일보 전체(작업유형/인원/포인트/메모/
+            // 사진)를 볼 수 있는 화면으로 들어간다.
+            onTap: () => widget.onOpenReport(report),
+          ),
+        ),
+        if (totalPages > 1)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  onPressed: page > 0
+                      ? () => setState(() => _page = page - 1)
+                      : null,
+                  icon: const Icon(Icons.chevron_left_rounded),
+                  color: page > 0 ? tossText : tossSubText.withValues(alpha: 0.4),
+                  splashRadius: 20,
+                ),
+                Text(
+                  "${page + 1} / $totalPages",
+                  style: const TextStyle(
+                    color: tossSubText,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+                IconButton(
+                  onPressed: page < totalPages - 1
+                      ? () => setState(() => _page = page + 1)
+                      : null,
+                  icon: const Icon(Icons.chevron_right_rounded),
+                  color: page < totalPages - 1
+                      ? tossText
+                      : tossSubText.withValues(alpha: 0.4),
+                  splashRadius: 20,
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

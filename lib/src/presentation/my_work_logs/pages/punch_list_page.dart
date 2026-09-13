@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../../core/utils/image_picker_helper.dart'; // 🚀 경로 확인 필수!
+import '../widgets/photo_detail_modal.dart';
 
 const Color tossText = Color(0xFF191F28);
 const Color tossSubText = Color(0xFF8B95A1);
@@ -316,13 +317,25 @@ class _PunchListPageState extends State<PunchListPage> {
                         child: Stack(
                           alignment: Alignment.topRight,
                           children: [
-                            ClipRRect(
+                            InkWell(
                               borderRadius: BorderRadius.circular(12),
-                              child: Image.file(
-                                File(entry.value),
-                                width: 80,
-                                height: 80,
-                                fit: BoxFit.cover,
+                              // 🚀 [추가] 삭제만 되던 걸 고쳐서, 눌렀을 때
+                              // 크게(줌 가능) 볼 수 있게 했다.
+                              onTap: () => PhotoDetailModal.show(
+                                context: context,
+                                title: "현장 사진",
+                                content: "",
+                                imagePaths: _attachedImages,
+                                initialIndex: entry.key,
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.file(
+                                  File(entry.value),
+                                  width: 80,
+                                  height: 80,
+                                  fit: BoxFit.cover,
+                                ),
                               ),
                             ),
                             InkWell(

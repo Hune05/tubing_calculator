@@ -99,6 +99,65 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
     return DateTime.now();
   }
 
+  // 🚀 [추가] 검사일정/납기일은 자주 밀릴 수 있어서, 그냥 날짜만
+  // 덮어쓰지 않고 "왜 바뀌었는지"를 남긴다. 취소하면 null을 반환해서
+  // 날짜 변경 자체를 되돌린다.
+  static const List<String> _reschedulableTypes = ["검사일정", "납기일"];
+
+  Future<String?> _askChangeReason(BuildContext context) async {
+    final ctrl = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: pureWhite,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          "일정 변경 사유",
+          style: TextStyle(fontWeight: FontWeight.w800, color: tossText),
+        ),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLines: 2,
+          style: const TextStyle(color: tossText),
+          decoration: InputDecoration(
+            hintText: "예: 검사업체 사정으로 일정 연기",
+            hintStyle: const TextStyle(color: Color(0xFFB0B8C1)),
+            filled: true,
+            fillColor: tossBg,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text("취소", style: TextStyle(color: tossSubText)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: tossBlue,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () => Navigator.pop(
+              context,
+              ctrl.text.trim().isEmpty ? "사유 미입력" : ctrl.text.trim(),
+            ),
+            child: const Text(
+              "변경 확정",
+              style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showEditor({Map<String, dynamic>? existing}) async {
     String type = existing?['type'] ?? kScheduleTypes.first;
     final titleCtrl = TextEditingController(text: existing?['title'] ?? '');
@@ -111,7 +170,19 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
         ? (existing['dateTime'] != null
               ? _asDateTime(existing['dateTime'])
               : null)
-        : (type == "자재 요청" ? null : DateTime.now().add(const Duration(days: 1)));
+        : (type == "자재 요청"
+              ? null
+              : DateTime.now().add(const Duration(days: 1)));
+    // 🚀 검사일정/납기일이 바뀔 때마다 "언제에서 언제로, 왜" 바뀌었는지
+    // 쌓아두는 이력. 기존 이력은 그대로 유지하고 새 변경만 추가된다.
+    final List<Map<String, dynamic>> changeHistory =
+        existing?['changeHistory'] != null
+        ? List<Map<String, dynamic>>.from(
+            (existing!['changeHistory'] as List).map(
+              (e) => Map<String, dynamic>.from(e),
+            ),
+          )
+        : [];
 
     final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
@@ -219,14 +290,39 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                             context: context,
                             initialTime: TimeOfDay.fromDateTime(base),
                           );
-                          setModalState(() {
-                            dateTime = DateTime(
-                              pickedDate.year,
-                              pickedDate.month,
-                              pickedDate.day,
-                              pickedTime?.hour ?? 9,
-                              pickedTime?.minute ?? 0,
+                          final DateTime newDateTime = DateTime(
+                            pickedDate.year,
+                            pickedDate.month,
+                            pickedDate.day,
+                            pickedTime?.hour ?? 9,
+                            pickedTime?.minute ?? 0,
+                          );
+
+                          // 🚀 검사일정/납기일을 "수정"하면서 날짜가 실제로
+                          // 바뀌는 경우엔 사유를 받아 이력에 남긴다. 새로
+                          // 만드는 중이거나 다른 종류면 그냥 바로 반영한다.
+                          final bool isReschedule =
+                              existing != null &&
+                              _reschedulableTypes.contains(type) &&
+                              dateTime != null &&
+                              !dateTime!.isAtSameMomentAs(newDateTime);
+
+                          if (isReschedule) {
+                            if (!context.mounted) return;
+                            final String? reason = await _askChangeReason(
+                              context,
                             );
+                            if (reason == null) return; // 취소 시 변경 안 함
+                            changeHistory.add({
+                              'from': dateTime,
+                              'to': newDateTime,
+                              'reason': reason,
+                              'changedAt': DateTime.now(),
+                            });
+                          }
+
+                          setModalState(() {
+                            dateTime = newDateTime;
                             // 🚀 날짜를 받았다는 건 입고일이 확정됐다는
                             // 뜻이니, "자재 요청"이었다면 여기서 바로
                             // "입고일"로 전환한다.
@@ -271,8 +367,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                       if (type == "자재 요청" && dateTime != null) ...[
                         const SizedBox(height: 8),
                         TextButton(
-                          onPressed: () =>
-                              setModalState(() => dateTime = null),
+                          onPressed: () => setModalState(() => dateTime = null),
                           style: TextButton.styleFrom(
                             foregroundColor: tossSubText,
                             padding: EdgeInsets.zero,
@@ -328,8 +423,9 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                               // 🚀 입고일을 아직 모르는 "자재 요청"이 "발주한
                               // 지 며칠째"를 알려줄 수 있도록 최초 등록
                               // 시각을 남겨둔다 (수정해도 값은 유지).
-                              'requestedAt': existing?['requestedAt'] ??
-                                  DateTime.now(),
+                              'requestedAt':
+                                  existing?['requestedAt'] ?? DateTime.now(),
+                              'changeHistory': changeHistory,
                               // 🚀 시간/종류가 바뀔 수 있으니 저장할 때마다
                               // 알림 발송 플래그를 초기화해서, 새 시각
                               // 기준으로 다시 알림이 잡히게 한다.
@@ -414,6 +510,91 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
     if (requestedAt == null) return "입고일 미정";
     final int days = DateTime.now().difference(requestedAt).inDays;
     return days > 0 ? "요청한 지 $days일째 · 입고일 미정" : "오늘 요청 · 입고일 미정";
+  }
+
+  // 🚀 카드에 보여줄 "가장 최근 변경" 한 줄 요약. M/d → M/d 형식으로
+  // 짧게 보여주고, 전체 이력(사유 포함)은 탭하면 바텀시트로 본다.
+  String _lastChangeLabel(Map<String, dynamic> item) {
+    final List history = item['changeHistory'] as List;
+    final Map<String, dynamic> last = Map<String, dynamic>.from(history.last);
+    final DateTime from = _asDateTime(last['from']);
+    final DateTime to = _asDateTime(last['to']);
+    final String countSuffix = history.length > 1
+        ? " 외 ${history.length - 1}회"
+        : "";
+    return "${from.month}/${from.day} → ${to.month}/${to.day} 변경$countSuffix";
+  }
+
+  void _showChangeHistory(Map<String, dynamic> item) {
+    final List history = (item['changeHistory'] as List).reversed.toList();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+        decoration: const BoxDecoration(
+          color: pureWhite,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "${item['title'] ?? item['type'] ?? ''} · 변경 이력",
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: tossText,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.5,
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: history.length,
+                separatorBuilder: (_, __) => const Divider(height: 20),
+                itemBuilder: (context, index) {
+                  final entry = Map<String, dynamic>.from(history[index]);
+                  final DateTime from = _asDateTime(entry['from']);
+                  final DateTime to = _asDateTime(entry['to']);
+                  final DateTime changedAt = _asDateTime(entry['changedAt']);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "${_formatDateTime(from)} → ${_formatDateTime(to)}",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: tossText,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        entry['reason'] ?? '사유 미입력',
+                        style: const TextStyle(color: tossText, fontSize: 13),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "${_formatDateTime(changedAt)}에 변경",
+                        style: const TextStyle(
+                          color: tossSubText,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -571,6 +752,33 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                                             : FontWeight.normal,
                                       ),
                                     ),
+                                    if ((item['changeHistory'] as List?)
+                                            ?.isNotEmpty ==
+                                        true) ...[
+                                      const SizedBox(height: 4),
+                                      InkWell(
+                                        onTap: () => _showChangeHistory(item),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(
+                                              Icons.history_rounded,
+                                              size: 13,
+                                              color: tossBlue,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              _lastChangeLabel(item),
+                                              style: const TextStyle(
+                                                color: tossBlue,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),

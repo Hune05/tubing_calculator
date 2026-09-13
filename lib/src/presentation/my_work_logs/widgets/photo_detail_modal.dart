@@ -14,6 +14,9 @@ class PhotoDetailModal extends StatelessWidget {
   final List<dynamic>? imagePaths;
   final bool isAsBuilt;
   final String? asBuiltReason;
+  // 🚀 [추가] 특정 사진을 탭해서 열었을 때 그 사진부터 바로 보여주기
+  // 위한 시작 인덱스 (기본은 첫 장부터).
+  final int initialIndex;
 
   const PhotoDetailModal({
     super.key,
@@ -22,6 +25,7 @@ class PhotoDetailModal extends StatelessWidget {
     this.imagePaths,
     this.isAsBuilt = false,
     this.asBuiltReason,
+    this.initialIndex = 0,
   });
 
   /// 어디서든 쉽게 띄울 수 있는 정적 메서드
@@ -32,6 +36,7 @@ class PhotoDetailModal extends StatelessWidget {
     List<dynamic>? imagePaths,
     bool isAsBuilt = false,
     String? asBuiltReason,
+    int initialIndex = 0,
   }) {
     showDialog(
       context: context,
@@ -41,6 +46,7 @@ class PhotoDetailModal extends StatelessWidget {
         imagePaths: imagePaths,
         isAsBuilt: isAsBuilt,
         asBuiltReason: asBuiltReason,
+        initialIndex: initialIndex,
       ),
     );
   }
@@ -122,6 +128,12 @@ class PhotoDetailModal extends StatelessWidget {
                       children: [
                         // 좌우 스와이프를 위한 PageView
                         PageView.builder(
+                          controller: PageController(
+                            initialPage: initialIndex.clamp(
+                              0,
+                              imagePaths!.length - 1,
+                            ),
+                          ),
                           itemCount: imagePaths!.length,
                           itemBuilder: (context, index) {
                             return ClipRRect(
