@@ -15,8 +15,8 @@ import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_cal
 import 'package:tubing_calculator/src/presentation/fabrication/screens/qr_scanner_page.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_only_screen.dart';
 import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart';
-import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart';
-import 'package:tubing_calculator/src/presentation/my_work_logs/pages/tablet_layout_board_page.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/screens/mobile_cutting_project_list_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_project_list_page.dart';
 
 // 🚀 2. 자재 관리 페이지들 임포트
 import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_login.dart';
@@ -320,7 +320,13 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                   ),
                 ),
 
-                // 🚀 [수정됨] 설정 단일 버튼 대신 통합 내비게이션 진입 버튼으로 교체
+                // 🚀 [재배치] 사용자 요청으로 "계산기류"를 전부 위쪽에
+                // 모으고, 참고자료(벤딩 실무 마스터)는 맨 아래로 내렸다.
+                // 예전엔 계산기와 QR스캔/리모컨/참고자료가 뒤섞여 있어서
+                // 어디까지가 계산기고 어디부터가 도구/자료인지 한눈에
+                // 안 들어왔다.
+
+                // --- 계산기 3종 ---
                 _buildMenuButton(
                   context: context,
                   title: "전선관 벤딩 마킹 계산기",
@@ -354,6 +360,54 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                       context,
                       MaterialPageRoute(
                         builder: (context) => const MobileCalculatorPage(),
+                      ),
+                    );
+                  },
+                ),
+
+                _buildMenuButton(
+                  context: context,
+                  title: "튜브 컷팅 계산기",
+                  subtitle: "피팅 삽입깊이 차감 · 절단 자재 기록",
+                  icon: Icons.content_cut_rounded,
+                  iconColor: makitaTeal,
+                  badgeText: "New",
+                  badgeColor: makitaTeal,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const MobileCuttingProjectListPage(),
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 12),
+                const Divider(height: 1, color: slate100, thickness: 4),
+                const SizedBox(height: 12),
+
+                // --- 작업 도구 (계산기 보조) ---
+                _buildMenuButton(
+                  context: context,
+                  title: "작업 배치도",
+                  subtitle: "캐비닛 중판 레이아웃 및 튜빙/결선 스케치",
+                  icon: Icons
+                      .architecture_rounded, // 중복 아이콘 사용 원치 않으시면 Icons.draw_rounded 등으로 변경하셔도 좋습니다.
+                  iconColor: slate900,
+                  badgeText: "New",
+                  badgeColor: slate900,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    // 🚀 [수정] 예전엔 여기서 바로 빈 도면을 열어서, 저장해둔
+                    // 배치도를 다시 불러볼 방법이 없었다(저장은 Firestore에
+                    // 되는데 불러오는 화면 자체가 없었음). 이제 목록을 먼저
+                    // 보여주고, 거기서 기존 도면을 열거나 새로 시작한다.
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LayoutBoardProjectListPage(),
                       ),
                     );
                   },
@@ -450,6 +504,12 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                     );
                   },
                 ),
+
+                const SizedBox(height: 12),
+                const Divider(height: 1, color: slate100, thickness: 4),
+                const SizedBox(height: 12),
+
+                // --- 참고 자료 (맨 아래) ---
                 _buildMenuButton(
                   context: context,
                   title: "튜브 규격 및 실측 도표",
@@ -462,37 +522,6 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                       context,
                       MaterialPageRoute(
                         builder: (context) => const TubeReferencePage(),
-                      ),
-                    );
-                  },
-                ),
-                _buildMenuButton(
-                  context: context,
-                  title: "작업 배치도",
-                  subtitle: "캐비닛 중판 레이아웃 및 튜빙/결선 스케치",
-                  icon: Icons
-                      .architecture_rounded, // 중복 아이콘 사용 원치 않으시면 Icons.draw_rounded 등으로 변경하셔도 좋습니다.
-                  iconColor: slate900,
-                  badgeText: "New",
-                  badgeColor: slate900,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    // 🚀 [수정] 이 화면(MobileMenuPage) 자체는 앱 실행 시점의
-                    // 폭 기준(600 미만)으로만 진입하므로, 그 이후 같은 세션
-                    // 안에서 폰을 가로로 돌리거나 폴더블을 펼치는 등 실제
-                    // 화면이 커진 경우까지는 반영하지 못했다. shortestSide로
-                    // "지금 이 순간"의 화면 크기를 다시 재서, 태블릿 폭이면
-                    // 좌우 패널형 태블릿 버전을, 아니면 기존 바텀시트형
-                    // 모바일 버전을 연다. (shortestSide를 쓰는 이유: width만
-                    // 보면 가로모드 폰이 태블릿으로 잘못 분류될 수 있음)
-                    final bool isTabletSize =
-                        MediaQuery.of(context).size.shortestSide >= 600;
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => isTabletSize
-                            ? const TabletLayoutBoardPage()
-                            : const MobileLayoutBoardPage(),
                       ),
                     );
                   },
