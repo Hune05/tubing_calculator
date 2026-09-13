@@ -7,6 +7,12 @@ const Color makitaTeal = Color(0xFF007580);
 const Color textDark = Color(0xFF1A1A1A);
 const Color lightBg = Color(0xFFF0F3F5);
 
+// 🚀 [전면 재구성] 예전엔 "대분류 선택 → 상세종류 선택 → 목록"의 3단계를
+// 거쳐야 겨우 부속을 찾을 수 있었고, 이름이 아니라 분류 체계를 먼저
+// 알아야 했다(예: "니들밸브"가 "볼/니들"에 속하는지 미리 알아야 함).
+// 검색창 하나로 이름/분류를 바로 찾고, 분류는 평평한 칩 한 줄로 눌러서
+// 바로 필터링되게 단순화했다. 검색어가 있으면 칩 필터는 무시하고
+// 이름/분류 전체에서 찾는다.
 class SmartFittingSelectorSheet extends StatefulWidget {
   final String maker;
 
@@ -28,10 +34,27 @@ class SmartFittingSelectorSheet extends StatefulWidget {
 
 class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
   String selectedSize = "1/2";
-  String selectedGroup = "FITTING";
-  String selectedSubCategory = "유니온류";
+  String selectedCategory = "전체";
+  String _searchQuery = "";
+  final TextEditingController _searchController = TextEditingController();
 
-  final Map<String, List<String>> fittingSubCategories = {
+  final List<String> allSizes = [
+    "1/4",
+    "3/8",
+    "1/2",
+    "3/4",
+    "1",
+    "8mm",
+    "10mm",
+    "12mm",
+    "20mm",
+    "25mm",
+  ];
+
+  // 🚀 평평한 분류 칩 - 값이 null이면 "전체"(필터 없음), 아니면 해당
+  // category 코드 목록과 매칭한다.
+  final Map<String, List<String>?> categoryFilters = {
+    '전체': null,
     '유니온류': [
       'UNI',
       'BLK_UNI',
@@ -54,34 +77,23 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
       'F_BRN_TEE',
     ],
     '어저스트류': ['ADJ_EL90', 'ADJ_RUN_TEE', 'ADJ_BRN_TEE'],
-    '마감류(캡/플러그)': ['CAP', 'PLUG'],
-  };
-
-  final Map<String, List<String>> valveSubCategories = {
+    '마감류': ['CAP', 'PLUG'],
     '볼/니들': ['V_BALL', 'V_NEEDLE', 'V_MANI', 'V_BLEED'],
     '체크/릴리프': ['V_CHECK', 'V_RELIEF'],
+    '플랜지': ['FL_150', 'FL_300', 'FL_600'],
+    '특수부속': ['ORI', 'FIL_IN', 'FIL_TEE', 'QC'],
   };
 
-  final List<String> inchSizes = ["1/4", "3/8", "1/2", "3/4", "1"];
-  final List<String> metricSizes = ["8mm", "10mm", "12mm"];
-
-  void _onGroupChanged(String newGroup) {
-    setState(() {
-      selectedGroup = newGroup;
-      if (newGroup == 'FITTING') {
-        selectedSubCategory = '유니온류';
-      } else if (newGroup == 'VALVE') {
-        selectedSubCategory = '볼/니들';
-      } else {
-        selectedSubCategory = '전체';
-      }
-    });
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Widget _buildCategoryBadge(String category) {
     return Container(
-      width: 48,
-      height: 48,
+      width: 44,
+      height: 44,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: makitaTeal.withValues(alpha: 0.1),
@@ -92,7 +104,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
         category.replaceAll('_', '\n'),
         textAlign: TextAlign.center,
         style: TextStyle(
-          fontSize: category.length > 4 ? 10 : 13,
+          fontSize: category.length > 4 ? 9 : 12,
           fontWeight: FontWeight.w900,
           color: makitaTeal,
           height: 1.1,
@@ -107,7 +119,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
       onTap: () => setState(() => selectedSize = size),
       child: Container(
         margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected ? makitaTeal : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(8),
@@ -118,9 +130,37 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
         child: Text(
           size,
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: FontWeight.bold,
             color: isSelected ? pureWhite : textDark,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryChip(String label) {
+    bool isSelected = selectedCategory == label;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: () => setState(() => selectedCategory = label),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? makitaTeal : pureWhite,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected ? makitaTeal : Colors.grey.shade300,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: isSelected ? pureWhite : Colors.grey.shade700,
+            ),
           ),
         ),
       ),
@@ -172,126 +212,84 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                         size: 28,
                       ),
                       const SizedBox(width: 12),
-                      Text(
-                        "${widget.maker} 부속 검색",
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          color: pureWhite,
+                      Expanded(
+                        child: Text(
+                          "${widget.maker} 부속 검색",
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            color: pureWhite,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            const Padding(
-              padding: EdgeInsets.only(left: 24, right: 24, bottom: 8),
-              child: Text(
-                "1. 튜브 규격",
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey,
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: inchSizes
-                          .map((s) => _buildSizeButton(s))
-                          .toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: metricSizes
-                          .map((s) => _buildSizeButton(s))
-                          .toList(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            const Padding(
-              padding: EdgeInsets.only(left: 24, right: 24, bottom: 8),
-              child: Text(
-                "2. 대분류",
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey,
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: ["FITTING", "VALVE", "FLANGE", "SPECIAL"].map((
-                  group,
-                ) {
-                  bool isSelected = selectedGroup == group;
-                  String display = group == 'FITTING'
-                      ? '피팅'
-                      : group == 'VALVE'
-                      ? '밸브'
-                      : group == 'FLANGE'
-                      ? '플랜지'
-                      : '기타';
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () => _onGroupChanged(group),
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: isSelected ? makitaTeal : pureWhite,
-                          border: Border.all(
-                            color: isSelected
-                                ? makitaTeal
-                                : Colors.grey.shade300,
-                            width: 2,
-                          ),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          display,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: isSelected
-                                ? pureWhite
-                                : Colors.grey.shade700,
-                          ),
-                        ),
+                  const SizedBox(height: 16),
+                  // 🚀 [추가] 검색창 - 분류 체계를 몰라도 이름으로 바로 찾는다.
+                  TextField(
+                    controller: _searchController,
+                    onChanged: (val) =>
+                        setState(() => _searchQuery = val.trim()),
+                    style: const TextStyle(color: textDark, fontSize: 15),
+                    decoration: InputDecoration(
+                      hintText: "부속 이름으로 검색 (예: 볼밸브, 유니온)",
+                      hintStyle: TextStyle(color: Colors.grey.shade500),
+                      prefixIcon: const Icon(Icons.search, color: makitaTeal),
+                      suffixIcon: _searchQuery.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(
+                                Icons.clear,
+                                color: Colors.grey,
+                              ),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = "");
+                              },
+                            ),
+                      filled: true,
+                      fillColor: pureWhite,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
                       ),
                     ),
-                  );
-                }).toList(),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),
 
-            if (selectedGroup == 'FITTING' || selectedGroup == 'VALVE') ...[
+            const Padding(
+              padding: EdgeInsets.only(left: 24, right: 24, bottom: 8),
+              child: Text(
+                "규격",
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: allSizes.map((s) => _buildSizeButton(s)).toList(),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 🚀 검색 중일 땐 분류 칩이 의미가 없으므로(검색이 우선) 숨긴다.
+            if (_searchQuery.isEmpty) ...[
               const Padding(
                 padding: EdgeInsets.only(left: 24, right: 24, bottom: 8),
                 child: Text(
-                  "3. 상세 종류 (Sub-Category)",
+                  "분류",
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.bold,
                     color: Colors.grey,
                   ),
@@ -299,50 +297,11 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
               ),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Row(
-                  children:
-                      (selectedGroup == 'FITTING'
-                              ? fittingSubCategories.keys
-                              : valveSubCategories.keys)
-                          .map((subCat) {
-                            bool isSelected = selectedSubCategory == subCat;
-                            // 🚀 버그 수정: 상세 종류(Sub-Category)에서 ChoiceChip의 기본 다크 테마를 박살 내기 위해 GestureDetector로 완전 교체!
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: GestureDetector(
-                                onTap: () => setState(
-                                  () => selectedSubCategory = subCat,
-                                ),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isSelected ? makitaTeal : pureWhite,
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? makitaTeal
-                                          : Colors.grey.shade300,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    subCat,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: isSelected
-                                          ? pureWhite
-                                          : Colors.grey.shade700,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          })
-                          .toList(),
+                  children: categoryFilters.keys
+                      .map((label) => _buildCategoryChip(label))
+                      .toList(),
                 ),
               ),
               const SizedBox(height: 12),
@@ -352,25 +311,25 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
 
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
+                // 🚀 group/category는 더 이상 서버 쿼리로 나누지 않고
+                // maker+tubeOD만 가져온 뒤 검색어/분류칩은 클라이언트에서
+                // 필터링한다 (한 규격당 데이터 양이 적어 충분히 가볍다).
                 stream: FirebaseFirestore.instance
                     .collection('fittings')
                     .where('maker', isEqualTo: widget.maker)
                     .where('tubeOD', isEqualTo: selectedSize)
-                    .where('group', isEqualTo: selectedGroup)
                     .snapshots(),
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting)
+                  if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
                       child: CircularProgressIndicator(color: makitaTeal),
                     );
+                  }
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return Center(
+                    return const Center(
                       child: Text(
-                        "데이터가 없습니다.",
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey,
-                        ),
+                        "이 규격에 등록된 부속 데이터가 없습니다.",
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
                       ),
                     );
                   }
@@ -378,25 +337,27 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                   var allDocs = snapshot.data!.docs;
                   var filteredDocs = allDocs.where((doc) {
                     var data = doc.data() as Map<String, dynamic>;
-                    String cat = data['category'] ?? '';
+                    String cat = (data['category'] ?? '').toString();
+                    String name = (data['displayName'] ?? data['name'] ?? '')
+                        .toString();
 
-                    if (selectedGroup == 'FITTING') {
-                      return fittingSubCategories[selectedSubCategory]
-                              ?.contains(cat) ??
-                          false;
-                    } else if (selectedGroup == 'VALVE') {
-                      return valveSubCategories[selectedSubCategory]?.contains(
-                            cat,
-                          ) ??
-                          false;
+                    if (_searchQuery.isNotEmpty) {
+                      final q = _searchQuery.toLowerCase();
+                      return name.toLowerCase().contains(q) ||
+                          cat.toLowerCase().contains(q);
                     }
-                    return true;
+
+                    final codes = categoryFilters[selectedCategory];
+                    if (codes == null) return true; // '전체'
+                    return codes.contains(cat);
                   }).toList();
 
                   if (filteredDocs.isEmpty) {
                     return Center(
                       child: Text(
-                        "선택한 분류에 해당하는 부속이 없습니다.",
+                        _searchQuery.isNotEmpty
+                            ? "'$_searchQuery' 검색 결과가 없습니다."
+                            : "선택한 분류에 해당하는 부속이 없습니다.",
                         style: const TextStyle(
                           fontSize: 16,
                           color: Colors.grey,
@@ -432,8 +393,9 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                         leading: _buildCategoryBadge(item.category),
                         title: Text(
                           item.name,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 18,
+                            fontSize: 17,
                             fontWeight: FontWeight.bold,
                             color: textDark,
                           ),
@@ -449,7 +411,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                           "- ${item.deduction} mm",
                           style: const TextStyle(
                             color: Colors.redAccent,
-                            fontSize: 18,
+                            fontSize: 16,
                             fontWeight: FontWeight.w900,
                           ),
                         ),

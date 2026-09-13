@@ -1,5 +1,8 @@
-import 'dart:convert';
-import 'package:hive_flutter/hive_flutter.dart'; // 🚀 Hive 연동을 위해 추가
+// 🚀 [추가] 모바일 컷팅 프로젝트가 Firestore에 저장되는 컬렉션 이름.
+// 프로젝트 목록 화면과 프로젝트 내부 화면(계산기/기록)이 같은 이름을
+// 참조해야 해서 여기 한 곳에만 정의해두고 공유한다.
+const String kCuttingProjectsCollection = 'cutting_projects';
+const String kCutRecordsSubcollection = 'cut_records';
 
 class CuttingProject {
   final String id;
@@ -31,6 +34,27 @@ class CuttingProject {
     };
   }
 
+  // 🚀 [추가] Firestore 문서 등에서 역직렬화할 때 쓰는 팩토리 생성자.
+  factory CuttingProject.fromMap(String docId, Map<String, dynamic> map) {
+    DateTime parsedDate;
+    final rawDate = map['createdAt'];
+    if (rawDate is String) {
+      parsedDate = DateTime.tryParse(rawDate) ?? DateTime.now();
+    } else {
+      parsedDate = DateTime.now();
+    }
+    return CuttingProject(
+      id: docId,
+      name: map['name'] ?? '이름 없음',
+      createdAt: parsedDate,
+      totalTubeUsed: (map['totalTubeUsed'] as num?)?.toDouble() ?? 0.0,
+      cutCount: (map['cutCount'] as num?)?.toInt() ?? 0,
+      usedFittings: (map['usedFittings'] as Map?)?.map(
+        (k, v) => MapEntry(k.toString(), (v as num).toInt()),
+      ),
+    );
+  }
+
   String get estimatedMeters => (totalTubeUsed / 1000).toStringAsFixed(1);
 
   // 기존 함수 (하위 호환성을 위해 남겨둠)
@@ -39,85 +63,30 @@ class CuttingProject {
     cutCount += 1;
   }
 
-  // 🚀 [핵심 연동 로직] 컷팅 스크린에서 넘어온 데이터를 Hive DB에 직접 꽂아줍니다!
+  // 🚀 [버그 수정] 예전엔 이 함수가 자기 스스로 Hive DB 파일을 열어서
+  // ProjectManagementPage의 projectList를 직접 덮어썼다. 그런데 그 화면은
+  // onSaveCallback을 통해 이미 같은 데이터를 저장하고 있어서, 결국 같은
+  // 정보가 두 경로로 중복 기록되는 fragile한 구조였다 (모델 클래스가
+  // 화면 저장소 내부 구현을 직접 알고 건드리는 것 자체도 잘못된 설계).
+  // 이 함수는 이제 순수하게 메모리 상의 이 객체 값만 갱신하고, 실제
+  // 영속 저장은 호출한 화면(onSaveCallback)이 책임지도록 분리했다.
   void recordUsage({
     required double tubeLengthMm,
     required Map<String, int> fittings,
     required int multiplier,
   }) {
-    // 1. 현재 메모리(화면) 상태 업데이트
     totalTubeUsed += tubeLengthMm;
     cutCount += multiplier;
     fittings.forEach((fittingName, count) {
       usedFittings[fittingName] =
           (usedFittings[fittingName] ?? 0) + (count * multiplier);
     });
-
-    // 2. 💡 가장 중요한 부분: Hive DB를 열어서 ProjectManagementPage와 동일한 형식으로 덮어쓰기
-    try {
-      var box = Hive.box('projectsBox');
-      String? jsonStr = box.get('projectList');
-
-      if (jsonStr != null) {
-        List<dynamic> decoded = jsonDecode(jsonStr);
-        List<Map<String, dynamic>> projects = decoded
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList();
-
-        // 현재 작업 중인 프로젝트를 ID로 찾기
-        int index = projects.indexWhere((p) => p['id'] == id);
-
-        if (index != -1) {
-          // 관리 페이지에서 쓰는 materials 리스트 가져오기 (없으면 빈 리스트)
-          List<dynamic> materials = projects[index]['materials'] ?? [];
-
-          // -----------------------------------------
-          // [A] 튜브 사용량 (TUBE) 합산 로직
-          // -----------------------------------------
-          int tubeIndex = materials.indexWhere((m) => m['type'] == 'TUBE');
-          if (tubeIndex != -1) {
-            materials[tubeIndex]['qty_mm'] =
-                (materials[tubeIndex]['qty_mm'] ?? 0) + tubeLengthMm.toInt();
-          } else {
-            materials.add({
-              "db_name": "TUBE_기본규격", // Firebase 재고 DB에 등록된 튜브 이름과 맞춰주세요!
-              "type": "TUBE",
-              "qty_mm": tubeLengthMm.toInt(),
-            });
-          }
-
-          // -----------------------------------------
-          // [B] 피팅 사용량 (FITTING) 합산 로직
-          // -----------------------------------------
-          fittings.forEach((fittingName, count) {
-            int totalCount = count * multiplier;
-            int fitIndex = materials.indexWhere(
-              (m) => m['db_name'] == fittingName,
-            );
-
-            if (fitIndex != -1) {
-              materials[fitIndex]['qty_ea'] =
-                  (materials[fitIndex]['qty_ea'] ?? 0) + totalCount;
-            } else {
-              materials.add({
-                "db_name": fittingName,
-                "type": "FITTING",
-                "qty_ea": totalCount,
-              });
-            }
-          });
-
-          // 업데이트된 materials를 다시 프로젝트에 넣고 Hive에 저장!
-          projects[index]['materials'] = materials;
-          box.put('projectList', jsonEncode(projects));
-        }
-      }
-    } catch (e) {
-      print("Hive 데이터 업데이트 실패: $e");
-    }
   }
 }
 
+// 🚀 [기존엔 만들어만 놓고 어디서도 안 쓰던 모델] "완료(저장)" 할 때마다
+// 구간별로 하나씩 만들어서 Firestore 서브컬렉션에 기록한다 - 프로젝트
+// 안의 "기록" 탭에서 날짜/요일별로 묶어서 보여주는 데 쓴다.
 class CutRecord {
   final String id;
   final String projectId;
@@ -128,8 +97,16 @@ class CutRecord {
   final String startFitting;
   final String endFitting;
   final double cutLength;
+  final int multiplier;
 
-  CutRecord({
+  // 🚀 [추가] 나중에 똑같은 걸 다시 잘라야 할 때 재현 가능하도록 - 제조사와
+  // 양쪽 부속의 공제값까지 남긴다. 이름만으로는 어느 제조사 제품인지,
+  // 공제값이 얼마였는지 알 수 없어서 재주문/재작업 시 정보가 부족했다.
+  final String maker;
+  final double startDeduction;
+  final double endDeduction;
+
+  const CutRecord({
     required this.id,
     required this.projectId,
     required this.timestamp,
@@ -138,11 +115,14 @@ class CutRecord {
     required this.startFitting,
     required this.endFitting,
     required this.cutLength,
+    this.multiplier = 1,
+    this.maker = '',
+    this.startDeduction = 0.0,
+    this.endDeduction = 0.0,
   });
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
       'projectId': projectId,
       'timestamp': timestamp.toIso8601String(),
       'tubeSize': tubeSize,
@@ -150,6 +130,34 @@ class CutRecord {
       'startFitting': startFitting,
       'endFitting': endFitting,
       'cutLength': cutLength,
+      'multiplier': multiplier,
+      'maker': maker,
+      'startDeduction': startDeduction,
+      'endDeduction': endDeduction,
     };
+  }
+
+  factory CutRecord.fromMap(String id, Map<String, dynamic> map) {
+    DateTime parsedDate;
+    final rawDate = map['timestamp'];
+    if (rawDate is String) {
+      parsedDate = DateTime.tryParse(rawDate) ?? DateTime.now();
+    } else {
+      parsedDate = DateTime.now();
+    }
+    return CutRecord(
+      id: id,
+      projectId: map['projectId'] ?? '',
+      timestamp: parsedDate,
+      tubeSize: map['tubeSize'] ?? '',
+      originalLength: (map['originalLength'] as num?)?.toDouble() ?? 0.0,
+      startFitting: map['startFitting'] ?? '',
+      endFitting: map['endFitting'] ?? '',
+      cutLength: (map['cutLength'] as num?)?.toDouble() ?? 0.0,
+      multiplier: (map['multiplier'] as num?)?.toInt() ?? 1,
+      maker: map['maker'] ?? '',
+      startDeduction: (map['startDeduction'] as num?)?.toDouble() ?? 0.0,
+      endDeduction: (map['endDeduction'] as num?)?.toDouble() ?? 0.0,
+    );
   }
 }

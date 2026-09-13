@@ -6,6 +6,7 @@ import '../../../data/models/cutting_project_model.dart';
 import '../../../data/models/fitting_item.dart';
 import '../../../data/models/smart_fitting_db.dart';
 import '../widgets/smart_fitting_selector_sheet.dart';
+import 'cutting_history_page.dart';
 
 const Color lightBg = Color(0xFFF0F3F5);
 const Color whiteCard = Colors.white;
@@ -29,11 +30,15 @@ class CutPoint {
 class CuttingMainScreen extends StatefulWidget {
   final CuttingProject project;
 
-  // 🚀 [자재 관리 연동 핵심] 부모(ProjectManagementPage)로부터 받는 콜백
+  // 🚀 [자재 관리 연동 핵심] 부모(ProjectManagementPage)로부터 받는 콜백.
+  // 🚀 [추가] cutRecords는 선택 인자로 추가했다 - 기존 데스크톱
+  // ProjectManagementPage가 넘기는 2개짜리 콜백은 그대로 유효하고,
+  // 새 모바일 기록 기능을 쓰는 콜백만 3번째 인자를 받으면 된다.
   final Function(
     double totalTubeLength,
-    List<Map<String, dynamic>> fittingsList,
-  )?
+    List<Map<String, dynamic>> fittingsList, [
+    List<CutRecord> cutRecords,
+  ])?
   onSaveCallback;
 
   const CuttingMainScreen({
@@ -56,12 +61,104 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   int _setMultiplier = 1;
   bool _groupSameLengths = false;
 
+  // 🚀 [추가] 톱날 손실(커프) - 원자재를 여러 구간으로 자를 때마다
+  // 톱날 두께만큼 소재가 갈려 없어진다. 구간별 설치 길이(calculatedCut)
+  // 자체는 정확해야 하니 건드리지 않고, "총 소모량" 누적에만 절단
+  // 횟수만큼 더해서 원자재 발주량이 실제와 어긋나지 않게 한다.
+  double _bladeKerf = 0.0;
+  static const String _kerfPrefsKey = 'cutting_blade_kerf';
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeSequence();
     _loadDraftState();
+    _loadBladeKerf();
+  }
+
+  Future<void> _loadBladeKerf() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getDouble(_kerfPrefsKey);
+    if (saved != null && mounted) {
+      setState(() => _bladeKerf = saved);
+    }
+  }
+
+  Future<void> _showBladeKerfDialog() async {
+    final ctrl = TextEditingController(
+      text: _bladeKerf == 0.0 ? '' : _bladeKerf.toString(),
+    );
+    final result = await showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: whiteCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          "톱날 손실(커프) 설정",
+          style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "원자재를 여러 구간으로 자를 때 톱날 두께만큼 소재가 갈려 없어집니다. "
+              "절단 1회당 손실량을 넣어두면 프로젝트 총 소모량 계산에 자동으로 더해집니다.\n"
+              "(구간별 설치 길이 자체엔 영향 없습니다)",
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: textPrimary,
+              ),
+              decoration: InputDecoration(
+                suffixText: "mm / 회",
+                filled: true,
+                fillColor: Colors.grey.shade100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("취소", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: makitaTeal,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx, double.tryParse(ctrl.text) ?? 0.0);
+            },
+            child: const Text(
+              "저장",
+              style: TextStyle(color: whiteCard, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null) {
+      setState(() => _bladeKerf = result);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(_kerfPrefsKey, result);
+    }
   }
 
   void _initializeSequence() {
@@ -480,6 +577,46 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       finalFittingsList.add(data);
     });
 
+    // 🚀 [추가] "완료" 한 번에 실제로 잘린 구간들을 하나씩 CutRecord로
+    // 남겨서, 프로젝트 안의 "기록" 탭에서 날짜/요일별로 되짚어볼 수
+    // 있게 한다 (예전엔 총합만 쌓이고 언제 뭘 잘랐는지가 안 남았음).
+    final now = DateTime.now();
+    List<CutRecord> cutRecords = [];
+    for (int i = 0; i < _points.length - 1; i++) {
+      final point = _points[i];
+      if (point.c2cController.text.isEmpty || point.calculatedCut <= 0) {
+        continue;
+      }
+      final nextFitting = _points[i + 1].fitting;
+      cutRecords.add(
+        CutRecord(
+          id: '',
+          projectId: widget.project.id,
+          timestamp: now,
+          tubeSize: point.fitting.id != "none"
+              ? point.fitting.tubeOD
+              : nextFitting.tubeOD,
+          originalLength: double.tryParse(point.c2cController.text) ?? 0.0,
+          startFitting: point.fitting.id == "none" ? "직관" : point.fitting.name,
+          endFitting: nextFitting.id == "none" ? "직관" : nextFitting.name,
+          cutLength: point.calculatedCut,
+          multiplier: _setMultiplier,
+          // 🚀 [추가] 나중에 똑같이 재현할 수 있도록 제조사와 양쪽
+          // 공제값도 같이 남긴다.
+          maker: _globalMaker,
+          startDeduction: point.fitting.deduction,
+          endDeduction: nextFitting.deduction,
+        ),
+      );
+    }
+
+    // 🚀 [추가] 톱날 손실(커프) 반영 - 구간별 설치 길이(cutRecords에 남긴
+    // cutLength)는 정확해야 하니 그대로 두고, "총 소모량" 쪽에만 이번에
+    // 실제로 자른 횟수(구간 수 × 세트 수)만큼 커프 손실을 더한다.
+    final int cutsThisSave = cutRecords.length * _setMultiplier;
+    final double kerfLoss = _bladeKerf * cutsThisSave;
+    finalTotal += kerfLoss;
+
     setState(() {
       try {
         widget.project.recordUsage(
@@ -493,7 +630,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
 
       // 🚀 부모(ProjectManagementPage)의 바구니로 완벽하게 규격화된 데이터를 쏩니다!
       if (widget.onSaveCallback != null) {
-        widget.onSaveCallback!(finalTotal, finalFittingsList);
+        widget.onSaveCallback!(finalTotal, finalFittingsList, cutRecords);
       }
 
       for (var point in _points) {
@@ -504,10 +641,13 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       _calculate();
     });
 
+    final kerfNote = kerfLoss > 0
+        ? " (커프 손실 +${kerfLoss.toStringAsFixed(1)}mm 포함)"
+        : "";
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          "튜브 총 ${finalTotal.toStringAsFixed(1)}mm 및 피팅 ${totalFittingCount}개 작업 완료!",
+          "튜브 총 ${finalTotal.toStringAsFixed(1)}mm$kerfNote 및 피팅 ${totalFittingCount}개 작업 완료!",
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: makitaTeal,
@@ -561,357 +701,587 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         elevation: 0,
         title: Text(
           "프로젝트: ${widget.project.name}",
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
         ),
+        actions: [
+          IconButton(
+            tooltip: "톱날 손실(커프) 설정",
+            icon: const Icon(Icons.content_cut_rounded),
+            onPressed: _showBladeKerfDialog,
+          ),
+          IconButton(
+            tooltip: "컷팅 기록",
+            icon: const Icon(Icons.history_rounded),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CuttingHistoryPage(project: widget.project),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-            decoration: BoxDecoration(
-              color: whiteCard,
-              border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+          Builder(
+            builder: (context) {
+              final bool isWide =
+                  MediaQuery.of(context).size.shortestSide >= 600;
+              return _buildMakerHeader(isWide);
+            },
+          ),
+
+          // 🚀 [수정] 이 화면은 원래 데스크톱 프로젝트 관리 화면 안에서만
+          // 쓰던 고정 좌우 2단(Row flex:4/5) 레이아웃이라, 좁은 폰 화면에서는
+          // 각 칸이 짓눌려 못 쓸 정도였다. 폴더블 대응을 하면서 화면
+          // 크기(shortestSide)를 실시간으로 봐서, 넓을 땐 기존 좌우 2단
+          // 레이아웃을 그대로 쓰고 좁을 땐 탭으로 나눠 1칼럼으로 보여준다.
+          Builder(
+            builder: (context) {
+              final bool isWide =
+                  MediaQuery.of(context).size.shortestSide >= 600;
+              return isWide ? _buildWideBody() : _buildNarrowBody();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🚀 [추가] 좁은 화면에서는 "메이커 고정" 라벨과 버튼 3개를 한 줄에
+  // 욱여넣으면 넘칠 수 있어서, 좁을 땐 라벨을 위에, 버튼을 아래 줄로 뺀다.
+  Widget _buildMakerHeader(bool isWide) {
+    final makerButtons = Row(
+      children: ["Swagelok", "Parker", "Hy-Lok"].map((maker) {
+        bool isSelected = _globalMaker == maker;
+        return Expanded(
+          child: GestureDetector(
+            onTap: () {
+              setState(() => _globalMaker = maker);
+              _saveDraftState();
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: isSelected ? makitaTeal : lightBg,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isSelected ? makitaTeal : Colors.grey.shade300,
+                  width: 2,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                maker,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: isSelected ? whiteCard : textPrimary,
+                ),
+              ),
             ),
-            child: Row(
+          ),
+        );
+      }).toList(),
+    );
+
+    const label = Row(
+      children: [
+        Icon(Icons.precision_manufacturing, size: 24, color: makitaTeal),
+        SizedBox(width: 8),
+        Text(
+          "메이커 고정",
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey,
+          ),
+        ),
+      ],
+    );
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        vertical: isWide ? 12 : 10,
+        horizontal: isWide ? 24 : 16,
+      ),
+      decoration: BoxDecoration(
+        color: whiteCard,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+      ),
+      child: isWide
+          ? Row(
               children: [
-                const Icon(
-                  Icons.precision_manufacturing,
-                  size: 28,
-                  color: makitaTeal,
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  "메이커 고정",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey,
-                  ),
-                ),
+                label,
                 const SizedBox(width: 24),
-                Expanded(
-                  child: Row(
-                    children: ["Swagelok", "Parker", "Hy-Lok"].map((maker) {
-                      bool isSelected = _globalMaker == maker;
-                      return Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() => _globalMaker = maker);
-                            _saveDraftState();
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            decoration: BoxDecoration(
-                              color: isSelected ? makitaTeal : lightBg,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: isSelected
-                                    ? makitaTeal
-                                    : Colors.grey.shade300,
-                                width: 2,
-                              ),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              maker,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                color: isSelected ? whiteCard : textPrimary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
+                Expanded(child: makerButtons),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                label,
+                const SizedBox(height: 8),
+                makerButtons,
+              ],
+            ),
+    );
+  }
+
+  // 🚀 [추가] 넓은 화면(태블릿/폴더블 펼침) - 예전부터 있던 좌우 2단
+  // 레이아웃 그대로. 왼쪽엔 포인트 리스트, 오른쪽엔 배치도+컷팅 지시서.
+  Widget _buildWideBody() {
+    return Expanded(
+      child: Row(
+        children: [
+          Expanded(flex: 4, child: _buildPointListPane()),
+          Container(width: 1, color: Colors.black12),
+          Expanded(
+            flex: 5,
+            child: Column(
+              children: [
+                Expanded(flex: 1, child: _buildDiagramPane()),
+                const Divider(height: 1, color: Colors.black12, thickness: 2),
+                Expanded(flex: 1, child: _buildInstructionsPane()),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
 
+  // 🚀 [추가] 좁은 화면(폰/폴더블 접힘) - 좌우로 욱여넣는 대신 탭으로
+  // 나눠서 한 화면에 한 섹션씩 전체 폭을 다 쓰게 한다.
+  Widget _buildNarrowBody() {
+    return Expanded(
+      child: DefaultTabController(
+        length: 3,
+        child: Column(
+          children: [
+            const TabBar(
+              labelColor: makitaTeal,
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: makitaTeal,
+              tabs: [
+                Tab(text: "입력"),
+                Tab(text: "배치도"),
+                Tab(text: "결과"),
+              ],
+            ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _buildPointListPane(),
+                  _buildDiagramPane(),
+                  _buildInstructionsPane(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 🚀 [추가] "배관 라인 구축" - 포인트 추가 버튼 + 드래그 정렬 리스트.
+  Widget _buildPointListPane() {
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Expanded(
+                child: Text(
+                  "배관 라인 구축 (드래그로 순서 변경)",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: _addPoint,
+                icon: const Icon(Icons.add, color: whiteCard, size: 18),
+                label: const Text(
+                  "포인트 추가",
+                  style: TextStyle(color: whiteCard),
+                ),
+                style: ElevatedButton.styleFrom(backgroundColor: makitaDark),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           Expanded(
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 4,
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              "배관 라인 구축 (드래그로 순서 변경)",
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: _addPoint,
-                              icon: const Icon(
-                                Icons.add,
-                                color: whiteCard,
-                                size: 18,
-                              ),
-                              label: const Text(
-                                "포인트 추가",
-                                style: TextStyle(color: whiteCard),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: makitaDark,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Expanded(
-                          child: ReorderableListView.builder(
-                            itemCount: _points.length,
-                            proxyDecorator:
-                                (
-                                  Widget child,
-                                  int index,
-                                  Animation<double> animation,
-                                ) {
-                                  return Material(
-                                    color: Colors.transparent,
-                                    elevation: 0,
-                                    child: _buildFittingCard(index),
-                                  );
-                                },
-                            onReorder: (oldIndex, newIndex) {
-                              setState(() {
-                                if (newIndex > oldIndex) {
-                                  newIndex -= 1;
-                                }
-                                List<FittingItem> currentFittings = _points
-                                    .map((p) => p.fitting)
-                                    .toList();
-                                final movedFitting = currentFittings.removeAt(
-                                  oldIndex,
-                                );
-                                currentFittings.insert(newIndex, movedFitting);
+            child: ReorderableListView.builder(
+              itemCount: _points.length,
+              proxyDecorator: (Widget child, int index, Animation<double> animation) {
+                return Material(
+                  color: Colors.transparent,
+                  elevation: 0,
+                  child: _buildFittingCard(index),
+                );
+              },
+              onReorder: (oldIndex, newIndex) {
+                setState(() {
+                  if (newIndex > oldIndex) {
+                    newIndex -= 1;
+                  }
+                  List<FittingItem> currentFittings = _points
+                      .map((p) => p.fitting)
+                      .toList();
+                  final movedFitting = currentFittings.removeAt(oldIndex);
+                  currentFittings.insert(newIndex, movedFitting);
 
-                                for (int i = 0; i < _points.length; i++) {
-                                  _points[i].fitting = currentFittings[i];
-                                }
-                                _calculate();
-                                _saveDraftState();
-                              });
-                            },
-                            itemBuilder: (context, index) {
-                              return Container(
-                                key: ValueKey(_points[index].id),
-                                child: Column(
-                                  children: [
-                                    _buildFittingCard(index),
-                                    if (index < _points.length - 1)
-                                      _buildLengthInputCard(index),
-                                  ],
+                  for (int i = 0; i < _points.length; i++) {
+                    _points[i].fitting = currentFittings[i];
+                  }
+                  _calculate();
+                  _saveDraftState();
+                });
+              },
+              itemBuilder: (context, index) {
+                return Container(
+                  key: ValueKey(_points[index].id),
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Column(
+                    children: [
+                      _buildFittingCard(index),
+                      if (index < _points.length - 1)
+                        _buildLengthInputCard(index),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🚀 [추가] "1. 배치도" - 현재 라인 구성의 가로 스크롤 시각화.
+  // 🚀 [재구성] 예전엔 아이콘+선을 가로로 이어붙여 스크롤해서 봐야 했는데,
+  // 전선관 계산기의 마킹 결과 카드처럼 STEP 번호가 붙은 카드를 세로로
+  // 쌓는 형태로 바꿨다. 한 화면에 순서대로 쭉 보이고, 카드 안에 다음
+  // 구간까지의 길이도 같이 표시돼서 가로 스크롤 없이 전체 라인을
+  // 한눈에 파악할 수 있다.
+  Widget _buildDiagramPane() {
+    return Container(
+      color: whiteCard,
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "1. 배치도",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.only(bottom: 12),
+              itemCount: _points.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 8),
+              itemBuilder: (context, index) => _buildDiagramStepCard(index),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDiagramStepCard(int index) {
+    final item = _points[index].fitting;
+    final isNone = item.id == "none";
+    final isLast = index == _points.length - 1;
+    final hasNext = !isLast;
+    final cutLength = hasNext ? _points[index].calculatedCut : 0.0;
+    final hasInput =
+        hasNext && _points[index].c2cController.text.isNotEmpty;
+    final isInterference = hasInput && cutLength < 0;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: whiteCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isNone ? Colors.grey.shade300 : makitaTeal.withValues(alpha: 0.4),
+        ),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              width: 52,
+              decoration: BoxDecoration(
+                color: isNone ? Colors.grey.shade200 : makitaDark,
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(11),
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "PT",
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: isNone
+                          ? Colors.grey.shade500
+                          : whiteCard.withValues(alpha: 0.7),
+                    ),
+                  ),
+                  Text(
+                    "${index + 1}",
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: isNone ? Colors.grey.shade600 : whiteCard,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        _buildFittingBadge(item, isNone),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (!isNone)
+                                Text(
+                                  "${item.tubeOD} 규격",
+                                  style: const TextStyle(
+                                    color: Colors.redAccent,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              );
-                            },
+                              Text(
+                                isNone ? "직관 (부속 없음)" : item.name,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: isNone ? Colors.grey : textPrimary,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ),
-                Container(width: 1, color: Colors.black12),
-                Expanded(
-                  flex: 5,
-                  child: Column(
-                    children: [
-                      Expanded(
-                        flex: 1,
-                        child: Container(
-                          color: whiteCard,
-                          padding: const EdgeInsets.all(24.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                "1. 배치도",
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
-                                  color: textPrimary,
-                                ),
-                              ),
-                              Expanded(
-                                child: Center(
-                                  child: SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    child: Row(
-                                      children: List.generate(_points.length, (
-                                        index,
-                                      ) {
-                                        return Row(
-                                          children: [
-                                            _buildVisualFitting(
-                                              _points[index].fitting,
-                                              index,
-                                            ),
-                                            if (index < _points.length - 1)
-                                              _buildVisualPipe(
-                                                _points[index].calculatedCut,
-                                                _points[index]
-                                                    .c2cController
-                                                    .text
-                                                    .isNotEmpty,
-                                              ),
-                                          ],
-                                        );
-                                      }),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                    if (hasNext) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
                         ),
-                      ),
-                      const Divider(
-                        height: 1,
-                        color: Colors.black12,
-                        thickness: 2,
-                      ),
-                      Expanded(
-                        flex: 1,
-                        child: Container(
-                          color: Colors.grey.shade50,
-                          padding: const EdgeInsets.all(24.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Text(
-                                        "2. 컷팅 지시서",
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w900,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      const Text(
-                                        "같은 길이 합산",
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                      Switch(
-                                        value: _groupSameLengths,
-                                        activeThumbColor: makitaTeal,
-                                        onChanged: (val) {
-                                          setState(
-                                            () => _groupSameLengths = val,
-                                          );
-                                          _saveDraftState();
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: whiteCard,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: makitaTeal),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        IconButton(
-                                          icon: const Icon(
-                                            Icons.remove,
-                                            color: makitaTeal,
-                                          ),
-                                          onPressed: () {
-                                            setState(() {
-                                              if (_setMultiplier > 1) {
-                                                _setMultiplier--;
-                                                _saveDraftState();
-                                              }
-                                            });
-                                          },
-                                        ),
-                                        Text(
-                                          "$_setMultiplier SET",
-                                          style: const TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                            color: textPrimary,
-                                          ),
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(
-                                            Icons.add,
-                                            color: makitaTeal,
-                                          ),
-                                          onPressed: () {
-                                            setState(() {
-                                              _setMultiplier++;
-                                              _saveDraftState();
-                                            });
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Expanded(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: whiteCard,
-                                    border: Border.all(
-                                      color: Colors.grey.shade300,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: _buildCuttingListRenderer(),
+                        decoration: BoxDecoration(
+                          color: isInterference
+                              ? Colors.red.shade50
+                              : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.arrow_downward_rounded,
+                              size: 14,
+                              color: isInterference
+                                  ? Colors.red
+                                  : Colors.grey.shade500,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                isInterference
+                                    ? "간섭 발생! 치수를 확인하세요"
+                                    : "다음 지점까지",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: isInterference
+                                      ? Colors.red.shade700
+                                      : Colors.grey.shade600,
                                 ),
                               ),
-                              const SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed:
-                                    _points.any(
-                                      (p) => p.c2cController.text.isNotEmpty,
-                                    )
-                                    ? _saveRecord
-                                    : null,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: makitaTeal,
-                                  minimumSize: const Size(double.infinity, 56),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: Text(
-                                  "$_setMultiplier 세트 작업 완료 (저장 및 초기화)",
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: whiteCard,
-                                  ),
-                                ),
+                            ),
+                            Text(
+                              hasInput
+                                  ? "${cutLength.toStringAsFixed(1)} mm"
+                                  : "치수 미입력",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
+                                color: isInterference
+                                    ? Colors.red
+                                    : (hasInput
+                                          ? Colors.redAccent
+                                          : Colors.grey),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 🚀 [추가] "2. 컷팅 지시서" - 세트 수량 조절 + 결과 리스트 + 저장 버튼.
+  Widget _buildInstructionsPane() {
+    return Container(
+      color: Colors.grey.shade50,
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            runSpacing: 8,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "2. 컷팅 지시서",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  const Text(
+                    "같은 길이 합산",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  Switch(
+                    value: _groupSameLengths,
+                    activeThumbColor: makitaTeal,
+                    onChanged: (val) {
+                      setState(() => _groupSameLengths = val);
+                      _saveDraftState();
+                    },
+                  ),
+                ],
+              ),
+              Container(
+                decoration: BoxDecoration(
+                  color: whiteCard,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: makitaTeal),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove, color: makitaTeal),
+                      onPressed: () {
+                        setState(() {
+                          if (_setMultiplier > 1) {
+                            _setMultiplier--;
+                            _saveDraftState();
+                          }
+                        });
+                      },
+                    ),
+                    Text(
+                      "$_setMultiplier SET",
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: textPrimary,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add, color: makitaTeal),
+                      onPressed: () {
+                        setState(() {
+                          _setMultiplier++;
+                          _saveDraftState();
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: whiteCard,
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: _buildCuttingListRenderer(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // 🚀 [간소화] "N 세트 작업 완료 (저장 및 초기화)"는 글자 수가
+          // 많아 좁은 화면에서 부담스러웠다. 세트 수는 바로 위 카운터에
+          // 이미 보이므로 버튼엔 짧은 동작 문구만, 무슨 일이 일어나는지는
+          // 작은 글씨로 한 줄 덧붙였다.
+          ElevatedButton(
+            onPressed: _points.any((p) => p.c2cController.text.isNotEmpty)
+                ? _saveRecord
+                : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: makitaTeal,
+              minimumSize: const Size(double.infinity, 56),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "저장하기",
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: whiteCard,
+                  ),
+                ),
+                Text(
+                  "$_setMultiplier세트 기록 후 새로 입력",
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: whiteCard.withValues(alpha: 0.8),
                   ),
                 ),
               ],
@@ -922,113 +1292,167 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     );
   }
 
+  // 🚀 [재구성] 예전엔 드래그핸들+순번배지+부속선택+수동입력+삭제가
+  // 전부 한 줄에 몰려있어서, 좁은 폰 화면에서 각 요소가 짓눌려 글자가
+  // 작아지고 터치하기도 힘들었다. 상단(순번/드래그/삭제)·본문(부속
+  // 선택, 카드 전체 너비 사용)·하단(공제값/수동입력) 3단으로 나눠서
+  // 요소마다 충분한 터치 영역과 가로 공간을 확보했다.
   Widget _buildFittingCard(int index) {
     FittingItem item = _points[index].fitting;
     bool isNone = item.id == "none";
     bool isCustom = item.category == "CUSTOM";
 
-    return Row(
-      children: [
-        const Icon(Icons.drag_handle, color: Colors.grey),
-        const SizedBox(width: 8),
-        Container(
-          width: 36,
-          height: 36,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: isNone ? Colors.grey.shade300 : makitaDark,
-            shape: BoxShape.circle,
-          ),
-          child: Text(
-            "PT${index + 1}",
-            style: TextStyle(
-              color: isNone ? Colors.grey.shade600 : whiteCard,
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
+    return Container(
+      decoration: BoxDecoration(
+        color: whiteCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isNone ? Colors.grey.shade300 : makitaTeal,
+          width: isNone ? 1 : 1.5,
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              color: whiteCard,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: isNone ? Colors.grey.shade300 : makitaTeal,
-                width: isNone ? 1 : 2,
-              ),
-            ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 상단: 드래그 핸들 + 순번 배지 + 삭제
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 6, 4, 0),
             child: Row(
               children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () => _openFittingSelector(index),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      child: Row(
-                        children: [
-                          _buildFittingBadge(item, isNone),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (!isNone)
-                                  Text(
-                                    "${item.tubeOD} 규격",
-                                    style: const TextStyle(
-                                      color: Colors.redAccent,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                Text(
-                                  isNone ? "부속을 고르세요" : item.name,
-                                  style: TextStyle(
-                                    color: isNone ? Colors.grey : textPrimary,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (!isNone)
-                            Text(
-                              isCustom ? "수동" : "- ${item.deduction}mm",
-                              style: TextStyle(
-                                color: isCustom
-                                    ? Colors.orange.shade800
-                                    : makitaDark,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                        ],
-                      ),
+                const Icon(Icons.drag_handle, color: Colors.grey, size: 20),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isNone ? Colors.grey.shade200 : makitaDark,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    "PT${index + 1}",
+                    style: TextStyle(
+                      color: isNone ? Colors.grey.shade600 : whiteCard,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ),
-                Container(width: 1, height: 40, color: Colors.grey.shade300),
-                IconButton(
-                  tooltip: "공제값 직접 입력",
-                  icon: const Icon(Icons.edit_square, color: Colors.grey),
-                  onPressed: () => _showCustomFittingDialog(index),
-                ),
+                const Spacer(),
+                if (_points.length > 2)
+                  InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () => _removePoint(index),
+                    child: const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: Icon(
+                        Icons.close_rounded,
+                        color: Colors.redAccent,
+                        size: 20,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
-        ),
-        if (_points.length > 2)
-          IconButton(
-            icon: const Icon(Icons.delete, color: Colors.redAccent),
-            onPressed: () => _removePoint(index),
+          // 본문: 부속 선택 - 카드 전체 너비를 다 쓰는 큰 터치 영역
+          InkWell(
+            onTap: () => _openFittingSelector(index),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+              child: Row(
+                children: [
+                  _buildFittingBadge(item, isNone),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (!isNone)
+                          Text(
+                            "${item.tubeOD} 규격",
+                            style: const TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        Text(
+                          isNone ? "탭해서 부속 고르기" : item.name,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isNone ? Colors.grey : textPrimary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                ],
+              ),
+            ),
           ),
-      ],
+          // 하단: 공제값 표시 + 수동 입력 버튼 (부속이 선택된 경우만)
+          if (!isNone)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(11),
+                ),
+                border: Border(top: BorderSide(color: Colors.grey.shade200)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    isCustom ? "수동 입력값" : "공제값",
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        isCustom
+                            ? "${item.deduction}mm (수동)"
+                            : "- ${item.deduction}mm",
+                        style: TextStyle(
+                          color: isCustom
+                              ? Colors.orange.shade800
+                              : makitaDark,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      InkWell(
+                        onTap: () => _showCustomFittingDialog(index),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: Icon(
+                            Icons.edit_rounded,
+                            color: Colors.grey.shade500,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -1149,181 +1573,147 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       );
     }
 
+    // 🚀 [재구성] 예전엔 항목 하나에 텍스트 4개를 spaceBetween Row 한
+    // 줄에 다 욱여넣어서, 실제 작업대에서 보는 이 화면이 좁은 폰에서
+    // 넘치거나 글자가 짓눌릴 위험이 제일 컸다. 카드 형태로 바꿔서
+    // 가장 중요한 "최종 필요 길이"를 크고 명확하게, 나머지 정보는
+    // 위아래로 배치해 절대 겹치거나 넘치지 않게 했다.
     if (_groupSameLengths) {
       Map<double, int> grouped = {};
       for (var cut in validCuts) {
         grouped[cut] = (grouped[cut] ?? 0) + 1;
       }
       return ListView.separated(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         itemCount: grouped.length,
-        separatorBuilder: (context, index) => const Divider(),
+        separatorBuilder: (context, index) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
           double length = grouped.keys.elementAt(index);
           int count = grouped[length]!;
           int totalCount = count * _setMultiplier;
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "길이: ${length.toStringAsFixed(1)} mm",
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: textPrimary,
-                ),
-              ),
-              Text(
-                "기본 $count개 x $_setMultiplier SET",
-                style: const TextStyle(fontSize: 14, color: Colors.grey),
-              ),
-              Text(
-                "총 $totalCount 개",
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: makitaTeal,
-                ),
-              ),
-              Text(
-                "= ${(length * totalCount).toStringAsFixed(1)} mm",
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.redAccent,
-                ),
-              ),
-            ],
+          return _buildCutResultCard(
+            topLeft: "${length.toStringAsFixed(1)} mm",
+            topRight: "총 $totalCount 개",
+            subtitle: "기본 $count개 × $_setMultiplier SET",
+            totalLabel: "합계 소요 길이",
+            totalValue: "${(length * totalCount).toStringAsFixed(1)} mm",
           );
         },
       );
     } else {
+      final visibleIndices = List.generate(
+        _points.length - 1,
+        (i) => i,
+      ).where((index) {
+        if (_points[index].c2cController.text.isEmpty) return false;
+        return _points[index].calculatedCut >= 0;
+      }).toList();
+
       return ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: _points.length - 1,
-        separatorBuilder: (context, index) => const Divider(),
-        itemBuilder: (context, index) {
-          if (_points[index].c2cController.text.isEmpty)
-            return const SizedBox.shrink();
+        padding: const EdgeInsets.all(12),
+        itemCount: visibleIndices.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 8),
+        itemBuilder: (context, listIndex) {
+          final index = visibleIndices[listIndex];
           double cutLen = _points[index].calculatedCut;
-          if (cutLen < 0) return const SizedBox.shrink();
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "PT${index + 1} ➔ PT${index + 2} 구간",
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey,
-                ),
-              ),
-              Text(
-                "${cutLen.toStringAsFixed(1)} mm",
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: textPrimary,
-                ),
-              ),
-              Text(
-                "x $_setMultiplier 개",
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: makitaTeal,
-                ),
-              ),
-              Text(
-                "= ${(cutLen * _setMultiplier).toStringAsFixed(1)} mm",
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.redAccent,
-                ),
-              ),
-            ],
+          return _buildCutResultCard(
+            topLeft: "PT${index + 1} → PT${index + 2}",
+            topRight: "× $_setMultiplier 개",
+            subtitle: "구간 길이 ${cutLen.toStringAsFixed(1)} mm",
+            totalLabel: "합계 소요 길이",
+            totalValue: "${(cutLen * _setMultiplier).toStringAsFixed(1)} mm",
           );
         },
       );
     }
   }
 
-  Widget _buildVisualFitting(FittingItem item, int index) {
-    bool isNone = item.id == "none";
-    return Column(
-      children: [
-        Container(
-          width: 70,
-          height: 70,
-          decoration: BoxDecoration(
-            color: whiteCard,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isNone ? Colors.grey.shade300 : makitaTeal,
-              width: 3,
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+  // 🚀 [추가] 컷팅 결과 카드 - 가장 중요한 "합계 소요 길이"를 크고
+  // 명확하게 강조하고, 나머지 부가 정보는 작게 위아래로 배치한다.
+  Widget _buildCutResultCard({
+    required String topLeft,
+    required String topRight,
+    required String subtitle,
+    required String totalLabel,
+    required String totalValue,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: whiteCard,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Text(
-                "PT${index + 1}",
-                style: TextStyle(
-                  color: isNone ? Colors.grey : makitaTeal,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  topLeft,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: textPrimary,
+                  ),
                 ),
               ),
-              const SizedBox(height: 4),
-              _buildFittingBadge(item, isNone),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: makitaTeal.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  topRight,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: makitaTeal,
+                  ),
+                ),
+              ),
             ],
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          item.name.length > 8 ? "${item.name.substring(0, 8)}.." : item.name,
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildVisualPipe(double cutLength, bool hasInput) {
-    bool isInterference = hasInput && cutLength < 0;
-    return Container(
-      width: 120,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Column(
-        children: [
-          if (isInterference)
-            const Text(
-              "⚠️ 간섭",
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w900,
-                color: Colors.red,
-              ),
-            )
-          else
-            Text(
-              hasInput ? "${cutLength.toStringAsFixed(1)} mm" : "치수",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-                color: hasInput ? Colors.redAccent : Colors.grey,
-              ),
-            ),
-          const SizedBox(height: 8),
-          Container(
-            height: 6,
-            color: isInterference
-                ? Colors.red
-                : (hasInput ? textPrimary : Colors.grey.shade300),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
-          const SizedBox(height: 20),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Divider(height: 1),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                totalLabel,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              Text(
+                totalValue,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.redAccent,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
+
 }

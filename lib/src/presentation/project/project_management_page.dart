@@ -1601,8 +1601,9 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                             onSaveCallback:
                                 (
                                   double tubeLengthMm,
-                                  List<Map<String, dynamic>> fittingsList,
-                                ) {
+                                  List<Map<String, dynamic>> fittingsList, [
+                                  List<CutRecord> cutRecords = const [],
+                                ]) {
                                   setState(() {
                                     List<dynamic> currentMaterials =
                                         List<dynamic>.from(
@@ -1668,8 +1669,9 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                             onSaveCallback:
                                 (
                                   double tubeLengthMm,
-                                  List<Map<String, dynamic>> fittingsList,
-                                ) {
+                                  List<Map<String, dynamic>> fittingsList, [
+                                  List<CutRecord> cutRecords = const [],
+                                ]) {
                                   setState(() {
                                     List<dynamic> currentMaterials =
                                         List<dynamic>.from(

@@ -1,0 +1,390 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_main_screen.dart';
+
+const Color tossBlue = Color(0xFF007580); // 마키타 틸
+const Color tossGrey = Color(0xFFF0F3F5); // 마키타 라이트 배경
+const Color slate900 = Color(0xFF191F28);
+const Color slate600 = Color(0xFF8B95A1);
+const Color pureWhite = Color(0xFFFFFFFF);
+
+// 🚀 [신규] 컷팅 계산기용 프로젝트 목록 - 모바일 전용, Firestore 기반.
+// 예전엔 (1) 데스크톱 ProjectManagementPage 안에서만 열 수 있었고 데이터도
+// 폰 로컬(Hive)에만 저장돼서 폰을 바꾸면 사라졌고, (2) main.dart에 등록된
+// '/cutting' 경로는 아예 메모리에만 저장해서 화면 나가면 작업 목록 자체가
+// 사라지는 상태였다. 이 화면은 그 두 문제를 없애고 Firestore 컬렉션
+// 'cutting_projects'에 저장해서 기기가 바뀌어도 데이터가 유지되게 한다.
+class MobileCuttingProjectListPage extends StatelessWidget {
+  const MobileCuttingProjectListPage({super.key});
+
+  // 🚀 [재구성] 가운데 뜨는 AlertDialog 대신, 엄지로 바로 닿는 하단
+  // 시트로 바꾸고 아이콘/여백/둥근 모서리를 요즘 모바일 앱 트렌드에
+  // 맞게 다듬었다.
+  Future<void> _createProject(BuildContext context) async {
+    final nameCtrl = TextEditingController();
+    final name = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+            decoration: const BoxDecoration(
+              color: pureWhite,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                Container(
+                  width: 52,
+                  height: 52,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: tossBlue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(
+                    Icons.content_cut_rounded,
+                    color: tossBlue,
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  "새 컷팅 작업",
+                  style: TextStyle(
+                    color: slate900,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  "작업 위치나 라인 이름으로 구분해두면 나중에 찾기 편해요",
+                  style: TextStyle(color: slate600, fontSize: 13),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: nameCtrl,
+                  autofocus: true,
+                  style: const TextStyle(
+                    color: slate900,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (val) {
+                    if (val.trim().isNotEmpty) Navigator.pop(ctx, val.trim());
+                  },
+                  decoration: InputDecoration(
+                    hintText: "예: A구역 1층 라인",
+                    hintStyle: TextStyle(color: Colors.grey.shade400),
+                    filled: true,
+                    fillColor: tossGrey,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(color: tossBlue, width: 2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: tossBlue,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
+                    onPressed: () {
+                      if (nameCtrl.text.trim().isNotEmpty) {
+                        Navigator.pop(ctx, nameCtrl.text.trim());
+                      }
+                    },
+                    child: const Text(
+                      "만들기",
+                      style: TextStyle(
+                        color: pureWhite,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (name == null) return;
+
+    await FirebaseFirestore.instance.collection(kCuttingProjectsCollection).add({
+      'name': name,
+      'createdAt': DateTime.now().toIso8601String(),
+      'totalTubeUsed': 0.0,
+      'cutCount': 0,
+      'usedFittings': <String, int>{},
+    });
+  }
+
+  Future<void> _deleteProject(BuildContext context, String docId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: pureWhite,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text("작업 삭제", style: TextStyle(color: slate900, fontWeight: FontWeight.bold)),
+        content: const Text("이 컷팅 작업 기록을 삭제할까요? 되돌릴 수 없습니다.", style: TextStyle(color: slate600)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("취소", style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("삭제", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await FirebaseFirestore.instance.collection(kCuttingProjectsCollection).doc(docId).delete();
+    }
+  }
+
+  void _openProject(BuildContext context, String docId, CuttingProject project) {
+    HapticFeedback.lightImpact();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CuttingMainScreen(
+          project: project,
+          // 🚀 CuttingMainScreen이 '완료' 시점에 project 객체(totalTubeUsed/
+          // cutCount/usedFittings)를 메모리상에서 먼저 갱신해두므로, 여기서는
+          // 그 최신 상태를 그대로 Firestore 문서에 덮어쓰기만 하면 된다.
+          // 🚀 [추가] cutRecords는 이번 "완료" 한 번에 실제로 잘린 구간들 -
+          // 서브컬렉션에 하나씩 남겨서 "컷팅 기록" 화면에서 날짜별로
+          // 되짚어볼 수 있게 한다.
+          onSaveCallback: (
+            double totalTubeLength,
+            List<Map<String, dynamic>> fittingsList, [
+            List<CutRecord> cutRecords = const [],
+          ]) {
+            final docRef = FirebaseFirestore.instance
+                .collection(kCuttingProjectsCollection)
+                .doc(docId);
+            docRef.update({
+              'totalTubeUsed': project.totalTubeUsed,
+              'cutCount': project.cutCount,
+              'usedFittings': project.usedFittings,
+              // 🚀 [추가] 목록 카드에서 "마지막 작업일"을 바로 보여주기 위함.
+              'lastCutAt': DateTime.now().toIso8601String(),
+            });
+            if (cutRecords.isNotEmpty) {
+              final batch = FirebaseFirestore.instance.batch();
+              final recordsRef = docRef.collection(kCutRecordsSubcollection);
+              for (final record in cutRecords) {
+                batch.set(recordsRef.doc(), record.toMap());
+              }
+              batch.commit();
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: pureWhite,
+      appBar: AppBar(
+        backgroundColor: pureWhite,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        title: const Text(
+          "튜브 컷팅 계산기",
+          style: TextStyle(
+            color: slate900,
+            fontWeight: FontWeight.w800,
+            fontSize: 20,
+            letterSpacing: -0.5,
+          ),
+        ),
+        iconTheme: const IconThemeData(color: slate900),
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection(kCuttingProjectsCollection)
+            .orderBy('createdAt', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  "작업 목록을 불러오지 못했습니다.\n${snapshot.error}",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: slate600),
+                ),
+              ),
+            );
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(color: tossBlue),
+            );
+          }
+
+          final docs = snapshot.data?.docs ?? [];
+
+          if (docs.isEmpty) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.content_cut_rounded, size: 48, color: Colors.grey.shade300),
+                    const SizedBox(height: 16),
+                    const Text(
+                      "등록된 컷팅 작업이 없습니다.",
+                      style: TextStyle(color: slate600, fontSize: 15),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      "우측 하단 + 버튼으로 새 작업을 만들어보세요.",
+                      style: TextStyle(color: slate600, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          return ListView.builder(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              final doc = docs[index];
+              final data = doc.data() as Map<String, dynamic>;
+              final project = CuttingProject.fromMap(doc.id, data);
+              final lastCutAt = data['lastCutAt'] is String
+                  ? DateTime.tryParse(data['lastCutAt'] as String)
+                  : null;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: InkWell(
+                  onTap: () => _openProject(context, doc.id, project),
+                  onLongPress: () => _deleteProject(context, doc.id),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: tossGrey,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: tossBlue.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.content_cut_rounded, color: tossBlue, size: 22),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                project.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: slate900,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                "총 절단 ${project.cutCount}회 · 소모량 ${project.estimatedMeters}m",
+                                style: const TextStyle(color: slate600, fontSize: 13),
+                              ),
+                              if (lastCutAt != null) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  "마지막 작업 ${lastCutAt.month}/${lastCutAt.day}",
+                                  style: TextStyle(
+                                    color: Colors.grey.shade400,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right_rounded, color: slate600),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _createProject(context),
+        backgroundColor: tossBlue,
+        icon: const Icon(Icons.add, color: pureWhite),
+        label: const Text(
+          "새 작업 생성",
+          style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+}
