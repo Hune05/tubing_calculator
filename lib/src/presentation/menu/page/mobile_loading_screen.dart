@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // 🔥 추가됨
 import 'package:firebase_messaging/firebase_messaging.dart'; // 🔥 추가됨
-import 'package:tubing_calculator/src/presentation/menu/page/mobile_menu_page.dart';
+import 'package:tubing_calculator/src/presentation/menu/page/home_menu_router.dart';
 
 class MobileLoadingScreen extends StatefulWidget {
   const MobileLoadingScreen({super.key});
@@ -113,9 +113,13 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => MobileMenuPage(
-          currentWorker: userName,
-        ), // 🔥 전달받은 이름 또는 "로그인 필요" 전달
+        // 🚀 [수정] 폴더블 대응: 화면 크기를 실시간으로 반영하는
+        // HomeMenuRouter를 거치도록 해서, 접힌 채로 앱을 켰다가 펼쳐도
+        // (혹은 그 반대도) 그 순간의 화면에 맞는 홈 화면으로 즉시 전환된다.
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            HomeMenuRouter(
+              currentWorker: userName,
+            ), // 🔥 전달받은 이름 또는 "로그인 필요" 전달
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },

@@ -23,7 +23,7 @@ import 'package:tubing_calculator/src/presentation/history/screens/history_scree
 import 'package:tubing_calculator/src/presentation/inventory/pages/inventory_page.dart';
 import 'package:tubing_calculator/src/presentation/project/project_management_page.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_project_list_screen.dart';
-import 'package:tubing_calculator/src/presentation/menu/page/menu_screen.dart';
+import 'package:tubing_calculator/src/presentation/menu/page/home_menu_router.dart';
 import 'package:tubing_calculator/src/presentation/menu/page/mobile_loading_screen.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_only_screen.dart';
 
@@ -190,7 +190,10 @@ class _MyAppState extends State<MyApp> {
       ),
       home: const DeepLinkHandler(child: DeviceRouter()),
       routes: {
-        '/menu': (context) => const MenuScreen(),
+        // 🚀 [수정] 폴더블 대응: MenuScreen을 바로 고정하지 않고
+        // HomeMenuRouter를 거쳐서, 그 순간의 화면 크기(펼침/접힘)에 맞는
+        // 홈 화면이 실시간으로 나오게 한다.
+        '/menu': (context) => const HomeMenuRouter(),
         '/calculator': (context) => const MainCalculatorScreen(),
         '/marking': (context) => const MarkingPage(startDir: 'RIGHT'),
         '/settings': (context) => const SettingsScreen(),
