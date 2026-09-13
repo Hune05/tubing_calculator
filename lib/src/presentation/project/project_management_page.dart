@@ -595,6 +595,12 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                   if (textValue.isNotEmpty || attachedImages.isNotEmpty) {
                     setState(() {
                       projects[projectIndex]['punch_lists'].insert(0, {
+                        "id": DateTime.now().millisecondsSinceEpoch
+                            .toString(),
+                        "created_at": DateTime.now(),
+                        // 🚀 처리 완료 전까지 매일 알림을 보내기 위한
+                        // 중복 발송 방지 플래그 (모바일 이슈 등록과 동일)
+                        "lastPunchReminderDate": null,
                         "content": textValue.isEmpty
                             ? "내용 없음 (사진 참조)"
                             : textValue,

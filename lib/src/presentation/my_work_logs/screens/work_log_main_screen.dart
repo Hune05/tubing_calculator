@@ -7,10 +7,11 @@ import '../widgets/create_log_sheet.dart';
 import '../widgets/work_log_card.dart';
 import '../pages/daily_report_page.dart'; // 다이얼로그 대신 Page 임포트
 import '../pages/punch_list_page.dart'; // 다이얼로그 대신 Page 임포트
+import '../pages/project_schedule_page.dart';
 import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
 
 // 토스 스타일 색상 팔레트
-const Color tossBlue = Color(0xFF3182F6);
+const Color tossBlue = Color(0xFF007580); // 🚀 마키타 틸로 통일
 const Color tossText = Color(0xFF191F28);
 const Color tossSubText = Color(0xFF8B95A1);
 const Color tossBg = Color(0xFFF2F4F6);
@@ -122,9 +123,29 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                       _expandedIndex = isExpanded ? null : index;
                     });
                   },
-                  onOpenCalculator: () {
-                    // 🚀 [에러 해결] print 대신 debugPrint 사용
-                    debugPrint("계산기 화면으로 이동");
+                  // 🚀 [수정] 예전엔 debugPrint만 찍던 죽은 "계산기" 버튼을
+                  // "일정 관리"로 교체 - 자재 요청/입고일/납기일/검사일정을
+                  // 등록해두면 서버가 알림을 보내준다.
+                  onOpenSchedule: () async {
+                    final updated =
+                        await Navigator.push<List<Map<String, dynamic>>>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ProjectSchedulePage(
+                              projectName: log['name'] ?? '이름 없음',
+                              initialSchedules:
+                                  List<Map<String, dynamic>>.from(
+                                    log['schedules'] ?? [],
+                                  ),
+                            ),
+                          ),
+                        );
+                    if (updated != null) {
+                      setState(() {
+                        log['schedules'] = updated;
+                      });
+                      _saveProject(log);
+                    }
                   },
                   // 🚀 [에러 해결] Dialog.show 대신 Navigator.push로 새로운 Page 열기
                   onAddDailyReport: () async {
@@ -154,11 +175,27 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                     );
 
                     if (newPunch != null) {
+                      // 🚀 [추가] 이슈가 처리될 때까지 매일 알림을 보내기
+                      // 위한 식별자/플래그. 등록일 기준으로 "며칠째
+                      // 미해결"인지 계산하고, 하루 1회만 보내도록
+                      // lastPunchReminderDate로 중복 발송을 막는다
+                      // (자재 발주/일정 알림과 동일한 패턴).
+                      newPunch['id'] = DateTime.now()
+                          .millisecondsSinceEpoch
+                          .toString();
+                      newPunch['created_at'] = DateTime.now();
+                      newPunch['lastPunchReminderDate'] = null;
                       setState(() {
                         log['punch_lists'].insert(0, newPunch);
                       });
                       _saveProject(log);
                     }
+                  },
+                  onTogglePunchComplete: (punch) {
+                    setState(() {
+                      punch['is_completed'] = !(punch['is_completed'] == true);
+                    });
+                    _saveProject(log);
                   },
                   onDelete: () {
                     final deletedId = log['id']?.toString();

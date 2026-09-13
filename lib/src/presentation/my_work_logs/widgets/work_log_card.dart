@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'photo_detail_modal.dart';
 
-const Color tossBlue = Color(0xFF3182F6);
+const Color tossBlue = Color(0xFF007580); // 🚀 마키타 틸로 통일
 const Color tossText = Color(0xFF191F28);
 const Color tossSubText = Color(0xFF8B95A1);
 const Color tossBg = Color(0xFFF2F4F6);
@@ -13,9 +14,10 @@ class WorkLogCard extends StatelessWidget {
   final bool isExpanded;
   final VoidCallback onToggleExpand;
 
-  final VoidCallback onOpenCalculator;
+  final VoidCallback onOpenSchedule;
   final VoidCallback onAddDailyReport;
   final VoidCallback onAddPunchList;
+  final void Function(Map<String, dynamic> punch) onTogglePunchComplete;
   final VoidCallback onDelete;
 
   const WorkLogCard({
@@ -23,9 +25,10 @@ class WorkLogCard extends StatelessWidget {
     required this.log,
     required this.isExpanded,
     required this.onToggleExpand,
-    required this.onOpenCalculator,
+    required this.onOpenSchedule,
     required this.onAddDailyReport,
     required this.onAddPunchList,
+    required this.onTogglePunchComplete,
     required this.onDelete,
   });
 
@@ -36,6 +39,12 @@ class WorkLogCard extends StatelessWidget {
 
     List<dynamic> dailyReports = log['daily_reports'] ?? [];
     List<dynamic> punchLists = log['punch_lists'] ?? [];
+    // 🚀 [추가] "일정 관리"에 등록된 것 중 아직 완료 안 된 것만 카드에서
+    // 미리 보여준다 (완료된 건 일정 관리 화면에서만 확인).
+    List<dynamic> upcomingSchedules =
+        (log['schedules'] as List<dynamic>? ?? [])
+            .where((s) => s['isCompleted'] != true)
+            .toList();
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -130,9 +139,9 @@ class WorkLogCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: _buildUnifiedButton(
-                          label: "계산기",
-                          icon: Icons.calculate_rounded,
-                          onTap: onOpenCalculator,
+                          label: "일정 관리",
+                          icon: Icons.event_note_rounded,
+                          onTap: onOpenSchedule,
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -154,6 +163,73 @@ class WorkLogCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 28),
+
+                  // 🗓️ 다가오는 일정 (자재 요청/입고일/납기일/검사일정)
+                  if (upcomingSchedules.isNotEmpty) ...[
+                    const Text(
+                      "다가오는 일정",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: tossSubText,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ...upcomingSchedules.map((s) {
+                      final dynamic rawDt = s['dateTime'];
+                      final DateTime dt = rawDt is DateTime
+                          ? rawDt
+                          : rawDt is Timestamp
+                          ? rawDt.toDate()
+                          : DateTime.tryParse(rawDt.toString()) ??
+                                DateTime.now();
+                      final bool isOverdue = dt.isBefore(DateTime.now());
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: tossBg,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.event_note_rounded,
+                                color: isOverdue ? warningRed : tossBlue,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "${s['title'] ?? s['type'] ?? ''}",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: isOverdue ? warningRed : tossText,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  Text(
+                                    "${dt.month}/${dt.day} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}",
+                                    style: const TextStyle(
+                                      color: tossSubText,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 20),
+                  ],
 
                   // 📝 작업 일지 목록
                   if (dailyReports.isNotEmpty) ...[
@@ -190,16 +266,22 @@ class WorkLogCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    ...punchLists.map(
-                      (punch) => _buildUnifiedRecordItem(
+                    ...punchLists.map((punch) {
+                      final bool isPunchDone = punch['is_completed'] == true;
+                      return _buildUnifiedRecordItem(
                         context: context,
-                        title: "이슈 확인 요망", // 타이틀 직관적으로 변경
+                        title: isPunchDone ? "이슈 처리 완료" : "이슈 확인 요망",
                         content: punch['content'],
                         itemData: punch,
                         icon: Icons.priority_high_rounded,
                         isWarning: true,
-                      ),
-                    ),
+                        isCompleted: isPunchDone,
+                        // 🚀 [추가] 처리될 때까지 매일 알림이 오는 이슈를,
+                        // 처리 완료 시 여기서 체크 표시로 꺼줄 수 있게 함.
+                        onToggleComplete: () =>
+                            onTogglePunchComplete(punch),
+                      );
+                    }),
                     const SizedBox(height: 16),
                   ],
 
@@ -280,75 +362,114 @@ class WorkLogCard extends StatelessWidget {
     required Map<String, dynamic> itemData,
     required IconData icon,
     required bool isWarning,
+    bool isCompleted = false,
+    VoidCallback? onToggleComplete,
   }) {
     bool hasImg = itemData['has_image'] == true;
 
-    return InkWell(
-      onTap: () {
-        PhotoDetailModal.show(
-          context: context,
-          title: title,
-          content: content,
-          imagePaths:
-              itemData['image_paths'] ??
-              (itemData['image_path'] != null ? [itemData['image_path']] : []),
-          isAsBuilt: itemData['is_as_built'] ?? false,
-          asBuiltReason: itemData['as_built_reason'],
-        );
-      },
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: const BoxDecoration(
-                color: tossBg,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: tossText, size: 20),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: isWarning ? warningRed : tossText,
-                      fontSize: 15,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    content,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: tossSubText, fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
-            if (hasImg)
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: tossBg,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.image_rounded,
-                  size: 16,
-                  color: tossSubText,
-                ),
-              ),
-          ],
+    void openDetail() {
+      PhotoDetailModal.show(
+        context: context,
+        title: title,
+        content: content,
+        imagePaths:
+            itemData['image_paths'] ??
+            (itemData['image_path'] != null ? [itemData['image_path']] : []),
+        isAsBuilt: itemData['is_as_built'] ?? false,
+        asBuiltReason: itemData['as_built_reason'],
+      );
+    }
+
+    // 🚀 [추가] 완료 토글이 있는 항목(이슈)은 좌측 아이콘을 탭해서 완료
+    // 처리하고, 나머지 영역을 탭하면 상세 보기가 뜨도록 영역을 분리한다.
+    // (완료 토글이 없는 작업 일지는 기존처럼 전체 영역이 상세 보기로 동작)
+    final Widget leadingIcon = Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: isCompleted ? Colors.green.withValues(alpha: 0.12) : tossBg,
+        shape: BoxShape.circle,
+      ),
+      child: Icon(
+        isCompleted ? Icons.check_rounded : icon,
+        color: isCompleted ? Colors.green : tossText,
+        size: 20,
+      ),
+    );
+
+    final Widget contentColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: isCompleted
+                ? tossSubText
+                : (isWarning ? warningRed : tossText),
+            fontSize: 15,
+            letterSpacing: -0.3,
+            decoration: isCompleted ? TextDecoration.lineThrough : null,
+          ),
         ),
+        const SizedBox(height: 4),
+        Text(
+          content,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: tossSubText, fontSize: 13),
+        ),
+      ],
+    );
+
+    final Widget trailing = hasImg
+        ? Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: tossBg,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.image_rounded,
+              size: 16,
+              color: tossSubText,
+            ),
+          )
+        : const SizedBox.shrink();
+
+    if (onToggleComplete == null) {
+      return InkWell(
+        onTap: openDetail,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              leadingIcon,
+              const SizedBox(width: 14),
+              Expanded(child: contentColumn),
+              trailing,
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          GestureDetector(onTap: onToggleComplete, child: leadingIcon),
+          const SizedBox(width: 14),
+          Expanded(
+            child: InkWell(
+              onTap: openDetail,
+              borderRadius: BorderRadius.circular(16),
+              child: contentColumn,
+            ),
+          ),
+          trailing,
+        ],
       ),
     );
   }

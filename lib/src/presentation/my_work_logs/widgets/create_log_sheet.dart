@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-const Color tossBlue = Color(0xFF3182F6);
+const Color tossBlue = Color(0xFF007580); // 🚀 마키타 틸로 통일
 const Color tossText = Color(0xFF191F28);
 const Color tossSubText = Color(0xFF8B95A1);
 const Color tossInputBg = Color(0xFFF2F4F6); // 토스 특유의 옅은 회색 입력창

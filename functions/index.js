@@ -312,3 +312,207 @@ exports.checkUpcomingDeliveries = onSchedule("every 15 minutes", async (event) =
         console.error("❌ (C) 입고 확인 조회 에러:", error);
     }
 });
+
+
+// ============================================================================
+// 4. [신규] "내 프로젝트" 일정 알림 (자재 요청/입고일/납기일/검사일정 등)
+// ============================================================================
+// my_projects 컬렉션의 각 문서 안에 있는 schedules 배열(모바일
+// ProjectSchedulePage에서 등록)을 훑어서 (A) 곧 다가오는 일정과 (B) 이미
+// 지난 일정에 대해 알림을 보낸다. 배열 안의 날짜는 Firestore가 직접
+// range 쿼리를 걸어줄 수 없어서, 문서를 전부 가져와 코드에서 훑는다 -
+// 개인용 앱이라 프로젝트/일정 개수가 적어 문제없다. 발주와 달리
+// 프로젝트엔 담당자 개념이 없어서, users 컬렉션에 등록된 모든 기기
+// (fcmToken)에 보낸다 - 개인용이라 사실상 본인 폰 하나에만 간다.
+async function sendMulticast(tokens, title, body) {
+    if (tokens.length === 0) return false;
+    try {
+        const response = await admin.messaging().sendEachForMulticast({
+            notification: { title, body },
+            tokens,
+        });
+        return response.successCount > 0;
+    } catch (e) {
+        console.error("❌ 멀티캐스트 알림 전송 실패:", e);
+        return false;
+    }
+}
+
+exports.checkProjectSchedules = onSchedule("every 15 minutes", async (event) => {
+    const now = Date.now();
+    const today = kstDateString(new Date(now));
+
+    let tokens = [];
+    try {
+        const usersSnap = await admin.firestore().collection('users').get();
+        tokens = usersSnap.docs
+            .map((d) => d.data().fcmToken)
+            .filter((t) => !!t);
+    } catch (e) {
+        console.error("❌ (일정) 사용자 토큰 조회 에러:", e);
+        return;
+    }
+    if (tokens.length === 0) {
+        console.log("일정 알림을 보낼 기기 토큰이 없습니다.");
+        return;
+    }
+
+    let projectsSnap;
+    try {
+        projectsSnap = await admin.firestore().collection('my_projects').get();
+    } catch (e) {
+        console.error("❌ (일정) 내 프로젝트 조회 에러:", e);
+        return;
+    }
+
+    for (const doc of projectsSnap.docs) {
+        const data = doc.data();
+        const schedules = Array.isArray(data.schedules) ? data.schedules : [];
+        if (schedules.length === 0) continue;
+
+        const projectName = data.name || '프로젝트';
+        let mutated = false;
+
+        for (const schedule of schedules) {
+            if (schedule.isCompleted) continue;
+            if (!schedule.dateTime) continue;
+
+            const scheduleDate = schedule.dateTime.toDate
+                ? schedule.dateTime.toDate()
+                : new Date(schedule.dateTime);
+            const diffMs = scheduleDate.getTime() - now;
+            const label = schedule.title || schedule.type || '일정';
+
+            try {
+                // (A) 60~75분 후로 다가옴 - 1회성 사전 알림
+                if (
+                    !schedule.reminderSent &&
+                    diffMs >= LEAD_MINUTES * 60 * 1000 &&
+                    diffMs < (LEAD_MINUTES + WINDOW_MINUTES) * 60 * 1000
+                ) {
+                    const sent = await sendMulticast(
+                        tokens,
+                        "🗓️ 일정 알림",
+                        `[${projectName}] ${label} 예정 시간이 다가옵니다.`,
+                    );
+                    if (sent) {
+                        schedule.reminderSent = true;
+                        mutated = true;
+                    }
+                }
+                // (B) 이미 지남 - 완료 처리 전까지 하루 1회 반복
+                else if (diffMs < 0 && schedule.lastOverdueReminderDate !== today) {
+                    const daysLate = Math.max(
+                        1,
+                        Math.floor(-diffMs / (24 * 60 * 60 * 1000)),
+                    );
+                    const sent = await sendMulticast(
+                        tokens,
+                        "⏰ 일정 초과",
+                        `[${projectName}] ${label} 예정일이 ${daysLate}일 지났습니다.`,
+                    );
+                    if (sent) {
+                        schedule.lastOverdueReminderDate = today;
+                        mutated = true;
+                    }
+                }
+            } catch (innerError) {
+                console.error(
+                    `❌ (일정) 알림 실패 (프로젝트: ${doc.id}, 일정: ${schedule.id}):`,
+                    innerError,
+                );
+            }
+        }
+
+        if (mutated) {
+            try {
+                await doc.ref.update({ schedules });
+            } catch (updateError) {
+                console.error(`❌ (일정) 알림 플래그 저장 실패 (프로젝트: ${doc.id}):`, updateError);
+            }
+        }
+    }
+});
+
+
+// ============================================================================
+// 5. [신규] "이슈 등록"(펀치 리스트) 알림 - 처리 완료 전까지 매일 반복
+// ============================================================================
+// 일정과 달리 펀치는 목표 날짜가 없다 - 등록되는 순간부터 "처리해야 할 일"
+// 이므로, 미리 알림(A) 없이 바로 하루 1회씩 완료될 때까지 반복해서
+// 알려준다("까먹고 안 할 수가 없게"). my_projects 문서의 punch_lists
+// 배열을 훑는 방식은 checkProjectSchedules와 동일하다.
+exports.checkPunchIssues = onSchedule("every 15 minutes", async (event) => {
+    const now = Date.now();
+    const today = kstDateString(new Date(now));
+
+    let tokens = [];
+    try {
+        const usersSnap = await admin.firestore().collection('users').get();
+        tokens = usersSnap.docs
+            .map((d) => d.data().fcmToken)
+            .filter((t) => !!t);
+    } catch (e) {
+        console.error("❌ (이슈) 사용자 토큰 조회 에러:", e);
+        return;
+    }
+    if (tokens.length === 0) {
+        console.log("이슈 알림을 보낼 기기 토큰이 없습니다.");
+        return;
+    }
+
+    let projectsSnap;
+    try {
+        projectsSnap = await admin.firestore().collection('my_projects').get();
+    } catch (e) {
+        console.error("❌ (이슈) 내 프로젝트 조회 에러:", e);
+        return;
+    }
+
+    for (const doc of projectsSnap.docs) {
+        const data = doc.data();
+        const punchLists = Array.isArray(data.punch_lists) ? data.punch_lists : [];
+        if (punchLists.length === 0) continue;
+
+        const projectName = data.name || '프로젝트';
+        let mutated = false;
+
+        for (const punch of punchLists) {
+            if (punch.is_completed) continue;
+            if (!punch.id) continue; // 식별자 없는(과거) 이슈는 대상에서 제외
+            if (punch.lastPunchReminderDate === today) continue;
+
+            try {
+                const createdAt = punch.created_at && punch.created_at.toDate
+                    ? punch.created_at.toDate()
+                    : (punch.created_at ? new Date(punch.created_at) : null);
+                const daysOpen = createdAt
+                    ? Math.max(0, Math.floor((now - createdAt.getTime()) / (24 * 60 * 60 * 1000)))
+                    : null;
+                const label = punch.content || punch.defect_type || '이슈';
+                const body = daysOpen && daysOpen > 0
+                    ? `[${projectName}] "${label}" 이슈가 ${daysOpen}일째 처리되지 않았습니다.`
+                    : `[${projectName}] "${label}" 이슈를 확인해주세요.`;
+
+                const sent = await sendMulticast(tokens, "🚨 미처리 이슈 알림", body);
+                if (sent) {
+                    punch.lastPunchReminderDate = today;
+                    mutated = true;
+                }
+            } catch (innerError) {
+                console.error(
+                    `❌ (이슈) 알림 실패 (프로젝트: ${doc.id}, 이슈: ${punch.id}):`,
+                    innerError,
+                );
+            }
+        }
+
+        if (mutated) {
+            try {
+                await doc.ref.update({ punch_lists: punchLists });
+            } catch (updateError) {
+                console.error(`❌ (이슈) 알림 플래그 저장 실패 (프로젝트: ${doc.id}):`, updateError);
+            }
+        }
+    }
+});
