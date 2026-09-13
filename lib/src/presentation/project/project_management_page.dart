@@ -598,9 +598,10 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                         "id": DateTime.now().millisecondsSinceEpoch
                             .toString(),
                         "created_at": DateTime.now(),
-                        // 🚀 처리 완료 전까지 매일 알림을 보내기 위한
-                        // 중복 발송 방지 플래그 (모바일 이슈 등록과 동일)
-                        "lastPunchReminderDate": null,
+                        // 🚀 처리 완료 전까지 우선순위별 주기로 알림을
+                        // 보내기 위한 발송 시각 기록 (모바일 이슈 등록과 동일)
+                        "lastPunchReminderAt": null,
+                        "linkedScheduleId": null,
                         "content": textValue.isEmpty
                             ? "내용 없음 (사진 참조)"
                             : textValue,

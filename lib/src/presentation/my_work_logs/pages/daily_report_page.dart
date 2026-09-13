@@ -500,7 +500,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          "도면과 다름 (As-Built 반영 요망)",
+                          "도면 반영 요청",
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,

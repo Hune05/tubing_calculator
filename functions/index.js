@@ -436,15 +436,33 @@ exports.checkProjectSchedules = onSchedule("every 15 minutes", async (event) => 
 
 
 // ============================================================================
-// 5. [신규] "이슈 등록"(펀치 리스트) 알림 - 처리 완료 전까지 매일 반복
+// 5. [신규] "이슈 등록"(펀치 리스트) 알림 - 처리 완료 전까지 반복
 // ============================================================================
 // 일정과 달리 펀치는 목표 날짜가 없다 - 등록되는 순간부터 "처리해야 할 일"
-// 이므로, 미리 알림(A) 없이 바로 하루 1회씩 완료될 때까지 반복해서
-// 알려준다("까먹고 안 할 수가 없게"). my_projects 문서의 punch_lists
-// 배열을 훑는 방식은 checkProjectSchedules와 동일하다.
+// 이므로, 미리 알림(A) 없이 바로 완료될 때까지 반복해서 알려준다("까먹고
+// 안 할 수가 없게"). 두 가지를 반영한다:
+//   - 우선순위(긴급/보통/여유)에 따라 알림 주기를 다르게 한다.
+//   - 이슈가 "일정 관리"의 검사일정(예: 파이널 검사)에 연결돼 있으면,
+//     그 검사일이 24시간 이내로 다가오거나 이미 지났을 때는 우선순위와
+//     무관하게 훨씬 자주(3시간 간격) 강하게 알린다.
+// 15분마다 실행되는 함수라 하루 1회짜리 "날짜 문자열" 대신, 마지막으로
+// 알림을 보낸 "정확한 시각(lastPunchReminderAt)"을 기록해두고 우선순위별
+// 시간 간격이 지났는지로 판단한다.
+const PUNCH_REMINDER_INTERVAL_HOURS = {
+    "긴급": 8, // 하루 여러 번 (아침/점심/저녁 정도)
+    "보통": 24, // 하루 1회
+    "여유": 72, // 2~3일에 1회
+};
+const PUNCH_DEADLINE_URGENT_HOURS = 24; // 연결된 검사일정이 이 시간 안으로 다가오면 알림을 강하게(자주) 바꾼다
+const PUNCH_DEADLINE_URGENT_INTERVAL_HOURS = 3;
+
+function findLinkedSchedule(schedules, linkedScheduleId) {
+    if (!linkedScheduleId) return null;
+    return schedules.find((s) => s.id === linkedScheduleId) || null;
+}
+
 exports.checkPunchIssues = onSchedule("every 15 minutes", async (event) => {
     const now = Date.now();
-    const today = kstDateString(new Date(now));
 
     let tokens = [];
     try {
@@ -474,29 +492,66 @@ exports.checkPunchIssues = onSchedule("every 15 minutes", async (event) => {
         const punchLists = Array.isArray(data.punch_lists) ? data.punch_lists : [];
         if (punchLists.length === 0) continue;
 
+        const schedules = Array.isArray(data.schedules) ? data.schedules : [];
         const projectName = data.name || '프로젝트';
         let mutated = false;
 
         for (const punch of punchLists) {
             if (punch.is_completed) continue;
             if (!punch.id) continue; // 식별자 없는(과거) 이슈는 대상에서 제외
-            if (punch.lastPunchReminderDate === today) continue;
 
             try {
-                const createdAt = punch.created_at && punch.created_at.toDate
-                    ? punch.created_at.toDate()
-                    : (punch.created_at ? new Date(punch.created_at) : null);
-                const daysOpen = createdAt
-                    ? Math.max(0, Math.floor((now - createdAt.getTime()) / (24 * 60 * 60 * 1000)))
-                    : null;
-                const label = punch.content || punch.defect_type || '이슈';
-                const body = daysOpen && daysOpen > 0
-                    ? `[${projectName}] "${label}" 이슈가 ${daysOpen}일째 처리되지 않았습니다.`
-                    : `[${projectName}] "${label}" 이슈를 확인해주세요.`;
+                const linkedSchedule = findLinkedSchedule(schedules, punch.linkedScheduleId);
+                let deadline = null;
+                if (linkedSchedule && linkedSchedule.dateTime) {
+                    deadline = linkedSchedule.dateTime.toDate
+                        ? linkedSchedule.dateTime.toDate()
+                        : new Date(linkedSchedule.dateTime);
+                }
+                const isDeadlineUrgent = deadline
+                    ? (deadline.getTime() - now) < PUNCH_DEADLINE_URGENT_HOURS * 60 * 60 * 1000
+                    : false;
+                const intervalHours = isDeadlineUrgent
+                    ? PUNCH_DEADLINE_URGENT_INTERVAL_HOURS
+                    : (PUNCH_REMINDER_INTERVAL_HOURS[punch.priority] || PUNCH_REMINDER_INTERVAL_HOURS["보통"]);
 
-                const sent = await sendMulticast(tokens, "🚨 미처리 이슈 알림", body);
+                const lastReminderAt = punch.lastPunchReminderAt && punch.lastPunchReminderAt.toDate
+                    ? punch.lastPunchReminderAt.toDate().getTime()
+                    : (punch.lastPunchReminderAt ? new Date(punch.lastPunchReminderAt).getTime() : null);
+                if (lastReminderAt !== null && (now - lastReminderAt) < intervalHours * 60 * 60 * 1000) {
+                    continue;
+                }
+
+                const label = punch.content || punch.defect_type || '이슈';
+                const scheduleLabel = linkedSchedule
+                    ? (linkedSchedule.title || linkedSchedule.type || '검사일정')
+                    : null;
+
+                let title = "🚨 미처리 이슈 알림";
+                let body;
+                if (deadline && now >= deadline.getTime()) {
+                    title = "🚨 검사 기한 초과 이슈";
+                    body = `[${projectName}] "${label}" 이슈가 ${scheduleLabel} 기한을 지났는데 아직 처리되지 않았습니다!`;
+                } else if (deadline) {
+                    const hoursLeft = Math.max(1, Math.round((deadline.getTime() - now) / (60 * 60 * 1000)));
+                    title = isDeadlineUrgent ? "⏰ 검사 임박 - 이슈 처리 필요" : "🚨 미처리 이슈 알림";
+                    body = `[${projectName}] "${label}" 이슈 - ${scheduleLabel}까지 ${hoursLeft}시간 남았습니다. 처리해주세요.`;
+                } else {
+                    const createdAt = punch.created_at && punch.created_at.toDate
+                        ? punch.created_at.toDate()
+                        : (punch.created_at ? new Date(punch.created_at) : null);
+                    const daysOpen = createdAt
+                        ? Math.max(0, Math.floor((now - createdAt.getTime()) / (24 * 60 * 60 * 1000)))
+                        : null;
+                    if (punch.priority === "긴급") title = "🚨 긴급 이슈 미처리";
+                    body = daysOpen && daysOpen > 0
+                        ? `[${projectName}] "${label}" 이슈가 ${daysOpen}일째 처리되지 않았습니다.`
+                        : `[${projectName}] "${label}" 이슈를 확인해주세요.`;
+                }
+
+                const sent = await sendMulticast(tokens, title, body);
                 if (sent) {
-                    punch.lastPunchReminderDate = today;
+                    punch.lastPunchReminderAt = admin.firestore.Timestamp.fromMillis(now);
                     mutated = true;
                 }
             } catch (innerError) {
@@ -516,3 +571,58 @@ exports.checkPunchIssues = onSchedule("every 15 minutes", async (event) => {
         }
     }
 });
+
+
+// ============================================================================
+// 6. [신규] "오늘 작업 일보 작성 확인" 알림 - 매일 저녁 한 번
+// ============================================================================
+// 진행중인 프로젝트에 "오늘 날짜(MM/DD)"로 작성된 작업 일보가 하나도
+// 없으면, 저녁 6시(KST)에 한 번 알려준다. 하루에 한 번만 실행되는
+// 스케줄이라 별도 "오늘 보냈는지" 플래그가 필요 없다.
+exports.checkDailyReportReminder = onSchedule(
+    { schedule: "0 18 * * *", timeZone: "Asia/Seoul" },
+    async (event) => {
+        const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+        const todayMmDd = `${(kstNow.getUTCMonth() + 1).toString().padStart(2, '0')}/${kstNow.getUTCDate().toString().padStart(2, '0')}`;
+
+        let tokens = [];
+        try {
+            const usersSnap = await admin.firestore().collection('users').get();
+            tokens = usersSnap.docs
+                .map((d) => d.data().fcmToken)
+                .filter((t) => !!t);
+        } catch (e) {
+            console.error("❌ (일보) 사용자 토큰 조회 에러:", e);
+            return;
+        }
+        if (tokens.length === 0) return;
+
+        let projectsSnap;
+        try {
+            projectsSnap = await admin.firestore().collection('my_projects').get();
+        } catch (e) {
+            console.error("❌ (일보) 내 프로젝트 조회 에러:", e);
+            return;
+        }
+
+        for (const doc of projectsSnap.docs) {
+            const data = doc.data();
+            if (data.status !== 'ONGOING') continue; // 진행중인 현장만 확인
+
+            const reports = Array.isArray(data.daily_reports) ? data.daily_reports : [];
+            const hasTodayReport = reports.some((r) => r.date === todayMmDd);
+            if (hasTodayReport) continue;
+
+            const projectName = data.name || '프로젝트';
+            try {
+                await sendMulticast(
+                    tokens,
+                    "📝 오늘 작업 일보를 작성해주세요",
+                    `[${projectName}] 오늘(${todayMmDd}) 작업 일보가 아직 작성되지 않았습니다.`,
+                );
+            } catch (e) {
+                console.error(`❌ (일보) 알림 실패 (프로젝트: ${doc.id}):`, e);
+            }
+        }
+    },
+);

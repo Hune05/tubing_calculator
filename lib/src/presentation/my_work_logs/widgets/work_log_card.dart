@@ -16,8 +16,9 @@ class WorkLogCard extends StatelessWidget {
 
   final VoidCallback onOpenSchedule;
   final VoidCallback onAddDailyReport;
+  final void Function(Map<String, dynamic> report) onOpenDailyReport;
   final VoidCallback onAddPunchList;
-  final void Function(Map<String, dynamic> punch) onTogglePunchComplete;
+  final void Function(Map<String, dynamic> punch) onOpenPunchDetail;
   final VoidCallback onDelete;
 
   const WorkLogCard({
@@ -27,8 +28,9 @@ class WorkLogCard extends StatelessWidget {
     required this.onToggleExpand,
     required this.onOpenSchedule,
     required this.onAddDailyReport,
+    required this.onOpenDailyReport,
     required this.onAddPunchList,
-    required this.onTogglePunchComplete,
+    required this.onOpenPunchDetail,
     required this.onDelete,
   });
 
@@ -250,6 +252,10 @@ class WorkLogCard extends StatelessWidget {
                         itemData: report,
                         icon: Icons.article_rounded,
                         isWarning: false,
+                        // 🚀 [변경] 예전엔 탭하면 사진만 뜨는 모달이 떴는데,
+                        // 이제 그날 작업 일보 전체(작업유형/인원/포인트/
+                        // 메모/사진)를 볼 수 있는 화면으로 들어간다.
+                        onTap: () => onOpenDailyReport(report),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -276,10 +282,9 @@ class WorkLogCard extends StatelessWidget {
                         icon: Icons.priority_high_rounded,
                         isWarning: true,
                         isCompleted: isPunchDone,
-                        // 🚀 [추가] 처리될 때까지 매일 알림이 오는 이슈를,
-                        // 처리 완료 시 여기서 체크 표시로 꺼줄 수 있게 함.
-                        onToggleComplete: () =>
-                            onTogglePunchComplete(punch),
+                        // 🚀 [변경] 탭하면 언제 발생했고 어떻게 처리했는지
+                        // 정리할 수 있는 이슈 상세 화면으로 들어간다.
+                        onTap: () => onOpenPunchDetail(punch),
                       );
                     }),
                     const SizedBox(height: 16),
@@ -363,113 +368,91 @@ class WorkLogCard extends StatelessWidget {
     required IconData icon,
     required bool isWarning,
     bool isCompleted = false,
-    VoidCallback? onToggleComplete,
+    VoidCallback? onTap,
   }) {
     bool hasImg = itemData['has_image'] == true;
 
-    void openDetail() {
-      PhotoDetailModal.show(
-        context: context,
-        title: title,
-        content: content,
-        imagePaths:
-            itemData['image_paths'] ??
-            (itemData['image_path'] != null ? [itemData['image_path']] : []),
-        isAsBuilt: itemData['is_as_built'] ?? false,
-        asBuiltReason: itemData['as_built_reason'],
-      );
-    }
-
-    // 🚀 [추가] 완료 토글이 있는 항목(이슈)은 좌측 아이콘을 탭해서 완료
-    // 처리하고, 나머지 영역을 탭하면 상세 보기가 뜨도록 영역을 분리한다.
-    // (완료 토글이 없는 작업 일지는 기존처럼 전체 영역이 상세 보기로 동작)
-    final Widget leadingIcon = Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: isCompleted ? Colors.green.withValues(alpha: 0.12) : tossBg,
-        shape: BoxShape.circle,
-      ),
-      child: Icon(
-        isCompleted ? Icons.check_rounded : icon,
-        color: isCompleted ? Colors.green : tossText,
-        size: 20,
-      ),
-    );
-
-    final Widget contentColumn = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: isCompleted
-                ? tossSubText
-                : (isWarning ? warningRed : tossText),
-            fontSize: 15,
-            letterSpacing: -0.3,
-            decoration: isCompleted ? TextDecoration.lineThrough : null,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          content,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: tossSubText, fontSize: 13),
-        ),
-      ],
-    );
-
-    final Widget trailing = hasImg
-        ? Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: tossBg,
-              borderRadius: BorderRadius.circular(8),
+    return InkWell(
+      onTap:
+          onTap ??
+          () {
+            PhotoDetailModal.show(
+              context: context,
+              title: title,
+              content: content,
+              imagePaths:
+                  itemData['image_paths'] ??
+                  (itemData['image_path'] != null
+                      ? [itemData['image_path']]
+                      : []),
+              isAsBuilt: itemData['is_as_built'] ?? false,
+              asBuiltReason: itemData['as_built_reason'],
+            );
+          },
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: isCompleted
+                    ? Colors.green.withValues(alpha: 0.12)
+                    : tossBg,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isCompleted ? Icons.check_rounded : icon,
+                color: isCompleted ? Colors.green : tossText,
+                size: 20,
+              ),
             ),
-            child: const Icon(
-              Icons.image_rounded,
-              size: 16,
-              color: tossSubText,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: isCompleted
+                          ? tossSubText
+                          : (isWarning ? warningRed : tossText),
+                      fontSize: 15,
+                      letterSpacing: -0.3,
+                      decoration: isCompleted
+                          ? TextDecoration.lineThrough
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    content,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: tossSubText, fontSize: 13),
+                  ),
+                ],
+              ),
             ),
-          )
-        : const SizedBox.shrink();
-
-    if (onToggleComplete == null) {
-      return InkWell(
-        onTap: openDetail,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            children: [
-              leadingIcon,
-              const SizedBox(width: 14),
-              Expanded(child: contentColumn),
-              trailing,
-            ],
-          ),
+            if (hasImg)
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: tossBg,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.image_rounded,
+                  size: 16,
+                  color: tossSubText,
+                ),
+              ),
+          ],
         ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          GestureDetector(onTap: onToggleComplete, child: leadingIcon),
-          const SizedBox(width: 14),
-          Expanded(
-            child: InkWell(
-              onTap: openDetail,
-              borderRadius: BorderRadius.circular(16),
-              child: contentColumn,
-            ),
-          ),
-          trailing,
-        ],
       ),
     );
   }

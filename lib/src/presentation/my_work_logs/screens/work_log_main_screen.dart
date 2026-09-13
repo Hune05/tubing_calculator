@@ -7,6 +7,7 @@ import '../widgets/create_log_sheet.dart';
 import '../widgets/work_log_card.dart';
 import '../pages/daily_report_page.dart'; // 다이얼로그 대신 Page 임포트
 import '../pages/punch_list_page.dart'; // 다이얼로그 대신 Page 임포트
+import '../pages/punch_detail_page.dart';
 import '../pages/project_schedule_page.dart';
 import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
 
@@ -164,6 +165,26 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                       _saveProject(log);
                     }
                   },
+                  // 🚀 [추가] 작업 일지 항목을 탭하면 사진 모달이 아니라
+                  // 그날 작업 일보 전체를 보고 수정할 수 있는 화면으로
+                  // 들어간다 (등록 때 쓰는 화면을 수정 모드로 재사용).
+                  onOpenDailyReport: (report) async {
+                    final updated =
+                        await Navigator.push<Map<String, dynamic>>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                DailyReportPage(existingData: report),
+                          ),
+                        );
+                    if (updated != null) {
+                      setState(() {
+                        final idx = log['daily_reports'].indexOf(report);
+                        if (idx != -1) log['daily_reports'][idx] = updated;
+                      });
+                      _saveProject(log);
+                    }
+                  },
 
                   onAddPunchList: () async {
                     // 🚀 Navigator.push를 사용하여 전체 화면 페이지로 이동
@@ -184,18 +205,44 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                           .millisecondsSinceEpoch
                           .toString();
                       newPunch['created_at'] = DateTime.now();
-                      newPunch['lastPunchReminderDate'] = null;
+                      newPunch['lastPunchReminderAt'] = null;
+                      // 🚀 [추가] 검사일정(파이널 검사 등)에 연결해두면
+                      // 그 기한 임박/초과 시 우선순위와 무관하게 더 자주
+                      // 알림이 오도록 서버(checkPunchIssues)에서 처리한다.
+                      newPunch['linkedScheduleId'] = null;
                       setState(() {
                         log['punch_lists'].insert(0, newPunch);
                       });
                       _saveProject(log);
                     }
                   },
-                  onTogglePunchComplete: (punch) {
-                    setState(() {
-                      punch['is_completed'] = !(punch['is_completed'] == true);
-                    });
-                    _saveProject(log);
+                  // 🚀 [변경] 이슈를 탭하면 언제 발생했고 어떻게 처리
+                  // 했는지 정리할 수 있는 상세 화면으로 들어간다.
+                  onOpenPunchDetail: (punch) async {
+                    // 🚀 검사일정 연결 선택지를 보여주기 위해, 이
+                    // 프로젝트의 "검사일정" 타입 일정만 추려서 넘긴다.
+                    final inspectionSchedules =
+                        (log['schedules'] as List<dynamic>? ?? [])
+                            .where((s) => s['type'] == '검사일정')
+                            .map((s) => Map<String, dynamic>.from(s))
+                            .toList();
+                    final updated =
+                        await Navigator.push<Map<String, dynamic>>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PunchDetailPage(
+                              punch: punch,
+                              inspectionSchedules: inspectionSchedules,
+                            ),
+                          ),
+                        );
+                    if (updated != null) {
+                      setState(() {
+                        final idx = log['punch_lists'].indexOf(punch);
+                        if (idx != -1) log['punch_lists'][idx] = updated;
+                      });
+                      _saveProject(log);
+                    }
                   },
                   onDelete: () {
                     final deletedId = log['id']?.toString();
