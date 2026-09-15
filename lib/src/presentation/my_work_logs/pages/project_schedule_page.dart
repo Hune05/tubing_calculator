@@ -35,11 +35,16 @@ IconData _iconForType(String type) {
 class ProjectSchedulePage extends StatefulWidget {
   final String projectName;
   final List<Map<String, dynamic>> initialSchedules;
+  // 🚀 [추가] 이슈(펀치)가 검사일정에 연결(linkedScheduleId)돼 있을 때,
+  // 그 검사일정 카드에 "미해결 이슈 N건"을 보여주기 위한 참조용 목록.
+  // 여기서 수정하지는 않고 개수만 세는 용도라 읽기 전용으로 받는다.
+  final List<Map<String, dynamic>> punchLists;
 
   const ProjectSchedulePage({
     super.key,
     required this.projectName,
     required this.initialSchedules,
+    this.punchLists = const [],
   });
 
   @override
@@ -185,6 +190,10 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
         : (type == "자재 요청"
               ? null
               : DateTime.now().add(const Duration(days: 1)));
+    // 🚀 [추가] 며칠 전부터 매일 미리 알림을 받을지 - 기본은 0(당일
+    // 60~75분 전 1회 알림, 기존과 동일). 검사일정처럼 미리 준비가
+    // 필요한 일정은 3일/7일 전부터로 늘려서 쓸 수 있다.
+    int reminderLeadDays = existing?['reminderLeadDays'] ?? 0;
     // 🚀 검사일정/납기일이 바뀔 때마다 "언제에서 언제로, 왜" 바뀌었는지
     // 쌓아두는 이력. 기존 이력은 그대로 유지하고 새 변경만 추가된다.
     final List<Map<String, dynamic>> changeHistory =
@@ -392,6 +401,38 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                           ),
                         ),
                       ],
+                      if (dateTime != null) ...[
+                        const SizedBox(height: 16),
+                        const Text(
+                          "며칠 전부터 미리 알림",
+                          style: TextStyle(
+                            color: tossSubText,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [0, 1, 3, 7].map((d) {
+                            final bool selected = reminderLeadDays == d;
+                            return ChoiceChip(
+                              label: Text(d == 0 ? "당일만" : "$d일 전부터"),
+                              selected: selected,
+                              selectedColor: tossBlue.withValues(alpha: 0.15),
+                              labelStyle: TextStyle(
+                                color: selected ? tossBlue : tossSubText,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              backgroundColor: tossBg,
+                              side: BorderSide.none,
+                              onSelected: (_) =>
+                                  setModalState(() => reminderLeadDays = d),
+                            );
+                          }).toList(),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       TextField(
                         controller: noteCtrl,
@@ -438,11 +479,25 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                               'requestedAt':
                                   existing?['requestedAt'] ?? DateTime.now(),
                               'changeHistory': changeHistory,
+                              // 🚀 [추가] 며칠 전부터 미리 알림 받을지.
+                              'reminderLeadDays': reminderLeadDays,
+                              // 🚀 [수정] 이 화면(수정 모드)에서 새 Map을
+                              // 통째로 만들어 기존 항목을 덮어쓰다 보니,
+                              // 검사 결과(합격/불합격+코멘트)를 여기서
+                              // 안 옮겨주면 단순 제목/메모 수정만 해도
+                              // 검사 결과가 사라지는 문제가 있었다. 그대로
+                              // 이어서 담아준다.
+                              'inspectionResult': existing?['inspectionResult'],
+                              'inspectionComment':
+                                  existing?['inspectionComment'],
+                              'inspectionResultAt':
+                                  existing?['inspectionResultAt'],
                               // 🚀 시간/종류가 바뀔 수 있으니 저장할 때마다
                               // 알림 발송 플래그를 초기화해서, 새 시각
                               // 기준으로 다시 알림이 잡히게 한다.
                               'reminderSent': false,
                               'lastOverdueReminderDate': null,
+                              'lastLeadReminderDate': null,
                             });
                           },
                           child: Text(
@@ -648,6 +703,18 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
     return days > 0 ? "요청한 지 $days일째 · 입고일 미정" : "오늘 요청 · 입고일 미정";
   }
 
+  // 🚀 [추가] 이 검사일정에 연결된(linkedScheduleId) 이슈 중 아직 처리
+  // 안 된 게 몇 건인지 - 검사 전에 뭘 마저 처리해야 하는지 바로 보이게.
+  int _unresolvedIssueCount(Map<String, dynamic> item) {
+    final String? id = item['id']?.toString();
+    if (id == null) return 0;
+    return widget.punchLists
+        .where(
+          (p) => p['linkedScheduleId'] == id && p['is_completed'] != true,
+        )
+        .length;
+  }
+
   // 🚀 카드에 보여줄 "가장 최근 변경" 한 줄 요약. M/d → M/d 형식으로
   // 짧게 보여주고, 전체 이력(사유 포함)은 탭하면 바텀시트로 본다.
   String _lastChangeLabel(Map<String, dynamic> item) {
@@ -729,6 +796,83 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // 🚀 [신규] "_calendarMonth" 기준 달의 일정을 텍스트로 정리해 클립보드에
+  // 복사한다(작업 일지 달력의 내보내기와 동일한 패턴) - 카카오톡 등에
+  // 붙여넣어 공유할 수 있다.
+  void _exportMonth() {
+    final int year = _calendarMonth.year;
+    final int month = _calendarMonth.month;
+
+    final List<Map<String, dynamic>> inMonth = [];
+    final List<Map<String, dynamic>> undated = [];
+    for (final s in _schedules) {
+      if (s['dateTime'] == null) {
+        undated.add(s);
+        continue;
+      }
+      final DateTime dt = _asDateTime(s['dateTime']);
+      if (dt.year == year && dt.month == month) inMonth.add(s);
+    }
+    inMonth.sort(
+      (a, b) => _asDateTime(a['dateTime']).compareTo(_asDateTime(b['dateTime'])),
+    );
+
+    final Map<String, int> countByType = {};
+    int passCount = 0;
+    int failCount = 0;
+    for (final s in inMonth) {
+      final String type = s['type'] ?? '기타';
+      countByType[type] = (countByType[type] ?? 0) + 1;
+      if (s['inspectionResult'] == 'PASS') passCount++;
+      if (s['inspectionResult'] == 'FAIL') failCount++;
+    }
+
+    final buffer = StringBuffer();
+    buffer.writeln("📋 [${widget.projectName}] $year년 $month월 일정 요약");
+    for (final entry in countByType.entries) {
+      buffer.writeln("${entry.key}: ${entry.value}건");
+    }
+    if (passCount > 0 || failCount > 0) {
+      buffer.writeln("검사 결과: 합격 $passCount건 / 불합격 $failCount건");
+    }
+    buffer.writeln();
+
+    buffer.writeln("[상세]");
+    for (final s in inMonth) {
+      final DateTime dt = _asDateTime(s['dateTime']);
+      final String label = s['title'] ?? s['type'] ?? '';
+      final String dateStr =
+          "${dt.month.toString().padLeft(2, '0')}/${dt.day.toString().padLeft(2, '0')}";
+      String line = "$dateStr ${s['type'] ?? ''} - $label";
+      if (s['isCompleted'] == true) {
+        if (s['inspectionResult'] != null) {
+          line += s['inspectionResult'] == 'FAIL' ? " (불합격)" : " (합격)";
+        } else {
+          line += " (완료)";
+        }
+      }
+      buffer.writeln(line);
+      final comment = s['inspectionComment']?.toString() ?? '';
+      if (comment.isNotEmpty) buffer.writeln("   ↳ $comment");
+    }
+
+    if (undated.isNotEmpty) {
+      buffer.writeln();
+      buffer.writeln("입고일 미정 자재 요청: ${undated.length}건");
+      for (final s in undated) {
+        buffer.writeln("- ${s['title'] ?? s['type'] ?? ''}");
+      }
+    }
+
+    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("이번 달 일정 요약이 클립보드에 복사되었습니다."),
+        backgroundColor: tossBlue,
       ),
     );
   }
@@ -1023,6 +1167,11 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
           ),
           actions: [
             IconButton(
+              onPressed: _exportMonth,
+              icon: const Icon(Icons.ios_share_rounded),
+              tooltip: "이번 달 일정 요약 내보내기",
+            ),
+            IconButton(
               onPressed: () => setState(() => _showCalendar = !_showCalendar),
               icon: Icon(
                 _showCalendar
@@ -1224,6 +1373,33 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                                                   ),
                                                 ],
                                               ),
+                                            ),
+                                          ],
+                                          // 🚀 [추가] 이 검사일정에 연결된
+                                          // 이슈 중 미해결 건수 - 검사 전에
+                                          // 뭘 마저 처리해야 하는지 보여준다.
+                                          if (!isCompleted &&
+                                              _unresolvedIssueCount(item) >
+                                                  0) ...[
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(
+                                                  Icons.error_outline_rounded,
+                                                  size: 13,
+                                                  color: warningRed,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  "연결된 미해결 이슈 ${_unresolvedIssueCount(item)}건",
+                                                  style: const TextStyle(
+                                                    color: warningRed,
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ],
                                           // 🚀 [추가] 검사일정 완료 시 남긴 코멘트를

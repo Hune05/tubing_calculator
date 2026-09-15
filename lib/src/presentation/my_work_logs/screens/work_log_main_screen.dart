@@ -82,6 +82,10 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           initialSchedules: List<Map<String, dynamic>>.from(
             log['schedules'] ?? [],
           ),
+          // 🚀 검사일정에 연결된 이슈 미해결 건수를 보여주기 위한 참조용.
+          punchLists: List<Map<String, dynamic>>.from(
+            log['punch_lists'] ?? [],
+          ),
         ),
       ),
     );

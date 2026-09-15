@@ -411,24 +411,9 @@ exports.checkProjectSchedules = onSchedule("every 15 minutes", async (event) => 
             const diffMs = scheduleDate.getTime() - now;
 
             try {
-                // (A) 60~75분 후로 다가옴 - 1회성 사전 알림
-                if (
-                    !schedule.reminderSent &&
-                    diffMs >= LEAD_MINUTES * 60 * 1000 &&
-                    diffMs < (LEAD_MINUTES + WINDOW_MINUTES) * 60 * 1000
-                ) {
-                    const sent = await sendMulticast(
-                        tokens,
-                        "🗓️ 일정 알림",
-                        `[${projectName}] ${label} 예정 시간이 다가옵니다.`,
-                    );
-                    if (sent) {
-                        schedule.reminderSent = true;
-                        mutated = true;
-                    }
-                }
-                // (B) 이미 지남 - 완료 처리 전까지 하루 1회 반복
-                else if (diffMs < 0 && schedule.lastOverdueReminderDate !== today) {
+                // (B) 이미 지남 - 완료 처리 전까지 하루 1회 반복 (리드타임
+                // 설정과 무관하게 항상 적용)
+                if (diffMs < 0 && schedule.lastOverdueReminderDate !== today) {
                     const daysLate = Math.max(
                         1,
                         Math.floor(-diffMs / (24 * 60 * 60 * 1000)),
@@ -441,6 +426,45 @@ exports.checkProjectSchedules = onSchedule("every 15 minutes", async (event) => 
                     if (sent) {
                         schedule.lastOverdueReminderDate = today;
                         mutated = true;
+                    }
+                } else if (diffMs >= 0) {
+                    // 🚀 [추가] 며칠 전부터 미리 알림받도록 설정했으면(예:
+                    // 검사일정 3일 전부터), 그 기간 동안 하루 1회씩 카운트
+                    // 다운 알림을 보낸다. 설정 안 했으면(기본값 0) 기존처럼
+                    // 60~75분 전에 딱 한 번만 알린다.
+                    const leadDays = schedule.reminderLeadDays || 0;
+
+                    if (leadDays > 0) {
+                        const leadWindowMs = leadDays * 24 * 60 * 60 * 1000;
+                        if (
+                            diffMs <= leadWindowMs &&
+                            schedule.lastLeadReminderDate !== today
+                        ) {
+                            const daysLeft = Math.ceil(diffMs / (24 * 60 * 60 * 1000));
+                            const sent = await sendMulticast(
+                                tokens,
+                                "🗓️ 일정 임박",
+                                `[${projectName}] ${label} - ${daysLeft > 0 ? `D-${daysLeft}` : "오늘"} 예정입니다.`,
+                            );
+                            if (sent) {
+                                schedule.lastLeadReminderDate = today;
+                                mutated = true;
+                            }
+                        }
+                    } else if (
+                        !schedule.reminderSent &&
+                        diffMs >= LEAD_MINUTES * 60 * 1000 &&
+                        diffMs < (LEAD_MINUTES + WINDOW_MINUTES) * 60 * 1000
+                    ) {
+                        const sent = await sendMulticast(
+                            tokens,
+                            "🗓️ 일정 알림",
+                            `[${projectName}] ${label} 예정 시간이 다가옵니다.`,
+                        );
+                        if (sent) {
+                            schedule.reminderSent = true;
+                            mutated = true;
+                        }
                     }
                 }
             } catch (innerError) {
