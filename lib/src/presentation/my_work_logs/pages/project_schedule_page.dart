@@ -54,14 +54,24 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
   // 한다 (새 화면/메뉴 없이 기존 일정 관리 안에서 필터로 해결).
   String _filter = "전체";
   static const List<String> _materialTypes = ["자재 요청", "입고일"];
+  // 🚀 [추가] 완료된 일정도 계속 목록에 남아있으면 시간이 지날수록
+  // 리스트가 길어지므로, 기본은 미완료만 보여주고 필요할 때만 켜서
+  // 완료된 것까지 보게 한다.
+  bool _hideCompleted = true;
+  // 🚀 [추가] 리스트 대신 달력으로도 볼 수 있게 - 작업 일지의 달력 뷰와
+  // 통일감 있게, 새 화면을 열지 않고 같은 화면 안에서 토글한다.
+  bool _showCalendar = false;
+  late DateTime _calendarMonth;
 
   List<Map<String, dynamic>> get _visibleSchedules {
+    Iterable<Map<String, dynamic>> list = _schedules;
     if (_filter == "자재") {
-      return _schedules
-          .where((s) => _materialTypes.contains(s['type']))
-          .toList();
+      list = list.where((s) => _materialTypes.contains(s['type']));
     }
-    return _schedules;
+    if (_hideCompleted) {
+      list = list.where((s) => s['isCompleted'] != true);
+    }
+    return list.toList();
   }
 
   @override
@@ -71,6 +81,8 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
     _sort();
+    final now = DateTime.now();
+    _calendarMonth = DateTime(now.year, now.month);
   }
 
   void _sort() {
@@ -468,9 +480,133 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
     });
   }
 
-  void _toggleComplete(Map<String, dynamic> item) {
+  // 🚀 [추가] 검사일정은 단순 체크가 아니라 "합격/불합격 + 코멘트"를
+  // 남기게 해서 나중에 어떤 검사가 어떻게 됐는지 추적할 수 있게 한다.
+  // 취소하면 null - 완료 처리를 하지 않는다.
+  Future<Map<String, String>?> _askInspectionResult(
+    BuildContext context,
+  ) async {
+    String result = 'PASS';
+    final ctrl = TextEditingController();
+    return showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: pureWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            "검사 결과 입력",
+            style: TextStyle(fontWeight: FontWeight.w800, color: tossText),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: ChoiceChip(
+                      label: const Text("합격"),
+                      selected: result == 'PASS',
+                      selectedColor: Colors.green.withValues(alpha: 0.15),
+                      labelStyle: TextStyle(
+                        color: result == 'PASS' ? Colors.green : tossSubText,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      backgroundColor: tossBg,
+                      side: BorderSide.none,
+                      onSelected: (_) => setDialogState(() => result = 'PASS'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ChoiceChip(
+                      label: const Text("불합격"),
+                      selected: result == 'FAIL',
+                      selectedColor: warningRed.withValues(alpha: 0.15),
+                      labelStyle: TextStyle(
+                        color: result == 'FAIL' ? warningRed : tossSubText,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      backgroundColor: tossBg,
+                      side: BorderSide.none,
+                      onSelected: (_) => setDialogState(() => result = 'FAIL'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ctrl,
+                maxLines: 2,
+                style: const TextStyle(color: tossText),
+                decoration: InputDecoration(
+                  hintText: "코멘트 (선택)",
+                  hintStyle: const TextStyle(color: Color(0xFFB0B8C1)),
+                  filled: true,
+                  fillColor: tossBg,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: const Text("취소", style: TextStyle(color: tossSubText)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: result == 'FAIL' ? warningRed : Colors.green,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () => Navigator.pop(context, {
+                'result': result,
+                'comment': ctrl.text.trim(),
+              }),
+              child: const Text(
+                "완료 처리",
+                style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleComplete(Map<String, dynamic> item) async {
+    final bool willComplete = !(item['isCompleted'] == true);
+
+    if (willComplete && item['type'] == "검사일정") {
+      final result = await _askInspectionResult(context);
+      if (result == null) return; // 취소 시 완료 처리 안 함
+      setState(() {
+        item['isCompleted'] = true;
+        item['inspectionResult'] = result['result'];
+        item['inspectionComment'] = result['comment'];
+        item['inspectionResultAt'] = DateTime.now();
+        _changed = true;
+      });
+      return;
+    }
+
     setState(() {
-      item['isCompleted'] = !(item['isCompleted'] == true);
+      item['isCompleted'] = willComplete;
+      if (!willComplete) {
+        // 다시 미완료로 되돌리면 결과도 초기화한다 - 재검사를 의미하므로.
+        item['inspectionResult'] = null;
+        item['inspectionComment'] = null;
+        item['inspectionResultAt'] = null;
+      }
       _changed = true;
     });
   }
@@ -597,6 +733,265 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
     );
   }
 
+  // 🚀 [신규] 일정 달력 뷰. 작업 일지와 달리 이 화면의 일정은 dateTime에
+  // 연도까지 정확히 들어있어서 실제 날짜 기준으로 정확히 그릴 수 있다.
+  // 날짜가 아직 없는 "자재 요청"은 달력에 넣을 수 없어 아래 별도
+  // 목록으로 보여준다.
+  Widget _buildCalendarBody() {
+    final int daysInMonth = DateTime(
+      _calendarMonth.year,
+      _calendarMonth.month + 1,
+      0,
+    ).day;
+    final int leadingBlanks =
+        DateTime(_calendarMonth.year, _calendarMonth.month, 1).weekday - 1;
+
+    // 이 달에 해당하는(연/월 일치) 일정만 날짜별로 묶는다.
+    final Map<int, List<Map<String, dynamic>>> byDay = {};
+    final List<Map<String, dynamic>> undated = [];
+    for (final s in _visibleSchedules) {
+      if (s['dateTime'] == null) {
+        undated.add(s);
+        continue;
+      }
+      final DateTime dt = _asDateTime(s['dateTime']);
+      if (dt.year == _calendarMonth.year && dt.month == _calendarMonth.month) {
+        byDay.putIfAbsent(dt.day, () => []).add(s);
+      }
+    }
+
+    Color dotColorFor(Map<String, dynamic> s) {
+      if (s['isCompleted'] == true) return Colors.green;
+      final DateTime dt = _asDateTime(s['dateTime']);
+      return dt.isBefore(DateTime.now()) ? warningRed : tossBlue;
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          decoration: BoxDecoration(
+            color: pureWhite,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                onPressed: () => setState(() {
+                  _calendarMonth = DateTime(
+                    _calendarMonth.year,
+                    _calendarMonth.month - 1,
+                  );
+                }),
+                icon: const Icon(Icons.chevron_left_rounded),
+              ),
+              Text(
+                "${_calendarMonth.year}년 ${_calendarMonth.month}월",
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  color: tossText,
+                ),
+              ),
+              IconButton(
+                onPressed: () => setState(() {
+                  _calendarMonth = DateTime(
+                    _calendarMonth.year,
+                    _calendarMonth.month + 1,
+                  );
+                }),
+                icon: const Icon(Icons.chevron_right_rounded),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: ["월", "화", "수", "목", "금", "토", "일"]
+              .map(
+                (d) => Expanded(
+                  child: Center(
+                    child: Text(
+                      d,
+                      style: const TextStyle(
+                        color: tossSubText,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+        const SizedBox(height: 8),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 7,
+            mainAxisSpacing: 6,
+            crossAxisSpacing: 6,
+          ),
+          itemCount: leadingBlanks + daysInMonth,
+          itemBuilder: (context, index) {
+            if (index < leadingBlanks) return const SizedBox.shrink();
+            final int day = index - leadingBlanks + 1;
+            final items = byDay[day] ?? const [];
+
+            return InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: items.isEmpty ? null : () => _showDaySchedules(day, items),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: items.isNotEmpty
+                      ? tossBlue.withValues(alpha: 0.08)
+                      : pureWhite,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      "$day",
+                      style: TextStyle(
+                        fontWeight: items.isNotEmpty
+                            ? FontWeight.w800
+                            : FontWeight.normal,
+                        color: items.isNotEmpty ? tossText : tossSubText,
+                        fontSize: 13,
+                      ),
+                    ),
+                    if (items.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Wrap(
+                          spacing: 2,
+                          children: items
+                              .take(3)
+                              .map(
+                                (s) => Container(
+                                  width: 5,
+                                  height: 5,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: dotColorFor(s),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        if (undated.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          const Text(
+            "날짜 미정",
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: tossSubText,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...undated.map(
+            (s) => Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: pureWhite,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: InkWell(
+                onTap: () => _showEditor(existing: s),
+                child: Text(
+                  s['title'] ?? s['type'] ?? '',
+                  style: const TextStyle(
+                    color: tossText,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _showDaySchedules(int day, List<Map<String, dynamic>> items) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+        decoration: const BoxDecoration(
+          color: pureWhite,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "${_calendarMonth.year}.${_calendarMonth.month.toString().padLeft(2, '0')}.${day.toString().padLeft(2, '0')}",
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: tossText,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...items.map((item) {
+              final bool isCompleted = item['isCompleted'] == true;
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                    _toggleComplete(item);
+                  },
+                  child: Icon(
+                    isCompleted
+                        ? Icons.check_circle_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    color: isCompleted ? Colors.green : tossBlue,
+                  ),
+                ),
+                title: Text(
+                  item['title'] ?? item['type'] ?? '',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: tossText,
+                    decoration: isCompleted ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+                subtitle: Text(
+                  item['type'] ?? '',
+                  style: const TextStyle(color: tossSubText, fontSize: 12),
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.edit_outlined, color: tossSubText),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _showEditor(existing: item);
+                  },
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -626,213 +1021,296 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
               ),
             ],
           ),
-        ),
-        body: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-              child: Row(
-                children: ["전체", "자재"].map((f) {
-                  final bool selected = f == _filter;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(f == "자재" ? "자재 요청/입고일만" : f),
-                      selected: selected,
-                      selectedColor: tossBlue.withValues(alpha: 0.15),
-                      labelStyle: TextStyle(
-                        color: selected ? tossBlue : tossSubText,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      backgroundColor: tossBg,
-                      side: BorderSide.none,
-                      onSelected: (_) => setState(() => _filter = f),
-                    ),
-                  );
-                }).toList(),
+          actions: [
+            IconButton(
+              onPressed: () => setState(() => _showCalendar = !_showCalendar),
+              icon: Icon(
+                _showCalendar
+                    ? Icons.view_list_rounded
+                    : Icons.calendar_month_rounded,
               ),
-            ),
-            Expanded(
-              child: _visibleSchedules.isEmpty
-                  ? Center(
-                      child: Text(
-                        _filter == "자재"
-                            ? "등록된 자재 요청/입고일이 없습니다."
-                            : "등록된 일정이 없습니다.\n자재 요청/입고일/납기일/검사일정을 등록해두면\n시간에 맞춰 알림을 받을 수 있어요.",
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: tossSubText, height: 1.5),
-                      ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _visibleSchedules.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final item = _visibleSchedules[index];
-                        // 🚀 "자재 요청"인데 아직 입고일을 모르면 dateTime이
-                        // null이다 - 이 경우 날짜 관련 UI 대신 "요청한 지
-                        // N일째 미정" 상태를 보여준다.
-                        final DateTime? dt = item['dateTime'] == null
-                            ? null
-                            : _asDateTime(item['dateTime']);
-                        final bool isCompleted = item['isCompleted'] == true;
-                        final bool isPending = dt == null && !isCompleted;
-                        final bool isOverdue =
-                            !isCompleted &&
-                            dt != null &&
-                            dt.isBefore(DateTime.now());
-
-                        return Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: pureWhite,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Row(
-                            children: [
-                              GestureDetector(
-                                onTap: () => _toggleComplete(item),
-                                child: Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: isCompleted
-                                        ? Colors.green.withValues(alpha: 0.12)
-                                        : tossBlue.withValues(alpha: 0.1),
-                                  ),
-                                  child: Icon(
-                                    isCompleted
-                                        ? Icons.check_rounded
-                                        : _iconForType(item['type'] ?? '기타'),
-                                    color: isCompleted
-                                        ? Colors.green
-                                        : tossBlue,
-                                    size: 20,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            item['title'] ?? item['type'] ?? '',
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 15,
-                                              color: isCompleted
-                                                  ? tossSubText
-                                                  : tossText,
-                                              decoration: isCompleted
-                                                  ? TextDecoration.lineThrough
-                                                  : null,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      dt != null
-                                          ? _formatDateTime(dt)
-                                          : _pendingRequestLabel(item),
-                                      style: TextStyle(
-                                        color: isPending
-                                            ? warningRed
-                                            : tossSubText,
-                                        fontSize: 12,
-                                        fontWeight: isPending
-                                            ? FontWeight.w700
-                                            : FontWeight.normal,
-                                      ),
-                                    ),
-                                    if ((item['changeHistory'] as List?)
-                                            ?.isNotEmpty ==
-                                        true) ...[
-                                      const SizedBox(height: 4),
-                                      InkWell(
-                                        onTap: () => _showChangeHistory(item),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(
-                                              Icons.history_rounded,
-                                              size: 13,
-                                              color: tossBlue,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              _lastChangeLabel(item),
-                                              style: const TextStyle(
-                                                color: tossBlue,
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    dt != null
-                                        ? _relativeLabel(dt, isCompleted)
-                                        : (isCompleted ? "완료됨" : "미정"),
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: isCompleted
-                                          ? tossSubText
-                                          : (isOverdue || isPending
-                                                ? warningRed
-                                                : tossBlue),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    onPressed: () =>
-                                        _showEditor(existing: item),
-                                    icon: const Icon(
-                                      Icons.edit_outlined,
-                                      size: 18,
-                                      color: tossSubText,
-                                    ),
-                                    constraints: const BoxConstraints(),
-                                    padding: const EdgeInsets.only(top: 6),
-                                    splashRadius: 18,
-                                  ),
-                                ],
-                              ),
-                              IconButton(
-                                onPressed: () {
-                                  HapticFeedback.lightImpact();
-                                  _delete(item);
-                                },
-                                icon: const Icon(
-                                  Icons.close_rounded,
-                                  size: 18,
-                                  color: tossSubText,
-                                ),
-                                splashRadius: 18,
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+              tooltip: _showCalendar ? "리스트로 보기" : "달력으로 보기",
             ),
           ],
         ),
+        body: _showCalendar
+            ? _buildCalendarBody()
+            : Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          ...["전체", "자재"].map((f) {
+                            final bool selected = f == _filter;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(f == "자재" ? "자재 요청/입고일만" : f),
+                                selected: selected,
+                                selectedColor: tossBlue.withValues(alpha: 0.15),
+                                labelStyle: TextStyle(
+                                  color: selected ? tossBlue : tossSubText,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                backgroundColor: tossBg,
+                                side: BorderSide.none,
+                                onSelected: (_) => setState(() => _filter = f),
+                              ),
+                            );
+                          }),
+                          // 🚀 [추가] 완료된 일정 숨기기/보기 토글
+                          FilterChip(
+                            label: const Text("완료 숨김"),
+                            selected: _hideCompleted,
+                            showCheckmark: true,
+                            checkmarkColor: tossBlue,
+                            selectedColor: tossBlue.withValues(alpha: 0.15),
+                            labelStyle: TextStyle(
+                              color: _hideCompleted ? tossBlue : tossSubText,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            backgroundColor: tossBg,
+                            side: BorderSide.none,
+                            onSelected: (v) =>
+                                setState(() => _hideCompleted = v),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: _visibleSchedules.isEmpty
+                        ? Center(
+                            child: Text(
+                              _schedules.isNotEmpty && _hideCompleted
+                                  ? "미완료 일정이 없습니다.\n(완료된 일정은 '완료 숨김'을 꺼서 볼 수 있어요)"
+                                  : _filter == "자재"
+                                  ? "등록된 자재 요청/입고일이 없습니다."
+                                  : "등록된 일정이 없습니다.\n자재 요청/입고일/납기일/검사일정을 등록해두면\n시간에 맞춰 알림을 받을 수 있어요.",
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: tossSubText,
+                                height: 1.5,
+                              ),
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: _visibleSchedules.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (context, index) {
+                              final item = _visibleSchedules[index];
+                              // 🚀 "자재 요청"인데 아직 입고일을 모르면 dateTime이
+                              // null이다 - 이 경우 날짜 관련 UI 대신 "요청한 지
+                              // N일째 미정" 상태를 보여준다.
+                              final DateTime? dt = item['dateTime'] == null
+                                  ? null
+                                  : _asDateTime(item['dateTime']);
+                              final bool isCompleted =
+                                  item['isCompleted'] == true;
+                              final bool isPending = dt == null && !isCompleted;
+                              final bool isOverdue =
+                                  !isCompleted &&
+                                  dt != null &&
+                                  dt.isBefore(DateTime.now());
+
+                              return Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: pureWhite,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Row(
+                                  children: [
+                                    GestureDetector(
+                                      onTap: () => _toggleComplete(item),
+                                      child: Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: isCompleted
+                                              ? Colors.green.withValues(
+                                                  alpha: 0.12,
+                                                )
+                                              : tossBlue.withValues(alpha: 0.1),
+                                        ),
+                                        child: Icon(
+                                          isCompleted
+                                              ? Icons.check_rounded
+                                              : _iconForType(
+                                                  item['type'] ?? '기타',
+                                                ),
+                                          color: isCompleted
+                                              ? Colors.green
+                                              : tossBlue,
+                                          size: 20,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Flexible(
+                                                child: Text(
+                                                  item['title'] ??
+                                                      item['type'] ??
+                                                      '',
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w700,
+                                                    fontSize: 15,
+                                                    color: isCompleted
+                                                        ? tossSubText
+                                                        : tossText,
+                                                    decoration: isCompleted
+                                                        ? TextDecoration
+                                                              .lineThrough
+                                                        : null,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            dt != null
+                                                ? _formatDateTime(dt)
+                                                : _pendingRequestLabel(item),
+                                            style: TextStyle(
+                                              color: isPending
+                                                  ? warningRed
+                                                  : tossSubText,
+                                              fontSize: 12,
+                                              fontWeight: isPending
+                                                  ? FontWeight.w700
+                                                  : FontWeight.normal,
+                                            ),
+                                          ),
+                                          if ((item['changeHistory'] as List?)
+                                                  ?.isNotEmpty ==
+                                              true) ...[
+                                            const SizedBox(height: 4),
+                                            InkWell(
+                                              onTap: () =>
+                                                  _showChangeHistory(item),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(
+                                                    Icons.history_rounded,
+                                                    size: 13,
+                                                    color: tossBlue,
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    _lastChangeLabel(item),
+                                                    style: const TextStyle(
+                                                      color: tossBlue,
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                          // 🚀 [추가] 검사일정 완료 시 남긴 코멘트를
+                                          // 함께 보여준다.
+                                          if (isCompleted &&
+                                              (item['inspectionComment']
+                                                          as String?)
+                                                      ?.isNotEmpty ==
+                                                  true) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              "↳ ${item['inspectionComment']}",
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                color: tossSubText,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          isCompleted &&
+                                                  item['inspectionResult'] !=
+                                                      null
+                                              ? (item['inspectionResult'] ==
+                                                        'FAIL'
+                                                    ? "❌ 불합격"
+                                                    : "✅ 합격")
+                                              : dt != null
+                                              ? _relativeLabel(dt, isCompleted)
+                                              : (isCompleted ? "완료됨" : "미정"),
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: isCompleted
+                                                ? (item['inspectionResult'] ==
+                                                          'FAIL'
+                                                      ? warningRed
+                                                      : tossSubText)
+                                                : (isOverdue || isPending
+                                                      ? warningRed
+                                                      : tossBlue),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          onPressed: () =>
+                                              _showEditor(existing: item),
+                                          icon: const Icon(
+                                            Icons.edit_outlined,
+                                            size: 18,
+                                            color: tossSubText,
+                                          ),
+                                          constraints: const BoxConstraints(),
+                                          padding: const EdgeInsets.only(
+                                            top: 6,
+                                          ),
+                                          splashRadius: 18,
+                                        ),
+                                      ],
+                                    ),
+                                    IconButton(
+                                      onPressed: () {
+                                        HapticFeedback.lightImpact();
+                                        _delete(item);
+                                      },
+                                      icon: const Icon(
+                                        Icons.close_rounded,
+                                        size: 18,
+                                        color: tossSubText,
+                                      ),
+                                      splashRadius: 18,
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => _showEditor(),
           backgroundColor: tossBlue,
