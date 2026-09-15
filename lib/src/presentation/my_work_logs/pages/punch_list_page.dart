@@ -44,6 +44,7 @@ class _PunchListPageState extends State<PunchListPage> {
     '라벨/마킹 누락',
     '오작/간섭',
     '미시공',
+    '자재 부족', // 🚀 [추가] 자재가 부족해서 진행이 막히는 것도 이슈로 등록
     '기타',
   ];
 
@@ -55,6 +56,7 @@ class _PunchListPageState extends State<PunchListPage> {
     '결선/단선 불량': '긴급',
     '누수/손상': '긴급',
     '미시공': '긴급',
+    '자재 부족': '긴급', // 🚀 자재 부족은 작업 자체가 막히므로 긴급으로 제안
     '치수/각도 불량': '보통',
     '오작/간섭': '보통',
     '라벨/마킹 누락': '여유',

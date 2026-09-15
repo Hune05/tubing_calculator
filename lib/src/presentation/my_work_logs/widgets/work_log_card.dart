@@ -319,30 +319,10 @@ class WorkLogCard extends StatelessWidget {
 
                   // ⚠️ 이슈 리스트 목록
                   if (punchLists.isNotEmpty) ...[
-                    const Text(
-                      "이슈 목록", // 타이틀 직관적으로 변경
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: tossSubText,
-                        fontSize: 14,
-                      ),
+                    _PunchListSection(
+                      punchLists: punchLists,
+                      onOpenPunchDetail: onOpenPunchDetail,
                     ),
-                    const SizedBox(height: 12),
-                    ...punchLists.map((punch) {
-                      final bool isPunchDone = punch['is_completed'] == true;
-                      return _buildUnifiedRecordItem(
-                        context: context,
-                        title: isPunchDone ? "이슈 처리 완료" : "이슈 확인 요망",
-                        content: punch['content'],
-                        itemData: punch,
-                        icon: Icons.priority_high_rounded,
-                        isWarning: true,
-                        isCompleted: isPunchDone,
-                        // 🚀 [변경] 탭하면 언제 발생했고 어떻게 처리했는지
-                        // 정리할 수 있는 이슈 상세 화면으로 들어간다.
-                        onTap: () => onOpenPunchDetail(punch),
-                      );
-                    }),
                     const SizedBox(height: 16),
                   ],
 
@@ -536,6 +516,153 @@ Widget _buildUnifiedRecordItem({
       ),
     ),
   );
+}
+
+// 🚀 [신규] 이슈 목록도 시간이 지나면 계속 쌓이므로, 일정 관리와
+// 동일하게 "완료 숨김"(기본 켜짐) 필터와 5개씩 페이지네이션을 둔다.
+class _PunchListSection extends StatefulWidget {
+  final List<dynamic> punchLists;
+  final void Function(Map<String, dynamic> punch) onOpenPunchDetail;
+
+  const _PunchListSection({
+    required this.punchLists,
+    required this.onOpenPunchDetail,
+  });
+
+  @override
+  State<_PunchListSection> createState() => _PunchListSectionState();
+}
+
+class _PunchListSectionState extends State<_PunchListSection> {
+  static const int _pageSize = 5;
+  bool _hideCompleted = true;
+  int _page = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<dynamic> visible = _hideCompleted
+        ? widget.punchLists.where((p) => p['is_completed'] != true).toList()
+        : widget.punchLists;
+
+    final int totalPages = (visible.length / _pageSize).ceil().clamp(
+      1,
+      1 << 30,
+    );
+    final int page = _page.clamp(0, totalPages - 1);
+    final int start = page * _pageSize;
+    final int end = (start + _pageSize).clamp(0, visible.length);
+    final List<dynamic> pageItems = visible.sublist(
+      start.clamp(0, visible.length),
+      end,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              "이슈 목록",
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: tossSubText,
+                fontSize: 14,
+              ),
+            ),
+            InkWell(
+              onTap: () => setState(() {
+                _hideCompleted = !_hideCompleted;
+                _page = 0;
+              }),
+              borderRadius: BorderRadius.circular(8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _hideCompleted
+                        ? Icons.visibility_off_rounded
+                        : Icons.visibility_rounded,
+                    size: 14,
+                    color: tossBlue,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _hideCompleted ? "완료 숨김" : "전체 보기",
+                    style: const TextStyle(
+                      color: tossBlue,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (visible.isEmpty)
+          const Text(
+            "미해결 이슈가 없습니다.",
+            style: TextStyle(color: tossSubText, fontSize: 13),
+          )
+        else ...[
+          ...pageItems.map((punch) {
+            final bool isPunchDone = punch['is_completed'] == true;
+            return _buildUnifiedRecordItem(
+              context: context,
+              title: isPunchDone ? "이슈 처리 완료" : "이슈 확인 요망",
+              content: punch['content'],
+              itemData: punch,
+              icon: Icons.priority_high_rounded,
+              isWarning: true,
+              isCompleted: isPunchDone,
+              // 🚀 탭하면 언제 발생했고 어떻게 처리했는지 정리할 수 있는
+              // 이슈 상세 화면으로 들어간다.
+              onTap: () => widget.onOpenPunchDetail(punch),
+            );
+          }),
+          if (totalPages > 1)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: page > 0
+                        ? () => setState(() => _page = page - 1)
+                        : null,
+                    icon: const Icon(Icons.chevron_left_rounded),
+                    color: page > 0
+                        ? tossText
+                        : tossSubText.withValues(alpha: 0.4),
+                    splashRadius: 20,
+                  ),
+                  Text(
+                    "${page + 1} / $totalPages",
+                    style: const TextStyle(
+                      color: tossSubText,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: page < totalPages - 1
+                        ? () => setState(() => _page = page + 1)
+                        : null,
+                    icon: const Icon(Icons.chevron_right_rounded),
+                    color: page < totalPages - 1
+                        ? tossText
+                        : tossSubText.withValues(alpha: 0.4),
+                    splashRadius: 20,
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ],
+    );
+  }
 }
 
 // 🚀 [신규] 작업 일지가 매일 쌓이는 걸 고려해, 5개씩 페이지로 나눠서

@@ -60,6 +60,11 @@ class _DailyReportPageState extends State<DailyReportPage> {
   ];
   int _workerCount = 1;
   bool _isOvertime = false;
+  // 🚀 [추가] 연장/야간 작업을 했을 때, 몇 시부터 몇 시까지 했는지도
+  // 입력할 수 있게 - 단순 여부(boolean)만으로는 나중에 얼마나 초과
+  // 근무했는지 알 수 없었다.
+  TimeOfDay? _overtimeStart;
+  TimeOfDay? _overtimeEnd;
 
   bool _isAsBuilt = false;
   List<String> _attachedImages = [];
@@ -122,6 +127,8 @@ class _DailyReportPageState extends State<DailyReportPage> {
       if (_selectedWorkTypes.isEmpty) _selectedWorkTypes.add('신규 설치');
       _workerCount = widget.existingData!['worker_count'] ?? 1;
       _isOvertime = widget.existingData!['is_overtime'] ?? false;
+      _overtimeStart = _parseTimeOfDay(widget.existingData!['overtime_start']);
+      _overtimeEnd = _parseTimeOfDay(widget.existingData!['overtime_end']);
       _selectedIssueIds.addAll(
         (widget.existingData!['linkedIssueIds'] as List? ?? []).map(
           (e) => e.toString(),
@@ -170,6 +177,45 @@ class _DailyReportPageState extends State<DailyReportPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("어제 값을 불러왔습니다.")),
     );
+  }
+
+  TimeOfDay? _parseTimeOfDay(dynamic v) {
+    if (v is! String || !v.contains(':')) return null;
+    final parts = v.split(':');
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return null;
+    return TimeOfDay(hour: h, minute: m);
+  }
+
+  String _formatTimeOfDay(TimeOfDay t) =>
+      "${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}";
+
+  // 🚀 자정을 넘기는 야간 근무(예: 18:00~02:00)도 고려해서 시간 차를
+  // 계산한다.
+  double? get _overtimeHours {
+    if (_overtimeStart == null || _overtimeEnd == null) return null;
+    int startMin = _overtimeStart!.hour * 60 + _overtimeStart!.minute;
+    int endMin = _overtimeEnd!.hour * 60 + _overtimeEnd!.minute;
+    if (endMin <= startMin) endMin += 24 * 60; // 자정 넘김
+    return (endMin - startMin) / 60.0;
+  }
+
+  Future<void> _pickOvertimeTime({required bool isStart}) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime:
+          (isStart ? _overtimeStart : _overtimeEnd) ??
+          const TimeOfDay(hour: 18, minute: 0),
+    );
+    if (picked == null) return;
+    setState(() {
+      if (isStart) {
+        _overtimeStart = picked;
+      } else {
+        _overtimeEnd = picked;
+      }
+    });
   }
 
   Future<void> _openPinPicker() async {
@@ -306,6 +352,14 @@ class _DailyReportPageState extends State<DailyReportPage> {
       "work_type": _selectedWorkTypes.toList(),
       "worker_count": _workerCount,
       "is_overtime": _isOvertime,
+      // 🚀 [추가] 연장/야간 작업 시간대 - 껐으면 기록도 지운다.
+      "overtime_start": _isOvertime && _overtimeStart != null
+          ? _formatTimeOfDay(_overtimeStart!)
+          : null,
+      "overtime_end": _isOvertime && _overtimeEnd != null
+          ? _formatTimeOfDay(_overtimeEnd!)
+          : null,
+      "overtime_hours": _isOvertime ? _overtimeHours : null,
       "points": int.tryParse(ptText) ?? 0,
       "wiring_points": int.tryParse(wpText) ?? 0,
       "note": ntText.isEmpty ? "특이사항 없음" : ntText,
@@ -629,6 +683,107 @@ class _DailyReportPageState extends State<DailyReportPage> {
                         ),
                       ],
                     ),
+                    // 🚀 [추가] 연장/야간 작업 시간대 입력
+                    if (_isOvertime) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => _pickOvertimeTime(isStart: true),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: pureWhite,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      _overtimeStart != null
+                                          ? _formatTimeOfDay(_overtimeStart!)
+                                          : "시작 시간",
+                                      style: TextStyle(
+                                        color: _overtimeStart != null
+                                            ? tossText
+                                            : tossSubText,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    const Icon(
+                                      Icons.access_time_rounded,
+                                      size: 16,
+                                      color: tossSubText,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: Text("~", style: TextStyle(color: tossSubText)),
+                          ),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => _pickOvertimeTime(isStart: false),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: pureWhite,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      _overtimeEnd != null
+                                          ? _formatTimeOfDay(_overtimeEnd!)
+                                          : "종료 시간",
+                                      style: TextStyle(
+                                        color: _overtimeEnd != null
+                                            ? tossText
+                                            : tossSubText,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    const Icon(
+                                      Icons.access_time_rounded,
+                                      size: 16,
+                                      color: tossSubText,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_overtimeHours != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          "연장/야간 근무 시간: ${_overtimeHours!.toStringAsFixed(1)}시간",
+                          style: const TextStyle(
+                            color: tossBlue,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ],
                   ],
                 ),
               ),
