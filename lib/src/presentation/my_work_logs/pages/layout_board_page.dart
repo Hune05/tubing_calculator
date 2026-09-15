@@ -218,8 +218,16 @@ class PlacedDimension {
 // ---------------------------------------------------------
 class MobileLayoutBoardPage extends StatefulWidget {
   final String? projectId;
+  // 🚀 [신규] 작업 일지 작성 화면에서 진입했을 때 true로 넘어온다. 이 경우
+  // 저장 시트에 "완성된 배치도를 일지 사진으로 추가" 버튼이 나타나고,
+  // 캡처한 사진 경로를 화면을 닫을 때 결과값으로 돌려준다.
+  final bool attachToReport;
 
-  const MobileLayoutBoardPage({super.key, this.projectId});
+  const MobileLayoutBoardPage({
+    super.key,
+    this.projectId,
+    this.attachToReport = false,
+  });
 
   @override
   State<MobileLayoutBoardPage> createState() => _MobileLayoutBoardPageState();
@@ -526,6 +534,30 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
       return byteData?.buffer.asUint8List();
     } catch (e) {
       return null;
+    }
+  }
+
+  // 🚀 [신규] 작업 일지 작성 화면에서 이 도구를 열었을 때, 완성된 배치도를
+  // PNG로 캡처해서 그 파일 경로를 결과값으로 들고 화면을 닫는다 - 일지
+  // 쪽에서는 이 경로를 "현장 사진 첨부" 목록에 그대로 추가하면 된다.
+  Future<void> _attachToDailyReportPhoto() async {
+    setState(() => _isSaving = true);
+    try {
+      final bytes = await _capturePng();
+      if (bytes == null) throw Exception("도면 캡처 실패");
+      final dir = await getTemporaryDirectory();
+      final file = File(
+        "${dir.path}/layout_${DateTime.now().millisecondsSinceEpoch}.png",
+      );
+      await file.writeAsBytes(bytes);
+      if (!mounted) return;
+      Navigator.pop(context, file.path);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("사진 저장 실패: $e"), backgroundColor: warningRed),
+      );
+      setState(() => _isSaving = false);
     }
   }
 
@@ -934,6 +966,37 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                   ),
                 ),
               ),
+              if (widget.attachToReport) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _attachToDailyReportPhoto();
+                    },
+                    icon: const Icon(
+                      Icons.add_photo_alternate_rounded,
+                      color: tossBlue,
+                    ),
+                    label: const Text(
+                      "완성된 배치도, 일지 사진으로 추가",
+                      style: TextStyle(
+                        color: tossBlue,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: tossBlue, width: 1.5),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         );

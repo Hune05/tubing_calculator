@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/utils/image_picker_helper.dart';
@@ -206,8 +209,14 @@ class PlacedDimension {
 class TabletLayoutBoardPage extends StatefulWidget {
   // 🚀 [추가] 프로젝트 목록에서 저장된 도면을 불러올 때 사용 (모바일과 동일).
   final String? projectId;
+  // 🚀 [신규] 작업 일지 작성 화면에서 진입했을 때 true (모바일과 동일 개념).
+  final bool attachToReport;
 
-  const TabletLayoutBoardPage({super.key, this.projectId});
+  const TabletLayoutBoardPage({
+    super.key,
+    this.projectId,
+    this.attachToReport = false,
+  });
 
   @override
   State<TabletLayoutBoardPage> createState() => _TabletLayoutBoardPageState();
@@ -251,6 +260,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
   double _backgroundOpacity = 0.5;
 
   final GlobalKey _boardKey = GlobalKey();
+  final GlobalKey _captureKey = GlobalKey();
 
   // 🚀 [추가] 서버에 정식 저장하기 전 휘발성을 막는 로컬 임시 저장
   // (모바일 화면과 동일한 방식 - 자세한 설명은 그쪽 주석 참고)
@@ -552,6 +562,22 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
           ),
         ),
         actions: [
+          if (widget.attachToReport)
+            TextButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _attachToDailyReportPhoto();
+              },
+              icon: const Icon(
+                Icons.add_photo_alternate_rounded,
+                color: tossBlue,
+                size: 18,
+              ),
+              label: const Text(
+                "일지 사진으로 추가",
+                style: TextStyle(color: tossBlue, fontWeight: FontWeight.bold),
+              ),
+            ),
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text("취소", style: TextStyle(color: tossSubText)),
@@ -576,6 +602,43 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
         ],
       ),
     );
+  }
+
+  // 🚀 [신규] 작업 일지 작성 화면에서 이 도구를 열었을 때, 완성된 배치도를
+  // PNG로 캡처해서 그 파일 경로를 결과값으로 들고 화면을 닫는다(모바일과
+  // 동일 개념 - 일지 쪽 "현장 사진 첨부" 목록에 그대로 추가된다).
+  Future<Uint8List?> _capturePng() async {
+    try {
+      final boundary =
+          _captureKey.currentContext!.findRenderObject()
+              as RenderRepaintBoundary;
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      return byteData?.buffer.asUint8List();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<void> _attachToDailyReportPhoto() async {
+    setState(() => _isSaving = true);
+    try {
+      final bytes = await _capturePng();
+      if (bytes == null) throw Exception("도면 캡처 실패");
+      final dir = await getTemporaryDirectory();
+      final file = File(
+        "${dir.path}/layout_${DateTime.now().millisecondsSinceEpoch}.png",
+      );
+      await file.writeAsBytes(bytes);
+      if (!mounted) return;
+      Navigator.pop(context, file.path);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("사진 저장 실패: $e"), backgroundColor: warningRed),
+      );
+      setState(() => _isSaving = false);
+    }
   }
 
   // 🚀 스냅 헬퍼 함수 (이제 5mm 단위로 움직임)
@@ -1563,111 +1626,116 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                       GestureDetector(
                         onTapUp: (details) =>
                             _onTapBoard(details.localPosition),
-                        child: Container(
-                          key: _boardKey,
-                          width: _panelWidth,
-                          height: _panelHeight,
-                          decoration: BoxDecoration(
-                            color: pureWhite,
-                            border: Border.all(color: tossText, width: 3),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.1),
-                                blurRadius: 30,
-                                offset: const Offset(10, 10),
-                              ),
-                            ],
-                          ),
-                          clipBehavior: Clip.hardEdge,
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              if (_backgroundImagePath != null &&
-                                  File(_backgroundImagePath!).existsSync())
-                                Positioned.fill(
-                                  child: Opacity(
-                                    opacity: _backgroundOpacity,
-                                    child: Image.file(
-                                      File(_backgroundImagePath!),
-                                      fit: BoxFit.contain,
-                                    ),
-                                  ),
-                                ),
-                              CustomPaint(
-                                size: Size.infinite,
-                                painter: GridPainter(gridSize: _gridSize),
-                              ),
-
-                              CustomPaint(
-                                size: Size.infinite,
-                                painter: DimensionPainter(
-                                  dimensions: _dimensions,
-                                  activePoint: _dimensionStartPoint,
-                                ),
-                              ),
-                              if (_selectedItem != null &&
-                                  _mode == BoardMode.placeModule)
-                                ..._buildGuidePaints(_selectedItem!),
-
-                              if (_previewItem != null &&
-                                  _mode == BoardMode.placeModule) ...[
-                                ..._buildGuidePaints(_previewItem!),
-                                Positioned(
-                                  left: _previewItem!.position.dx,
-                                  top: _previewItem!.position.dy,
-                                  child: Opacity(
-                                    opacity: 0.5,
-                                    child: _buildBoardItem(_previewItem!),
-                                  ),
+                        child: RepaintBoundary(
+                          key: _captureKey,
+                          child: Container(
+                            key: _boardKey,
+                            width: _panelWidth,
+                            height: _panelHeight,
+                            decoration: BoxDecoration(
+                              color: pureWhite,
+                              border: Border.all(color: tossText, width: 3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.1),
+                                  blurRadius: 30,
+                                  offset: const Offset(10, 10),
                                 ),
                               ],
-
-                              ..._placedItems.map((item) {
-                                return Positioned(
-                                  left: item.position.dx,
-                                  top: item.position.dy,
-                                  child: GestureDetector(
-                                    onPanStart: _mode == BoardMode.placeModule
-                                        ? (details) {
-                                            // 드래그 한 번 = undo 한 단계
-                                            _pushUndo();
-                                            setState(() {
-                                              _dragRawPosition = item.position;
-                                              _selectedItem = item;
-                                              for (var i in _placedItems)
-                                                i.isSelected = false;
-                                              item.isSelected = true;
-                                            });
-                                          }
-                                        : null,
-                                    onPanUpdate: _mode == BoardMode.placeModule
-                                        ? (details) {
-                                            setState(() {
-                                              _dragRawPosition += details.delta;
-                                              double clampedX = _dragRawPosition
-                                                  .dx
-                                                  .clamp(
-                                                    0,
-                                                    _panelWidth - item.width,
-                                                  );
-                                              double clampedY = _dragRawPosition
-                                                  .dy
-                                                  .clamp(
-                                                    0,
-                                                    _panelHeight - item.height,
-                                                  );
-                                              item.position = _snapToGrid(
-                                                Offset(clampedX, clampedY),
-                                              );
-                                            });
-                                          }
-                                        : null,
-                                    onTap: () => _onTapItem(item),
-                                    child: _buildBoardItem(item),
+                            ),
+                            clipBehavior: Clip.hardEdge,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                if (_backgroundImagePath != null &&
+                                    File(_backgroundImagePath!).existsSync())
+                                  Positioned.fill(
+                                    child: Opacity(
+                                      opacity: _backgroundOpacity,
+                                      child: Image.file(
+                                        File(_backgroundImagePath!),
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
                                   ),
-                                );
-                              }),
-                            ],
+                                CustomPaint(
+                                  size: Size.infinite,
+                                  painter: GridPainter(gridSize: _gridSize),
+                                ),
+
+                                CustomPaint(
+                                  size: Size.infinite,
+                                  painter: DimensionPainter(
+                                    dimensions: _dimensions,
+                                    activePoint: _dimensionStartPoint,
+                                  ),
+                                ),
+                                if (_selectedItem != null &&
+                                    _mode == BoardMode.placeModule)
+                                  ..._buildGuidePaints(_selectedItem!),
+
+                                if (_previewItem != null &&
+                                    _mode == BoardMode.placeModule) ...[
+                                  ..._buildGuidePaints(_previewItem!),
+                                  Positioned(
+                                    left: _previewItem!.position.dx,
+                                    top: _previewItem!.position.dy,
+                                    child: Opacity(
+                                      opacity: 0.5,
+                                      child: _buildBoardItem(_previewItem!),
+                                    ),
+                                  ),
+                                ],
+
+                                ..._placedItems.map((item) {
+                                  return Positioned(
+                                    left: item.position.dx,
+                                    top: item.position.dy,
+                                    child: GestureDetector(
+                                      onPanStart: _mode == BoardMode.placeModule
+                                          ? (details) {
+                                              // 드래그 한 번 = undo 한 단계
+                                              _pushUndo();
+                                              setState(() {
+                                                _dragRawPosition =
+                                                    item.position;
+                                                _selectedItem = item;
+                                                for (var i in _placedItems)
+                                                  i.isSelected = false;
+                                                item.isSelected = true;
+                                              });
+                                            }
+                                          : null,
+                                      onPanUpdate:
+                                          _mode == BoardMode.placeModule
+                                          ? (details) {
+                                              setState(() {
+                                                _dragRawPosition +=
+                                                    details.delta;
+                                                double clampedX =
+                                                    _dragRawPosition.dx.clamp(
+                                                      0,
+                                                      _panelWidth - item.width,
+                                                    );
+                                                double clampedY =
+                                                    _dragRawPosition.dy.clamp(
+                                                      0,
+                                                      _panelHeight -
+                                                          item.height,
+                                                    );
+                                                item.position = _snapToGrid(
+                                                  Offset(clampedX, clampedY),
+                                                );
+                                              });
+                                            }
+                                          : null,
+                                      onTap: () => _onTapItem(item),
+                                      child: _buildBoardItem(item),
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ),
                           ),
                         ),
                       ),

@@ -175,9 +175,9 @@ class _DailyReportPageState extends State<DailyReportPage> {
       _workerCount = prev['worker_count'] ?? _workerCount;
       _isOvertime = prev['is_overtime'] ?? _isOvertime;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("어제 값을 불러왔습니다.")),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("어제 값을 불러왔습니다.")));
   }
 
   TimeOfDay? _parseTimeOfDay(dynamic v) {
@@ -731,7 +731,10 @@ class _DailyReportPageState extends State<DailyReportPage> {
                           ),
                           const Padding(
                             padding: EdgeInsets.symmetric(horizontal: 8),
-                            child: Text("~", style: TextStyle(color: tossSubText)),
+                            child: Text(
+                              "~",
+                              style: TextStyle(color: tossSubText),
+                            ),
                           ),
                           Expanded(
                             child: InkWell(
@@ -1021,20 +1024,26 @@ class _DailyReportPageState extends State<DailyReportPage> {
               ),
               const SizedBox(height: 12),
               InkWell(
-                onTap: () {
+                onTap: () async {
                   HapticFeedback.lightImpact();
                   // 🚀 [수정] 화면 크기를 다시 재서 태블릿 폭이면 좌우 패널형
                   // 태블릿 버전을, 아니면 기존 바텀시트형 모바일 버전을 연다.
                   final bool isTabletSize =
                       MediaQuery.of(context).size.shortestSide >= 600;
-                  Navigator.push(
+                  // 🚀 [신규] attachToReport: true로 열면 배치도 저장 시트에
+                  // "일지 사진으로 추가" 버튼이 뜨고, 완성된 배치도 사진 경로를
+                  // 결과값으로 받아 바로 이 일지의 현장 사진 목록에 넣어준다.
+                  final String? capturedPath = await Navigator.push<String>(
                     context,
                     MaterialPageRoute(
                       builder: (context) => isTabletSize
-                          ? const TabletLayoutBoardPage()
-                          : const MobileLayoutBoardPage(),
+                          ? const TabletLayoutBoardPage(attachToReport: true)
+                          : const MobileLayoutBoardPage(attachToReport: true),
                     ),
                   );
+                  if (capturedPath != null && mounted) {
+                    setState(() => _attachedImages.add(capturedPath));
+                  }
                 },
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
