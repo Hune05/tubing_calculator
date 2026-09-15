@@ -45,6 +45,16 @@ class _DailyReportPageState extends State<DailyReportPage> {
   List<String> _attachedImages = [];
   late bool _isEdit;
 
+  String _todayDateStr() {
+    final today = DateTime.now();
+    return "${today.month.toString().padLeft(2, '0')}/${today.day.toString().padLeft(2, '0')}";
+  }
+
+  // 🚀 [추가] 지난 날짜의 일지를 아무 때나 함부로 고칠 수 없도록, 오늘
+  // 날짜가 아닌 일지를 수정할 때는 사유를 남기게 한다.
+  bool get _isPastEdit =>
+      _isEdit && widget.existingData!['date'] != _todayDateStr();
+
   @override
   void initState() {
     super.initState();
@@ -96,7 +106,73 @@ class _DailyReportPageState extends State<DailyReportPage> {
     if (path != null) setState(() => _attachedImages.add(path));
   }
 
-  void _submit() {
+  // 🚀 지난 날짜 일지 수정 시 사유를 받는 팝업. 취소하면 null.
+  Future<String?> _askEditReason() async {
+    final ctrl = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: pureWhite,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          "지난 일지 수정 사유",
+          style: TextStyle(fontWeight: FontWeight.w800, color: tossText),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "지난 날짜의 작업 일보는 함부로 바꾸지 않도록, 수정할 때 사유를 남깁니다.",
+              style: TextStyle(color: tossSubText, fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              maxLines: 2,
+              style: const TextStyle(color: tossText),
+              decoration: InputDecoration(
+                hintText: "예: 포인트 집계 실수 정정",
+                hintStyle: const TextStyle(color: Color(0xFFB0B8C1)),
+                filled: true,
+                fillColor: tossInputBg,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text("취소", style: TextStyle(color: tossSubText)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: tossBlue,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () => Navigator.pop(
+              context,
+              ctrl.text.trim().isEmpty ? "사유 미입력" : ctrl.text.trim(),
+            ),
+            child: const Text(
+              "수정 확정",
+              style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _submit() async {
     String ptText = _pointCtrl.text.trim();
     String wpText = _wiringPointCtrl.text.trim();
     String ntText = _noteCtrl.text.trim();
@@ -114,10 +190,23 @@ class _DailyReportPageState extends State<DailyReportPage> {
       return;
     }
 
-    final today = DateTime.now();
-    final dateStr = _isEdit
-        ? widget.existingData!['date']
-        : "${today.month.toString().padLeft(2, '0')}/${today.day.toString().padLeft(2, '0')}";
+    // 🚀 지난 날짜 일지를 수정하는 경우, 사유를 받아 이력에 남기기 전엔
+    // 저장을 진행하지 않는다. 취소하면 그대로 화면에 머문다.
+    final List<Map<String, dynamic>> editHistory = _isEdit
+        ? List<Map<String, dynamic>>.from(
+            (widget.existingData!['editHistory'] as List? ?? []).map(
+              (e) => Map<String, dynamic>.from(e),
+            ),
+          )
+        : [];
+
+    if (_isPastEdit) {
+      final String? reason = await _askEditReason();
+      if (reason == null) return;
+      editHistory.add({'reason': reason, 'editedAt': DateTime.now()});
+    }
+
+    final dateStr = _isEdit ? widget.existingData!['date'] : _todayDateStr();
 
     final newReport = {
       "date": dateStr,
@@ -132,8 +221,10 @@ class _DailyReportPageState extends State<DailyReportPage> {
       "has_image": _attachedImages.isNotEmpty,
       "image_path": _attachedImages.isNotEmpty ? _attachedImages.first : null,
       "image_paths": List.from(_attachedImages),
+      "editHistory": editHistory,
     };
 
+    if (!mounted) return;
     Navigator.pop(context, newReport);
   }
 
@@ -195,6 +286,42 @@ class _DailyReportPageState extends State<DailyReportPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // 🚀 [추가] 오늘 날짜가 아닌 일지를 열었을 때, 저장 시 사유가
+              // 필요하다는 걸 미리 알려준다.
+              if (_isPastEdit) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.orange.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.history_edu_rounded,
+                        color: Colors.orange.shade700,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          "${widget.existingData!['date']}의 지난 일지입니다. 저장하려면 수정 사유를 입력해야 해요.",
+                          style: TextStyle(
+                            color: Colors.orange.shade800,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
               // 1. 작업 유형 선택
               const Text(
                 "작업 유형",
