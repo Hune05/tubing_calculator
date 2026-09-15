@@ -171,13 +171,22 @@ class PlacedDimension {
   final String id;
   final MeasurePoint p1;
   final MeasurePoint p2;
-  final DimensionType type;
+  // 🚀 [수정] 기존 치수의 기준(센터/측면)을 그 자리에서 바꿀 수 있도록
+  // final을 뗐다.
+  DimensionType type;
+  // 🚀 [신규] 이 치수선에 대한 짧은 메모(예: "케이블 트레이 통과 구간").
+  String? note;
+  // 🚀 [신규] 최소 유지 간격(mm). 설정해두면 실제 거리가 이 값보다
+  // 좁아지는 순간 치수선이 경고색으로 바뀐다(전기 패널 이격거리 확인용).
+  double? minGapMm;
 
   PlacedDimension({
     required this.id,
     required this.p1,
     required this.p2,
     required this.type,
+    this.note,
+    this.minGapMm,
   });
 
   Map<String, dynamic> toJson() => {
@@ -185,6 +194,8 @@ class PlacedDimension {
     'p1': p1.toJson(),
     'p2': p2.toJson(),
     'type': type.name,
+    'note': note,
+    'minGapMm': minGapMm,
   };
 
   factory PlacedDimension.fromJson(Map<String, dynamic> j) => PlacedDimension(
@@ -192,6 +203,8 @@ class PlacedDimension {
     p1: _measurePointFromJson(Map<String, dynamic>.from(j['p1'] as Map)),
     p2: _measurePointFromJson(Map<String, dynamic>.from(j['p2'] as Map)),
     type: DimensionType.values.byName(j['type'] as String),
+    note: j['note'] as String?,
+    minGapMm: (j['minGapMm'] as num?)?.toDouble(),
   );
 }
 
@@ -256,6 +269,14 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
 
   BoardMode _mode = BoardMode.placeModule;
   DimensionType _currentDimType = DimensionType.center;
+  // 🚀 [신규] 체인 모드 - 켜두면 점을 찍을 때마다 그 점이 다음 구간의
+  // 시작점으로 그대로 이어져서, 여러 지점을 순서대로 탭하는 것만으로
+  // 연속된 치수선을 한 번에 그릴 수 있다(모듈을 일렬로 배치할 때 유용).
+  bool _dimensionChainMode = false;
+  // 🚀 [신규] 치수의 기준/메모/최소 간격을 바꿨을 때 DimensionPainter가
+  // 확실히 다시 그려지도록 하는 버전 카운터 (자세한 이유는
+  // DimensionPainter의 주석 참고).
+  int _dimensionsVersion = 0;
   bool _isSaving = false;
   // 🚀 [추가] 저장된 프로젝트를 불러오는 동안 표시할 로딩 상태, 그리고
   // 한 번이라도 저장/불러오기가 된 프로젝트의 ID. null이면 "아직 서버에
@@ -792,6 +813,19 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
     }
   }
 
+  pw.Widget _pdfCell(String text, {bool bold = false}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(6),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          fontSize: 11,
+          fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+        ),
+      ),
+    );
+  }
+
   Future<void> _shareAsPdf(String projectName) async {
     setState(() => _isSaving = true);
     try {
@@ -882,6 +916,72 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
           },
         ),
       );
+
+      // 🚀 [신규] 치수선이 있으면 도면 사진 뒤에 번호별 치수 목록표를
+      // 추가 페이지로 붙여서, 도면이 복잡해도 사진 속 번호 배지와
+      // 대조해가며 확인할 수 있게 한다.
+      if (_dimensions.isNotEmpty) {
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4,
+            build: (pw.Context context) {
+              return pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    "치수 목록표 (Dimension Schedule)",
+                    style: pw.TextStyle(
+                      fontSize: 18,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.SizedBox(height: 16),
+                  pw.Table(
+                    border: pw.TableBorder.all(
+                      color: PdfColors.grey400,
+                      width: 0.5,
+                    ),
+                    columnWidths: {
+                      0: const pw.FixedColumnWidth(40),
+                      1: const pw.FixedColumnWidth(70),
+                      2: const pw.FixedColumnWidth(80),
+                      3: const pw.FlexColumnWidth(),
+                    },
+                    children: [
+                      pw.TableRow(
+                        decoration: const pw.BoxDecoration(
+                          color: PdfColors.grey200,
+                        ),
+                        children: [
+                          _pdfCell("번호", bold: true),
+                          _pdfCell("기준", bold: true),
+                          _pdfCell("거리(mm)", bold: true),
+                          _pdfCell("메모", bold: true),
+                        ],
+                      ),
+                      ..._dimensions.asMap().entries.map((entry) {
+                        final int i = entry.key;
+                        final PlacedDimension dim = entry.value;
+                        final endpoints = computeDimensionEndpoints(dim);
+                        return pw.TableRow(
+                          children: [
+                            _pdfCell("${i + 1}"),
+                            _pdfCell(
+                              dim.type == DimensionType.center ? "센터" : "측면",
+                            ),
+                            _pdfCell(endpoints.distance.toInt().toString()),
+                            _pdfCell(dim.note ?? ""),
+                          ],
+                        );
+                      }),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      }
 
       final output = await getTemporaryDirectory();
       final file = File("${output.path}/${projectName}_Layout.pdf");
@@ -1044,7 +1144,9 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
             HapticFeedback.heavyImpact();
           }
         }
-        _dimensionStartPoint = null;
+        // 🚀 체인 모드면 방금 찍은 점을 다음 구간의 시작점으로 그대로
+        // 이어가서 계속 탭하는 것만으로 연속 치수선이 만들어지게 한다.
+        _dimensionStartPoint = _dimensionChainMode ? point : null;
       }
     });
   }
@@ -1077,6 +1179,17 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
 
   void _onTapBoard(Offset localPosition) {
     if (_mode == BoardMode.measureDimension) {
+      // 🚀 [신규] 측정 시작 전(첫 지점을 아직 안 찍은 상태)에 기존
+      // 치수선 근처를 탭하면, 새 측정을 시작하는 대신 그 치수선을
+      // 삭제/기준 전환/메모/최소 간격 설정할 수 있는 창을 연다.
+      if (_dimensionStartPoint == null) {
+        final PlacedDimension? hitDim = _findDimensionNear(localPosition);
+        if (hitDim != null) {
+          HapticFeedback.lightImpact();
+          _showDimensionActionsSheet(hitDim);
+          return;
+        }
+      }
       final WallPoint? nearestWall = _getNearestWallPoint(localPosition);
       if (nearestWall == null) return; // 벽에서 너무 먼 빈 허공 탭은 무시
       HapticFeedback.lightImpact();
@@ -1088,6 +1201,286 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
         _multiSelectedIds = {};
       });
     }
+  }
+
+  double _distanceToSegment(Offset p, Offset a, Offset b) {
+    final Offset ab = b - a;
+    final double abLenSq = ab.dx * ab.dx + ab.dy * ab.dy;
+    if (abLenSq == 0) return (p - a).distance;
+    double t = ((p - a).dx * ab.dx + (p - a).dy * ab.dy) / abLenSq;
+    t = t.clamp(0.0, 1.0);
+    final Offset proj = Offset(a.dx + ab.dx * t, a.dy + ab.dy * t);
+    return (p - proj).distance;
+  }
+
+  PlacedDimension? _findDimensionNear(Offset pos) {
+    const double tolerance = 14.0;
+    PlacedDimension? closest;
+    double closestDist = tolerance;
+    for (final dim in _dimensions) {
+      final endpoints = computeDimensionEndpoints(dim);
+      final double d = _distanceToSegment(pos, endpoints.p1, endpoints.p2);
+      if (d <= closestDist) {
+        closestDist = d;
+        closest = dim;
+      }
+    }
+    return closest;
+  }
+
+  // 🚀 [신규] 치수선 하나를 탭했을 때 - 삭제/기준 전환/메모/최소 간격
+  // 설정을 한 곳에서 처리하는 바텀시트.
+  void _showDimensionActionsSheet(PlacedDimension dim) {
+    // 🚀 이 창 안에서 기준/메모/최소 간격을 몇 번을 고치든, 열기 직전
+    // 상태 하나만 기억해서 "편집 취소"가 한 번에 되게 한다(모듈 편집
+    // 바텀시트와 동일 원칙).
+    _pushUndo();
+    final TextEditingController noteCtrl = TextEditingController(
+      text: dim.note ?? "",
+    );
+    final TextEditingController minGapCtrl = TextEditingController(
+      text: dim.minGapMm != null ? dim.minGapMm!.toInt().toString() : "",
+    );
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final endpoints = computeDimensionEndpoints(dim);
+            return SingleChildScrollView(
+              child: Container(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                  top: 16,
+                  left: 24,
+                  right: 24,
+                ),
+                decoration: const BoxDecoration(
+                  color: pureWhite,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildBottomSheetHandle(),
+                    Text(
+                      "치수선 - ${endpoints.distance.toInt()} mm",
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: tossText,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      "측정 기준",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: tossSubText,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildDimTypeChoiceChip(
+                            "센터 기준",
+                            DimensionType.center,
+                            dim,
+                            setModalState,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildDimTypeChoiceChip(
+                            "측면 기준",
+                            DimensionType.edge,
+                            dim,
+                            setModalState,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      "메모",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: tossSubText,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: noteCtrl,
+                      style: const TextStyle(fontSize: 14, color: tossText),
+                      decoration: InputDecoration(
+                        hintText: "예: 케이블 트레이 통과 구간",
+                        filled: true,
+                        fillColor: tossBg,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      onChanged: (v) {
+                        setState(() {
+                          dim.note = v.trim().isEmpty ? null : v.trim();
+                          _dimensionsVersion++;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      "최소 유지 간격 (mm) - 이보다 좁아지면 경고 표시",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: tossSubText,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: minGapCtrl,
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: tossText,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: "예: 30",
+                              filled: true,
+                              fillColor: tossBg,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                            onChanged: (v) {
+                              final parsed = double.tryParse(v);
+                              setState(() {
+                                dim.minGapMm = parsed;
+                                _dimensionsVersion++;
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton(
+                          onPressed: () {
+                            minGapCtrl.clear();
+                            setModalState(() {});
+                            setState(() {
+                              dim.minGapMm = null;
+                              _dimensionsVersion++;
+                            });
+                          },
+                          child: const Text(
+                            "해제",
+                            style: TextStyle(
+                              color: tossSubText,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 28),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          _pushUndo();
+                          setState(() {
+                            _dimensions.removeWhere((d) => d.id == dim.id);
+                          });
+                          Navigator.pop(context);
+                        },
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: warningRed,
+                        ),
+                        label: const Text(
+                          "이 치수선 삭제",
+                          style: TextStyle(
+                            color: warningRed,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: warningRed),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildDimTypeChoiceChip(
+    String label,
+    DimensionType type,
+    PlacedDimension dim,
+    StateSetter setModalState,
+  ) {
+    final bool selected = dim.type == type;
+    final Color color = type == DimensionType.center
+        ? centerDimColor
+        : edgeDimColor;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          dim.type = type;
+          _dimensionsVersion++;
+        });
+        setModalState(() {});
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? color.withValues(alpha: 0.12) : tossBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? color : Colors.transparent,
+            width: 1.4,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? color : tossSubText,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
   }
 
   void _toggleMultiSelectMode() {
@@ -2848,6 +3241,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                         activePoint: _dimensionStartPoint,
                                         panelWidth: _panelWidth,
                                         panelHeight: _panelHeight,
+                                        version: _dimensionsVersion,
                                       ),
                                     ),
                                     if (_previewItem != null &&
@@ -3825,109 +4219,161 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
     return Padding(
       key: const ValueKey("dimension"),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          GestureDetector(
-            onTap: () => setState(() {
-              _currentDimType = isCenter
-                  ? DimensionType.edge
-                  : DimensionType.center;
-            }),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: activeColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.sync_alt_rounded,
-                    color: pureWhite,
-                    size: 16,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              GestureDetector(
+                onTap: () => setState(() {
+                  _currentDimType = isCenter
+                      ? DimensionType.edge
+                      : DimensionType.center;
+                }),
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
-                      "측정 기준",
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: tossSubText,
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: activeColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.sync_alt_rounded,
+                        color: pureWhite,
+                        size: 16,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      isCenter ? "센터(중심)" : "측면(여백)",
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: activeColor,
-                      ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          "측정 기준",
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: tossSubText,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          isCenter ? "센터(중심)" : "측면(여백)",
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: activeColor,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 10),
+              // 🚀 [신규] 체인 모드 - 켜면 점을 계속 이어서 탭하는 것만으로
+              // 연속 치수선이 만들어진다.
+              GestureDetector(
+                onTap: () => setState(() {
+                  _dimensionChainMode = !_dimensionChainMode;
+                }),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _dimensionChainMode
+                        ? tossBlue.withValues(alpha: 0.12)
+                        : tossBg,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: _dimensionChainMode
+                          ? tossBlue
+                          : Colors.transparent,
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.link_rounded,
+                        size: 14,
+                        color: _dimensionChainMode ? tossBlue : tossSubText,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "체인",
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: _dimensionChainMode ? tossBlue : tossSubText,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Spacer(),
+              // 🚀 [추가] 첫 지점을 잘못 찍었을 때 두 번째 지점을 억지로
+              // 찍어 엉뚱한 치수를 만들지 않고도 취소할 수 있는 버튼.
+              if (_dimensionStartPoint != null)
+                IconButton(
+                  tooltip: "첫 지점 취소",
+                  onPressed: () {
+                    setState(() {
+                      _dimensionStartPoint = null;
+                    });
+                  },
+                  icon: const Icon(
+                    Icons.undo_rounded,
+                    color: tossSubText,
+                    size: 20,
+                  ),
+                  constraints: const BoxConstraints(),
+                  padding: const EdgeInsets.all(6),
+                ),
+              if (_dimensions.isNotEmpty)
+                IconButton(
+                  tooltip: "치수 전체 삭제",
+                  onPressed: () {
+                    _pushUndo();
+                    setState(() {
+                      _dimensions.clear();
+                    });
+                  },
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: warningRed,
+                    size: 20,
+                  ),
+                  constraints: const BoxConstraints(),
+                  padding: const EdgeInsets.all(6),
+                ),
+            ],
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              _dimensionStartPoint == null
-                  ? "측정할 두 지점을 순서대로 터치하세요"
-                  : "다음 지점을 터치하면 연결됩니다",
-              style: const TextStyle(
-                color: tossSubText,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+          const SizedBox(height: 8),
+          Text(
+            _dimensionStartPoint == null
+                ? (_dimensionChainMode
+                      ? "체인 모드: 지점을 계속 탭하면 이어서 측정됩니다"
+                      : "측정할 두 지점을 순서대로 터치하세요 (치수선을 탭하면 편집)")
+                : "다음 지점을 터치하면 연결됩니다",
+            style: const TextStyle(
+              color: tossSubText,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-          // 🚀 [추가] 첫 지점을 잘못 찍었을 때 두 번째 지점을 억지로 찍어
-          // 엉뚱한 치수를 만들지 않고도 취소할 수 있는 버튼.
-          if (_dimensionStartPoint != null)
-            IconButton(
-              tooltip: "첫 지점 취소",
-              onPressed: () {
-                setState(() {
-                  _dimensionStartPoint = null;
-                });
-              },
-              icon: const Icon(
-                Icons.undo_rounded,
-                color: tossSubText,
-                size: 20,
-              ),
-              constraints: const BoxConstraints(),
-              padding: const EdgeInsets.all(6),
-            ),
-          if (_dimensions.isNotEmpty)
-            IconButton(
-              tooltip: "치수 전체 삭제",
-              onPressed: () {
-                _pushUndo();
-                setState(() {
-                  _dimensions.clear();
-                });
-              },
-              icon: const Icon(
-                Icons.delete_outline_rounded,
-                color: warningRed,
-                size: 20,
-              ),
-              constraints: const BoxConstraints(),
-              padding: const EdgeInsets.all(6),
-            ),
         ],
       ),
     );
@@ -4304,23 +4750,40 @@ class DimensionPainter extends CustomPainter {
   final MeasurePoint? activePoint;
   final double panelWidth;
   final double panelHeight;
+  // 🚀 [신규] dimensions 리스트는 계속 같은 객체를 그 자리에서 바꿔쓰기
+  // 때문에(add/remove 제외) 기준/메모/최소 간격만 바뀌었을 땐 길이 비교로
+  // 감지가 안 된다. 그런 변경이 있을 때마다 이 값을 1씩 올려서 확실히
+  // 다시 그려지게 한다.
+  final int version;
 
   DimensionPainter({
     required this.dimensions,
     this.activePoint,
     required this.panelWidth,
     required this.panelHeight,
+    this.version = 0,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    for (var dim in dimensions) {
+    for (int i = 0; i < dimensions.length; i++) {
+      final dim = dimensions[i];
       Color dColor = dim.type == DimensionType.center
           ? centerDimColor
           : edgeDimColor;
       String labelPrefix = dim.type == DimensionType.center ? "센터" : "측면";
 
       final endpoints = computeDimensionEndpoints(dim);
+
+      // 🚀 [신규] 최소 유지 간격을 설정해뒀는데 현재 거리가 그보다
+      // 좁아지면(모듈을 옮기다가 실시간으로) 경고색으로 바뀌어 즉시
+      // 눈에 띄게 한다.
+      final bool violatesMinGap =
+          dim.minGapMm != null && endpoints.distance < dim.minGapMm!;
+      if (violatesMinGap) {
+        dColor = warningRed;
+        labelPrefix = "⚠ 최소 ${dim.minGapMm!.toInt()}mm 미달";
+      }
 
       drawCadDimensionLine(
         canvas,
@@ -4330,6 +4793,55 @@ class DimensionPainter extends CustomPainter {
         dColor,
         labelPrefix,
       );
+
+      // 🚀 [신규] 치수선마다 번호 배지를 달아서, 도면이 복잡해져도
+      // 사진/PDF로 내보낸 치수 목록표와 대조해볼 수 있게 한다.
+      final Offset badgeCenter = endpoints.p1;
+      canvas.drawCircle(badgeCenter, 8, Paint()..color = dColor);
+      final numberSpan = TextSpan(
+        text: "${i + 1}",
+        style: const TextStyle(
+          color: pureWhite,
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+        ),
+      );
+      final numberPainter = TextPainter(
+        text: numberSpan,
+        textDirection: TextDirection.ltr,
+      )..layout();
+      numberPainter.paint(
+        canvas,
+        Offset(
+          badgeCenter.dx - numberPainter.width / 2,
+          badgeCenter.dy - numberPainter.height / 2,
+        ),
+      );
+
+      // 🚀 [신규] 메모가 있으면 선 아래쪽에 작게 표시.
+      if (dim.note != null && dim.note!.trim().isNotEmpty) {
+        final Offset mid = Offset(
+          (endpoints.p1.dx + endpoints.p2.dx) / 2,
+          (endpoints.p1.dy + endpoints.p2.dy) / 2,
+        );
+        final noteSpan = TextSpan(
+          text: dim.note,
+          style: const TextStyle(
+            color: tossSubText,
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+            fontStyle: FontStyle.italic,
+          ),
+        );
+        final notePainter = TextPainter(
+          text: noteSpan,
+          textDirection: TextDirection.ltr,
+        )..layout();
+        notePainter.paint(
+          canvas,
+          Offset(mid.dx - notePainter.width / 2, mid.dy + 12),
+        );
+      }
     }
 
     // 🚀 [개선] 예전엔 벽 기준점(WallPoint)일 때만 대기 중 표시를 그려서,
@@ -4359,6 +4871,7 @@ class DimensionPainter extends CustomPainter {
     return oldDelegate.dimensions.length != dimensions.length ||
         oldDelegate.activePoint != activePoint ||
         oldDelegate.panelWidth != panelWidth ||
-        oldDelegate.panelHeight != panelHeight;
+        oldDelegate.panelHeight != panelHeight ||
+        oldDelegate.version != version;
   }
 }
