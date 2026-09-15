@@ -26,6 +26,8 @@ const Color warningRed = Color(0xFFF04438);
 // 서로 달라 헷갈렸음. "센터"는 수동/자동 어디서나 항상 파란색으로 통일.
 const Color centerDimColor = tossBlue; // 센터 기준: 파란색(자동 가이드와 통일)
 const Color edgeDimColor = Color(0xFFF68657); // 측면 기준: 주황색
+// 🚀 [신규] 정렬 스냅 가이드선 색 (모바일과 동일).
+const Color alignGuideColor = Color(0xFFFF3D9A);
 const Color guideColor = tossBlue;
 
 // ---------------------------------------------------------
@@ -253,6 +255,10 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
   // 가이드선을 보여주기 위한 임시 아이템(모바일과 동일)
   PlacedItem? _previewItem;
   Offset _dragRawPosition = Offset.zero;
+
+  // 🚀 [신규] 정렬 스냅 가이드(모바일과 동일 개념).
+  double? _alignGuideX;
+  double? _alignGuideY;
 
   // 🚀 [신규] 실제 도면 사진을 배경으로 깔아두고 그 위에 모듈을 배치하는
   // 기능(모바일과 동일).
@@ -646,6 +652,62 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
     double dx = (offset.dx / _gridSize).round() * _gridSize;
     double dy = (offset.dy / _gridSize).round() * _gridSize;
     return Offset(dx, dy);
+  }
+
+  // 🚀 [신규] 정렬 스냅(모바일과 동일 로직) - 좌/중앙/우(상/중앙/하)가
+  // 다른 모듈과 근접하면 딱 맞춰 스냅시키고 기준선을 남긴다.
+  Offset _snapToAlignment(PlacedItem dragging, Offset proposed) {
+    const double snapThreshold = 6.0;
+    final double left = proposed.dx;
+    final double right = proposed.dx + dragging.width;
+    final double centerX = proposed.dx + dragging.width / 2;
+    final double top = proposed.dy;
+    final double bottom = proposed.dy + dragging.height;
+    final double centerY = proposed.dy + dragging.height / 2;
+
+    double? snappedX;
+    double? guideX;
+    double? snappedY;
+    double? guideY;
+
+    for (final other in _placedItems) {
+      if (other.id == dragging.id) continue;
+      final double oLeft = other.position.dx;
+      final double oRight = other.position.dx + other.width;
+      final double oCenterX = other.center.dx;
+      final double oTop = other.position.dy;
+      final double oBottom = other.position.dy + other.height;
+      final double oCenterY = other.center.dy;
+
+      if (guideX == null) {
+        if ((left - oLeft).abs() <= snapThreshold) {
+          snappedX = oLeft;
+          guideX = oLeft;
+        } else if ((right - oRight).abs() <= snapThreshold) {
+          snappedX = oRight - dragging.width;
+          guideX = oRight;
+        } else if ((centerX - oCenterX).abs() <= snapThreshold) {
+          snappedX = oCenterX - dragging.width / 2;
+          guideX = oCenterX;
+        }
+      }
+      if (guideY == null) {
+        if ((top - oTop).abs() <= snapThreshold) {
+          snappedY = oTop;
+          guideY = oTop;
+        } else if ((bottom - oBottom).abs() <= snapThreshold) {
+          snappedY = oBottom - dragging.height;
+          guideY = oBottom;
+        } else if ((centerY - oCenterY).abs() <= snapThreshold) {
+          snappedY = oCenterY - dragging.height / 2;
+          guideY = oCenterY;
+        }
+      }
+    }
+
+    _alignGuideX = guideX;
+    _alignGuideY = guideY;
+    return Offset(snappedX ?? proposed.dx, snappedY ?? proposed.dy);
   }
 
   void _clearBoard() {
@@ -1674,6 +1736,31 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                                     _mode == BoardMode.placeModule)
                                   ..._buildGuidePaints(_selectedItem!),
 
+                                if (_alignGuideX != null)
+                                  Positioned(
+                                    left: _alignGuideX,
+                                    top: 0,
+                                    bottom: 0,
+                                    child: IgnorePointer(
+                                      child: Container(
+                                        width: 1.4,
+                                        color: alignGuideColor,
+                                      ),
+                                    ),
+                                  ),
+                                if (_alignGuideY != null)
+                                  Positioned(
+                                    top: _alignGuideY,
+                                    left: 0,
+                                    right: 0,
+                                    child: IgnorePointer(
+                                      child: Container(
+                                        height: 1.4,
+                                        color: alignGuideColor,
+                                      ),
+                                    ),
+                                  ),
+
                                 if (_previewItem != null &&
                                     _mode == BoardMode.placeModule) ...[
                                   ..._buildGuidePaints(_previewItem!),
@@ -1723,9 +1810,22 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                                                       _panelHeight -
                                                           item.height,
                                                     );
-                                                item.position = _snapToGrid(
+                                                final gridSnapped = _snapToGrid(
                                                   Offset(clampedX, clampedY),
                                                 );
+                                                item.position =
+                                                    _snapToAlignment(
+                                                      item,
+                                                      gridSnapped,
+                                                    );
+                                              });
+                                            }
+                                          : null,
+                                      onPanEnd: _mode == BoardMode.placeModule
+                                          ? (details) {
+                                              setState(() {
+                                                _alignGuideX = null;
+                                                _alignGuideY = null;
                                               });
                                             }
                                           : null,
@@ -2021,7 +2121,90 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                           ],
                         ),
 
-                        const SizedBox(height: 40),
+                        const SizedBox(height: 28),
+                        // 🚀 [신규] 레이어 순서(앞/뒤) 조정 - 리스트 맨 뒤에
+                        // 있을수록 화면 맨 위에 그려진다.
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  final item = _selectedItem!;
+                                  _pushUndo();
+                                  setState(() {
+                                    _placedItems.remove(item);
+                                    _placedItems.add(item);
+                                  });
+                                  HapticFeedback.lightImpact();
+                                },
+                                icon: const Icon(
+                                  Icons.flip_to_front_rounded,
+                                  size: 18,
+                                  color: tossText,
+                                ),
+                                label: const Text(
+                                  "맨 앞으로",
+                                  style: TextStyle(
+                                    color: tossText,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(
+                                    color: tossText.withValues(alpha: 0.2),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  final item = _selectedItem!;
+                                  _pushUndo();
+                                  setState(() {
+                                    _placedItems.remove(item);
+                                    _placedItems.insert(0, item);
+                                  });
+                                  HapticFeedback.lightImpact();
+                                },
+                                icon: const Icon(
+                                  Icons.flip_to_back_rounded,
+                                  size: 18,
+                                  color: tossText,
+                                ),
+                                label: const Text(
+                                  "맨 뒤로",
+                                  style: TextStyle(
+                                    color: tossText,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(
+                                    color: tossText.withValues(alpha: 0.2),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 16),
                         SizedBox(
                           width: double.infinity,
                           height: 50,

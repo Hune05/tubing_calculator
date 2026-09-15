@@ -33,6 +33,10 @@ const Color warningRed = Color(0xFFF04438);
 const Color centerDimColor = tossBlue; // 센터: 파란색(자동 가이드와 통일)
 const Color edgeDimColor = Color(0xFFF68657); // 측면: 주황색
 const Color guideCenterColor = tossBlue; // 가상선(센터): 파란색
+// 🚀 [신규] 정렬 스냅 가이드선 - 거리 표시용 CAD 치수선(파란/주황)과
+// 헷갈리지 않도록 확실히 구분되는 마젠타 색을 쓴다(피그마 등에서 흔히
+// 쓰는 정렬 가이드 색).
+const Color alignGuideColor = Color(0xFFFF3D9A);
 
 // ---------------------------------------------------------
 // 1. 데이터 모델
@@ -257,6 +261,12 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
   PlacedItem? _activeItem;
   PlacedItem? _previewItem;
   Offset _dragRawPosition = Offset.zero;
+
+  // 🚀 [신규] 모듈을 드래그하는 동안 다른 모듈과 좌/우/중앙(또는 상/하/중앙)이
+  // 정확히 맞춰지면 자석처럼 딱 붙고, 그 기준선을 화면에 그어준다
+  // (피그마 등에서 흔히 쓰는 정렬 스냅 가이드). null이면 표시 안 함.
+  double? _alignGuideX;
+  double? _alignGuideY;
 
   // 🚀 [신규] 실제 도면 사진(캐드 출력물, 손그림 등)을 배경으로 깔아두고
   // 그 위에 모듈/치수를 배치할 수 있는 기능. 불투명도를 낮춰서 배경
@@ -509,6 +519,64 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
     double dx = (offset.dx / _gridSize).round() * _gridSize;
     double dy = (offset.dy / _gridSize).round() * _gridSize;
     return Offset(dx, dy);
+  }
+
+  // 🚀 [신규] 드래그 중인 모듈의 좌/중앙/우(또는 상/중앙/하)가 다른
+  // 모듈의 같은 기준선에 근접하면 그 값에 딱 맞춰 스냅시키고, 맞춰진
+  // 기준선 좌표를 _alignGuideX/_alignGuideY에 남겨 화면에 그어준다.
+  // X축/Y축 각각 독립적으로 검사하며, 그리드 스냅보다 우선 적용된다.
+  Offset _snapToAlignment(PlacedItem dragging, Offset proposed) {
+    const double snapThreshold = 6.0;
+    final double left = proposed.dx;
+    final double right = proposed.dx + dragging.width;
+    final double centerX = proposed.dx + dragging.width / 2;
+    final double top = proposed.dy;
+    final double bottom = proposed.dy + dragging.height;
+    final double centerY = proposed.dy + dragging.height / 2;
+
+    double? snappedX;
+    double? guideX;
+    double? snappedY;
+    double? guideY;
+
+    for (final other in _placedItems) {
+      if (other.id == dragging.id) continue;
+      final double oLeft = other.position.dx;
+      final double oRight = other.position.dx + other.width;
+      final double oCenterX = other.center.dx;
+      final double oTop = other.position.dy;
+      final double oBottom = other.position.dy + other.height;
+      final double oCenterY = other.center.dy;
+
+      if (guideX == null) {
+        if ((left - oLeft).abs() <= snapThreshold) {
+          snappedX = oLeft;
+          guideX = oLeft;
+        } else if ((right - oRight).abs() <= snapThreshold) {
+          snappedX = oRight - dragging.width;
+          guideX = oRight;
+        } else if ((centerX - oCenterX).abs() <= snapThreshold) {
+          snappedX = oCenterX - dragging.width / 2;
+          guideX = oCenterX;
+        }
+      }
+      if (guideY == null) {
+        if ((top - oTop).abs() <= snapThreshold) {
+          snappedY = oTop;
+          guideY = oTop;
+        } else if ((bottom - oBottom).abs() <= snapThreshold) {
+          snappedY = oBottom - dragging.height;
+          guideY = oBottom;
+        } else if ((centerY - oCenterY).abs() <= snapThreshold) {
+          snappedY = oCenterY - dragging.height / 2;
+          guideY = oCenterY;
+        }
+      }
+    }
+
+    _alignGuideX = guideX;
+    _alignGuideY = guideY;
+    return Offset(snappedX ?? proposed.dx, snappedY ?? proposed.dy);
   }
 
   void _clearBoard() {
@@ -1201,6 +1269,84 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                               borderRadius: BorderRadius.circular(12),
                             ),
                             padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 🚀 [신규] 레이어 순서(앞/뒤) 조정 - 모듈이 서로 겹칠 때
+                  // 어느 것이 위로 보일지 정할 수 있게 한다. 리스트 맨
+                  // 뒤에 있을수록 화면 맨 위에 그려진다.
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _placedItems.remove(item);
+                              _placedItems.add(item);
+                            });
+                            setModalState(() {});
+                            HapticFeedback.lightImpact();
+                          },
+                          icon: const Icon(
+                            Icons.flip_to_front_rounded,
+                            size: 18,
+                            color: tossText,
+                          ),
+                          label: const Text(
+                            "맨 앞으로",
+                            style: TextStyle(
+                              color: tossText,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: tossText.withValues(alpha: 0.2),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _placedItems.remove(item);
+                              _placedItems.insert(0, item);
+                            });
+                            setModalState(() {});
+                            HapticFeedback.lightImpact();
+                          },
+                          icon: const Icon(
+                            Icons.flip_to_back_rounded,
+                            size: 18,
+                            color: tossText,
+                          ),
+                          label: const Text(
+                            "맨 뒤로",
+                            style: TextStyle(
+                              color: tossText,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: tossText.withValues(alpha: 0.2),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
                       ),
@@ -1911,6 +2057,31 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                         _mode == BoardMode.placeModule)
                                       ..._buildGuidePaints(_activeItem!),
 
+                                    if (_alignGuideX != null)
+                                      Positioned(
+                                        left: _alignGuideX,
+                                        top: 0,
+                                        bottom: 0,
+                                        child: IgnorePointer(
+                                          child: Container(
+                                            width: 1.4,
+                                            color: alignGuideColor,
+                                          ),
+                                        ),
+                                      ),
+                                    if (_alignGuideY != null)
+                                      Positioned(
+                                        top: _alignGuideY,
+                                        left: 0,
+                                        right: 0,
+                                        child: IgnorePointer(
+                                          child: Container(
+                                            height: 1.4,
+                                            color: alignGuideColor,
+                                          ),
+                                        ),
+                                      ),
+
                                     ..._placedItems.map((item) {
                                       return Positioned(
                                         left: item.position.dx,
@@ -1961,12 +2132,18 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                                                     item.height,
                                                               ),
                                                             );
-                                                    item.position = _snapToGrid(
-                                                      Offset(
-                                                        clampedX,
-                                                        clampedY,
-                                                      ),
-                                                    );
+                                                    final gridSnapped =
+                                                        _snapToGrid(
+                                                          Offset(
+                                                            clampedX,
+                                                            clampedY,
+                                                          ),
+                                                        );
+                                                    item.position =
+                                                        _snapToAlignment(
+                                                          item,
+                                                          gridSnapped,
+                                                        );
                                                   });
                                                 }
                                               : null,
@@ -1975,6 +2152,8 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                               ? (details) {
                                                   setState(() {
                                                     _activeItem = null;
+                                                    _alignGuideX = null;
+                                                    _alignGuideY = null;
                                                   });
                                                 }
                                               : null,
