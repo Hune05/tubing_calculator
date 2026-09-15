@@ -21,6 +21,9 @@ class WorkLogCard extends StatelessWidget {
   final VoidCallback onAddPunchList;
   final void Function(Map<String, dynamic> punch) onOpenPunchDetail;
   final VoidCallback onDelete;
+  // 🚀 [추가] 프로젝트 완료/보관 처리.
+  final VoidCallback onToggleProjectStatus;
+  final bool isProjectActive;
 
   const WorkLogCard({
     super.key,
@@ -34,6 +37,8 @@ class WorkLogCard extends StatelessWidget {
     required this.onAddPunchList,
     required this.onOpenPunchDetail,
     required this.onDelete,
+    required this.onToggleProjectStatus,
+    required this.isProjectActive,
   });
 
   @override
@@ -45,10 +50,9 @@ class WorkLogCard extends StatelessWidget {
     List<dynamic> punchLists = log['punch_lists'] ?? [];
     // 🚀 [추가] "일정 관리"에 등록된 것 중 아직 완료 안 된 것만 카드에서
     // 미리 보여준다 (완료된 건 일정 관리 화면에서만 확인).
-    List<dynamic> upcomingSchedules =
-        (log['schedules'] as List<dynamic>? ?? [])
-            .where((s) => s['isCompleted'] != true)
-            .toList();
+    List<dynamic> upcomingSchedules = (log['schedules'] as List<dynamic>? ?? [])
+        .where((s) => s['isCompleted'] != true)
+        .toList();
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -96,14 +100,42 @@ class WorkLogCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          log['name'] ?? '이름 없음',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: tossText,
-                            letterSpacing: -0.5,
-                          ),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                log['name'] ?? '이름 없음',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: tossText,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                            ),
+                            if (!isProjectActive) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: tossSubText.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text(
+                                  "완료됨",
+                                  style: TextStyle(
+                                    color: tossSubText,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -314,6 +346,31 @@ class WorkLogCard extends StatelessWidget {
                     const SizedBox(height: 16),
                   ],
 
+                  // 🚀 [추가] 프로젝트 완료/보관 처리 버튼
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: onToggleProjectStatus,
+                      icon: Icon(
+                        isProjectActive
+                            ? Icons.check_circle_outline_rounded
+                            : Icons.replay_rounded,
+                        size: 18,
+                      ),
+                      label: Text(isProjectActive ? "프로젝트 완료 처리" : "다시 진행중으로"),
+                      style: TextButton.styleFrom(
+                        foregroundColor: isProjectActive
+                            ? Colors.green
+                            : tossBlue,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                  ),
                   // 삭제 버튼
                   Center(
                     child: Padding(
@@ -382,7 +439,6 @@ class WorkLogCard extends StatelessWidget {
       ),
     );
   }
-
 }
 
 // 리스트 아이템 (WorkLogCard와 아래 _DailyReportPager가 함께 쓰므로
@@ -450,9 +506,7 @@ Widget _buildUnifiedRecordItem({
                         : (isWarning ? warningRed : tossText),
                     fontSize: 15,
                     letterSpacing: -0.3,
-                    decoration: isCompleted
-                        ? TextDecoration.lineThrough
-                        : null,
+                    decoration: isCompleted ? TextDecoration.lineThrough : null,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -539,7 +593,9 @@ class _DailyReportPagerState extends State<_DailyReportPager> {
                       ? () => setState(() => _page = page - 1)
                       : null,
                   icon: const Icon(Icons.chevron_left_rounded),
-                  color: page > 0 ? tossText : tossSubText.withValues(alpha: 0.4),
+                  color: page > 0
+                      ? tossText
+                      : tossSubText.withValues(alpha: 0.4),
                   splashRadius: 20,
                 ),
                 Text(

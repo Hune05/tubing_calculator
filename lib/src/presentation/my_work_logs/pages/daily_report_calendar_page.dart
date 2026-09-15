@@ -55,9 +55,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
   List<Map<String, dynamic>> get _reportsInViewedMonth {
     final String monthPrefix = _viewedMonth.month.toString().padLeft(2, '0');
     return _reports
-        .where(
-          (r) => (r['date']?.toString() ?? '').startsWith("$monthPrefix/"),
-        )
+        .where((r) => (r['date']?.toString() ?? '').startsWith("$monthPrefix/"))
         .toList();
   }
 
@@ -68,6 +66,112 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
       map.putIfAbsent(key, () => r); // 최신 순 리스트라 첫 항목이 최신
     }
     return map;
+  }
+
+  // 🚀 [신규] 최근 6개월(실제 현재 달 기준, 달력에서 이동 중인 달과는
+  // 무관) 벤딩 포인트 합계를 월별로 모아 추이를 보여준다. 연도 정보가
+  // 없는 한계는 달력 뷰와 동일 - 월 숫자만으로 묶는다.
+  List<MapEntry<int, int>> get _monthlyPointsTrend {
+    final now = DateTime.now();
+    final List<MapEntry<int, int>> result = [];
+    for (int i = 5; i >= 0; i--) {
+      final monthDate = DateTime(now.year, now.month - i);
+      final String prefix = monthDate.month.toString().padLeft(2, '0');
+      int total = 0;
+      for (final r in _reports) {
+        final String date = r['date']?.toString() ?? '';
+        if (date.startsWith('$prefix/')) {
+          total += (r['points'] as num?)?.toInt() ?? 0;
+        }
+      }
+      result.add(MapEntry(monthDate.month, total));
+    }
+    return result;
+  }
+
+  Widget _buildTrendChart() {
+    final trend = _monthlyPointsTrend;
+    final int maxVal = trend
+        .map((e) => e.value)
+        .fold(0, (a, b) => a > b ? a : b);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: pureWhite,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.show_chart_rounded, color: tossBlue, size: 18),
+              SizedBox(width: 6),
+              Text(
+                "최근 6개월 벤딩 포인트 추이",
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  color: tossText,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 120,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: trend.map((e) {
+                final double heightFrac = maxVal == 0
+                    ? 0.0
+                    : (e.value / maxVal).clamp(0.03, 1.0);
+                final bool isCurrentMonth = e.key == DateTime.now().month;
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Text(
+                          "${e.value}",
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: tossSubText,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          height: 80 * heightFrac,
+                          decoration: BoxDecoration(
+                            color: isCurrentMonth
+                                ? tossBlue
+                                : tossBlue.withValues(alpha: 0.4),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          "${e.key}월",
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isCurrentMonth ? tossBlue : tossText,
+                            fontWeight: isCurrentMonth
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _changeMonth(int delta) {
@@ -103,7 +207,9 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
     int totalWiring = 0;
     int overtimeDays = 0;
     final buffer = StringBuffer();
-    buffer.writeln("📋 [${widget.projectName}] ${_viewedMonth.month}월 작업 일지 요약");
+    buffer.writeln(
+      "📋 [${widget.projectName}] ${_viewedMonth.month}월 작업 일지 요약",
+    );
     buffer.writeln("기록일: ${byDate.length}일 / $daysInMonth일");
     buffer.writeln();
 
@@ -286,9 +392,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
                   onTap: hasReport
                       ? () => _openReport(report)
                       : () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("이 날짜의 작업 일지가 없습니다."),
-                          ),
+                          const SnackBar(content: Text("이 날짜의 작업 일지가 없습니다.")),
                         ),
                   child: Container(
                     decoration: BoxDecoration(
@@ -326,6 +430,8 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
                 );
               },
             ),
+            const SizedBox(height: 16),
+            _buildTrendChart(),
           ],
         ),
         bottomNavigationBar: SafeArea(
@@ -360,10 +466,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
     return Expanded(
       child: Column(
         children: [
-          Text(
-            label,
-            style: const TextStyle(color: tossSubText, fontSize: 12),
-          ),
+          Text(label, style: const TextStyle(color: tossSubText, fontSize: 12)),
           const SizedBox(height: 4),
           Text(
             value,
