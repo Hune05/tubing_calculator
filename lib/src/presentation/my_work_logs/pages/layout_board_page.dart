@@ -564,13 +564,25 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
   Future<void> _shareAsPdf(String projectName) async {
     setState(() => _isSaving = true);
     try {
+      // 🚀 [버그 수정] QR에 실제 존재하지 않는 이름+시각 조합 문자열을
+      // 넣어서, 스캔해도 절대 못 찾는 죽은 링크였다. QR로 다시 이 도면을
+      // 열 수 있으려면 서버에 저장된 실제 프로젝트여야 하므로, 아직
+      // 저장 전이면 먼저 저장해서 진짜 문서 ID를 확보한다.
+      if (_currentProjectId == null) {
+        await _saveToFirebase(projectName);
+        if (_currentProjectId == null) {
+          throw Exception("프로젝트 저장에 실패해 QR을 만들 수 없습니다");
+        }
+      }
+      if (!mounted) return;
+      setState(() => _isSaving = true);
+
       final imageBytes = await _capturePng();
       if (imageBytes == null) throw Exception("도면 캡처 실패");
 
       final pdf = pw.Document();
       final image = pw.MemoryImage(imageBytes);
-      String qrData =
-          "tubingcalc://layout?project=${projectName.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}";
+      String qrData = "tubingcalc://layout?project=$_currentProjectId";
 
       pdf.addPage(
         pw.Page(

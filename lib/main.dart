@@ -26,6 +26,7 @@ import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_
 import 'package:tubing_calculator/src/presentation/menu/page/home_menu_router.dart';
 import 'package:tubing_calculator/src/presentation/menu/page/mobile_loading_screen.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_only_screen.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/responsive_layout_board_page.dart';
 
 // 🚀 [백그라운드 핸들러]
 @pragma('vm:entry-point')
@@ -238,12 +239,17 @@ class _DeepLinkHandlerState extends State<DeepLinkHandler> {
 
     try {
       final initialUri = await _appLinks.getInitialAppLink();
-      if (initialUri != null &&
-          initialUri.scheme == 'tubingapp' &&
-          initialUri.host == 'view') {
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) _handleViewerLink(initialUri);
-        });
+      if (initialUri != null) {
+        if (initialUri.scheme == 'tubingapp' && initialUri.host == 'view') {
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) _handleViewerLink(initialUri);
+          });
+        } else if (initialUri.scheme == 'tubingcalc' &&
+            initialUri.host == 'layout') {
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) _handleLayoutLink(initialUri);
+          });
+        }
       }
     } catch (e) {
       debugPrint("초기 링크 로드 에러: $e");
@@ -252,8 +258,30 @@ class _DeepLinkHandlerState extends State<DeepLinkHandler> {
     _linkSubscription = _appLinks.uriLinkStream.listen((uri) {
       if (uri.scheme == 'tubingapp' && uri.host == 'view') {
         _handleViewerLink(uri);
+      } else if (uri.scheme == 'tubingcalc' && uri.host == 'layout') {
+        _handleLayoutLink(uri);
       }
     });
+  }
+
+  // 🚀 [신규] 배치도 QR 코드 스캔 링크(tubingcalc://layout?project=문서ID)
+  // 처리 - 예전엔 이 딥링크를 받는 핸들러가 아예 없어서 QR을 스캔해도
+  // 아무 반응이 없었다.
+  void _handleLayoutLink(Uri uri) {
+    try {
+      final String? projectId = uri.queryParameters['project'];
+      if (projectId == null || projectId.isEmpty) return;
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) =>
+                ResponsiveLayoutBoardPage(projectId: projectId),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("배치도 딥링크 처리 에러: $e");
+    }
   }
 
   void _handleViewerLink(Uri uri) {
