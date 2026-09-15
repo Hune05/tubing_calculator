@@ -613,6 +613,14 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
   // 모듈의 같은 기준선에 근접하면 그 값에 딱 맞춰 스냅시키고, 맞춰진
   // 기준선 좌표를 _alignGuideX/_alignGuideY에 남겨 화면에 그어준다.
   // X축/Y축 각각 독립적으로 검사하며, 그리드 스냅보다 우선 적용된다.
+  //
+  // 🚀 [버그 수정] 두 축이 같은 상대 모듈에 대해 동시에 맞아떨어지면
+  // (예: 대각선으로 가까이 다가갈 때) 그 모듈과 완전히 겹쳐버리는
+  // 문제가 있었다("자주빛 선이 생기며 겹치거나 따라가 버림"). 이제
+  // X 정렬은 세로(Y) 범위가 겹치지 않는 모듈끼리만(다른 행에 있을 때),
+  // Y 정렬은 가로(X) 범위가 겹치지 않는 모듈끼리만(다른 열에 있을 때)
+  // 허용하고, 그래도 겹치는 결과가 나오면 정렬 스냅 자체를 포기해서
+  // 겹침이 절대 발생하지 않게 이중으로 막는다.
   Offset _snapToAlignment(PlacedItem dragging, Offset proposed) {
     const double snapThreshold = 6.0;
     final double left = proposed.dx;
@@ -621,6 +629,13 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
     final double top = proposed.dy;
     final double bottom = proposed.dy + dragging.height;
     final double centerY = proposed.dy + dragging.height / 2;
+
+    bool rangesOverlap(
+      double aStart,
+      double aEnd,
+      double bStart,
+      double bEnd,
+    ) => aStart < bEnd && bStart < aEnd;
 
     double? snappedX;
     double? guideX;
@@ -636,7 +651,10 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
       final double oBottom = other.position.dy + other.height;
       final double oCenterY = other.center.dy;
 
-      if (guideX == null) {
+      final bool yOverlaps = rangesOverlap(top, bottom, oTop, oBottom);
+      final bool xOverlaps = rangesOverlap(left, right, oLeft, oRight);
+
+      if (guideX == null && !yOverlaps) {
         if ((left - oLeft).abs() <= snapThreshold) {
           snappedX = oLeft;
           guideX = oLeft;
@@ -648,7 +666,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
           guideX = oCenterX;
         }
       }
-      if (guideY == null) {
+      if (guideY == null && !xOverlaps) {
         if ((top - oTop).abs() <= snapThreshold) {
           snappedY = oTop;
           guideY = oTop;
@@ -662,9 +680,37 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
       }
     }
 
+    final Offset result = Offset(
+      snappedX ?? proposed.dx,
+      snappedY ?? proposed.dy,
+    );
+
+    // 최종 안전장치: 그래도 다른 모듈과 겹치는 결과라면 정렬 스냅을
+    // 완전히 포기하고 그리드 스냅 위치를 그대로 쓴다.
+    final Rect resultRect = Rect.fromLTWH(
+      result.dx,
+      result.dy,
+      dragging.width,
+      dragging.height,
+    );
+    for (final other in _placedItems) {
+      if (other.id == dragging.id) continue;
+      final Rect otherRect = Rect.fromLTWH(
+        other.position.dx,
+        other.position.dy,
+        other.width,
+        other.height,
+      );
+      if (resultRect.overlaps(otherRect)) {
+        _alignGuideX = null;
+        _alignGuideY = null;
+        return proposed;
+      }
+    }
+
     _alignGuideX = guideX;
     _alignGuideY = guideY;
-    return Offset(snappedX ?? proposed.dx, snappedY ?? proposed.dy);
+    return result;
   }
 
   void _clearBoard() {
