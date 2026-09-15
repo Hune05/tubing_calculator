@@ -29,6 +29,8 @@ const Color centerDimColor = tossBlue; // 센터 기준: 파란색(자동 가이
 const Color edgeDimColor = Color(0xFFF68657); // 측면 기준: 주황색
 // 🚀 [신규] 정렬 스냅 가이드선 색 (모바일과 동일).
 const Color alignGuideColor = Color(0xFFFF3D9A);
+// 🚀 [신규] 대각선 치수 색상(모바일과 동일).
+const Color diagonalDimColor = Color(0xFF8B5CF6);
 const Color guideColor = tossBlue;
 // 🚀 [신규] 작은 모듈도 쉽게 잡을 수 있도록 넓혀주는 터치 영역(모바일과
 // 동일).
@@ -165,6 +167,11 @@ class PlacedDimension {
   String? note;
   // 🚀 [신규] 최소 유지 간격(mm) - 실제 거리가 이보다 좁아지면 경고색.
   double? minGapMm;
+  // 🚀 [신규] 대각선 모드 - 켜면 축 정렬 없이 두 중심점을 직선으로
+  // 그대로 잇는 실제 직선거리+각도를 측정한다(모바일과 동일).
+  bool isDiagonal;
+  // 🚀 [신규] 안전 이격거리처럼 규정과 관련된 중요한 치수선 표시.
+  bool isSafetyCritical;
 
   PlacedDimension({
     required this.id,
@@ -173,6 +180,8 @@ class PlacedDimension {
     required this.type,
     this.note,
     this.minGapMm,
+    this.isDiagonal = false,
+    this.isSafetyCritical = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -182,6 +191,8 @@ class PlacedDimension {
     'type': type.name,
     'note': note,
     'minGapMm': minGapMm,
+    'isDiagonal': isDiagonal,
+    'isSafetyCritical': isSafetyCritical,
   };
 
   factory PlacedDimension.fromJson(Map<String, dynamic> j) => PlacedDimension(
@@ -191,6 +202,8 @@ class PlacedDimension {
     type: DimensionType.values.byName(j['type'] as String),
     note: j['note'] as String?,
     minGapMm: (j['minGapMm'] as num?)?.toDouble(),
+    isDiagonal: j['isDiagonal'] as bool? ?? false,
+    isSafetyCritical: j['isSafetyCritical'] as bool? ?? false,
   );
 }
 
@@ -201,6 +214,13 @@ class PlacedDimension {
 ) {
   final Rect r1 = dim.p1.boundingBox;
   final Rect r2 = dim.p2.boundingBox;
+
+  // 🚀 [신규] 대각선 모드면 축 정렬 없이 두 중심점을 직선 그대로 잇는다.
+  if (dim.isDiagonal) {
+    final Offset p1 = r1.center;
+    final Offset p2 = r2.center;
+    return (p1: p1, p2: p2, distance: (p1 - p2).distance);
+  }
 
   final double dxCenter = (r1.center.dx - r2.center.dx).abs();
   final double dyCenter = (r1.center.dy - r2.center.dy).abs();
@@ -259,6 +279,8 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
   // 🚀 [신규] 체인 모드(모바일과 동일 개념) - 켜두면 점을 계속 이어서
   // 탭하는 것만으로 연속된 치수선을 만들 수 있다.
   bool _dimensionChainMode = false;
+  // 🚀 [신규] 대각선 모드(모바일과 동일 개념).
+  bool _dimensionDiagonalMode = false;
   // 🚀 [신규] 치수의 기준/메모/최소 간격을 바꿨을 때 DimensionPainter가
   // 확실히 다시 그려지도록 하는 버전 카운터(모바일과 동일한 이유).
   int _dimensionsVersion = 0;
@@ -638,6 +660,73 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
     }
   }
 
+  // 🚀 [신규] 최소 유지 간격을 설정해둔 치수 중, 저장하는 지금 시점에도
+  // 여전히 기준을 못 만족하는 것들을 모아서 알려준다(모바일과 동일).
+  List<String> _collectMinGapViolations() {
+    final List<String> violations = [];
+    for (int i = 0; i < _dimensions.length; i++) {
+      final dim = _dimensions[i];
+      if (dim.minGapMm == null) continue;
+      final endpoints = computeDimensionEndpoints(dim);
+      if (endpoints.distance < dim.minGapMm!) {
+        violations.add(
+          "#${i + 1}: 현재 ${endpoints.distance.toInt()}mm (기준 ${dim.minGapMm!.toInt()}mm 이상)",
+        );
+      }
+    }
+    return violations;
+  }
+
+  Future<bool> _confirmMinGapViolationsIfAny() async {
+    final violations = _collectMinGapViolations();
+    if (violations.isEmpty) return true;
+    final bool? proceed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: pureWhite,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          "이격거리 미달 경고",
+          style: TextStyle(color: warningRed, fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "최소 간격 기준을 만족하지 못하는 치수선이 ${violations.length}건 있습니다:",
+              style: const TextStyle(color: tossText),
+            ),
+            const SizedBox(height: 8),
+            ...violations.map(
+              (v) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  "• $v",
+                  style: const TextStyle(color: warningRed, fontSize: 13),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("취소", style: TextStyle(color: tossSubText)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              "그래도 저장",
+              style: TextStyle(color: warningRed, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+    return proceed ?? false;
+  }
+
   void _showSaveDialog() {
     final TextEditingController nameCtrl = TextEditingController(
       text: _projectName.isNotEmpty
@@ -695,9 +784,10 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            onPressed: () {
+            onPressed: () async {
               if (nameCtrl.text.trim().isEmpty) return;
               Navigator.pop(context);
+              if (!await _confirmMinGapViolationsIfAny()) return;
               _saveToFirebase(nameCtrl.text.trim());
             },
             child: const Text(
@@ -964,6 +1054,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
           bool exists = _dimensions.any(
             (dim) =>
                 dim.type == _currentDimType &&
+                dim.isDiagonal == _dimensionDiagonalMode &&
                 ((dim.p1.id == _dimensionStartPoint!.id &&
                         dim.p2.id == point.id) ||
                     (dim.p1.id == point.id &&
@@ -978,6 +1069,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                 p1: _dimensionStartPoint!,
                 p2: point,
                 type: _currentDimType,
+                isDiagonal: _dimensionDiagonalMode,
               ),
             );
             HapticFeedback.heavyImpact();
@@ -1054,15 +1146,28 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
     return (p - proj).distance;
   }
 
+  // 🚀 [신규] 번호 배지(p1 지점에 그려짐)는 선 자체보다 좀 더 넉넉한
+  // 반경으로 우선 인식한다(모바일과 동일).
   PlacedDimension? _findDimensionNear(Offset pos) {
-    const double tolerance = 14.0;
+    const double segmentTolerance = 14.0;
+    const double badgeTolerance = 16.0;
     PlacedDimension? closest;
-    double closestDist = tolerance;
+    double closestDist = double.infinity;
     for (final dim in _dimensions) {
       final endpoints = computeDimensionEndpoints(dim);
-      final double d = _distanceToSegment(pos, endpoints.p1, endpoints.p2);
-      if (d <= closestDist) {
-        closestDist = d;
+      final double badgeDist = (pos - endpoints.p1).distance;
+      if (badgeDist <= badgeTolerance && badgeDist < closestDist) {
+        closestDist = badgeDist;
+        closest = dim;
+        continue;
+      }
+      final double segDist = _distanceToSegment(
+        pos,
+        endpoints.p1,
+        endpoints.p2,
+      );
+      if (segDist <= segmentTolerance && segDist < closestDist) {
+        closestDist = segDist;
         closest = dim;
       }
     }
@@ -1229,6 +1334,101 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 10),
+                    // 🚀 [신규] 자주 쓰는 최소 간격값 프리셋.
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [20, 30, 50, 100].map((v) {
+                        final bool selected = dim.minGapMm == v.toDouble();
+                        return GestureDetector(
+                          onTap: () {
+                            minGapCtrl.text = v.toString();
+                            setModalState(() {});
+                            setState(() {
+                              dim.minGapMm = v.toDouble();
+                              _dimensionsVersion++;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? tossBlue.withValues(alpha: 0.12)
+                                  : tossBg,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: selected ? tossBlue : Colors.transparent,
+                                width: 1.2,
+                              ),
+                            ),
+                            child: Text(
+                              "${v}mm",
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: selected ? tossBlue : tossSubText,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 12),
+                    // 🚀 [신규] 대각선 모드 - 축 정렬 없이 실제 직선거리+
+                    // 각도로 바꾼다.
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: dim.isDiagonal,
+                      activeThumbColor: diagonalDimColor,
+                      onChanged: (v) {
+                        setState(() {
+                          dim.isDiagonal = v;
+                          _dimensionsVersion++;
+                        });
+                        setModalState(() {});
+                      },
+                      title: const Text(
+                        "대각선 모드",
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: tossText,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        "축에 맞추지 않고 실제 직선거리+각도로 표시",
+                        style: TextStyle(fontSize: 11, color: tossSubText),
+                      ),
+                    ),
+                    // 🚀 [신규] 안전 이격거리 강조 표시.
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: dim.isSafetyCritical,
+                      activeThumbColor: warningRed,
+                      onChanged: (v) {
+                        setState(() {
+                          dim.isSafetyCritical = v;
+                          _dimensionsVersion++;
+                        });
+                        setModalState(() {});
+                      },
+                      title: const Text(
+                        "안전 이격거리로 강조 표시",
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: tossText,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        "굵은 선 + 🛡 표시로 다른 치수와 구분",
+                        style: TextStyle(fontSize: 11, color: tossSubText),
+                      ),
                     ),
                   ],
                 ),
@@ -3764,6 +3964,25 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                 setState(() => _dimensionChainMode = val);
               },
             ),
+            // 🚀 [신규] 대각선 모드 - 켜면 축 정렬 없이 실제 직선거리+
+            // 각도를 측정한다(모바일과 동일).
+            ChoiceChip(
+              label: const Text("대각선 모드"),
+              avatar: Icon(
+                Icons.turn_slight_right_rounded,
+                size: 16,
+                color: _dimensionDiagonalMode ? diagonalDimColor : tossSubText,
+              ),
+              selected: _dimensionDiagonalMode,
+              selectedColor: diagonalDimColor.withValues(alpha: 0.15),
+              labelStyle: TextStyle(
+                color: _dimensionDiagonalMode ? diagonalDimColor : tossSubText,
+                fontWeight: FontWeight.bold,
+              ),
+              onSelected: (val) {
+                setState(() => _dimensionDiagonalMode = val);
+              },
+            ),
           ],
         ),
         const SizedBox(height: 20),
@@ -3912,13 +4131,14 @@ void drawCadDimensionLine(
   Offset end,
   double distance,
   Color color,
-  String prefix,
-) {
+  String prefix, {
+  double strokeWidth = 1.3,
+}) {
   if (distance < 1) return; // 사실상 붙어있으면 표시할 게 없음
 
   final linePaint = Paint()
     ..color = color
-    ..strokeWidth = 1.3
+    ..strokeWidth = strokeWidth
     ..style = PaintingStyle.stroke;
   canvas.drawLine(start, end, linePaint);
 
@@ -4180,12 +4400,32 @@ class DimensionPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     for (int i = 0; i < dimensions.length; i++) {
       final dim = dimensions[i];
+      final endpoints = computeDimensionEndpoints(dim);
+
       Color dColor = dim.type == DimensionType.center
           ? centerDimColor
           : edgeDimColor;
       String labelPrefix = dim.type == DimensionType.center ? "센터" : "측면";
 
-      final endpoints = computeDimensionEndpoints(dim);
+      // 🚀 [신규] 대각선 모드면 실제 각도를 라벨에 표시한다.
+      if (dim.isDiagonal) {
+        dColor = diagonalDimColor;
+        final double angleDeg =
+            math.atan2(
+              endpoints.p2.dy - endpoints.p1.dy,
+              endpoints.p2.dx - endpoints.p1.dx,
+            ) *
+            180 /
+            math.pi;
+        final double normalized = angleDeg < 0 ? angleDeg + 360 : angleDeg;
+        labelPrefix = "대각 ${normalized.toInt()}°";
+      }
+
+      // 🚀 [신규] 안전 이격거리 등 규정과 관련된 치수는 방패 아이콘으로
+      // 구분되게 한다.
+      if (dim.isSafetyCritical) {
+        labelPrefix = "🛡 $labelPrefix";
+      }
 
       // 🚀 [신규] 최소 유지 간격보다 현재 거리가 좁아지면 경고색으로.
       final bool violatesMinGap =
@@ -4202,6 +4442,7 @@ class DimensionPainter extends CustomPainter {
         endpoints.distance,
         dColor,
         labelPrefix,
+        strokeWidth: dim.isSafetyCritical ? 2.4 : 1.3,
       );
 
       // 🚀 [신규] 치수선마다 번호 배지를 단다.
