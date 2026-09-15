@@ -9,6 +9,7 @@ import '../pages/daily_report_page.dart'; // 다이얼로그 대신 Page 임포�
 import '../pages/punch_list_page.dart'; // 다이얼로그 대신 Page 임포트
 import '../pages/punch_detail_page.dart';
 import '../pages/project_schedule_page.dart';
+import '../pages/daily_report_calendar_page.dart';
 import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
 
 // 토스 스타일 색상 팔레트
@@ -181,6 +182,27 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                       setState(() {
                         final idx = log['daily_reports'].indexOf(report);
                         if (idx != -1) log['daily_reports'][idx] = updated;
+                      });
+                      _saveProject(log);
+                    }
+                  },
+                  // 🚀 [추가] 달력으로 빠진 날 확인 + 기간 통계/내보내기.
+                  onOpenDailyReportCalendar: () async {
+                    final updated =
+                        await Navigator.push<List<Map<String, dynamic>>>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => DailyReportCalendarPage(
+                              projectName: log['name'] ?? '이름 없음',
+                              initialReports: List<Map<String, dynamic>>.from(
+                                log['daily_reports'] ?? [],
+                              ),
+                            ),
+                          ),
+                        );
+                    if (updated != null) {
+                      setState(() {
+                        log['daily_reports'] = updated;
                       });
                       _saveProject(log);
                     }

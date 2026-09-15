@@ -17,6 +17,7 @@ class WorkLogCard extends StatelessWidget {
   final VoidCallback onOpenSchedule;
   final VoidCallback onAddDailyReport;
   final void Function(Map<String, dynamic> report) onOpenDailyReport;
+  final VoidCallback onOpenDailyReportCalendar;
   final VoidCallback onAddPunchList;
   final void Function(Map<String, dynamic> punch) onOpenPunchDetail;
   final VoidCallback onDelete;
@@ -29,6 +30,7 @@ class WorkLogCard extends StatelessWidget {
     required this.onOpenSchedule,
     required this.onAddDailyReport,
     required this.onOpenDailyReport,
+    required this.onOpenDailyReportCalendar,
     required this.onAddPunchList,
     required this.onOpenPunchDetail,
     required this.onDelete,
@@ -235,13 +237,42 @@ class WorkLogCard extends StatelessWidget {
 
                   // 📝 작업 일지 목록
                   if (dailyReports.isNotEmpty) ...[
-                    const Text(
-                      "작업 일지",
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: tossSubText,
-                        fontSize: 14,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "작업 일지",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: tossSubText,
+                            fontSize: 14,
+                          ),
+                        ),
+                        // 🚀 [추가] 달력으로 빠진 날 확인 + 기간 통계/내보내기
+                        InkWell(
+                          onTap: onOpenDailyReportCalendar,
+                          borderRadius: BorderRadius.circular(8),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.calendar_month_rounded,
+                                size: 15,
+                                color: tossBlue,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                "달력/통계",
+                                style: TextStyle(
+                                  color: tossBlue,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     // 🚀 [추가] 매일 하나씩 쌓이는 목록이라 오래 진행되는
