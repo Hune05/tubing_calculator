@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
+import 'package:tubing_calculator/src/core/common_widgets/makita_time_picker.dart';
 
 const Color tossBlue = Color(0xFF007580); // 🚀 마키타 틸로 통일
 const Color tossText = Color(0xFF191F28);
@@ -307,7 +308,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                           );
                           if (pickedDate == null) return;
                           if (!context.mounted) return;
-                          final pickedTime = await showTimePicker(
+                          final pickedTime = await showMakitaTimePicker(
                             context: context,
                             initialTime: TimeOfDay.fromDateTime(base),
                           );

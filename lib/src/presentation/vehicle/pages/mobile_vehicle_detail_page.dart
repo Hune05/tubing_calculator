@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:tubing_calculator/src/core/common_widgets/makita_time_picker.dart';
 
 const Color tossBlue = Color(0xFF3182F6);
 const Color tossGrey = Color(0xFFF2F4F6);
@@ -242,18 +243,10 @@ class MobileVehicleDetailPage extends StatelessWidget {
             );
 
             if (pickedDate != null && context.mounted) {
-              final TimeOfDay? pickedTime = await showTimePicker(
+              final TimeOfDay? pickedTime = await showMakitaTimePicker(
                 context: context,
                 initialTime: TimeOfDay.fromDateTime(
                   isStart ? selectedStartTime : selectedReturnTime,
-                ),
-                builder: (context, child) => Theme(
-                  data: Theme.of(context).copyWith(
-                    timePickerTheme: const TimePickerThemeData(
-                      dialHandColor: tossBlue,
-                    ),
-                  ),
-                  child: child!,
                 ),
               );
 

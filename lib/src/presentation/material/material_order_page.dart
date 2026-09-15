@@ -12,6 +12,7 @@ import '../../data/models/order_model.dart';
 import '../../data/repositories/order_repository.dart';
 
 import '../chat/pages/mobile_chat_room_page.dart';
+import 'package:tubing_calculator/src/core/common_widgets/makita_time_picker.dart';
 
 const Color tossBlue = Color(0xFF3182F6);
 const Color tossGrey = Color(0xFFF2F4F6);
@@ -1794,7 +1795,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                                     // 보내야 할지 알 수 없어서, 입고 예정
                                     // "시간"도 같이 받는다 (기본 오전 9시).
                                     final TimeOfDay? pickedTime =
-                                        await showTimePicker(
+                                        await showMakitaTimePicker(
                                           context: context,
                                           initialTime: tempExpectedDate != null
                                               ? TimeOfDay.fromDateTime(

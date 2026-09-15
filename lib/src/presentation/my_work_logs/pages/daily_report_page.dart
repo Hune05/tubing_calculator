@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart'; // 🚀 HapticFeedback을 위해 추가
 import '../../../core/utils/image_picker_helper.dart';
+import 'package:tubing_calculator/src/core/common_widgets/makita_time_picker.dart';
 
 // 🚀 [추가] 방금 만든 배치도 페이지 임포트
 import 'layout_board_page.dart';
@@ -202,8 +203,9 @@ class _DailyReportPageState extends State<DailyReportPage> {
   }
 
   Future<void> _pickOvertimeTime({required bool isStart}) async {
-    final picked = await showTimePicker(
+    final picked = await showMakitaTimePicker(
       context: context,
+      title: isStart ? "시작 시간" : "종료 시간",
       initialTime:
           (isStart ? _overtimeStart : _overtimeEnd) ??
           const TimeOfDay(hour: 18, minute: 0),
