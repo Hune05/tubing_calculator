@@ -1419,101 +1419,72 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
             color: pureWhite,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildBottomSheetHandle(),
-              const Text(
-                "저장 및 공유하기",
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: tossText,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: projectCtrl,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: tossText,
-                ),
-                decoration: InputDecoration(
-                  labelText: "프로젝트/현장 명칭",
-                  filled: true,
-                  fillColor: tossBg,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildBottomSheetHandle(),
+                const Text(
+                  "저장 및 공유하기",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: tossText,
+                    letterSpacing: -0.5,
                   ),
                 ),
-              ),
-              const SizedBox(height: 28),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _saveToFirebase(projectCtrl.text);
-                  },
-                  icon: const Icon(
-                    Icons.cloud_upload_rounded,
-                    color: pureWhite,
-                  ),
-                  label: const Text(
-                    "프로젝트 서버에 저장",
-                    style: TextStyle(
-                      color: pureWhite,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: tossBlue,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _shareAsPdf(projectCtrl.text);
-                  },
-                  icon: const Icon(
-                    Icons.picture_as_pdf_rounded,
+                const SizedBox(height: 20),
+                TextField(
+                  controller: projectCtrl,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                     color: tossText,
                   ),
-                  label: const Text(
-                    "QR 도면 PDF로 공유",
-                    style: TextStyle(
-                      color: tossText,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                  decoration: InputDecoration(
+                    labelText: "프로젝트/현장 명칭",
+                    filled: true,
+                    fillColor: tossBg,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
                     ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: tossText, width: 1.5),
-                    shape: RoundedRectangleBorder(
+                    border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
                     ),
                   ),
                 ),
-              ),
-              if (widget.attachToReport) ...[
+                const SizedBox(height: 28),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _saveToFirebase(projectCtrl.text);
+                    },
+                    icon: const Icon(
+                      Icons.cloud_upload_rounded,
+                      color: pureWhite,
+                    ),
+                    label: const Text(
+                      "프로젝트 서버에 저장",
+                      style: TextStyle(
+                        color: pureWhite,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: tossBlue,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
@@ -1521,30 +1492,61 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                   child: OutlinedButton.icon(
                     onPressed: () {
                       Navigator.pop(context);
-                      _attachToDailyReportPhoto();
+                      _shareAsPdf(projectCtrl.text);
                     },
                     icon: const Icon(
-                      Icons.add_photo_alternate_rounded,
-                      color: tossBlue,
+                      Icons.picture_as_pdf_rounded,
+                      color: tossText,
                     ),
                     label: const Text(
-                      "완성된 배치도, 일지 사진으로 추가",
+                      "QR 도면 PDF로 공유",
                       style: TextStyle(
-                        color: tossBlue,
+                        color: tossText,
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: tossBlue, width: 1.5),
+                      side: const BorderSide(color: tossText, width: 1.5),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                   ),
                 ),
+                if (widget.attachToReport) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _attachToDailyReportPhoto();
+                      },
+                      icon: const Icon(
+                        Icons.add_photo_alternate_rounded,
+                        color: tossBlue,
+                      ),
+                      label: const Text(
+                        "완성된 배치도, 일지 사진으로 추가",
+                        style: TextStyle(
+                          color: tossBlue,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: tossBlue, width: 1.5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         );
       },
@@ -1594,469 +1596,484 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                   ),
                 ],
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildBottomSheetHandle(),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "모듈 속성 편집",
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: tossText,
-                          letterSpacing: -0.5,
+              // 🚀 [버그 수정] 편집창에 버튼이 계속 늘어나면서(회전/복제/
+              // 프리셋 저장/잠금/레이어 순서까지) 키보드가 뜨면 남는
+              // 세로 공간이 부족해 화면 밖으로 넘치는 오버플로우가 났다 -
+              // 스크롤 가능하게 감싸서 내용이 많아도 넘치지 않고 스크롤
+              // 되게 한다.
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildBottomSheetHandle(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "모듈 속성 편집",
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: tossText,
+                            letterSpacing: -0.5,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(
-                          Icons.close_rounded,
-                          color: tossSubText,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-
-                  // 🚀 [여기가 핵심 추가본입니다] 회전 & 복사 버튼
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            // 🔄 90도 회전 (가로 세로 길이 교환)
-                            setState(() {
-                              double temp = item.width;
-                              item.width = item.height;
-                              item.height = temp;
-
-                              // 회전 후 도면 밖으로 나가지 않게 위치 보정
-                              item.position = Offset(
-                                item.position.dx.clamp(
-                                  0.0,
-                                  math.max(0.0, _panelWidth - item.width),
-                                ),
-                                item.position.dy.clamp(
-                                  0.0,
-                                  math.max(0.0, _panelHeight - item.height),
-                                ),
-                              );
-                            });
-                            // 바텀시트의 텍스트 필드 값도 함께 업데이트
-                            setModalState(() {
-                              widthCtrl.text = item.width.toInt().toString();
-                              heightCtrl.text = item.height.toInt().toString();
-                            });
-                            HapticFeedback.lightImpact();
-                          },
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
                           icon: const Icon(
-                            Icons.rotate_90_degrees_cw_rounded,
-                            size: 18,
-                            color: tossBlue,
-                          ),
-                          label: const Text(
-                            "90° 회전",
-                            style: TextStyle(
-                              color: tossBlue,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: tossBlue.withValues(alpha: 0.1),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            Icons.close_rounded,
+                            color: tossSubText,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            // 📋 모듈 복사
-                            setState(() {
-                              final newItem = PlacedItem(
-                                id: DateTime.now().millisecondsSinceEpoch
-                                    .toString(),
-                                name: item.name,
-                                position: _snapToGrid(
-                                  Offset(
-                                    (item.position.dx + 20).clamp(
-                                      0.0,
-                                      math.max(0.0, _panelWidth - item.width),
-                                    ),
-                                    (item.position.dy + 20).clamp(
-                                      0.0,
-                                      math.max(0.0, _panelHeight - item.height),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // 🚀 [여기가 핵심 추가본입니다] 회전 & 복사 버튼
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              // 🔄 90도 회전 (가로 세로 길이 교환)
+                              setState(() {
+                                double temp = item.width;
+                                item.width = item.height;
+                                item.height = temp;
+
+                                // 회전 후 도면 밖으로 나가지 않게 위치 보정
+                                item.position = Offset(
+                                  item.position.dx.clamp(
+                                    0.0,
+                                    math.max(0.0, _panelWidth - item.width),
+                                  ),
+                                  item.position.dy.clamp(
+                                    0.0,
+                                    math.max(0.0, _panelHeight - item.height),
+                                  ),
+                                );
+                              });
+                              // 바텀시트의 텍스트 필드 값도 함께 업데이트
+                              setModalState(() {
+                                widthCtrl.text = item.width.toInt().toString();
+                                heightCtrl.text = item.height
+                                    .toInt()
+                                    .toString();
+                              });
+                              HapticFeedback.lightImpact();
+                            },
+                            icon: const Icon(
+                              Icons.rotate_90_degrees_cw_rounded,
+                              size: 18,
+                              color: tossBlue,
+                            ),
+                            label: const Text(
+                              "90° 회전",
+                              style: TextStyle(
+                                color: tossBlue,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: tossBlue.withValues(alpha: 0.1),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              // 📋 모듈 복사
+                              setState(() {
+                                final newItem = PlacedItem(
+                                  id: DateTime.now().millisecondsSinceEpoch
+                                      .toString(),
+                                  name: item.name,
+                                  position: _snapToGrid(
+                                    Offset(
+                                      (item.position.dx + 20).clamp(
+                                        0.0,
+                                        math.max(0.0, _panelWidth - item.width),
+                                      ),
+                                      (item.position.dy + 20).clamp(
+                                        0.0,
+                                        math.max(
+                                          0.0,
+                                          _panelHeight - item.height,
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
-                                width: item.width,
-                                height: item.height,
-                                isSelected: false,
-                              );
-                              _placedItems.add(newItem);
-                            });
-                            HapticFeedback.mediumImpact();
-                            Navigator.pop(context); // 복제 후 창 닫기
+                                  width: item.width,
+                                  height: item.height,
+                                  isSelected: false,
+                                );
+                                _placedItems.add(newItem);
+                              });
+                              HapticFeedback.mediumImpact();
+                              Navigator.pop(context); // 복제 후 창 닫기
 
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text("'${item.name}' 모듈이 복사되었습니다."),
-                                backgroundColor: tossText,
-                                behavior: SnackBarBehavior.floating,
-                                duration: const Duration(seconds: 1),
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text("'${item.name}' 모듈이 복사되었습니다."),
+                                  backgroundColor: tossText,
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: const Duration(seconds: 1),
+                                ),
+                              );
+                            },
+                            icon: const Icon(
+                              Icons.content_copy_rounded,
+                              size: 18,
+                              color: tossText,
+                            ),
+                            label: const Text(
+                              "모듈 복제",
+                              style: TextStyle(
+                                color: tossText,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
                               ),
-                            );
-                          },
-                          icon: const Icon(
-                            Icons.content_copy_rounded,
-                            size: 18,
-                            color: tossText,
-                          ),
-                          label: const Text(
-                            "모듈 복제",
-                            style: TextStyle(
-                              color: tossText,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
                             ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: tossBg,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: tossBg,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
 
-                  // 🚀 [신규] 레이어 순서(앞/뒤) 조정 - 모듈이 서로 겹칠 때
-                  // 어느 것이 위로 보일지 정할 수 있게 한다. 리스트 맨
-                  // 뒤에 있을수록 화면 맨 위에 그려진다.
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _placedItems.remove(item);
-                              _placedItems.add(item);
-                            });
-                            setModalState(() {});
-                            HapticFeedback.lightImpact();
-                          },
-                          icon: const Icon(
-                            Icons.flip_to_front_rounded,
-                            size: 18,
-                            color: tossText,
-                          ),
-                          label: const Text(
-                            "맨 앞으로",
-                            style: TextStyle(
+                    // 🚀 [신규] 레이어 순서(앞/뒤) 조정 - 모듈이 서로 겹칠 때
+                    // 어느 것이 위로 보일지 정할 수 있게 한다. 리스트 맨
+                    // 뒤에 있을수록 화면 맨 위에 그려진다.
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _placedItems.remove(item);
+                                _placedItems.add(item);
+                              });
+                              setModalState(() {});
+                              HapticFeedback.lightImpact();
+                            },
+                            icon: const Icon(
+                              Icons.flip_to_front_rounded,
+                              size: 18,
                               color: tossText,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
                             ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(
-                              color: tossText.withValues(alpha: 0.2),
+                            label: const Text(
+                              "맨 앞으로",
+                              style: TextStyle(
+                                color: tossText,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(
+                                color: tossText.withValues(alpha: 0.2),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _placedItems.remove(item);
-                              _placedItems.insert(0, item);
-                            });
-                            setModalState(() {});
-                            HapticFeedback.lightImpact();
-                          },
-                          icon: const Icon(
-                            Icons.flip_to_back_rounded,
-                            size: 18,
-                            color: tossText,
-                          ),
-                          label: const Text(
-                            "맨 뒤로",
-                            style: TextStyle(
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _placedItems.remove(item);
+                                _placedItems.insert(0, item);
+                              });
+                              setModalState(() {});
+                              HapticFeedback.lightImpact();
+                            },
+                            icon: const Icon(
+                              Icons.flip_to_back_rounded,
+                              size: 18,
                               color: tossText,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
                             ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(
-                              color: tossText.withValues(alpha: 0.2),
+                            label: const Text(
+                              "맨 뒤로",
+                              style: TextStyle(
+                                color: tossText,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(
+                                color: tossText.withValues(alpha: 0.2),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
 
-                  // 🚀 [신규] 지금 이 모듈의 이름/크기를 "내 프리셋"으로
-                  // 저장 - 다음 도면에서 팔레트에서 바로 드래그해 쓸 수
-                  // 있다(예: 자주 쓰는 차단기 규격).
-                  SizedBox(
-                    width: double.infinity,
-                    child: TextButton.icon(
-                      onPressed: () {
-                        _saveAsCustomPreset(
-                          nameCtrl.text.trim().isNotEmpty
-                              ? nameCtrl.text.trim()
-                              : item.name,
-                          item.width,
-                          item.height,
-                        );
-                        HapticFeedback.lightImpact();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("내 프리셋에 저장했습니다."),
-                            backgroundColor: tossText,
-                            behavior: SnackBarBehavior.floating,
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
-                      },
-                      icon: const Icon(
-                        Icons.star_border_rounded,
-                        size: 18,
-                        color: tossBlue,
-                      ),
-                      label: const Text(
-                        "이 크기를 내 프리셋으로 저장",
-                        style: TextStyle(
-                          color: tossBlue,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ),
-                  // 🚀 [신규] 위치가 확정된 모듈을 잠가서 실수로 드래그해
-                  // 옮겨지지 않게 한다.
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: () {
-                        setState(() => item.isLocked = !item.isLocked);
-                        setModalState(() {});
-                        HapticFeedback.lightImpact();
-                      },
-                      icon: Icon(
-                        item.isLocked
-                            ? Icons.lock_rounded
-                            : Icons.lock_open_rounded,
-                        size: 18,
-                        color: item.isLocked ? warningRed : tossSubText,
-                      ),
-                      label: Text(
-                        item.isLocked ? "잠금 해제" : "이 모듈 위치 잠그기",
-                        style: TextStyle(
-                          color: item.isLocked ? warningRed : tossSubText,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  TextField(
-                    controller: nameCtrl,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: tossText,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: "모듈 명칭 (라벨)",
-                      filled: true,
-                      fillColor: tossBg,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    onChanged: (val) {
-                      setState(() {
-                        item.name = val.isEmpty ? "이름 없음" : val;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 28),
-                  const Text(
-                    "모듈 크기 (가로 x 세로)",
-                    style: TextStyle(
-                      color: tossText,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildCoordinateInput(
-                          "가로 너비 (mm)",
-                          widthCtrl.text,
-                          (val) {
-                            setState(() {
-                              item.width = (double.tryParse(val) ?? 80.0);
-                              item.position = Offset(
-                                item.position.dx.clamp(
-                                  0.0,
-                                  math.max(0.0, _panelWidth - item.width),
-                                ),
-                                item.position.dy,
-                              );
-                            });
-                          },
-                          controller: widthCtrl,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildCoordinateInput(
-                          "세로 높이 (mm)",
-                          heightCtrl.text,
-                          (val) {
-                            setState(() {
-                              item.height = (double.tryParse(val) ?? 80.0);
-                              item.position = Offset(
-                                item.position.dx,
-                                item.position.dy.clamp(
-                                  0.0,
-                                  math.max(0.0, _panelHeight - item.height),
-                                ),
-                              );
-                            });
-                          },
-                          controller: heightCtrl,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 28),
-                  const Text(
-                    "도면 내 절대 위치",
-                    style: TextStyle(
-                      color: tossText,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildCoordinateInput(
-                          "X 좌표 (mm)",
-                          item.position.dx.toInt().toString(),
-                          (val) {
-                            setState(() {
-                              double newX = double.tryParse(val) ?? 0;
-                              item.position = Offset(
-                                newX.clamp(
-                                  0.0,
-                                  math.max(0.0, _panelWidth - item.width),
-                                ),
-                                item.position.dy,
-                              );
-                            });
-                            setModalState(() {});
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildCoordinateInput(
-                          "Y 좌표 (mm)",
-                          item.position.dy.toInt().toString(),
-                          (val) {
-                            setState(() {
-                              double newY = double.tryParse(val) ?? 0;
-                              item.position = Offset(
-                                item.position.dx,
-                                newY.clamp(
-                                  0.0,
-                                  math.max(0.0, _panelHeight - item.height),
-                                ),
-                              );
-                            });
-                            setModalState(() {});
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 36),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _dimensions.removeWhere(
-                            (dim) =>
-                                dim.p1.id == item.id || dim.p2.id == item.id,
+                    // 🚀 [신규] 지금 이 모듈의 이름/크기를 "내 프리셋"으로
+                    // 저장 - 다음 도면에서 팔레트에서 바로 드래그해 쓸 수
+                    // 있다(예: 자주 쓰는 차단기 규격).
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton.icon(
+                        onPressed: () {
+                          _saveAsCustomPreset(
+                            nameCtrl.text.trim().isNotEmpty
+                                ? nameCtrl.text.trim()
+                                : item.name,
+                            item.width,
+                            item.height,
                           );
-                          _placedItems.remove(item);
-                          if (_dimensionStartPoint?.id == item.id)
-                            _dimensionStartPoint = null;
-                          _activeItem = null;
-                        });
-                        Navigator.pop(context);
-                      },
-                      icon: const Icon(Icons.delete_outline, color: warningRed),
-                      label: const Text(
-                        "이 모듈 삭제",
-                        style: TextStyle(
-                          color: warningRed,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          HapticFeedback.lightImpact();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("내 프리셋에 저장했습니다."),
+                              backgroundColor: tossText,
+                              behavior: SnackBarBehavior.floating,
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                        },
+                        icon: const Icon(
+                          Icons.star_border_rounded,
+                          size: 18,
+                          color: tossBlue,
                         ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: warningRed, width: 1.5),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                        label: const Text(
+                          "이 크기를 내 프리셋으로 저장",
+                          style: TextStyle(
+                            color: tossBlue,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    // 🚀 [신규] 위치가 확정된 모듈을 잠가서 실수로 드래그해
+                    // 옮겨지지 않게 한다.
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () {
+                          setState(() => item.isLocked = !item.isLocked);
+                          setModalState(() {});
+                          HapticFeedback.lightImpact();
+                        },
+                        icon: Icon(
+                          item.isLocked
+                              ? Icons.lock_rounded
+                              : Icons.lock_open_rounded,
+                          size: 18,
+                          color: item.isLocked ? warningRed : tossSubText,
+                        ),
+                        label: Text(
+                          item.isLocked ? "잠금 해제" : "이 모듈 위치 잠그기",
+                          style: TextStyle(
+                            color: item.isLocked ? warningRed : tossSubText,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    TextField(
+                      controller: nameCtrl,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: tossText,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: "모듈 명칭 (라벨)",
+                        filled: true,
+                        fillColor: tossBg,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      onChanged: (val) {
+                        setState(() {
+                          item.name = val.isEmpty ? "이름 없음" : val;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 28),
+                    const Text(
+                      "모듈 크기 (가로 x 세로)",
+                      style: TextStyle(
+                        color: tossText,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildCoordinateInput(
+                            "가로 너비 (mm)",
+                            widthCtrl.text,
+                            (val) {
+                              setState(() {
+                                item.width = (double.tryParse(val) ?? 80.0);
+                                item.position = Offset(
+                                  item.position.dx.clamp(
+                                    0.0,
+                                    math.max(0.0, _panelWidth - item.width),
+                                  ),
+                                  item.position.dy,
+                                );
+                              });
+                            },
+                            controller: widthCtrl,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildCoordinateInput(
+                            "세로 높이 (mm)",
+                            heightCtrl.text,
+                            (val) {
+                              setState(() {
+                                item.height = (double.tryParse(val) ?? 80.0);
+                                item.position = Offset(
+                                  item.position.dx,
+                                  item.position.dy.clamp(
+                                    0.0,
+                                    math.max(0.0, _panelHeight - item.height),
+                                  ),
+                                );
+                              });
+                            },
+                            controller: heightCtrl,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 28),
+                    const Text(
+                      "도면 내 절대 위치",
+                      style: TextStyle(
+                        color: tossText,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildCoordinateInput(
+                            "X 좌표 (mm)",
+                            item.position.dx.toInt().toString(),
+                            (val) {
+                              setState(() {
+                                double newX = double.tryParse(val) ?? 0;
+                                item.position = Offset(
+                                  newX.clamp(
+                                    0.0,
+                                    math.max(0.0, _panelWidth - item.width),
+                                  ),
+                                  item.position.dy,
+                                );
+                              });
+                              setModalState(() {});
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildCoordinateInput(
+                            "Y 좌표 (mm)",
+                            item.position.dy.toInt().toString(),
+                            (val) {
+                              setState(() {
+                                double newY = double.tryParse(val) ?? 0;
+                                item.position = Offset(
+                                  item.position.dx,
+                                  newY.clamp(
+                                    0.0,
+                                    math.max(0.0, _panelHeight - item.height),
+                                  ),
+                                );
+                              });
+                              setModalState(() {});
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 36),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _dimensions.removeWhere(
+                              (dim) =>
+                                  dim.p1.id == item.id || dim.p2.id == item.id,
+                            );
+                            _placedItems.remove(item);
+                            if (_dimensionStartPoint?.id == item.id)
+                              _dimensionStartPoint = null;
+                            _activeItem = null;
+                          });
+                          Navigator.pop(context);
+                        },
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: warningRed,
+                        ),
+                        label: const Text(
+                          "이 모듈 삭제",
+                          style: TextStyle(
+                            color: warningRed,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: warningRed, width: 1.5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -2474,103 +2491,106 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
             color: pureWhite,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildBottomSheetHandle(),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    "레이아웃 크기 설정",
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: tossText,
-                      letterSpacing: -0.5,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildBottomSheetHandle(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      "레이아웃 크기 설정",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: tossText,
+                        letterSpacing: -0.5,
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded, color: tossSubText),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                "실제 중판(캐비닛)의 사이즈를 mm 단위로 입력하세요.",
-                style: TextStyle(color: tossSubText, fontSize: 14),
-              ),
-              const SizedBox(height: 28),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildCoordinateInput(
-                      "가로 (W) mm",
-                      widthCtrl.text,
-                      (val) {},
-                      controller: widthCtrl,
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded, color: tossSubText),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildCoordinateInput(
-                      "세로 (H) mm",
-                      heightCtrl.text,
-                      (val) {},
-                      controller: heightCtrl,
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  "실제 중판(캐비닛)의 사이즈를 mm 단위로 입력하세요.",
+                  style: TextStyle(color: tossSubText, fontSize: 14),
+                ),
+                const SizedBox(height: 28),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildCoordinateInput(
+                        "가로 (W) mm",
+                        widthCtrl.text,
+                        (val) {},
+                        controller: widthCtrl,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 36),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: () {
-                    _pushUndo();
-                    setState(() {
-                      _panelWidth = double.tryParse(widthCtrl.text) ?? 600.0;
-                      _panelHeight = double.tryParse(heightCtrl.text) ?? 800.0;
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildCoordinateInput(
+                        "세로 (H) mm",
+                        heightCtrl.text,
+                        (val) {},
+                        controller: heightCtrl,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 36),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      _pushUndo();
+                      setState(() {
+                        _panelWidth = double.tryParse(widthCtrl.text) ?? 600.0;
+                        _panelHeight =
+                            double.tryParse(heightCtrl.text) ?? 800.0;
 
-                      for (var item in _placedItems) {
-                        item.position = Offset(
-                          item.position.dx.clamp(
-                            0.0,
-                            math.max(0.0, _panelWidth - item.width),
-                          ),
-                          item.position.dy.clamp(
-                            0.0,
-                            math.max(0.0, _panelHeight - item.height),
-                          ),
+                        for (var item in _placedItems) {
+                          item.position = Offset(
+                            item.position.dx.clamp(
+                              0.0,
+                              math.max(0.0, _panelWidth - item.width),
+                            ),
+                            item.position.dy.clamp(
+                              0.0,
+                              math.max(0.0, _panelHeight - item.height),
+                            ),
+                          );
+                        }
+                        _dimensions.removeWhere(
+                          (dim) => dim.p1 is WallPoint || dim.p2 is WallPoint,
                         );
-                      }
-                      _dimensions.removeWhere(
-                        (dim) => dim.p1 is WallPoint || dim.p2 is WallPoint,
-                      );
-                    });
-                    Navigator.pop(context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: tossBlue,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      });
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: tossBlue,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
-                  ),
-                  child: const Text(
-                    "도면 크기 적용",
-                    style: TextStyle(
-                      color: pureWhite,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 17,
+                    child: const Text(
+                      "도면 크기 적용",
+                      style: TextStyle(
+                        color: pureWhite,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 17,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
