@@ -347,12 +347,76 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
     if (widget.projectId != null) {
       _loadProject(widget.projectId!);
     } else {
-      _checkAndOfferDraftRecovery();
+      // 🚀 [신규] 새 도면을 열 때만 처음 한 번 사용법을 간단히 안내한다
+      // (모바일과 동일 - 임시 저장 확인이 먼저 끝난 뒤에 보여준다).
+      _checkAndOfferDraftRecovery().then((_) => _maybeShowOnboarding());
     }
     _draftTimer = Timer.periodic(
       const Duration(seconds: 20),
       (_) => _saveDraftToPrefs(),
     );
+  }
+
+  // 🚀 [신규] 처음 배치도 화면을 여는 사람을 위한 사용법 안내(모바일과
+  // 같은 SharedPreferences 키를 써서, 폰/태블릿 어느 쪽에서 한 번
+  // 봤으면 다른 쪽에서도 다시 뜨지 않는다).
+  static const String _onboardingShownPrefsKey =
+      'layout_board_onboarding_shown_v1';
+
+  Future<void> _maybeShowOnboarding() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_onboardingShownPrefsKey) == true) return;
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: pureWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            "작업 배치도 사용법",
+            style: TextStyle(color: tossText, fontWeight: FontWeight.w800),
+          ),
+          content: const SizedBox(
+            width: 360,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "① 왼쪽 팔레트에서 모듈을 도면 위로 끌어다 놓으세요.",
+                  style: TextStyle(color: tossText, fontSize: 13, height: 1.6),
+                ),
+                Text(
+                  "② '고정 치수 측정' 모드에서 두 지점을 순서대로 탭하면 거리가 자동으로 표시돼요.",
+                  style: TextStyle(color: tossText, fontSize: 13, height: 1.6),
+                ),
+                Text(
+                  "③ 상단의 '다중 선택'을 켜면 여러 모듈을 한 번에 옮기거나 정렬할 수 있어요.",
+                  style: TextStyle(color: tossText, fontSize: 13, height: 1.6),
+                ),
+                Text(
+                  "④ ⋮ 더보기 메뉴에서 색상 범례, 배경 사진, 자재 수량 등을 확인할 수 있어요.",
+                  style: TextStyle(color: tossText, fontSize: 13, height: 1.6),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text(
+                "확인",
+                style: TextStyle(color: tossBlue, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      );
+      await prefs.setBool(_onboardingShownPrefsKey, true);
+    } catch (_) {}
   }
 
   Future<void> _loadCustomPresets() async {
@@ -1788,6 +1852,89 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
 
   // 🚀 [신규] 배치된 모듈을 이름별로 모아 세어서 보여준다(모바일과
   // 동일 기능, 태블릿은 Dialog로).
+  // 🚀 [신규] 색상 범례(모바일과 동일 기능).
+  void _showColorLegendDialog() {
+    Widget row(Color color, String label, String desc) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 16,
+              height: 16,
+              margin: const EdgeInsets.only(top: 2),
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: tossText,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    desc,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: tossSubText,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: pureWhite,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          "색상 범례",
+          style: TextStyle(color: tossText, fontWeight: FontWeight.w800),
+        ),
+        content: SizedBox(
+          width: 380,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                row(centerDimColor, "파란색", "센터(중심) 기준 치수선/가이드선"),
+                row(edgeDimColor, "주황색", "측면(여백) 기준 치수선"),
+                row(diagonalDimColor, "보라색", "대각선 모드 치수선(직선거리+각도)"),
+                row(alignGuideColor, "마젠타색", "모듈을 옮길 때 뜨는 정렬 스냅 가이드선"),
+                row(warningRed, "빨간색", "최소 간격 위반 경고, 삭제 등 위험/주의 표시"),
+                row(tossText, "🛡 방패 표시", "안전 이격거리로 강조된 치수선(굵은 선)"),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              "확인",
+              style: TextStyle(color: tossBlue, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showMaterialSummaryDialog() {
     final Map<String, int> counts = {};
     for (final item in _placedItems) {
@@ -2361,9 +2508,20 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                 case 'clear':
                   _clearBoard();
                   break;
+                case 'legend':
+                  _showColorLegendDialog();
+                  break;
               }
             },
             itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'legend',
+                child: ListTile(
+                  leading: Icon(Icons.palette_outlined, color: tossText),
+                  title: Text("색상 범례"),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
               const PopupMenuItem(
                 value: 'material',
                 child: ListTile(
@@ -2471,15 +2629,22 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                         Icons.copy_rounded,
                         _duplicateSelectedGroup,
                       ),
-                      _buildMultiBarIcon(
+                      // 🚀 [신규] 잠금/정렬은 짧은 라벨을 함께 표시해서
+                      // 뜻을 바로 알 수 있게 했다(모바일과 동일).
+                      _buildMultiBarLabeledIcon(
                         _selectedGroup.isNotEmpty &&
                                 _selectedGroup.every((i) => i.isLocked)
                             ? Icons.lock_open_rounded
                             : Icons.lock_outline_rounded,
+                        _selectedGroup.isNotEmpty &&
+                                _selectedGroup.every((i) => i.isLocked)
+                            ? "잠금 해제"
+                            : "잠금",
                         _toggleLockSelected,
                       ),
-                      _buildMultiBarIcon(
+                      _buildMultiBarLabeledIcon(
                         Icons.align_horizontal_left_rounded,
+                        "정렬",
                         _multiSelectedIds.length >= 2
                             ? _showAlignmentSheet
                             : null,
@@ -2533,6 +2698,44 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
         icon,
         color: onPressed == null ? color.withValues(alpha: 0.3) : color,
         size: 22,
+      ),
+    );
+  }
+
+  // 🚀 [신규] 잠금/정렬처럼 아이콘만으로는 뜻이 바로 와닿지 않는 동작에
+  // 짧은 텍스트 라벨을 함께 보여준다(모바일과 동일).
+  Widget _buildMultiBarLabeledIcon(
+    IconData icon,
+    String label,
+    VoidCallback? onPressed,
+  ) {
+    final bool enabled = onPressed != null;
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: enabled ? pureWhite : pureWhite.withValues(alpha: 0.3),
+              size: 20,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                color: enabled
+                    ? pureWhite.withValues(alpha: 0.85)
+                    : pureWhite.withValues(alpha: 0.25),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
