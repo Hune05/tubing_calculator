@@ -15,6 +15,8 @@ import 'package:share_plus/share_plus.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../../core/utils/image_picker_helper.dart' show ImagePickerHelper;
+
 // ---------------------------------------------------------
 // 🎨 토스(Toss) 디자인 시스템 색상
 // ---------------------------------------------------------
@@ -248,6 +250,12 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
   PlacedItem? _previewItem;
   Offset _dragRawPosition = Offset.zero;
 
+  // 🚀 [신규] 실제 도면 사진(캐드 출력물, 손그림 등)을 배경으로 깔아두고
+  // 그 위에 모듈/치수를 배치할 수 있는 기능. 불투명도를 낮춰서 배경
+  // 사진과 겹쳐도 모듈이 잘 보이게 한다.
+  String? _backgroundImagePath;
+  double _backgroundOpacity = 0.5;
+
   final GlobalKey _boardKey = GlobalKey();
   final GlobalKey _captureKey = GlobalKey();
 
@@ -299,6 +307,8 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
     'panelHeight': _panelHeight,
     'items': _placedItems.map((e) => e.toJson()).toList(),
     'dimensions': _dimensions.map((e) => e.toJson()).toList(),
+    'backgroundImagePath': _backgroundImagePath,
+    'backgroundOpacity': _backgroundOpacity,
   };
 
   // 🚀 [신규] 실행 취소/다시 실행. 모듈 배치/이동/삭제/회전/치수 추가·
@@ -393,6 +403,8 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
           (e) => PlacedDimension.fromJson(Map<String, dynamic>.from(e as Map)),
         ),
       );
+    _backgroundImagePath = data['backgroundImagePath'] as String?;
+    _backgroundOpacity = (data['backgroundOpacity'] as num?)?.toDouble() ?? 0.5;
   }
 
   // 🚀 [추가] 새 도면으로 들어왔을 때(특정 프로젝트를 불러온 게 아닐 때)
@@ -638,6 +650,8 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
         'updatedAt': FieldValue.serverTimestamp(),
         'items': _placedItems.map((e) => e.toJson()).toList(),
         'dimensions': _dimensions.map((e) => e.toJson()).toList(),
+        'backgroundImagePath': _backgroundImagePath,
+        'backgroundOpacity': _backgroundOpacity,
       }, SetOptions(merge: true));
       _currentProjectId = docRef.id;
       _projectName = projectName;
@@ -1300,6 +1314,182 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
     });
   }
 
+  // 🚀 [신규] 실제 도면 사진(카톡으로 받은 배치도, 손그림 등)을 배경으로
+  // 깔아두고 그 위에 모듈을 배치할 수 있게 하는 바텀시트. 불투명도를
+  // 조절해서 사진과 모듈이 겹쳐도 알아보기 쉽게 한다.
+  void _showBackgroundSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              top: false,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                decoration: const BoxDecoration(
+                  color: pureWhite,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD1D6DB),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const Text(
+                      "배경 사진",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: tossText,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      "카톡으로 받은 실제 도면 사진을 배경에 깔고 그 위에 모듈을\n배치할 수 있어요.",
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: tossSubText,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    if (_backgroundImagePath != null) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: AspectRatio(
+                          aspectRatio: 16 / 10,
+                          child: Image.file(
+                            File(_backgroundImagePath!),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.opacity_rounded,
+                            size: 18,
+                            color: tossSubText,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            "투명도",
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: tossText,
+                            ),
+                          ),
+                          Expanded(
+                            child: Slider(
+                              value: _backgroundOpacity,
+                              min: 0.15,
+                              max: 1.0,
+                              activeColor: tossBlue,
+                              onChanged: (v) {
+                                setModalState(() => _backgroundOpacity = v);
+                                setState(() => _backgroundOpacity = v);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              final path = await ImagePickerHelper.pickImage(
+                                context,
+                              );
+                              if (path != null) {
+                                setModalState(
+                                  () => _backgroundImagePath = path,
+                                );
+                                setState(() => _backgroundImagePath = path);
+                              }
+                            },
+                            icon: const Icon(
+                              Icons.add_photo_alternate_outlined,
+                              color: tossBlue,
+                            ),
+                            label: Text(
+                              _backgroundImagePath == null ? "사진 선택" : "사진 변경",
+                              style: const TextStyle(
+                                color: tossBlue,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: tossBlue),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (_backgroundImagePath != null) ...[
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                setModalState(
+                                  () => _backgroundImagePath = null,
+                                );
+                                setState(() => _backgroundImagePath = null);
+                              },
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: warningRed,
+                              ),
+                              label: const Text(
+                                "배경 제거",
+                                style: TextStyle(
+                                  color: warningRed,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: warningRed),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showPanelSettingsSheet() {
     final widthCtrl = TextEditingController(
       text: _panelWidth.toInt().toString(),
@@ -1509,6 +1699,14 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
               icon: const Icon(Icons.ios_share_rounded, color: tossBlue),
             ),
           IconButton(
+            tooltip: "배경 사진",
+            onPressed: _showBackgroundSheet,
+            icon: Icon(
+              Icons.image_outlined,
+              color: _backgroundImagePath != null ? tossBlue : tossText,
+            ),
+          ),
+          IconButton(
             tooltip: "외함 사이즈 설정",
             onPressed: _showPanelSettingsSheet,
             icon: const Icon(Icons.aspect_ratio_rounded, color: tossText),
@@ -1595,6 +1793,19 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                 child: Stack(
                                   clipBehavior: Clip.none,
                                   children: [
+                                    if (_backgroundImagePath != null &&
+                                        File(
+                                          _backgroundImagePath!,
+                                        ).existsSync())
+                                      Positioned.fill(
+                                        child: Opacity(
+                                          opacity: _backgroundOpacity,
+                                          child: Image.file(
+                                            File(_backgroundImagePath!),
+                                            fit: BoxFit.contain,
+                                          ),
+                                        ),
+                                      ),
                                     CustomPaint(
                                       size: Size.infinite,
                                       painter: GridPainter(gridSize: _gridSize),

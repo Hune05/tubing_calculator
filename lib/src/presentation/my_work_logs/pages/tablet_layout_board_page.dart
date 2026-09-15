@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../core/utils/image_picker_helper.dart';
 
 // ---------------------------------------------------------
 // 🎨 토스(Toss) 디자인 시스템 색상
@@ -242,6 +245,11 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
   PlacedItem? _previewItem;
   Offset _dragRawPosition = Offset.zero;
 
+  // 🚀 [신규] 실제 도면 사진을 배경으로 깔아두고 그 위에 모듈을 배치하는
+  // 기능(모바일과 동일).
+  String? _backgroundImagePath;
+  double _backgroundOpacity = 0.5;
+
   final GlobalKey _boardKey = GlobalKey();
 
   // 🚀 [추가] 서버에 정식 저장하기 전 휘발성을 막는 로컬 임시 저장
@@ -290,6 +298,8 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
     'panelHeight': _panelHeight,
     'items': _placedItems.map((e) => e.toJson()).toList(),
     'dimensions': _dimensions.map((e) => e.toJson()).toList(),
+    'backgroundImagePath': _backgroundImagePath,
+    'backgroundOpacity': _backgroundOpacity,
   };
 
   // 🚀 [신규] 실행 취소/다시 실행 (모바일과 동일한 방식). 모듈 배치/이동/삭제/
@@ -382,6 +392,8 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
           (e) => PlacedDimension.fromJson(Map<String, dynamic>.from(e as Map)),
         ),
       );
+    _backgroundImagePath = data['backgroundImagePath'] as String?;
+    _backgroundOpacity = (data['backgroundOpacity'] as num?)?.toDouble() ?? 0.5;
   }
 
   Future<void> _checkAndOfferDraftRecovery() async {
@@ -490,6 +502,8 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
         'updatedAt': FieldValue.serverTimestamp(),
         'items': _placedItems.map((e) => e.toJson()).toList(),
         'dimensions': _dimensions.map((e) => e.toJson()).toList(),
+        'backgroundImagePath': _backgroundImagePath,
+        'backgroundOpacity': _backgroundOpacity,
       }, SetOptions(merge: true));
       _currentProjectId = docRef.id;
       _projectName = projectName;
@@ -709,6 +723,179 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
     }
   }
 
+  // 🚀 [신규] 실제 도면 사진을 배경으로 깔아두고 그 위에 모듈을 배치할 수
+  // 있게 하는 다이얼로그(모바일 바텀시트와 동일 기능, 태블릿은 Dialog로).
+  void _showBackgroundSheet() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              backgroundColor: pureWhite,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              title: const Text(
+                "배경 사진",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: tossText,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              content: SizedBox(
+                width: 420,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "카톡으로 받은 실제 도면 사진을 배경에 깔고 그 위에\n모듈을 배치할 수 있어요.",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: tossSubText,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    if (_backgroundImagePath != null) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: AspectRatio(
+                          aspectRatio: 16 / 10,
+                          child: Image.file(
+                            File(_backgroundImagePath!),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.opacity_rounded,
+                            size: 18,
+                            color: tossSubText,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            "투명도",
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: tossText,
+                            ),
+                          ),
+                          Expanded(
+                            child: Slider(
+                              value: _backgroundOpacity,
+                              min: 0.15,
+                              max: 1.0,
+                              activeColor: tossBlue,
+                              onChanged: (v) {
+                                setModalState(() => _backgroundOpacity = v);
+                                setState(() => _backgroundOpacity = v);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              final path = await ImagePickerHelper.pickImage(
+                                context,
+                              );
+                              if (path != null) {
+                                setModalState(
+                                  () => _backgroundImagePath = path,
+                                );
+                                setState(() => _backgroundImagePath = path);
+                              }
+                            },
+                            icon: const Icon(
+                              Icons.add_photo_alternate_outlined,
+                              color: tossBlue,
+                            ),
+                            label: Text(
+                              _backgroundImagePath == null ? "사진 선택" : "사진 변경",
+                              style: const TextStyle(
+                                color: tossBlue,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: tossBlue),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (_backgroundImagePath != null) ...[
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                setModalState(
+                                  () => _backgroundImagePath = null,
+                                );
+                                setState(() => _backgroundImagePath = null);
+                              },
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: warningRed,
+                              ),
+                              label: const Text(
+                                "배경 제거",
+                                style: TextStyle(
+                                  color: warningRed,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: warningRed),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    "닫기",
+                    style: TextStyle(
+                      color: tossSubText,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   // 외함 크기 설정 팝업 (태블릿용 Dialog)
   void _showPanelSettingsDialog() {
     final widthCtrl = TextEditingController(
@@ -923,6 +1110,14 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
               onPressed: _showSaveDialog,
               icon: const Icon(Icons.save_rounded, color: tossBlue),
             ),
+          IconButton(
+            tooltip: "배경 사진",
+            onPressed: _showBackgroundSheet,
+            icon: Icon(
+              Icons.image_outlined,
+              color: _backgroundImagePath != null ? tossBlue : tossText,
+            ),
+          ),
           IconButton(
             tooltip: "외함 사이즈 설정",
             onPressed: _showPanelSettingsDialog,
@@ -1387,6 +1582,17 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                           child: Stack(
                             clipBehavior: Clip.none,
                             children: [
+                              if (_backgroundImagePath != null &&
+                                  File(_backgroundImagePath!).existsSync())
+                                Positioned.fill(
+                                  child: Opacity(
+                                    opacity: _backgroundOpacity,
+                                    child: Image.file(
+                                      File(_backgroundImagePath!),
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                ),
                               CustomPaint(
                                 size: Size.infinite,
                                 painter: GridPainter(gridSize: _gridSize),
