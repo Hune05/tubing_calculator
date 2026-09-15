@@ -262,7 +262,7 @@ class _PunchListPageState extends State<PunchListPage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          "펀치 리스트(하자) 추가",
+          "이슈 등록",
           style: TextStyle(
             color: tossText,
             fontSize: 18,
@@ -680,7 +680,7 @@ class _PunchListPageState extends State<PunchListPage> {
               ),
               onPressed: _submit,
               child: const Text(
-                "펀치 등록하기",
+                "이슈 등록하기",
                 style: TextStyle(
                   color: pureWhite,
                   fontSize: 18,
