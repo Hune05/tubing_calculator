@@ -290,8 +290,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
     }
   }
 
-  bool get _hasAnyContent =>
-      _placedItems.isNotEmpty || _dimensions.isNotEmpty;
+  bool get _hasAnyContent => _placedItems.isNotEmpty || _dimensions.isNotEmpty;
 
   Map<String, dynamic> _buildSnapshotJson() => {
     'projectId': _currentProjectId,
@@ -301,6 +300,62 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
     'items': _placedItems.map((e) => e.toJson()).toList(),
     'dimensions': _dimensions.map((e) => e.toJson()).toList(),
   };
+
+  // 🚀 [신규] 실행 취소/다시 실행. 모듈 배치/이동/삭제/회전/치수 추가·
+  // 삭제 등 "한 번의 사용자 조작" 직전마다 현재 상태를 스냅샷으로
+  // 쌓아두고, 되돌릴 땐 그 스냅샷으로 복원한다. items/dimensions만
+  // 다루고(패널 크기 등은 그대로 유지) 30단계까지 기억한다.
+  final List<Map<String, dynamic>> _undoStack = [];
+  final List<Map<String, dynamic>> _redoStack = [];
+  static const int _maxUndoSteps = 30;
+
+  Map<String, dynamic> _captureUndoState() => {
+    'items': _placedItems.map((e) => e.toJson()).toList(),
+    'dimensions': _dimensions.map((e) => e.toJson()).toList(),
+  };
+
+  // 실제로 뭔가 바꾸기 "직전"에 호출한다.
+  void _pushUndo() {
+    _undoStack.add(_captureUndoState());
+    if (_undoStack.length > _maxUndoSteps) _undoStack.removeAt(0);
+    _redoStack.clear(); // 새 조작을 하면 이전에 되돌렸던 redo 기록은 무효
+  }
+
+  void _restoreUndoState(Map<String, dynamic> snap) {
+    _placedItems
+      ..clear()
+      ..addAll(
+        (snap['items'] as List).map(
+          (e) => PlacedItem.fromJson(Map<String, dynamic>.from(e)),
+        ),
+      );
+    _dimensions
+      ..clear()
+      ..addAll(
+        (snap['dimensions'] as List).map(
+          (e) => PlacedDimension.fromJson(Map<String, dynamic>.from(e)),
+        ),
+      );
+    _activeItem = null;
+    _previewItem = null;
+    _dimensionStartPoint = null;
+  }
+
+  void _undo() {
+    if (_undoStack.isEmpty) return;
+    setState(() {
+      _redoStack.add(_captureUndoState());
+      _restoreUndoState(_undoStack.removeLast());
+    });
+  }
+
+  void _redo() {
+    if (_redoStack.isEmpty) return;
+    setState(() {
+      _undoStack.add(_captureUndoState());
+      _restoreUndoState(_redoStack.removeLast());
+    });
+  }
 
   Future<void> _saveDraftToPrefs() async {
     if (!_hasAnyContent) return;
@@ -335,8 +390,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
       ..clear()
       ..addAll(
         ((data['dimensions'] as List?) ?? []).map(
-          (e) =>
-              PlacedDimension.fromJson(Map<String, dynamic>.from(e as Map)),
+          (e) => PlacedDimension.fromJson(Map<String, dynamic>.from(e as Map)),
         ),
       );
   }
@@ -438,6 +492,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
   }
 
   void _clearBoard() {
+    _pushUndo();
     setState(() {
       _placedItems.clear();
       _dimensions.clear();
@@ -603,6 +658,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
 
   void _onAcceptItem(ModulePreset preset, Offset localPosition) {
     HapticFeedback.mediumImpact();
+    _pushUndo();
     setState(() {
       for (var item in _placedItems) item.isSelected = false;
 
@@ -687,6 +743,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
           );
 
           if (!exists) {
+            _pushUndo();
             _dimensions.add(
               PlacedDimension(
                 id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -871,6 +928,10 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
   }
 
   void _showInspectorBottomSheet(PlacedItem item) {
+    // 🚀 이 편집창 안에서 이름/회전/크기 등을 몇 번을 고치든, 열기
+    // 직전 상태 하나만 기억해서 "편집 취소"가 한 번에 되게 한다
+    // (텍스트 입력마다 undo를 쌓으면 되돌리기가 너무 잘게 쪼개진다).
+    _pushUndo();
     final TextEditingController nameCtrl = TextEditingController(
       text: item.name,
     );
@@ -1319,6 +1380,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                 height: 56,
                 child: ElevatedButton(
                   onPressed: () {
+                    _pushUndo();
                     setState(() {
                       _panelWidth = double.tryParse(widthCtrl.text) ?? 600.0;
                       _panelHeight = double.tryParse(heightCtrl.text) ?? 800.0;
@@ -1406,6 +1468,26 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          IconButton(
+            tooltip: "실행 취소",
+            onPressed: _undoStack.isEmpty ? null : _undo,
+            icon: Icon(
+              Icons.undo_rounded,
+              color: _undoStack.isEmpty
+                  ? tossSubText.withValues(alpha: 0.4)
+                  : tossText,
+            ),
+          ),
+          IconButton(
+            tooltip: "다시 실행",
+            onPressed: _redoStack.isEmpty ? null : _redo,
+            icon: Icon(
+              Icons.redo_rounded,
+              color: _redoStack.isEmpty
+                  ? tossSubText.withValues(alpha: 0.4)
+                  : tossText,
+            ),
+          ),
           if (_isSaving)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
@@ -1444,250 +1526,267 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
             children: [
               Expanded(
                 child: InteractiveViewer(
-              minScale: 0.1,
-              maxScale: 4.0,
-              boundaryMargin: const EdgeInsets.all(2000),
-              constrained: false,
-              child: DragTarget<ModulePreset>(
-                onMove: (details) {
-                  final RenderBox box =
-                      _boardKey.currentContext!.findRenderObject() as RenderBox;
-                  Offset localPos = box.globalToLocal(details.offset);
-                  double clampedX = localPos.dx.clamp(
-                    0.0,
-                    math.max(0.0, _panelWidth - details.data.width),
-                  );
-                  double clampedY = localPos.dy.clamp(
-                    0.0,
-                    math.max(0.0, _panelHeight - details.data.height),
-                  );
-                  setState(() {
-                    _previewItem = PlacedItem(
-                      id: 'preview',
-                      name: details.data.name,
-                      position: _snapToGrid(Offset(clampedX, clampedY)),
-                      width: details.data.width,
-                      height: details.data.height,
-                    );
-                  });
-                },
-                onLeave: (data) => setState(() => _previewItem = null),
-                onAcceptWithDetails: (details) {
-                  final RenderBox box =
-                      _boardKey.currentContext!.findRenderObject() as RenderBox;
-                  _onAcceptItem(
-                    details.data,
-                    box.globalToLocal(details.offset),
-                  );
-                },
-                builder: (context, candidateData, rejectedData) {
-                  return Stack(
-                    clipBehavior: Clip.none,
-                    alignment: Alignment.center,
-                    children: [
-                      GestureDetector(
-                        onTapUp: (details) =>
-                            _onTapBoard(details.localPosition),
-                        child: RepaintBoundary(
-                          key: _captureKey,
-                          child: Container(
-                            key: _boardKey,
-                            width: _panelWidth,
-                            height: _panelHeight,
-                            decoration: BoxDecoration(
-                              color: pureWhite,
-                              border: Border.all(color: tossText, width: 3),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.1),
-                                  blurRadius: 30,
-                                  offset: const Offset(10, 10),
-                                ),
-                              ],
-                            ),
-                            clipBehavior: Clip.hardEdge,
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                CustomPaint(
-                                  size: Size.infinite,
-                                  painter: GridPainter(gridSize: _gridSize),
-                                ),
-                                CustomPaint(
-                                  size: Size.infinite,
-                                  painter: DimensionPainter(
-                                    dimensions: _dimensions,
-                                    activePoint: _dimensionStartPoint,
-                                    panelWidth: _panelWidth,
-                                    panelHeight: _panelHeight,
-                                  ),
-                                ),
-                                if (_previewItem != null &&
-                                    _mode == BoardMode.placeModule) ...[
-                                  ..._buildGuidePaints(_previewItem!),
-                                  Positioned(
-                                    left: _previewItem!.position.dx,
-                                    top: _previewItem!.position.dy,
-                                    child: Opacity(
-                                      opacity: 0.5,
-                                      child: _buildBoardItem(_previewItem!),
+                  minScale: 0.1,
+                  maxScale: 4.0,
+                  boundaryMargin: const EdgeInsets.all(2000),
+                  constrained: false,
+                  child: DragTarget<ModulePreset>(
+                    onMove: (details) {
+                      final RenderBox box =
+                          _boardKey.currentContext!.findRenderObject()
+                              as RenderBox;
+                      Offset localPos = box.globalToLocal(details.offset);
+                      double clampedX = localPos.dx.clamp(
+                        0.0,
+                        math.max(0.0, _panelWidth - details.data.width),
+                      );
+                      double clampedY = localPos.dy.clamp(
+                        0.0,
+                        math.max(0.0, _panelHeight - details.data.height),
+                      );
+                      setState(() {
+                        _previewItem = PlacedItem(
+                          id: 'preview',
+                          name: details.data.name,
+                          position: _snapToGrid(Offset(clampedX, clampedY)),
+                          width: details.data.width,
+                          height: details.data.height,
+                        );
+                      });
+                    },
+                    onLeave: (data) => setState(() => _previewItem = null),
+                    onAcceptWithDetails: (details) {
+                      final RenderBox box =
+                          _boardKey.currentContext!.findRenderObject()
+                              as RenderBox;
+                      _onAcceptItem(
+                        details.data,
+                        box.globalToLocal(details.offset),
+                      );
+                    },
+                    builder: (context, candidateData, rejectedData) {
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        alignment: Alignment.center,
+                        children: [
+                          GestureDetector(
+                            onTapUp: (details) =>
+                                _onTapBoard(details.localPosition),
+                            child: RepaintBoundary(
+                              key: _captureKey,
+                              child: Container(
+                                key: _boardKey,
+                                width: _panelWidth,
+                                height: _panelHeight,
+                                decoration: BoxDecoration(
+                                  color: pureWhite,
+                                  border: Border.all(color: tossText, width: 3),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.1,
+                                      ),
+                                      blurRadius: 30,
+                                      offset: const Offset(10, 10),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
+                                clipBehavior: Clip.hardEdge,
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    CustomPaint(
+                                      size: Size.infinite,
+                                      painter: GridPainter(gridSize: _gridSize),
+                                    ),
+                                    CustomPaint(
+                                      size: Size.infinite,
+                                      painter: DimensionPainter(
+                                        dimensions: _dimensions,
+                                        activePoint: _dimensionStartPoint,
+                                        panelWidth: _panelWidth,
+                                        panelHeight: _panelHeight,
+                                      ),
+                                    ),
+                                    if (_previewItem != null &&
+                                        _mode == BoardMode.placeModule) ...[
+                                      ..._buildGuidePaints(_previewItem!),
+                                      Positioned(
+                                        left: _previewItem!.position.dx,
+                                        top: _previewItem!.position.dy,
+                                        child: Opacity(
+                                          opacity: 0.5,
+                                          child: _buildBoardItem(_previewItem!),
+                                        ),
+                                      ),
+                                    ],
 
-                                if (_activeItem != null &&
-                                    _mode == BoardMode.placeModule)
-                                  ..._buildGuidePaints(_activeItem!),
+                                    if (_activeItem != null &&
+                                        _mode == BoardMode.placeModule)
+                                      ..._buildGuidePaints(_activeItem!),
 
-                                ..._placedItems.map((item) {
-                                  return Positioned(
-                                    left: item.position.dx,
-                                    top: item.position.dy,
-                                    child: GestureDetector(
-                                      onPanStart: _mode == BoardMode.placeModule
-                                          ? (details) {
-                                              setState(() {
-                                                _dragRawPosition =
-                                                    item.position;
-                                                _activeItem = item;
-                                                for (var i in _placedItems) {
-                                                  i.isSelected = false;
+                                    ..._placedItems.map((item) {
+                                      return Positioned(
+                                        left: item.position.dx,
+                                        top: item.position.dy,
+                                        child: GestureDetector(
+                                          onPanStart:
+                                              _mode == BoardMode.placeModule
+                                              ? (details) {
+                                                  // 드래그 한 번 = undo 한 단계
+                                                  // (onPanUpdate마다 쌓으면 되돌리기가
+                                                  // 프레임 단위로 쪼개져 버린다).
+                                                  _pushUndo();
+                                                  setState(() {
+                                                    _dragRawPosition =
+                                                        item.position;
+                                                    _activeItem = item;
+                                                    for (var i
+                                                        in _placedItems) {
+                                                      i.isSelected = false;
+                                                    }
+                                                    item.isSelected = true;
+                                                  });
                                                 }
-                                                item.isSelected = true;
-                                              });
-                                            }
-                                          : null,
-                                      onPanUpdate: _mode == BoardMode.placeModule
-                                          ? (details) {
-                                              setState(() {
-                                                _dragRawPosition +=
-                                                    details.delta;
-                                                double clampedX =
-                                                    _dragRawPosition.dx.clamp(
-                                                      0.0,
-                                                      math.max(
-                                                        0.0,
-                                                        _panelWidth -
-                                                            item.width,
+                                              : null,
+                                          onPanUpdate:
+                                              _mode == BoardMode.placeModule
+                                              ? (details) {
+                                                  setState(() {
+                                                    _dragRawPosition +=
+                                                        details.delta;
+                                                    double clampedX =
+                                                        _dragRawPosition.dx
+                                                            .clamp(
+                                                              0.0,
+                                                              math.max(
+                                                                0.0,
+                                                                _panelWidth -
+                                                                    item.width,
+                                                              ),
+                                                            );
+                                                    double clampedY =
+                                                        _dragRawPosition.dy
+                                                            .clamp(
+                                                              0.0,
+                                                              math.max(
+                                                                0.0,
+                                                                _panelHeight -
+                                                                    item.height,
+                                                              ),
+                                                            );
+                                                    item.position = _snapToGrid(
+                                                      Offset(
+                                                        clampedX,
+                                                        clampedY,
                                                       ),
                                                     );
-                                                double clampedY =
-                                                    _dragRawPosition.dy.clamp(
-                                                      0.0,
-                                                      math.max(
-                                                        0.0,
-                                                        _panelHeight -
-                                                            item.height,
-                                                      ),
-                                                    );
-                                                item.position = _snapToGrid(
-                                                  Offset(clampedX, clampedY),
-                                                );
-                                              });
-                                            }
-                                          : null,
-                                      onPanEnd: _mode == BoardMode.placeModule
-                                          ? (details) {
-                                              setState(() {
-                                                _activeItem = null;
-                                              });
-                                            }
-                                          : null,
-                                      onTap: () => _onTapItem(item),
-                                      child: _buildBoardItem(item),
-                                    ),
-                                  );
-                                }),
-                              ],
+                                                  });
+                                                }
+                                              : null,
+                                          onPanEnd:
+                                              _mode == BoardMode.placeModule
+                                              ? (details) {
+                                                  setState(() {
+                                                    _activeItem = null;
+                                                  });
+                                                }
+                                              : null,
+                                          onTap: () => _onTapItem(item),
+                                          child: _buildBoardItem(item),
+                                        ),
+                                      );
+                                    }),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                      Positioned(
-                        top: -30,
-                        child: Text(
-                          "W: ${_panelWidth.toInt()} mm",
-                          style: TextStyle(
-                            color: Colors.blueGrey.shade700,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        left: -80,
-                        child: RotatedBox(
-                          quarterTurns: 3,
-                          child: Text(
-                            "H: ${_panelHeight.toInt()} mm",
-                            style: TextStyle(
-                              color: Colors.blueGrey.shade700,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                          Positioned(
+                            top: -30,
+                            child: Text(
+                              "W: ${_panelWidth.toInt()} mm",
+                              style: TextStyle(
+                                color: Colors.blueGrey.shade700,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
                             ),
+                          ),
+                          Positioned(
+                            left: -80,
+                            child: RotatedBox(
+                              quarterTurns: 3,
+                              child: Text(
+                                "H: ${_panelHeight.toInt()} mm",
+                                style: TextStyle(
+                                  color: Colors.blueGrey.shade700,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+
+              // 하단 컨트롤 패널
+              Container(
+                decoration: BoxDecoration(
+                  color: pureWhite,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 20,
+                      offset: const Offset(0, -5),
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 🚀 [재구성] 기본 SegmentedButton은 선택된 항목 배경이
+                      // 검정(tossText)이라 마키타 톤과 안 어울렸다. 설정 화면의
+                      // AUTO/MAN 토글과 같은 방식(알약형 배경 안에 세그먼트,
+                      // 선택된 쪽만 마키타 틸로 채움)으로 직접 만들어서 앱
+                      // 전체 톤을 통일했다.
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: _buildModeSegmentedControl(),
+                      ),
+                      // 🚀 [정리] 모듈 배치/이동 중에는 가상선이 항상 나오는 게
+                      // 자연스럽다는 판단으로 켜고/끄는 토글 UI 자체를 없앴다.
+                      // (안 그러면 매번 껐다 켰다 하며 신경 써야 함) 이제 카드
+                      // 안에는 모드별 옵션 패널만 남아서 하단부가 한결 정리됨.
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: tossBg,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 200),
+                            child: switch (_mode) {
+                              BoardMode.measureDimension =>
+                                _buildDimensionToolBar(),
+                              BoardMode.placeModule => _buildModulePalette(),
+                            },
                           ),
                         ),
                       ),
                     ],
-                  );
-                },
-              ),
-            ),
-          ),
-
-          // 하단 컨트롤 패널
-          Container(
-            decoration: BoxDecoration(
-              color: pureWhite,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 20,
-                  offset: const Offset(0, -5),
+                  ),
                 ),
-              ],
-            ),
-            child: SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 🚀 [재구성] 기본 SegmentedButton은 선택된 항목 배경이
-                  // 검정(tossText)이라 마키타 톤과 안 어울렸다. 설정 화면의
-                  // AUTO/MAN 토글과 같은 방식(알약형 배경 안에 세그먼트,
-                  // 선택된 쪽만 마키타 틸로 채움)으로 직접 만들어서 앱
-                  // 전체 톤을 통일했다.
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: _buildModeSegmentedControl(),
-                  ),
-                  // 🚀 [정리] 모듈 배치/이동 중에는 가상선이 항상 나오는 게
-                  // 자연스럽다는 판단으로 켜고/끄는 토글 UI 자체를 없앴다.
-                  // (안 그러면 매번 껐다 켰다 하며 신경 써야 함) 이제 카드
-                  // 안에는 모드별 옵션 패널만 남아서 하단부가 한결 정리됨.
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: tossBg,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        child: switch (_mode) {
-                          BoardMode.measureDimension =>
-                            _buildDimensionToolBar(),
-                          BoardMode.placeModule => _buildModulePalette(),
-                        },
-                      ),
-                    ),
-                  ),
-                ],
               ),
-            ),
-          ),
             ],
           ),
           // 🚀 [추가] 저장된 프로젝트를 불러오는 동안 화면을 덮어서 빈
@@ -1837,10 +1936,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                   data: preset,
                   feedback: Material(
                     color: Colors.transparent,
-                    child: Opacity(
-                      opacity: 0.8,
-                      child: _buildDuctChip(preset),
-                    ),
+                    child: Opacity(opacity: 0.8, child: _buildDuctChip(preset)),
                   ),
                   childWhenDragging: Opacity(
                     opacity: 0.3,
@@ -1893,9 +1989,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
 
     return GestureDetector(
       onTap: () => setState(() {
-        _currentDimType = isCenter
-            ? DimensionType.edge
-            : DimensionType.center;
+        _currentDimType = isCenter ? DimensionType.edge : DimensionType.center;
       }),
       child: Row(
         children: [
@@ -2080,6 +2174,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
             IconButton(
               tooltip: "치수 전체 삭제",
               onPressed: () {
+                _pushUndo();
                 setState(() {
                   _dimensions.clear();
                 });
@@ -2259,7 +2354,13 @@ void drawCadDimensionLine(
     const Radius.circular(4),
   );
   // 라벨-치수선 연결용 짧은 리더선
-  canvas.drawLine(mid, label, Paint()..color = color.withValues(alpha: 0.5)..strokeWidth = 1);
+  canvas.drawLine(
+    mid,
+    label,
+    Paint()
+      ..color = color.withValues(alpha: 0.5)
+      ..strokeWidth = 1,
+  );
   canvas.drawRRect(bgRect, Paint()..color = pureWhite);
   canvas.drawRRect(
     bgRect,
@@ -2520,4 +2621,3 @@ class DimensionPainter extends CustomPainter {
         oldDelegate.panelHeight != panelHeight;
   }
 }
-

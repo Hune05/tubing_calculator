@@ -281,8 +281,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
     }
   }
 
-  bool get _hasAnyContent =>
-      _placedItems.isNotEmpty || _dimensions.isNotEmpty;
+  bool get _hasAnyContent => _placedItems.isNotEmpty || _dimensions.isNotEmpty;
 
   Map<String, dynamic> _buildSnapshotJson() => {
     'projectId': _currentProjectId,
@@ -292,6 +291,62 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
     'items': _placedItems.map((e) => e.toJson()).toList(),
     'dimensions': _dimensions.map((e) => e.toJson()).toList(),
   };
+
+  // 🚀 [신규] 실행 취소/다시 실행 (모바일과 동일한 방식). 모듈 배치/이동/삭제/
+  // 회전/치수 추가·삭제 등 "한 번의 사용자 조작" 직전마다 현재 상태를
+  // 스냅샷으로 쌓아두고, 되돌릴 땐 그 스냅샷으로 복원한다. items/dimensions만
+  // 다루고(패널 크기 등은 그대로 유지) 30단계까지 기억한다.
+  final List<Map<String, dynamic>> _undoStack = [];
+  final List<Map<String, dynamic>> _redoStack = [];
+  static const int _maxUndoSteps = 30;
+
+  Map<String, dynamic> _captureUndoState() => {
+    'items': _placedItems.map((e) => e.toJson()).toList(),
+    'dimensions': _dimensions.map((e) => e.toJson()).toList(),
+  };
+
+  // 실제로 뭔가 바꾸기 "직전"에 호출한다.
+  void _pushUndo() {
+    _undoStack.add(_captureUndoState());
+    if (_undoStack.length > _maxUndoSteps) _undoStack.removeAt(0);
+    _redoStack.clear(); // 새 조작을 하면 이전에 되돌렸던 redo 기록은 무효
+  }
+
+  void _restoreUndoState(Map<String, dynamic> snap) {
+    _placedItems
+      ..clear()
+      ..addAll(
+        (snap['items'] as List).map(
+          (e) => PlacedItem.fromJson(Map<String, dynamic>.from(e)),
+        ),
+      );
+    _dimensions
+      ..clear()
+      ..addAll(
+        (snap['dimensions'] as List).map(
+          (e) => PlacedDimension.fromJson(Map<String, dynamic>.from(e)),
+        ),
+      );
+    _selectedItem = null;
+    _previewItem = null;
+    _dimensionStartPoint = null;
+  }
+
+  void _undo() {
+    if (_undoStack.isEmpty) return;
+    setState(() {
+      _redoStack.add(_captureUndoState());
+      _restoreUndoState(_undoStack.removeLast());
+    });
+  }
+
+  void _redo() {
+    if (_redoStack.isEmpty) return;
+    setState(() {
+      _undoStack.add(_captureUndoState());
+      _restoreUndoState(_redoStack.removeLast());
+    });
+  }
 
   Future<void> _saveDraftToPrefs() async {
     if (!_hasAnyContent) return;
@@ -324,8 +379,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
       ..clear()
       ..addAll(
         ((data['dimensions'] as List?) ?? []).map(
-          (e) =>
-              PlacedDimension.fromJson(Map<String, dynamic>.from(e as Map)),
+          (e) => PlacedDimension.fromJson(Map<String, dynamic>.from(e as Map)),
         ),
       );
   }
@@ -518,6 +572,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
   }
 
   void _clearBoard() {
+    _pushUndo();
     setState(() {
       _placedItems.clear();
       _dimensions.clear();
@@ -527,6 +582,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
   }
 
   void _onAcceptItem(ModulePreset preset, Offset localPosition) {
+    _pushUndo();
     HapticFeedback.mediumImpact();
     setState(() {
       for (var item in _placedItems) item.isSelected = false;
@@ -605,6 +661,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
           );
 
           if (!exists) {
+            _pushUndo();
             _dimensions.add(
               PlacedDimension(
                 id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -626,6 +683,10 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
     if (_mode == BoardMode.measureDimension) {
       _handleDimensionPoint(item);
     } else {
+      // 🚀 인스펙터 패널이 이 모듈을 편집 대상으로 잡는 "시작 시점"에
+      // 스냅샷 한 번만 남긴다 - 이후 이름/크기/좌표를 몇 번을 고치든
+      // "선택 취소" 한 번으로 전부 되돌아가게(모바일 바텀시트와 동일 원칙).
+      if (_selectedItem?.id != item.id) _pushUndo();
       setState(() {
         for (var i in _placedItems) i.isSelected = false;
         item.isSelected = true;
@@ -705,6 +766,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
             ),
             ElevatedButton(
               onPressed: () {
+                _pushUndo();
                 setState(() {
                   _panelWidth = double.tryParse(widthCtrl.text) ?? 600.0;
                   _panelHeight = double.tryParse(heightCtrl.text) ?? 800.0;
@@ -821,6 +883,26 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: "실행 취소",
+            onPressed: _undoStack.isEmpty ? null : _undo,
+            icon: Icon(
+              Icons.undo_rounded,
+              color: _undoStack.isEmpty
+                  ? tossSubText.withValues(alpha: 0.4)
+                  : tossText,
+            ),
+          ),
+          IconButton(
+            tooltip: "다시 실행",
+            onPressed: _redoStack.isEmpty ? null : _redo,
+            icon: Icon(
+              Icons.redo_rounded,
+              color: _redoStack.isEmpty
+                  ? tossSubText.withValues(alpha: 0.4)
+                  : tossText,
+            ),
+          ),
           if (_isSaving)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
@@ -1129,13 +1211,15 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                     backgroundColor: WidgetStateProperty.resolveWith<Color>((
                       Set<WidgetState> states,
                     ) {
-                      if (states.contains(WidgetState.selected)) return tossText;
+                      if (states.contains(WidgetState.selected))
+                        return tossText;
                       return pureWhite;
                     }),
                     foregroundColor: WidgetStateProperty.resolveWith<Color>((
                       Set<WidgetState> states,
                     ) {
-                      if (states.contains(WidgetState.selected)) return pureWhite;
+                      if (states.contains(WidgetState.selected))
+                        return pureWhite;
                       return tossText;
                     }),
                   ),
@@ -1243,7 +1327,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
             maxScale: 4.0,
             boundaryMargin: const EdgeInsets.all(2000),
             child: Center(
-            child: DragTarget<ModulePreset>(
+              child: DragTarget<ModulePreset>(
                 onMove: (details) {
                   final RenderBox box =
                       _boardKey.currentContext!.findRenderObject() as RenderBox;
@@ -1339,6 +1423,8 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                                   child: GestureDetector(
                                     onPanStart: _mode == BoardMode.placeModule
                                         ? (details) {
+                                            // 드래그 한 번 = undo 한 단계
+                                            _pushUndo();
                                             setState(() {
                                               _dragRawPosition = item.position;
                                               _selectedItem = item;
@@ -1667,6 +1753,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                           height: 50,
                           child: OutlinedButton.icon(
                             onPressed: () {
+                              _pushUndo();
                               setState(() {
                                 _dimensions.removeWhere(
                                   (dim) =>
@@ -1827,7 +1914,10 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
               ),
               const Spacer(),
               TextButton(
-                onPressed: () => setState(() => _dimensions.clear()),
+                onPressed: () {
+                  _pushUndo();
+                  setState(() => _dimensions.clear());
+                },
                 child: const Text(
                   "전체 삭제",
                   style: TextStyle(
@@ -2015,8 +2105,10 @@ class SmartGuidePainter extends CustomPainter {
       bool hitVerticalRay = (cx >= oLeft) && (cx <= oRight);
       if (hitVerticalRay) {
         if (currentType == DimensionType.center) {
-          if (other.center.dy <= cy && other.center.dy > bT) bT = other.center.dy;
-          if (other.center.dy >= cy && other.center.dy < bB) bB = other.center.dy;
+          if (other.center.dy <= cy && other.center.dy > bT)
+            bT = other.center.dy;
+          if (other.center.dy >= cy && other.center.dy < bB)
+            bB = other.center.dy;
         } else {
           if (oBottom <= top && oBottom > bT) bT = oBottom;
           if (oTop >= bottom && oTop < bB) bB = oTop;
@@ -2026,8 +2118,10 @@ class SmartGuidePainter extends CustomPainter {
       bool hitHorizontalRay = (cy >= oTop) && (cy <= oBottom);
       if (hitHorizontalRay) {
         if (currentType == DimensionType.center) {
-          if (other.center.dx <= cx && other.center.dx > bL) bL = other.center.dx;
-          if (other.center.dx >= cx && other.center.dx < bR) bR = other.center.dx;
+          if (other.center.dx <= cx && other.center.dx > bL)
+            bL = other.center.dx;
+          if (other.center.dx >= cx && other.center.dx < bR)
+            bR = other.center.dx;
         } else {
           if (oRight <= left && oRight > bL) bL = oRight;
           if (oLeft >= right && oLeft < bR) bR = oLeft;
@@ -2036,15 +2130,71 @@ class SmartGuidePainter extends CustomPainter {
     }
 
     if (currentType == DimensionType.center) {
-      _drawGuideLine(canvas, Offset(cx, cy), Offset(cx, bT), (cy - bT).abs(), c, p);
-      _drawGuideLine(canvas, Offset(cx, cy), Offset(cx, bB), (bB - cy).abs(), c, p);
-      _drawGuideLine(canvas, Offset(cx, cy), Offset(bL, cy), (cx - bL).abs(), c, p);
-      _drawGuideLine(canvas, Offset(cx, cy), Offset(bR, cy), (bR - cx).abs(), c, p);
+      _drawGuideLine(
+        canvas,
+        Offset(cx, cy),
+        Offset(cx, bT),
+        (cy - bT).abs(),
+        c,
+        p,
+      );
+      _drawGuideLine(
+        canvas,
+        Offset(cx, cy),
+        Offset(cx, bB),
+        (bB - cy).abs(),
+        c,
+        p,
+      );
+      _drawGuideLine(
+        canvas,
+        Offset(cx, cy),
+        Offset(bL, cy),
+        (cx - bL).abs(),
+        c,
+        p,
+      );
+      _drawGuideLine(
+        canvas,
+        Offset(cx, cy),
+        Offset(bR, cy),
+        (bR - cx).abs(),
+        c,
+        p,
+      );
     } else {
-      _drawGuideLine(canvas, Offset(cx, top), Offset(cx, bT), (top - bT).abs(), c, p);
-      _drawGuideLine(canvas, Offset(cx, bottom), Offset(cx, bB), (bB - bottom).abs(), c, p);
-      _drawGuideLine(canvas, Offset(left, cy), Offset(bL, cy), (left - bL).abs(), c, p);
-      _drawGuideLine(canvas, Offset(right, cy), Offset(bR, cy), (bR - right).abs(), c, p);
+      _drawGuideLine(
+        canvas,
+        Offset(cx, top),
+        Offset(cx, bT),
+        (top - bT).abs(),
+        c,
+        p,
+      );
+      _drawGuideLine(
+        canvas,
+        Offset(cx, bottom),
+        Offset(cx, bB),
+        (bB - bottom).abs(),
+        c,
+        p,
+      );
+      _drawGuideLine(
+        canvas,
+        Offset(left, cy),
+        Offset(bL, cy),
+        (left - bL).abs(),
+        c,
+        p,
+      );
+      _drawGuideLine(
+        canvas,
+        Offset(right, cy),
+        Offset(bR, cy),
+        (bR - right).abs(),
+        c,
+        p,
+      );
     }
   }
 
