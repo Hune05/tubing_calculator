@@ -347,6 +347,13 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
   final GlobalKey _boardKey = GlobalKey();
   final GlobalKey _captureKey = GlobalKey();
 
+  // 🚀 [신규] 미니맵 - 확대해서 작업할 때 지금 전체 도면 중 어디를 보고
+  // 있는지 놓치기 쉬워서, 구석에 작은 축소 지도로 현재 보는 영역을
+  // 표시한다. InteractiveViewer의 변환행렬(확대/이동)을 추적해야 해서
+  // 컨트롤러를 직접 연결해둔다.
+  final TransformationController _viewerController = TransformationController();
+  Size? _viewportSize;
+
   // 🚀 [추가] 서버에 정식 저장하기 전에 앱을 껐다 켜거나 화면을 나가면
   // 작업 중이던 배치가 전부 사라지던 문제(휘발성)를 막기 위한 로컬
   // 임시 저장. 주기적으로 + 앱이 백그라운드로 갈 때 기기에만 저장해두고,
@@ -360,12 +367,21 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
   // 어떤 프로젝트를 열든 항상 같은 목록을 쓴다.
   static const String _customPresetsPrefsKey = 'layout_board_custom_presets';
   List<ModulePreset> _customPresets = [];
+  // 🚀 [신규] 프리셋이 많아지면 원하는 걸 찾기 번거로워질 수 있어 이름
+  // 검색으로 바로 필터링할 수 있게 했다.
+  final TextEditingController _presetSearchCtrl = TextEditingController();
+  String _presetSearchQuery = '';
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadCustomPresets();
+    // 🚀 확대/이동할 때마다 미니맵의 "현재 보는 영역" 표시가 따라
+    // 움직이도록 다시 그려준다.
+    _viewerController.addListener(() {
+      if (mounted) setState(() {});
+    });
     if (widget.projectId != null) {
       _loadProject(widget.projectId!);
     } else {
@@ -499,6 +515,8 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
     WidgetsBinding.instance.removeObserver(this);
     _draftTimer?.cancel();
     _saveDraftToPrefs();
+    _presetSearchCtrl.dispose();
+    _viewerController.dispose();
     super.dispose();
   }
 
@@ -512,6 +530,48 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
   }
 
   bool get _hasAnyContent => _placedItems.isNotEmpty || _dimensions.isNotEmpty;
+
+  // 🚀 [신규] 완전히 빈 도면을 처음 여는 사람이 기능을 눌러보며 익힐 수
+  // 있도록, 간단한 예시 배치를 한 번에 불러오는 버튼용 데이터.
+  void _loadSampleLayout() {
+    _pushUndo();
+    setState(() {
+      _placedItems.clear();
+      _dimensions.clear();
+      final PlacedItem a = PlacedItem(
+        id: 'sample_a',
+        name: '차단기 A',
+        position: const Offset(40, 40),
+        width: 80,
+        height: 80,
+      );
+      final PlacedItem b = PlacedItem(
+        id: 'sample_b',
+        name: '차단기 B',
+        position: const Offset(180, 40),
+        width: 80,
+        height: 80,
+      );
+      final PlacedItem duct = PlacedItem(
+        id: 'sample_duct',
+        name: 'ABS덕트 60mm',
+        position: const Offset(40, 160),
+        width: 60,
+        height: 200,
+      );
+      _placedItems.addAll([a, b, duct]);
+      _dimensions.add(
+        PlacedDimension(
+          id: 'sample_dim_1',
+          p1: a,
+          p2: b,
+          type: DimensionType.edge,
+          note: '이격거리 예시',
+        ),
+      );
+    });
+    HapticFeedback.mediumImpact();
+  }
 
   Map<String, dynamic> _buildSnapshotJson() => {
     'projectId': _currentProjectId,
@@ -578,6 +638,87 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
       _undoStack.add(_captureUndoState());
       _restoreUndoState(_redoStack.removeLast());
     });
+  }
+
+  // 🚀 [신규] 히스토리 목록에서 특정 단계를 눌렀을 때 - 그 지점까지
+  // 한 번에 여러 단계를 되돌린다(_undo()를 stepsBack번 반복하는 것과
+  // 동일하되, 화면 리렌더는 한 번만 일어나게 묶었다).
+  void _jumpToHistoryEntry(int stepsBack) {
+    if (stepsBack < 1 || stepsBack > _undoStack.length) return;
+    setState(() {
+      for (int i = 0; i < stepsBack; i++) {
+        _redoStack.add(_captureUndoState());
+        _restoreUndoState(_undoStack.removeLast());
+      }
+    });
+  }
+
+  void _showUndoHistorySheet() {
+    if (_undoStack.isEmpty) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return SafeArea(
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.6,
+            ),
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: pureWhite,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                  child: Text(
+                    "실행 취소 히스토리 (${_undoStack.length}단계)",
+                    style: const TextStyle(
+                      color: tossText,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _undoStack.length,
+                    itemBuilder: (context, i) {
+                      // 최근 단계가 위로 오도록 뒤에서부터 보여준다.
+                      final int stepsBack = i + 1;
+                      return ListTile(
+                        leading: const Icon(
+                          Icons.history_rounded,
+                          color: tossBlue,
+                        ),
+                        title: Text(
+                          "$stepsBack단계 전으로 이동",
+                          style: const TextStyle(
+                            color: tossText,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _jumpToHistoryEntry(stepsBack);
+                        },
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _saveDraftToPrefs() async {
@@ -3386,14 +3527,20 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          IconButton(
-            tooltip: "실행 취소",
-            onPressed: _undoStack.isEmpty ? null : _undo,
-            icon: Icon(
-              Icons.undo_rounded,
-              color: _undoStack.isEmpty
-                  ? tossSubText.withValues(alpha: 0.4)
-                  : tossText,
+          // 🚀 [신규] 길게 누르면 실행 취소 히스토리 목록을 열어 원하는
+          // 시점으로 한 번에 이동할 수 있다(짧게 누르면 기존처럼 한
+          // 단계만 되돌린다).
+          GestureDetector(
+            onLongPress: _undoStack.isEmpty ? null : _showUndoHistorySheet,
+            child: IconButton(
+              tooltip: "실행 취소 (길게 눌러 히스토리)",
+              onPressed: _undoStack.isEmpty ? null : _undo,
+              icon: Icon(
+                Icons.undo_rounded,
+                color: _undoStack.isEmpty
+                    ? tossSubText.withValues(alpha: 0.4)
+                    : tossText,
+              ),
             ),
           ),
           IconButton(
@@ -3513,352 +3660,392 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
           Column(
             children: [
               Expanded(
-                child: InteractiveViewer(
-                  minScale: 0.1,
-                  maxScale: 4.0,
-                  boundaryMargin: const EdgeInsets.all(2000),
-                  constrained: false,
-                  child: DragTarget<ModulePreset>(
-                    onMove: (details) {
-                      final RenderBox box =
-                          _boardKey.currentContext!.findRenderObject()
-                              as RenderBox;
-                      Offset localPos = box.globalToLocal(details.offset);
-                      double clampedX = localPos.dx.clamp(
-                        0.0,
-                        math.max(0.0, _panelWidth - details.data.width),
-                      );
-                      double clampedY = localPos.dy.clamp(
-                        0.0,
-                        math.max(0.0, _panelHeight - details.data.height),
-                      );
-                      setState(() {
-                        _previewItem = PlacedItem(
-                          id: 'preview',
-                          name: details.data.name,
-                          position: _snapToGrid(Offset(clampedX, clampedY)),
-                          width: details.data.width,
-                          height: details.data.height,
-                        );
-                      });
-                    },
-                    onLeave: (data) => setState(() => _previewItem = null),
-                    onAcceptWithDetails: (details) {
-                      final RenderBox box =
-                          _boardKey.currentContext!.findRenderObject()
-                              as RenderBox;
-                      _onAcceptItem(
-                        details.data,
-                        box.globalToLocal(details.offset),
-                      );
-                    },
-                    builder: (context, candidateData, rejectedData) {
-                      return Stack(
-                        clipBehavior: Clip.none,
-                        alignment: Alignment.center,
-                        children: [
-                          GestureDetector(
-                            onTapUp: (details) =>
-                                _onTapBoard(details.localPosition),
-                            child: RepaintBoundary(
-                              key: _captureKey,
-                              child: Container(
-                                key: _boardKey,
-                                width: _panelWidth,
-                                height: _panelHeight,
-                                decoration: BoxDecoration(
-                                  color: pureWhite,
-                                  border: Border.all(color: tossText, width: 3),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.1,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // 🚀 [신규] 미니맵에서 "지금 보고 있는 영역"을
+                    // 계산하려면 뷰포트의 실제 화면 크기가 필요하다.
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted && _viewportSize != constraints.biggest) {
+                        setState(() => _viewportSize = constraints.biggest);
+                      }
+                    });
+                    return InteractiveViewer(
+                      transformationController: _viewerController,
+                      minScale: 0.1,
+                      maxScale: 4.0,
+                      boundaryMargin: const EdgeInsets.all(2000),
+                      constrained: false,
+                      child: DragTarget<ModulePreset>(
+                        onMove: (details) {
+                          final RenderBox box =
+                              _boardKey.currentContext!.findRenderObject()
+                                  as RenderBox;
+                          Offset localPos = box.globalToLocal(details.offset);
+                          double clampedX = localPos.dx.clamp(
+                            0.0,
+                            math.max(0.0, _panelWidth - details.data.width),
+                          );
+                          double clampedY = localPos.dy.clamp(
+                            0.0,
+                            math.max(0.0, _panelHeight - details.data.height),
+                          );
+                          setState(() {
+                            _previewItem = PlacedItem(
+                              id: 'preview',
+                              name: details.data.name,
+                              position: _snapToGrid(Offset(clampedX, clampedY)),
+                              width: details.data.width,
+                              height: details.data.height,
+                            );
+                          });
+                        },
+                        onLeave: (data) => setState(() => _previewItem = null),
+                        onAcceptWithDetails: (details) {
+                          final RenderBox box =
+                              _boardKey.currentContext!.findRenderObject()
+                                  as RenderBox;
+                          _onAcceptItem(
+                            details.data,
+                            box.globalToLocal(details.offset),
+                          );
+                        },
+                        builder: (context, candidateData, rejectedData) {
+                          return Stack(
+                            clipBehavior: Clip.none,
+                            alignment: Alignment.center,
+                            children: [
+                              GestureDetector(
+                                onTapUp: (details) =>
+                                    _onTapBoard(details.localPosition),
+                                child: RepaintBoundary(
+                                  key: _captureKey,
+                                  child: Container(
+                                    key: _boardKey,
+                                    width: _panelWidth,
+                                    height: _panelHeight,
+                                    decoration: BoxDecoration(
+                                      color: pureWhite,
+                                      border: Border.all(
+                                        color: tossText,
+                                        width: 3,
                                       ),
-                                      blurRadius: 30,
-                                      offset: const Offset(10, 10),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.1,
+                                          ),
+                                          blurRadius: 30,
+                                          offset: const Offset(10, 10),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                                clipBehavior: Clip.hardEdge,
-                                child: Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    if (_backgroundImagePath != null &&
-                                        File(
-                                          _backgroundImagePath!,
-                                        ).existsSync())
-                                      Positioned.fill(
-                                        child: Opacity(
-                                          opacity: _backgroundOpacity,
-                                          child: Image.file(
-                                            File(_backgroundImagePath!),
-                                            fit: BoxFit.contain,
+                                    clipBehavior: Clip.hardEdge,
+                                    child: Stack(
+                                      clipBehavior: Clip.none,
+                                      children: [
+                                        if (_backgroundImagePath != null &&
+                                            File(
+                                              _backgroundImagePath!,
+                                            ).existsSync())
+                                          Positioned.fill(
+                                            child: Opacity(
+                                              opacity: _backgroundOpacity,
+                                              child: Image.file(
+                                                File(_backgroundImagePath!),
+                                                fit: BoxFit.contain,
+                                              ),
+                                            ),
+                                          ),
+                                        CustomPaint(
+                                          size: Size.infinite,
+                                          painter: GridPainter(
+                                            gridSize: _gridSize,
                                           ),
                                         ),
-                                      ),
-                                    CustomPaint(
-                                      size: Size.infinite,
-                                      painter: GridPainter(gridSize: _gridSize),
-                                    ),
-                                    CustomPaint(
-                                      size: Size.infinite,
-                                      painter: DimensionPainter(
-                                        dimensions: _dimensions,
-                                        activePoint: _dimensionStartPoint,
-                                        panelWidth: _panelWidth,
-                                        panelHeight: _panelHeight,
-                                        version: _dimensionsVersion,
-                                      ),
-                                    ),
-                                    if (_previewItem != null &&
-                                        _mode == BoardMode.placeModule) ...[
-                                      ..._buildGuidePaints(_previewItem!),
-                                      Positioned(
-                                        left: _previewItem!.position.dx,
-                                        top: _previewItem!.position.dy,
-                                        child: Opacity(
-                                          opacity: 0.5,
-                                          child: _buildBoardItem(_previewItem!),
-                                        ),
-                                      ),
-                                    ],
-
-                                    if (_activeItem != null &&
-                                        _mode == BoardMode.placeModule)
-                                      ..._buildGuidePaints(_activeItem!),
-
-                                    if (_alignGuideX != null)
-                                      Positioned(
-                                        left: _alignGuideX,
-                                        top: 0,
-                                        bottom: 0,
-                                        child: IgnorePointer(
-                                          child: Container(
-                                            width: 1.4,
-                                            color: alignGuideColor,
+                                        CustomPaint(
+                                          size: Size.infinite,
+                                          painter: DimensionPainter(
+                                            dimensions: _dimensions,
+                                            activePoint: _dimensionStartPoint,
+                                            panelWidth: _panelWidth,
+                                            panelHeight: _panelHeight,
+                                            version: _dimensionsVersion,
                                           ),
                                         ),
-                                      ),
-                                    if (_alignGuideY != null)
-                                      Positioned(
-                                        top: _alignGuideY,
-                                        left: 0,
-                                        right: 0,
-                                        child: IgnorePointer(
-                                          child: Container(
-                                            height: 1.4,
-                                            color: alignGuideColor,
+                                        if (_previewItem != null &&
+                                            _mode == BoardMode.placeModule) ...[
+                                          ..._buildGuidePaints(_previewItem!),
+                                          Positioned(
+                                            left: _previewItem!.position.dx,
+                                            top: _previewItem!.position.dy,
+                                            child: Opacity(
+                                              opacity: 0.5,
+                                              child: _buildBoardItem(
+                                                _previewItem!,
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                      ),
+                                        ],
 
-                                    ..._placedItems.map((item) {
-                                      final bool canDrag =
-                                          _mode == BoardMode.placeModule &&
-                                          !item.isLocked;
-                                      return Positioned(
-                                        left: item.position.dx - _kTouchHitPad,
-                                        top: item.position.dy - _kTouchHitPad,
-                                        child: GestureDetector(
-                                          behavior: HitTestBehavior.opaque,
-                                          onPanStart: canDrag
-                                              ? (details) {
-                                                  // 드래그 한 번 = undo 한 단계
-                                                  // (onPanUpdate마다 쌓으면 되돌리기가
-                                                  // 프레임 단위로 쪼개져 버린다).
-                                                  final bool isGroupDrag =
-                                                      _multiSelectMode &&
-                                                      _multiSelectedIds
-                                                          .contains(item.id) &&
-                                                      _multiSelectedIds.length >
-                                                          1;
-                                                  _pushUndo();
-                                                  setState(() {
-                                                    _dragRawPosition =
-                                                        item.position;
-                                                    _activeItem = item;
-                                                    if (isGroupDrag) {
-                                                      _groupDragAnchorOrigin =
-                                                          item.position;
-                                                      _groupDragOrigins = {
-                                                        for (final i
-                                                            in _placedItems)
-                                                          if (_multiSelectedIds
-                                                              .contains(i.id))
-                                                            i.id: i.position,
-                                                      };
-                                                      double minX =
-                                                          double.infinity;
-                                                      double minY =
-                                                          double.infinity;
-                                                      double maxRight =
-                                                          -double.infinity;
-                                                      double maxBottom =
-                                                          -double.infinity;
-                                                      for (final i
-                                                          in _placedItems) {
-                                                        if (!_multiSelectedIds
-                                                            .contains(i.id)) {
-                                                          continue;
-                                                        }
-                                                        minX = math.min(
-                                                          minX,
-                                                          i.position.dx,
-                                                        );
-                                                        minY = math.min(
-                                                          minY,
-                                                          i.position.dy,
-                                                        );
-                                                        maxRight = math.max(
-                                                          maxRight,
-                                                          i.position.dx +
-                                                              i.width,
-                                                        );
-                                                        maxBottom = math.max(
-                                                          maxBottom,
-                                                          i.position.dy +
-                                                              i.height,
-                                                        );
-                                                      }
-                                                      _groupOriginBounds =
-                                                          Rect.fromLTRB(
-                                                            minX,
-                                                            minY,
-                                                            maxRight,
-                                                            maxBottom,
-                                                          );
-                                                    } else {
-                                                      _groupDragAnchorOrigin =
-                                                          null;
-                                                      _groupDragOrigins = {};
-                                                      _groupOriginBounds = null;
-                                                      if (!_multiSelectMode) {
-                                                        for (var i
-                                                            in _placedItems) {
-                                                          i.isSelected = false;
-                                                        }
-                                                        item.isSelected = true;
-                                                      }
-                                                    }
-                                                  });
-                                                }
-                                              : null,
-                                          onPanUpdate: canDrag
-                                              ? (details) {
-                                                  setState(() {
-                                                    _dragRawPosition +=
-                                                        details.delta;
-                                                    final bool isGroupDrag =
-                                                        _groupDragOrigins
-                                                            .isNotEmpty &&
-                                                        _groupDragOrigins
-                                                            .containsKey(
-                                                              item.id,
+                                        if (_activeItem != null &&
+                                            _mode == BoardMode.placeModule)
+                                          ..._buildGuidePaints(_activeItem!),
+
+                                        if (_alignGuideX != null)
+                                          Positioned(
+                                            left: _alignGuideX,
+                                            top: 0,
+                                            bottom: 0,
+                                            child: IgnorePointer(
+                                              child: Container(
+                                                width: 1.4,
+                                                color: alignGuideColor,
+                                              ),
+                                            ),
+                                          ),
+                                        if (_alignGuideY != null)
+                                          Positioned(
+                                            top: _alignGuideY,
+                                            left: 0,
+                                            right: 0,
+                                            child: IgnorePointer(
+                                              child: Container(
+                                                height: 1.4,
+                                                color: alignGuideColor,
+                                              ),
+                                            ),
+                                          ),
+
+                                        ..._placedItems.map((item) {
+                                          final bool canDrag =
+                                              _mode == BoardMode.placeModule &&
+                                              !item.isLocked;
+                                          return Positioned(
+                                            left:
+                                                item.position.dx -
+                                                _kTouchHitPad,
+                                            top:
+                                                item.position.dy -
+                                                _kTouchHitPad,
+                                            child: GestureDetector(
+                                              behavior: HitTestBehavior.opaque,
+                                              onPanStart: canDrag
+                                                  ? (details) {
+                                                      // 드래그 한 번 = undo 한 단계
+                                                      // (onPanUpdate마다 쌓으면 되돌리기가
+                                                      // 프레임 단위로 쪼개져 버린다).
+                                                      final bool isGroupDrag =
+                                                          _multiSelectMode &&
+                                                          _multiSelectedIds
+                                                              .contains(
+                                                                item.id,
+                                                              ) &&
+                                                          _multiSelectedIds
+                                                                  .length >
+                                                              1;
+                                                      _pushUndo();
+                                                      setState(() {
+                                                        _dragRawPosition =
+                                                            item.position;
+                                                        _activeItem = item;
+                                                        if (isGroupDrag) {
+                                                          _groupDragAnchorOrigin =
+                                                              item.position;
+                                                          _groupDragOrigins = {
+                                                            for (final i
+                                                                in _placedItems)
+                                                              if (_multiSelectedIds
+                                                                  .contains(
+                                                                    i.id,
+                                                                  ))
+                                                                i.id:
+                                                                    i.position,
+                                                          };
+                                                          double minX =
+                                                              double.infinity;
+                                                          double minY =
+                                                              double.infinity;
+                                                          double maxRight =
+                                                              -double.infinity;
+                                                          double maxBottom =
+                                                              -double.infinity;
+                                                          for (final i
+                                                              in _placedItems) {
+                                                            if (!_multiSelectedIds
+                                                                .contains(
+                                                                  i.id,
+                                                                )) {
+                                                              continue;
+                                                            }
+                                                            minX = math.min(
+                                                              minX,
+                                                              i.position.dx,
                                                             );
-                                                    if (isGroupDrag) {
-                                                      // 🚀 [버그 수정] 각 모듈마다 따로 화면
-                                                      // 경계에 맞춰 자르면(clamp) 폭이 서로
-                                                      // 다른 모듈들이 경계에 닿는 시점이 달라
-                                                      // 어떤 건 멈추고 어떤 건 계속 움직여서
-                                                      // 서로 겹쳐버렸다 - 선택된 모듈 전체의
-                                                      // 바운딩 박스 기준으로 delta를 딱 한 번만
-                                                      // 잘라서, 항상 같은 delta를 모두에게
-                                                      // 적용해 서로의 상대 위치를 유지한다.
-                                                      final Rect bounds =
-                                                          _groupOriginBounds!;
-                                                      final Offset rawDelta =
-                                                          _dragRawPosition -
-                                                          _groupDragAnchorOrigin!;
-                                                      final double minDx =
-                                                          -bounds.left;
-                                                      double maxDx =
-                                                          _panelWidth -
-                                                          bounds.right;
-                                                      if (maxDx < minDx) {
-                                                        maxDx = minDx;
-                                                      }
-                                                      final double minDy =
-                                                          -bounds.top;
-                                                      double maxDy =
-                                                          _panelHeight -
-                                                          bounds.bottom;
-                                                      if (maxDy < minDy) {
-                                                        maxDy = minDy;
-                                                      }
-                                                      final Offset
-                                                      clampedDelta = Offset(
-                                                        rawDelta.dx.clamp(
-                                                          minDx,
-                                                          maxDx,
-                                                        ),
-                                                        rawDelta.dy.clamp(
-                                                          minDy,
-                                                          maxDy,
-                                                        ),
-                                                      );
-                                                      final Offset
-                                                      snappedDelta =
-                                                          _snapToGrid(
-                                                            clampedDelta,
+                                                            minY = math.min(
+                                                              minY,
+                                                              i.position.dy,
+                                                            );
+                                                            maxRight = math.max(
+                                                              maxRight,
+                                                              i.position.dx +
+                                                                  i.width,
+                                                            );
+                                                            maxBottom = math.max(
+                                                              maxBottom,
+                                                              i.position.dy +
+                                                                  i.height,
+                                                            );
+                                                          }
+                                                          _groupOriginBounds =
+                                                              Rect.fromLTRB(
+                                                                minX,
+                                                                minY,
+                                                                maxRight,
+                                                                maxBottom,
+                                                              );
+                                                        } else {
+                                                          _groupDragAnchorOrigin =
+                                                              null;
+                                                          _groupDragOrigins =
+                                                              {};
+                                                          _groupOriginBounds =
+                                                              null;
+                                                          if (!_multiSelectMode) {
+                                                            for (var i
+                                                                in _placedItems) {
+                                                              i.isSelected =
+                                                                  false;
+                                                            }
+                                                            item.isSelected =
+                                                                true;
+                                                          }
+                                                        }
+                                                      });
+                                                    }
+                                                  : null,
+                                              onPanUpdate: canDrag
+                                                  ? (details) {
+                                                      setState(() {
+                                                        _dragRawPosition +=
+                                                            details.delta;
+                                                        final bool isGroupDrag =
+                                                            _groupDragOrigins
+                                                                .isNotEmpty &&
+                                                            _groupDragOrigins
+                                                                .containsKey(
+                                                                  item.id,
+                                                                );
+                                                        if (isGroupDrag) {
+                                                          // 🚀 [버그 수정] 각 모듈마다 따로 화면
+                                                          // 경계에 맞춰 자르면(clamp) 폭이 서로
+                                                          // 다른 모듈들이 경계에 닿는 시점이 달라
+                                                          // 어떤 건 멈추고 어떤 건 계속 움직여서
+                                                          // 서로 겹쳐버렸다 - 선택된 모듈 전체의
+                                                          // 바운딩 박스 기준으로 delta를 딱 한 번만
+                                                          // 잘라서, 항상 같은 delta를 모두에게
+                                                          // 적용해 서로의 상대 위치를 유지한다.
+                                                          final Rect bounds =
+                                                              _groupOriginBounds!;
+                                                          final Offset
+                                                          rawDelta =
+                                                              _dragRawPosition -
+                                                              _groupDragAnchorOrigin!;
+                                                          final double minDx =
+                                                              -bounds.left;
+                                                          double maxDx =
+                                                              _panelWidth -
+                                                              bounds.right;
+                                                          if (maxDx < minDx) {
+                                                            maxDx = minDx;
+                                                          }
+                                                          final double minDy =
+                                                              -bounds.top;
+                                                          double maxDy =
+                                                              _panelHeight -
+                                                              bounds.bottom;
+                                                          if (maxDy < minDy) {
+                                                            maxDy = minDy;
+                                                          }
+                                                          final Offset
+                                                          clampedDelta = Offset(
+                                                            rawDelta.dx.clamp(
+                                                              minDx,
+                                                              maxDx,
+                                                            ),
+                                                            rawDelta.dy.clamp(
+                                                              minDy,
+                                                              maxDy,
+                                                            ),
                                                           );
-                                                      // 🚀 [버그 수정] 그룹
-                                                      // 전체를 이 delta만큼
-                                                      // 옮겼을 때 선택되지
-                                                      // 않은 다른 모듈과
-                                                      // 겹치면 이번 프레임의
-                                                      // 이동은 통째로
-                                                      // 취소한다(그룹끼리는
-                                                      // 서로 겹침 검사에서
-                                                      // 제외).
-                                                      bool wouldCollide = false;
-                                                      for (final entry
-                                                          in _groupDragOrigins
-                                                              .entries) {
-                                                        final PlacedItem it =
-                                                            _placedItems
+                                                          final Offset
+                                                          snappedDelta =
+                                                              _snapToGrid(
+                                                                clampedDelta,
+                                                              );
+                                                          // 🚀 [버그 수정] 그룹
+                                                          // 전체를 이 delta만큼
+                                                          // 옮겼을 때 선택되지
+                                                          // 않은 다른 모듈과
+                                                          // 겹치면 이번 프레임의
+                                                          // 이동은 통째로
+                                                          // 취소한다(그룹끼리는
+                                                          // 서로 겹침 검사에서
+                                                          // 제외).
+                                                          bool wouldCollide =
+                                                              false;
+                                                          for (final entry
+                                                              in _groupDragOrigins
+                                                                  .entries) {
+                                                            final PlacedItem
+                                                            it = _placedItems
                                                                 .firstWhere(
                                                                   (x) =>
                                                                       x.id ==
                                                                       entry.key,
                                                                 );
-                                                        final Offset newPos =
-                                                            entry.value +
-                                                            snappedDelta;
-                                                        if (_overlapsAny(
-                                                          it,
-                                                          newPos,
-                                                          excludeIds:
-                                                              _multiSelectedIds,
-                                                        )) {
-                                                          wouldCollide = true;
-                                                          break;
-                                                        }
-                                                      }
-                                                      if (wouldCollide) {
-                                                        return;
-                                                      }
-                                                      for (final i
-                                                          in _placedItems) {
-                                                        if (!_multiSelectedIds
-                                                                .contains(
-                                                                  i.id,
-                                                                ) ||
-                                                            i.isLocked) {
-                                                          continue;
-                                                        }
-                                                        final Offset? origin =
-                                                            _groupDragOrigins[i
-                                                                .id];
-                                                        if (origin == null) {
-                                                          continue;
-                                                        }
-                                                        i.position =
-                                                            origin +
-                                                            snappedDelta;
-                                                      }
-                                                    } else {
-                                                      double clampedX =
-                                                          _dragRawPosition.dx
+                                                            final Offset
+                                                            newPos =
+                                                                entry.value +
+                                                                snappedDelta;
+                                                            if (_overlapsAny(
+                                                              it,
+                                                              newPos,
+                                                              excludeIds:
+                                                                  _multiSelectedIds,
+                                                            )) {
+                                                              wouldCollide =
+                                                                  true;
+                                                              break;
+                                                            }
+                                                          }
+                                                          if (wouldCollide) {
+                                                            return;
+                                                          }
+                                                          for (final i
+                                                              in _placedItems) {
+                                                            if (!_multiSelectedIds
+                                                                    .contains(
+                                                                      i.id,
+                                                                    ) ||
+                                                                i.isLocked) {
+                                                              continue;
+                                                            }
+                                                            final Offset?
+                                                            origin =
+                                                                _groupDragOrigins[i
+                                                                    .id];
+                                                            if (origin ==
+                                                                null) {
+                                                              continue;
+                                                            }
+                                                            i.position =
+                                                                origin +
+                                                                snappedDelta;
+                                                          }
+                                                        } else {
+                                                          double
+                                                          clampedX = _dragRawPosition
+                                                              .dx
                                                               .clamp(
                                                                 0.0,
                                                                 math.max(
@@ -3867,134 +4054,209 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                                                       item.width,
                                                                 ),
                                                               );
-                                                      double
-                                                      clampedY = _dragRawPosition
-                                                          .dy
-                                                          .clamp(
-                                                            0.0,
-                                                            math.max(
-                                                              0.0,
-                                                              _panelHeight -
-                                                                  item.height,
-                                                            ),
-                                                          );
-                                                      final gridSnapped =
-                                                          _snapToGrid(
-                                                            Offset(
-                                                              clampedX,
-                                                              clampedY,
-                                                            ),
-                                                          );
-                                                      final aligned =
-                                                          _snapToAlignment(
+                                                          double
+                                                          clampedY = _dragRawPosition
+                                                              .dy
+                                                              .clamp(
+                                                                0.0,
+                                                                math.max(
+                                                                  0.0,
+                                                                  _panelHeight -
+                                                                      item.height,
+                                                                ),
+                                                              );
+                                                          final gridSnapped =
+                                                              _snapToGrid(
+                                                                Offset(
+                                                                  clampedX,
+                                                                  clampedY,
+                                                                ),
+                                                              );
+                                                          final aligned =
+                                                              _snapToAlignment(
+                                                                item,
+                                                                gridSnapped,
+                                                              );
+                                                          // 🚀 [버그 수정] 다른
+                                                          // 모듈과 겹치는 자리로는
+                                                          // 이동을 허용하지 않는다
+                                                          // (물리적으로 실제
+                                                          // 모듈이라 같은 자리를
+                                                          // 차지할 수 없다).
+                                                          if (!_overlapsAny(
                                                             item,
-                                                            gridSnapped,
-                                                          );
-                                                      // 🚀 [버그 수정] 다른
-                                                      // 모듈과 겹치는 자리로는
-                                                      // 이동을 허용하지 않는다
-                                                      // (물리적으로 실제
-                                                      // 모듈이라 같은 자리를
-                                                      // 차지할 수 없다).
-                                                      if (!_overlapsAny(
-                                                        item,
-                                                        aligned,
-                                                      )) {
-                                                        item.position = aligned;
-                                                      }
+                                                            aligned,
+                                                          )) {
+                                                            item.position =
+                                                                aligned;
+                                                          }
+                                                        }
+                                                      });
                                                     }
-                                                  });
-                                                }
-                                              : null,
-                                          onPanEnd: canDrag
-                                              ? (details) {
-                                                  setState(() {
-                                                    _activeItem = null;
-                                                    _alignGuideX = null;
-                                                    _alignGuideY = null;
-                                                    _groupDragAnchorOrigin =
-                                                        null;
-                                                    _groupDragOrigins = {};
-                                                    _groupOriginBounds = null;
-                                                  });
-                                                }
-                                              : null,
-                                          onTap: () => _onTapItem(item),
-                                          child: Container(
-                                            width:
-                                                item.width + _kTouchHitPad * 2,
-                                            height:
-                                                item.height + _kTouchHitPad * 2,
-                                            color: Colors.transparent,
-                                            padding: const EdgeInsets.all(
-                                              _kTouchHitPad,
+                                                  : null,
+                                              onPanEnd: canDrag
+                                                  ? (details) {
+                                                      setState(() {
+                                                        _activeItem = null;
+                                                        _alignGuideX = null;
+                                                        _alignGuideY = null;
+                                                        _groupDragAnchorOrigin =
+                                                            null;
+                                                        _groupDragOrigins = {};
+                                                        _groupOriginBounds =
+                                                            null;
+                                                      });
+                                                    }
+                                                  : null,
+                                              onTap: () => _onTapItem(item),
+                                              child: Container(
+                                                width:
+                                                    item.width +
+                                                    _kTouchHitPad * 2,
+                                                height:
+                                                    item.height +
+                                                    _kTouchHitPad * 2,
+                                                color: Colors.transparent,
+                                                padding: const EdgeInsets.all(
+                                                  _kTouchHitPad,
+                                                ),
+                                                child: Stack(
+                                                  clipBehavior: Clip.none,
+                                                  children: [
+                                                    _buildBoardItem(item),
+                                                    if (item.isLocked)
+                                                      Positioned(
+                                                        right: -2,
+                                                        top: -2,
+                                                        child: Container(
+                                                          padding:
+                                                              const EdgeInsets.all(
+                                                                3,
+                                                              ),
+                                                          decoration:
+                                                              const BoxDecoration(
+                                                                color: tossText,
+                                                                shape: BoxShape
+                                                                    .circle,
+                                                              ),
+                                                          child: const Icon(
+                                                            Icons.lock_rounded,
+                                                            size: 10,
+                                                            color: pureWhite,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ),
                                             ),
-                                            child: Stack(
-                                              clipBehavior: Clip.none,
-                                              children: [
-                                                _buildBoardItem(item),
-                                                if (item.isLocked)
-                                                  Positioned(
-                                                    right: -2,
-                                                    top: -2,
-                                                    child: Container(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                            3,
+                                          );
+                                        }),
+                                        // 🚀 [신규] 완전히 빈 도면일 때, 처음
+                                        // 여는 사람이 뭘 해야 할지 막막하지
+                                        // 않도록 샘플 배치를 눌러보게 안내.
+                                        if (_placedItems.isEmpty &&
+                                            _dimensions.isEmpty &&
+                                            !_isLoadingProject)
+                                          Positioned.fill(
+                                            child: Center(
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(
+                                                    Icons
+                                                        .dashboard_customize_outlined,
+                                                    size: 36,
+                                                    color: tossSubText
+                                                        .withValues(alpha: 0.5),
+                                                  ),
+                                                  const SizedBox(height: 12),
+                                                  Text(
+                                                    "아래에서 모듈을 끌어다\n놓아 배치를 시작하세요",
+                                                    textAlign: TextAlign.center,
+                                                    style: TextStyle(
+                                                      color: tossSubText
+                                                          .withValues(
+                                                            alpha: 0.7,
                                                           ),
-                                                      decoration:
-                                                          const BoxDecoration(
-                                                            color: tossText,
-                                                            shape:
-                                                                BoxShape.circle,
-                                                          ),
-                                                      child: const Icon(
-                                                        Icons.lock_rounded,
-                                                        size: 10,
-                                                        color: pureWhite,
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      height: 1.4,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 16),
+                                                  OutlinedButton.icon(
+                                                    onPressed:
+                                                        _loadSampleLayout,
+                                                    icon: const Icon(
+                                                      Icons
+                                                          .auto_awesome_rounded,
+                                                      size: 16,
+                                                      color: tossBlue,
+                                                    ),
+                                                    label: const Text(
+                                                      "샘플 배치 불러보기",
+                                                      style: TextStyle(
+                                                        color: tossBlue,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                    style: OutlinedButton.styleFrom(
+                                                      side: const BorderSide(
+                                                        color: tossBlue,
+                                                      ),
+                                                      backgroundColor:
+                                                          pureWhite,
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              12,
+                                                            ),
                                                       ),
                                                     ),
                                                   ),
-                                              ],
+                                                ],
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      );
-                                    }),
-                                  ],
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
-                          Positioned(
-                            top: -30,
-                            child: Text(
-                              "W: ${_panelWidth.toInt()} mm",
-                              style: TextStyle(
-                                color: Colors.blueGrey.shade700,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            left: -80,
-                            child: RotatedBox(
-                              quarterTurns: 3,
-                              child: Text(
-                                "H: ${_panelHeight.toInt()} mm",
-                                style: TextStyle(
-                                  color: Colors.blueGrey.shade700,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                              Positioned(
+                                top: -30,
+                                child: Text(
+                                  "W: ${_panelWidth.toInt()} mm",
+                                  style: TextStyle(
+                                    color: Colors.blueGrey.shade700,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+                              Positioned(
+                                left: -80,
+                                child: RotatedBox(
+                                  quarterTurns: 3,
+                                  child: Text(
+                                    "H: ${_panelHeight.toInt()} mm",
+                                    style: TextStyle(
+                                      color: Colors.blueGrey.shade700,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    );
+                  },
                 ),
               ),
 
@@ -4055,124 +4317,142 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
           ),
           // 🚀 [신규] 다중 선택 도구모음 - 2개 이상 선택 시 그룹 이동/
           // 복제/잠금/정렬/삭제를 한 번에 할 수 있게 하단에 띄운다.
-          if (_multiSelectedIds.isNotEmpty)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: SafeArea(
-                top: false,
-                child: Container(
-                  margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
-                  decoration: BoxDecoration(
-                    color: tossText,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Text(
-                        "${_multiSelectedIds.length}개 선택",
-                        style: const TextStyle(
-                          color: pureWhite,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
+          // 🚀 [개선] 선택하는 순간 뚝 나타나던 걸 부드럽게 슬라이드 인/
+          // 아웃 되도록 항상 트리에 두고 위치만 애니메이션한다.
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            left: 0,
+            right: 0,
+            bottom: _multiSelectedIds.isNotEmpty ? 0 : -200,
+            child: IgnorePointer(
+              ignoring: _multiSelectedIds.isEmpty,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 220),
+                opacity: _multiSelectedIds.isNotEmpty ? 1 : 0,
+                child: SafeArea(
+                  top: false,
+                  child: Container(
+                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+                    decoration: BoxDecoration(
+                      color: tossText,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              const SizedBox(width: 8),
-                              _buildMultiBarIcon(
-                                Icons.keyboard_arrow_up_rounded,
-                                () => _nudgeSelected(const Offset(0, -1)),
-                              ),
-                              _buildMultiBarIcon(
-                                Icons.keyboard_arrow_down_rounded,
-                                () => _nudgeSelected(const Offset(0, 1)),
-                              ),
-                              _buildMultiBarIcon(
-                                Icons.keyboard_arrow_left_rounded,
-                                () => _nudgeSelected(const Offset(-1, 0)),
-                              ),
-                              _buildMultiBarIcon(
-                                Icons.keyboard_arrow_right_rounded,
-                                () => _nudgeSelected(const Offset(1, 0)),
-                              ),
-                              Container(
-                                width: 1,
-                                height: 24,
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                ),
-                                color: pureWhite.withValues(alpha: 0.2),
-                              ),
-                              _buildMultiBarIcon(
-                                Icons.copy_rounded,
-                                _duplicateSelectedGroup,
-                              ),
-                              // 🚀 [신규] 잠금/정렬은 아이콘만으로는 뜻이
-                              // 바로 와닿지 않을 수 있어 짧은 라벨을 같이
-                              // 붙였다(이동/복제/삭제는 아이콘만으로도
-                              // 충분히 익숙한 동작이라 그대로 둠).
-                              _buildMultiBarLabeledIcon(
-                                _selectedGroup.isNotEmpty &&
-                                        _selectedGroup.every((i) => i.isLocked)
-                                    ? Icons.lock_open_rounded
-                                    : Icons.lock_outline_rounded,
-                                _selectedGroup.isNotEmpty &&
-                                        _selectedGroup.every((i) => i.isLocked)
-                                    ? "잠금 해제"
-                                    : "잠금",
-                                _toggleLockSelected,
-                              ),
-                              _buildMultiBarLabeledIcon(
-                                Icons.align_horizontal_left_rounded,
-                                "정렬",
-                                _multiSelectedIds.length >= 2
-                                    ? _showAlignmentSheet
-                                    : null,
-                              ),
-                              _buildMultiBarIcon(
-                                Icons.delete_outline_rounded,
-                                _deleteSelectedGroup,
-                                color: warningRed,
-                              ),
-                            ],
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          "${_multiSelectedIds.length}개 선택",
+                          style: const TextStyle(
+                            color: pureWhite,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
                           ),
                         ),
-                      ),
-                      IconButton(
-                        tooltip: "선택 해제",
-                        onPressed: () {
-                          setState(() {
-                            for (final i in _placedItems) {
-                              i.isSelected = false;
-                            }
-                            _multiSelectedIds = {};
-                          });
-                        },
-                        icon: const Icon(
-                          Icons.close_rounded,
-                          color: pureWhite,
-                          size: 20,
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                const SizedBox(width: 8),
+                                _buildMultiBarIcon(
+                                  Icons.keyboard_arrow_up_rounded,
+                                  () => _nudgeSelected(const Offset(0, -1)),
+                                ),
+                                _buildMultiBarIcon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  () => _nudgeSelected(const Offset(0, 1)),
+                                ),
+                                _buildMultiBarIcon(
+                                  Icons.keyboard_arrow_left_rounded,
+                                  () => _nudgeSelected(const Offset(-1, 0)),
+                                ),
+                                _buildMultiBarIcon(
+                                  Icons.keyboard_arrow_right_rounded,
+                                  () => _nudgeSelected(const Offset(1, 0)),
+                                ),
+                                Container(
+                                  width: 1,
+                                  height: 24,
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  color: pureWhite.withValues(alpha: 0.2),
+                                ),
+                                _buildMultiBarIcon(
+                                  Icons.copy_rounded,
+                                  _duplicateSelectedGroup,
+                                ),
+                                // 🚀 [신규] 잠금/정렬은 아이콘만으로는 뜻이
+                                // 바로 와닿지 않을 수 있어 짧은 라벨을 같이
+                                // 붙였다(이동/복제/삭제는 아이콘만으로도
+                                // 충분히 익숙한 동작이라 그대로 둠).
+                                _buildMultiBarLabeledIcon(
+                                  _selectedGroup.isNotEmpty &&
+                                          _selectedGroup.every(
+                                            (i) => i.isLocked,
+                                          )
+                                      ? Icons.lock_open_rounded
+                                      : Icons.lock_outline_rounded,
+                                  _selectedGroup.isNotEmpty &&
+                                          _selectedGroup.every(
+                                            (i) => i.isLocked,
+                                          )
+                                      ? "잠금 해제"
+                                      : "잠금",
+                                  _toggleLockSelected,
+                                ),
+                                _buildMultiBarLabeledIcon(
+                                  Icons.align_horizontal_left_rounded,
+                                  "정렬",
+                                  _multiSelectedIds.length >= 2
+                                      ? _showAlignmentSheet
+                                      : null,
+                                ),
+                                _buildMultiBarIcon(
+                                  Icons.delete_outline_rounded,
+                                  _deleteSelectedGroup,
+                                  color: warningRed,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                        IconButton(
+                          tooltip: "선택 해제",
+                          onPressed: () {
+                            setState(() {
+                              for (final i in _placedItems) {
+                                i.isSelected = false;
+                              }
+                              _multiSelectedIds = {};
+                            });
+                          },
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: pureWhite,
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
+          ),
+          // 🚀 [신규] 미니맵 - 확대해서 작업 중일 때 전체 도면에서 지금
+          // 보고 있는 위치를 놓치지 않도록 구석에 작게 띄운다.
+          if (_placedItems.isNotEmpty && _viewportSize != null)
+            Positioned(top: 12, right: 12, child: _buildMinimap()),
           // 🚀 [추가] 저장된 프로젝트를 불러오는 동안 화면을 덮어서 빈
           // 도면이 잠깐 보였다가 내용이 채워지는 깜빡임을 막는다.
           if (_isLoadingProject)
@@ -4236,6 +4516,66 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // 🚀 [신규] 미니맵 - 전체 도면을 축소해서 보여주고, InteractiveViewer의
+  // 변환행렬을 역산해 지금 화면에 실제로 보이는 영역을 겹쳐 그린다.
+  Widget _buildMinimap() {
+    const double miniW = 96;
+    final double scale = miniW / _panelWidth;
+    final double miniH = _panelHeight * scale;
+
+    Rect? viewportRect;
+    if (_viewportSize != null) {
+      try {
+        final Matrix4 inverse = Matrix4.inverted(_viewerController.value);
+        final Offset topLeft = MatrixUtils.transformPoint(inverse, Offset.zero);
+        final Offset bottomRight = MatrixUtils.transformPoint(
+          inverse,
+          Offset(_viewportSize!.width, _viewportSize!.height),
+        );
+        viewportRect = Rect.fromPoints(topLeft, bottomRight);
+      } catch (_) {}
+    }
+
+    return Container(
+      width: miniW,
+      height: miniH,
+      decoration: BoxDecoration(
+        color: pureWhite.withValues(alpha: 0.92),
+        border: Border.all(color: tossSubText.withValues(alpha: 0.4)),
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 6),
+        ],
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Stack(
+        children: [
+          ..._placedItems.map(
+            (item) => Positioned(
+              left: item.position.dx * scale,
+              top: item.position.dy * scale,
+              width: math.max(1.5, item.width * scale),
+              height: math.max(1.5, item.height * scale),
+              child: Container(color: tossBlue.withValues(alpha: 0.5)),
+            ),
+          ),
+          if (viewportRect != null)
+            Positioned(
+              left: (viewportRect.left * scale).clamp(0.0, miniW),
+              top: (viewportRect.top * scale).clamp(0.0, miniH),
+              width: (viewportRect.width * scale).clamp(4.0, miniW),
+              height: (viewportRect.height * scale).clamp(4.0, miniH),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: warningRed, width: 1.5),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -4397,34 +4737,98 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
               ),
             ),
             const SizedBox(height: 8),
-            SizedBox(
-              height: 44,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _customPresets.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  final preset = _customPresets[index];
-                  return GestureDetector(
-                    onLongPress: () => _confirmDeleteCustomPreset(index),
-                    child: Draggable<ModulePreset>(
-                      data: preset,
-                      feedback: Material(
-                        color: Colors.transparent,
-                        child: Opacity(
-                          opacity: 0.8,
-                          child: _buildCustomPresetChip(preset),
+            // 🚀 [신규] 프리셋이 늘어나면 찾기 번거로워질 수 있어 이름
+            // 검색창을 추가했다(프리셋 4개 이상일 때만 표시).
+            if (_customPresets.length > 3) ...[
+              TextField(
+                controller: _presetSearchCtrl,
+                onChanged: (v) => setState(() => _presetSearchQuery = v.trim()),
+                style: const TextStyle(fontSize: 13, color: tossText),
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: "프리셋 이름 검색",
+                  hintStyle: const TextStyle(fontSize: 12, color: tossSubText),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    size: 18,
+                    color: tossSubText,
+                  ),
+                  suffixIcon: _presetSearchQuery.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            size: 16,
+                            color: tossSubText,
+                          ),
+                          onPressed: () {
+                            _presetSearchCtrl.clear();
+                            setState(() => _presetSearchQuery = '');
+                          },
                         ),
-                      ),
-                      childWhenDragging: Opacity(
-                        opacity: 0.3,
-                        child: _buildCustomPresetChip(preset),
-                      ),
-                      child: _buildCustomPresetChip(preset),
+                  filled: true,
+                  fillColor: tossBg,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            Builder(
+              builder: (context) {
+                final List<ModulePreset> filtered = _presetSearchQuery.isEmpty
+                    ? _customPresets
+                    : _customPresets
+                          .where(
+                            (p) => p.name.toLowerCase().contains(
+                              _presetSearchQuery.toLowerCase(),
+                            ),
+                          )
+                          .toList();
+                if (filtered.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4),
+                    child: Text(
+                      "검색 결과가 없습니다",
+                      style: TextStyle(fontSize: 12, color: tossSubText),
                     ),
                   );
-                },
-              ),
+                }
+                return SizedBox(
+                  height: 44,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final preset = filtered[index];
+                      return GestureDetector(
+                        onLongPress: () => _confirmDeleteCustomPreset(
+                          _customPresets.indexOf(preset),
+                        ),
+                        child: Draggable<ModulePreset>(
+                          data: preset,
+                          feedback: Material(
+                            color: Colors.transparent,
+                            child: Opacity(
+                              opacity: 0.8,
+                              child: _buildCustomPresetChip(preset),
+                            ),
+                          ),
+                          childWhenDragging: Opacity(
+                            opacity: 0.3,
+                            child: _buildCustomPresetChip(preset),
+                          ),
+                          child: _buildCustomPresetChip(preset),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
             ),
           ],
         ],
