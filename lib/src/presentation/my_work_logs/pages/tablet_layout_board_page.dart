@@ -835,6 +835,34 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
     return result;
   }
 
+  // 🚀 [버그 수정] 정렬 스냅뿐 아니라 그냥 드래그로도 모듈을 다른 모듈
+  // 위에 완전히 겹쳐 놓을 수 있었다(모바일과 동일 버그, 같이 수정).
+  // 후보 위치가 다른 모듈과 겹치면 그 위치로는 이동을 허용하지 않는다.
+  bool _overlapsAny(
+    PlacedItem dragging,
+    Offset candidate, {
+    Set<String>? excludeIds,
+  }) {
+    final Rect rect = Rect.fromLTWH(
+      candidate.dx,
+      candidate.dy,
+      dragging.width,
+      dragging.height,
+    );
+    for (final other in _placedItems) {
+      if (other.id == dragging.id) continue;
+      if (excludeIds != null && excludeIds.contains(other.id)) continue;
+      final Rect otherRect = Rect.fromLTWH(
+        other.position.dx,
+        other.position.dy,
+        other.width,
+        other.height,
+      );
+      if (rect.overlaps(otherRect)) return true;
+    }
+    return false;
+  }
+
   void _clearBoard() {
     _pushUndo();
     setState(() {
@@ -2746,6 +2774,37 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                                                       );
                                                   final Offset snappedDelta =
                                                       _snapToGrid(clampedDelta);
+                                                  // 🚀 [버그 수정] 그룹
+                                                  // 전체를 이 delta만큼
+                                                  // 옮겼을 때 선택 안 된
+                                                  // 다른 모듈과 겹치면 이번
+                                                  // 프레임 이동을 통째로
+                                                  // 취소한다.
+                                                  bool wouldCollide = false;
+                                                  for (final entry
+                                                      in _groupDragOrigins
+                                                          .entries) {
+                                                    final PlacedItem it =
+                                                        _placedItems.firstWhere(
+                                                          (x) =>
+                                                              x.id == entry.key,
+                                                        );
+                                                    final Offset newPos =
+                                                        entry.value +
+                                                        snappedDelta;
+                                                    if (_overlapsAny(
+                                                      it,
+                                                      newPos,
+                                                      excludeIds:
+                                                          _multiSelectedIds,
+                                                    )) {
+                                                      wouldCollide = true;
+                                                      break;
+                                                    }
+                                                  }
+                                                  if (wouldCollide) {
+                                                    return;
+                                                  }
                                                   for (final i
                                                       in _placedItems) {
                                                     if (!_multiSelectedIds
@@ -2781,11 +2840,20 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                                                           clampedY,
                                                         ),
                                                       );
-                                                  item.position =
+                                                  final aligned =
                                                       _snapToAlignment(
                                                         item,
                                                         gridSnapped,
                                                       );
+                                                  // 🚀 [버그 수정] 다른
+                                                  // 모듈과 겹치는 자리로는
+                                                  // 이동을 허용하지 않는다.
+                                                  if (!_overlapsAny(
+                                                    item,
+                                                    aligned,
+                                                  )) {
+                                                    item.position = aligned;
+                                                  }
                                                 }
                                               });
                                             }
