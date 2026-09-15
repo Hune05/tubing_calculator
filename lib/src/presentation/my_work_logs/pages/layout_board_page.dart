@@ -292,6 +292,12 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
   Set<String> _multiSelectedIds = {};
   Offset? _groupDragAnchorOrigin;
   Map<String, Offset> _groupDragOrigins = {};
+  // 🚀 [버그 수정] 그룹 드래그 중 항목마다 따로 도면 경계에 clamp를
+  // 걸면, 폭이 서로 다른 모듈들이 경계에 닿는 시점이 제각각이라 어떤
+  // 모듈은 먼저 멈추고 다른 모듈은 계속 움직여서 서로 겹쳐버렸다.
+  // 이제 그룹 전체의 바운딩 박스 기준으로 딱 한 번만 delta를 clamp해서
+  // 선택된 모듈들 사이의 상대 위치가 항상 그대로 유지되게 한다.
+  Rect? _groupOriginBounds;
 
   final GlobalKey _boardKey = GlobalKey();
   final GlobalKey _captureKey = GlobalKey();
@@ -2585,28 +2591,66 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
               onPressed: _showSaveActionSheet,
               icon: const Icon(Icons.ios_share_rounded, color: tossBlue),
             ),
-          IconButton(
-            tooltip: "자재 수량",
-            onPressed: _showMaterialSummarySheet,
-            icon: const Icon(Icons.inventory_2_outlined, color: tossText),
-          ),
-          IconButton(
-            tooltip: "배경 사진",
-            onPressed: _showBackgroundSheet,
-            icon: Icon(
-              Icons.image_outlined,
-              color: _backgroundImagePath != null ? tossBlue : tossText,
-            ),
-          ),
-          IconButton(
-            tooltip: "외함 사이즈 설정",
-            onPressed: _showPanelSettingsSheet,
-            icon: const Icon(Icons.aspect_ratio_rounded, color: tossText),
-          ),
-          IconButton(
-            tooltip: "도면 초기화",
-            onPressed: _clearBoard,
-            icon: const Icon(Icons.refresh_rounded, color: warningRed),
+          // 🚀 [버그 수정] AppBar 아이콘이 하나둘 늘어나다 보니(자재 수량/
+          // 배경 사진/외함 크기/초기화까지) 좁은 화면에서 화면 밖으로
+          // 잘리거나 아이콘끼리 겹치는 오버플로우가 났다 - 자주 안 쓰는
+          // 것들은 "더보기" 메뉴 하나로 모았다.
+          PopupMenuButton<String>(
+            tooltip: "더보기",
+            icon: const Icon(Icons.more_vert_rounded, color: tossText),
+            onSelected: (value) {
+              switch (value) {
+                case 'material':
+                  _showMaterialSummarySheet();
+                  break;
+                case 'background':
+                  _showBackgroundSheet();
+                  break;
+                case 'panel':
+                  _showPanelSettingsSheet();
+                  break;
+                case 'clear':
+                  _clearBoard();
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'material',
+                child: ListTile(
+                  leading: Icon(Icons.inventory_2_outlined, color: tossText),
+                  title: Text("자재 수량"),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: 'background',
+                child: ListTile(
+                  leading: Icon(
+                    Icons.image_outlined,
+                    color: _backgroundImagePath != null ? tossBlue : tossText,
+                  ),
+                  title: const Text("배경 사진"),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'panel',
+                child: ListTile(
+                  leading: Icon(Icons.aspect_ratio_rounded, color: tossText),
+                  title: Text("외함 사이즈 설정"),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'clear',
+                child: ListTile(
+                  leading: Icon(Icons.refresh_rounded, color: warningRed),
+                  title: Text("도면 초기화", style: TextStyle(color: warningRed)),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -2788,10 +2832,51 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                                               .contains(i.id))
                                                             i.id: i.position,
                                                       };
+                                                      double minX =
+                                                          double.infinity;
+                                                      double minY =
+                                                          double.infinity;
+                                                      double maxRight =
+                                                          -double.infinity;
+                                                      double maxBottom =
+                                                          -double.infinity;
+                                                      for (final i
+                                                          in _placedItems) {
+                                                        if (!_multiSelectedIds
+                                                            .contains(i.id)) {
+                                                          continue;
+                                                        }
+                                                        minX = math.min(
+                                                          minX,
+                                                          i.position.dx,
+                                                        );
+                                                        minY = math.min(
+                                                          minY,
+                                                          i.position.dy,
+                                                        );
+                                                        maxRight = math.max(
+                                                          maxRight,
+                                                          i.position.dx +
+                                                              i.width,
+                                                        );
+                                                        maxBottom = math.max(
+                                                          maxBottom,
+                                                          i.position.dy +
+                                                              i.height,
+                                                        );
+                                                      }
+                                                      _groupOriginBounds =
+                                                          Rect.fromLTRB(
+                                                            minX,
+                                                            minY,
+                                                            maxRight,
+                                                            maxBottom,
+                                                          );
                                                     } else {
                                                       _groupDragAnchorOrigin =
                                                           null;
                                                       _groupDragOrigins = {};
+                                                      _groupOriginBounds = null;
                                                       if (!_multiSelectMode) {
                                                         for (var i
                                                             in _placedItems) {
@@ -2816,39 +2901,51 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                                               item.id,
                                                             );
                                                     if (isGroupDrag) {
-                                                      final double
-                                                      anchorClampedX =
-                                                          _dragRawPosition.dx
-                                                              .clamp(
-                                                                0.0,
-                                                                math.max(
-                                                                  0.0,
-                                                                  _panelWidth -
-                                                                      item.width,
-                                                                ),
-                                                              );
-                                                      final double
-                                                      anchorClampedY =
-                                                          _dragRawPosition.dy
-                                                              .clamp(
-                                                                0.0,
-                                                                math.max(
-                                                                  0.0,
-                                                                  _panelHeight -
-                                                                      item.height,
-                                                                ),
-                                                              );
-                                                      final Offset
-                                                      snappedAnchor =
-                                                          _snapToGrid(
-                                                            Offset(
-                                                              anchorClampedX,
-                                                              anchorClampedY,
-                                                            ),
-                                                          );
-                                                      final Offset delta =
-                                                          snappedAnchor -
+                                                      // 🚀 [버그 수정] 각 모듈마다 따로 화면
+                                                      // 경계에 맞춰 자르면(clamp) 폭이 서로
+                                                      // 다른 모듈들이 경계에 닿는 시점이 달라
+                                                      // 어떤 건 멈추고 어떤 건 계속 움직여서
+                                                      // 서로 겹쳐버렸다 - 선택된 모듈 전체의
+                                                      // 바운딩 박스 기준으로 delta를 딱 한 번만
+                                                      // 잘라서, 항상 같은 delta를 모두에게
+                                                      // 적용해 서로의 상대 위치를 유지한다.
+                                                      final Rect bounds =
+                                                          _groupOriginBounds!;
+                                                      final Offset rawDelta =
+                                                          _dragRawPosition -
                                                           _groupDragAnchorOrigin!;
+                                                      final double minDx =
+                                                          -bounds.left;
+                                                      double maxDx =
+                                                          _panelWidth -
+                                                          bounds.right;
+                                                      if (maxDx < minDx) {
+                                                        maxDx = minDx;
+                                                      }
+                                                      final double minDy =
+                                                          -bounds.top;
+                                                      double maxDy =
+                                                          _panelHeight -
+                                                          bounds.bottom;
+                                                      if (maxDy < minDy) {
+                                                        maxDy = minDy;
+                                                      }
+                                                      final Offset
+                                                      clampedDelta = Offset(
+                                                        rawDelta.dx.clamp(
+                                                          minDx,
+                                                          maxDx,
+                                                        ),
+                                                        rawDelta.dy.clamp(
+                                                          minDy,
+                                                          maxDy,
+                                                        ),
+                                                      );
+                                                      final Offset
+                                                      snappedDelta =
+                                                          _snapToGrid(
+                                                            clampedDelta,
+                                                          );
                                                       for (final i
                                                           in _placedItems) {
                                                         if (!_multiSelectedIds
@@ -2864,26 +2961,9 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                                         if (origin == null) {
                                                           continue;
                                                         }
-                                                        final Offset newPos =
-                                                            origin + delta;
-                                                        i.position = Offset(
-                                                          newPos.dx.clamp(
-                                                            0.0,
-                                                            math.max(
-                                                              0.0,
-                                                              _panelWidth -
-                                                                  i.width,
-                                                            ),
-                                                          ),
-                                                          newPos.dy.clamp(
-                                                            0.0,
-                                                            math.max(
-                                                              0.0,
-                                                              _panelHeight -
-                                                                  i.height,
-                                                            ),
-                                                          ),
-                                                        );
+                                                        i.position =
+                                                            origin +
+                                                            snappedDelta;
                                                       }
                                                     } else {
                                                       double clampedX =
@@ -2932,6 +3012,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                                     _groupDragAnchorOrigin =
                                                         null;
                                                     _groupDragOrigins = {};
+                                                    _groupOriginBounds = null;
                                                   });
                                                 }
                                               : null,
