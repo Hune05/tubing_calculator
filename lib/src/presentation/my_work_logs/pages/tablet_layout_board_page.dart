@@ -10,6 +10,7 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/utils/image_picker_helper.dart';
 
@@ -273,10 +274,16 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
   static const String _draftPrefsKey = 'tablet_layout_board_draft_v1';
   Timer? _draftTimer;
 
+  // 🚀 [신규] 자주 쓰는 모듈 크기 프리셋(모바일과 동일 개념·같은 저장
+  // 키를 써서 모바일/태블릿 어느 화면에서 저장하든 서로 공유된다).
+  static const String _customPresetsPrefsKey = 'layout_board_custom_presets';
+  List<ModulePreset> _customPresets = [];
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _loadCustomPresets();
     if (widget.projectId != null) {
       _loadProject(widget.projectId!);
     } else {
@@ -286,6 +293,61 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
       const Duration(seconds: 20),
       (_) => _saveDraftToPrefs(),
     );
+  }
+
+  Future<void> _loadCustomPresets() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_customPresetsPrefsKey);
+      if (raw == null) return;
+      final List<dynamic> list = jsonDecode(raw);
+      if (!mounted) return;
+      setState(() {
+        _customPresets = list
+            .map(
+              (e) => ModulePreset(
+                e['name'] as String,
+                (e['width'] as num).toDouble(),
+                (e['height'] as num).toDouble(),
+              ),
+            )
+            .toList();
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _saveCustomPresets() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _customPresetsPrefsKey,
+        jsonEncode(
+          _customPresets
+              .map(
+                (p) => {'name': p.name, 'width': p.width, 'height': p.height},
+              )
+              .toList(),
+        ),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _saveAsCustomPreset(
+    String name,
+    double width,
+    double height,
+  ) async {
+    setState(() {
+      _customPresets = [..._customPresets, ModulePreset(name, width, height)];
+    });
+    await _saveCustomPresets();
+  }
+
+  Future<void> _deleteCustomPreset(int index) async {
+    setState(() {
+      _customPresets = [..._customPresets]..removeAt(index);
+    });
+    await _saveCustomPresets();
   }
 
   @override
@@ -848,6 +910,166 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
     }
   }
 
+  // 🚀 [신규] 배치된 모듈을 이름별로 모아 세어서 보여준다(모바일과
+  // 동일 기능, 태블릿은 Dialog로).
+  void _showMaterialSummaryDialog() {
+    final Map<String, int> counts = {};
+    for (final item in _placedItems) {
+      counts[item.name] = (counts[item.name] ?? 0) + 1;
+    }
+    final entries = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    String buildSummaryText() {
+      final buf = StringBuffer();
+      buf.writeln(
+        "[${_projectName.isNotEmpty ? _projectName : '작업 배치도'} 자재 수량]",
+      );
+      for (final e in entries) {
+        buf.writeln("- ${e.key} x ${e.value}개");
+      }
+      buf.writeln("총 모듈 ${_placedItems.length}개");
+      return buf.toString();
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: pureWhite,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text(
+          "자재 수량",
+          style: TextStyle(fontWeight: FontWeight.w800, color: tossText),
+        ),
+        content: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "배치된 모듈을 이름별로 모아 세었어요.",
+                style: TextStyle(fontSize: 13, color: tossSubText),
+              ),
+              const SizedBox(height: 16),
+              if (entries.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    "배치된 모듈이 없습니다.",
+                    style: TextStyle(color: tossSubText),
+                  ),
+                )
+              else
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 300),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: entries.length,
+                    separatorBuilder: (_, __) =>
+                        const Divider(height: 1, color: tossBg),
+                    itemBuilder: (context, index) {
+                      final e = entries[index];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                e.key,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: tossText,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              "${e.value}개",
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: tossBlue,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              const SizedBox(height: 12),
+              const Divider(height: 1, color: tossBg),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Text(
+                    "총 모듈 수",
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: tossSubText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    "${_placedItems.length}개",
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: tossText,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("닫기", style: TextStyle(color: tossSubText)),
+          ),
+          TextButton(
+            onPressed: entries.isEmpty
+                ? null
+                : () async {
+                    await Clipboard.setData(
+                      ClipboardData(text: buildSummaryText()),
+                    );
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("자재 목록을 복사했습니다.")),
+                    );
+                  },
+            child: const Text(
+              "텍스트 복사",
+              style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: tossBlue,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: entries.isEmpty
+                ? null
+                : () {
+                    // ignore: deprecated_member_use
+                    Share.share(buildSummaryText());
+                  },
+            child: const Text(
+              "공유하기",
+              style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // 🚀 [신규] 실제 도면 사진을 배경으로 깔아두고 그 위에 모듈을 배치할 수
   // 있게 하는 다이얼로그(모바일 바텀시트와 동일 기능, 태블릿은 Dialog로).
   void _showBackgroundSheet() {
@@ -1236,6 +1458,11 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
               icon: const Icon(Icons.save_rounded, color: tossBlue),
             ),
           IconButton(
+            tooltip: "자재 수량",
+            onPressed: _showMaterialSummaryDialog,
+            icon: const Icon(Icons.inventory_2_outlined, color: tossText),
+          ),
+          IconButton(
             tooltip: "배경 사진",
             onPressed: _showBackgroundSheet,
             icon: Icon(
@@ -1377,8 +1604,117 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                       );
                     }).toList(),
                   ),
+                  if (_customPresets.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    // 🚀 [신규] 내가 저장해둔 자주 쓰는 모듈 크기 - 모듈
+                    // 편집 패널의 "프리셋으로 저장"으로 추가되며, 길게
+                    // 눌러 삭제할 수 있다. ABS 덕트와 같은 이유로 Wrap 사용.
+                    const Text(
+                      "내 프리셋 (길게 눌러 삭제)",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: tossText,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _customPresets.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final preset = entry.value;
+                        return GestureDetector(
+                          onLongPress: () => _confirmDeleteCustomPreset(index),
+                          child: Draggable<ModulePreset>(
+                            data: preset,
+                            feedback: Material(
+                              color: Colors.transparent,
+                              child: Opacity(
+                                opacity: 0.8,
+                                child: _buildCustomPresetChip(preset),
+                              ),
+                            ),
+                            childWhenDragging: Opacity(
+                              opacity: 0.3,
+                              child: _buildCustomPresetChip(preset),
+                            ),
+                            child: _buildCustomPresetChip(preset),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCustomPresetChip(ModulePreset preset) {
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: tossBg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: tossBlue.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.star_rounded, size: 14, color: tossBlue),
+          const SizedBox(width: 6),
+          Text(
+            preset.name,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: tossText,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            "${preset.width.toInt()}×${preset.height.toInt()}",
+            style: const TextStyle(fontSize: 10, color: tossSubText),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteCustomPreset(int index) {
+    final preset = _customPresets[index];
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: pureWhite,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          "프리셋 삭제",
+          style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          "'${preset.name}' 프리셋을 삭제할까요?",
+          style: const TextStyle(color: tossSubText),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("취소", style: TextStyle(color: tossSubText)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _deleteCustomPreset(index);
+            },
+            child: const Text(
+              "삭제",
+              style: TextStyle(color: warningRed, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -2121,7 +2457,46 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                           ],
                         ),
 
-                        const SizedBox(height: 28),
+                        const SizedBox(height: 12),
+                        // 🚀 [신규] 지금 이 모듈의 이름/크기를 "내
+                        // 프리셋"으로 저장 - 다음 도면에서 사이드바에서
+                        // 바로 드래그해 쓸 수 있다.
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: () {
+                              _saveAsCustomPreset(
+                                _selectedItem!.name,
+                                _selectedItem!.width,
+                                _selectedItem!.height,
+                              );
+                              HapticFeedback.lightImpact();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("내 프리셋에 저장했습니다."),
+                                  backgroundColor: tossText,
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: Duration(seconds: 1),
+                                ),
+                              );
+                            },
+                            icon: const Icon(
+                              Icons.star_border_rounded,
+                              size: 18,
+                              color: tossBlue,
+                            ),
+                            label: const Text(
+                              "이 크기를 내 프리셋으로 저장",
+                              style: TextStyle(
+                                color: tossBlue,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
                         // 🚀 [신규] 레이어 순서(앞/뒤) 조정 - 리스트 맨 뒤에
                         // 있을수록 화면 맨 위에 그려진다.
                         Row(

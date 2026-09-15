@@ -32,6 +32,109 @@ class LayoutBoardProjectListPage extends StatelessWidget {
     );
   }
 
+  // 🚀 [신규] 비슷한 현장을 새로 시작할 때 처음부터 다시 배치하지 않고,
+  // 기존에 저장해둔 배치도를 그대로 복제해서 이름만 바꿔 시작할 수 있게.
+  Future<void> _duplicateProject(BuildContext context, String docId) async {
+    HapticFeedback.mediumImpact();
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection(kLayoutsCollection)
+          .doc(docId)
+          .get();
+      final data = snap.data();
+      if (data == null) return;
+      final String rawName = (data['projectName'] as String?) ?? "";
+      final String baseName = rawName.trim().isNotEmpty ? rawName : "이름 없는 배치도";
+      final newRef = FirebaseFirestore.instance
+          .collection(kLayoutsCollection)
+          .doc();
+      await newRef.set({
+        ...data,
+        'projectId': newRef.id,
+        'projectName': "$baseName (복사본)",
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("배치도를 복제했습니다."),
+            backgroundColor: tossBlue,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("복제 실패: $e"), backgroundColor: warningRed),
+        );
+      }
+    }
+  }
+
+  void _showItemActions(BuildContext context, String docId, String name) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => SafeArea(
+        child: Container(
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: pureWhite,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                child: Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: tossText,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.copy_rounded, color: tossBlue),
+                title: const Text(
+                  "복제하기",
+                  style: TextStyle(
+                    color: tossText,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _duplicateProject(context, docId);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: warningRed),
+                title: const Text(
+                  "삭제하기",
+                  style: TextStyle(
+                    color: warningRed,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _deleteProject(context, docId);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _deleteProject(BuildContext context, String docId) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -177,7 +280,7 @@ class LayoutBoardProjectListPage extends StatelessWidget {
                 margin: const EdgeInsets.only(bottom: 12),
                 child: InkWell(
                   onTap: () => _openProject(context, doc.id),
-                  onLongPress: () => _deleteProject(context, doc.id),
+                  onLongPress: () => _showItemActions(context, doc.id, name),
                   borderRadius: BorderRadius.circular(20),
                   child: Container(
                     padding: const EdgeInsets.all(20),
