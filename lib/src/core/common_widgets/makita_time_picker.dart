@@ -10,27 +10,24 @@ const Color _pureWhite = Color(0xFFFFFFFF);
 // 오전·오후를 휠(스피너)로 돌려서 고르는 바텀시트형 시간 선택기.
 // 앱 전체(작업 일지 연장근무, 일정 관리, 자재 발주, 차량 이용) 시간
 // 입력을 전부 이걸로 통일한다.
+//
+// 🚀 [수정] CupertinoDatePicker(.time)는 내부 폭이 고정돼 있어 넓은
+// 폰 화면에서 세 칸이 가운데로 몰려 보였다 - 시/분/오전오후를 각각
+// CupertinoPicker로 직접 만들어 화면 폭 전체에 고르게 펼치고,
+// 숫자도 훨씬 크게 키워서 시원한 느낌으로 바꿨다.
 Future<TimeOfDay?> showMakitaTimePicker({
   required BuildContext context,
   required TimeOfDay initialTime,
   String title = "시간 설정",
 }) async {
-  // CupertinoDatePicker는 DateTime을 다루므로, 임의의 날짜(오늘)에
-  // 시/분만 얹어서 사용한다 - 날짜 부분은 버려지고 시간만 쓰인다.
-  final DateTime today = DateTime.now();
-  DateTime tempPicked = DateTime(
-    today.year,
-    today.month,
-    today.day,
-    initialTime.hour,
-    initialTime.minute,
-  );
+  TimeOfDay tempPicked = initialTime;
 
   return showModalBottomSheet<TimeOfDay>(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
     builder: (context) {
+      final double screenWidth = MediaQuery.of(context).size.width;
       return SafeArea(
         top: false,
         child: Container(
@@ -75,13 +72,7 @@ Future<TimeOfDay?> showMakitaTimePicker({
                       ),
                     ),
                     TextButton(
-                      onPressed: () => Navigator.pop(
-                        context,
-                        TimeOfDay(
-                          hour: tempPicked.hour,
-                          minute: tempPicked.minute,
-                        ),
-                      ),
+                      onPressed: () => Navigator.pop(context, tempPicked),
                       child: const Text(
                         "확인",
                         style: TextStyle(
@@ -96,23 +87,11 @@ Future<TimeOfDay?> showMakitaTimePicker({
               ),
               const Divider(height: 1, color: Color(0xFFF2F4F6)),
               SizedBox(
-                height: 216,
-                child: CupertinoTheme(
-                  data: const CupertinoThemeData(
-                    textTheme: CupertinoTextThemeData(
-                      dateTimePickerTextStyle: TextStyle(
-                        fontSize: 20,
-                        color: _slate900,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  child: CupertinoDatePicker(
-                    mode: CupertinoDatePickerMode.time,
-                    initialDateTime: tempPicked,
-                    use24hFormat: false,
-                    onDateTimeChanged: (dt) => tempPicked = dt,
-                  ),
+                width: screenWidth,
+                height: 280,
+                child: _WheelTimePicker(
+                  initial: initialTime,
+                  onChanged: (t) => tempPicked = t,
                 ),
               ),
               const SizedBox(height: 12),
@@ -122,4 +101,156 @@ Future<TimeOfDay?> showMakitaTimePicker({
       );
     },
   );
+}
+
+class _WheelTimePicker extends StatefulWidget {
+  final TimeOfDay initial;
+  final ValueChanged<TimeOfDay> onChanged;
+
+  const _WheelTimePicker({required this.initial, required this.onChanged});
+
+  @override
+  State<_WheelTimePicker> createState() => _WheelTimePickerState();
+}
+
+class _WheelTimePickerState extends State<_WheelTimePicker> {
+  static const double _itemExtent = 64;
+  static const TextStyle _numberStyle = TextStyle(
+    fontSize: 30,
+    fontWeight: FontWeight.w700,
+    color: _slate900,
+  );
+  static const TextStyle _dimNumberStyle = TextStyle(
+    fontSize: 24,
+    fontWeight: FontWeight.w500,
+    color: _slate500,
+  );
+
+  late int _hour12; // 1~12
+  late int _minute; // 0~59
+  late bool _isPM;
+
+  // 🚀 [수정] build()마다 새로 만들면 스크롤 컨트롤러가 매번 재생성돼
+  // 낭비였다 - initState에서 한 번만 만들어 재사용한다.
+  late final FixedExtentScrollController _hourCtrl;
+  late final FixedExtentScrollController _minuteCtrl;
+  late final FixedExtentScrollController _ampmCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final int h24 = widget.initial.hour;
+    _isPM = h24 >= 12;
+    _hour12 = h24 % 12 == 0 ? 12 : h24 % 12;
+    _minute = widget.initial.minute;
+    _hourCtrl = FixedExtentScrollController(initialItem: _hour12 - 1);
+    _minuteCtrl = FixedExtentScrollController(initialItem: _minute);
+    _ampmCtrl = FixedExtentScrollController(initialItem: _isPM ? 1 : 0);
+  }
+
+  @override
+  void dispose() {
+    _hourCtrl.dispose();
+    _minuteCtrl.dispose();
+    _ampmCtrl.dispose();
+    super.dispose();
+  }
+
+  void _notify() {
+    int h24 = _hour12 % 12;
+    if (_isPM) h24 += 12;
+    widget.onChanged(TimeOfDay(hour: h24, minute: _minute));
+  }
+
+  Widget _wheel({
+    required FixedExtentScrollController controller,
+    required int itemCount,
+    required int selected,
+    required String Function(int index) labelFor,
+    required ValueChanged<int> onSelected,
+  }) {
+    return CupertinoPicker(
+      itemExtent: _itemExtent,
+      scrollController: controller,
+      selectionOverlay: const SizedBox.shrink(),
+      onSelectedItemChanged: onSelected,
+      children: List.generate(itemCount, (i) {
+        final bool isSelected = i == selected;
+        return Center(
+          child: Text(
+            labelFor(i),
+            style: isSelected ? _numberStyle : _dimNumberStyle,
+          ),
+        );
+      }),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // 🚀 가운데 선택 줄을 은은하게 표시해서 캘린더 앱들처럼
+        // "지금 고른 값"이 시각적으로 딱 보이게 한다.
+        Container(
+          height: _itemExtent,
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          decoration: BoxDecoration(
+            color: _makitaTeal.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: _wheel(
+                controller: _hourCtrl,
+                itemCount: 12,
+                selected: _hour12 - 1,
+                labelFor: (i) => "${i + 1}",
+                onSelected: (i) => setState(() {
+                  _hour12 = i + 1;
+                  _notify();
+                }),
+              ),
+            ),
+            const Text(
+              ":",
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                color: _slate500,
+              ),
+            ),
+            Expanded(
+              child: _wheel(
+                controller: _minuteCtrl,
+                itemCount: 60,
+                selected: _minute,
+                labelFor: (i) => i.toString().padLeft(2, '0'),
+                onSelected: (i) => setState(() {
+                  _minute = i;
+                  _notify();
+                }),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _wheel(
+                controller: _ampmCtrl,
+                itemCount: 2,
+                selected: _isPM ? 1 : 0,
+                labelFor: (i) => i == 0 ? "오전" : "오후",
+                onSelected: (i) => setState(() {
+                  _isPM = i == 1;
+                  _notify();
+                }),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
