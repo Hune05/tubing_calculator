@@ -224,8 +224,13 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
       totalWiring += wiring;
       if (overtime) overtimeDays++;
 
+      // 🚀 work_type이 복수 선택(List)으로 바뀌어서, 예전 단일 문자열
+      // 데이터와 둘 다 안전하게 처리한다.
+      final dynamic wt = r['work_type'];
+      final String workTypeStr = wt is List ? wt.join('/') : (wt ?? '');
+
       buffer.writeln(
-        "$key (${r['work_type'] ?? ''}, ${r['worker_count'] ?? 1}명${overtime ? ', 야간' : ''}) "
+        "$key ($workTypeStr, ${r['worker_count'] ?? 1}명${overtime ? ', 야간' : ''}) "
         "- 벤딩 ${pts}pt / 결선 $wiring개소",
       );
       final note = r['note']?.toString() ?? '';

@@ -199,12 +199,43 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     }
   }
 
+  // 🚀 [추가] 이 프로젝트의 가장 최근 일지 - "어제 값 불러오기"용.
+  Map<String, dynamic>? _previousReportFor(Map<String, dynamic> log) {
+    final reports = (log['daily_reports'] as List<dynamic>? ?? []);
+    if (reports.isEmpty) return null;
+    return Map<String, dynamic>.from(reports.first);
+  }
+
+  // 🚀 [추가] 일지 작성 화면에서 "오늘 처리한 이슈"로 태그할 수 있는
+  // 후보 - 아직 미해결이거나, 오늘 처리 완료된 이슈.
+  List<Map<String, dynamic>> _issueCandidatesFor(Map<String, dynamic> log) {
+    final String today = _todayMmDd();
+    return (log['punch_lists'] as List<dynamic>? ?? [])
+        .where((p) {
+          if (p is! Map) return false;
+          if (p['is_completed'] != true) return true;
+          final resolvedAt = p['resolved_at'];
+          if (resolvedAt == null) return false;
+          final dt = _asDateTime(resolvedAt);
+          return "${dt.month.toString().padLeft(2, '0')}/${dt.day.toString().padLeft(2, '0')}" ==
+              today;
+        })
+        .map((p) => Map<String, dynamic>.from(p))
+        .toList();
+  }
+
   // 🚀 [추가] 작업 일지 작성 화면 열기 - 대시보드의 "오늘 일지 미작성"
   // 칩에서 특정 프로젝트로 바로 들어갈 때도 재사용한다.
   Future<void> _addDailyReportFor(Map<String, dynamic> log) async {
     final newReport = await Navigator.push<Map<String, dynamic>>(
       context,
-      MaterialPageRoute(builder: (context) => const DailyReportPage()),
+      MaterialPageRoute(
+        builder: (context) => DailyReportPage(
+          previousReport: _previousReportFor(log),
+          relatedIssueCandidates: _issueCandidatesFor(log),
+          floorPlanImagePath: log['floor_plan_image_path'],
+        ),
+      ),
     );
     if (newReport != null) {
       setState(() {
@@ -640,22 +671,8 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                             // "전체 일정 확인" 요약 카드와 공유하는 _openSchedule로 뺐다.
                             onOpenSchedule: () => _openSchedule(log),
                             // 🚀 [에러 해결] Dialog.show 대신 Navigator.push로 새로운 Page 열기
-                            onAddDailyReport: () async {
-                              // 🚀 Navigator.push를 사용하여 전체 화면 페이지로 이동
-                              final newReport = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const DailyReportPage(),
-                                ),
-                              );
-
-                              if (newReport != null) {
-                                setState(() {
-                                  log['daily_reports'].insert(0, newReport);
-                                });
-                                _saveProject(log);
-                              }
-                            },
+                            // (진입 로직은 대시보드와 공유하는 _addDailyReportFor로 뺐다)
+                            onAddDailyReport: () => _addDailyReportFor(log),
                             // 🚀 [추가] 작업 일지 항목을 탭하면 사진 모달이 아니라
                             // 그날 작업 일보 전체를 보고 수정할 수 있는 화면으로
                             // 들어간다 (등록 때 쓰는 화면을 수정 모드로 재사용).
@@ -664,8 +681,13 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                                   await Navigator.push<Map<String, dynamic>>(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) =>
-                                          DailyReportPage(existingData: report),
+                                      builder: (context) => DailyReportPage(
+                                        existingData: report,
+                                        relatedIssueCandidates:
+                                            _issueCandidatesFor(log),
+                                        floorPlanImagePath:
+                                            log['floor_plan_image_path'],
+                                      ),
                                     ),
                                   );
                               if (updated != null) {
