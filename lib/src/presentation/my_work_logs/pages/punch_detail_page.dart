@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import '../widgets/photo_detail_modal.dart';
+import 'floor_plan_pin_page.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color tossText = Color(0xFF191F28);
@@ -20,11 +21,15 @@ class PunchDetailPage extends StatefulWidget {
   // 두면, 그 검사일이 임박/초과할 때 우선순위와 무관하게 더 자주 알림이
   // 오도록 서버에서 처리한다(functions/index.js의 checkPunchIssues 참고).
   final List<Map<String, dynamic>> inspectionSchedules;
+  // 🚀 [추가] 이 이슈에 도면 위치 핀이 찍혀 있으면 보여주기 위한 도면
+  // 이미지 경로 (프로젝트 단위로 하나 공유).
+  final String? floorPlanImagePath;
 
   const PunchDetailPage({
     super.key,
     required this.punch,
     this.inspectionSchedules = const [],
+    this.floorPlanImagePath,
   });
 
   @override
@@ -208,6 +213,18 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
                       height: 1.5,
                     ),
                   ),
+                  // 🚀 [추가] 도면 위 위치 핀 - 등록 시 찍어뒀으면 여기서
+                  // 다시 보여준다.
+                  if (widget.floorPlanImagePath != null &&
+                      _punch['locationPinDx'] != null) ...[
+                    const SizedBox(height: 12),
+                    FloorPlanThumbnail(
+                      imagePath: widget.floorPlanImagePath!,
+                      dx: (_punch['locationPinDx'] as num).toDouble(),
+                      dy: (_punch['locationPinDy'] as num).toDouble(),
+                      height: 140,
+                    ),
+                  ],
                 ],
               ),
 
@@ -392,6 +409,54 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             child: const Text("연결 해제", style: TextStyle(fontSize: 13)),
+          ),
+        ],
+      );
+    }
+
+    // 🚀 검사일정에 연결돼있지 않아도, 등록할 때 직접 정한 처리 기한
+    // (dueDate)이 있으면 그걸 보여준다.
+    final DateTime? dueDate = _asDateTime(_punch['dueDate']);
+    if (dueDate != null) {
+      final bool isPast = dueDate.isBefore(DateTime.now());
+      return _sectionCard(
+        title: "처리 기한",
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.event_rounded,
+                size: 18,
+                color: isPast ? warningRed : makitaTeal,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _formatDateTime(dueDate),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: isPast ? warningRed : tossText,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _punch['dueDate'] = null;
+                _changed = true;
+              });
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: tossSubText,
+              padding: EdgeInsets.zero,
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text("기한 해제", style: TextStyle(fontSize: 13)),
           ),
         ],
       );

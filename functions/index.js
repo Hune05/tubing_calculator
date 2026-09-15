@@ -554,10 +554,19 @@ exports.checkPunchIssues = onSchedule("every 15 minutes", async (event) => {
             try {
                 const linkedSchedule = findLinkedSchedule(schedules, punch.linkedScheduleId);
                 let deadline = null;
+                let deadlineLabel = null;
                 if (linkedSchedule && linkedSchedule.dateTime) {
                     deadline = linkedSchedule.dateTime.toDate
                         ? linkedSchedule.dateTime.toDate()
                         : new Date(linkedSchedule.dateTime);
+                    deadlineLabel = linkedSchedule.title || linkedSchedule.type || '검사일정';
+                } else if (punch.dueDate) {
+                    // 🚀 [추가] 검사일정에 연결 안 해도, 등록할 때 직접 정한
+                    // 처리 기한(dueDate)이 있으면 그것도 동일하게 취급한다.
+                    deadline = punch.dueDate.toDate
+                        ? punch.dueDate.toDate()
+                        : new Date(punch.dueDate);
+                    deadlineLabel = '처리 기한';
                 }
                 const isDeadlineUrgent = deadline
                     ? (deadline.getTime() - now) < PUNCH_DEADLINE_URGENT_HOURS * 60 * 60 * 1000
@@ -574,19 +583,16 @@ exports.checkPunchIssues = onSchedule("every 15 minutes", async (event) => {
                 }
 
                 const label = punch.content || punch.defect_type || '이슈';
-                const scheduleLabel = linkedSchedule
-                    ? (linkedSchedule.title || linkedSchedule.type || '검사일정')
-                    : null;
 
                 let title = "🚨 미처리 이슈 알림";
                 let body;
                 if (deadline && now >= deadline.getTime()) {
-                    title = "🚨 검사 기한 초과 이슈";
-                    body = `[${projectName}] "${label}" 이슈가 ${scheduleLabel} 기한을 지났는데 아직 처리되지 않았습니다!`;
+                    title = "🚨 기한 초과 이슈";
+                    body = `[${projectName}] "${label}" 이슈가 ${deadlineLabel} 기한을 지났는데 아직 처리되지 않았습니다!`;
                 } else if (deadline) {
                     const hoursLeft = Math.max(1, Math.round((deadline.getTime() - now) / (60 * 60 * 1000)));
-                    title = isDeadlineUrgent ? "⏰ 검사 임박 - 이슈 처리 필요" : "🚨 미처리 이슈 알림";
-                    body = `[${projectName}] "${label}" 이슈 - ${scheduleLabel}까지 ${hoursLeft}시간 남았습니다. 처리해주세요.`;
+                    title = isDeadlineUrgent ? "⏰ 기한 임박 - 이슈 처리 필요" : "🚨 미처리 이슈 알림";
+                    body = `[${projectName}] "${label}" 이슈 - ${deadlineLabel}까지 ${hoursLeft}시간 남았습니다. 처리해주세요.`;
                 } else {
                     const createdAt = punch.created_at && punch.created_at.toDate
                         ? punch.created_at.toDate()

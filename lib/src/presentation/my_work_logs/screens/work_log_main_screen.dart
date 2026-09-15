@@ -403,15 +403,44 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                               },
 
                               onAddPunchList: () async {
+                                // 🚀 [추가] 같은 프로젝트에서 최근에 쓴 위치를
+                                // 최신순으로 추려서 넘긴다(최대 6개, 중복 제거).
+                                final List<String> recentLocations = [];
+                                for (final p
+                                    in (log['punch_lists'] as List<dynamic>? ??
+                                        [])) {
+                                  final loc = p['location']?.toString();
+                                  if (loc != null &&
+                                      loc.isNotEmpty &&
+                                      loc != '위치 미상' &&
+                                      !recentLocations.contains(loc)) {
+                                    recentLocations.add(loc);
+                                  }
+                                  if (recentLocations.length >= 6) break;
+                                }
+
                                 // 🚀 Navigator.push를 사용하여 전체 화면 페이지로 이동
-                                final newPunch = await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const PunchListPage(),
-                                  ),
-                                );
+                                final newPunch =
+                                    await Navigator.push<Map<String, dynamic>>(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => PunchListPage(
+                                          recentLocations: recentLocations,
+                                          floorPlanImagePath:
+                                              log['floor_plan_image_path'],
+                                        ),
+                                      ),
+                                    );
 
                                 if (newPunch != null) {
+                                  // 🚀 이번에 새로 고른 도면이면 프로젝트에
+                                  // 저장해서 다음 이슈 등록부터도 재사용한다.
+                                  final String? newFloorPlanPath =
+                                      newPunch.remove('__newFloorPlanPath');
+                                  if (newFloorPlanPath != null) {
+                                    log['floor_plan_image_path'] =
+                                        newFloorPlanPath;
+                                  }
                                   // 🚀 [추가] 이슈가 처리될 때까지 매일 알림을 보내기
                                   // 위한 식별자/플래그. 등록일 기준으로 "며칠째
                                   // 미해결"인지 계산하고, 하루 1회만 보내도록
@@ -452,6 +481,8 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                                           punch: punch,
                                           inspectionSchedules:
                                               inspectionSchedules,
+                                          floorPlanImagePath:
+                                              log['floor_plan_image_path'],
                                         ),
                                       ),
                                     );
