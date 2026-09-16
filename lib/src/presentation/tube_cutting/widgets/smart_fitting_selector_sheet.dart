@@ -239,10 +239,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                       suffixIcon: _searchQuery.isEmpty
                           ? null
                           : IconButton(
-                              icon: const Icon(
-                                Icons.clear,
-                                color: Colors.grey,
-                              ),
+                              icon: const Icon(Icons.clear, color: Colors.grey),
                               onPressed: () {
                                 _searchController.clear();
                                 setState(() => _searchQuery = "");

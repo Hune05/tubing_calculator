@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 import '../../../data/models/cutting_project_model.dart';
+import '../cutting_firestore_helper.dart';
 
 const Color _tossBlue = Color(0xFF007580); // 마키타 틸
 const Color _slate900 = Color(0xFF191F28);
@@ -53,7 +54,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
           style: TextStyle(color: _slate900, fontWeight: FontWeight.bold),
         ),
         content: const Text(
-          "이 컷팅 기록을 삭제할까요? 프로젝트 누적 합계에는 영향을 주지 않습니다.",
+          "이 컷팅 기록을 삭제할까요? 프로젝트 누적 합계에서도 이만큼 함께 빠집니다.",
           style: TextStyle(color: _slate600),
         ),
         actions: [
@@ -81,6 +82,13 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
           .collection(kCutRecordsSubcollection)
           .doc(record.id)
           .delete();
+      // 🚀 [3번 강화] 기록 하나를 지웠으면 프로젝트 누적 합계도 그만큼
+      // 원자적으로 빼서, 개별 기록 삭제가 누적 합계와 영구히 어긋나지
+      // 않게 한다(예전엔 여기서 누적 합계를 전혀 건드리지 않았다).
+      await reconcileProjectAfterRecordDelete(
+        projectId: widget.project.id,
+        deletedRecord: record,
+      );
     }
   }
 
@@ -134,11 +142,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.history_rounded,
-                      size: 48,
-                      color: Colors.grey,
-                    ),
+                    Icon(Icons.history_rounded, size: 48, color: Colors.grey),
                     SizedBox(height: 16),
                     Text(
                       "아직 컷팅 기록이 없습니다.",
@@ -157,7 +161,8 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
 
           final records = docs
               .map(
-                (d) => CutRecord.fromMap(d.id, d.data() as Map<String, dynamic>),
+                (d) =>
+                    CutRecord.fromMap(d.id, d.data() as Map<String, dynamic>),
               )
               .toList();
 
@@ -219,7 +224,9 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
                   )
                 : null,
             icon: const Icon(Icons.chevron_left_rounded),
-            color: _currentPage < days.length - 1 ? _slate900 : Colors.grey.shade300,
+            color: _currentPage < days.length - 1
+                ? _slate900
+                : Colors.grey.shade300,
           ),
           Expanded(
             child: Column(
@@ -256,7 +263,8 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
 
   Widget _buildDayList(DateTime day, List<CutRecord> dayRecords) {
     // 시간순 정렬(그 날 안에서는 오래된 순)
-    final sorted = [...dayRecords]..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    final sorted = [...dayRecords]
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
     final totalLength = sorted.fold<double>(
       0.0,
       (acc, r) => acc + (r.cutLength * r.multiplier),
@@ -402,7 +410,9 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: _buildFittingSide(r.startFitting, r.startDeduction)),
+              Expanded(
+                child: _buildFittingSide(r.startFitting, r.startDeduction),
+              ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 child: Icon(
@@ -429,10 +439,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
                   child: Text(
                     "측정 ${r.originalLength.toStringAsFixed(1)}mm",
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                 ),
                 Icon(

@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_main_screen.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_history_page.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_firestore_helper.dart';
 
 const Color tossBlue = Color(0xFF007580); // 마키타 틸
 const Color tossGrey = Color(0xFFF0F3F5); // 마키타 라이트 배경
@@ -151,13 +153,15 @@ class MobileCuttingProjectListPage extends StatelessWidget {
 
     if (name == null) return;
 
-    await FirebaseFirestore.instance.collection(kCuttingProjectsCollection).add({
-      'name': name,
-      'createdAt': DateTime.now().toIso8601String(),
-      'totalTubeUsed': 0.0,
-      'cutCount': 0,
-      'usedFittings': <String, int>{},
-    });
+    await FirebaseFirestore.instance
+        .collection(kCuttingProjectsCollection)
+        .add({
+          'name': name,
+          'createdAt': DateTime.now().toIso8601String(),
+          'totalTubeUsed': 0.0,
+          'cutCount': 0,
+          'usedFittings': <String, int>{},
+        });
   }
 
   Future<void> _deleteProject(BuildContext context, String docId) async {
@@ -166,8 +170,14 @@ class MobileCuttingProjectListPage extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         backgroundColor: pureWhite,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text("작업 삭제", style: TextStyle(color: slate900, fontWeight: FontWeight.bold)),
-        content: const Text("이 컷팅 작업 기록을 삭제할까요? 되돌릴 수 없습니다.", style: TextStyle(color: slate600)),
+        title: const Text(
+          "작업 삭제",
+          style: TextStyle(color: slate900, fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          "이 컷팅 작업과 저장된 컷팅 기록을 모두 삭제할까요? 되돌릴 수 없습니다.",
+          style: TextStyle(color: slate600),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -175,17 +185,127 @@ class MobileCuttingProjectListPage extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("삭제", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+            child: const Text(
+              "삭제",
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
     );
     if (confirmed == true) {
-      await FirebaseFirestore.instance.collection(kCuttingProjectsCollection).doc(docId).delete();
+      await deleteCuttingProjectWithRecords(docId);
     }
   }
 
-  void _openProject(BuildContext context, String docId, CuttingProject project) {
+  // 🚀 [신규] 롱프레스로 바로 삭제 확인창이 뜨던 걸 하단 액션 시트로 바꿔서,
+  // 삭제 말고도 "컷팅 기록 보기"와 "재고 차감"(2번 강화 항목)까지 한 곳에서
+  // 고를 수 있게 했다.
+  void _showItemActions(
+    BuildContext context,
+    String docId,
+    CuttingProject project,
+  ) {
+    HapticFeedback.mediumImpact();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => SafeArea(
+        child: Container(
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: pureWhite,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                child: Text(
+                  project.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: slate900,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.history_rounded, color: tossBlue),
+                title: const Text(
+                  "컷팅 기록 보기",
+                  style: TextStyle(
+                    color: slate900,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CuttingHistoryPage(project: project),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.inventory_2_outlined,
+                  color: tossBlue,
+                ),
+                title: const Text(
+                  "재고 차감",
+                  style: TextStyle(
+                    color: slate900,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  deductCuttingProjectInventory(
+                    context: context,
+                    projectId: docId,
+                    projectName: project.name,
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.delete_outline,
+                  color: Colors.redAccent,
+                ),
+                title: const Text(
+                  "삭제하기",
+                  style: TextStyle(
+                    color: Colors.redAccent,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _deleteProject(context, docId);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openProject(
+    BuildContext context,
+    String docId,
+    CuttingProject project,
+  ) {
     HapticFeedback.lightImpact();
     Navigator.push(
       context,
@@ -198,30 +318,20 @@ class MobileCuttingProjectListPage extends StatelessWidget {
           // 🚀 [추가] cutRecords는 이번 "완료" 한 번에 실제로 잘린 구간들 -
           // 서브컬렉션에 하나씩 남겨서 "컷팅 기록" 화면에서 날짜별로
           // 되짚어볼 수 있게 한다.
-          onSaveCallback: (
-            double totalTubeLength,
-            List<Map<String, dynamic>> fittingsList, [
-            List<CutRecord> cutRecords = const [],
-          ]) {
-            final docRef = FirebaseFirestore.instance
-                .collection(kCuttingProjectsCollection)
-                .doc(docId);
-            docRef.update({
-              'totalTubeUsed': project.totalTubeUsed,
-              'cutCount': project.cutCount,
-              'usedFittings': project.usedFittings,
-              // 🚀 [추가] 목록 카드에서 "마지막 작업일"을 바로 보여주기 위함.
-              'lastCutAt': DateTime.now().toIso8601String(),
-            });
-            if (cutRecords.isNotEmpty) {
-              final batch = FirebaseFirestore.instance.batch();
-              final recordsRef = docRef.collection(kCutRecordsSubcollection);
-              for (final record in cutRecords) {
-                batch.set(recordsRef.doc(), record.toMap());
-              }
-              batch.commit();
-            }
-          },
+          onSaveCallback:
+              (
+                double totalTubeLength,
+                List<Map<String, dynamic>> fittingsList, [
+                List<CutRecord> cutRecords = const [],
+              ]) {
+                saveCuttingSession(
+                  projectId: docId,
+                  project: project,
+                  totalTubeLength: totalTubeLength,
+                  fittingsList: fittingsList,
+                  cutRecords: cutRecords,
+                );
+              },
         ),
       ),
     );
@@ -281,7 +391,11 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.content_cut_rounded, size: 48, color: Colors.grey.shade300),
+                    Icon(
+                      Icons.content_cut_rounded,
+                      size: 48,
+                      color: Colors.grey.shade300,
+                    ),
                     const SizedBox(height: 16),
                     const Text(
                       "등록된 컷팅 작업이 없습니다.",
@@ -314,7 +428,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                 margin: const EdgeInsets.only(bottom: 12),
                 child: InkWell(
                   onTap: () => _openProject(context, doc.id, project),
-                  onLongPress: () => _deleteProject(context, doc.id),
+                  onLongPress: () => _showItemActions(context, doc.id, project),
                   borderRadius: BorderRadius.circular(20),
                   child: Container(
                     padding: const EdgeInsets.all(20),
@@ -330,7 +444,11 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                             color: tossBlue.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.content_cut_rounded, color: tossBlue, size: 22),
+                          child: const Icon(
+                            Icons.content_cut_rounded,
+                            color: tossBlue,
+                            size: 22,
+                          ),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -350,7 +468,10 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                               const SizedBox(height: 4),
                               Text(
                                 "총 절단 ${project.cutCount}회 · 소모량 ${project.estimatedMeters}m",
-                                style: const TextStyle(color: slate600, fontSize: 13),
+                                style: const TextStyle(
+                                  color: slate600,
+                                  fontSize: 13,
+                                ),
                               ),
                               if (lastCutAt != null) ...[
                                 const SizedBox(height: 2),
@@ -366,7 +487,10 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                             ],
                           ),
                         ),
-                        const Icon(Icons.chevron_right_rounded, color: slate600),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: slate600,
+                        ),
                       ],
                     ),
                   ),

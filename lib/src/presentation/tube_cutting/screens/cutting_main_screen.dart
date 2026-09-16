@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'dart:convert';
+import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 
 import '../../../data/models/cutting_project_model.dart';
 import '../../../data/models/fitting_item.dart';
 import '../../../data/models/smart_fitting_db.dart';
 import '../widgets/smart_fitting_selector_sheet.dart';
 import 'cutting_history_page.dart';
+import '../cutting_optimizer.dart';
 
 const Color lightBg = Color(0xFFF0F3F5);
 const Color whiteCard = Colors.white;
@@ -68,6 +75,11 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   double _bladeKerf = 0.0;
   static const String _kerfPrefsKey = 'cutting_blade_kerf';
 
+  // 🚀 [5번 강화, 추가] 재단 최적화(원자재 소요 계산)에 쓸 원자재 기준
+  // 길이. 커프처럼 기기에 저장해두고 다음에 또 쓸 수 있게 한다.
+  double _stockLength = 6000.0;
+  static const String _stockLengthPrefsKey = 'cutting_stock_length';
+
   @override
   void initState() {
     super.initState();
@@ -75,6 +87,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     _initializeSequence();
     _loadDraftState();
     _loadBladeKerf();
+    _loadStockLength();
   }
 
   Future<void> _loadBladeKerf() async {
@@ -82,6 +95,14 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     final saved = prefs.getDouble(_kerfPrefsKey);
     if (saved != null && mounted) {
       setState(() => _bladeKerf = saved);
+    }
+  }
+
+  Future<void> _loadStockLength() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getDouble(_stockLengthPrefsKey);
+    if (saved != null && mounted) {
+      setState(() => _stockLength = saved);
     }
   }
 
@@ -112,7 +133,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             TextField(
               controller: ctrl,
               autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -158,6 +181,359 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       setState(() => _bladeKerf = result);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble(_kerfPrefsKey, result);
+    }
+  }
+
+  // 🚀 [5번 강화] 현재 입력된 구간들로 실제 필요한 절단 조각 목록을 만든다.
+  // 그룹 표시(_groupSameLengths)는 화면에 "보여주는" 방식일 뿐이라, 실제
+  // 필요한 조각 수는 항상 "구간마다 세트 수만큼"이 정답이라 여기서
+  // 통일해서 뽑는다.
+  List<double> _collectRequiredPieces() {
+    final List<double> pieces = [];
+    for (int i = 0; i < _points.length - 1; i++) {
+      final p = _points[i];
+      if (p.c2cController.text.isEmpty || p.calculatedCut <= 0) continue;
+      for (int k = 0; k < _setMultiplier; k++) {
+        pieces.add(p.calculatedCut);
+      }
+    }
+    return pieces;
+  }
+
+  Future<void> _showOptimizationDialog() async {
+    final pieces = _collectRequiredPieces();
+    if (pieces.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("치수를 먼저 입력하세요.")));
+      return;
+    }
+
+    final ctrl = TextEditingController(text: _stockLength.toStringAsFixed(0));
+    CuttingOptimizationResult result = optimizeCutting(
+      pieces: pieces,
+      stockLength: _stockLength,
+      kerf: _bladeKerf,
+    );
+
+    if (!mounted) return;
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          void recalc() {
+            final parsed = double.tryParse(ctrl.text);
+            if (parsed == null || parsed <= 0) return;
+            setDialogState(() {
+              result = optimizeCutting(
+                pieces: pieces,
+                stockLength: parsed,
+                kerf: _bladeKerf,
+              );
+            });
+          }
+
+          return AlertDialog(
+            backgroundColor: whiteCard,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text(
+              "재단 최적화 (원자재 소요 계산)",
+              style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary),
+            ),
+            content: SizedBox(
+              width: 360,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: ctrl,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          onSubmitted: (_) => recalc(),
+                          decoration: InputDecoration(
+                            labelText: "원자재 기준 길이",
+                            suffixText: "mm",
+                            filled: true,
+                            fillColor: Colors.grey.shade100,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: makitaTeal,
+                        ),
+                        onPressed: recalc,
+                        child: const Text(
+                          "계산",
+                          style: TextStyle(color: whiteCard),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: makitaTeal.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildOptStat("필요 원자재", "${result.barCount} 본"),
+                        _buildOptStat(
+                          "총 로스",
+                          "${result.totalWaste.toStringAsFixed(0)} mm",
+                        ),
+                        _buildOptStat(
+                          "사용률",
+                          result.totalStock > 0
+                              ? "${(result.totalUsed / result.totalStock * 100).toStringAsFixed(1)}%"
+                              : "-",
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (result.oversizedPieces.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      "⚠ 원자재보다 긴 구간 ${result.oversizedPieces.length}개는 계산에서 제외됨",
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  const Text(
+                    "원자재별 배치",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 6),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: result.bars.length,
+                      separatorBuilder: (_, __) => const Divider(height: 12),
+                      itemBuilder: (context, i) {
+                        final bar = result.bars[i];
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 44,
+                              child: Text(
+                                "#${i + 1}",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  color: makitaTeal,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                bar.pieces
+                                    .map((p) => p.toStringAsFixed(0))
+                                    .join(" + "),
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                            Text(
+                              "잔여 ${bar.wasteLength.toStringAsFixed(0)}mm",
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  final parsed = double.tryParse(ctrl.text);
+                  if (parsed != null && parsed > 0) {
+                    setState(() => _stockLength = parsed);
+                    SharedPreferences.getInstance().then(
+                      (prefs) => prefs.setDouble(_stockLengthPrefsKey, parsed),
+                    );
+                  }
+                  Navigator.pop(ctx);
+                },
+                child: const Text("닫기"),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildOptStat(String label, String value) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+            color: makitaTeal,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 🚀 [4번 강화, 신규] 컷팅 지시서를 PDF로 만들어 공유한다. 예전엔 이
+  // 계산기에 내보내기/공유 기능이 아예 없어서, 화면을 캡처하거나 손으로
+  // 옮겨 적어야 현장에 지시서를 들고 나갈 수 있었다.
+  Future<void> _exportCuttingList() async {
+    final List<int> visibleIndices = [];
+    for (int i = 0; i < _points.length - 1; i++) {
+      if (_points[i].c2cController.text.isEmpty) continue;
+      if (_points[i].calculatedCut < 0) continue;
+      visibleIndices.add(i);
+    }
+    if (visibleIndices.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("내보낼 치수가 없습니다. 먼저 치수를 입력하세요.")),
+      );
+      return;
+    }
+
+    try {
+      final fontData = await rootBundle.load(
+        'assets/fonts/NotoSansKR-VariableFont_wght.ttf',
+      );
+      final koreanFont = pw.Font.ttf(fontData);
+      final pdf = pw.Document(
+        theme: pw.ThemeData.withFont(base: koreanFont, bold: koreanFont),
+      );
+
+      final now = DateTime.now();
+      final dateStr =
+          "${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')} "
+          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+
+      List<String> headers;
+      List<List<String>> rows;
+      double grandTotal = 0;
+
+      if (_groupSameLengths) {
+        headers = ["길이(mm)", "개수", "합계 길이(mm)"];
+        final Map<double, int> grouped = {};
+        for (final i in visibleIndices) {
+          grouped[_points[i].calculatedCut] =
+              (grouped[_points[i].calculatedCut] ?? 0) + 1;
+        }
+        rows = grouped.entries.map((e) {
+          final totalCount = e.value * _setMultiplier;
+          final total = e.key * totalCount;
+          grandTotal += total;
+          return [
+            e.key.toStringAsFixed(1),
+            "$totalCount",
+            total.toStringAsFixed(1),
+          ];
+        }).toList();
+      } else {
+        headers = ["구간", "구간 길이(mm)", "수량", "합계 길이(mm)"];
+        rows = visibleIndices.map((i) {
+          final cutLen = _points[i].calculatedCut;
+          final total = cutLen * _setMultiplier;
+          grandTotal += total;
+          return [
+            "PT${i + 1} -> PT${i + 2}",
+            cutLen.toStringAsFixed(1),
+            "$_setMultiplier",
+            total.toStringAsFixed(1),
+          ];
+        }).toList();
+      }
+
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          build: (context) => [
+            pw.Text(
+              "컷팅 지시서",
+              style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold),
+            ),
+            pw.SizedBox(height: 8),
+            pw.Text("프로젝트: ${widget.project.name}"),
+            pw.Text("작성일시: $dateStr"),
+            pw.Text(
+              "메이커 고정: $_globalMaker    세트 수: $_setMultiplier SET"
+              "${_bladeKerf > 0 ? '    톱날 손실: ${_bladeKerf.toStringAsFixed(1)}mm/회' : ''}",
+            ),
+            pw.SizedBox(height: 16),
+            pw.TableHelper.fromTextArray(
+              headers: headers,
+              data: rows,
+              headerStyle: pw.TextStyle(
+                fontWeight: pw.FontWeight.bold,
+                font: koreanFont,
+              ),
+              cellStyle: pw.TextStyle(font: koreanFont),
+              headerDecoration: const pw.BoxDecoration(
+                color: PdfColors.grey300,
+              ),
+              cellAlignment: pw.Alignment.centerLeft,
+              border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+            ),
+            pw.SizedBox(height: 16),
+            pw.Align(
+              alignment: pw.Alignment.centerRight,
+              child: pw.Text(
+                "총 소요 길이: ${grandTotal.toStringAsFixed(1)} mm",
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      final output = await getTemporaryDirectory();
+      final file = File("${output.path}/${widget.project.name}_컷팅지시서.pdf");
+      await file.writeAsBytes(await pdf.save());
+
+      if (!mounted) return;
+      // ignore: deprecated_member_use
+      await Share.shareXFiles([
+        XFile(file.path),
+      ], text: "${widget.project.name} 컷팅 지시서입니다.");
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("내보내기 실패: $e"), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -824,11 +1200,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             )
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                label,
-                const SizedBox(height: 8),
-                makerButtons,
-              ],
+              children: [label, const SizedBox(height: 8), makerButtons],
             ),
     );
   }
@@ -907,10 +1279,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               ElevatedButton.icon(
                 onPressed: _addPoint,
                 icon: const Icon(Icons.add, color: whiteCard, size: 18),
-                label: const Text(
-                  "포인트 추가",
-                  style: TextStyle(color: whiteCard),
-                ),
+                label: const Text("포인트 추가", style: TextStyle(color: whiteCard)),
                 style: ElevatedButton.styleFrom(backgroundColor: makitaDark),
               ),
             ],
@@ -919,13 +1288,14 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           Expanded(
             child: ReorderableListView.builder(
               itemCount: _points.length,
-              proxyDecorator: (Widget child, int index, Animation<double> animation) {
-                return Material(
-                  color: Colors.transparent,
-                  elevation: 0,
-                  child: _buildFittingCard(index),
-                );
-              },
+              proxyDecorator:
+                  (Widget child, int index, Animation<double> animation) {
+                    return Material(
+                      color: Colors.transparent,
+                      elevation: 0,
+                      child: _buildFittingCard(index),
+                    );
+                  },
               onReorder: (oldIndex, newIndex) {
                 setState(() {
                   if (newIndex > oldIndex) {
@@ -1005,8 +1375,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     final isLast = index == _points.length - 1;
     final hasNext = !isLast;
     final cutLength = hasNext ? _points[index].calculatedCut : 0.0;
-    final hasInput =
-        hasNext && _points[index].c2cController.text.isNotEmpty;
+    final hasInput = hasNext && _points[index].c2cController.text.isNotEmpty;
     final isInterference = hasInput && cutLength < 0;
 
     return Container(
@@ -1014,7 +1383,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         color: whiteCard,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isNone ? Colors.grey.shade300 : makitaTeal.withValues(alpha: 0.4),
+          color: isNone
+              ? Colors.grey.shade300
+              : makitaTeal.withValues(alpha: 0.4),
         ),
       ),
       child: IntrinsicHeight(
@@ -1116,9 +1487,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                isInterference
-                                    ? "간섭 발생! 치수를 확인하세요"
-                                    : "다음 지점까지",
+                                isInterference ? "간섭 발생! 치수를 확인하세요" : "다음 지점까지",
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -1173,10 +1542,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                 children: [
                   const Text(
                     "2. 컷팅 지시서",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(width: 16),
                   const Text(
@@ -1239,7 +1605,58 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+          // 🚀 [4·5번 강화] 재단 최적화(원자재 소요 계산)와 컷팅 지시서
+          // 내보내기(PDF 공유) - 예전엔 둘 다 이 계산기에 없던 기능이라
+          // 화면 캡처나 수기 메모에 의존해야 했다.
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _showOptimizationDialog,
+                  icon: const Icon(
+                    Icons.view_column_outlined,
+                    size: 18,
+                    color: makitaTeal,
+                  ),
+                  label: const Text(
+                    "재단 최적화",
+                    style: TextStyle(
+                      color: makitaTeal,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: makitaTeal),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _exportCuttingList,
+                  icon: const Icon(
+                    Icons.ios_share_rounded,
+                    size: 18,
+                    color: makitaTeal,
+                  ),
+                  label: const Text(
+                    "내보내기",
+                    style: TextStyle(
+                      color: makitaTeal,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: makitaTeal),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -1426,9 +1843,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                             ? "${item.deduction}mm (수동)"
                             : "- ${item.deduction}mm",
                         style: TextStyle(
-                          color: isCustom
-                              ? Colors.orange.shade800
-                              : makitaDark,
+                          color: isCustom ? Colors.orange.shade800 : makitaDark,
                           fontSize: 14,
                           fontWeight: FontWeight.w900,
                         ),
@@ -1601,10 +2016,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         },
       );
     } else {
-      final visibleIndices = List.generate(
-        _points.length - 1,
-        (i) => i,
-      ).where((index) {
+      final visibleIndices = List.generate(_points.length - 1, (i) => i).where((
+        index,
+      ) {
         if (_points[index].c2cController.text.isEmpty) return false;
         return _points[index].calculatedCut >= 0;
       }).toList();
@@ -1662,10 +2076,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 3,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: makitaTeal.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
@@ -1715,5 +2126,4 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       ),
     );
   }
-
 }
