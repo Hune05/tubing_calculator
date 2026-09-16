@@ -325,6 +325,14 @@ class MenuScreen extends StatelessWidget {
         ),
         _buildGridCard(
           context,
+          icon: Icons.event_note_rounded,
+          title: '내 일정 관리',
+          subtitle: '프로젝트+개인 일정 통합 캘린더',
+          iconColor: makitaTeal,
+          onTap: () => Navigator.pushNamed(context, '/my-schedule'),
+        ),
+        _buildGridCard(
+          context,
           icon: Icons.inventory_2_outlined,
           title: '자재 관리',
           subtitle: '튜브 및 피팅 재고',

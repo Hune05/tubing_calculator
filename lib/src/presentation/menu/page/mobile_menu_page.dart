@@ -30,6 +30,7 @@ import 'package:tubing_calculator/src/presentation/chat/pages/mobile_chat_list_p
 
 // 🚀 4. 프로젝트 관리 페이지 임포트
 import 'package:tubing_calculator/src/presentation/my_work_logs/screens/work_log_main_screen.dart';
+import 'package:tubing_calculator/src/presentation/my_schedule/mobile_my_schedule_page.dart';
 
 // 🚀 5. 공용 차량 및 장비 페이지 임포트
 import 'package:tubing_calculator/src/presentation/vehicle/pages/mobile_vehicle_management_page.dart';
@@ -66,6 +67,9 @@ class MobileMenuPage extends StatefulWidget {
 
 class _MobileMenuPageState extends State<MobileMenuPage> {
   String _weatherGreeting = "";
+  // 🚀 [신규] "내 일정 관리" 메뉴 버튼에 "오늘 N건" 배지를 보여주기 위한
+  // 오늘 미완료 일정 개수 - 프로젝트 일정 + 개인 일정(반복 포함)을 합산.
+  int? _todayScheduleCount;
 
   // 🚀 날씨 상세 데이터 상태 관리
   String _weatherDesc = "확인 중";
@@ -82,6 +86,12 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
     super.initState();
     _weatherGreeting = _getTimeBasedGreeting();
     _fetchDetailedWeather();
+    _loadTodayScheduleCount();
+  }
+
+  Future<void> _loadTodayScheduleCount() async {
+    final count = await fetchTodayScheduleCount(widget.currentWorker);
+    if (mounted) setState(() => _todayScheduleCount = count);
   }
 
   // 🚀 날씨 상태 단순화 (맑음, 흐림, 비, 눈)
@@ -260,7 +270,30 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                       MaterialPageRoute(
                         builder: (context) => const WorkLogMainScreen(),
                       ),
-                    );
+                    ).then((_) => _loadTodayScheduleCount());
+                  },
+                ),
+                _buildMenuButton(
+                  context: context,
+                  title: "내 일정 관리",
+                  subtitle: "프로젝트 일정 통합 + 개인 일정 · 반복 · 알림",
+                  icon: Icons.event_note_rounded,
+                  iconColor: makitaTeal,
+                  badgeText:
+                      (_todayScheduleCount != null && _todayScheduleCount! > 0)
+                      ? "오늘 $_todayScheduleCount건"
+                      : null,
+                  badgeColor: makitaTeal,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => MobileMyScheduleScreen(
+                          currentWorker: widget.currentWorker,
+                        ),
+                      ),
+                    ).then((_) => _loadTodayScheduleCount());
                   },
                 ),
 
@@ -341,7 +374,8 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const MobileCuttingProjectListPage(),
+                        builder: (context) =>
+                            const MobileCuttingProjectListPage(),
                       ),
                     );
                   },
@@ -370,7 +404,8 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const LayoutBoardProjectListPage(),
+                        builder: (context) =>
+                            const LayoutBoardProjectListPage(),
                       ),
                     );
                   },
@@ -496,7 +531,6 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                 // 메뉴를 계산기 중심으로 간결하게 유지하기 위함. 페이지와
                 // import는 그대로 남겨뒀으니 필요해지면 이 주석 위치에
                 // 버튼들을 다시 붙이면 된다.
-
                 const SizedBox(height: 60),
               ],
             ),

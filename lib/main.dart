@@ -23,6 +23,7 @@ import 'package:tubing_calculator/src/presentation/history/screens/history_scree
 import 'package:tubing_calculator/src/presentation/inventory/pages/inventory_page.dart';
 import 'package:tubing_calculator/src/presentation/project/project_management_page.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_project_list_screen.dart';
+import 'package:tubing_calculator/src/presentation/my_schedule/mobile_my_schedule_page.dart';
 import 'package:tubing_calculator/src/presentation/menu/page/home_menu_router.dart';
 import 'package:tubing_calculator/src/presentation/menu/page/mobile_loading_screen.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_only_screen.dart';
@@ -202,6 +203,7 @@ class _MyAppState extends State<MyApp> {
         '/inventory': (context) => const InventoryPage(),
         '/projects': (context) => const ProjectManagementPage(),
         '/cutting': (context) => const CuttingProjectListScreen(),
+        '/my-schedule': (context) => const MobileMyScheduleScreen(),
       },
     );
   }
