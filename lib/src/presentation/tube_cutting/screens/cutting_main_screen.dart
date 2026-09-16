@@ -286,6 +286,11 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     return pieces;
   }
 
+  // 🚀 [재단 최적화 고도화] 예전엔 폭 360짜리 작은 AlertDialog에 결과
+  // 리스트를 220px로 눌러 담아서, 원자재가 몇 본만 넘어가도 스크롤이
+  // 답답했다. 화면 대부분을 쓰는 DraggableScrollableSheet로 바꾸고,
+  // 태블릿처럼 넓은 화면에서는 입력/통계와 결과 목록을 좌우로 나눠
+  // 보여줘서 공간을 실제로 넓게 쓴다.
   Future<void> _showOptimizationDialog() async {
     final pieces = _collectRequiredPieces();
     if (pieces.isEmpty) {
@@ -301,206 +306,392 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     );
 
     if (!mounted) return;
-    await showDialog(
+    await showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) {
-          void recalc() {
-            final parsed = double.tryParse(ctrl.text);
+        builder: (ctx, setSheetState) {
+          void recalc([double? presetValue]) {
+            final parsed = presetValue ?? double.tryParse(ctrl.text);
             if (parsed == null || parsed <= 0) return;
-            setDialogState(() {
+            HapticFeedback.selectionClick();
+            ctrl.text = parsed.toStringAsFixed(0);
+            setSheetState(() {
               result = optimizeCutting(
                 pieces: pieces,
                 stockLength: parsed,
                 kerf: _bladeKerf,
               );
             });
+            setState(() => _stockLength = parsed);
+            SharedPreferences.getInstance().then(
+              (prefs) => prefs.setDouble(_stockLengthPrefsKey, parsed),
+            );
           }
 
-          return AlertDialog(
-            backgroundColor: whiteCard,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            title: Row(
-              children: [
-                cuttingDialogIcon(Icons.view_column_outlined),
-                const SizedBox(width: 14),
-                const Expanded(
-                  child: Text(
-                    "재단 최적화 (원자재 소요 계산)",
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: textPrimary,
-                      fontSize: 16,
-                    ),
+          Widget presetChip(String label, double value) {
+            return InkWell(
+              onTap: () => recalc(value),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade700,
                   ),
                 ),
-              ],
-            ),
-            content: SizedBox(
-              width: 360,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+            );
+          }
+
+          final inputAndStats = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: ctrl,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          onSubmitted: (_) => recalc(),
-                          decoration: InputDecoration(
-                            labelText: "원자재 기준 길이",
-                            suffixText: "mm",
-                            filled: true,
-                            fillColor: Colors.grey.shade100,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
+                  Expanded(
+                    child: TextField(
+                      controller: ctrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      onSubmitted: (_) => recalc(),
+                      decoration: InputDecoration(
+                        labelText: "원자재 기준 길이",
+                        suffixText: "mm",
+                        filled: true,
+                        fillColor: Colors.grey.shade100,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: makitaTeal,
-                        ),
-                        onPressed: recalc,
-                        child: const Text(
-                          "계산",
-                          style: TextStyle(color: whiteCard),
-                        ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: makitaTeal,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 16,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: makitaTeal.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _buildOptStat("필요 원자재", "${result.barCount} 본"),
-                        _buildOptStat(
-                          "총 로스",
-                          "${result.totalWaste.toStringAsFixed(0)} mm",
-                        ),
-                        _buildOptStat(
-                          "사용률",
-                          result.totalStock > 0
-                              ? "${(result.totalUsed / result.totalStock * 100).toStringAsFixed(1)}%"
-                              : "-",
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (result.oversizedPieces.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      "⚠ 원자재보다 긴 구간 ${result.oversizedPieces.length}개는 계산에서 제외됨",
-                      style: const TextStyle(
-                        color: CuttingColors.danger,
-                        fontSize: 12,
+                    onPressed: () => recalc(),
+                    child: const Text(
+                      "계산",
+                      style: TextStyle(
+                        color: whiteCard,
                         fontWeight: FontWeight.bold,
                       ),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  const Text(
-                    "원자재별 배치",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 6),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 220),
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: result.bars.length,
-                      separatorBuilder: (_, __) => const Divider(height: 12),
-                      itemBuilder: (context, i) {
-                        final bar = result.bars[i];
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SizedBox(
-                              width: 44,
-                              child: Text(
-                                "#${i + 1}",
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  color: makitaTeal,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Text(
-                                bar.pieces
-                                    .map((p) => p.toStringAsFixed(0))
-                                    .join(" + "),
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                            Text(
-                              "잔여 ${bar.wasteLength.toStringAsFixed(0)}mm",
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
                     ),
                   ),
                 ],
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  final parsed = double.tryParse(ctrl.text);
-                  if (parsed != null && parsed > 0) {
-                    setState(() => _stockLength = parsed);
-                    SharedPreferences.getInstance().then(
-                      (prefs) => prefs.setDouble(_stockLengthPrefsKey, parsed),
-                    );
-                  }
-                  Navigator.pop(ctx);
-                },
-                child: const Text("닫기"),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  presetChip("3m", 3000),
+                  presetChip("6m", 6000),
+                  presetChip("8m", 8000),
+                ],
               ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  _buildOptStat(
+                    Icons.inventory_2_outlined,
+                    "필요 원자재",
+                    "${result.barCount}본",
+                  ),
+                  const SizedBox(width: 8),
+                  _buildOptStat(
+                    Icons.delete_sweep_outlined,
+                    "총 로스",
+                    "${result.totalWaste.toStringAsFixed(0)}mm",
+                    accent: CuttingColors.warning,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildOptStat(
+                    Icons.percent_rounded,
+                    "사용률",
+                    result.totalStock > 0
+                        ? "${(result.totalUsed / result.totalStock * 100).toStringAsFixed(1)}%"
+                        : "-",
+                    accent: CuttingColors.success,
+                  ),
+                ],
+              ),
+              if (result.oversizedPieces.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  "⚠ 원자재보다 긴 구간 ${result.oversizedPieces.length}개는 계산에서 제외됨",
+                  style: const TextStyle(
+                    color: CuttingColors.danger,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ],
+          );
+
+          Widget barsHeader() => const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text(
+              "원자재별 배치",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: textPrimary,
+              ),
+            ),
+          );
+
+          Widget barsList(ScrollController controller) => ListView.builder(
+            controller: controller,
+            itemCount: result.bars.length,
+            itemBuilder: (context, i) => _buildOptBarCard(result.bars[i], i),
+          );
+
+          return DraggableScrollableSheet(
+            initialChildSize: 0.9,
+            minChildSize: 0.5,
+            maxChildSize: 0.95,
+            expand: false,
+            builder: (ctx, scrollController) {
+              final bool isWide = MediaQuery.of(ctx).size.width >= 700;
+              return Container(
+                decoration: const BoxDecoration(
+                  color: whiteCard,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                      child: Row(
+                        children: [
+                          cuttingDialogIcon(Icons.view_column_outlined),
+                          const SizedBox(width: 14),
+                          const Expanded(
+                            child: Text(
+                              "재단 최적화 (원자재 소요 계산)",
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: textPrimary,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              color: Colors.grey,
+                            ),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: isWide
+                          ? Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(
+                                  width: 320,
+                                  child: SingleChildScrollView(
+                                    padding: const EdgeInsets.all(20),
+                                    child: inputAndStats,
+                                  ),
+                                ),
+                                const VerticalDivider(width: 1),
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(20),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        barsHeader(),
+                                        Expanded(
+                                          child: barsList(scrollController),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  inputAndStats,
+                                  const SizedBox(height: 16),
+                                  barsHeader(),
+                                  Expanded(child: barsList(scrollController)),
+                                ],
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
+              );
+            },
           );
         },
       ),
     );
   }
 
-  Widget _buildOptStat(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+  Widget _buildOptStat(
+    IconData icon,
+    String label,
+    String value, {
+    Color? accent,
+  }) {
+    final Color c = accent ?? makitaTeal;
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+        decoration: BoxDecoration(
+          color: c.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
         ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w900,
-            color: makitaTeal,
+        child: Column(
+          children: [
+            Icon(icon, color: c, size: 18),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+                color: c,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 🚀 [재단 최적화 고도화] 텍스트 한 줄로 "잔여 Nmm"만 보여주던 걸,
+  // 원자재 안에서 실제로 얼마나 채워졌는지 한눈에 보이는 사용률 막대로
+  // 바꿨다. 로스가 큰 원자재는 막대 색을 주황으로 바꿔 바로 눈에 띄게
+  // 했다.
+  Widget _buildOptBarCard(StockBarPlan bar, int index) {
+    final double ratio = bar.stockLength > 0
+        ? (bar.usedLength / bar.stockLength).clamp(0.0, 1.0)
+        : 0.0;
+    final bool highWaste = bar.wasteLength > bar.stockLength * 0.15;
+    final Color accent = highWaste ? CuttingColors.warning : makitaTeal;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: whiteCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: CuttingColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 26,
+                height: 26,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: makitaDark,
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  "${index + 1}",
+                  style: const TextStyle(
+                    color: whiteCard,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  bar.pieces
+                      .map((p) => "${p.toStringAsFixed(0)}mm")
+                      .join("  +  "),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: textPrimary,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: ratio,
+              minHeight: 10,
+              backgroundColor: Colors.grey.shade200,
+              color: accent,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "사용 ${bar.usedLength.toStringAsFixed(0)}mm",
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              ),
+              Text(
+                "잔여 ${bar.wasteLength.toStringAsFixed(0)}mm",
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: accent,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
