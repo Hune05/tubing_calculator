@@ -844,6 +844,601 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
     }
   }
 
+  // 🚀 [신규] 레이아웃 템플릿 라이브러리(모바일과 동일 개념).
+  void _saveAsTemplate() {
+    if (!_hasAnyContent) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("템플릿으로 저장할 내용이 없습니다.")));
+      return;
+    }
+    final TextEditingController nameCtrl = TextEditingController(
+      text: _projectName.isNotEmpty ? _projectName : "새 템플릿",
+    );
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: pureWhite,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          "템플릿으로 저장",
+          style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
+        ),
+        content: TextField(
+          controller: nameCtrl,
+          autofocus: true,
+          style: const TextStyle(color: tossText, fontWeight: FontWeight.w600),
+          decoration: InputDecoration(
+            labelText: "템플릿 이름",
+            filled: true,
+            fillColor: tossBg,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("취소", style: TextStyle(color: tossSubText)),
+          ),
+          TextButton(
+            onPressed: () async {
+              final String name = nameCtrl.text.trim().isEmpty
+                  ? "이름 없는 템플릿"
+                  : nameCtrl.text.trim();
+              Navigator.pop(ctx);
+              try {
+                await FirebaseFirestore.instance
+                    .collection('layout_templates')
+                    .add({
+                      'name': name,
+                      'panelWidth': _panelWidth,
+                      'panelHeight': _panelHeight,
+                      'items': _placedItems.map((e) => e.toJson()).toList(),
+                      'dimensions': _dimensions.map((e) => e.toJson()).toList(),
+                      'createdAt': FieldValue.serverTimestamp(),
+                    });
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("템플릿으로 저장했습니다."),
+                    backgroundColor: tossBlue,
+                  ),
+                );
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("템플릿 저장 실패: $e"),
+                    backgroundColor: warningRed,
+                  ),
+                );
+              }
+            },
+            child: const Text(
+              "저장",
+              style: TextStyle(color: tossBlue, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showTemplateLibrarySheet() {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: pureWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            "템플릿 불러오기",
+            style: TextStyle(color: tossText, fontWeight: FontWeight.w800),
+          ),
+          content: SizedBox(
+            width: 400,
+            height: 420,
+            child: FutureBuilder<QuerySnapshot>(
+              future: FirebaseFirestore.instance
+                  .collection('layout_templates')
+                  .orderBy('createdAt', descending: true)
+                  .get(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: tossBlue),
+                  );
+                }
+                final docs = snapshot.data?.docs ?? [];
+                if (docs.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      "저장된 템플릿이 없습니다.\n'더보기 > 템플릿으로 저장'으로 먼저 만들어보세요.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: tossSubText),
+                    ),
+                  );
+                }
+                return ListView.builder(
+                  itemCount: docs.length,
+                  itemBuilder: (context, i) {
+                    final data = docs[i].data() as Map<String, dynamic>;
+                    final int itemCount = (data['items'] as List?)?.length ?? 0;
+                    return ListTile(
+                      leading: const Icon(
+                        Icons.dashboard_customize_rounded,
+                        color: tossBlue,
+                      ),
+                      title: Text(
+                        data['name'] as String? ?? "이름 없는 템플릿",
+                        style: const TextStyle(
+                          color: tossText,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      subtitle: Text(
+                        "모듈 $itemCount개",
+                        style: const TextStyle(
+                          color: tossSubText,
+                          fontSize: 12,
+                        ),
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: warningRed,
+                        ),
+                        onPressed: () async {
+                          await docs[i].reference.delete();
+                          if (context.mounted) Navigator.pop(ctx);
+                        },
+                      ),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _applyTemplate(data);
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("닫기", style: TextStyle(color: tossSubText)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _applyTemplate(Map<String, dynamic> data) {
+    void doApply() {
+      _pushUndo();
+      setState(() {
+        _panelWidth = (data['panelWidth'] as num?)?.toDouble() ?? _panelWidth;
+        _panelHeight =
+            (data['panelHeight'] as num?)?.toDouble() ?? _panelHeight;
+        _placedItems
+          ..clear()
+          ..addAll(
+            ((data['items'] as List?) ?? []).map(
+              (e) => PlacedItem.fromJson(Map<String, dynamic>.from(e as Map)),
+            ),
+          );
+        _dimensions
+          ..clear()
+          ..addAll(
+            ((data['dimensions'] as List?) ?? []).map(
+              (e) =>
+                  PlacedDimension.fromJson(Map<String, dynamic>.from(e as Map)),
+            ),
+          );
+      });
+    }
+
+    if (!_hasAnyContent) {
+      doApply();
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: pureWhite,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          "템플릿 적용",
+          style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          "템플릿을 불러오면 지금 작업 중인 배치는 사라집니다(실행 취소로 되돌릴 수 있어요). 계속할까요?",
+          style: TextStyle(color: tossSubText),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("취소", style: TextStyle(color: tossSubText)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              doApply();
+            },
+            child: const Text(
+              "적용",
+              style: TextStyle(color: tossBlue, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🚀 [신규] 저장 전 변경 사항 비교(모바일과 동일 개념).
+  Future<bool> _confirmChangesBeforeSave() async {
+    if (_currentProjectId == null) return true;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('layouts')
+          .doc(_currentProjectId)
+          .get();
+      final data = doc.data();
+      if (data == null) return true;
+
+      final List<PlacedItem> savedItems = ((data['items'] as List?) ?? [])
+          .map((e) => PlacedItem.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final Map<String, PlacedItem> savedById = {
+        for (final i in savedItems) i.id: i,
+      };
+      final Map<String, PlacedItem> currentById = {
+        for (final i in _placedItems) i.id: i,
+      };
+
+      final List<String> added = [];
+      final List<String> removed = [];
+      final List<String> moved = [];
+
+      for (final entry in currentById.entries) {
+        final PlacedItem? prev = savedById[entry.key];
+        if (prev == null) {
+          added.add(entry.value.name);
+        } else if (prev.position != entry.value.position ||
+            prev.width != entry.value.width ||
+            prev.height != entry.value.height) {
+          moved.add(entry.value.name);
+        }
+      }
+      for (final entry in savedById.entries) {
+        if (!currentById.containsKey(entry.key)) removed.add(entry.value.name);
+      }
+
+      final int savedDimCount = (data['dimensions'] as List?)?.length ?? 0;
+      final int dimDelta = _dimensions.length - savedDimCount;
+
+      if (added.isEmpty && removed.isEmpty && moved.isEmpty && dimDelta == 0) {
+        return true;
+      }
+
+      if (!mounted) return true;
+      final bool? proceed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: pureWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            "저장 전 변경 사항 확인",
+            style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
+          ),
+          content: SizedBox(
+            width: 360,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (moved.isNotEmpty) _diffLine("이동됨", moved, tossBlue),
+                  if (added.isNotEmpty) _diffLine("추가됨", added, tossBlue),
+                  if (removed.isNotEmpty) _diffLine("삭제됨", removed, warningRed),
+                  if (dimDelta != 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        dimDelta > 0
+                            ? "치수선 $dimDelta개 추가됨"
+                            : "치수선 ${-dimDelta}개 삭제됨",
+                        style: const TextStyle(
+                          color: tossSubText,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("취소", style: TextStyle(color: tossSubText)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text(
+                "저장",
+                style: TextStyle(color: tossBlue, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      );
+      return proceed ?? false;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Widget _diffLine(String label, List<String> names, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "$label (${names.length})",
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
+            ),
+          ),
+          Text(
+            names.join(', '),
+            style: const TextStyle(color: tossSubText, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🚀 [신규] 다른 프로젝트 도면에서 모듈 가져오기(모바일과 동일 개념).
+  void _showImportModulesFlow() {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: pureWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            "가져올 도면 선택",
+            style: TextStyle(color: tossText, fontWeight: FontWeight.w800),
+          ),
+          content: SizedBox(
+            width: 400,
+            height: 420,
+            child: FutureBuilder<QuerySnapshot>(
+              future: FirebaseFirestore.instance
+                  .collection('layouts')
+                  .orderBy('updatedAt', descending: true)
+                  .get(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: tossBlue),
+                  );
+                }
+                final docs = (snapshot.data?.docs ?? [])
+                    .where((d) => d.id != _currentProjectId)
+                    .toList();
+                if (docs.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      "가져올 수 있는 다른 도면이 없습니다.",
+                      style: TextStyle(color: tossSubText),
+                    ),
+                  );
+                }
+                return ListView.builder(
+                  itemCount: docs.length,
+                  itemBuilder: (context, i) {
+                    final data = docs[i].data() as Map<String, dynamic>;
+                    final int itemCount = (data['items'] as List?)?.length ?? 0;
+                    return ListTile(
+                      leading: const Icon(
+                        Icons.dashboard_customize_rounded,
+                        color: tossBlue,
+                      ),
+                      title: Text(
+                        data['projectName'] as String? ?? "이름 없는 도면",
+                        style: const TextStyle(
+                          color: tossText,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      subtitle: Text(
+                        "모듈 $itemCount개",
+                        style: const TextStyle(
+                          color: tossSubText,
+                          fontSize: 12,
+                        ),
+                      ),
+                      enabled: itemCount > 0,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _showImportItemPicker(data);
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("취소", style: TextStyle(color: tossSubText)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showImportItemPicker(Map<String, dynamic> sourceData) {
+    final List<PlacedItem> sourceItems = ((sourceData['items'] as List?) ?? [])
+        .map((e) => PlacedItem.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+    final Set<String> selectedIds = {};
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              backgroundColor: pureWhite,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: Text(
+                "가져올 모듈 선택 (${sourceData['projectName'] ?? ''})",
+                style: const TextStyle(
+                  color: tossText,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                ),
+              ),
+              content: SizedBox(
+                width: 400,
+                height: 420,
+                child: ListView.builder(
+                  itemCount: sourceItems.length,
+                  itemBuilder: (context, i) {
+                    final item = sourceItems[i];
+                    final bool selected = selectedIds.contains(item.id);
+                    return CheckboxListTile(
+                      value: selected,
+                      onChanged: (v) {
+                        setModalState(() {
+                          if (v == true) {
+                            selectedIds.add(item.id);
+                          } else {
+                            selectedIds.remove(item.id);
+                          }
+                        });
+                      },
+                      title: Text(
+                        item.name,
+                        style: const TextStyle(
+                          color: tossText,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      subtitle: Text(
+                        "${item.width.toInt()}×${item.height.toInt()}mm",
+                        style: const TextStyle(
+                          color: tossSubText,
+                          fontSize: 12,
+                        ),
+                      ),
+                      activeColor: tossBlue,
+                    );
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("취소", style: TextStyle(color: tossSubText)),
+                ),
+                ElevatedButton(
+                  onPressed: selectedIds.isEmpty
+                      ? null
+                      : () {
+                          Navigator.pop(ctx);
+                          _importSelectedModules(
+                            sourceItems.where(
+                              (i) => selectedIds.contains(i.id),
+                            ),
+                          );
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: tossBlue,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    "선택한 모듈 ${selectedIds.length}개 가져오기",
+                    style: const TextStyle(
+                      color: pureWhite,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _importSelectedModules(Iterable<PlacedItem> items) {
+    _pushUndo();
+    setState(() {
+      for (final src in items) {
+        final PlacedItem newItem = PlacedItem(
+          id: 'import_${DateTime.now().microsecondsSinceEpoch}_${src.id}',
+          name: src.name,
+          position: _snapToGrid(
+            Offset(
+              src.position.dx.clamp(
+                0.0,
+                math.max(0.0, _panelWidth - src.width),
+              ),
+              src.position.dy.clamp(
+                0.0,
+                math.max(0.0, _panelHeight - src.height),
+              ),
+            ),
+          ),
+          width: src.width,
+          height: src.height,
+        );
+        while (_overlapsAny(newItem, newItem.position)) {
+          final Offset moved = _snapToGrid(
+            Offset(newItem.position.dx + 20, newItem.position.dy + 20),
+          );
+          if (moved.dx > _panelWidth - newItem.width ||
+              moved.dy > _panelHeight - newItem.height) {
+            break;
+          }
+          newItem.position = moved;
+        }
+        _placedItems.add(newItem);
+      }
+    });
+    HapticFeedback.mediumImpact();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("모듈 ${items.length}개를 가져왔습니다."),
+        backgroundColor: tossBlue,
+      ),
+    );
+  }
+
   // 🚀 [신규] 최소 유지 간격을 설정해둔 치수 중, 저장하는 지금 시점에도
   // 여전히 기준을 못 만족하는 것들을 모아서 알려준다(모바일과 동일).
   List<String> _collectMinGapViolations() {
@@ -971,6 +1566,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
             onPressed: () async {
               if (nameCtrl.text.trim().isEmpty) return;
               Navigator.pop(context);
+              if (!await _confirmChangesBeforeSave()) return;
               if (!await _confirmMinGapViolationsIfAny()) return;
               _saveToFirebase(nameCtrl.text.trim());
             },
@@ -2635,6 +3231,15 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                 case 'legend':
                   _showColorLegendDialog();
                   break;
+                case 'save_template':
+                  _saveAsTemplate();
+                  break;
+                case 'load_template':
+                  _showTemplateLibrarySheet();
+                  break;
+                case 'import_modules':
+                  _showImportModulesFlow();
+                  break;
               }
             },
             itemBuilder: (context) => [
@@ -2643,6 +3248,30 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                 child: ListTile(
                   leading: Icon(Icons.palette_outlined, color: tossText),
                   title: Text("색상 범례"),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'save_template',
+                child: ListTile(
+                  leading: Icon(Icons.bookmark_add_outlined, color: tossText),
+                  title: Text("템플릿으로 저장"),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'load_template',
+                child: ListTile(
+                  leading: Icon(Icons.library_books_outlined, color: tossText),
+                  title: Text("템플릿 불러오기"),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'import_modules',
+                child: ListTile(
+                  leading: Icon(Icons.move_down_outlined, color: tossText),
+                  title: Text("다른 도면에서 모듈 가져오기"),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
