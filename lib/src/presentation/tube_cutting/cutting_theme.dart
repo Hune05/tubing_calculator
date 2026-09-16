@@ -158,6 +158,37 @@ void showCuttingSnack(
   );
 }
 
+/// [2번 강화] 구간 삭제/복제처럼 되돌리고 싶을 수 있는 동작 뒤에 띄우는
+/// "실행 취소" 스낵바. 예전엔 삭제/복제가 확인 없이 바로 실행돼서, 실수로
+/// 누르면 되돌릴 방법이 전혀 없었다.
+void showCuttingUndoSnack(
+  BuildContext context,
+  String message, {
+  required VoidCallback onUndo,
+}) {
+  ScaffoldMessenger.of(context).clearSnackBars();
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      backgroundColor: CuttingColors.primaryDark,
+      duration: const Duration(seconds: 4),
+      content: Text(
+        message,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      action: SnackBarAction(
+        label: "실행 취소",
+        textColor: CuttingColors.warningSoft,
+        onPressed: onUndo,
+      ),
+    ),
+  );
+}
+
 /// 프로젝트 목록 카드에서 "아직 재고 차감 안 한 사용량이 있음"을 보여주는
 /// 작은 배지. 예전엔 재고 차감 대상이 있는지 목록에서 전혀 알 수 없었다.
 class PendingDeductionBadge extends StatelessWidget {

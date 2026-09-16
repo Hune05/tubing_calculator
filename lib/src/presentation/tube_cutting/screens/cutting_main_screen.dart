@@ -17,6 +17,7 @@ import 'cutting_history_page.dart';
 import '../cutting_optimizer.dart';
 import '../cutting_theme.dart';
 import '../../inventory/pages/mobile_inventory_ocr.dart';
+import '../cutting_fitting_favorites.dart';
 
 // 🚀 [입력 고도화] 라인 템플릿(자주 쓰는 부속 구성)을 저장하는 컬렉션.
 // 프로젝트와 무관하게 공유되는 참고 데이터라 fittings 컬렉션과 같은
@@ -77,7 +78,10 @@ class CuttingMainScreen extends StatefulWidget {
 }
 
 class _CuttingMainScreenState extends State<CuttingMainScreen>
-    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
+    with
+        AutomaticKeepAliveClientMixin,
+        WidgetsBindingObserver,
+        SingleTickerProviderStateMixin {
   @override
   bool get wantKeepAlive => true;
 
@@ -85,6 +89,19 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   List<CutPoint> _points = [];
   int _setMultiplier = 1;
   bool _groupSameLengths = false;
+
+  // 🚀 [4번 강화] 현장에 따라 인치로 측정하는 경우가 있어서 mm/in 단위를
+  // 고를 수 있게 한다. 저장/계산은 항상 mm 기준이고, 사용자가 지금 고른
+  // 단위로 화면에 입력/표시만 다르게 한다.
+  String _lengthUnit = 'mm';
+  static const double kInchToMm = 25.4;
+
+  // 🚀 [3번 강화] 입력 탭에서 지금 만지고 있는 구간을 배치도 탭에서도
+  // 자동으로 스크롤/강조해서, 탭을 넘나들 때마다 어디까지 봤는지 다시
+  // 찾을 필요가 없게 한다.
+  int? _focusedPointIndex;
+  final ScrollController _diagramScrollController = ScrollController();
+  late final TabController _tabController;
 
   // 🚀 [추가] 톱날 손실(커프) - 원자재를 여러 구간으로 자를 때마다
   // 톱날 두께만큼 소재가 갈려 없어진다. 구간별 설치 길이(calculatedCut)
@@ -102,10 +119,46 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      // 🚀 [3번 강화] 배치도 탭(index 1)으로 넘어오면, 입력 탭에서 마지막
+      // 으로 만지던 구간으로 자동 스크롤한다.
+      if (_tabController.indexIsChanging) return;
+      if (_tabController.index == 1) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollDiagramToFocused();
+        });
+      }
+    });
     _initializeSequence();
     _loadDraftState();
     _loadBladeKerf();
     _loadStockLength();
+  }
+
+  void _scrollDiagramToFocused() {
+    final idx = _focusedPointIndex;
+    if (idx == null || !_diagramScrollController.hasClients) return;
+    const approxItemHeight = 132.0;
+    final target = (idx * approxItemHeight).clamp(
+      0.0,
+      _diagramScrollController.position.maxScrollExtent,
+    );
+    _diagramScrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOut,
+    );
+  }
+
+  void _setFocusedPoint(int index) {
+    if (_focusedPointIndex == index) return;
+    setState(() => _focusedPointIndex = index);
+    if (_tabController.index == 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollDiagramToFocused();
+      });
+    }
   }
 
   Future<void> _loadBladeKerf() async {
@@ -590,6 +643,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     for (var point in _points) {
       point.dispose();
     }
+    _tabController.dispose();
+    _diagramScrollController.dispose();
     super.dispose();
   }
 
@@ -619,6 +674,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         'globalMaker': _globalMaker,
         'setMultiplier': _setMultiplier,
         'groupSameLengths': _groupSameLengths,
+        'lengthUnit': _lengthUnit,
         'points': _points.map((p) {
           return {
             'fittingId': p.fitting.id,
@@ -647,6 +703,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           _globalMaker = stateData['globalMaker'] ?? "Swagelok";
           _setMultiplier = stateData['setMultiplier'] ?? 1;
           _groupSameLengths = stateData['groupSameLengths'] ?? false;
+          _lengthUnit = stateData['lengthUnit'] ?? "mm";
 
           if (stateData['points'] != null) {
             for (var p in _points) p.dispose();
@@ -688,7 +745,11 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           continue;
         }
 
-        double c2c = double.tryParse(_points[i].c2cController.text) ?? 0.0;
+        double c2cRaw = double.tryParse(_points[i].c2cController.text) ?? 0.0;
+        // 🚀 [4번 강화] 공제값(deduction)은 항상 mm 기준(부속 DB)이라,
+        // 입력값이 인치 모드면 계산 전에 먼저 mm로 환산한다. 계산/저장/
+        // PDF/재단 최적화 등 이후 모든 로직은 계속 mm만 다루면 된다.
+        double c2c = _lengthUnit == 'in' ? c2cRaw * kInchToMm : c2cRaw;
         double deduction1 = _points[i].fitting.deduction;
         double deduction2 = _points[i + 1].fitting.deduction;
 
@@ -720,22 +781,54 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // (예: 동일 규격 지지대 여러 개)가 흔해서, 바로 다음 자리에 복제해
   // 넣고 필요하면 길이만 살짝 바꿔 쓸 수 있게 한다.
   void _duplicatePoint(int index) {
+    final insertAt = index + 1;
     setState(() {
       final source = _points[index];
       final copy = CutPoint(fitting: source.fitting);
       copy.c2cController.text = source.c2cController.text;
-      _points.insert(index + 1, copy);
+      _points.insert(insertAt, copy);
       _calculate();
     });
+    // 🚀 [2번 강화] 실수로 복제했을 때 바로 되돌릴 수 있게 한다.
+    showCuttingUndoSnack(
+      context,
+      "구간을 복제했습니다.",
+      onUndo: () {
+        if (insertAt >= _points.length) return;
+        setState(() {
+          _points[insertAt].dispose();
+          _points.removeAt(insertAt);
+          _calculate();
+        });
+      },
+    );
   }
 
   void _removePoint(int index) {
     if (_points.length <= 2) return;
+    final removedFitting = _points[index].fitting;
+    final removedText = _points[index].c2cController.text;
     setState(() {
       _points[index].dispose();
       _points.removeAt(index);
       _calculate();
     });
+    // 🚀 [2번 강화] 예전엔 삭제 확인 없이 바로 지워져서 실수로 지우면
+    // 되돌릴 방법이 없었다. 확인창 대신 "실행 취소"가 있는 스낵바로,
+    // 매번 확인창을 누르는 번거로움 없이도 실수를 되돌릴 수 있게 했다.
+    showCuttingUndoSnack(
+      context,
+      "구간을 삭제했습니다.",
+      onUndo: () {
+        setState(() {
+          final restored = CutPoint(fitting: removedFitting);
+          restored.c2cController.text = removedText;
+          final insertAt = index.clamp(0, _points.length);
+          _points.insert(insertAt, restored);
+          _calculate();
+        });
+      },
+    );
   }
 
   // 🚀 [입력 고도화 2번] 줄자를 눈으로 읽어 손으로 입력하는 대신, 카메라로
@@ -901,6 +994,356 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           .doc(docId)
           .delete();
     }
+  }
+
+  // 🚀 [6번 강화] 낱개 부속 즐겨찾기(부속 검색 팝업의 별표) 중 몇 개를
+  // 묶어 이름 붙인 "부속 세트"로 저장해두고, 라인 맨 끝에 한 번에
+  // 추가할 수 있게 한다. 매번 같은 3~4개 조합을 하나씩 검색해 넣던
+  // 반복 작업을 줄인다.
+  void _insertFittingSet(FittingSetGroup set) {
+    setState(() {
+      for (final item in set.items) {
+        _points.add(CutPoint(fitting: item));
+      }
+      _calculate();
+    });
+    showCuttingSnack(
+      context,
+      "'${set.name}' 세트 ${set.items.length}개 구간을 추가했습니다.",
+    );
+  }
+
+  Future<void> _deleteFittingSet(String name) async {
+    final confirmed = await showCuttingConfirmDialog(
+      context,
+      title: "부속 세트 삭제",
+      message: "'$name' 세트를 삭제할까요?",
+      confirmLabel: "삭제",
+      danger: true,
+      icon: Icons.delete_outline_rounded,
+    );
+    if (!confirmed) return;
+    final sets = await loadFittingSets();
+    sets.removeWhere((s) => s.name == name);
+    await saveFittingSets(sets);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _promptCreateFittingSet() async {
+    final favorites = await loadFavoriteFittings();
+    if (!mounted) return;
+    if (favorites.isEmpty) {
+      showCuttingSnack(
+        context,
+        "먼저 부속 검색 팝업에서 자주 쓰는 부속을 별표(즐겨찾기)해주세요.",
+        isError: true,
+      );
+      return;
+    }
+
+    final nameCtrl = TextEditingController();
+    final Set<int> selected = {};
+
+    final created = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          return DraggableScrollableSheet(
+            initialChildSize: 0.7,
+            minChildSize: 0.4,
+            maxChildSize: 0.92,
+            expand: false,
+            builder: (ctx, scrollController) => Container(
+              decoration: const BoxDecoration(
+                color: whiteCard,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                    child: Text(
+                      "새 부속 세트 만들기",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: textPrimary,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: TextField(
+                      controller: nameCtrl,
+                      decoration: InputDecoration(
+                        hintText: "세트 이름 (예: 3way 밸브 조합)",
+                        filled: true,
+                        fillColor: Colors.grey.shade100,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "묶을 즐겨찾기 부속 선택 (2개 이상)",
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: scrollController,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      itemCount: favorites.length,
+                      itemBuilder: (context, i) {
+                        final item = favorites[i];
+                        final isChecked = selected.contains(i);
+                        return CheckboxListTile(
+                          value: isChecked,
+                          activeColor: makitaTeal,
+                          title: Text(
+                            item.name,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Text("${item.maker} · ${item.tubeOD}"),
+                          onChanged: (v) {
+                            setSheetState(() {
+                              if (v == true) {
+                                selected.add(i);
+                              } else {
+                                selected.remove(i);
+                              }
+                            });
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: selected.length < 2
+                            ? null
+                            : () async {
+                                final name = nameCtrl.text.trim().isEmpty
+                                    ? "이름 없는 세트"
+                                    : nameCtrl.text.trim();
+                                final items = selected
+                                    .map((i) => favorites[i])
+                                    .toList();
+                                final sets = await loadFittingSets();
+                                sets.add(
+                                  FittingSetGroup(name: name, items: items),
+                                );
+                                await saveFittingSets(sets);
+                                if (ctx.mounted) Navigator.pop(ctx, true);
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: makitaTeal,
+                          elevation: 0,
+                          minimumSize: const Size(double.infinity, 48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text(
+                          "세트 저장",
+                          style: TextStyle(
+                            color: whiteCard,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+
+    if (created == true && mounted) {
+      showCuttingSnack(context, "부속 세트를 저장했습니다.");
+      setState(() {});
+    }
+  }
+
+  void _showFittingSetSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.3,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (ctx, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: whiteCard,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        "부속 세트",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: textPrimary,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.grey),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      await _promptCreateFittingSet();
+                    },
+                    icon: const Icon(Icons.add, color: makitaTeal),
+                    label: const Text(
+                      "새 세트 만들기",
+                      style: TextStyle(
+                        color: makitaTeal,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: makitaTeal),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: FutureBuilder<List<FittingSetGroup>>(
+                  future: loadFittingSets(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: makitaTeal),
+                      );
+                    }
+                    final sets = snapshot.data!;
+                    if (sets.isEmpty) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text(
+                            "저장된 부속 세트가 없습니다.",
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ),
+                      );
+                    }
+                    return ListView.separated(
+                      controller: scrollController,
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                      itemCount: sets.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, i) {
+                        final set = sets[i];
+                        return Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: lightBg,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      set.name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      color: CuttingColors.danger,
+                                      size: 20,
+                                    ),
+                                    onPressed: () async {
+                                      await _deleteFittingSet(set.name);
+                                      if (ctx.mounted) Navigator.pop(ctx);
+                                    },
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                set.items.map((e) => e.name).join(' · '),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton(
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    _insertFittingSet(set);
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(color: makitaTeal),
+                                  ),
+                                  child: const Text(
+                                    "라인에 추가",
+                                    style: TextStyle(color: makitaTeal),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showTemplateSheet() {
@@ -1629,33 +2072,32 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 나눠서 한 화면에 한 섹션씩 전체 폭을 다 쓰게 한다.
   Widget _buildNarrowBody() {
     return Expanded(
-      child: DefaultTabController(
-        length: 3,
-        child: Column(
-          children: [
-            TabBar(
-              labelColor: makitaTeal,
-              unselectedLabelColor: Colors.grey.shade600,
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-              indicatorColor: makitaTeal,
-              indicatorWeight: 3,
-              tabs: const [
-                Tab(text: "입력"),
-                Tab(text: "배치도"),
-                Tab(text: "결과"),
+      child: Column(
+        children: [
+          TabBar(
+            controller: _tabController,
+            labelColor: makitaTeal,
+            unselectedLabelColor: Colors.grey.shade600,
+            labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+            indicatorColor: makitaTeal,
+            indicatorWeight: 3,
+            tabs: const [
+              Tab(text: "입력"),
+              Tab(text: "배치도"),
+              Tab(text: "결과"),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildPointListPane(),
+                _buildDiagramPane(),
+                _buildInstructionsPane(),
               ],
             ),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _buildPointListPane(),
-                  _buildDiagramPane(),
-                  _buildInstructionsPane(),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1694,6 +2136,31 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                 ),
               ),
               const SizedBox(width: 8),
+              // 🚀 [6번 강화] 즐겨찾기해둔 부속 몇 개를 묶어 이름 붙인
+              // "부속 세트"를 한 번에 라인에 추가한다.
+              Tooltip(
+                message: "부속 세트",
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    _showFittingSetSheet();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: makitaDark.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.dataset_outlined,
+                      color: makitaDark,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               Tooltip(
                 message: "라인 템플릿",
                 child: InkWell(
@@ -1719,27 +2186,38 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             ],
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                HapticFeedback.selectionClick();
-                _addPoint();
-              },
-              icon: const Icon(Icons.add, color: whiteCard, size: 18),
-              label: const Text(
-                "포인트 추가",
-                style: TextStyle(color: whiteCard, fontWeight: FontWeight.bold),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: makitaDark,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 13),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+          Row(
+            children: [
+              // 🚀 [4번 강화] 현장에 따라 인치로 측정하는 경우가 있어서,
+              // mm/in을 눌러 바꾸면 이미 입력된 값도 같은 실제 길이로
+              // 자동 환산되고, 이후 입력도 선택한 단위로 해석된다.
+              _buildUnitToggle(),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    _addPoint();
+                  },
+                  icon: const Icon(Icons.add, color: whiteCard, size: 18),
+                  label: const Text(
+                    "포인트 추가",
+                    style: TextStyle(
+                      color: whiteCard,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: makitaDark,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
           const SizedBox(height: 12),
           Expanded(
@@ -1864,6 +2342,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           const SizedBox(height: 12),
           Expanded(
             child: ListView.separated(
+              controller: _diagramScrollController,
               padding: const EdgeInsets.only(bottom: 12),
               itemCount: _points.length,
               separatorBuilder: (context, index) => const SizedBox(height: 8),
@@ -1883,6 +2362,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     final cutLength = hasNext ? _points[index].calculatedCut : 0.0;
     final hasInput = hasNext && _points[index].c2cController.text.isNotEmpty;
     final isInterference = hasInput && cutLength < 0;
+    // 🚀 [3번 강화] 입력 탭에서 지금 만지고 있던 구간이면 테두리를 굵은
+    // 틸 색으로 강조해서, 탭을 넘어와도 "아까 그 구간"을 바로 찾을 수
+    // 있게 한다(간섭 경고가 있으면 그쪽이 더 급하니 빨간색이 우선).
+    final bool isFocused = index == _focusedPointIndex;
 
     // 🚀 [UI 고도화, 가시성] 간섭이 생긴 구간은 카드 테두리와 왼쪽 번호
     // 배지를 빨간색으로 바꿔서, 전체 배치도를 쭉 훑어볼 때 어느 구간이
@@ -1892,16 +2375,20 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         : (isNone ? Colors.grey.shade200 : makitaDark);
     final Color cardBorderColor = isInterference
         ? CuttingColors.danger
-        : (isNone ? Colors.grey.shade300 : makitaTeal.withValues(alpha: 0.4));
+        : (isFocused
+              ? makitaTeal
+              : (isNone
+                    ? Colors.grey.shade300
+                    : makitaTeal.withValues(alpha: 0.4)));
+    final double cardBorderWidth = isInterference ? 1.5 : (isFocused ? 2.5 : 1);
 
     return Container(
       decoration: BoxDecoration(
-        color: whiteCard,
+        color: isFocused && !isInterference
+            ? CuttingColors.primarySoft.withValues(alpha: 0.3)
+            : whiteCard,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: cardBorderColor,
-          width: isInterference ? 1.5 : 1,
-        ),
+        border: Border.all(color: cardBorderColor, width: cardBorderWidth),
       ),
       child: IntrinsicHeight(
         child: Row(
@@ -2340,7 +2827,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           ),
           // 본문: 부속 선택 - 카드 전체 너비를 다 쓰는 큰 터치 영역
           InkWell(
-            onTap: () => _openFittingSelector(index),
+            onTap: () {
+              _setFocusedPoint(index);
+              _openFittingSelector(index);
+            },
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
               child: Row(
@@ -2436,23 +2926,98 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     );
   }
 
-  // 🚀 [입력 고도화 1·5번] 길이 입력 한 칸 - 카메라 인식 버튼, ±1/±10mm
-  // 스텝 버튼, "이전 구간과 동일" 복사, 엔터로 다음 칸 자동 이동, 규격
-  // 불일치/짧은 절단 길이 주의 안내를 한데 모았다.
-  void _stepLength(int index, double delta) {
-    final current = double.tryParse(_points[index].c2cController.text) ?? 0.0;
-    final next = (current + delta).clamp(0.0, double.infinity);
+  // 🚀 [4번 강화] mm는 소수점 1자리, 인치는 1/8" 단위 작업이 흔해
+  // 소수점이 더 필요해서 3자리까지 보여주되 불필요한 0은 정리한다.
+  String _formatLocalLength(double v) {
+    if (_lengthUnit == 'in') {
+      String s = v.toStringAsFixed(3);
+      if (s.contains('.')) {
+        s = s.replaceFirst(RegExp(r'0+$'), '');
+        s = s.replaceFirst(RegExp(r'\.$'), '');
+      }
+      return s;
+    }
+    return v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
+  }
+
+  // 🚀 [4번 강화] mm/인치 단위를 바꾸면, 이미 입력된 값들을 같은 실제
+  // 길이가 유지되도록 자동 환산한다(예: 25.4mm → 1in). 이렇게 안 하면
+  // 단위를 바꾸는 순간 숫자는 그대로인데 의미만 바뀌어서 값이 25.4배
+  // 어긋나 버린다.
+  void _setLengthUnit(String unit) {
+    if (unit == _lengthUnit) return;
+    HapticFeedback.selectionClick();
+    final oldUnit = _lengthUnit;
+    final List<double?> mmValues = _points.map((p) {
+      final raw = double.tryParse(p.c2cController.text);
+      if (raw == null) return null;
+      return oldUnit == 'in' ? raw * kInchToMm : raw;
+    }).toList();
+
     setState(() {
-      _points[index].c2cController.text = next == next.roundToDouble()
-          ? next.toStringAsFixed(0)
-          : next.toStringAsFixed(1);
+      _lengthUnit = unit;
+      for (int i = 0; i < _points.length; i++) {
+        final mm = mmValues[i];
+        if (mm == null) continue;
+        final newRaw = unit == 'in' ? mm / kInchToMm : mm;
+        _points[i].c2cController.text = _formatLocalLength(newRaw);
+      }
       _calculate();
     });
   }
 
-  // 🚀 [입력 UI 고도화] -10/-1/+1/+10을 하나의 알약 안에 이어붙인
-  // 세그먼트 스테퍼. 요즘 앱에서 자주 보이는 "연결된 버튼 그룹" 형태로,
-  // 낱개 칩보다 훨씬 정돈되어 보이고 터치 영역도 넉넉하다.
+  Widget _buildUnitToggle() {
+    Widget segment(String label, String unit) {
+      final bool isSelected = _lengthUnit == unit;
+      return InkWell(
+        onTap: () => _setLengthUnit(unit),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+          decoration: BoxDecoration(
+            color: isSelected ? makitaTeal : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: isSelected ? whiteCard : Colors.grey.shade600,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [segment("mm", "mm"), segment("in", "in")],
+      ),
+    );
+  }
+
+  // 🚀 [입력 고도화 1·5번] 길이 입력 한 칸 - 카메라 인식 버튼, 스텝 버튼,
+  // "이전 구간과 동일" 복사, 엔터로 다음 칸 자동 이동, 규격 불일치/짧은
+  // 절단 길이 주의 안내를 한데 모았다.
+  void _stepLength(int index, double delta) {
+    final current = double.tryParse(_points[index].c2cController.text) ?? 0.0;
+    final next = (current + delta).clamp(0.0, double.infinity);
+    setState(() {
+      _points[index].c2cController.text = _formatLocalLength(next);
+      _calculate();
+    });
+  }
+
+  // 🚀 [입력 UI 고도화] 낱개 칩 대신 하나의 알약 안에 이어붙인 세그먼트
+  // 스테퍼. [4번 강화] mm에서 ±10을 그대로 인치에 쓰면 10인치씩
+  // 뛰어버리므로, 인치일 땐 더 작은 단위(±0.1/±1)로 바꾼다.
   Widget _buildStepStepper(int index) {
     Widget segment(String label, double delta, {bool isFirst = false}) {
       return InkWell(
@@ -2479,6 +3044,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       );
     }
 
+    final steps = _lengthUnit == 'in'
+        ? const [('-1', -1.0), ('-.1', -0.1), ('+.1', 0.1), ('+1', 1.0)]
+        : const [('-10', -10.0), ('-1', -1.0), ('+1', 1.0), ('+10', 10.0)];
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
@@ -2489,10 +3058,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          segment("-10", -10, isFirst: true),
-          segment("-1", -1),
-          segment("+1", 1),
-          segment("+10", 10),
+          for (int i = 0; i < steps.length; i++)
+            segment(steps[i].$1, steps[i].$2, isFirst: i == 0),
         ],
       ),
     );
@@ -2558,6 +3125,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                       child: TextField(
                         controller: _points[index].c2cController,
                         focusNode: _points[index].c2cFocusNode,
+                        onTap: () => _setFocusedPoint(index),
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
@@ -2566,6 +3134,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                             : TextInputAction.next,
                         onSubmitted: (_) {
                           if (!isLastSegment) {
+                            _setFocusedPoint(index + 1);
                             FocusScope.of(
                               context,
                             ).requestFocus(_points[index + 1].c2cFocusNode);
@@ -2588,7 +3157,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                           ),
                           filled: true,
                           fillColor: whiteCard,
-                          suffixText: "mm",
+                          suffixText: _lengthUnit,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 8,

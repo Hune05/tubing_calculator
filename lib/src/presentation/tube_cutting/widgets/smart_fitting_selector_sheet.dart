@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../data/models/fitting_item.dart';
 import '../cutting_theme.dart';
+import '../cutting_fitting_favorites.dart';
 
 const Color pureWhite = CuttingColors.surface;
 const Color makitaTeal = CuttingColors.primary;
@@ -42,7 +43,6 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
   String _searchQuery = "";
   final TextEditingController _searchController = TextEditingController();
 
-  static const String _kFavoritesKey = 'cutting_favorite_fittings_v1';
   static const String _kRecentsKey = 'cutting_recent_fittings_v1';
   static const int _kMaxRecents = 8;
   List<FittingItem> _favorites = [];
@@ -106,42 +106,23 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
     super.dispose();
   }
 
-  Map<String, dynamic> _fittingToJson(FittingItem item) => {
-    'id': item.id,
-    'maker': item.maker,
-    'tubeOD': item.tubeOD,
-    'category': item.category,
-    'name': item.name,
-    'deduction': item.deduction,
-  };
-
-  FittingItem _fittingFromJson(Map<String, dynamic> m) => FittingItem(
-    id: m['id'] ?? 'unknown',
-    maker: m['maker'] ?? '',
-    tubeOD: m['tubeOD'] ?? '',
-    category: m['category'] ?? '',
-    name: m['name'] ?? '',
-    deduction: (m['deduction'] as num?)?.toDouble() ?? 0.0,
-    icon: Icons.settings,
-  );
-
   String _fittingKey(FittingItem item) =>
       "${item.maker}|${item.tubeOD}|${item.category}|${item.name}";
 
   Future<void> _loadExtras() async {
     final prefs = await SharedPreferences.getInstance();
-    final favStr = prefs.getString(_kFavoritesKey);
+    final favStr = prefs.getString(kFavoriteFittingsPrefsKey);
     final recStr = prefs.getString(_kRecentsKey);
     if (!mounted) return;
     setState(() {
       if (favStr != null) {
         _favorites = (jsonDecode(favStr) as List)
-            .map((e) => _fittingFromJson(e as Map<String, dynamic>))
+            .map((e) => fittingItemFromJson(e as Map<String, dynamic>))
             .toList();
       }
       if (recStr != null) {
         _recents = (jsonDecode(recStr) as List)
-            .map((e) => _fittingFromJson(e as Map<String, dynamic>))
+            .map((e) => fittingItemFromJson(e as Map<String, dynamic>))
             .toList();
       }
     });
@@ -150,8 +131,8 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
   Future<void> _saveFavorites() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
-      _kFavoritesKey,
-      jsonEncode(_favorites.map(_fittingToJson).toList()),
+      kFavoriteFittingsPrefsKey,
+      jsonEncode(_favorites.map(fittingItemToJson).toList()),
     );
   }
 
@@ -159,7 +140,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       _kRecentsKey,
-      jsonEncode(_recents.map(_fittingToJson).toList()),
+      jsonEncode(_recents.map(fittingItemToJson).toList()),
     );
   }
 
@@ -288,26 +269,38 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
     );
   }
 
+  // 🚀 [팝업 UI 고도화] GestureDetector는 눌러도 물결(ripple) 반응이
+  // 없어서 다른 화면의 버튼들과 손맛이 달랐다. Material+InkWell로 바꿔
+  // 눌렀을 때 자연스러운 리플이 뜨게 하고, 선택 색 전환도
+  // AnimatedContainer로 부드럽게 했다.
   Widget _buildSizeButton(String size) {
     bool isSelected = selectedSize == size;
-    return GestureDetector(
-      onTap: () => setState(() => selectedSize = size),
-      child: Container(
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? makitaTeal : Colors.grey.shade100,
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? makitaTeal : Colors.transparent,
-          ),
-        ),
-        child: Text(
-          size,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-            color: isSelected ? pureWhite : textDark,
+          onTap: () => setState(() => selectedSize = size),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected ? makitaTeal : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isSelected ? makitaTeal : Colors.transparent,
+              ),
+            ),
+            child: Text(
+              size,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: isSelected ? pureWhite : textDark,
+              ),
+            ),
           ),
         ),
       ),
@@ -318,23 +311,29 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
     bool isSelected = selectedCategory == label;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: GestureDetector(
-        onTap: () => setState(() => selectedCategory = label),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected ? makitaTeal : pureWhite,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isSelected ? makitaTeal : Colors.grey.shade300,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => setState(() => selectedCategory = label),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected ? makitaTeal : pureWhite,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isSelected ? makitaTeal : Colors.grey.shade300,
+              ),
             ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: isSelected ? pureWhite : Colors.grey.shade700,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: isSelected ? pureWhite : Colors.grey.shade700,
+              ),
             ),
           ),
         ),
@@ -394,22 +393,22 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (favs.isNotEmpty) ...[
-          const Padding(
-            padding: EdgeInsets.only(left: 24, right: 24, bottom: 8),
+          Padding(
+            padding: const EdgeInsets.only(left: 24, right: 24, bottom: 8),
             child: Row(
               children: [
-                Icon(
+                const Icon(
                   Icons.star_rounded,
                   size: 14,
                   color: CuttingColors.warning,
                 ),
-                SizedBox(width: 4),
+                const SizedBox(width: 4),
                 Text(
                   "즐겨찾기",
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: Colors.grey,
+                    color: Colors.grey.shade700,
                   ),
                 ),
               ],
@@ -428,18 +427,22 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
           const SizedBox(height: 12),
         ],
         if (recents.isNotEmpty) ...[
-          const Padding(
-            padding: EdgeInsets.only(left: 24, right: 24, bottom: 8),
+          Padding(
+            padding: const EdgeInsets.only(left: 24, right: 24, bottom: 8),
             child: Row(
               children: [
-                Icon(Icons.history_rounded, size: 14, color: Colors.grey),
-                SizedBox(width: 4),
+                Icon(
+                  Icons.history_rounded,
+                  size: 14,
+                  color: Colors.grey.shade600,
+                ),
+                const SizedBox(width: 4),
                 Text(
                   "최근 사용",
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: Colors.grey,
+                    color: Colors.grey.shade700,
                   ),
                 ),
               ],
@@ -478,6 +481,16 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
               decoration: const BoxDecoration(
                 color: makitaTeal,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                // 🚀 [팝업 UI 고도화] 헤더가 아래 흰 영역과 딱 붙어서
+                // 평면적으로 보였다. 은은한 그림자로 살짝 떠 보이게 해서
+                // 깊이감을 줬다.
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x1A000000),
+                    blurRadius: 8,
+                    offset: Offset(0, 3),
+                  ),
+                ],
               ),
               padding: const EdgeInsets.only(
                 top: 12,
@@ -555,14 +568,14 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
 
             _buildQuickPickSection(),
 
-            const Padding(
-              padding: EdgeInsets.only(left: 24, right: 24, bottom: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 24, right: 24, bottom: 8),
               child: Text(
                 "규격",
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: Colors.grey,
+                  color: Colors.grey.shade700,
                 ),
               ),
             ),
@@ -577,14 +590,14 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
 
             // 🚀 검색 중일 땐 분류 칩이 의미가 없으므로(검색이 우선) 숨긴다.
             if (_searchQuery.isEmpty) ...[
-              const Padding(
-                padding: EdgeInsets.only(left: 24, right: 24, bottom: 8),
+              Padding(
+                padding: const EdgeInsets.only(left: 24, right: 24, bottom: 8),
                 child: Text(
                   "분류",
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: Colors.grey,
+                    color: Colors.grey.shade700,
                   ),
                 ),
               ),
@@ -633,11 +646,11 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                               color: Colors.grey.shade300,
                             ),
                             const SizedBox(height: 12),
-                            const Text(
+                            Text(
                               "이 규격에 등록된 부속 데이터가 없습니다.",
                               style: TextStyle(
                                 fontSize: 15,
-                                color: Colors.grey,
+                                color: Colors.grey.shade600,
                               ),
                             ),
                             const SizedBox(height: 16),
@@ -698,9 +711,9 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                                   ? "'$_searchQuery' 검색 결과가 없습니다."
                                   : "선택한 분류에 해당하는 부속이 없습니다.",
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 15,
-                                color: Colors.grey,
+                                color: Colors.grey.shade600,
                               ),
                             ),
                             const SizedBox(height: 16),
@@ -795,8 +808,8 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                                 ),
                                 subtitle: Text(
                                   "${item.maker} | ${item.tubeOD}  ·  -${item.deduction}mm",
-                                  style: const TextStyle(
-                                    color: Colors.grey,
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12,
                                   ),
