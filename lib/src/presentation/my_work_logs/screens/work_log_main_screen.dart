@@ -21,7 +21,11 @@ const Color tossBg = Color(0xFFF2F4F6);
 const Color pureWhite = Color(0xFFFFFFFF);
 
 class WorkLogMainScreen extends StatefulWidget {
-  const WorkLogMainScreen({super.key});
+  // 🚀 [3번 강화] "내 일정 관리"에서 프로젝트 유래 일정을 탭했을 때, 목록을
+  // 거치지 않고 바로 그 프로젝트의 일정 관리 화면으로 들어가기 위한 값.
+  final String? initialProjectId;
+
+  const WorkLogMainScreen({super.key, this.initialProjectId});
 
   @override
   State<WorkLogMainScreen> createState() => _WorkLogMainScreenState();
@@ -58,6 +62,17 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         _workLogs = projects;
         _isLoading = false;
       });
+      if (widget.initialProjectId != null) {
+        final match = _workLogs.firstWhere(
+          (l) => l['id']?.toString() == widget.initialProjectId,
+          orElse: () => const {},
+        );
+        if (match.isNotEmpty && mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _openSchedule(match);
+          });
+        }
+      }
     } catch (e) {
       debugPrint("⚠️ 내 프로젝트 불러오기 실패: $e");
       if (!mounted) return;

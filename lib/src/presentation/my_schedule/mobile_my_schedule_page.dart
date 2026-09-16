@@ -11,6 +11,7 @@ import 'package:tubing_calculator/main.dart'
     show flutterLocalNotificationsPlugin;
 import '../../data/repositories/work_project_repository.dart';
 import '../../core/common_widgets/makita_time_picker.dart';
+import '../my_work_logs/screens/work_log_main_screen.dart';
 
 // 🚀 [신규] "내 일정 관리" - 마키타 틸 팔레트로 앱 전체와 통일.
 const Color scheduleTeal = Color(0xFF007580);
@@ -22,6 +23,7 @@ const Color scheduleWhite = Colors.white;
 const Color scheduleDanger = Color(0xFFE0432B);
 
 const String kPersonalSchedulesCollection = 'personal_schedules';
+const String kScheduleTemplatesCollection = 'schedule_templates';
 const String kScheduleChannelId = 'personal_schedule_channel';
 
 // 🚀 [통합형] 프로젝트 안의 일정(자재 요청/입고일/납기일/검사일정)과 이
@@ -142,6 +144,11 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   static bool _tzReady = false;
   bool _channelReady = false;
 
+  // 🚀 [2번 강화] 카테고리는 다중 선택(빈 집합 = 전체 표시), 프로젝트는
+  // 단일 선택(null = 전체 프로젝트)으로 좁혀본다.
+  final Set<String> _activeCategoryFilters = {};
+  String? _activeProjectFilter;
+
   @override
   void initState() {
     super.initState();
@@ -190,6 +197,32 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     if (v is Timestamp) return v.toDate();
     if (v is String) return DateTime.tryParse(v) ?? DateTime.now();
     return DateTime.now();
+  }
+
+  // 🚀 [1번 강화] 완료 안 된 채로 시각(또는 종일이면 그 날 자정)이 이미
+  // 지난 일정 - 놓친 일정을 놓치지 않고 알아채도록 목록에서 강조한다.
+  bool _isOverdue(_AgendaItem item) {
+    if (item.isCompleted) return false;
+    final now = DateTime.now();
+    return item.hasTime
+        ? item.date.isBefore(now)
+        : _normalize(item.date).isBefore(_normalize(now));
+  }
+
+  // 🚀 [2번 강화] 카테고리(다중)/프로젝트(단일) 필터를 적용한다. 둘 다
+  // 선택 안 하면(빈 집합/null) 전체를 보여준다.
+  List<_AgendaItem> _applyFilters(List<_AgendaItem> items) {
+    return items.where((item) {
+      if (_activeCategoryFilters.isNotEmpty &&
+          !_activeCategoryFilters.contains(item.category)) {
+        return false;
+      }
+      if (_activeProjectFilter != null &&
+          item.projectId != _activeProjectFilter) {
+        return false;
+      }
+      return true;
+    }).toList();
   }
 
   // 🚀 "내 프로젝트"의 schedules[] 안에서 날짜가 있는 항목만 뽑아
@@ -295,6 +328,18 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
             );
     }
     return occurrences;
+  }
+
+  // 🚀 [3번 강화] 프로젝트 유래 일정 카드에서 바로 "내 프로젝트"의 해당
+  // 프로젝트 일정 관리(ProjectSchedulePage)로 이동한다.
+  void _openProjectSchedule(String? projectId) {
+    if (projectId == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => WorkLogMainScreen(initialProjectId: projectId),
+      ),
+    ).then((_) => _loadProjects());
   }
 
   Future<void> _toggleCompletion(_AgendaItem item) async {
@@ -873,6 +918,536 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     );
   }
 
+  // 🚀 [4번 강화] "일정 세트 템플릿" - 매달 정기 점검처럼 여러 건이 묶여
+  // 반복되는 일정 조합을 이름 붙여 저장해두고, 기준 날짜 하나만 골라
+  // 한 번에 전부 만든다. 각 항목은 절대 날짜가 아니라 기준일로부터의
+  // 상대 일수(dayOffset)로 저장해서, 언제 적용하든 같은 간격이 유지된다.
+  Future<void> _showTemplateSheet() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.4,
+        maxChildSize: 0.92,
+        expand: false,
+        builder: (ctx, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: scheduleWhite,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        "일정 세트 템플릿",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: scheduleText,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.grey),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      await _showCreateTemplateSheet();
+                    },
+                    icon: const Icon(Icons.add, color: scheduleTeal),
+                    label: const Text(
+                      "새 템플릿 만들기",
+                      style: TextStyle(
+                        color: scheduleTeal,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: scheduleTeal),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection(kScheduleTemplatesCollection)
+                      .where('owner', isEqualTo: _currentWorker)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: scheduleTeal),
+                      );
+                    }
+                    final docs = snapshot.data!.docs;
+                    if (docs.isEmpty) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text(
+                            "저장된 템플릿이 없습니다.",
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ),
+                      );
+                    }
+                    return ListView.separated(
+                      controller: scrollController,
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                      itemCount: docs.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, i) {
+                        final doc = docs[i];
+                        final data = doc.data() as Map<String, dynamic>;
+                        final name = (data['name'] as String?) ?? '이름 없는 템플릿';
+                        final items = (data['items'] as List? ?? []);
+                        return Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: scheduleBg,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: scheduleText,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      color: scheduleDanger,
+                                      size: 20,
+                                    ),
+                                    onPressed: () async {
+                                      await doc.reference.delete();
+                                    },
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                items
+                                    .map((e) => (e as Map)['title'] ?? '')
+                                    .join(' · '),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton(
+                                  onPressed: () async {
+                                    final baseDate = await showDatePicker(
+                                      context: context,
+                                      initialDate: DateTime.now(),
+                                      firstDate: DateTime(2020),
+                                      lastDate: DateTime(2035),
+                                    );
+                                    if (baseDate == null) return;
+                                    await _applyTemplate(data, baseDate);
+                                    if (ctx.mounted) Navigator.pop(ctx);
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(color: scheduleTeal),
+                                  ),
+                                  child: const Text(
+                                    "기준일 골라 적용하기",
+                                    style: TextStyle(color: scheduleTeal),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _applyTemplate(
+    Map<String, dynamic> template,
+    DateTime baseDate,
+  ) async {
+    final items = (template['items'] as List? ?? []);
+    if (items.isEmpty) return;
+    final batch = FirebaseFirestore.instance.batch();
+    final col = FirebaseFirestore.instance.collection(
+      kPersonalSchedulesCollection,
+    );
+    for (final raw in items) {
+      final bp = Map<String, dynamic>.from(raw as Map);
+      final int offset = (bp['dayOffset'] as num?)?.toInt() ?? 0;
+      final bool hasTime = bp['hasTime'] == true;
+      final int minutes = (bp['timeMinutes'] as num?)?.toInt() ?? 9 * 60;
+      final DateTime day = baseDate.add(Duration(days: offset));
+      final DateTime dateTime = hasTime
+          ? DateTime(day.year, day.month, day.day, minutes ~/ 60, minutes % 60)
+          : DateTime(day.year, day.month, day.day);
+      batch.set(col.doc(), {
+        'title': (bp['title'] as String?)?.trim().isNotEmpty == true
+            ? bp['title']
+            : '제목 없음',
+        'category': (bp['category'] as String?) ?? '개인',
+        'dateTime': dateTime.toIso8601String(),
+        'hasTime': hasTime,
+        'recurrence': 'none',
+        'owner': _currentWorker,
+        'isCompleted': false,
+        'completedOccurrences': <String, dynamic>{},
+        'reminderMinutesBefore': 0,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("일정 ${items.length}건을 추가했습니다.")));
+    }
+  }
+
+  Future<void> _showCreateTemplateSheet() async {
+    final nameCtrl = TextEditingController();
+    final List<Map<String, dynamic>> blueprint = [
+      {
+        'title': '',
+        'category': '개인',
+        'dayOffset': 0,
+        'hasTime': false,
+        'timeMinutes': 9 * 60,
+      },
+    ];
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            child: DraggableScrollableSheet(
+              initialChildSize: 0.85,
+              minChildSize: 0.5,
+              maxChildSize: 0.95,
+              expand: false,
+              builder: (ctx, scrollController) => Container(
+                decoration: const BoxDecoration(
+                  color: scheduleWhite,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                      child: Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              "새 템플릿 만들기",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: scheduleText,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              color: Colors.grey,
+                            ),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        controller: scrollController,
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextField(
+                              controller: nameCtrl,
+                              decoration: InputDecoration(
+                                hintText: "템플릿 이름 (예: 매달 정기 점검)",
+                                filled: true,
+                                fillColor: Colors.grey.shade100,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            for (int i = 0; i < blueprint.length; i++)
+                              _buildTemplateItemRow(
+                                blueprint[i],
+                                onRemove: blueprint.length <= 1
+                                    ? null
+                                    : () => setSheetState(
+                                        () => blueprint.removeAt(i),
+                                      ),
+                                setSheetState: setSheetState,
+                              ),
+                            const SizedBox(height: 8),
+                            OutlinedButton.icon(
+                              onPressed: () => setSheetState(() {
+                                blueprint.add({
+                                  'title': '',
+                                  'category': '개인',
+                                  'dayOffset': 0,
+                                  'hasTime': false,
+                                  'timeMinutes': 9 * 60,
+                                });
+                              }),
+                              icon: const Icon(Icons.add, color: scheduleTeal),
+                              label: const Text(
+                                "항목 추가",
+                                style: TextStyle(color: scheduleTeal),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: scheduleTeal),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  final validItems = blueprint
+                                      .where(
+                                        (b) => (b['title'] as String)
+                                            .trim()
+                                            .isNotEmpty,
+                                      )
+                                      .toList();
+                                  if (nameCtrl.text.trim().isEmpty ||
+                                      validItems.isEmpty) {
+                                    return;
+                                  }
+                                  await FirebaseFirestore.instance
+                                      .collection(kScheduleTemplatesCollection)
+                                      .add({
+                                        'name': nameCtrl.text.trim(),
+                                        'owner': _currentWorker,
+                                        'items': validItems,
+                                        'createdAt':
+                                            FieldValue.serverTimestamp(),
+                                      });
+                                  if (ctx.mounted) Navigator.pop(ctx);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: scheduleTeal,
+                                  elevation: 0,
+                                  minimumSize: const Size(double.infinity, 52),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: const Text(
+                                  "템플릿 저장",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTemplateItemRow(
+    Map<String, dynamic> item, {
+    required VoidCallback? onRemove,
+    required StateSetter setSheetState,
+  }) {
+    final int minutes = item['timeMinutes'] as int;
+    final TimeOfDay time = TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E8EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  initialValue: item['title'] as String,
+                  onChanged: (v) => item['title'] = v,
+                  decoration: InputDecoration(
+                    hintText: "항목 제목",
+                    isDense: true,
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+              if (onRemove != null)
+                IconButton(
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    size: 18,
+                    color: Colors.grey,
+                  ),
+                  onPressed: onRemove,
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: kPersonalCategories.map((cat) {
+              final bool selected = item['category'] == cat;
+              final Color c = colorForCategory(cat);
+              return InkWell(
+                onTap: () => setSheetState(() => item['category'] = cat),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: selected ? c : c.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    cat,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: selected ? Colors.white : c,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Text(
+                "기준일로부터",
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              IconButton(
+                icon: const Icon(Icons.remove_circle_outline, size: 18),
+                onPressed: () => setSheetState(
+                  () => item['dayOffset'] = (item['dayOffset'] as int) - 1,
+                ),
+              ),
+              Text(
+                "${item['dayOffset']}일",
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: scheduleText,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline, size: 18),
+                onPressed: () => setSheetState(
+                  () => item['dayOffset'] = (item['dayOffset'] as int) + 1,
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: () async {
+                  if (item['hasTime'] != true) return;
+                  final picked = await showMakitaTimePicker(
+                    context: context,
+                    initialTime: time,
+                    title: "시간",
+                  );
+                  if (picked != null) {
+                    setSheetState(
+                      () => item['timeMinutes'] =
+                          picked.hour * 60 + picked.minute,
+                    );
+                  }
+                },
+                child: Text(
+                  item['hasTime'] == true ? time.format(context) : "종일",
+                  style: const TextStyle(
+                    color: scheduleTeal,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Switch(
+                value: item['hasTime'] == true,
+                activeThumbColor: scheduleTeal,
+                onChanged: (v) => setSheetState(() => item['hasTime'] = v),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   List<_AgendaItem> _itemsInCurrentPeriod(
     Map<DateTime, List<_AgendaItem>> byDay,
   ) {
@@ -953,6 +1528,16 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     );
   }
 
+  // 🚀 [6번 강화] 화살표 탭뿐 아니라 좌우로 밀어서도 하루씩 이동할 수
+  // 있게 한다.
+  void _shiftDay(int deltaDays) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _selectedDay = _selectedDay.add(Duration(days: deltaDays));
+      _focusedDay = _selectedDay;
+    });
+  }
+
   Widget _buildDayHeader() {
     return Container(
       color: scheduleWhite,
@@ -962,10 +1547,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         children: [
           IconButton(
             icon: const Icon(Icons.chevron_left, color: scheduleText),
-            onPressed: () => setState(() {
-              _selectedDay = _selectedDay.subtract(const Duration(days: 1));
-              _focusedDay = _selectedDay;
-            }),
+            onPressed: () => _shiftDay(-1),
           ),
           SizedBox(
             width: 180,
@@ -981,10 +1563,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.chevron_right, color: scheduleText),
-            onPressed: () => setState(() {
-              _selectedDay = _selectedDay.add(const Duration(days: 1));
-              _focusedDay = _selectedDay;
-            }),
+            onPressed: () => _shiftDay(1),
           ),
         ],
       ),
@@ -1067,10 +1646,15 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     );
   }
 
+  // 🚀 [5번 강화] "완료/남음"만 보여주던 진행 막대에 "지연"(기한이
+  // 지났는데 완료 안 한 것) 개수를 더해서, 그냥 안 끝난 게 아니라 이미
+  // 늦은 게 몇 건인지 한눈에 알 수 있는 요약 카드로 키웠다.
   Widget _buildProgressBar(Map<DateTime, List<_AgendaItem>> byDay) {
     final items = _itemsInCurrentPeriod(byDay);
     final total = items.length;
     final done = items.where((e) => e.isCompleted).length;
+    final overdue = items.where(_isOverdue).length;
+    final remaining = total - done;
     final ratio = total > 0 ? done / total : 0.0;
     final String periodLabel = switch (_viewMode) {
       _ViewMode.day => "오늘",
@@ -1086,37 +1670,48 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE5E8EB)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              "$periodLabel 완료 $done / $total",
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: scheduleText,
+          Row(
+            children: [
+              Expanded(
+                child: RichText(
+                  overflow: TextOverflow.ellipsis,
+                  text: TextSpan(
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: scheduleText,
+                    ),
+                    children: [
+                      TextSpan(text: "$periodLabel 완료 $done · 남음 $remaining"),
+                      if (overdue > 0)
+                        TextSpan(
+                          text: " · 지연 $overdue",
+                          style: const TextStyle(color: scheduleDanger),
+                        ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: ratio,
-                minHeight: 8,
-                backgroundColor: Colors.grey.shade200,
-                color: scheduleTeal,
+              Text(
+                total > 0 ? "${(ratio * 100).toStringAsFixed(0)}%" : "-",
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  color: scheduleTeal,
+                ),
               ),
-            ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Text(
-            total > 0 ? "${(ratio * 100).toStringAsFixed(0)}%" : "-",
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w900,
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: ratio,
+              minHeight: 8,
+              backgroundColor: Colors.grey.shade200,
               color: scheduleTeal,
             ),
           ),
@@ -1125,6 +1720,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     );
   }
 
+  // 🚀 [2번 강화] 범례를 그냥 보여주기만 하던 걸 탭 가능한 필터로 바꿨다.
+  // 눌린 카테고리만 남기고, 하나도 안 눌려 있으면(기본) 전체를 보여준다.
   Widget _buildCategoryLegend() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
@@ -1132,25 +1729,61 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: kScheduleColors.entries.map((e) {
+            final bool selected = _activeCategoryFilters.contains(e.key);
+            final bool dimmed = _activeCategoryFilters.isNotEmpty && !selected;
             return Padding(
               padding: const EdgeInsets.only(right: 10),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: e.value,
-                      shape: BoxShape.circle,
-                    ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  setState(() {
+                    if (selected) {
+                      _activeCategoryFilters.remove(e.key);
+                    } else {
+                      _activeCategoryFilters.add(e.key);
+                    }
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    e.key,
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? e.value.withValues(alpha: 0.12)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
+                    border: selected
+                        ? Border.all(color: e.value.withValues(alpha: 0.4))
+                        : null,
                   ),
-                ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: dimmed ? Colors.grey.shade300 : e.value,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        e.key,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: selected ? FontWeight.bold : null,
+                          color: dimmed
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             );
           }).toList(),
@@ -1159,15 +1792,66 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     );
   }
 
+  // 🚀 [2번 강화] 프로젝트가 2개 이상 있을 때만 노출 - 프로젝트 하나뿐이면
+  // 필터할 의미가 없으니 화면만 복잡해진다.
+  Widget _buildProjectFilterRow() {
+    final Map<String, String> projectNames = {
+      for (final p in _projects)
+        if (p['id'] != null)
+          p['id'].toString(): (p['name'] as String?) ?? '이름 없음',
+    };
+    if (projectNames.length < 2) return const SizedBox.shrink();
+
+    Widget chip(String? id, String label) {
+      final bool selected = _activeProjectFilter == id;
+      return Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: ChoiceChip(
+          label: Text(label, style: const TextStyle(fontSize: 12)),
+          selected: selected,
+          onSelected: (_) {
+            HapticFeedback.selectionClick();
+            setState(() => _activeProjectFilter = selected ? null : id);
+          },
+          selectedColor: scheduleTeal,
+          labelStyle: TextStyle(
+            color: selected ? Colors.white : scheduleText,
+            fontWeight: FontWeight.bold,
+          ),
+          backgroundColor: Colors.grey.shade100,
+          visualDensity: VisualDensity.compact,
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            chip(null, "전체 프로젝트"),
+            ...projectNames.entries.map((e) => chip(e.key, e.value)),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildAgendaCard(_AgendaItem item) {
     final Color c = colorForCategory(item.category);
+    final bool overdue = _isOverdue(item);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: scheduleWhite,
+        color: overdue ? scheduleDanger.withValues(alpha: 0.04) : scheduleWhite,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E8EB)),
+        border: Border.all(
+          color: overdue
+              ? scheduleDanger.withValues(alpha: 0.4)
+              : const Color(0xFFE5E8EB),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1237,6 +1921,25 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                         ),
                       ),
                     ),
+                    if (overdue)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: scheduleDanger,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          "지연",
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
                     if (item.hasTime)
                       Text(
                         "${item.date.hour.toString().padLeft(2, '0')}:${item.date.minute.toString().padLeft(2, '0')}",
@@ -1245,12 +1948,20 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                           color: Colors.grey.shade600,
                         ),
                       ),
+                    // 🚀 [3번 강화] 프로젝트 이름을 탭하면 "내 프로젝트"의
+                    // 그 프로젝트 일정 관리로 바로 넘어간다. 예전엔
+                    // 프로젝트 이름만 보여주고 이동 방법이 없었다.
                     if (item.projectName != null)
-                      Text(
-                        "· ${item.projectName}",
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade600,
+                      InkWell(
+                        onTap: () => _openProjectSchedule(item.projectId),
+                        child: Text(
+                          "· ${item.projectName} 바로가기",
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: scheduleTeal,
+                            decoration: TextDecoration.underline,
+                          ),
                         ),
                       ),
                     if (item.recurrence != 'none')
@@ -1321,6 +2032,14 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         iconTheme: const IconThemeData(color: scheduleText),
         actions: [
           IconButton(
+            tooltip: "일정 세트 템플릿",
+            icon: const Icon(Icons.dataset_outlined),
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              _showTemplateSheet();
+            },
+          ),
+          IconButton(
             tooltip: "프로젝트 일정 새로고침",
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () {
@@ -1353,7 +2072,10 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                     personalItems.addAll(_expandPersonalItem(doc.id, data));
                   }
                 }
-                final allItems = [..._projectAgendaItems(), ...personalItems];
+                final allItems = _applyFilters([
+                  ..._projectAgendaItems(),
+                  ...personalItems,
+                ]);
 
                 final Map<DateTime, List<_AgendaItem>> byDay = {};
                 for (final item in allItems) {
@@ -1368,53 +2090,68 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                 return RefreshIndicator(
                   color: scheduleTeal,
                   onRefresh: _loadProjects,
-                  child: Column(
-                    children: [
-                      _buildViewModeToggle(),
-                      if (_viewMode == _ViewMode.day)
-                        _buildDayHeader()
-                      else
-                        _buildCalendar(byDay),
-                      _buildProgressBar(byDay),
-                      _buildCategoryLegend(),
-                      const Divider(height: 1, color: Color(0xFFE5E8EB)),
-                      Expanded(
-                        child: selectedItems.isEmpty
-                            ? ListView(
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                children: [
-                                  const SizedBox(height: 60),
-                                  Icon(
-                                    Icons.event_available_outlined,
-                                    size: 48,
-                                    color: Colors.grey.shade300,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  const Center(
-                                    child: Text(
-                                      "이 날은 등록된 일정이 없습니다.",
-                                      style: TextStyle(
-                                        color: scheduleSubText,
-                                        fontWeight: FontWeight.bold,
+                  child: GestureDetector(
+                    // 🚀 [6번 강화] 일 보기일 때만 좌우 스와이프로 하루씩
+                    // 이동한다(월/주 보기는 달력 자체가 이미 스와이프로
+                    // 페이지 전환을 지원하므로 건드리지 않는다).
+                    onHorizontalDragEnd: _viewMode != _ViewMode.day
+                        ? null
+                        : (details) {
+                            final v = details.primaryVelocity ?? 0;
+                            if (v.abs() < 200) return;
+                            _shiftDay(v < 0 ? 1 : -1);
+                          },
+                    child: Column(
+                      children: [
+                        _buildViewModeToggle(),
+                        if (_viewMode == _ViewMode.day)
+                          _buildDayHeader()
+                        else
+                          _buildCalendar(byDay),
+                        _buildProgressBar(byDay),
+                        _buildCategoryLegend(),
+                        _buildProjectFilterRow(),
+                        const Divider(height: 1, color: Color(0xFFE5E8EB)),
+                        Expanded(
+                          child: selectedItems.isEmpty
+                              ? ListView(
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  children: [
+                                    const SizedBox(height: 60),
+                                    Icon(
+                                      Icons.event_available_outlined,
+                                      size: 48,
+                                      color: Colors.grey.shade300,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    const Center(
+                                      child: Text(
+                                        "이 날은 등록된 일정이 없습니다.",
+                                        style: TextStyle(
+                                          color: scheduleSubText,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
+                                  ],
+                                )
+                              : ListView.builder(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    12,
+                                    16,
+                                    100,
                                   ),
-                                ],
-                              )
-                            : ListView.builder(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  12,
-                                  16,
-                                  100,
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  itemCount: selectedItems.length,
+                                  itemBuilder: (context, i) =>
+                                      _buildAgendaCard(selectedItems[i]),
                                 ),
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                itemCount: selectedItems.length,
-                                itemBuilder: (context, i) =>
-                                    _buildAgendaCard(selectedItems[i]),
-                              ),
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },
