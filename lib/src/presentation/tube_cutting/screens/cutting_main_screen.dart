@@ -2023,7 +2023,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                                     ? Colors.red
                                     : (hasInput
                                           ? Colors.redAccent
-                                          : Colors.grey),
+                                          : Colors.grey.shade600),
                               ),
                             ),
                           ],
@@ -2041,6 +2041,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   }
 
   // 🚀 [추가] "2. 컷팅 지시서" - 세트 수량 조절 + 결과 리스트 + 저장 버튼.
+  // 🚀 [UI 고도화] 제목·토글·SET 스테퍼가 Wrap 한 줄에 다 몰려 있어서
+  // 좁은 화면에서 줄바꿈되면 균형이 깨졌다. 제목을 독립된 줄로 빼고,
+  // 토글과 SET 스테퍼는 spaceBetween으로 좌우에 분리해 항상 정돈되게
+  // 했다.
   Widget _buildInstructionsPane() {
     return Container(
       color: Colors.grey.shade50,
@@ -2048,30 +2052,34 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            runSpacing: 8,
+          const Text(
+            "2. 컷팅 지시서",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: textPrimary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    "2. 컷팅 지시서",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(width: 16),
-                  const Text(
+                  Text(
                     "같은 길이 합산",
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: Colors.grey,
+                      color: Colors.grey.shade700,
                     ),
                   ),
                   Switch(
                     value: _groupSameLengths,
                     activeThumbColor: makitaTeal,
                     onChanged: (val) {
+                      HapticFeedback.selectionClick();
                       setState(() => _groupSameLengths = val);
                       _saveDraftState();
                     },
@@ -2081,7 +2089,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               Container(
                 decoration: BoxDecoration(
                   color: whiteCard,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: makitaTeal),
                 ),
                 child: Row(
@@ -2090,6 +2098,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                     IconButton(
                       icon: const Icon(Icons.remove, color: makitaTeal),
                       onPressed: () {
+                        HapticFeedback.selectionClick();
                         setState(() {
                           if (_setMultiplier > 1) {
                             _setMultiplier--;
@@ -2109,6 +2118,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                     IconButton(
                       icon: const Icon(Icons.add, color: makitaTeal),
                       onPressed: () {
+                        HapticFeedback.selectionClick();
                         setState(() {
                           _setMultiplier++;
                           _saveDraftState();
@@ -2176,8 +2186,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             child: Container(
               decoration: BoxDecoration(
                 color: whiteCard,
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: CuttingColors.border),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: _buildCuttingListRenderer(),
             ),
@@ -2193,9 +2203,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                 : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: makitaTeal,
+              elevation: 0,
               minimumSize: const Size(double.infinity, 56),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
             ),
             child: Column(
@@ -2774,7 +2785,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         child: Text(
           hasError ? "간섭이 발생한 구간을 수정하세요." : "치수를 입력하세요.",
           style: TextStyle(
-            color: hasError ? Colors.red : Colors.grey,
+            color: hasError ? Colors.red : Colors.grey.shade600,
             fontWeight: FontWeight.bold,
           ),
         ),
