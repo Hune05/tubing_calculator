@@ -2161,8 +2161,12 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 🚀 [추가] 좁은 화면에서는 "메이커 고정" 라벨과 버튼 3개를 한 줄에
   // 욱여넣으면 넘칠 수 있어서, 좁을 땐 라벨을 위에, 버튼을 아래 줄로 뺀다.
   Widget _buildMakerHeader(bool isWide) {
+    // 🚀 [피팅 고도화] 국내 현장에서 많이 쓰는 DK-Lok을 추가했다(피팅
+    // 데이터도 db_seeder.dart에 DK-Lok 항목을 함께 시드해뒀다). 버튼이
+    // 3개에서 4개로 늘어난 만큼 글자가 넘치지 않게 폰트를 살짝 줄이고
+    // 말줄임을 넣었다.
     final makerButtons = Row(
-      children: ["Swagelok", "Parker", "Hy-Lok"].map((maker) {
+      children: ["Swagelok", "Parker", "Hy-Lok", "DK-Lok"].map((maker) {
         bool isSelected = _globalMaker == maker;
         return Expanded(
           child: GestureDetector(
@@ -2185,8 +2189,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               alignment: Alignment.center,
               child: Text(
                 maker,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.w900,
                   color: isSelected ? whiteCard : textPrimary,
                 ),
