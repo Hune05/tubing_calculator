@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart' show rootBundle, HapticFeedback;
 import 'dart:convert';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1557,16 +1557,16 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       }).toList(),
     );
 
-    const label = Row(
+    final label = Row(
       children: [
-        Icon(Icons.precision_manufacturing, size: 24, color: makitaTeal),
-        SizedBox(width: 8),
+        const Icon(Icons.precision_manufacturing, size: 24, color: makitaTeal),
+        const SizedBox(width: 8),
         Text(
           "메이커 고정",
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
-            color: Colors.grey,
+            color: Colors.grey.shade700,
           ),
         ),
       ],
@@ -1627,11 +1627,13 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         length: 3,
         child: Column(
           children: [
-            const TabBar(
+            TabBar(
               labelColor: makitaTeal,
-              unselectedLabelColor: Colors.grey,
+              unselectedLabelColor: Colors.grey.shade600,
+              labelStyle: const TextStyle(fontWeight: FontWeight.bold),
               indicatorColor: makitaTeal,
-              tabs: [
+              indicatorWeight: 3,
+              tabs: const [
                 Tab(text: "입력"),
                 Tab(text: "배치도"),
                 Tab(text: "결과"),
@@ -1653,32 +1655,85 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   }
 
   // 🚀 [추가] "배관 라인 구축" - 포인트 추가 버튼 + 드래그 정렬 리스트.
+  // 🚀 [입력 UI 고도화] 예전엔 제목·부제(괄호 설명)·템플릿 버튼·"포인트
+  // 추가" 버튼이 한 줄에 다 몰려 있어서, 화면이 좁으면 제목이 줄바꿈되며
+  // 버튼들과 균형이 깨졌다. 제목/부제를 세로로 분리해 위계를 주고,
+  // "포인트 추가"는 엄지로 누르기 쉬운 전체 폭 버튼으로 아래에 뒀다.
   Widget _buildPointListPane() {
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Expanded(
-                child: Text(
-                  "배관 라인 구축 (드래그로 순서 변경)",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "배관 라인 구축",
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      "카드를 길게 눌러 드래그하면 순서를 바꿀 수 있어요",
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
                 ),
               ),
-              IconButton(
-                tooltip: "라인 템플릿",
-                onPressed: _showTemplateSheet,
-                icon: const Icon(Icons.bookmark_outline, color: makitaDark),
-              ),
-              ElevatedButton.icon(
-                onPressed: _addPoint,
-                icon: const Icon(Icons.add, color: whiteCard, size: 18),
-                label: const Text("포인트 추가", style: TextStyle(color: whiteCard)),
-                style: ElevatedButton.styleFrom(backgroundColor: makitaDark),
+              const SizedBox(width: 8),
+              Tooltip(
+                message: "라인 템플릿",
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    _showTemplateSheet();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: makitaDark.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.bookmark_outline,
+                      color: makitaDark,
+                      size: 22,
+                    ),
+                  ),
+                ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                _addPoint();
+              },
+              icon: const Icon(Icons.add, color: whiteCard, size: 18),
+              label: const Text(
+                "포인트 추가",
+                style: TextStyle(color: whiteCard, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: makitaDark,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           Expanded(
@@ -1732,31 +1787,49 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     );
   }
 
-  // 🚀 [입력 고도화 4번] 구간 사이에 끼워넣기 버튼. 평소엔 얇은 점선처럼
-  // 존재감을 낮춰뒀다가, 눌렀을 때만 그 자리에 새 포인트가 생긴다.
+  // 🚀 [입력 UI 고도화] 예전엔 회색 글자 하나만 덩그러니 있어서 존재감이
+  // 너무 흐려 눈에 잘 안 띄었다. 좌우 구분선 사이에 놓인 알약(pill)
+  // 버튼 형태로 바꿔서, 잔잔하되 "여기 누르면 뭔가 생긴다"는 게 한눈에
+  // 보이게 했다.
   Widget _buildInsertHereButton(int insertIndex) {
-    return Center(
-      child: InkWell(
-        onTap: () => _insertPointAt(insertIndex),
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.add_circle_outline,
-                size: 16,
-                color: Colors.grey.shade400,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(child: Container(height: 1, color: Colors.grey.shade200)),
+          InkWell(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              _insertPointAt(insertIndex);
+            },
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: makitaTeal.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: makitaTeal.withValues(alpha: 0.3)),
               ),
-              const SizedBox(width: 4),
-              Text(
-                "여기에 구간 추가",
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.add_rounded, size: 14, color: makitaTeal),
+                  const SizedBox(width: 3),
+                  const Text(
+                    "구간 추가",
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: makitaTeal,
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+          Expanded(child: Container(height: 1, color: Colors.grey.shade200)),
+        ],
       ),
     );
   }
@@ -2193,34 +2266,58 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                   ),
                 ),
                 const Spacer(),
+                // 🚀 [입력 UI 고도화] 복제 아이콘은 배경 없이 흐릿하게,
+                // 삭제 아이콘은 진한 빨강으로 따로 놀아서 두 버튼의 무게가
+                // 안 맞았다. 같은 크기의 원형 배경 버튼으로 맞춰 균형을
+                // 잡았다.
                 Tooltip(
                   message: "이 구간 복제",
                   child: InkWell(
                     borderRadius: BorderRadius.circular(20),
-                    onTap: () => _duplicatePoint(index),
-                    child: const Padding(
-                      padding: EdgeInsets.all(6),
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      _duplicatePoint(index);
+                    },
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        shape: BoxShape.circle,
+                      ),
                       child: Icon(
                         Icons.copy_all_outlined,
-                        color: Colors.grey,
-                        size: 18,
+                        color: Colors.grey.shade600,
+                        size: 16,
                       ),
                     ),
                   ),
                 ),
-                if (_points.length > 2)
-                  InkWell(
-                    borderRadius: BorderRadius.circular(20),
-                    onTap: () => _removePoint(index),
-                    child: const Padding(
-                      padding: EdgeInsets.all(6),
-                      child: Icon(
-                        Icons.close_rounded,
-                        color: Colors.redAccent,
-                        size: 20,
+                if (_points.length > 2) ...[
+                  const SizedBox(width: 6),
+                  Tooltip(
+                    message: "이 구간 삭제",
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () => _removePoint(index),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: CuttingColors.dangerSoft,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          color: CuttingColors.danger,
+                          size: 18,
+                        ),
                       ),
                     ),
                   ),
+                ],
               ],
             ),
           ),
@@ -2250,7 +2347,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                           isNone ? "탭해서 부속 고르기" : item.name,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: isNone ? Colors.grey : textPrimary,
+                            color: isNone ? Colors.grey.shade600 : textPrimary,
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
@@ -2336,24 +2433,50 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     });
   }
 
-  Widget _buildStepChip(String label, double delta, int index) {
-    return InkWell(
-      onTap: () => _stepLength(index, delta),
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey.shade700,
+  // 🚀 [입력 UI 고도화] -10/-1/+1/+10을 하나의 알약 안에 이어붙인
+  // 세그먼트 스테퍼. 요즘 앱에서 자주 보이는 "연결된 버튼 그룹" 형태로,
+  // 낱개 칩보다 훨씬 정돈되어 보이고 터치 영역도 넉넉하다.
+  Widget _buildStepStepper(int index) {
+    Widget segment(String label, double delta, {bool isFirst = false}) {
+      return InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          _stepLength(index, delta);
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            border: isFirst
+                ? null
+                : Border(left: BorderSide(color: Colors.grey.shade300)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade700,
+            ),
           ),
         ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          segment("-10", -10, isFirst: true),
+          segment("-1", -1),
+          segment("+1", 1),
+          segment("+10", 10),
+        ],
       ),
     );
   }
@@ -2382,236 +2505,250 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         index > 0 && _points[index - 1].c2cController.text.trim().isNotEmpty;
     final bool isLastSegment = index == _points.length - 2;
 
+    // 🚀 [입력 UI 고도화] 세로 연결선을 고정 높이(70/90px)로 추측해서
+    // 넣었더니, 스테퍼/경고 문구가 늘어나며 내용이 길어질 때 선이 중간에
+    // 끊겨 보였다. IntrinsicHeight로 실제 내용 높이에 맞춰 항상 끝까지
+    // 이어지게 했다.
     return Padding(
       padding: const EdgeInsets.only(left: 48, top: 4, bottom: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 2,
-            height: isInterference ? 90 : 70,
-            color: Colors.grey.shade400,
-          ),
-          const SizedBox(width: 24),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _points[index].c2cController,
-                        focusNode: _points[index].c2cFocusNode,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        textInputAction: isLastSegment
-                            ? TextInputAction.done
-                            : TextInputAction.next,
-                        onSubmitted: (_) {
-                          if (!isLastSegment) {
-                            FocusScope.of(
-                              context,
-                            ).requestFocus(_points[index + 1].c2cFocusNode);
-                          } else {
-                            FocusScope.of(context).unfocus();
-                          }
-                        },
-                        onChanged: (_) => _calculate(),
-                        cursorColor: makitaTeal,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: textPrimary,
-                        ),
-                        decoration: InputDecoration(
-                          labelText: "전체 길이 (C to C / End to End)",
-                          labelStyle: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 13,
-                          ),
-                          filled: true,
-                          fillColor: isInterference
-                              ? Colors.red.shade50
-                              : whiteCard,
-                          suffixText: "mm",
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: isInterference
-                                  ? Colors.red
-                                  : Colors.grey.shade300,
-                              width: isInterference ? 2 : 1,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(width: 2, color: Colors.grey.shade300),
+            const SizedBox(width: 24),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 🚀 [입력 UI 고도화] 카메라 버튼이 Row 맨 위(start)에
+                  // 붙어서 라벨 있는 TextField보다 위쪽에 붕 떠 보였다.
+                  // IntrinsicHeight + stretch로 필드와 정확히 같은 높이를
+                  // 갖도록 맞춰서 하나의 입력 그룹처럼 보이게 했다.
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _points[index].c2cController,
+                            focusNode: _points[index].c2cFocusNode,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
                             ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: isInterference ? Colors.red : makitaTeal,
-                              width: 2,
+                            textInputAction: isLastSegment
+                                ? TextInputAction.done
+                                : TextInputAction.next,
+                            onSubmitted: (_) {
+                              if (!isLastSegment) {
+                                FocusScope.of(
+                                  context,
+                                ).requestFocus(_points[index + 1].c2cFocusNode);
+                              } else {
+                                FocusScope.of(context).unfocus();
+                              }
+                            },
+                            onChanged: (_) => _calculate(),
+                            cursorColor: makitaTeal,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: textPrimary,
                             ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Tooltip(
-                      message: "카메라로 치수 인식",
-                      child: InkWell(
-                        onTap: () => _scanLengthWithCamera(index),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.all(11),
-                          decoration: BoxDecoration(
-                            color: makitaTeal.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.camera_alt_outlined,
-                            color: makitaTeal,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    _buildStepChip("-10", -10, index),
-                    _buildStepChip("-1", -1, index),
-                    _buildStepChip("+1", 1, index),
-                    _buildStepChip("+10", 10, index),
-                    if (canCopyPrevious)
-                      InkWell(
-                        onTap: () {
-                          setState(() {
-                            _points[index].c2cController.text =
-                                _points[index - 1].c2cController.text;
-                            _calculate();
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(6),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 4,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.content_copy_rounded,
-                                size: 12,
-                                color: makitaTeal,
+                            decoration: InputDecoration(
+                              labelText: "전체 길이 (C to C / End to End)",
+                              labelStyle: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 13,
                               ),
-                              const SizedBox(width: 3),
-                              Text(
-                                "이전 구간과 동일",
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: makitaTeal,
+                              filled: true,
+                              fillColor: isInterference
+                                  ? Colors.red.shade50
+                                  : whiteCard,
+                              suffixText: "mm",
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade300,
                                 ),
                               ),
-                            ],
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
+                                  color: isInterference
+                                      ? Colors.red
+                                      : Colors.grey.shade300,
+                                  width: isInterference ? 2 : 1,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
+                                  color: isInterference
+                                      ? Colors.red
+                                      : makitaTeal,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        Tooltip(
+                          message: "카메라로 치수 인식",
+                          child: InkWell(
+                            onTap: () => _scanLengthWithCamera(index),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              width: 44,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: makitaTeal.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt_outlined,
+                                color: makitaTeal,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      // 🚀 [입력 UI 고도화] 낱개 칩 4개가 따로 떠 있어 간격이
+                      // 들쭉날쭉해 보였다. 하나로 이어붙인 세그먼트 스테퍼로
+                      // 바꿔서 정렬된 하나의 컨트롤처럼 보이게 했다.
+                      _buildStepStepper(index),
+                      if (canCopyPrevious)
+                        InkWell(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() {
+                              _points[index].c2cController.text =
+                                  _points[index - 1].c2cController.text;
+                              _calculate();
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(6),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 4,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.content_copy_rounded,
+                                  size: 12,
+                                  color: makitaTeal,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  "이전 구간과 동일",
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: makitaTeal,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (isInterference)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, left: 4),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.warning_rounded,
+                            color: Colors.red,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              "간섭 발생! 입력값이 양쪽 피팅 공제값의 합보다 작습니다.",
+                              style: TextStyle(
+                                color: Colors.red.shade700,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                  ],
-                ),
-                if (isInterference)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4, left: 4),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.warning_rounded,
-                          color: Colors.red,
-                          size: 14,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            "간섭 발생! 입력값이 양쪽 피팅 공제값의 합보다 작습니다.",
-                            style: TextStyle(
-                              color: Colors.red.shade700,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                    ),
+                  // 🚀 [입력 고도화 5번] 서로 다른 규격(OD)의 부속을 이어 붙인
+                  // 경우, 실수인지 확인할 수 있게 막지는 않고 알려만 준다.
+                  if (!isInterference && specMismatch)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, left: 4),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.warning_amber_rounded,
+                            color: CuttingColors.warning,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              "규격이 다른 부속끼리 연결됨: ${startItem.tubeOD} → ${endItem.tubeOD}",
+                              style: const TextStyle(
+                                color: CuttingColors.warning,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                // 🚀 [입력 고도화 5번] 서로 다른 규격(OD)의 부속을 이어 붙인
-                // 경우, 실수인지 확인할 수 있게 막지는 않고 알려만 준다.
-                if (!isInterference && specMismatch)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4, left: 4),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.warning_amber_rounded,
-                          color: CuttingColors.warning,
-                          size: 14,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            "규격이 다른 부속끼리 연결됨: ${startItem.tubeOD} → ${endItem.tubeOD}",
-                            style: const TextStyle(
-                              color: CuttingColors.warning,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                  if (!isInterference && !specMismatch && isSuspiciouslyShort)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, left: 4),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.warning_amber_rounded,
+                            color: CuttingColors.warning,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 4),
+                          const Expanded(
+                            child: Text(
+                              "절단 길이가 매우 짧습니다. 치수를 다시 확인해주세요.",
+                              style: TextStyle(
+                                color: CuttingColors.warning,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                if (!isInterference && !specMismatch && isSuspiciouslyShort)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4, left: 4),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.warning_amber_rounded,
-                          color: CuttingColors.warning,
-                          size: 14,
-                        ),
-                        const SizedBox(width: 4),
-                        const Expanded(
-                          child: Text(
-                            "절단 길이가 매우 짧습니다. 치수를 다시 확인해주세요.",
-                            style: TextStyle(
-                              color: CuttingColors.warning,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
