@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../data/models/cutting_project_model.dart';
 import '../../../data/models/fitting_item.dart';
@@ -15,6 +16,12 @@ import '../widgets/smart_fitting_selector_sheet.dart';
 import 'cutting_history_page.dart';
 import '../cutting_optimizer.dart';
 import '../cutting_theme.dart';
+import '../../inventory/pages/mobile_inventory_ocr.dart';
+
+// 🚀 [입력 고도화] 라인 템플릿(자주 쓰는 부속 구성)을 저장하는 컬렉션.
+// 프로젝트와 무관하게 공유되는 참고 데이터라 fittings 컬렉션과 같은
+// 성격으로, 이 화면에서 바로 Firestore를 쓴다.
+const String kCuttingLineTemplatesCollection = 'cutting_line_templates';
 
 // 🚀 [UI 고도화] 이 화면만 미묘하게 다른 검정(0xFF1A1A1A)을 따로 쓰고
 // 있어서, 목록/기록 화면의 텍스트 색(CuttingColors.textPrimary)과 놓고
@@ -30,13 +37,19 @@ class CutPoint {
   final String id = UniqueKey().toString();
   FittingItem fitting;
   TextEditingController c2cController;
+  // 🚀 [입력 고도화] 길이 입력 후 엔터/완료를 누르면 다음 구간의 길이
+  // 필드로 자동으로 넘어가도록 포커스 체인을 걸기 위한 노드.
+  final FocusNode c2cFocusNode = FocusNode();
   double calculatedCut;
 
   CutPoint({required this.fitting})
     : c2cController = TextEditingController(),
       calculatedCut = 0.0;
 
-  void dispose() => c2cController.dispose();
+  void dispose() {
+    c2cController.dispose();
+    c2cFocusNode.dispose();
+  }
 }
 
 class CuttingMainScreen extends StatefulWidget {
@@ -692,6 +705,30 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     });
   }
 
+  // 🚀 [입력 고도화 4번] 예전엔 "포인트 추가"가 항상 맨 끝에만 붙어서,
+  // 중간에 구간을 하나 끼워넣으려면 그 뒤 구간들을 전부 다시 만들어야
+  // 했다. 카드 사이의 "여기에 추가" 버튼으로 원하는 위치에 바로
+  // 끼워넣을 수 있게 한다.
+  void _insertPointAt(int index) {
+    setState(() {
+      _points.insert(index, CutPoint(fitting: SmartFittingDB.getById("none")));
+      _calculate();
+    });
+  }
+
+  // 🚀 [입력 고도화 4번] 같은 부속·같은 길이의 구간이 반복되는 경우
+  // (예: 동일 규격 지지대 여러 개)가 흔해서, 바로 다음 자리에 복제해
+  // 넣고 필요하면 길이만 살짝 바꿔 쓸 수 있게 한다.
+  void _duplicatePoint(int index) {
+    setState(() {
+      final source = _points[index];
+      final copy = CutPoint(fitting: source.fitting);
+      copy.c2cController.text = source.c2cController.text;
+      _points.insert(index + 1, copy);
+      _calculate();
+    });
+  }
+
   void _removePoint(int index) {
     if (_points.length <= 2) return;
     setState(() {
@@ -699,6 +736,344 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       _points.removeAt(index);
       _calculate();
     });
+  }
+
+  // 🚀 [입력 고도화 2번] 줄자를 눈으로 읽어 손으로 입력하는 대신, 카메라로
+  // 찍으면 인벤토리 라벨 스캔에 이미 쓰던 OCR(OcrService)로 숫자를 읽어
+  // 길이 필드에 바로 채워준다. 인식된 텍스트에서 첫 번째 숫자만 뽑는다.
+  Future<void> _scanLengthWithCamera(int index) async {
+    final text = await OcrService.scanLabelText(context);
+    if (text == null || !mounted) return;
+
+    final match = RegExp(r'\d+(\.\d+)?').firstMatch(text.replaceAll(',', ''));
+    if (match == null) {
+      showCuttingSnack(context, "숫자를 인식하지 못했습니다. 다시 촬영해주세요.", isError: true);
+      return;
+    }
+
+    setState(() {
+      _points[index].c2cController.text = match.group(0)!;
+      _calculate();
+    });
+  }
+
+  // 🚀 [입력 고도화 6번] 자주 쓰는 부속 구성(라인)을 저장해뒀다가 다른
+  // 작업에서 바로 불러와 쓰는 기능. 프로젝트에 종속되지 않는 공용
+  // 데이터라 fittings 컬렉션처럼 별도 Firestore 컬렉션에 저장한다.
+  List<Map<String, dynamic>> _serializePointsForTemplate() {
+    return _points.map((p) {
+      return {
+        'fittingId': p.fitting.id,
+        'c2c': p.c2cController.text,
+        'isCustom': p.fitting.category == 'CUSTOM',
+        'customName': p.fitting.name,
+        'customDed': p.fitting.deduction,
+        'customOD': p.fitting.tubeOD,
+      };
+    }).toList();
+  }
+
+  Future<void> _promptSaveTemplate() async {
+    final nameCtrl = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: whiteCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            cuttingDialogIcon(Icons.bookmark_add_outlined),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Text(
+                "템플릿으로 저장",
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: textPrimary,
+                  fontSize: 17,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: TextField(
+          controller: nameCtrl,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: "템플릿 이름 (예: 3단 선반 다리)",
+            filled: true,
+            fillColor: Colors.grey.shade100,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide.none,
+            ),
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("취소", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: makitaTeal),
+            onPressed: () => Navigator.pop(ctx, nameCtrl.text.trim()),
+            child: const Text("저장", style: TextStyle(color: whiteCard)),
+          ),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty) return;
+
+    await FirebaseFirestore.instance
+        .collection(kCuttingLineTemplatesCollection)
+        .add({
+          'name': name,
+          'createdAt': DateTime.now().toIso8601String(),
+          'points': _serializePointsForTemplate(),
+        });
+    if (mounted) showCuttingSnack(context, "'$name' 템플릿으로 저장했습니다.");
+  }
+
+  Future<void> _applyTemplateData(
+    BuildContext sheetContext,
+    Map<String, dynamic> data,
+  ) async {
+    final pointsData = (data['points'] as List?) ?? [];
+    if (pointsData.isEmpty) return;
+
+    final bool hasExistingInput = _points.any(
+      (p) => p.fitting.id != 'none' || p.c2cController.text.isNotEmpty,
+    );
+    if (hasExistingInput) {
+      final confirmed = await showCuttingConfirmDialog(
+        context,
+        title: "템플릿 불러오기",
+        message: "현재 입력 중인 라인 구성이 템플릿 내용으로 바뀝니다. 계속할까요?",
+        confirmLabel: "불러오기",
+        icon: Icons.download_outlined,
+      );
+      if (!confirmed) return;
+    }
+
+    setState(() {
+      for (var p in _points) {
+        p.dispose();
+      }
+      _points = pointsData.map((pData) {
+        final m = pData as Map;
+        CutPoint p = CutPoint(fitting: SmartFittingDB.getById("none"));
+        if (m['isCustom'] == true) {
+          p.fitting = FittingItem(
+            id: m['fittingId'] ?? "custom",
+            category: "CUSTOM",
+            name: m['customName'] ?? "커스텀 부속",
+            tubeOD: m['customOD'] ?? "미지정",
+            maker: "CUSTOM",
+            deduction: (m['customDed'] as num?)?.toDouble() ?? 0.0,
+            icon: Icons.extension,
+          );
+        } else {
+          p.fitting = SmartFittingDB.getById(m['fittingId'] ?? "none");
+        }
+        p.c2cController.text = m['c2c'] ?? "";
+        return p;
+      }).toList();
+    });
+    _calculate();
+    if (sheetContext.mounted) Navigator.pop(sheetContext);
+    if (mounted) showCuttingSnack(context, "템플릿을 불러왔습니다.");
+  }
+
+  Future<void> _deleteTemplate(String docId) async {
+    final confirmed = await showCuttingConfirmDialog(
+      context,
+      title: "템플릿 삭제",
+      message: "이 템플릿을 삭제할까요? 되돌릴 수 없습니다.",
+      confirmLabel: "삭제",
+      danger: true,
+      icon: Icons.delete_outline_rounded,
+    );
+    if (confirmed) {
+      await FirebaseFirestore.instance
+          .collection(kCuttingLineTemplatesCollection)
+          .doc(docId)
+          .delete();
+    }
+  }
+
+  void _showTemplateSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.4,
+        maxChildSize: 0.92,
+        expand: false,
+        builder: (ctx, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: whiteCard,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        "라인 템플릿",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: textPrimary,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.grey),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      await _promptSaveTemplate();
+                    },
+                    icon: const Icon(
+                      Icons.bookmark_add_outlined,
+                      color: makitaTeal,
+                    ),
+                    label: const Text(
+                      "현재 구성을 템플릿으로 저장",
+                      style: TextStyle(
+                        color: makitaTeal,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: makitaTeal),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    "저장된 템플릿",
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection(kCuttingLineTemplatesCollection)
+                      .orderBy('createdAt', descending: true)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: makitaTeal),
+                      );
+                    }
+                    final docs = snapshot.data!.docs;
+                    if (docs.isEmpty) {
+                      return const Center(
+                        child: Text(
+                          "저장된 템플릿이 없습니다.",
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      );
+                    }
+                    return ListView.separated(
+                      controller: scrollController,
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                      itemCount: docs.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, i) {
+                        final doc = docs[i];
+                        final data = doc.data() as Map<String, dynamic>;
+                        final name = (data['name'] as String?) ?? "이름 없음";
+                        final count = (data['points'] as List?)?.length ?? 0;
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: lightBg,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.view_list_outlined,
+                                color: makitaTeal,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: textPrimary,
+                                      ),
+                                    ),
+                                    Text(
+                                      "포인트 $count개",
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => _applyTemplateData(ctx, data),
+                                child: const Text("불러오기"),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  color: CuttingColors.danger,
+                                  size: 20,
+                                ),
+                                onPressed: () => _deleteTemplate(doc.id),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _openFittingSelector(int index) async {
@@ -1292,6 +1667,11 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
+              IconButton(
+                tooltip: "라인 템플릿",
+                onPressed: _showTemplateSheet,
+                icon: const Icon(Icons.bookmark_outline, color: makitaDark),
+              ),
               ElevatedButton.icon(
                 onPressed: _addPoint,
                 icon: const Icon(Icons.add, color: whiteCard, size: 18),
@@ -1337,8 +1717,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                   child: Column(
                     children: [
                       _buildFittingCard(index),
-                      if (index < _points.length - 1)
+                      if (index < _points.length - 1) ...[
                         _buildLengthInputCard(index),
+                        _buildInsertHereButton(index + 1),
+                      ],
                     ],
                   ),
                 );
@@ -1346,6 +1728,35 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // 🚀 [입력 고도화 4번] 구간 사이에 끼워넣기 버튼. 평소엔 얇은 점선처럼
+  // 존재감을 낮춰뒀다가, 눌렀을 때만 그 자리에 새 포인트가 생긴다.
+  Widget _buildInsertHereButton(int insertIndex) {
+    return Center(
+      child: InkWell(
+        onTap: () => _insertPointAt(insertIndex),
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.add_circle_outline,
+                size: 16,
+                color: Colors.grey.shade400,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                "여기에 구간 추가",
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1782,6 +2193,21 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                   ),
                 ),
                 const Spacer(),
+                Tooltip(
+                  message: "이 구간 복제",
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () => _duplicatePoint(index),
+                    child: const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: Icon(
+                        Icons.copy_all_outlined,
+                        color: Colors.grey,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ),
                 if (_points.length > 2)
                   InkWell(
                     borderRadius: BorderRadius.circular(20),
@@ -1896,17 +2322,74 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     );
   }
 
+  // 🚀 [입력 고도화 1·5번] 길이 입력 한 칸 - 카메라 인식 버튼, ±1/±10mm
+  // 스텝 버튼, "이전 구간과 동일" 복사, 엔터로 다음 칸 자동 이동, 규격
+  // 불일치/짧은 절단 길이 주의 안내를 한데 모았다.
+  void _stepLength(int index, double delta) {
+    final current = double.tryParse(_points[index].c2cController.text) ?? 0.0;
+    final next = (current + delta).clamp(0.0, double.infinity);
+    setState(() {
+      _points[index].c2cController.text = next == next.roundToDouble()
+          ? next.toStringAsFixed(0)
+          : next.toStringAsFixed(1);
+      _calculate();
+    });
+  }
+
+  Widget _buildStepChip(String label, double delta, int index) {
+    return InkWell(
+      onTap: () => _stepLength(index, delta),
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey.shade700,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildLengthInputCard(int index) {
     bool hasInput = _points[index].c2cController.text.trim().isNotEmpty;
     bool isInterference = hasInput && _points[index].calculatedCut < 0;
+    bool isSuspiciouslyShort =
+        hasInput &&
+        !isInterference &&
+        _points[index].calculatedCut > 0 &&
+        _points[index].calculatedCut < 5;
+
+    final startItem = _points[index].fitting;
+    final endItem = _points[index + 1].fitting;
+    final bool specMismatch =
+        startItem.id != "none" &&
+        endItem.id != "none" &&
+        startItem.tubeOD.isNotEmpty &&
+        endItem.tubeOD.isNotEmpty &&
+        startItem.tubeOD != "미지정" &&
+        endItem.tubeOD != "미지정" &&
+        startItem.tubeOD != endItem.tubeOD;
+
+    final bool canCopyPrevious =
+        index > 0 && _points[index - 1].c2cController.text.trim().isNotEmpty;
+    final bool isLastSegment = index == _points.length - 2;
 
     return Padding(
       padding: const EdgeInsets.only(left: 48, top: 4, bottom: 4),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 2,
-            height: isInterference ? 70 : 50,
+            height: isInterference ? 90 : 70,
             color: Colors.grey.shade400,
           ),
           const SizedBox(width: 24),
@@ -1914,52 +2397,142 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextField(
-                  controller: _points[index].c2cController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  onChanged: (_) => _calculate(),
-                  cursorColor: makitaTeal,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: textPrimary,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: "전체 길이 (C to C / End to End)",
-                    labelStyle: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 13,
-                    ),
-                    filled: true,
-                    fillColor: isInterference ? Colors.red.shade50 : whiteCard,
-                    suffixText: "mm",
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: isInterference
-                            ? Colors.red
-                            : Colors.grey.shade300,
-                        width: isInterference ? 2 : 1,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _points[index].c2cController,
+                        focusNode: _points[index].c2cFocusNode,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        textInputAction: isLastSegment
+                            ? TextInputAction.done
+                            : TextInputAction.next,
+                        onSubmitted: (_) {
+                          if (!isLastSegment) {
+                            FocusScope.of(
+                              context,
+                            ).requestFocus(_points[index + 1].c2cFocusNode);
+                          } else {
+                            FocusScope.of(context).unfocus();
+                          }
+                        },
+                        onChanged: (_) => _calculate(),
+                        cursorColor: makitaTeal,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: textPrimary,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: "전체 길이 (C to C / End to End)",
+                          labelStyle: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 13,
+                          ),
+                          filled: true,
+                          fillColor: isInterference
+                              ? Colors.red.shade50
+                              : whiteCard,
+                          suffixText: "mm",
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: isInterference
+                                  ? Colors.red
+                                  : Colors.grey.shade300,
+                              width: isInterference ? 2 : 1,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: isInterference ? Colors.red : makitaTeal,
+                              width: 2,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: isInterference ? Colors.red : makitaTeal,
-                        width: 2,
+                    const SizedBox(width: 8),
+                    Tooltip(
+                      message: "카메라로 치수 인식",
+                      child: InkWell(
+                        onTap: () => _scanLengthWithCamera(index),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.all(11),
+                          decoration: BoxDecoration(
+                            color: makitaTeal.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt_outlined,
+                            color: makitaTeal,
+                            size: 20,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _buildStepChip("-10", -10, index),
+                    _buildStepChip("-1", -1, index),
+                    _buildStepChip("+1", 1, index),
+                    _buildStepChip("+10", 10, index),
+                    if (canCopyPrevious)
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            _points[index].c2cController.text =
+                                _points[index - 1].c2cController.text;
+                            _calculate();
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(6),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 4,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.content_copy_rounded,
+                                size: 12,
+                                color: makitaTeal,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                "이전 구간과 동일",
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: makitaTeal,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 if (isInterference)
                   Padding(
@@ -1972,12 +2545,64 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                           size: 14,
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          "간섭 발생! 입력값이 양쪽 피팅 공제값의 합보다 작습니다.",
-                          style: TextStyle(
-                            color: Colors.red.shade700,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                        Expanded(
+                          child: Text(
+                            "간섭 발생! 입력값이 양쪽 피팅 공제값의 합보다 작습니다.",
+                            style: TextStyle(
+                              color: Colors.red.shade700,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                // 🚀 [입력 고도화 5번] 서로 다른 규격(OD)의 부속을 이어 붙인
+                // 경우, 실수인지 확인할 수 있게 막지는 않고 알려만 준다.
+                if (!isInterference && specMismatch)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, left: 4),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.warning_amber_rounded,
+                          color: CuttingColors.warning,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            "규격이 다른 부속끼리 연결됨: ${startItem.tubeOD} → ${endItem.tubeOD}",
+                            style: const TextStyle(
+                              color: CuttingColors.warning,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (!isInterference && !specMismatch && isSuspiciouslyShort)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, left: 4),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.warning_amber_rounded,
+                          color: CuttingColors.warning,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        const Expanded(
+                          child: Text(
+                            "절단 길이가 매우 짧습니다. 치수를 다시 확인해주세요.",
+                            style: TextStyle(
+                              color: CuttingColors.warning,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],

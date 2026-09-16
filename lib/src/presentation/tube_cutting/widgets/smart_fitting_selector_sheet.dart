@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../data/models/fitting_item.dart';
 import '../cutting_theme.dart';
 
@@ -13,6 +15,8 @@ const Color textDark = CuttingColors.textPrimary;
 // 검색창 하나로 이름/분류를 바로 찾고, 분류는 평평한 칩 한 줄로 눌러서
 // 바로 필터링되게 단순화했다. 검색어가 있으면 칩 필터는 무시하고
 // 이름/분류 전체에서 찾는다.
+// 🚀 [입력 고도화 3번] 매번 규격/분류를 다시 뒤지지 않도록 "즐겨찾기"와
+// "최근 사용"을 기기에 저장해두고 목록 맨 위에서 바로 고를 수 있게 했다.
 class SmartFittingSelectorSheet extends StatefulWidget {
   final String maker;
 
@@ -37,6 +41,12 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
   String selectedCategory = "전체";
   String _searchQuery = "";
   final TextEditingController _searchController = TextEditingController();
+
+  static const String _kFavoritesKey = 'cutting_favorite_fittings_v1';
+  static const String _kRecentsKey = 'cutting_recent_fittings_v1';
+  static const int _kMaxRecents = 8;
+  List<FittingItem> _favorites = [];
+  List<FittingItem> _recents = [];
 
   final List<String> allSizes = [
     "1/4",
@@ -85,9 +95,96 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
   };
 
   @override
+  void initState() {
+    super.initState();
+    _loadExtras();
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Map<String, dynamic> _fittingToJson(FittingItem item) => {
+    'id': item.id,
+    'maker': item.maker,
+    'tubeOD': item.tubeOD,
+    'category': item.category,
+    'name': item.name,
+    'deduction': item.deduction,
+  };
+
+  FittingItem _fittingFromJson(Map<String, dynamic> m) => FittingItem(
+    id: m['id'] ?? 'unknown',
+    maker: m['maker'] ?? '',
+    tubeOD: m['tubeOD'] ?? '',
+    category: m['category'] ?? '',
+    name: m['name'] ?? '',
+    deduction: (m['deduction'] as num?)?.toDouble() ?? 0.0,
+    icon: Icons.settings,
+  );
+
+  String _fittingKey(FittingItem item) =>
+      "${item.maker}|${item.tubeOD}|${item.category}|${item.name}";
+
+  Future<void> _loadExtras() async {
+    final prefs = await SharedPreferences.getInstance();
+    final favStr = prefs.getString(_kFavoritesKey);
+    final recStr = prefs.getString(_kRecentsKey);
+    if (!mounted) return;
+    setState(() {
+      if (favStr != null) {
+        _favorites = (jsonDecode(favStr) as List)
+            .map((e) => _fittingFromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      if (recStr != null) {
+        _recents = (jsonDecode(recStr) as List)
+            .map((e) => _fittingFromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    });
+  }
+
+  Future<void> _saveFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _kFavoritesKey,
+      jsonEncode(_favorites.map(_fittingToJson).toList()),
+    );
+  }
+
+  Future<void> _saveRecents() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _kRecentsKey,
+      jsonEncode(_recents.map(_fittingToJson).toList()),
+    );
+  }
+
+  bool _isFavorite(FittingItem item) =>
+      _favorites.any((f) => _fittingKey(f) == _fittingKey(item));
+
+  void _toggleFavorite(FittingItem item) {
+    setState(() {
+      if (_isFavorite(item)) {
+        _favorites.removeWhere((f) => _fittingKey(f) == _fittingKey(item));
+      } else {
+        _favorites.insert(0, item);
+      }
+    });
+    _saveFavorites();
+  }
+
+  void _recordRecentAndPop(FittingItem item) {
+    _recents.removeWhere((f) => _fittingKey(f) == _fittingKey(item));
+    _recents.insert(0, item);
+    if (_recents.length > _kMaxRecents) {
+      _recents = _recents.sublist(0, _kMaxRecents);
+    }
+    _saveRecents();
+    Navigator.of(context).pop(item);
   }
 
   Widget _buildCategoryBadge(String category) {
@@ -164,6 +261,125 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
           ),
         ),
       ),
+    );
+  }
+
+  // 🚀 즐겨찾기/최근 사용 칩 - 목록을 훑을 필요 없이 눌러서 바로 확정한다.
+  Widget _buildQuickPickChip(FittingItem item, {required bool isFavorite}) {
+    final Color accent = isFavorite ? CuttingColors.warning : makitaTeal;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => _recordRecentAndPop(item),
+        child: Container(
+          width: 128,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: accent.withValues(alpha: 0.35)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                item.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: textDark,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                "${item.tubeOD} · -${item.deduction}mm",
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickPickSection() {
+    final favs = _favorites.where((f) => f.maker == widget.maker).toList();
+    final recents = _recents.where((f) => f.maker == widget.maker).toList();
+    if (_searchQuery.isNotEmpty || (favs.isEmpty && recents.isEmpty)) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (favs.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.only(left: 24, right: 24, bottom: 8),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.star_rounded,
+                  size: 14,
+                  color: CuttingColors.warning,
+                ),
+                SizedBox(width: 4),
+                Text(
+                  "즐겨찾기",
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 56,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              children: favs
+                  .map((f) => _buildQuickPickChip(f, isFavorite: true))
+                  .toList(),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (recents.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.only(left: 24, right: 24, bottom: 8),
+            child: Row(
+              children: [
+                Icon(Icons.history_rounded, size: 14, color: Colors.grey),
+                SizedBox(width: 4),
+                Text(
+                  "최근 사용",
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 56,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              children: recents
+                  .map((f) => _buildQuickPickChip(f, isFavorite: false))
+                  .toList(),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+      ],
     );
   }
 
@@ -259,6 +475,8 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
             ),
             const SizedBox(height: 16),
 
+            _buildQuickPickSection(),
+
             const Padding(
               padding: EdgeInsets.only(left: 24, right: 24, bottom: 8),
               child: Text(
@@ -323,10 +541,27 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                     );
                   }
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return const Center(
-                      child: Text(
-                        "이 규격에 등록된 부속 데이터가 없습니다.",
-                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.search_off_rounded,
+                              size: 40,
+                              color: Colors.grey.shade300,
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              "이 규격에 등록된 부속 데이터가 없습니다.",
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   }
@@ -351,28 +586,45 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
 
                   if (filteredDocs.isEmpty) {
                     return Center(
-                      child: Text(
-                        _searchQuery.isNotEmpty
-                            ? "'$_searchQuery' 검색 결과가 없습니다."
-                            : "선택한 분류에 해당하는 부속이 없습니다.",
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey,
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.search_off_rounded,
+                              size: 40,
+                              color: Colors.grey.shade300,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _searchQuery.isNotEmpty
+                                  ? "'$_searchQuery' 검색 결과가 없습니다."
+                                  : "선택한 분류에 해당하는 부속이 없습니다.",
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     );
                   }
 
-                  return ListView.separated(
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     itemCount: filteredDocs.length,
-                    separatorBuilder: (context, index) =>
-                        const Divider(height: 1),
                     itemBuilder: (context, index) {
-                      var data =
-                          filteredDocs[index].data() as Map<String, dynamic>;
+                      final doc = filteredDocs[index];
+                      var data = doc.data() as Map<String, dynamic>;
+                      final rawId = data['id'] as String?;
 
                       FittingItem item = FittingItem(
-                        id: data['id'] ?? 'unknown',
+                        id: (rawId != null && rawId.isNotEmpty)
+                            ? rawId
+                            : doc.id,
                         tubeOD: data['tubeOD'] ?? '',
                         category: data['category'] ?? '',
                         name: data['displayName'] ?? data['name'] ?? '',
@@ -381,40 +633,56 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                             (data['deduction'] as num?)?.toDouble() ?? 0.0,
                         icon: Icons.settings,
                       );
+                      final bool fav = _isFavorite(item);
 
-                      return ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 8,
+                      return Container(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 4,
                         ),
-                        leading: _buildCategoryBadge(item.category),
-                        title: Text(
-                          item.name,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            color: textDark,
+                        decoration: BoxDecoration(
+                          color: pureWhite,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.only(
+                            left: 16,
+                            right: 8,
+                            top: 4,
+                            bottom: 4,
                           ),
-                        ),
-                        subtitle: Text(
-                          "${item.maker} | ${item.tubeOD}",
-                          style: const TextStyle(
-                            color: Colors.grey,
-                            fontWeight: FontWeight.bold,
+                          leading: _buildCategoryBadge(item.category),
+                          title: Text(
+                            item.name,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: textDark,
+                            ),
                           ),
-                        ),
-                        trailing: Text(
-                          "- ${item.deduction} mm",
-                          style: const TextStyle(
-                            color: Colors.redAccent,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
+                          subtitle: Text(
+                            "${item.maker} | ${item.tubeOD}  ·  -${item.deduction}mm",
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
                           ),
+                          trailing: IconButton(
+                            icon: Icon(
+                              fav
+                                  ? Icons.star_rounded
+                                  : Icons.star_border_rounded,
+                              color: fav
+                                  ? CuttingColors.warning
+                                  : Colors.grey.shade400,
+                            ),
+                            onPressed: () => _toggleFavorite(item),
+                          ),
+                          onTap: () => _recordRecentAndPop(item),
                         ),
-                        onTap: () {
-                          Navigator.of(context).pop(item);
-                        },
                       );
                     },
                   );
