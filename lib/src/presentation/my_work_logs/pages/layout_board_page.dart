@@ -40,10 +40,13 @@ const Color diagonalDimColor = Color(0xFF8B5CF6);
 // 쓰는 정렬 가이드 색).
 const Color alignGuideColor = Color(0xFFFF3D9A);
 
-// 🚀 [신규] 작은 모듈도 손가락으로 쉽게 잡을 수 있도록, 실제 시각적
-// 크기보다 살짝 넓게 터치/드래그 영역을 잡아준다(패딩은 투명이라
-// 화면에는 보이지 않음).
-const double _kTouchHitPad = 6.0;
+// 🚀 [버그 수정] 작은 모듈을 잡기 쉽게 하려고 터치 영역을 시각적
+// 크기보다 넓혔었는데, 모듈끼리 붙여놓는 게 정상적인 사용 방식이라
+// 보이지 않는 여유 영역끼리 자주 겹쳤다. 그러면 화면에 보이는 모듈을
+// 잡으려 해도 실제로는 겹친 여유 영역을 가진 "다른" 모듈이 반응해서
+// 엉뚱한 모듈이 따라 붙는 것처럼 보이는 문제가 있었다. 정확한 판정을
+// 위해 여유 영역을 없앴다.
+const double _kTouchHitPad = 0.0;
 
 // ---------------------------------------------------------
 // 1. 데이터 모델
@@ -4773,18 +4776,45 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                                                 item,
                                                                 gridSnapped,
                                                               );
-                                                          // 🚀 [버그 수정] 다른
-                                                          // 모듈과 겹치는 자리로는
-                                                          // 이동을 허용하지 않는다
-                                                          // (물리적으로 실제
-                                                          // 모듈이라 같은 자리를
-                                                          // 차지할 수 없다).
+                                                          // 🚀 [버그 수정] 겹치는
+                                                          // 자리로는 이동을 막되,
+                                                          // X/Y 두 방향을 한 번에
+                                                          // 검사해서 하나라도
+                                                          // 겹치면 이동을 통째로
+                                                          // 취소했더니, 다른
+                                                          // 모듈에 대각선으로
+                                                          // 다가갈 때 그 자리에서
+                                                          // 완전히 "붙어서" 멈춰
+                                                          // 버리는 것처럼 느껴졌다.
+                                                          // 이제 X축과 Y축을
+                                                          // 각각 따로 검사해서,
+                                                          // 한쪽이 막혀도 다른
+                                                          // 쪽으로는 벽을 따라
+                                                          // 미끄러지듯 계속
+                                                          // 움직일 수 있게 한다.
+                                                          final Offset
+                                                          xOnly = Offset(
+                                                            aligned.dx,
+                                                            item.position.dy,
+                                                          );
                                                           if (!_overlapsAny(
                                                             item,
-                                                            aligned,
+                                                            xOnly,
                                                           )) {
                                                             item.position =
-                                                                aligned;
+                                                                xOnly;
+                                                          }
+                                                          final Offset
+                                                          yOnly = Offset(
+                                                            item.position.dx,
+                                                            aligned.dy,
+                                                          );
+                                                          if (!_overlapsAny(
+                                                            item,
+                                                            yOnly,
+                                                          )) {
+                                                            item.position =
+                                                                yOnly;
                                                           }
                                                         }
                                                       });

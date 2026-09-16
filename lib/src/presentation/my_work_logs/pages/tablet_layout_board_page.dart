@@ -32,9 +32,9 @@ const Color alignGuideColor = Color(0xFFFF3D9A);
 // 🚀 [신규] 대각선 치수 색상(모바일과 동일).
 const Color diagonalDimColor = Color(0xFF8B5CF6);
 const Color guideColor = tossBlue;
-// 🚀 [신규] 작은 모듈도 쉽게 잡을 수 있도록 넓혀주는 터치 영역(모바일과
-// 동일).
-const double _kTouchHitPad = 6.0;
+// 🚀 [버그 수정] 모듈끼리 붙여놓으면 보이지 않는 여유 터치 영역끼리
+// 겹쳐서 엉뚱한 모듈이 반응하는 문제가 있어 없앴다(모바일과 동일).
+const double _kTouchHitPad = 0.0;
 
 // ---------------------------------------------------------
 // 1. 데이터 모델
@@ -4469,14 +4469,38 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                                                             item,
                                                             gridSnapped,
                                                           );
-                                                      // 🚀 [버그 수정] 다른
-                                                      // 모듈과 겹치는 자리로는
-                                                      // 이동을 허용하지 않는다.
+                                                      // 🚀 [버그 수정] X/Y를
+                                                      // 한 번에 검사해서 겹치면
+                                                      // 이동을 통째로 취소했더니
+                                                      // 대각선으로 다가갈 때
+                                                      // 그 자리에 완전히 붙어서
+                                                      // 멈추는 것처럼 느껴졌다.
+                                                      // 두 축을 각각 따로
+                                                      // 검사해서 한쪽이 막혀도
+                                                      // 다른 쪽으로는 벽을 따라
+                                                      // 미끄러지듯 움직이게
+                                                      // 한다(모바일과 동일).
+                                                      final Offset xOnly =
+                                                          Offset(
+                                                            aligned.dx,
+                                                            item.position.dy,
+                                                          );
                                                       if (!_overlapsAny(
                                                         item,
-                                                        aligned,
+                                                        xOnly,
                                                       )) {
-                                                        item.position = aligned;
+                                                        item.position = xOnly;
+                                                      }
+                                                      final Offset yOnly =
+                                                          Offset(
+                                                            item.position.dx,
+                                                            aligned.dy,
+                                                          );
+                                                      if (!_overlapsAny(
+                                                        item,
+                                                        yOnly,
+                                                      )) {
+                                                        item.position = yOnly;
                                                       }
                                                     }
                                                   });
