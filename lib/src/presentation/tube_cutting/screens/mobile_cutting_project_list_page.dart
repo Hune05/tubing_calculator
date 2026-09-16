@@ -7,6 +7,7 @@ import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_history_page.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_firestore_helper.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_theme.dart';
+import 'package:tubing_calculator/src/core/utils/db_seeder.dart';
 
 // 🚀 [신규] 컷팅 계산기용 프로젝트 목록 - 모바일 전용, Firestore 기반.
 // 예전엔 (1) 데스크톱 ProjectManagementPage 안에서만 열 수 있었고 데이터도
@@ -321,6 +322,47 @@ class MobileCuttingProjectListPage extends StatelessWidget {
     );
   }
 
+  // 🚀 [피팅 고도화] 데스크톱 스플래시 화면에만 있던 "DB 초기화" 개발자용
+  // 버튼이 폰(모바일 로딩 화면 - 자동 로그인 후 바로 통과)에서는 아예
+  // 뜨지 않아서, 새 부속 카탈로그(DK-Lok/나사산/규격쌍 리듀서)를 서버에
+  // 반영할 방법이 없었다. 컷팅 계산기 목록 화면 AppBar에 눈에 띄지 않는
+  // 아이콘으로 같은 기능을 추가해서, 항상 손닿는 곳에서 실행할 수 있게
+  // 했다.
+  Future<void> _reseedFittingCatalog(BuildContext context) async {
+    final confirmed = await showCuttingConfirmDialog(
+      context,
+      title: "부속 DB 새로고침",
+      message:
+          "부속 카탈로그를 최신 버전(DK-Lok 브랜드, 나사산 구분, 규격쌍 리듀서 포함)으로 다시 만듭니다. "
+          "기존 부속 데이터는 전부 지워지고 새로 올라갑니다(현장에서 직접 입력한 커스텀 부속은 영향 없음). 계속할까요?",
+      confirmLabel: "새로고침",
+      icon: Icons.cloud_sync_outlined,
+    );
+    if (!confirmed) return;
+
+    if (!context.mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(
+        child: CircularProgressIndicator(color: CuttingColors.primary),
+      ),
+    );
+
+    try {
+      await SmartFittingDBSeeder.uploadInitialData();
+      if (context.mounted) Navigator.pop(context);
+      if (context.mounted) {
+        showCuttingSnack(context, "부속 DB를 최신 카탈로그로 새로고침했습니다.");
+      }
+    } catch (e) {
+      if (context.mounted) Navigator.pop(context);
+      if (context.mounted) {
+        showCuttingSnack(context, "새로고침 실패: $e", isError: true);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -340,6 +382,16 @@ class MobileCuttingProjectListPage extends StatelessWidget {
           ),
         ),
         iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
+        actions: [
+          IconButton(
+            tooltip: "부속 DB 새로고침 (개발자용)",
+            icon: Icon(
+              Icons.cloud_sync_outlined,
+              color: CuttingColors.textSecondary,
+            ),
+            onPressed: () => _reseedFittingCatalog(context),
+          ),
+        ],
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
