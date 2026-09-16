@@ -35,6 +35,13 @@ const Color edgeDimColor = Color(0xFFF68657); // 측면: 주황색
 const Color guideCenterColor = tossBlue; // 가상선(센터): 파란색
 // 🚀 [신규] 대각선 치수 색상 - 센터/측면과 확실히 구분되는 보라색.
 const Color diagonalDimColor = Color(0xFF8B5CF6);
+// 🚀 [복원] 정렬 안내선 - 거리 표시용 CAD 치수선(파란/주황)과 확실히
+// 구분되는 마젠타 색. 예전엔 위치를 강제로 스냅시키는 "자석" 동작
+// 때문에 문제가 있었지만, 그건 이미 없앴고(안내만 표시, 위치는 항상
+// 손가락/그리드 스냅 그대로), 실제 "다른 모듈이 움직이던" 근본
+// 원인은 모듈 위젯에 key가 없어 생긴 별개의 버그였다(고쳤음). 이제
+// 안내선만 다시 켠다.
+const Color alignGuideColor = Color(0xFFFF3D9A);
 
 // 🚀 [버그 수정] 작은 모듈을 잡기 쉽게 하려고 터치 영역을 시각적
 // 크기보다 넓혔었는데, 모듈끼리 붙여놓는 게 정상적인 사용 방식이라
@@ -316,6 +323,12 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
   PlacedItem? _activeItem;
   PlacedItem? _previewItem;
   Offset _dragRawPosition = Offset.zero;
+
+  // 🚀 [복원] 모듈을 드래그하는 동안 다른 모듈과 좌/우/중앙(또는
+  // 상/하/중앙)이 맞아떨어지면 안내선을 그어준다(위치를 강제로 옮기지는
+  // 않음). null이면 표시 안 함.
+  double? _alignGuideX;
+  double? _alignGuideY;
 
   // 🚀 [신규] 실제 도면 사진(캐드 출력물, 손그림 등)을 배경으로 깔아두고
   // 그 위에 모듈/치수를 배치할 수 있는 기능. 불투명도를 낮춰서 배경
@@ -848,6 +861,68 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
     double dx = (offset.dx / _gridSize).round() * _gridSize;
     double dy = (offset.dy / _gridSize).round() * _gridSize;
     return Offset(dx, dy);
+  }
+
+  // 🚀 [복원] 드래그 중인 모듈의 좌/중앙/우(또는 상/중앙/하)가 다른
+  // 모듈의 같은 기준선에 근접하면 안내선을 그어준다. 위치를 강제로
+  // 옮기지는 않는다(그냥 눈에 보이는 힌트) - 실제로 "다른 모듈이
+  // 움직이던" 문제는 이 안내선 때문이 아니라 모듈 위젯에 key가 없어
+  // 생긴 별개의 버그였고, 이미 고쳤다(각 모듈의 Positioned에
+  // ValueKey(item.id) 부여).
+  Offset _snapToAlignment(PlacedItem dragging, Offset proposed) {
+    const double snapThreshold = 6.0;
+    final double left = proposed.dx;
+    final double right = proposed.dx + dragging.width;
+    final double centerX = proposed.dx + dragging.width / 2;
+    final double top = proposed.dy;
+    final double bottom = proposed.dy + dragging.height;
+    final double centerY = proposed.dy + dragging.height / 2;
+
+    bool rangesOverlap(
+      double aStart,
+      double aEnd,
+      double bStart,
+      double bEnd,
+    ) => aStart < bEnd && bStart < aEnd;
+
+    double? guideX;
+    double? guideY;
+
+    for (final other in _placedItems) {
+      if (other.id == dragging.id) continue;
+      final double oLeft = other.position.dx;
+      final double oRight = other.position.dx + other.width;
+      final double oCenterX = other.center.dx;
+      final double oTop = other.position.dy;
+      final double oBottom = other.position.dy + other.height;
+      final double oCenterY = other.center.dy;
+
+      final bool yOverlaps = rangesOverlap(top, bottom, oTop, oBottom);
+      final bool xOverlaps = rangesOverlap(left, right, oLeft, oRight);
+
+      if (guideX == null && !yOverlaps) {
+        if ((left - oLeft).abs() <= snapThreshold) {
+          guideX = oLeft;
+        } else if ((right - oRight).abs() <= snapThreshold) {
+          guideX = oRight;
+        } else if ((centerX - oCenterX).abs() <= snapThreshold) {
+          guideX = oCenterX;
+        }
+      }
+      if (guideY == null && !xOverlaps) {
+        if ((top - oTop).abs() <= snapThreshold) {
+          guideY = oTop;
+        } else if ((bottom - oBottom).abs() <= snapThreshold) {
+          guideY = oBottom;
+        } else if ((centerY - oCenterY).abs() <= snapThreshold) {
+          guideY = oCenterY;
+        }
+      }
+    }
+
+    _alignGuideX = guideX;
+    _alignGuideY = guideY;
+    return proposed;
   }
 
   // 🚀 [버그 수정] 정렬 스냅뿐 아니라 그냥 드래그로도 모듈을 다른 모듈
@@ -3687,6 +3762,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                 row(centerDimColor, "파란색", "센터(중심) 기준 치수선/가이드선"),
                 row(edgeDimColor, "주황색", "측면(여백) 기준 치수선"),
                 row(diagonalDimColor, "보라색", "대각선 모드 치수선(직선거리+각도)"),
+                row(alignGuideColor, "마젠타색", "모듈을 옮길 때 뜨는 정렬 안내선"),
                 row(warningRed, "빨간색", "최소 간격 위반 경고, 삭제 등 위험/주의 표시"),
                 row(tossText, "🛡 방패 표시", "안전 이격거리로 강조된 치수선(굵은 선)"),
               ],
@@ -4375,6 +4451,38 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                             _mode == BoardMode.placeModule)
                                           ..._buildGuidePaints(_activeItem!),
 
+                                        // 🚀 [복원] 안내선 자체는 문제가
+                                        // 없었다 - 아래 _placedItems.map()의
+                                        // Positioned에 key가 있는 한, 이
+                                        // 위젯들이 조건부로 나타났다 사라져도
+                                        // 더 이상 목록 순서가 밀려서 엉뚱한
+                                        // 모듈에 제스처가 연결되는 일이
+                                        // 없다.
+                                        if (_alignGuideX != null)
+                                          Positioned(
+                                            left: _alignGuideX,
+                                            top: 0,
+                                            bottom: 0,
+                                            child: IgnorePointer(
+                                              child: Container(
+                                                width: 1.4,
+                                                color: alignGuideColor,
+                                              ),
+                                            ),
+                                          ),
+                                        if (_alignGuideY != null)
+                                          Positioned(
+                                            top: _alignGuideY,
+                                            left: 0,
+                                            right: 0,
+                                            child: IgnorePointer(
+                                              child: Container(
+                                                height: 1.4,
+                                                color: alignGuideColor,
+                                              ),
+                                            ),
+                                          ),
+
                                         ..._placedItems.map((item) {
                                           final bool canDrag =
                                               _mode == BoardMode.placeModule &&
@@ -4649,29 +4757,26 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                                                   clampedY,
                                                                 ),
                                                               );
-                                                          // 🚀 [버그 수정] 정렬
-                                                          // 안내선 기능을 완전히
-                                                          // 제거했다 - Stack
-                                                          // children 목록에
-                                                          // 안내선이 조건부로
-                                                          // 끼어들면서 목록
-                                                          // 순서가 밀려, 드래그
-                                                          // 중이던 제스처가
-                                                          // 엉뚱한 모듈로
-                                                          // 연결되는 문제가
-                                                          // 있었다(다른 모듈이
-                                                          // "따라 움직이는"
-                                                          // 것처럼 보였던 진짜
-                                                          // 원인). 겹치는
+                                                          // 🚀 [복원] 안내선
+                                                          // 계산만 하고(위치는
+                                                          // 안 바꿈), 겹치는
                                                           // 자리로는 이동을
-                                                          // 막되, X/Y를 각각
-                                                          // 따로 검사해서 한쪽이
-                                                          // 막혀도 다른 쪽으로는
-                                                          // 벽을 따라 미끄러지듯
-                                                          // 움직일 수 있게 한다.
+                                                          // 막되 X/Y를 각각
+                                                          // 따로 검사해서
+                                                          // 한쪽이 막혀도
+                                                          // 다른 쪽으로는
+                                                          // 벽을 따라
+                                                          // 미끄러지듯
+                                                          // 움직일 수 있게
+                                                          // 한다.
+                                                          final aligned =
+                                                              _snapToAlignment(
+                                                                item,
+                                                                gridSnapped,
+                                                              );
                                                           final Offset
                                                           xOnly = Offset(
-                                                            gridSnapped.dx,
+                                                            aligned.dx,
                                                             item.position.dy,
                                                           );
                                                           if (!_overlapsAny(
@@ -4684,7 +4789,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                                           final Offset
                                                           yOnly = Offset(
                                                             item.position.dx,
-                                                            gridSnapped.dy,
+                                                            aligned.dy,
                                                           );
                                                           if (!_overlapsAny(
                                                             item,
@@ -4701,6 +4806,8 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                                   ? (details) {
                                                       setState(() {
                                                         _activeItem = null;
+                                                        _alignGuideX = null;
+                                                        _alignGuideY = null;
                                                         _groupDragAnchorOrigin =
                                                             null;
                                                         _groupDragOrigins = {};
