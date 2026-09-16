@@ -1727,26 +1727,63 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     _calculate();
   }
 
-  void _showCustomFittingDialog(int index) {
-    TextEditingController nameCtrl = TextEditingController(text: "커스텀 부속");
-    TextEditingController specCtrl = TextEditingController();
-    TextEditingController deductionCtrl = TextEditingController();
+  // 🚀 [팝업 통일감] 부속 검색 팝업(SmartFittingSelectorSheet)과 똑같은
+  // 흰 배경 + 원형 아이콘 헤더 + 닫기 버튼 형식으로 바꿨다. 예전엔 이
+  // 팝업만 작은 중앙 Dialog 박스라 다른 부속 관련 팝업들과 인상이 달랐다.
+  // 겸사겸사 (1) 이미 커스텀 부속이 적용된 구간을 다시 열면 값이 그대로
+  // 채워지도록(예전엔 매번 빈 칸으로 초기화됨), (2) 자주 쓰는 품명을
+  // 칩으로 바로 고르고, (3) 최근 입력한 커스텀 부속을 기기에 기억해뒀다가
+  // 한 번 탭으로 재사용하도록, (4) 공제값 입력 단위를 계산기 화면의
+  // mm/인치 토글과 맞춰 보여주도록 강화했다.
+  static const List<String> _customFittingPresets = [
+    "볼밸브",
+    "니들밸브",
+    "체크밸브",
+    "유니온",
+    "니플",
+    "용접 소켓",
+  ];
+
+  Future<void> _showCustomFittingDialog(int index) async {
+    final existing = _points[index].fitting;
+    final bool isEditing = existing.category == "CUSTOM";
+    final double existingDedInUnit = !isEditing
+        ? 0.0
+        : (_lengthUnit == 'in'
+              ? existing.deduction / kInchToMm
+              : existing.deduction);
+
+    final nameCtrl = TextEditingController(
+      text: isEditing ? existing.name : "커스텀 부속",
+    );
+    final specCtrl = TextEditingController(
+      text: isEditing && existing.tubeOD != "미지정" ? existing.tubeOD : "",
+    );
+    final deductionCtrl = TextEditingController(
+      text: isEditing && existing.deduction != 0
+          ? _formatLocalLength(existingDedInUnit)
+          : "",
+    );
+
+    final recents = await loadRecentCustomFittings();
+    if (!mounted) return;
 
     Widget buildInputField({
       required String label,
       required String hint,
       required TextEditingController controller,
       bool isNumber = false,
+      String? suffix,
     }) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-              color: makitaDark,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade700,
             ),
           ),
           const SizedBox(height: 8),
@@ -1756,33 +1793,33 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                 ? const TextInputType.numberWithOptions(decimal: true)
                 : TextInputType.text,
             style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
               color: textPrimary,
             ),
             cursorColor: makitaTeal,
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 16),
-              suffixText: isNumber ? "mm" : null,
+              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 15),
+              suffixText: suffix,
               suffixStyle: const TextStyle(
                 color: makitaTeal,
                 fontWeight: FontWeight.bold,
-                fontSize: 16,
+                fontSize: 14,
               ),
               filled: true,
-              fillColor: Colors.grey.shade50,
+              fillColor: Colors.grey.shade100,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
-                vertical: 16,
+                vertical: 14,
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade300, width: 1.5),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: makitaTeal, width: 2.5),
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: makitaTeal, width: 1.5),
               ),
             ),
           ),
@@ -1790,138 +1827,239 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       );
     }
 
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: whiteCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        child: SingleChildScrollView(
+    Widget buildChip(String label, VoidCallback onTap) {
+      return Material(
+        color: CuttingColors.primarySoft,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: makitaTeal.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.extension,
-                        color: makitaTeal,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      "커스텀 부속 설정",
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 20,
-                        color: textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                buildInputField(
-                  label: "품명 (예: 볼 밸브, 체크 밸브)",
-                  hint: "품명 입력",
-                  controller: nameCtrl,
-                ),
-                const SizedBox(height: 16),
-                buildInputField(
-                  label: "규격 (예: 1/2, 3/8, 12mm)",
-                  hint: "규격 입력",
-                  controller: specCtrl,
-                ),
-                const SizedBox(height: 16),
-                buildInputField(
-                  label: "적용할 공제값 (Deduction)",
-                  hint: "0.0",
-                  controller: deductionCtrl,
-                  isNumber: true,
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 1,
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          side: BorderSide(
-                            color: Colors.grey.shade300,
-                            width: 2,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: const Text(
-                          "취소",
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: makitaTeal,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        onPressed: () {
-                          double customDed =
-                              double.tryParse(deductionCtrl.text) ?? 0.0;
-                          String specStr = specCtrl.text.trim().isEmpty
-                              ? "미지정"
-                              : specCtrl.text.trim();
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: makitaDark,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
-                          setState(() {
-                            _points[index].fitting = FittingItem(
-                              id: "custom_${DateTime.now().millisecondsSinceEpoch}",
-                              category: "CUSTOM",
-                              name: nameCtrl.text.trim().isEmpty
-                                  ? "커스텀 부속"
-                                  : nameCtrl.text.trim(),
-                              tubeOD: specStr, // 🚀 규격 정확히 저장
-                              maker: "CUSTOM",
-                              deduction: customDed,
-                              icon: Icons.extension,
-                            );
-                            _calculate();
-                          });
-                          Navigator.pop(ctx);
-                        },
-                        child: const Text(
-                          "적용하기",
-                          style: TextStyle(
-                            color: whiteCard,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
+    if (!context.mounted) return;
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: SafeArea(
+          top: false,
+          child: Container(
+            decoration: const BoxDecoration(
+              color: whiteCard,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        cuttingDialogIcon(Icons.extension_rounded),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            isEditing ? "커스텀 부속 수정" : "커스텀 부속 설정",
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: textPrimary,
+                            ),
                           ),
                         ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.grey,
+                          ),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                    if (recents.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        "최근 사용한 커스텀 부속",
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey.shade700,
+                        ),
                       ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 34,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: recents.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          itemBuilder: (_, i) {
+                            final r = recents[i];
+                            final label = r.spec.isEmpty
+                                ? r.name
+                                : "${r.name} (${r.spec})";
+                            return buildChip(label, () {
+                              nameCtrl.text = r.name;
+                              specCtrl.text = r.spec;
+                              deductionCtrl.text = _formatLocalLength(
+                                _lengthUnit == 'in'
+                                    ? r.deduction / kInchToMm
+                                    : r.deduction,
+                              );
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ] else
+                      const SizedBox(height: 12),
+                    buildInputField(
+                      label: "품명 (예: 볼 밸브, 체크 밸브)",
+                      hint: "품명 입력",
+                      controller: nameCtrl,
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _customFittingPresets
+                          .map((p) => buildChip(p, () => nameCtrl.text = p))
+                          .toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    buildInputField(
+                      label: "규격 (예: 1/2, 3/8, 12mm)",
+                      hint: "규격 입력",
+                      controller: specCtrl,
+                    ),
+                    const SizedBox(height: 16),
+                    buildInputField(
+                      label: "적용할 공제값 (Deduction)",
+                      hint: "0.0",
+                      controller: deductionCtrl,
+                      isNumber: true,
+                      suffix: _lengthUnit,
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 1,
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              side: BorderSide(
+                                color: Colors.grey.shade300,
+                                width: 2,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: const Text(
+                              "취소",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: makitaTeal,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            onPressed: () async {
+                              final trimmedName = nameCtrl.text.trim();
+                              final rawDed = deductionCtrl.text.trim();
+                              final parsedDed = double.tryParse(rawDed);
+                              if (trimmedName.isEmpty) {
+                                showCuttingSnack(
+                                  context,
+                                  "품명을 입력해주세요.",
+                                  isError: true,
+                                );
+                                return;
+                              }
+                              if (rawDed.isNotEmpty && parsedDed == null) {
+                                showCuttingSnack(
+                                  context,
+                                  "공제값 숫자를 확인해주세요.",
+                                  isError: true,
+                                );
+                                return;
+                              }
+                              final double dedInUnit = parsedDed ?? 0.0;
+                              final double dedMm = _lengthUnit == 'in'
+                                  ? dedInUnit * kInchToMm
+                                  : dedInUnit;
+                              final specStr = specCtrl.text.trim().isEmpty
+                                  ? "미지정"
+                                  : specCtrl.text.trim();
+
+                              setState(() {
+                                _points[index].fitting = FittingItem(
+                                  id: "custom_${DateTime.now().millisecondsSinceEpoch}",
+                                  category: "CUSTOM",
+                                  name: trimmedName,
+                                  tubeOD: specStr, // 🚀 규격 정확히 저장
+                                  maker: "CUSTOM",
+                                  deduction: dedMm,
+                                  icon: Icons.extension,
+                                );
+                                _calculate();
+                              });
+                              await saveRecentCustomFitting(
+                                RecentCustomFitting(
+                                  name: trimmedName,
+                                  spec: specStr == "미지정" ? "" : specStr,
+                                  deduction: dedMm,
+                                ),
+                              );
+                              if (ctx.mounted) Navigator.pop(ctx);
+                            },
+                            child: const Text(
+                              "적용하기",
+                              style: TextStyle(
+                                color: whiteCard,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
