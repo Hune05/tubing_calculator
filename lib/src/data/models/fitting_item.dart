@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+// 🚀 [부속 검색 팝업 고도화] SmartFittingSelectorSheet의 "커스텀으로
+// 직접 입력" 버튼이 이 id를 가진 FittingItem을 결과로 돌려주면,
+// 호출한 화면이 실제 부속 선택 대신 커스텀 입력 다이얼로그를 띄우라는
+// 신호로 해석한다.
+const String kCustomFittingRequestId = '__custom_fitting_request__';
+
 class FittingItem {
   final String id;
   final String maker; // 제조사

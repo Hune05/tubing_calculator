@@ -187,6 +187,84 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
     Navigator.of(context).pop(item);
   }
 
+  // 🚀 [부속 검색 팝업 고도화] 예전엔 DB에 없는 부속을 쓰려면 일단 아무
+  // 기성 부속이나 골라 화면을 닫은 뒤, 연필 아이콘으로 다시 바꿔야만
+  // 커스텀 입력이 가능했다. 팝업 안에서 바로 "커스텀으로 입력"을 고를
+  // 수 있게, 호출한 화면이 알아볼 수 있는 신호값을 돌려준다.
+  void _requestCustomFitting() {
+    Navigator.of(context).pop(
+      FittingItem(
+        id: kCustomFittingRequestId,
+        maker: widget.maker,
+        tubeOD: '',
+        category: 'CUSTOM',
+        name: '커스텀 부속',
+        deduction: 0.0,
+        icon: Icons.extension,
+      ),
+    );
+  }
+
+  Widget _buildCustomEntryRow() {
+    return InkWell(
+      onTap: _requestCustomFitting,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+        color: CuttingColors.background,
+        child: const Row(
+          children: [
+            Icon(Icons.edit_note_rounded, size: 16, color: makitaTeal),
+            SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                "찾는 부속이 없나요? 커스텀으로 직접 입력",
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: makitaTeal,
+                ),
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 16, color: makitaTeal),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 🚀 검색어와 일치하는 부분을 굵게/색으로 강조해서, 왜 이 항목이
+  // 검색 결과에 걸렸는지 눈으로 바로 확인할 수 있게 한다.
+  Widget _highlightedTitle(String text, TextStyle style) {
+    if (_searchQuery.isEmpty) {
+      return Text(text, overflow: TextOverflow.ellipsis, style: style);
+    }
+    final lowerText = text.toLowerCase();
+    final lowerQuery = _searchQuery.toLowerCase();
+    final idx = lowerText.indexOf(lowerQuery);
+    if (idx < 0) {
+      return Text(text, overflow: TextOverflow.ellipsis, style: style);
+    }
+    return RichText(
+      overflow: TextOverflow.ellipsis,
+      text: TextSpan(
+        style: style,
+        children: [
+          TextSpan(text: text.substring(0, idx)),
+          TextSpan(
+            text: text.substring(idx, idx + _searchQuery.length),
+            style: const TextStyle(
+              color: makitaTeal,
+              backgroundColor: CuttingColors.warningSoft,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          TextSpan(text: text.substring(idx + _searchQuery.length)),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCategoryBadge(String category) {
     return Container(
       width: 44,
@@ -523,6 +601,8 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
             ],
 
             const Divider(height: 1, thickness: 2, color: Color(0xFFEEEEEE)),
+            _buildCustomEntryRow(),
+            const Divider(height: 1, color: Color(0xFFEEEEEE)),
 
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
@@ -558,6 +638,22 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                               style: TextStyle(
                                 fontSize: 15,
                                 color: Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            OutlinedButton.icon(
+                              onPressed: _requestCustomFitting,
+                              icon: const Icon(
+                                Icons.edit_note_rounded,
+                                color: makitaTeal,
+                                size: 18,
+                              ),
+                              label: const Text(
+                                "커스텀으로 직접 입력",
+                                style: TextStyle(color: makitaTeal),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: makitaTeal),
                               ),
                             ),
                           ],
@@ -607,84 +703,122 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                                 color: Colors.grey,
                               ),
                             ),
+                            const SizedBox(height: 16),
+                            OutlinedButton.icon(
+                              onPressed: _requestCustomFitting,
+                              icon: const Icon(
+                                Icons.edit_note_rounded,
+                                color: makitaTeal,
+                                size: 18,
+                              ),
+                              label: const Text(
+                                "커스텀으로 직접 입력",
+                                style: TextStyle(color: makitaTeal),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: makitaTeal),
+                              ),
+                            ),
                           ],
                         ),
                       ),
                     );
                   }
 
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: filteredDocs.length,
-                    itemBuilder: (context, index) {
-                      final doc = filteredDocs[index];
-                      var data = doc.data() as Map<String, dynamic>;
-                      final rawId = data['id'] as String?;
-
-                      FittingItem item = FittingItem(
-                        id: (rawId != null && rawId.isNotEmpty)
-                            ? rawId
-                            : doc.id,
-                        tubeOD: data['tubeOD'] ?? '',
-                        category: data['category'] ?? '',
-                        name: data['displayName'] ?? data['name'] ?? '',
-                        maker: data['maker'] ?? '',
-                        deduction:
-                            (data['deduction'] as num?)?.toDouble() ?? 0.0,
-                        icon: Icons.settings,
-                      );
-                      final bool fav = _isFavorite(item);
-
-                      return Container(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: pureWhite,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.only(
-                            left: 16,
-                            right: 8,
-                            top: 4,
-                            bottom: 4,
-                          ),
-                          leading: _buildCategoryBadge(item.category),
-                          title: Text(
-                            item.name,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 16,
+                  // 🚀 몇 개가 걸렸는지 목록을 스크롤하지 않고도 바로 알
+                  // 수 있게, 결과 개수를 목록 위에 작게 표시한다.
+                  return Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            "${filteredDocs.length}개 결과",
+                            style: TextStyle(
+                              fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: textDark,
+                              color: Colors.grey.shade500,
                             ),
                           ),
-                          subtitle: Text(
-                            "${item.maker} | ${item.tubeOD}  ·  -${item.deduction}mm",
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                          trailing: IconButton(
-                            icon: Icon(
-                              fav
-                                  ? Icons.star_rounded
-                                  : Icons.star_border_rounded,
-                              color: fav
-                                  ? CuttingColors.warning
-                                  : Colors.grey.shade400,
-                            ),
-                            onPressed: () => _toggleFavorite(item),
-                          ),
-                          onTap: () => _recordRecentAndPop(item),
                         ),
-                      );
-                    },
+                      ),
+                      Expanded(
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          itemCount: filteredDocs.length,
+                          itemBuilder: (context, index) {
+                            final doc = filteredDocs[index];
+                            var data = doc.data() as Map<String, dynamic>;
+                            final rawId = data['id'] as String?;
+
+                            FittingItem item = FittingItem(
+                              id: (rawId != null && rawId.isNotEmpty)
+                                  ? rawId
+                                  : doc.id,
+                              tubeOD: data['tubeOD'] ?? '',
+                              category: data['category'] ?? '',
+                              name: data['displayName'] ?? data['name'] ?? '',
+                              maker: data['maker'] ?? '',
+                              deduction:
+                                  (data['deduction'] as num?)?.toDouble() ??
+                                  0.0,
+                              icon: Icons.settings,
+                            );
+                            final bool fav = _isFavorite(item);
+
+                            return Container(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: pureWhite,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.grey.shade200),
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.only(
+                                  left: 16,
+                                  right: 8,
+                                  top: 4,
+                                  bottom: 4,
+                                ),
+                                leading: _buildCategoryBadge(item.category),
+                                title: _highlightedTitle(
+                                  item.name,
+                                  const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: textDark,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  "${item.maker} | ${item.tubeOD}  ·  -${item.deduction}mm",
+                                  style: const TextStyle(
+                                    color: Colors.grey,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                trailing: IconButton(
+                                  icon: Icon(
+                                    fav
+                                        ? Icons.star_rounded
+                                        : Icons.star_border_rounded,
+                                    color: fav
+                                        ? CuttingColors.warning
+                                        : Colors.grey.shade400,
+                                  ),
+                                  onPressed: () => _toggleFavorite(item),
+                                ),
+                                onTap: () => _recordRecentAndPop(item),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   );
                 },
               ),

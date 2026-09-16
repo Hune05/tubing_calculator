@@ -1081,10 +1081,16 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       context,
       _globalMaker,
     );
-    if (selectedItem != null) {
-      setState(() => _points[index].fitting = selectedItem);
-      _calculate();
+    if (selectedItem == null) return;
+    // 🚀 [부속 검색 팝업 고도화] 팝업 안의 "커스텀으로 직접 입력" 버튼이
+    // 반환하는 신호값. 예전엔 DB에서 아무 부속이나 먼저 고른 뒤 연필
+    // 아이콘으로 바꿔야만 커스텀 입력이 가능해 흐름이 어색했다.
+    if (selectedItem.id == kCustomFittingRequestId) {
+      _showCustomFittingDialog(index);
+      return;
     }
+    setState(() => _points[index].fitting = selectedItem);
+    _calculate();
   }
 
   void _showCustomFittingDialog(int index) {
@@ -2507,9 +2513,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
 
     // 🚀 [입력 UI 고도화] 카메라/스테퍼/경고문구까지 들어가며 내용이
     // 많아진 만큼, 가는 연결선 하나로는 내용이 붕 떠 보였다. 부속
-    // 카드(흰 배경+굵은 테두리)와는 다른 톤 - 옅은 회색 배경 + 왼쪽 색
-    // 띠 - 로 카드화해서 "부속 사이를 잇는 길이"라는 흐름은 유지하면서
-    // 담음새를 줬다.
+    // 카드(흰 배경+굵은 테두리)와는 다른 톤 - 옅은 회색 배경 - 으로
+    // 카드화해서 담음새를 줬다. (왼쪽 색 띠는 포인트가 과했다는 피드백에
+    // 따라 제거)
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Container(
@@ -2524,249 +2530,228 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                 : Colors.grey.shade200,
           ),
         ),
-        clipBehavior: Clip.antiAlias,
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 5,
-                color: isInterference ? CuttingColors.danger : makitaTeal,
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 🚀 [입력 UI 고도화] 카메라 버튼이 Row 맨 위(start)에
-                      // 붙어서 라벨 있는 TextField보다 위쪽에 붕 떠 보였다.
-                      // IntrinsicHeight + stretch로 필드와 정확히 같은 높이를
-                      // 갖도록 맞춰서 하나의 입력 그룹처럼 보이게 했다.
-                      IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _points[index].c2cController,
-                                focusNode: _points[index].c2cFocusNode,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                textInputAction: isLastSegment
-                                    ? TextInputAction.done
-                                    : TextInputAction.next,
-                                onSubmitted: (_) {
-                                  if (!isLastSegment) {
-                                    FocusScope.of(context).requestFocus(
-                                      _points[index + 1].c2cFocusNode,
-                                    );
-                                  } else {
-                                    FocusScope.of(context).unfocus();
-                                  }
-                                },
-                                onChanged: (_) => _calculate(),
-                                cursorColor: makitaTeal,
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w900,
-                                  color: textPrimary,
-                                ),
-                                decoration: InputDecoration(
-                                  labelText: "전체 길이 (C to C / End to End)",
-                                  labelStyle: TextStyle(
-                                    color: Colors.grey.shade600,
-                                    fontSize: 13,
-                                  ),
-                                  filled: true,
-                                  fillColor: whiteCard,
-                                  suffixText: "mm",
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 8,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(
-                                      color: Colors.grey.shade300,
-                                    ),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(
-                                      color: isInterference
-                                          ? Colors.red
-                                          : Colors.grey.shade300,
-                                      width: isInterference ? 2 : 1,
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(
-                                      color: isInterference
-                                          ? Colors.red
-                                          : makitaTeal,
-                                      width: 2,
-                                    ),
-                                  ),
-                                ),
-                              ),
+              // 🚀 [입력 UI 고도화] 카메라 버튼이 Row 맨 위(start)에
+              // 붙어서 라벨 있는 TextField보다 위쪽에 붕 떠 보였다.
+              // IntrinsicHeight + stretch로 필드와 정확히 같은 높이를
+              // 갖도록 맞춰서 하나의 입력 그룹처럼 보이게 했다.
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _points[index].c2cController,
+                        focusNode: _points[index].c2cFocusNode,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        textInputAction: isLastSegment
+                            ? TextInputAction.done
+                            : TextInputAction.next,
+                        onSubmitted: (_) {
+                          if (!isLastSegment) {
+                            FocusScope.of(
+                              context,
+                            ).requestFocus(_points[index + 1].c2cFocusNode);
+                          } else {
+                            FocusScope.of(context).unfocus();
+                          }
+                        },
+                        onChanged: (_) => _calculate(),
+                        cursorColor: makitaTeal,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: textPrimary,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: "전체 길이 (C to C / End to End)",
+                          labelStyle: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 13,
+                          ),
+                          filled: true,
+                          fillColor: whiteCard,
+                          suffixText: "mm",
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: isInterference
+                                  ? Colors.red
+                                  : Colors.grey.shade300,
+                              width: isInterference ? 2 : 1,
                             ),
-                            const SizedBox(width: 8),
-                            Tooltip(
-                              message: "카메라로 치수 인식",
-                              child: InkWell(
-                                onTap: () => _scanLengthWithCamera(index),
-                                borderRadius: BorderRadius.circular(8),
-                                child: Container(
-                                  width: 44,
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    color: makitaTeal.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Icon(
-                                    Icons.camera_alt_outlined,
-                                    color: makitaTeal,
-                                    size: 20,
-                                  ),
-                                ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: isInterference ? Colors.red : makitaTeal,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Tooltip(
+                      message: "카메라로 치수 인식",
+                      child: InkWell(
+                        onTap: () => _scanLengthWithCamera(index),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          width: 44,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: makitaTeal.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt_outlined,
+                            color: makitaTeal,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 10,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  // 🚀 [입력 UI 고도화] 낱개 칩 4개가 따로 떠 있어 간격이
+                  // 들쭉날쭉해 보였다. 하나로 이어붙인 세그먼트 스테퍼로
+                  // 바꿔서 정렬된 하나의 컨트롤처럼 보이게 했다.
+                  _buildStepStepper(index),
+                  if (canCopyPrevious)
+                    InkWell(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() {
+                          _points[index].c2cController.text =
+                              _points[index - 1].c2cController.text;
+                          _calculate();
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 4,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.content_copy_rounded,
+                              size: 12,
+                              color: makitaTeal,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              "이전 구간과 동일",
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: makitaTeal,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 6,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          // 🚀 [입력 UI 고도화] 낱개 칩 4개가 따로 떠 있어 간격이
-                          // 들쭉날쭉해 보였다. 하나로 이어붙인 세그먼트 스테퍼로
-                          // 바꿔서 정렬된 하나의 컨트롤처럼 보이게 했다.
-                          _buildStepStepper(index),
-                          if (canCopyPrevious)
-                            InkWell(
-                              onTap: () {
-                                HapticFeedback.selectionClick();
-                                setState(() {
-                                  _points[index].c2cController.text =
-                                      _points[index - 1].c2cController.text;
-                                  _calculate();
-                                });
-                              },
-                              borderRadius: BorderRadius.circular(6),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                  vertical: 4,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.content_copy_rounded,
-                                      size: 12,
-                                      color: makitaTeal,
-                                    ),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      "이전 구간과 동일",
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: makitaTeal,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                        ],
+                    ),
+                ],
+              ),
+              if (isInterference)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, left: 4),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.warning_rounded,
+                        color: Colors.red,
+                        size: 14,
                       ),
-                      if (isInterference)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4, left: 4),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.warning_rounded,
-                                color: Colors.red,
-                                size: 14,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  "간섭 발생! 입력값이 양쪽 피팅 공제값의 합보다 작습니다.",
-                                  style: TextStyle(
-                                    color: Colors.red.shade700,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          "간섭 발생! 입력값이 양쪽 피팅 공제값의 합보다 작습니다.",
+                          style: TextStyle(
+                            color: Colors.red.shade700,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      // 🚀 [입력 고도화 5번] 서로 다른 규격(OD)의 부속을 이어 붙인
-                      // 경우, 실수인지 확인할 수 있게 막지는 않고 알려만 준다.
-                      if (!isInterference && specMismatch)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4, left: 4),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.warning_amber_rounded,
-                                color: CuttingColors.warning,
-                                size: 14,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  "규격이 다른 부속끼리 연결됨: ${startItem.tubeOD} → ${endItem.tubeOD}",
-                                  style: const TextStyle(
-                                    color: CuttingColors.warning,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      if (!isInterference &&
-                          !specMismatch &&
-                          isSuspiciouslyShort)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4, left: 4),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.warning_amber_rounded,
-                                color: CuttingColors.warning,
-                                size: 14,
-                              ),
-                              const SizedBox(width: 4),
-                              const Expanded(
-                                child: Text(
-                                  "절단 길이가 매우 짧습니다. 치수를 다시 확인해주세요.",
-                                  style: TextStyle(
-                                    color: CuttingColors.warning,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                      ),
                     ],
                   ),
                 ),
-              ),
+              // 🚀 [입력 고도화 5번] 서로 다른 규격(OD)의 부속을 이어 붙인
+              // 경우, 실수인지 확인할 수 있게 막지는 않고 알려만 준다.
+              if (!isInterference && specMismatch)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, left: 4),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        color: CuttingColors.warning,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          "규격이 다른 부속끼리 연결됨: ${startItem.tubeOD} → ${endItem.tubeOD}",
+                          style: const TextStyle(
+                            color: CuttingColors.warning,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (!isInterference && !specMismatch && isSuspiciouslyShort)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, left: 4),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        color: CuttingColors.warning,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      const Expanded(
+                        child: Text(
+                          "절단 길이가 매우 짧습니다. 치수를 다시 확인해주세요.",
+                          style: TextStyle(
+                            color: CuttingColors.warning,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),
