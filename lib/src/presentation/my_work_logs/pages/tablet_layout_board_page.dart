@@ -1624,13 +1624,12 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
     return Offset(dx, dy);
   }
 
-  // 🚀 [신규] 정렬 스냅(모바일과 동일 로직) - 좌/중앙/우(상/중앙/하)가
-  // 다른 모듈과 근접하면 딱 맞춰 스냅시키고 기준선을 남긴다.
-  //
-  // 🚀 [버그 수정] 두 축이 같은 상대 모듈에 동시에 맞아떨어지면 완전히
-  // 겹쳐버리는 문제가 있었다(모바일과 동일 버그, 같이 수정) - X 정렬은
-  // Y 범위가 겹치지 않는 모듈끼리만, Y 정렬은 X 범위가 겹치지 않는
-  // 모듈끼리만 허용하고, 그래도 겹치면 정렬 스냅 자체를 포기한다.
+  // 🚀 [버그 수정] 원래는 안내선 기준에 모듈 위치까지 자석처럼 딱
+  // 붙였는데(스냅), 임계값을 넘는 순간 모듈이 그 자리로 순간 점프해
+  // "다른 모듈이 따라 붙는다"처럼 보였다(실제로는 다른 모듈이 움직인
+  // 게 아니라 드래그 중인 모듈이 점프한 것). 자석처럼 위치를 강제로
+  // 옮기는 동작은 없애고, 맞아떨어지는 걸 알려주는 안내선만 그어준다
+  // (모바일과 동일).
   Offset _snapToAlignment(PlacedItem dragging, Offset proposed) {
     const double snapThreshold = 6.0;
     final double left = proposed.dx;
@@ -1647,9 +1646,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
       double bEnd,
     ) => aStart < bEnd && bStart < aEnd;
 
-    double? snappedX;
     double? guideX;
-    double? snappedY;
     double? guideY;
 
     for (final other in _placedItems) {
@@ -1666,61 +1663,27 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
 
       if (guideX == null && !yOverlaps) {
         if ((left - oLeft).abs() <= snapThreshold) {
-          snappedX = oLeft;
           guideX = oLeft;
         } else if ((right - oRight).abs() <= snapThreshold) {
-          snappedX = oRight - dragging.width;
           guideX = oRight;
         } else if ((centerX - oCenterX).abs() <= snapThreshold) {
-          snappedX = oCenterX - dragging.width / 2;
           guideX = oCenterX;
         }
       }
       if (guideY == null && !xOverlaps) {
         if ((top - oTop).abs() <= snapThreshold) {
-          snappedY = oTop;
           guideY = oTop;
         } else if ((bottom - oBottom).abs() <= snapThreshold) {
-          snappedY = oBottom - dragging.height;
           guideY = oBottom;
         } else if ((centerY - oCenterY).abs() <= snapThreshold) {
-          snappedY = oCenterY - dragging.height / 2;
           guideY = oCenterY;
         }
       }
     }
 
-    final Offset result = Offset(
-      snappedX ?? proposed.dx,
-      snappedY ?? proposed.dy,
-    );
-
-    // 최종 안전장치: 그래도 다른 모듈과 겹치는 결과라면 정렬 스냅을
-    // 완전히 포기하고 그리드 스냅 위치를 그대로 쓴다.
-    final Rect resultRect = Rect.fromLTWH(
-      result.dx,
-      result.dy,
-      dragging.width,
-      dragging.height,
-    );
-    for (final other in _placedItems) {
-      if (other.id == dragging.id) continue;
-      final Rect otherRect = Rect.fromLTWH(
-        other.position.dx,
-        other.position.dy,
-        other.width,
-        other.height,
-      );
-      if (resultRect.overlaps(otherRect)) {
-        _alignGuideX = null;
-        _alignGuideY = null;
-        return proposed;
-      }
-    }
-
     _alignGuideX = guideX;
     _alignGuideY = guideY;
-    return result;
+    return proposed;
   }
 
   // 🚀 [버그 수정] 정렬 스냅뿐 아니라 그냥 드래그로도 모듈을 다른 모듈
