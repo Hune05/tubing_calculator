@@ -2,8 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/models/cutting_project_model.dart';
-
-const Color kCuttingHelperTeal = Color(0xFF007580);
+import 'cutting_theme.dart';
 
 // 🚀 [신규] 모바일/데스크톱 컷팅 작업 목록 화면이 공통으로 쓰는 Firestore
 // 저장/삭제/재고차감 로직을 한 곳에 모았다. 예전엔 이 로직이 두 화면에
@@ -150,44 +149,27 @@ Future<void> deductCuttingProjectInventory({
 
   if (materials.isEmpty) {
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("차감할 새 사용량이 없습니다.")));
+      showCuttingSnack(context, "차감할 새 사용량이 없습니다.", isError: true);
     }
     return;
   }
 
   if (!context.mounted) return;
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text("재고 차감", style: TextStyle(fontWeight: FontWeight.bold)),
-      content: Text(
-        "'$projectName'에서 사용된 자재 ${materials.length}건을 창고 재고에서 차감할까요?",
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: const Text("취소", style: TextStyle(color: Colors.grey)),
-        ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: kCuttingHelperTeal),
-          onPressed: () => Navigator.pop(ctx, true),
-          child: const Text("차감하기", style: TextStyle(color: Colors.white)),
-        ),
-      ],
-    ),
+  final confirmed = await showCuttingConfirmDialog(
+    context,
+    title: "재고 차감",
+    message: "'$projectName'에서 사용된 자재 ${materials.length}건을 창고 재고에서 차감할까요?",
+    confirmLabel: "차감하기",
+    icon: Icons.inventory_2_outlined,
   );
-  if (confirmed != true) return;
+  if (!confirmed) return;
 
   if (!context.mounted) return;
   showDialog(
     context: context,
     barrierDismissible: false,
     builder: (ctx) => const Center(
-      child: CircularProgressIndicator(color: kCuttingHelperTeal),
+      child: CircularProgressIndicator(color: CuttingColors.primary),
     ),
   );
 
@@ -237,22 +219,12 @@ Future<void> deductCuttingProjectInventory({
 
     if (context.mounted) Navigator.pop(context);
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text("✅ 재고 차감 및 출고 기록 완료!"),
-          backgroundColor: Colors.green.shade700,
-        ),
-      );
+      showCuttingSnack(context, "재고 차감 및 출고 기록 완료!");
     }
   } catch (e) {
     if (context.mounted) Navigator.pop(context);
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("차감 실패: $e"),
-          backgroundColor: Colors.red.shade700,
-        ),
-      );
+      showCuttingSnack(context, "차감 실패: $e", isError: true);
     }
   }
 }

@@ -5,12 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../data/models/cutting_project_model.dart';
 import '../cutting_firestore_helper.dart';
-
-const Color _tossBlue = Color(0xFF007580); // 마키타 틸
-const Color _slate900 = Color(0xFF191F28);
-const Color _slate600 = Color(0xFF8B95A1);
-const Color _tossGrey = Color(0xFFF0F3F5); // 마키타 라이트 배경
-const Color _pureWhite = Colors.white;
+import '../cutting_theme.dart';
 
 const List<String> _kWeekdaysKo = ['월', '화', '수', '목', '금', '토', '일'];
 
@@ -44,38 +39,15 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
   }
 
   Future<void> _deleteRecord(CutRecord record) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: _pureWhite,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          "기록 삭제",
-          style: TextStyle(color: _slate900, fontWeight: FontWeight.bold),
-        ),
-        content: const Text(
-          "이 컷팅 기록을 삭제할까요? 프로젝트 누적 합계에서도 이만큼 함께 빠집니다.",
-          style: TextStyle(color: _slate600),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("취소", style: TextStyle(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              "삭제",
-              style: TextStyle(
-                color: Colors.redAccent,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
+    final confirmed = await showCuttingConfirmDialog(
+      context,
+      title: "기록 삭제",
+      message: "이 컷팅 기록을 삭제할까요? 프로젝트 누적 합계에서도 이만큼 함께 빠집니다.",
+      confirmLabel: "삭제",
+      danger: true,
+      icon: Icons.delete_outline_rounded,
     );
-    if (confirmed == true) {
+    if (confirmed) {
       await FirebaseFirestore.instance
           .collection(kCuttingProjectsCollection)
           .doc(widget.project.id)
@@ -89,23 +61,26 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
         projectId: widget.project.id,
         deletedRecord: record,
       );
+      if (mounted) {
+        showCuttingSnack(context, "기록을 삭제했습니다.");
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _pureWhite,
+      backgroundColor: CuttingColors.surface,
       appBar: AppBar(
-        backgroundColor: _pureWhite,
+        backgroundColor: CuttingColors.surface,
         elevation: 0,
         scrolledUnderElevation: 0,
-        iconTheme: const IconThemeData(color: _slate900),
+        iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
         title: Text(
           "컷팅 기록 · ${widget.project.name}",
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            color: _slate900,
+            color: CuttingColors.textPrimary,
             fontWeight: FontWeight.w800,
             fontSize: 17,
           ),
@@ -124,13 +99,13 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
               child: Text(
                 "기록을 불러오지 못했습니다.\n${snapshot.error}",
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: _slate600),
+                style: const TextStyle(color: CuttingColors.textSecondary),
               ),
             );
           }
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
-              child: CircularProgressIndicator(color: _tossBlue),
+              child: CircularProgressIndicator(color: CuttingColors.primary),
             );
           }
 
@@ -146,12 +121,18 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
                     SizedBox(height: 16),
                     Text(
                       "아직 컷팅 기록이 없습니다.",
-                      style: TextStyle(color: _slate600, fontSize: 15),
+                      style: TextStyle(
+                        color: CuttingColors.textSecondary,
+                        fontSize: 15,
+                      ),
                     ),
                     SizedBox(height: 4),
                     Text(
                       "계산기에서 '완료'를 누르면 여기에 남습니다.",
-                      style: TextStyle(color: _slate600, fontSize: 13),
+                      style: TextStyle(
+                        color: CuttingColors.textSecondary,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
@@ -209,8 +190,8 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: const BoxDecoration(
-        color: _tossGrey,
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E8EB))),
+        color: CuttingColors.background,
+        border: Border(bottom: BorderSide(color: CuttingColors.border)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -225,7 +206,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
                 : null,
             icon: const Icon(Icons.chevron_left_rounded),
             color: _currentPage < days.length - 1
-                ? _slate900
+                ? CuttingColors.textPrimary
                 : Colors.grey.shade300,
           ),
           Expanded(
@@ -236,7 +217,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
-                    color: _slate900,
+                    color: CuttingColors.textPrimary,
                   ),
                 ),
                 Text(
@@ -254,7 +235,9 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
                   )
                 : null,
             icon: const Icon(Icons.chevron_right_rounded),
-            color: _currentPage > 0 ? _slate900 : Colors.grey.shade300,
+            color: _currentPage > 0
+                ? CuttingColors.textPrimary
+                : Colors.grey.shade300,
           ),
         ],
       ),
@@ -278,7 +261,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
           margin: const EdgeInsets.all(16),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: _tossBlue.withValues(alpha: 0.08),
+            color: CuttingColors.primary.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Row(
@@ -292,7 +275,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: _slate600,
+                      color: CuttingColors.textSecondary,
                     ),
                   ),
                   Text(
@@ -300,7 +283,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w900,
-                      color: _tossBlue,
+                      color: CuttingColors.primary,
                     ),
                   ),
                 ],
@@ -310,7 +293,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: _slate600,
+                  color: CuttingColors.textSecondary,
                 ),
               ),
             ],
@@ -340,7 +323,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _pureWhite,
+        color: CuttingColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade200),
       ),
@@ -357,7 +340,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: _tossBlue.withValues(alpha: 0.1),
+                    color: CuttingColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -365,7 +348,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: _tossBlue,
+                      color: CuttingColors.primary,
                     ),
                   ),
                 ),
@@ -486,7 +469,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
           style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.bold,
-            color: _slate900,
+            color: CuttingColors.textPrimary,
           ),
         ),
         if (deduction > 0)

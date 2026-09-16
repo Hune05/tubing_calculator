@@ -14,12 +14,17 @@ import '../../../data/models/smart_fitting_db.dart';
 import '../widgets/smart_fitting_selector_sheet.dart';
 import 'cutting_history_page.dart';
 import '../cutting_optimizer.dart';
+import '../cutting_theme.dart';
 
-const Color lightBg = Color(0xFFF0F3F5);
-const Color whiteCard = Colors.white;
-const Color makitaTeal = Color(0xFF007580);
-const Color makitaDark = Color(0xFF004D54);
-const Color textPrimary = Color(0xFF1A1A1A);
+// 🚀 [UI 고도화] 이 화면만 미묘하게 다른 검정(0xFF1A1A1A)을 따로 쓰고
+// 있어서, 목록/기록 화면의 텍스트 색(CuttingColors.textPrimary)과 놓고
+// 비교하면 아주 살짝 달랐다. 한 팔레트(cutting_theme.dart)를 그대로
+// 참조하도록 바꿔서 컷팅 계산기 전체가 정확히 같은 색을 쓰게 했다.
+const Color lightBg = CuttingColors.background;
+const Color whiteCard = CuttingColors.surface;
+const Color makitaTeal = CuttingColors.primary;
+const Color makitaDark = CuttingColors.primaryDark;
+const Color textPrimary = CuttingColors.textPrimary;
 
 class CutPoint {
   final String id = UniqueKey().toString();
@@ -114,10 +119,22 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: whiteCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          "톱날 손실(커프) 설정",
-          style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            cuttingDialogIcon(Icons.content_cut_rounded),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Text(
+                "톱날 손실(커프) 설정",
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: textPrimary,
+                  fontSize: 17,
+                ),
+              ),
+            ),
+          ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -127,7 +144,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               "원자재를 여러 구간으로 자를 때 톱날 두께만큼 소재가 갈려 없어집니다. "
               "절단 1회당 손실량을 넣어두면 프로젝트 총 소모량 계산에 자동으로 더해집니다.\n"
               "(구간별 설치 길이 자체엔 영향 없습니다)",
-              style: TextStyle(fontSize: 13, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 13,
+                color: CuttingColors.textSecondary,
+              ),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -203,9 +223,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   Future<void> _showOptimizationDialog() async {
     final pieces = _collectRequiredPieces();
     if (pieces.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("치수를 먼저 입력하세요.")));
+      showCuttingSnack(context, "치수를 먼저 입력하세요.", isError: true);
       return;
     }
 
@@ -236,11 +254,23 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           return AlertDialog(
             backgroundColor: whiteCard,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
             ),
-            title: const Text(
-              "재단 최적화 (원자재 소요 계산)",
-              style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary),
+            title: Row(
+              children: [
+                cuttingDialogIcon(Icons.view_column_outlined),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Text(
+                    "재단 최적화 (원자재 소요 계산)",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: textPrimary,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
             ),
             content: SizedBox(
               width: 360,
@@ -311,7 +341,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                     Text(
                       "⚠ 원자재보다 긴 구간 ${result.oversizedPieces.length}개는 계산에서 제외됨",
                       style: const TextStyle(
-                        color: Colors.red,
+                        color: CuttingColors.danger,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
@@ -419,9 +449,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       visibleIndices.add(i);
     }
     if (visibleIndices.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("내보낼 치수가 없습니다. 먼저 치수를 입력하세요.")),
-      );
+      showCuttingSnack(context, "내보낼 치수가 없습니다. 먼저 치수를 입력하세요.", isError: true);
       return;
     }
 
@@ -531,9 +559,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       ], text: "${widget.project.name} 컷팅 지시서입니다.");
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("내보내기 실패: $e"), backgroundColor: Colors.red),
-      );
+      showCuttingSnack(context, "내보내기 실패: $e", isError: true);
     }
   }
 
@@ -753,7 +779,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       context: context,
       builder: (ctx) => Dialog(
         backgroundColor: whiteCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: SingleChildScrollView(
           child: Padding(
@@ -892,12 +918,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     if (_points.any(
       (p) => p.c2cController.text.isNotEmpty && p.calculatedCut < 0,
     )) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("간섭이 발생한 구간이 있습니다. 치수를 확인해주세요!"),
-          backgroundColor: Colors.red,
-        ),
-      );
+      showCuttingSnack(context, "간섭이 발생한 구간이 있습니다. 치수를 확인해주세요!", isError: true);
       return;
     }
 
@@ -1020,14 +1041,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     final kerfNote = kerfLoss > 0
         ? " (커프 손실 +${kerfLoss.toStringAsFixed(1)}mm 포함)"
         : "";
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          "튜브 총 ${finalTotal.toStringAsFixed(1)}mm$kerfNote 및 피팅 ${totalFittingCount}개 작업 완료!",
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: makitaTeal,
-      ),
+    showCuttingSnack(
+      context,
+      "튜브 총 ${finalTotal.toStringAsFixed(1)}mm$kerfNote 및 피팅 ${totalFittingCount}개 작업 완료!",
     );
   }
 
@@ -1378,14 +1394,23 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     final hasInput = hasNext && _points[index].c2cController.text.isNotEmpty;
     final isInterference = hasInput && cutLength < 0;
 
+    // 🚀 [UI 고도화, 가시성] 간섭이 생긴 구간은 카드 테두리와 왼쪽 번호
+    // 배지를 빨간색으로 바꿔서, 전체 배치도를 쭉 훑어볼 때 어느 구간이
+    // 문제인지 숫자를 하나하나 읽지 않고도 색으로 바로 짚어낼 수 있게 한다.
+    final Color badgeColor = isInterference
+        ? CuttingColors.danger
+        : (isNone ? Colors.grey.shade200 : makitaDark);
+    final Color cardBorderColor = isInterference
+        ? CuttingColors.danger
+        : (isNone ? Colors.grey.shade300 : makitaTeal.withValues(alpha: 0.4));
+
     return Container(
       decoration: BoxDecoration(
         color: whiteCard,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isNone
-              ? Colors.grey.shade300
-              : makitaTeal.withValues(alpha: 0.4),
+          color: cardBorderColor,
+          width: isInterference ? 1.5 : 1,
         ),
       ),
       child: IntrinsicHeight(
@@ -1395,7 +1420,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             Container(
               width: 52,
               decoration: BoxDecoration(
-                color: isNone ? Colors.grey.shade200 : makitaDark,
+                color: badgeColor,
                 borderRadius: const BorderRadius.horizontal(
                   left: Radius.circular(11),
                 ),

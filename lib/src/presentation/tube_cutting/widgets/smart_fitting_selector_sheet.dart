@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../data/models/fitting_item.dart';
+import '../cutting_theme.dart';
 
-const Color pureWhite = Colors.white;
-const Color makitaTeal = Color(0xFF007580);
-const Color textDark = Color(0xFF1A1A1A);
-const Color lightBg = Color(0xFFF0F3F5);
+const Color pureWhite = CuttingColors.surface;
+const Color makitaTeal = CuttingColors.primary;
+const Color textDark = CuttingColors.textPrimary;
 
 // 🚀 [전면 재구성] 예전엔 "대분류 선택 → 상세종류 선택 → 목록"의 3단계를
 // 거쳐야 겨우 부속을 찾을 수 있었고, 이름이 아니라 분류 체계를 먼저

@@ -6,12 +6,7 @@ import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_main_screen.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_history_page.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_firestore_helper.dart';
-
-const Color tossBlue = Color(0xFF007580); // 마키타 틸
-const Color tossGrey = Color(0xFFF0F3F5); // 마키타 라이트 배경
-const Color slate900 = Color(0xFF191F28);
-const Color slate600 = Color(0xFF8B95A1);
-const Color pureWhite = Color(0xFFFFFFFF);
+import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_theme.dart';
 
 // 🚀 [신규] 컷팅 계산기용 프로젝트 목록 - 모바일 전용, Firestore 기반.
 // 예전엔 (1) 데스크톱 ProjectManagementPage 안에서만 열 수 있었고 데이터도
@@ -39,7 +34,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
             decoration: const BoxDecoration(
-              color: pureWhite,
+              color: CuttingColors.surface,
               borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             ),
             child: Column(
@@ -62,12 +57,12 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                   height: 52,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: tossBlue.withValues(alpha: 0.1),
+                    color: CuttingColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: const Icon(
                     Icons.content_cut_rounded,
-                    color: tossBlue,
+                    color: CuttingColors.primary,
                     size: 26,
                   ),
                 ),
@@ -75,7 +70,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                 const Text(
                   "새 컷팅 작업",
                   style: TextStyle(
-                    color: slate900,
+                    color: CuttingColors.textPrimary,
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
                   ),
@@ -83,14 +78,17 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                 const SizedBox(height: 4),
                 const Text(
                   "작업 위치나 라인 이름으로 구분해두면 나중에 찾기 편해요",
-                  style: TextStyle(color: slate600, fontSize: 13),
+                  style: TextStyle(
+                    color: CuttingColors.textSecondary,
+                    fontSize: 13,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 TextField(
                   controller: nameCtrl,
                   autofocus: true,
                   style: const TextStyle(
-                    color: slate900,
+                    color: CuttingColors.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -102,7 +100,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                     hintText: "예: A구역 1층 라인",
                     hintStyle: TextStyle(color: Colors.grey.shade400),
                     filled: true,
-                    fillColor: tossGrey,
+                    fillColor: CuttingColors.background,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 16,
@@ -113,7 +111,10 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: tossBlue, width: 2),
+                      borderSide: const BorderSide(
+                        color: CuttingColors.primary,
+                        width: 2,
+                      ),
                     ),
                   ),
                 ),
@@ -122,7 +123,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: tossBlue,
+                      backgroundColor: CuttingColors.primary,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -137,7 +138,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                     child: const Text(
                       "만들기",
                       style: TextStyle(
-                        color: pureWhite,
+                        color: CuttingColors.surface,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -165,39 +166,19 @@ class MobileCuttingProjectListPage extends StatelessWidget {
   }
 
   Future<void> _deleteProject(BuildContext context, String docId) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: pureWhite,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          "작업 삭제",
-          style: TextStyle(color: slate900, fontWeight: FontWeight.bold),
-        ),
-        content: const Text(
-          "이 컷팅 작업과 저장된 컷팅 기록을 모두 삭제할까요? 되돌릴 수 없습니다.",
-          style: TextStyle(color: slate600),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("취소", style: TextStyle(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              "삭제",
-              style: TextStyle(
-                color: Colors.redAccent,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
+    final confirmed = await showCuttingConfirmDialog(
+      context,
+      title: "작업 삭제",
+      message: "이 컷팅 작업과 저장된 컷팅 기록을 모두 삭제할까요? 되돌릴 수 없습니다.",
+      confirmLabel: "삭제",
+      danger: true,
+      icon: Icons.delete_outline_rounded,
     );
-    if (confirmed == true) {
+    if (confirmed) {
       await deleteCuttingProjectWithRecords(docId);
+      if (context.mounted) {
+        showCuttingSnack(context, "작업을 삭제했습니다.");
+      }
     }
   }
 
@@ -217,7 +198,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
         child: Container(
           margin: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: pureWhite,
+            color: CuttingColors.surface,
             borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
@@ -230,18 +211,21 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: slate900,
+                    color: CuttingColors.textPrimary,
                     fontWeight: FontWeight.w800,
                     fontSize: 15,
                   ),
                 ),
               ),
               ListTile(
-                leading: const Icon(Icons.history_rounded, color: tossBlue),
+                leading: const Icon(
+                  Icons.history_rounded,
+                  color: CuttingColors.primary,
+                ),
                 title: const Text(
                   "컷팅 기록 보기",
                   style: TextStyle(
-                    color: slate900,
+                    color: CuttingColors.textPrimary,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -258,12 +242,12 @@ class MobileCuttingProjectListPage extends StatelessWidget {
               ListTile(
                 leading: const Icon(
                   Icons.inventory_2_outlined,
-                  color: tossBlue,
+                  color: CuttingColors.primary,
                 ),
                 title: const Text(
                   "재고 차감",
                   style: TextStyle(
-                    color: slate900,
+                    color: CuttingColors.textPrimary,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -340,22 +324,22 @@ class MobileCuttingProjectListPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: pureWhite,
+      backgroundColor: CuttingColors.surface,
       appBar: AppBar(
-        backgroundColor: pureWhite,
+        backgroundColor: CuttingColors.surface,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
         title: const Text(
           "튜브 컷팅 계산기",
           style: TextStyle(
-            color: slate900,
+            color: CuttingColors.textPrimary,
             fontWeight: FontWeight.w800,
             fontSize: 20,
             letterSpacing: -0.5,
           ),
         ),
-        iconTheme: const IconThemeData(color: slate900),
+        iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -370,7 +354,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                 child: Text(
                   "작업 목록을 불러오지 못했습니다.\n${snapshot.error}",
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: slate600),
+                  style: const TextStyle(color: CuttingColors.textSecondary),
                 ),
               ),
             );
@@ -378,7 +362,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
 
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
-              child: CircularProgressIndicator(color: tossBlue),
+              child: CircularProgressIndicator(color: CuttingColors.primary),
             );
           }
 
@@ -399,12 +383,18 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                     const SizedBox(height: 16),
                     const Text(
                       "등록된 컷팅 작업이 없습니다.",
-                      style: TextStyle(color: slate600, fontSize: 15),
+                      style: TextStyle(
+                        color: CuttingColors.textSecondary,
+                        fontSize: 15,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     const Text(
                       "우측 하단 + 버튼으로 새 작업을 만들어보세요.",
-                      style: TextStyle(color: slate600, fontSize: 13),
+                      style: TextStyle(
+                        color: CuttingColors.textSecondary,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
@@ -423,6 +413,8 @@ class MobileCuttingProjectListPage extends StatelessWidget {
               final lastCutAt = data['lastCutAt'] is String
                   ? DateTime.tryParse(data['lastCutAt'] as String)
                   : null;
+              final pendingMaterials =
+                  (data['materials'] as List?)?.length ?? 0;
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
@@ -433,7 +425,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: tossGrey,
+                      color: CuttingColors.background,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
@@ -441,12 +433,12 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: tossBlue.withValues(alpha: 0.1),
+                            color: CuttingColors.primary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(
                             Icons.content_cut_rounded,
-                            color: tossBlue,
+                            color: CuttingColors.primary,
                             size: 22,
                           ),
                         ),
@@ -460,7 +452,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  color: slate900,
+                                  color: CuttingColors.textPrimary,
                                   fontSize: 16,
                                   fontWeight: FontWeight.w800,
                                 ),
@@ -469,19 +461,31 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                               Text(
                                 "총 절단 ${project.cutCount}회 · 소모량 ${project.estimatedMeters}m",
                                 style: const TextStyle(
-                                  color: slate600,
+                                  color: CuttingColors.textSecondary,
                                   fontSize: 13,
                                 ),
                               ),
-                              if (lastCutAt != null) ...[
-                                const SizedBox(height: 2),
-                                Text(
-                                  "마지막 작업 ${lastCutAt.month}/${lastCutAt.day}",
-                                  style: TextStyle(
-                                    color: Colors.grey.shade400,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              if (lastCutAt != null ||
+                                  pendingMaterials > 0) ...[
+                                const SizedBox(height: 6),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    if (lastCutAt != null)
+                                      Text(
+                                        "마지막 작업 ${lastCutAt.month}/${lastCutAt.day}",
+                                        style: TextStyle(
+                                          color: Colors.grey.shade400,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    PendingDeductionBadge(
+                                      materialCount: pendingMaterials,
+                                    ),
+                                  ],
                                 ),
                               ],
                             ],
@@ -489,7 +493,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                         ),
                         const Icon(
                           Icons.chevron_right_rounded,
-                          color: slate600,
+                          color: CuttingColors.textSecondary,
                         ),
                       ],
                     ),
@@ -502,11 +506,14 @@ class MobileCuttingProjectListPage extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _createProject(context),
-        backgroundColor: tossBlue,
-        icon: const Icon(Icons.add, color: pureWhite),
+        backgroundColor: CuttingColors.primary,
+        icon: const Icon(Icons.add, color: CuttingColors.surface),
         label: const Text(
           "새 작업 생성",
-          style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: CuttingColors.surface,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );

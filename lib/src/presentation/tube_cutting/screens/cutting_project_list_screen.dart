@@ -3,13 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../data/models/cutting_project_model.dart';
 import '../cutting_firestore_helper.dart';
+import '../cutting_theme.dart';
 import 'cutting_main_screen.dart';
 import 'cutting_history_page.dart';
-
-const Color lightBg = Color(0xFFF0F3F5); // 화이트/그레이 배경
-const Color whiteCard = Colors.white;
-const Color makitaTeal = Color(0xFF007580);
-const Color textPrimary = Color(0xFF1A1A1A);
 
 // 🚀 [1번 강화] 예전엔 이 화면(넓은 화면/태블릿용 '/cutting' 경로)이 메모리
 // 리스트(_projects)만 들고 있어서, 화면을 나가거나 앱을 재시작하면 작업
@@ -17,6 +13,8 @@ const Color textPrimary = Color(0xFF1A1A1A);
 // 전용 화면(MobileCuttingProjectListPage)과 같은 Firestore 컬렉션
 // (kCuttingProjectsCollection)을 써서, 어느 화면으로 들어와도 같은 작업
 // 목록을 보고 이어서 작업할 수 있게 통일했다.
+// 🚀 [UI 고도화] AppBar/카드/다이얼로그 색을 모바일 목록 화면과 같은
+// CuttingColors 팔레트로 통일하고, 재고 차감 대기 배지를 카드에 추가했다.
 class CuttingProjectListScreen extends StatefulWidget {
   const CuttingProjectListScreen({super.key});
 
@@ -32,50 +30,67 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: whiteCard,
+          backgroundColor: CuttingColors.surface,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
           ),
-          title: const Text(
-            "새 컷팅 작업 생성",
-            style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
+          title: Row(
+            children: [
+              cuttingDialogIcon(Icons.add_circle_outline_rounded),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Text(
+                  "새 컷팅 작업 생성",
+                  style: TextStyle(
+                    color: CuttingColors.textPrimary,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 17,
+                  ),
+                ),
+              ),
+            ],
           ),
           content: TextField(
             controller: nameCtrl,
             autofocus: true,
-            style: const TextStyle(color: textPrimary),
+            style: const TextStyle(color: CuttingColors.textPrimary),
             decoration: InputDecoration(
               hintText: "작업명 (예: A구역 1층 라인)",
               hintStyle: TextStyle(color: Colors.grey.shade500),
               filled: true,
-              fillColor: Colors.grey.shade100,
+              fillColor: CuttingColors.background,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide.none,
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: makitaTeal, width: 2),
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: CuttingColors.primary,
+                  width: 2,
+                ),
               ),
             ),
             onSubmitted: (_) => _submitNewProject(context, nameCtrl.text),
           ),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text(
                 "취소",
                 style: TextStyle(
-                  color: Colors.grey,
+                  color: CuttingColors.textSecondary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: makitaTeal,
+                backgroundColor: CuttingColors.primary,
+                elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
               onPressed: () => _submitNewProject(context, nameCtrl.text),
@@ -132,36 +147,17 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
   }
 
   Future<void> _deleteProject(String docId) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: whiteCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          "작업 삭제",
-          style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
-        ),
-        content: const Text("이 컷팅 작업과 저장된 컷팅 기록을 모두 삭제할까요? 되돌릴 수 없습니다."),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("취소", style: TextStyle(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              "삭제",
-              style: TextStyle(
-                color: Colors.redAccent,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
+    final confirmed = await showCuttingConfirmDialog(
+      context,
+      title: "작업 삭제",
+      message: "이 컷팅 작업과 저장된 컷팅 기록을 모두 삭제할까요? 되돌릴 수 없습니다.",
+      confirmLabel: "삭제",
+      danger: true,
+      icon: Icons.delete_outline_rounded,
     );
-    if (confirmed == true) {
+    if (confirmed) {
       await deleteCuttingProjectWithRecords(docId);
+      if (mounted) showCuttingSnack(context, "작업을 삭제했습니다.");
     }
   }
 
@@ -173,14 +169,18 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
     showMenu(
       context: cardContext,
       position: RelativeRect.fromLTRB(1, 1, 0, 0),
-      color: whiteCard,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: CuttingColors.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       items: [
         const PopupMenuItem(
           value: 'history',
           child: Row(
             children: [
-              Icon(Icons.history_rounded, color: makitaTeal, size: 20),
+              Icon(
+                Icons.history_rounded,
+                color: CuttingColors.primary,
+                size: 20,
+              ),
               SizedBox(width: 10),
               Text("컷팅 기록 보기"),
             ],
@@ -190,7 +190,11 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
           value: 'deduct',
           child: Row(
             children: [
-              Icon(Icons.inventory_2_outlined, color: makitaTeal, size: 20),
+              Icon(
+                Icons.inventory_2_outlined,
+                color: CuttingColors.primary,
+                size: 20,
+              ),
               SizedBox(width: 10),
               Text("재고 차감"),
             ],
@@ -200,9 +204,9 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
           value: 'delete',
           child: Row(
             children: [
-              Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+              Icon(Icons.delete_outline, color: CuttingColors.danger, size: 20),
               SizedBox(width: 10),
-              Text("삭제하기", style: TextStyle(color: Colors.redAccent)),
+              Text("삭제하기", style: TextStyle(color: CuttingColors.danger)),
             ],
           ),
         ),
@@ -235,14 +239,22 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: lightBg,
+      backgroundColor: CuttingColors.background,
       appBar: AppBar(
-        backgroundColor: makitaTeal,
+        backgroundColor: CuttingColors.surface,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
         title: const Text(
           "튜브 컷팅 작업 보관함",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(
+            color: CuttingColors.textPrimary,
+            fontWeight: FontWeight.w800,
+            fontSize: 20,
+            letterSpacing: -0.5,
+          ),
         ),
+        iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -255,14 +267,14 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
               child: Text(
                 "작업 목록을 불러오지 못했습니다.\n${snapshot.error}",
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade600),
+                style: const TextStyle(color: CuttingColors.textSecondary),
               ),
             );
           }
 
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
-              child: CircularProgressIndicator(color: makitaTeal),
+              child: CircularProgressIndicator(color: CuttingColors.primary),
             );
           }
 
@@ -270,10 +282,34 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
 
           if (docs.isEmpty) {
             return Center(
-              child: Text(
-                "등록된 작업이 없습니다.\n우측 하단의 + 버튼을 눌러 새 작업을 생성하세요.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 18),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.content_cut_rounded,
+                      size: 48,
+                      color: Colors.grey.shade300,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      "등록된 작업이 없습니다.",
+                      style: TextStyle(
+                        color: CuttingColors.textSecondary,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      "우측 하단의 + 버튼을 눌러 새 작업을 생성하세요.",
+                      style: TextStyle(
+                        color: CuttingColors.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           }
@@ -284,7 +320,7 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
               crossAxisCount: 3,
               crossAxisSpacing: 20,
               mainAxisSpacing: 20,
-              childAspectRatio: 1.5,
+              childAspectRatio: 1.4,
             ),
             itemCount: docs.length,
             itemBuilder: (context, index) {
@@ -294,18 +330,20 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
               final lastCutAt = data['lastCutAt'] is String
                   ? DateTime.tryParse(data['lastCutAt'] as String)
                   : null;
+              final pendingMaterials =
+                  (data['materials'] as List?)?.length ?? 0;
 
               return Builder(
                 builder: (cardContext) => InkWell(
                   onTap: () => _openProject(doc.id, project),
                   onLongPress: () =>
                       _showCardMenu(cardContext, doc.id, project),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(18),
                   child: Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: whiteCard,
-                      borderRadius: BorderRadius.circular(16),
+                      color: CuttingColors.surface,
+                      borderRadius: BorderRadius.circular(18),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.05),
@@ -313,7 +351,7 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
                           offset: const Offset(0, 4),
                         ),
                       ],
-                      border: Border.all(color: Colors.grey.shade200),
+                      border: Border.all(color: CuttingColors.border),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -324,13 +362,15 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: makitaTeal.withValues(alpha: 0.1),
+                                color: CuttingColors.primary.withValues(
+                                  alpha: 0.1,
+                                ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Icon(
                                 Icons.folder_outlined,
-                                color: makitaTeal,
-                                size: 28,
+                                color: CuttingColors.primary,
+                                size: 26,
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -338,8 +378,8 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
                               child: Text(
                                 project.name,
                                 style: const TextStyle(
-                                  color: textPrimary,
-                                  fontSize: 20,
+                                  color: CuttingColors.textPrimary,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.w900,
                                 ),
                                 maxLines: 1,
@@ -361,8 +401,8 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
                           children: [
                             Text(
                               "총 절단 횟수: ${project.cutCount} 회",
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
+                              style: const TextStyle(
+                                color: CuttingColors.textSecondary,
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -371,22 +411,31 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
                             Text(
                               "예상 소모량: ${project.estimatedMeters} m",
                               style: const TextStyle(
-                                color: makitaTeal,
+                                color: CuttingColors.primary,
                                 fontSize: 18,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
-                            if (lastCutAt != null) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                "마지막 작업 ${lastCutAt.month}/${lastCutAt.day}",
-                                style: TextStyle(
-                                  color: Colors.grey.shade400,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                if (lastCutAt != null)
+                                  Text(
+                                    "마지막 작업 ${lastCutAt.month}/${lastCutAt.day}",
+                                    style: TextStyle(
+                                      color: Colors.grey.shade400,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                PendingDeductionBadge(
+                                  materialCount: pendingMaterials,
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ],
                         ),
                       ],
@@ -400,7 +449,7 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createNewProject,
-        backgroundColor: makitaTeal,
+        backgroundColor: CuttingColors.primary,
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
           "새 작업 생성",
