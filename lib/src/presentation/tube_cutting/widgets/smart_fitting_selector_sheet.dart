@@ -464,77 +464,59 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
     );
   }
 
+  // 🚀 [팝업 통일감] 재단 최적화 시트와 같은 흰 배경 + 원형 아이콘 헤더 +
+  // 닫기 버튼 형식으로 바꿨다. 예전엔 이 팝업만 진한 틸 색 헤더 블록을
+  // 따로 써서, 같은 앱 안에서도 팝업마다 인상이 달랐다. DraggableScroll
+  // -ableSheet로도 바꿔서 다른 시트들처럼 화면 크기에 맞게 늘어난다.
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      child: Container(
-        height: MediaQuery.of(context).size.height * 0.90,
-        decoration: const BoxDecoration(
-          color: pureWhite,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              decoration: const BoxDecoration(
-                color: makitaTeal,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                // 🚀 [팝업 UI 고도화] 헤더가 아래 흰 영역과 딱 붙어서
-                // 평면적으로 보였다. 은은한 그림자로 살짝 떠 보이게 해서
-                // 깊이감을 줬다.
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0x1A000000),
-                    blurRadius: 8,
-                    offset: Offset(0, 3),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.only(
-                top: 12,
-                bottom: 20,
-                left: 24,
-                right: 24,
-              ),
-              child: Column(
-                children: [
-                  Center(
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      width: 50,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                  Row(
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: pureWhite,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                  child: Row(
                     children: [
-                      const Icon(
-                        Icons.account_tree,
-                        color: pureWhite,
-                        size: 28,
-                      ),
-                      const SizedBox(width: 12),
+                      cuttingDialogIcon(Icons.search_rounded),
+                      const SizedBox(width: 14),
                       Expanded(
                         child: Text(
                           "${widget.maker} 부속 검색",
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            color: pureWhite,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: textDark,
                           ),
                         ),
                       ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: Colors.grey,
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                   // 🚀 [추가] 검색창 - 분류 체계를 몰라도 이름으로 바로 찾는다.
-                  TextField(
+                  child: TextField(
                     controller: _searchController,
                     onChanged: (val) =>
                         setState(() => _searchQuery = val.trim()),
@@ -553,7 +535,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                               },
                             ),
                       filled: true,
-                      fillColor: pureWhite,
+                      fillColor: Colors.grey.shade100,
                       contentPadding: const EdgeInsets.symmetric(vertical: 4),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -561,283 +543,300 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                       ),
                     ),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            _buildQuickPickSection(),
-
-            Padding(
-              padding: const EdgeInsets.only(left: 24, right: 24, bottom: 8),
-              child: Text(
-                "규격",
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey.shade700,
                 ),
-              ),
-            ),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                children: allSizes.map((s) => _buildSizeButton(s)).toList(),
-              ),
-            ),
-            const SizedBox(height: 16),
+                const SizedBox(height: 8),
 
-            // 🚀 검색 중일 땐 분류 칩이 의미가 없으므로(검색이 우선) 숨긴다.
-            if (_searchQuery.isEmpty) ...[
-              Padding(
-                padding: const EdgeInsets.only(left: 24, right: 24, bottom: 8),
-                child: Text(
-                  "분류",
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey.shade700,
+                _buildQuickPickSection(),
+
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: 24,
+                    right: 24,
+                    bottom: 8,
+                  ),
+                  child: Text(
+                    "규격",
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade700,
+                    ),
                   ),
                 ),
-              ),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
-                  children: categoryFilters.keys
-                      .map((label) => _buildCategoryChip(label))
-                      .toList(),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Row(
+                    children: allSizes.map((s) => _buildSizeButton(s)).toList(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-            ],
+                const SizedBox(height: 16),
 
-            const Divider(height: 1, thickness: 2, color: Color(0xFFEEEEEE)),
-            _buildCustomEntryRow(),
-            const Divider(height: 1, color: Color(0xFFEEEEEE)),
-
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                // 🚀 group/category는 더 이상 서버 쿼리로 나누지 않고
-                // maker+tubeOD만 가져온 뒤 검색어/분류칩은 클라이언트에서
-                // 필터링한다 (한 규격당 데이터 양이 적어 충분히 가볍다).
-                stream: FirebaseFirestore.instance
-                    .collection('fittings')
-                    .where('maker', isEqualTo: widget.maker)
-                    .where('tubeOD', isEqualTo: selectedSize)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(color: makitaTeal),
-                    );
-                  }
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.search_off_rounded,
-                              size: 40,
-                              color: Colors.grey.shade300,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              "이 규격에 등록된 부속 데이터가 없습니다.",
-                              style: TextStyle(
-                                fontSize: 15,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            OutlinedButton.icon(
-                              onPressed: _requestCustomFitting,
-                              icon: const Icon(
-                                Icons.edit_note_rounded,
-                                color: makitaTeal,
-                                size: 18,
-                              ),
-                              label: const Text(
-                                "커스텀으로 직접 입력",
-                                style: TextStyle(color: makitaTeal),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: makitaTeal),
-                              ),
-                            ),
-                          ],
-                        ),
+                // 🚀 검색 중일 땐 분류 칩이 의미가 없으므로(검색이 우선) 숨긴다.
+                if (_searchQuery.isEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      left: 24,
+                      right: 24,
+                      bottom: 8,
+                    ),
+                    child: Text(
+                      "분류",
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey.shade700,
                       ),
-                    );
-                  }
+                    ),
+                  ),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Row(
+                      children: categoryFilters.keys
+                          .map((label) => _buildCategoryChip(label))
+                          .toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
 
-                  var allDocs = snapshot.data!.docs;
-                  var filteredDocs = allDocs.where((doc) {
-                    var data = doc.data() as Map<String, dynamic>;
-                    String cat = (data['category'] ?? '').toString();
-                    String name = (data['displayName'] ?? data['name'] ?? '')
-                        .toString();
+                const Divider(
+                  height: 1,
+                  thickness: 2,
+                  color: Color(0xFFEEEEEE),
+                ),
+                _buildCustomEntryRow(),
+                const Divider(height: 1, color: Color(0xFFEEEEEE)),
 
-                    if (_searchQuery.isNotEmpty) {
-                      final q = _searchQuery.toLowerCase();
-                      return name.toLowerCase().contains(q) ||
-                          cat.toLowerCase().contains(q);
-                    }
-
-                    final codes = categoryFilters[selectedCategory];
-                    if (codes == null) return true; // '전체'
-                    return codes.contains(cat);
-                  }).toList();
-
-                  if (filteredDocs.isEmpty) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.search_off_rounded,
-                              size: 40,
-                              color: Colors.grey.shade300,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              _searchQuery.isNotEmpty
-                                  ? "'$_searchQuery' 검색 결과가 없습니다."
-                                  : "선택한 분류에 해당하는 부속이 없습니다.",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 15,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            OutlinedButton.icon(
-                              onPressed: _requestCustomFitting,
-                              icon: const Icon(
-                                Icons.edit_note_rounded,
-                                color: makitaTeal,
-                                size: 18,
-                              ),
-                              label: const Text(
-                                "커스텀으로 직접 입력",
-                                style: TextStyle(color: makitaTeal),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: makitaTeal),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-
-                  // 🚀 몇 개가 걸렸는지 목록을 스크롤하지 않고도 바로 알
-                  // 수 있게, 결과 개수를 목록 위에 작게 표시한다.
-                  return Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            "${filteredDocs.length}개 결과",
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey.shade500,
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    // 🚀 group/category는 더 이상 서버 쿼리로 나누지 않고
+                    // maker+tubeOD만 가져온 뒤 검색어/분류칩은 클라이언트에서
+                    // 필터링한다 (한 규격당 데이터 양이 적어 충분히 가볍다).
+                    stream: FirebaseFirestore.instance
+                        .collection('fittings')
+                        .where('maker', isEqualTo: widget.maker)
+                        .where('tubeOD', isEqualTo: selectedSize)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: CircularProgressIndicator(color: makitaTeal),
+                        );
+                      }
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.search_off_rounded,
+                                  size: 40,
+                                  color: Colors.grey.shade300,
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  "이 규격에 등록된 부속 데이터가 없습니다.",
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                OutlinedButton.icon(
+                                  onPressed: _requestCustomFitting,
+                                  icon: const Icon(
+                                    Icons.edit_note_rounded,
+                                    color: makitaTeal,
+                                    size: 18,
+                                  ),
+                                  label: const Text(
+                                    "커스텀으로 직접 입력",
+                                    style: TextStyle(color: makitaTeal),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(color: makitaTeal),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                      ),
-                      Expanded(
-                        child: ListView.builder(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          itemCount: filteredDocs.length,
-                          itemBuilder: (context, index) {
-                            final doc = filteredDocs[index];
-                            var data = doc.data() as Map<String, dynamic>;
-                            final rawId = data['id'] as String?;
+                        );
+                      }
 
-                            FittingItem item = FittingItem(
-                              id: (rawId != null && rawId.isNotEmpty)
-                                  ? rawId
-                                  : doc.id,
-                              tubeOD: data['tubeOD'] ?? '',
-                              category: data['category'] ?? '',
-                              name: data['displayName'] ?? data['name'] ?? '',
-                              maker: data['maker'] ?? '',
-                              deduction:
-                                  (data['deduction'] as num?)?.toDouble() ??
-                                  0.0,
-                              icon: Icons.settings,
-                            );
-                            final bool fav = _isFavorite(item);
+                      var allDocs = snapshot.data!.docs;
+                      var filteredDocs = allDocs.where((doc) {
+                        var data = doc.data() as Map<String, dynamic>;
+                        String cat = (data['category'] ?? '').toString();
+                        String name =
+                            (data['displayName'] ?? data['name'] ?? '')
+                                .toString();
 
-                            return Container(
-                              margin: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: pureWhite,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey.shade200),
-                              ),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.only(
-                                  left: 16,
-                                  right: 8,
-                                  top: 4,
-                                  bottom: 4,
+                        if (_searchQuery.isNotEmpty) {
+                          final q = _searchQuery.toLowerCase();
+                          return name.toLowerCase().contains(q) ||
+                              cat.toLowerCase().contains(q);
+                        }
+
+                        final codes = categoryFilters[selectedCategory];
+                        if (codes == null) return true; // '전체'
+                        return codes.contains(cat);
+                      }).toList();
+
+                      if (filteredDocs.isEmpty) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.search_off_rounded,
+                                  size: 40,
+                                  color: Colors.grey.shade300,
                                 ),
-                                leading: _buildCategoryBadge(item.category),
-                                title: _highlightedTitle(
-                                  item.name,
-                                  const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: textDark,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  "${item.maker} | ${item.tubeOD}  ·  -${item.deduction}mm",
+                                const SizedBox(height: 12),
+                                Text(
+                                  _searchQuery.isNotEmpty
+                                      ? "'$_searchQuery' 검색 결과가 없습니다."
+                                      : "선택한 분류에 해당하는 부속이 없습니다.",
+                                  textAlign: TextAlign.center,
                                   style: TextStyle(
+                                    fontSize: 15,
                                     color: Colors.grey.shade600,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
                                   ),
                                 ),
-                                trailing: IconButton(
-                                  icon: Icon(
-                                    fav
-                                        ? Icons.star_rounded
-                                        : Icons.star_border_rounded,
-                                    color: fav
-                                        ? CuttingColors.warning
-                                        : Colors.grey.shade400,
+                                const SizedBox(height: 16),
+                                OutlinedButton.icon(
+                                  onPressed: _requestCustomFitting,
+                                  icon: const Icon(
+                                    Icons.edit_note_rounded,
+                                    color: makitaTeal,
+                                    size: 18,
                                   ),
-                                  onPressed: () => _toggleFavorite(item),
+                                  label: const Text(
+                                    "커스텀으로 직접 입력",
+                                    style: TextStyle(color: makitaTeal),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(color: makitaTeal),
+                                  ),
                                 ),
-                                onTap: () => _recordRecentAndPop(item),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      // 🚀 몇 개가 걸렸는지 목록을 스크롤하지 않고도 바로 알
+                      // 수 있게, 결과 개수를 목록 위에 작게 표시한다.
+                      return Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                "${filteredDocs.length}개 결과",
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey.shade500,
+                                ),
                               ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: ListView.builder(
+                              controller: scrollController,
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              itemCount: filteredDocs.length,
+                              itemBuilder: (context, index) {
+                                final doc = filteredDocs[index];
+                                var data = doc.data() as Map<String, dynamic>;
+                                final rawId = data['id'] as String?;
+
+                                FittingItem item = FittingItem(
+                                  id: (rawId != null && rawId.isNotEmpty)
+                                      ? rawId
+                                      : doc.id,
+                                  tubeOD: data['tubeOD'] ?? '',
+                                  category: data['category'] ?? '',
+                                  name:
+                                      data['displayName'] ?? data['name'] ?? '',
+                                  maker: data['maker'] ?? '',
+                                  deduction:
+                                      (data['deduction'] as num?)?.toDouble() ??
+                                      0.0,
+                                  icon: Icons.settings,
+                                );
+                                final bool fav = _isFavorite(item);
+
+                                return Container(
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: pureWhite,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.grey.shade200,
+                                    ),
+                                  ),
+                                  child: ListTile(
+                                    contentPadding: const EdgeInsets.only(
+                                      left: 16,
+                                      right: 8,
+                                      top: 4,
+                                      bottom: 4,
+                                    ),
+                                    leading: _buildCategoryBadge(item.category),
+                                    title: _highlightedTitle(
+                                      item.name,
+                                      const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: textDark,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      "${item.maker} | ${item.tubeOD}  ·  -${item.deduction}mm",
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    trailing: IconButton(
+                                      icon: Icon(
+                                        fav
+                                            ? Icons.star_rounded
+                                            : Icons.star_border_rounded,
+                                        color: fav
+                                            ? CuttingColors.warning
+                                            : Colors.grey.shade400,
+                                      ),
+                                      onPressed: () => _toggleFavorite(item),
+                                    ),
+                                    onTap: () => _recordRecentAndPop(item),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
