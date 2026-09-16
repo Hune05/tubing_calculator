@@ -35,10 +35,6 @@ const Color edgeDimColor = Color(0xFFF68657); // 측면: 주황색
 const Color guideCenterColor = tossBlue; // 가상선(센터): 파란색
 // 🚀 [신규] 대각선 치수 색상 - 센터/측면과 확실히 구분되는 보라색.
 const Color diagonalDimColor = Color(0xFF8B5CF6);
-// 🚀 [신규] 정렬 스냅 가이드선 - 거리 표시용 CAD 치수선(파란/주황)과
-// 헷갈리지 않도록 확실히 구분되는 마젠타 색을 쓴다(피그마 등에서 흔히
-// 쓰는 정렬 가이드 색).
-const Color alignGuideColor = Color(0xFFFF3D9A);
 
 // 🚀 [버그 수정] 작은 모듈을 잡기 쉽게 하려고 터치 영역을 시각적
 // 크기보다 넓혔었는데, 모듈끼리 붙여놓는 게 정상적인 사용 방식이라
@@ -320,12 +316,6 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
   PlacedItem? _activeItem;
   PlacedItem? _previewItem;
   Offset _dragRawPosition = Offset.zero;
-
-  // 🚀 [신규] 모듈을 드래그하는 동안 다른 모듈과 좌/우/중앙(또는 상/하/중앙)이
-  // 정확히 맞춰지면 자석처럼 딱 붙고, 그 기준선을 화면에 그어준다
-  // (피그마 등에서 흔히 쓰는 정렬 스냅 가이드). null이면 표시 안 함.
-  double? _alignGuideX;
-  double? _alignGuideY;
 
   // 🚀 [신규] 실제 도면 사진(캐드 출력물, 손그림 등)을 배경으로 깔아두고
   // 그 위에 모듈/치수를 배치할 수 있는 기능. 불투명도를 낮춰서 배경
@@ -858,70 +848,6 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
     double dx = (offset.dx / _gridSize).round() * _gridSize;
     double dy = (offset.dy / _gridSize).round() * _gridSize;
     return Offset(dx, dy);
-  }
-
-  // 🚀 [버그 수정] 원래는 안내선이 뜨는 기준선에 모듈 위치까지 자석처럼
-  // 딱 붙여버렸는데(스냅), 임계값을 넘는 순간 모듈이 그 자리로 순간
-  // 이동(점프)해버려서 "다른 모듈이 따라 붙는다"처럼 보였다(실제로는
-  // 다른 모듈이 움직인 게 아니라, 드래그 중인 모듈이 갑자기 점프한
-  // 것). 이제 자석처럼 위치를 강제로 옮기는 동작은 완전히 없애고,
-  // 다른 모듈과 좌/중앙/우(또는 상/중앙/하)가 맞아떨어지는 걸 알려주는
-  // 안내선만 그어준다 - 실제 위치는 언제나 손가락/그리드 스냅을 그대로
-  // 따라가서 점프가 생기지 않는다.
-  Offset _snapToAlignment(PlacedItem dragging, Offset proposed) {
-    const double snapThreshold = 6.0;
-    final double left = proposed.dx;
-    final double right = proposed.dx + dragging.width;
-    final double centerX = proposed.dx + dragging.width / 2;
-    final double top = proposed.dy;
-    final double bottom = proposed.dy + dragging.height;
-    final double centerY = proposed.dy + dragging.height / 2;
-
-    bool rangesOverlap(
-      double aStart,
-      double aEnd,
-      double bStart,
-      double bEnd,
-    ) => aStart < bEnd && bStart < aEnd;
-
-    double? guideX;
-    double? guideY;
-
-    for (final other in _placedItems) {
-      if (other.id == dragging.id) continue;
-      final double oLeft = other.position.dx;
-      final double oRight = other.position.dx + other.width;
-      final double oCenterX = other.center.dx;
-      final double oTop = other.position.dy;
-      final double oBottom = other.position.dy + other.height;
-      final double oCenterY = other.center.dy;
-
-      final bool yOverlaps = rangesOverlap(top, bottom, oTop, oBottom);
-      final bool xOverlaps = rangesOverlap(left, right, oLeft, oRight);
-
-      if (guideX == null && !yOverlaps) {
-        if ((left - oLeft).abs() <= snapThreshold) {
-          guideX = oLeft;
-        } else if ((right - oRight).abs() <= snapThreshold) {
-          guideX = oRight;
-        } else if ((centerX - oCenterX).abs() <= snapThreshold) {
-          guideX = oCenterX;
-        }
-      }
-      if (guideY == null && !xOverlaps) {
-        if ((top - oTop).abs() <= snapThreshold) {
-          guideY = oTop;
-        } else if ((bottom - oBottom).abs() <= snapThreshold) {
-          guideY = oBottom;
-        } else if ((centerY - oCenterY).abs() <= snapThreshold) {
-          guideY = oCenterY;
-        }
-      }
-    }
-
-    _alignGuideX = guideX;
-    _alignGuideY = guideY;
-    return proposed;
   }
 
   // 🚀 [버그 수정] 정렬 스냅뿐 아니라 그냥 드래그로도 모듈을 다른 모듈
@@ -3761,7 +3687,6 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                 row(centerDimColor, "파란색", "센터(중심) 기준 치수선/가이드선"),
                 row(edgeDimColor, "주황색", "측면(여백) 기준 치수선"),
                 row(diagonalDimColor, "보라색", "대각선 모드 치수선(직선거리+각도)"),
-                row(alignGuideColor, "마젠타색", "모듈을 옮길 때 뜨는 정렬 스냅 가이드선"),
                 row(warningRed, "빨간색", "최소 간격 위반 경고, 삭제 등 위험/주의 표시"),
                 row(tossText, "🛡 방패 표시", "안전 이격거리로 강조된 치수선(굵은 선)"),
               ],
@@ -4450,36 +4375,29 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                             _mode == BoardMode.placeModule)
                                           ..._buildGuidePaints(_activeItem!),
 
-                                        if (_alignGuideX != null)
-                                          Positioned(
-                                            left: _alignGuideX,
-                                            top: 0,
-                                            bottom: 0,
-                                            child: IgnorePointer(
-                                              child: Container(
-                                                width: 1.4,
-                                                color: alignGuideColor,
-                                              ),
-                                            ),
-                                          ),
-                                        if (_alignGuideY != null)
-                                          Positioned(
-                                            top: _alignGuideY,
-                                            left: 0,
-                                            right: 0,
-                                            child: IgnorePointer(
-                                              child: Container(
-                                                height: 1.4,
-                                                color: alignGuideColor,
-                                              ),
-                                            ),
-                                          ),
-
                                         ..._placedItems.map((item) {
                                           final bool canDrag =
                                               _mode == BoardMode.placeModule &&
                                               !item.isLocked;
                                           return Positioned(
+                                            // 🚀 [버그 수정] 이 Positioned에
+                                            // key가 없으면, 정렬 가이드선이
+                                            // 조건부로 Stack children 목록에
+                                            // 끼어들거나 빠질 때(예: 드래그
+                                            // 도중 안내선이 나타남/사라짐)
+                                            // 목록의 순서(인덱스)가 밀리면서
+                                            // 플러터가 "같은 자리에 있던"
+                                            // 엘리먼트를 다른 모듈 것으로
+                                            // 착각해 재사용할 수 있었다.
+                                            // 그러면 지금 드래그 중이던
+                                            // 제스처가 엉뚱한 모듈의
+                                            // onPanUpdate로 연결되어, 실제로
+                                            // 다른(엉뚱한) 모듈의 위치가
+                                            // 바뀌는 것처럼 보였다. id 기반
+                                            // key를 달아 항상 같은 모듈에
+                                            // 같은 엘리먼트가 매칭되게
+                                            // 고정한다.
+                                            key: ValueKey(item.id),
                                             left:
                                                 item.position.dx -
                                                 _kTouchHitPad,
@@ -4731,30 +4649,29 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                                                   clampedY,
                                                                 ),
                                                               );
-                                                          final aligned =
-                                                              _snapToAlignment(
-                                                                item,
-                                                                gridSnapped,
-                                                              );
-                                                          // 🚀 [버그 수정] 겹치는
-                                                          // 자리로는 이동을 막되,
-                                                          // X/Y 두 방향을 한 번에
-                                                          // 검사해서 하나라도
-                                                          // 겹치면 이동을 통째로
-                                                          // 취소했더니, 다른
-                                                          // 모듈에 대각선으로
-                                                          // 다가갈 때 그 자리에서
-                                                          // 완전히 "붙어서" 멈춰
-                                                          // 버리는 것처럼 느껴졌다.
-                                                          // 이제 X축과 Y축을
-                                                          // 각각 따로 검사해서,
-                                                          // 한쪽이 막혀도 다른
-                                                          // 쪽으로는 벽을 따라
-                                                          // 미끄러지듯 계속
+                                                          // 🚀 [버그 수정] 정렬
+                                                          // 안내선 기능을 완전히
+                                                          // 제거했다 - Stack
+                                                          // children 목록에
+                                                          // 안내선이 조건부로
+                                                          // 끼어들면서 목록
+                                                          // 순서가 밀려, 드래그
+                                                          // 중이던 제스처가
+                                                          // 엉뚱한 모듈로
+                                                          // 연결되는 문제가
+                                                          // 있었다(다른 모듈이
+                                                          // "따라 움직이는"
+                                                          // 것처럼 보였던 진짜
+                                                          // 원인). 겹치는
+                                                          // 자리로는 이동을
+                                                          // 막되, X/Y를 각각
+                                                          // 따로 검사해서 한쪽이
+                                                          // 막혀도 다른 쪽으로는
+                                                          // 벽을 따라 미끄러지듯
                                                           // 움직일 수 있게 한다.
                                                           final Offset
                                                           xOnly = Offset(
-                                                            aligned.dx,
+                                                            gridSnapped.dx,
                                                             item.position.dy,
                                                           );
                                                           if (!_overlapsAny(
@@ -4767,7 +4684,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                                           final Offset
                                                           yOnly = Offset(
                                                             item.position.dx,
-                                                            aligned.dy,
+                                                            gridSnapped.dy,
                                                           );
                                                           if (!_overlapsAny(
                                                             item,
@@ -4784,8 +4701,6 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                                   ? (details) {
                                                       setState(() {
                                                         _activeItem = null;
-                                                        _alignGuideX = null;
-                                                        _alignGuideY = null;
                                                         _groupDragAnchorOrigin =
                                                             null;
                                                         _groupDragOrigins = {};

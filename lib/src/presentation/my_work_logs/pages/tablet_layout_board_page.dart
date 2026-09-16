@@ -27,8 +27,6 @@ const Color warningRed = Color(0xFFF04438);
 // 서로 달라 헷갈렸음. "센터"는 수동/자동 어디서나 항상 파란색으로 통일.
 const Color centerDimColor = tossBlue; // 센터 기준: 파란색(자동 가이드와 통일)
 const Color edgeDimColor = Color(0xFFF68657); // 측면 기준: 주황색
-// 🚀 [신규] 정렬 스냅 가이드선 색 (모바일과 동일).
-const Color alignGuideColor = Color(0xFFFF3D9A);
 // 🚀 [신규] 대각선 치수 색상(모바일과 동일).
 const Color diagonalDimColor = Color(0xFF8B5CF6);
 const Color guideColor = tossBlue;
@@ -305,10 +303,6 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
   // 가이드선을 보여주기 위한 임시 아이템(모바일과 동일)
   PlacedItem? _previewItem;
   Offset _dragRawPosition = Offset.zero;
-
-  // 🚀 [신규] 정렬 스냅 가이드(모바일과 동일 개념).
-  double? _alignGuideX;
-  double? _alignGuideY;
 
   // 🚀 [신규] 다중 선택(모바일과 동일 개념).
   bool _multiSelectMode = false;
@@ -1624,68 +1618,6 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
     return Offset(dx, dy);
   }
 
-  // 🚀 [버그 수정] 원래는 안내선 기준에 모듈 위치까지 자석처럼 딱
-  // 붙였는데(스냅), 임계값을 넘는 순간 모듈이 그 자리로 순간 점프해
-  // "다른 모듈이 따라 붙는다"처럼 보였다(실제로는 다른 모듈이 움직인
-  // 게 아니라 드래그 중인 모듈이 점프한 것). 자석처럼 위치를 강제로
-  // 옮기는 동작은 없애고, 맞아떨어지는 걸 알려주는 안내선만 그어준다
-  // (모바일과 동일).
-  Offset _snapToAlignment(PlacedItem dragging, Offset proposed) {
-    const double snapThreshold = 6.0;
-    final double left = proposed.dx;
-    final double right = proposed.dx + dragging.width;
-    final double centerX = proposed.dx + dragging.width / 2;
-    final double top = proposed.dy;
-    final double bottom = proposed.dy + dragging.height;
-    final double centerY = proposed.dy + dragging.height / 2;
-
-    bool rangesOverlap(
-      double aStart,
-      double aEnd,
-      double bStart,
-      double bEnd,
-    ) => aStart < bEnd && bStart < aEnd;
-
-    double? guideX;
-    double? guideY;
-
-    for (final other in _placedItems) {
-      if (other.id == dragging.id) continue;
-      final double oLeft = other.position.dx;
-      final double oRight = other.position.dx + other.width;
-      final double oCenterX = other.center.dx;
-      final double oTop = other.position.dy;
-      final double oBottom = other.position.dy + other.height;
-      final double oCenterY = other.center.dy;
-
-      final bool yOverlaps = rangesOverlap(top, bottom, oTop, oBottom);
-      final bool xOverlaps = rangesOverlap(left, right, oLeft, oRight);
-
-      if (guideX == null && !yOverlaps) {
-        if ((left - oLeft).abs() <= snapThreshold) {
-          guideX = oLeft;
-        } else if ((right - oRight).abs() <= snapThreshold) {
-          guideX = oRight;
-        } else if ((centerX - oCenterX).abs() <= snapThreshold) {
-          guideX = oCenterX;
-        }
-      }
-      if (guideY == null && !xOverlaps) {
-        if ((top - oTop).abs() <= snapThreshold) {
-          guideY = oTop;
-        } else if ((bottom - oBottom).abs() <= snapThreshold) {
-          guideY = oBottom;
-        } else if ((centerY - oCenterY).abs() <= snapThreshold) {
-          guideY = oCenterY;
-        }
-      }
-    }
-
-    _alignGuideX = guideX;
-    _alignGuideY = guideY;
-    return proposed;
-  }
-
   // 🚀 [버그 수정] 정렬 스냅뿐 아니라 그냥 드래그로도 모듈을 다른 모듈
   // 위에 완전히 겹쳐 놓을 수 있었다(모바일과 동일 버그, 같이 수정).
   // 후보 위치가 다른 모듈과 겹치면 그 위치로는 이동을 허용하지 않는다.
@@ -2594,7 +2526,6 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                 row(centerDimColor, "파란색", "센터(중심) 기준 치수선/가이드선"),
                 row(edgeDimColor, "주황색", "측면(여백) 기준 치수선"),
                 row(diagonalDimColor, "보라색", "대각선 모드 치수선(직선거리+각도)"),
-                row(alignGuideColor, "마젠타색", "모듈을 옮길 때 뜨는 정렬 스냅 가이드선"),
                 row(warningRed, "빨간색", "최소 간격 위반 경고, 삭제 등 위험/주의 표시"),
                 row(tossText, "🛡 방패 표시", "안전 이격거리로 강조된 치수선(굵은 선)"),
               ],
@@ -4172,31 +4103,6 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                                         _mode == BoardMode.placeModule)
                                       ..._buildGuidePaints(_selectedItem!),
 
-                                    if (_alignGuideX != null)
-                                      Positioned(
-                                        left: _alignGuideX,
-                                        top: 0,
-                                        bottom: 0,
-                                        child: IgnorePointer(
-                                          child: Container(
-                                            width: 1.4,
-                                            color: alignGuideColor,
-                                          ),
-                                        ),
-                                      ),
-                                    if (_alignGuideY != null)
-                                      Positioned(
-                                        top: _alignGuideY,
-                                        left: 0,
-                                        right: 0,
-                                        child: IgnorePointer(
-                                          child: Container(
-                                            height: 1.4,
-                                            color: alignGuideColor,
-                                          ),
-                                        ),
-                                      ),
-
                                     if (_previewItem != null &&
                                         _mode == BoardMode.placeModule) ...[
                                       ..._buildGuidePaints(_previewItem!),
@@ -4215,6 +4121,15 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                                           _mode == BoardMode.placeModule &&
                                           !item.isLocked;
                                       return Positioned(
+                                        // 🚀 [버그 수정] key가 없으면 정렬
+                                        // 안내선이 조건부로 Stack children에
+                                        // 끼어들거나 빠질 때 목록 순서가
+                                        // 밀리면서, 드래그 중이던 제스처가
+                                        // 엉뚱한 모듈로 연결될 수 있었다
+                                        // (모바일과 동일 버그, 같이 수정).
+                                        // id 기반 key로 항상 같은 모듈에
+                                        // 같은 엘리먼트가 매칭되게 고정한다.
+                                        key: ValueKey(item.id),
                                         left: item.position.dx - _kTouchHitPad,
                                         top: item.position.dy - _kTouchHitPad,
                                         child: GestureDetector(
@@ -4427,25 +4342,25 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                                                               clampedY,
                                                             ),
                                                           );
-                                                      final aligned =
-                                                          _snapToAlignment(
-                                                            item,
-                                                            gridSnapped,
-                                                          );
-                                                      // 🚀 [버그 수정] X/Y를
-                                                      // 한 번에 검사해서 겹치면
-                                                      // 이동을 통째로 취소했더니
-                                                      // 대각선으로 다가갈 때
-                                                      // 그 자리에 완전히 붙어서
-                                                      // 멈추는 것처럼 느껴졌다.
-                                                      // 두 축을 각각 따로
-                                                      // 검사해서 한쪽이 막혀도
-                                                      // 다른 쪽으로는 벽을 따라
+                                                      // 🚀 [버그 수정] 정렬
+                                                      // 안내선 기능을 완전히
+                                                      // 제거했다(모바일과
+                                                      // 동일) - Stack children
+                                                      // 목록에 안내선이 조건부로
+                                                      // 끼어들면서 목록 순서가
+                                                      // 밀려, 드래그 중이던
+                                                      // 제스처가 엉뚱한
+                                                      // 모듈로 연결되는 문제가
+                                                      // 있었다. 겹치는 자리로는
+                                                      // 이동을 막되, X/Y를
+                                                      // 각각 따로 검사해서
+                                                      // 한쪽이 막혀도 다른
+                                                      // 쪽으로는 벽을 따라
                                                       // 미끄러지듯 움직이게
-                                                      // 한다(모바일과 동일).
+                                                      // 한다.
                                                       final Offset xOnly =
                                                           Offset(
-                                                            aligned.dx,
+                                                            gridSnapped.dx,
                                                             item.position.dy,
                                                           );
                                                       if (!_overlapsAny(
@@ -4457,7 +4372,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                                                       final Offset yOnly =
                                                           Offset(
                                                             item.position.dx,
-                                                            aligned.dy,
+                                                            gridSnapped.dy,
                                                           );
                                                       if (!_overlapsAny(
                                                         item,
@@ -4472,8 +4387,6 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                                           onPanEnd: canDrag
                                               ? (details) {
                                                   setState(() {
-                                                    _alignGuideX = null;
-                                                    _alignGuideY = null;
                                                     _groupDragAnchorOrigin =
                                                         null;
                                                     _groupDragOrigins = {};
