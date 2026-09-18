@@ -108,7 +108,7 @@ const Map<String, String> kRecurrenceLabels = {
   'monthly': "매월 반복",
 };
 
-enum _ViewMode { month, week, day }
+enum _ViewMode { month, week, day, timeline }
 
 // 🚀 달력 위에 표시되는 "일정 한 건"을 표현하는 값 - 프로젝트 일정과
 // 개인 일정(그리고 반복 일정이 펼쳐진 각 회차)을 같은 모양으로 다뤄서
@@ -159,6 +159,22 @@ class _AgendaItem {
   });
 }
 
+class _TlEvent {
+  final DateTime start;
+  final int len;
+  final _AgendaItem item;
+  int lane = 0;
+  _TlEvent(this.start, this.len, this.item);
+}
+
+class _TlRow {
+  final String label;
+  final Color color;
+  final List<_TlEvent> events = [];
+  int laneCount = 1;
+  _TlRow(this.label, this.color);
+}
+
 class MobileMyScheduleScreen extends StatefulWidget {
   // 🚀 모바일 메뉴에서는 이미 알고 있는 currentWorker를 바로 넘겨주고,
   // 태블릿 그리드 메뉴처럼 이 값을 모르는 경로로 들어오면 null을 받아
@@ -174,6 +190,7 @@ class MobileMyScheduleScreen extends StatefulWidget {
 class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   String _currentWorker = "로그인 필요";
   _ViewMode _viewMode = _ViewMode.month;
+  DateTime? _tlStart;
   CalendarFormat _calendarFormat = CalendarFormat.month;
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
@@ -1688,6 +1705,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         start = _normalize(_focusedDay).subtract(Duration(days: weekday));
         end = start.add(const Duration(days: 6));
         break;
+      case _ViewMode.timeline:
       case _ViewMode.month:
         start = DateTime(_focusedDay.year, _focusedDay.month, 1);
         end = DateTime(_focusedDay.year, _focusedDay.month + 1, 0);
@@ -1700,6 +1718,360 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       }
     });
     return result;
+  }
+
+  // 🚀 [타임라인 보기] 프로젝트(와 개인 일정 카테고리)를 세로 행으로, 날짜를
+  // 가로로 늘어놓은 간트형 화면. 동시에 진행되는 여러 프로젝트의 기간이
+  // 서로 어떻게 겹치는지를 한눈에 보는 용도다. 새 데이터 없이 달력이 쓰는
+  // 같은 일정 목록(byDay)을 그대로 재사용한다. 왼쪽 이름 열은 가로로
+  // 밀어도 고정되어 있다.
+  static const int _kTlDays = 56; // 8주
+  static const double _kTlDayW = 34;
+  static const double _kTlLabelW = 92;
+  static const double _kTlHeaderH = 44;
+  static const double _kTlLaneH = 22;
+
+  Widget _buildTimeline(Map<DateTime, List<_AgendaItem>> byDay) {
+    final DateTime today = _normalize(DateTime.now());
+    _tlStart ??= today.subtract(Duration(days: (today.weekday % 7) + 7));
+    final DateTime winStart = _tlStart!;
+    final DateTime winEnd = winStart.add(const Duration(days: _kTlDays));
+
+    // 일정 덩어리(기간이면 첫날 기준 1개, 하루짜리는 각각 1개)로 복원
+    final Map<String, _TlRow> rows = {};
+    byDay.forEach((day, items) {
+      for (final it in items) {
+        if (it.spanTotal > 1 && it.spanIndex != 0) continue;
+        final String rowKey = it.projectId != null
+            ? 'p:${it.projectId}'
+            : 'c:${it.category}';
+        final String rowLabel = it.projectId != null
+            ? (it.projectName ?? '프로젝트')
+            : it.category;
+        final row = rows.putIfAbsent(rowKey, () => _TlRow(rowLabel, it.color));
+        row.events.add(_TlEvent(_normalize(day), it.spanTotal, it));
+      }
+    });
+    final List<_TlRow> rowList =
+        rows.values
+            .where(
+              (r) => r.events.any(
+                (e) =>
+                    e.start.isBefore(winEnd) &&
+                    e.start.add(Duration(days: e.len)).isAfter(winStart),
+              ),
+            )
+            .toList()
+          ..sort((a, b) => a.label.compareTo(b.label));
+
+    for (final r in rowList) {
+      r.events.sort((a, b) => a.start.compareTo(b.start));
+      final List<DateTime> laneFree = [];
+      for (final e in r.events) {
+        final DateTime end = e.start.add(Duration(days: e.len));
+        int lane = laneFree.indexWhere((f) => !e.start.isBefore(f));
+        if (lane == -1) {
+          laneFree.add(end);
+          lane = laneFree.length - 1;
+        } else {
+          laneFree[lane] = end;
+        }
+        e.lane = lane;
+      }
+      r.laneCount = laneFree.isEmpty ? 1 : laneFree.length;
+    }
+
+    final double gridW = _kTlDays * _kTlDayW;
+    double rowH(_TlRow r) => r.laneCount * _kTlLaneH + 10;
+
+    Widget header() {
+      return SizedBox(
+        width: gridW,
+        height: _kTlHeaderH,
+        child: Stack(
+          children: [
+            for (int i = 0; i < _kTlDays; i++)
+              Builder(
+                builder: (_) {
+                  final d = winStart.add(Duration(days: i));
+                  final bool isToday = d == today;
+                  final bool weekend =
+                      d.weekday == DateTime.saturday ||
+                      d.weekday == DateTime.sunday;
+                  return Positioned(
+                    left: i * _kTlDayW,
+                    width: _kTlDayW,
+                    top: 0,
+                    bottom: 0,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        if (d.day == 1 || i == 0)
+                          Text(
+                            "${d.month}월",
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: scheduleTeal,
+                            ),
+                          )
+                        else
+                          const SizedBox(height: 12),
+                        const SizedBox(height: 2),
+                        Container(
+                          width: 24,
+                          height: 24,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: isToday ? scheduleTeal : Colors.transparent,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            "${d.day}",
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isToday
+                                  ? Colors.white
+                                  : (weekend ? scheduleDanger : scheduleText),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+      );
+    }
+
+    Widget gridRow(_TlRow r) {
+      final double h = rowH(r);
+      return SizedBox(
+        width: gridW,
+        height: h,
+        child: Stack(
+          children: [
+            for (int i = 0; i < _kTlDays; i++)
+              Builder(
+                builder: (_) {
+                  final d = winStart.add(Duration(days: i));
+                  final bool isToday = d == today;
+                  final bool weekend =
+                      d.weekday == DateTime.saturday ||
+                      d.weekday == DateTime.sunday;
+                  if (!isToday && !weekend) return const SizedBox.shrink();
+                  return Positioned(
+                    left: i * _kTlDayW,
+                    width: _kTlDayW,
+                    top: 0,
+                    bottom: 0,
+                    child: ColoredBox(
+                      color: isToday
+                          ? scheduleTeal.withValues(alpha: 0.12)
+                          : Colors.grey.withValues(alpha: 0.06),
+                    ),
+                  );
+                },
+              ),
+            for (final e in r.events)
+              Builder(
+                builder: (_) {
+                  final int s = e.start.difference(winStart).inDays;
+                  final int en = s + e.len;
+                  if (en <= 0 || s >= _kTlDays) return const SizedBox.shrink();
+                  final int cs = s < 0 ? 0 : s;
+                  final int ce = en > _kTlDays ? _kTlDays : en;
+                  return Positioned(
+                    left: cs * _kTlDayW + 1,
+                    width: (ce - cs) * _kTlDayW - 2,
+                    top: 5 + e.lane * _kTlLaneH,
+                    height: _kTlLaneH - 4,
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        showModalBottomSheet(
+                          context: context,
+                          backgroundColor: Colors.transparent,
+                          isScrollControlled: true,
+                          builder: (_) => Container(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                            decoration: const BoxDecoration(
+                              color: scheduleWhite,
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(24),
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [_buildAgendaCard(e.item)],
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        alignment: Alignment.centerLeft,
+                        decoration: BoxDecoration(
+                          color: e.item.color.withValues(
+                            alpha: e.item.isCompleted ? 0.45 : 1,
+                          ),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: Text(
+                          e.item.baseTitle,
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.clip,
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: "4주 전",
+                icon: const Icon(Icons.chevron_left_rounded),
+                onPressed: () => setState(
+                  () => _tlStart = winStart.subtract(const Duration(days: 28)),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  "${winStart.month}/${winStart.day} ~ ${winEnd.subtract(const Duration(days: 1)).month}/${winEnd.subtract(const Duration(days: 1)).day} (8주)",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: scheduleText,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => setState(() => _tlStart = null),
+                child: const Text("오늘"),
+              ),
+              IconButton(
+                tooltip: "4주 후",
+                icon: const Icon(Icons.chevron_right_rounded),
+                onPressed: () => setState(
+                  () => _tlStart = winStart.add(const Duration(days: 28)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: rowList.isEmpty
+              ? const Center(
+                  child: Text(
+                    "이 기간에 등록된 일정이 없습니다.",
+                    style: TextStyle(
+                      color: scheduleSubText,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: 100),
+                  child: Stack(
+                    children: [
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: _kTlLabelW),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              header(),
+                              for (final r in rowList) ...[
+                                const Divider(
+                                  height: 1,
+                                  color: Color(0xFFE5E8EB),
+                                ),
+                                gridRow(r),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        width: _kTlLabelW,
+                        child: ColoredBox(
+                          color: scheduleWhite,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: _kTlHeaderH),
+                              for (final r in rowList) ...[
+                                const Divider(
+                                  height: 1,
+                                  color: Color(0xFFE5E8EB),
+                                ),
+                                SizedBox(
+                                  height: rowH(r),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 8,
+                                          height: 8,
+                                          decoration: BoxDecoration(
+                                            color: r.color,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            r.label,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: scheduleText,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+        ),
+      ],
+    );
   }
 
   Widget _buildViewModeToggle() {
@@ -1748,6 +2120,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           segment("월", _ViewMode.month),
           segment("주", _ViewMode.week),
           segment("일", _ViewMode.day),
+          segment("타임라인", _ViewMode.timeline),
         ],
       ),
     );
@@ -2004,6 +2377,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       _ViewMode.day => "오늘",
       _ViewMode.week => "이번 주",
       _ViewMode.month => "이번 달",
+      _ViewMode.timeline => "이번 달",
     };
 
     return Container(
@@ -2453,14 +2827,16 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                         _buildViewModeToggle(),
                         if (_viewMode == _ViewMode.day)
                           _buildDayHeader()
-                        else
+                        else if (_viewMode != _ViewMode.timeline)
                           _buildCalendar(byDay),
                         _buildProgressBar(byDay),
                         _buildCategoryLegend(),
                         _buildProjectFilterRow(),
                         const Divider(height: 1, color: Color(0xFFE5E8EB)),
                         Expanded(
-                          child: selectedItems.isEmpty
+                          child: _viewMode == _ViewMode.timeline
+                              ? _buildTimeline(byDay)
+                              : selectedItems.isEmpty
                               ? ListView(
                                   physics:
                                       const AlwaysScrollableScrollPhysics(),
