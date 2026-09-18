@@ -1,8 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 // 🚀 [형강 컷팅 신규] 튜브 컷팅(cutting_project_model.dart)과 컬렉션을
 // 분리했다 - 형강은 피팅/공제/재고차감 개념이 전혀 없는 완전히 다른
 // 데이터라, 같은 컬렉션에 섞으면 두 화면이 서로의 필드를 몰라도 되는
 // 필드까지 신경 써야 한다.
 const String kSteelCuttingProjectsCollection = 'steel_cutting_projects';
+const String kSteelChangeLogSubcollection = 'change_log';
 
 class SteelCutItem {
   final String id;
@@ -40,6 +43,57 @@ class SteelCutItem {
     qty: (map['qty'] as num?)?.toInt() ?? 1,
     note: map['note'] ?? '',
   );
+}
+
+// 🚀 [형강 컷팅 기록 신규] 형강은 튜브처럼 "완료" 시점에 세션을 저장하는
+// 개념이 없다 - 항목이 계속 살아있는 목록에 바로바로 반영된다. 그래서
+// "컷팅 기록"은 튜브의 CutRecord(완료한 절단 세션)와 다르게, 언제 어떤
+// 항목을 추가/수정/삭제/복제했는지 자동으로 남기는 변경 이력이다.
+class SteelChangeLogEntry {
+  final String id;
+  final String action; // 'ADD' | 'EDIT' | 'DELETE' | 'DUPLICATE'
+  final String category;
+  final String shapeLabel;
+  final double length;
+  final int qty;
+  final String note;
+  final DateTime timestamp;
+
+  const SteelChangeLogEntry({
+    required this.id,
+    required this.action,
+    required this.category,
+    required this.shapeLabel,
+    required this.length,
+    required this.qty,
+    this.note = '',
+    required this.timestamp,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'action': action,
+    'category': category,
+    'shapeLabel': shapeLabel,
+    'length': length,
+    'qty': qty,
+    'note': note,
+    'timestamp': FieldValue.serverTimestamp(),
+  };
+
+  factory SteelChangeLogEntry.fromMap(String id, Map<String, dynamic> map) {
+    final rawTs = map['timestamp'];
+    final timestamp = rawTs is Timestamp ? rawTs.toDate() : DateTime.now();
+    return SteelChangeLogEntry(
+      id: id,
+      action: map['action'] ?? 'ADD',
+      category: map['category'] ?? 'CUSTOM',
+      shapeLabel: map['shapeLabel'] ?? '규격 미지정',
+      length: (map['length'] as num?)?.toDouble() ?? 0.0,
+      qty: (map['qty'] as num?)?.toInt() ?? 1,
+      note: map['note'] ?? '',
+      timestamp: timestamp,
+    );
+  }
 }
 
 class SteelCuttingProject {

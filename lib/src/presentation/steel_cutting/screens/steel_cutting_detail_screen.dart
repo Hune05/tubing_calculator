@@ -14,6 +14,7 @@ import '../../tube_cutting/cutting_optimizer.dart';
 import '../../tube_cutting/cutting_theme.dart';
 import '../../tube_cutting/widgets/cutting_optimization_sheet.dart';
 import '../widgets/steel_item_sheet.dart';
+import 'steel_cutting_history_page.dart';
 
 // 🚀 [형강 컷팅 신규] 찬넬/앵글처럼 피팅 없이 그냥 "규격 - 길이 - 수량"만
 // 있는 단순 절단 작업 전용 화면. 튜브 컷팅 계산기와 달리 라인(구간)을
@@ -114,6 +115,27 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     await _docRef.update({'setMultiplier': v});
   }
 
+  // 🚀 [형강 컷팅 기록 신규] 항목을 추가/수정/삭제/복제할 때마다 자동으로
+  // 남기는 변경 이력. 되돌리기(실행 취소)로 다시 사라지는 항목까지
+  // 기록하면 노이즈만 늘어나므로, 사용자가 의도적으로 한 정방향 동작만
+  // 남기고 실행 취소 자체는 별도로 기록하지 않는다.
+  Future<void> _logChange(String action, SteelCutItem item) async {
+    await _docRef
+        .collection(kSteelChangeLogSubcollection)
+        .add(
+          SteelChangeLogEntry(
+            id: '',
+            action: action,
+            category: item.category,
+            shapeLabel: item.shapeLabel,
+            length: item.length,
+            qty: item.qty,
+            note: item.note,
+            timestamp: DateTime.now(),
+          ).toMap(),
+        );
+  }
+
   // 🚀 [규격별 분리] 앵글과 찬넬처럼 서로 다른 규격은 같은 원자재(본)에서
   // 나올 수 없으니, 재단 최적화는 규격(shapeLabel)별로 따로 계산해야
   // 실제로 현장에서 그대로 따라 할 수 있는 지시서가 나온다.
@@ -135,6 +157,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       onSave: (item) {
         setState(() => _items.add(item));
         _persistItems();
+        _logChange('ADD', item);
       },
     );
   }
@@ -149,6 +172,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
           if (idx >= 0) _items[idx] = updated;
         });
         _persistItems();
+        _logChange('EDIT', updated);
       },
     );
   }
@@ -164,6 +188,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     );
     setState(() => _items.add(copy));
     _persistItems();
+    _logChange('DUPLICATE', copy);
     showCuttingUndoSnack(
       context,
       "'${item.shapeLabel}' 항목을 복제했습니다.",
@@ -178,6 +203,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     final index = _items.indexOf(item);
     setState(() => _items.removeWhere((e) => e.id == item.id));
     _persistItems();
+    _logChange('DELETE', item);
     showCuttingUndoSnack(
       context,
       "'${item.shapeLabel}' ${item.length.toStringAsFixed(0)}mm 항목을 삭제했습니다.",
@@ -427,6 +453,19 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
         ),
         actions: [
+          IconButton(
+            tooltip: "변경 이력",
+            icon: const Icon(Icons.history_rounded),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      SteelCuttingHistoryPage(project: widget.project),
+                ),
+              );
+            },
+          ),
           IconButton(
             tooltip: "톱날 손실(커프) 설정",
             icon: const Icon(Icons.content_cut_rounded),
