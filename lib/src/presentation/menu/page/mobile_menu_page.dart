@@ -16,6 +16,7 @@ import 'package:tubing_calculator/src/presentation/fabrication/screens/qr_scanne
 import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_only_screen.dart';
 import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/mobile_cutting_project_list_page.dart';
+import 'package:tubing_calculator/src/presentation/steel_cutting/screens/mobile_steel_project_list_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_project_list_page.dart';
 
 // 🚀 2. 자재 관리 페이지들 임포트
@@ -376,6 +377,26 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                       MaterialPageRoute(
                         builder: (context) =>
                             const MobileCuttingProjectListPage(),
+                      ),
+                    );
+                  },
+                ),
+
+                _buildMenuButton(
+                  context: context,
+                  title: "형강 컷팅 (찬넬/앵글)",
+                  subtitle: "라인 조립 없이 규격·길이만으로 재단 최적화·지시서 출력",
+                  icon: Icons.square_foot_rounded,
+                  iconColor: makitaTeal,
+                  badgeText: "New",
+                  badgeColor: makitaTeal,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const MobileSteelProjectListPage(),
                       ),
                     );
                   },

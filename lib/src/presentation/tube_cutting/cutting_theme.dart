@@ -189,6 +189,98 @@ void showCuttingUndoSnack(
   );
 }
 
+/// 톱날 손실(커프) 입력 다이얼로그. 원래 튜브 컷팅 화면 안에만 있었는데,
+/// 형강 컷팅(찬넬/앵글)도 같은 톱으로 자르는 같은 물리적 현상이라 그대로
+/// 재사용한다. 저장(SharedPreferences 키 등)은 부른 쪽 책임으로 남겨서,
+/// 이 함수는 순수하게 "숫자 하나 입력받기"만 담당한다.
+Future<double?> showBladeKerfDialog(
+  BuildContext context,
+  double currentKerf,
+) async {
+  final ctrl = TextEditingController(
+    text: currentKerf == 0.0 ? '' : currentKerf.toString(),
+  );
+  return showDialog<double>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: CuttingColors.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Row(
+        children: [
+          cuttingDialogIcon(Icons.content_cut_rounded),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Text(
+              "톱날 손실(커프) 설정",
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: CuttingColors.textPrimary,
+                fontSize: 17,
+              ),
+            ),
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "원자재를 여러 구간으로 자를 때 톱날 두께만큼 소재가 갈려 없어집니다. "
+            "절단 1회당 손실량을 넣어두면 총 소모량 계산에 자동으로 더해집니다.\n"
+            "(구간별 설치 길이 자체엔 영향 없습니다)",
+            style: TextStyle(fontSize: 13, color: CuttingColors.textSecondary),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: ctrl,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: CuttingColors.textPrimary,
+            ),
+            decoration: InputDecoration(
+              suffixText: "mm / 회",
+              filled: true,
+              fillColor: Colors.grey.shade100,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text("취소", style: TextStyle(color: Colors.grey)),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: CuttingColors.primary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          onPressed: () {
+            Navigator.pop(ctx, double.tryParse(ctrl.text) ?? 0.0);
+          },
+          child: const Text(
+            "저장",
+            style: TextStyle(
+              color: CuttingColors.surface,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 /// 프로젝트 목록 카드에서 "아직 재고 차감 안 한 사용량이 있음"을 보여주는
 /// 작은 배지. 예전엔 재고 차감 대상이 있는지 목록에서 전혀 알 수 없었다.
 class PendingDeductionBadge extends StatelessWidget {

@@ -218,6 +218,14 @@ class MenuScreen extends StatelessWidget {
         ),
         _buildGridCard(
           context,
+          icon: Icons.square_foot,
+          title: '형강 컷팅',
+          subtitle: '찬넬/앵글 재단 최적화·지시서',
+          iconColor: makitaTeal,
+          onTap: () => Navigator.pushNamed(context, '/steel-cutting'),
+        ),
+        _buildGridCard(
+          context,
           icon: Icons.precision_manufacturing,
           title: '전동 벤딩 계산기',
           subtitle: 'NC/CNC YBC 제원 산출',
