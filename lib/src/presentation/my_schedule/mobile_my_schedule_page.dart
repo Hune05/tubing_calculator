@@ -105,6 +105,10 @@ class _AgendaItem {
   final String? projectName;
   final String? scheduleId;
   final String recurrence;
+  // 기간 일정의 몇 번째 날인지(0부터)와 전체 일수 - 달력에 이어진 막대를
+  // 그릴 때 시작/끝을 알아내는 데 쓴다.
+  final int spanIndex;
+  final int spanTotal;
 
   const _AgendaItem({
     required this.key,
@@ -119,6 +123,8 @@ class _AgendaItem {
     this.projectName,
     this.scheduleId,
     this.recurrence = 'none',
+    this.spanIndex = 0,
+    this.spanTotal = 1,
   });
 }
 
@@ -313,6 +319,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
             isPersonal: true,
             personalDocId: docId,
             recurrence: recurrence,
+            spanIndex: i,
+            spanTotal: totalDays,
           );
         });
       }
@@ -1728,7 +1736,63 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     );
   }
 
+  // 🚀 [기간 막대] 여러 날 일정은 시작~종료 칸을 가로로 이어지는 한 줄
+  // 막대로 그린다. 같은 일정이 매일 같은 줄(lane)에 오도록, 기간이 겹치지
+  // 않는 것끼리 같은 줄을 재사용하는 식으로 줄 번호를 미리 정한다.
+  // 줄은 최대 3개까지만 막대로 그리고, 넘치는 건 아래 점으로 표시된다.
+  static const int _kMaxBarLanes = 3;
+
+  Map<String, int> _assignBarLanes(Map<DateTime, List<_AgendaItem>> byDay) {
+    final Map<String, DateTime> starts = {};
+    final Map<String, int> lengths = {};
+    byDay.forEach((day, items) {
+      for (final it in items) {
+        if (it.spanTotal > 1 && it.personalDocId != null) {
+          final id = it.personalDocId!;
+          final start = day.subtract(Duration(days: it.spanIndex));
+          starts[id] = _normalize(start);
+          lengths[id] = it.spanTotal;
+        }
+      }
+    });
+    final ids = starts.keys.toList()
+      ..sort((a, b) => starts[a]!.compareTo(starts[b]!));
+    final List<DateTime> laneFreeFrom = [];
+    final Map<String, int> lanes = {};
+    for (final id in ids) {
+      final s = starts[id]!;
+      final e = s.add(Duration(days: lengths[id]!));
+      int lane = laneFreeFrom.indexWhere((free) => !s.isBefore(free));
+      if (lane == -1) {
+        laneFreeFrom.add(e);
+        lane = laneFreeFrom.length - 1;
+      } else {
+        laneFreeFrom[lane] = e;
+      }
+      lanes[id] = lane;
+    }
+    return lanes;
+  }
+
+  Widget _dotRow(List<_AgendaItem> dots) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: dots.take(3).map((e) {
+        return Container(
+          width: 5,
+          height: 5,
+          margin: const EdgeInsets.symmetric(horizontal: 1),
+          decoration: BoxDecoration(
+            color: colorForCategory(e.category),
+            shape: BoxShape.circle,
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildCalendar(Map<DateTime, List<_AgendaItem>> byDay) {
+    final Map<String, int> barLanes = _assignBarLanes(byDay);
     return Container(
       color: scheduleWhite,
       padding: const EdgeInsets.only(bottom: 8),
@@ -1737,6 +1801,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         lastDay: DateTime.utc(2035, 12, 31),
         focusedDay: _focusedDay,
         calendarFormat: _calendarFormat,
+        rowHeight: 62,
         startingDayOfWeek: StartingDayOfWeek.sunday,
         selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
         eventLoader: (day) => byDay[_normalize(day)] ?? [],
@@ -1771,22 +1836,48 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         calendarBuilders: CalendarBuilders(
           markerBuilder: (context, day, events) {
             if (events.isEmpty) return null;
-            return Positioned(
-              bottom: 2,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: events.take(3).map((e) {
-                  return Container(
-                    width: 5,
-                    height: 5,
-                    margin: const EdgeInsets.symmetric(horizontal: 1),
-                    decoration: BoxDecoration(
-                      color: colorForCategory(e.category),
-                      shape: BoxShape.circle,
+            final bars = events
+                .where(
+                  (e) =>
+                      e.spanTotal > 1 &&
+                      e.personalDocId != null &&
+                      (barLanes[e.personalDocId] ?? 0) < _kMaxBarLanes,
+                )
+                .toList();
+            final dots = events.where((e) => !bars.contains(e)).toList();
+            final bool isSun = day.weekday == DateTime.sunday;
+            final bool isSat = day.weekday == DateTime.saturday;
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                for (final e in bars)
+                  Positioned(
+                    left: (e.spanIndex == 0 || isSun) ? 3 : 0,
+                    right: (e.spanIndex == e.spanTotal - 1 || isSat) ? 3 : 0,
+                    bottom: 2 + (barLanes[e.personalDocId] ?? 0) * 6.0,
+                    height: 4,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: colorForCategory(e.category),
+                        borderRadius: BorderRadius.horizontal(
+                          left: Radius.circular(
+                            (e.spanIndex == 0 || isSun) ? 2 : 0,
+                          ),
+                          right: Radius.circular(
+                            (e.spanIndex == e.spanTotal - 1 || isSat) ? 2 : 0,
+                          ),
+                        ),
+                      ),
                     ),
-                  );
-                }).toList(),
-              ),
+                  ),
+                if (dots.isNotEmpty)
+                  Positioned(
+                    bottom: 2 + _kMaxBarLanes * 6.0,
+                    left: 0,
+                    right: 0,
+                    child: Center(child: _dotRow(dots)),
+                  ),
+              ],
             );
           },
         ),
