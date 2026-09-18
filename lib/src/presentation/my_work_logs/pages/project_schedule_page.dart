@@ -195,6 +195,11 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
     // 60~75분 전 1회 알림, 기존과 동일). 검사일정처럼 미리 준비가
     // 필요한 일정은 3일/7일 전부터로 늘려서 쓸 수 있다.
     int reminderLeadDays = existing?['reminderLeadDays'] ?? 0;
+    // 🚀 [기간 일정] 며칠~몇 주에 걸친 작업(설치·시운전 등)은 종료일까지
+    // 넣으면 내 일정 관리 달력에 이어진 막대로 보인다. null이면 하루짜리.
+    DateTime? endDate = existing?['endDate'] != null
+        ? _asDateTime(existing!['endDate'])
+        : null;
     // 🚀 검사일정/납기일이 바뀔 때마다 "언제에서 언제로, 왜" 바뀌었는지
     // 쌓아두는 이력. 기존 이력은 그대로 유지하고 새 변경만 추가된다.
     final List<Map<String, dynamic>> changeHistory =
@@ -405,6 +410,108 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                       if (dateTime != null) ...[
                         const SizedBox(height: 16),
                         const Text(
+                          "기간 (여러 날에 걸친 작업)",
+                          style: TextStyle(
+                            color: tossSubText,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final d in [1, 3, 7, 14, 28, 56])
+                              Builder(
+                                builder: (_) {
+                                  final DateTime s = DateTime(
+                                    dateTime!.year,
+                                    dateTime!.month,
+                                    dateTime!.day,
+                                  );
+                                  final int cur = endDate == null
+                                      ? 1
+                                      : DateTime(
+                                              endDate!.year,
+                                              endDate!.month,
+                                              endDate!.day,
+                                            ).difference(s).inDays +
+                                            1;
+                                  final bool selected = cur == d;
+                                  return ChoiceChip(
+                                    label: Text(
+                                      d == 1
+                                          ? "당일"
+                                          : (d % 7 == 0 ? "${d ~/ 7}주" : "$d일"),
+                                    ),
+                                    selected: selected,
+                                    selectedColor: tossBlue.withValues(
+                                      alpha: 0.15,
+                                    ),
+                                    labelStyle: TextStyle(
+                                      color: selected ? tossBlue : tossSubText,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    backgroundColor: tossBg,
+                                    side: BorderSide.none,
+                                    onSelected: (_) => setModalState(
+                                      () => endDate = d == 1
+                                          ? null
+                                          : s.add(Duration(days: d - 1)),
+                                    ),
+                                  );
+                                },
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        InkWell(
+                          borderRadius: BorderRadius.circular(14),
+                          onTap: () async {
+                            final DateTime s = DateTime(
+                              dateTime!.year,
+                              dateTime!.month,
+                              dateTime!.day,
+                            );
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate:
+                                  (endDate == null || endDate!.isBefore(s))
+                                  ? s
+                                  : endDate!,
+                              firstDate: s,
+                              lastDate: s.add(const Duration(days: 730)),
+                            );
+                            if (picked != null) {
+                              setModalState(
+                                () => endDate = picked == s ? null : picked,
+                              );
+                            }
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            decoration: BoxDecoration(
+                              color: tossBg,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Text(
+                              endDate == null
+                                  ? "종료일 없음 (하루 일정)"
+                                  : "종료일 ${endDate!.year}.${endDate!.month.toString().padLeft(2, '0')}.${endDate!.day.toString().padLeft(2, '0')}",
+                              style: TextStyle(
+                                color: endDate == null ? tossSubText : tossText,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
                           "며칠 전부터 미리 알림",
                           style: TextStyle(
                             color: tossSubText,
@@ -472,6 +579,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                                   ? titleCtrl.text.trim()
                                   : type,
                               'dateTime': dateTime,
+                              'endDate': endDate,
                               'note': noteCtrl.text.trim(),
                               'isCompleted': existing?['isCompleted'] ?? false,
                               // 🚀 입고일을 아직 모르는 "자재 요청"이 "발주한
@@ -710,9 +818,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
     final String? id = item['id']?.toString();
     if (id == null) return 0;
     return widget.punchLists
-        .where(
-          (p) => p['linkedScheduleId'] == id && p['is_completed'] != true,
-        )
+        .where((p) => p['linkedScheduleId'] == id && p['is_completed'] != true)
         .length;
   }
 
@@ -819,7 +925,8 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
       if (dt.year == year && dt.month == month) inMonth.add(s);
     }
     inMonth.sort(
-      (a, b) => _asDateTime(a['dateTime']).compareTo(_asDateTime(b['dateTime'])),
+      (a, b) =>
+          _asDateTime(a['dateTime']).compareTo(_asDateTime(b['dateTime'])),
     );
 
     final Map<String, int> countByType = {};

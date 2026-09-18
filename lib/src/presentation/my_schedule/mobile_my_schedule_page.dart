@@ -109,6 +109,7 @@ class _AgendaItem {
   // 그릴 때 시작/끝을 알아내는 데 쓴다.
   final int spanIndex;
   final int spanTotal;
+  final String? spanKey;
 
   const _AgendaItem({
     required this.key,
@@ -125,6 +126,7 @@ class _AgendaItem {
     this.recurrence = 'none',
     this.spanIndex = 0,
     this.spanTotal = 1,
+    this.spanKey,
   });
 }
 
@@ -249,22 +251,49 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         final date = _asDateTime(s['dateTime']);
         final category = (s['type'] as String?) ?? '기타';
         final rawTitle = (s['title'] as String?)?.trim();
-        items.add(
-          _AgendaItem(
-            key: 'proj_${project['id']}_${s['id']}',
-            date: date,
-            hasTime: true,
-            title: (rawTitle != null && rawTitle.isNotEmpty)
-                ? rawTitle
-                : category,
-            category: category,
-            isCompleted: s['isCompleted'] == true,
-            isPersonal: false,
-            projectId: project['id']?.toString(),
-            projectName: (project['name'] as String?) ?? '이름 없음',
-            scheduleId: s['id']?.toString(),
-          ),
-        );
+        final String baseTitle = (rawTitle != null && rawTitle.isNotEmpty)
+            ? rawTitle
+            : category;
+        // 🚀 [기간 일정] 프로젝트 일정도 endDate가 있으면 하루씩 펼쳐서
+        // 달력에 이어진 막대로 보이게 한다.
+        final DateTime startDay = DateTime(date.year, date.month, date.day);
+        final DateTime? rawEnd = s['endDate'] != null
+            ? _asDateTime(s['endDate'])
+            : null;
+        final DateTime endDay = rawEnd != null
+            ? DateTime(rawEnd.year, rawEnd.month, rawEnd.day)
+            : startDay;
+        int totalDays = endDay.isBefore(startDay)
+            ? 1
+            : (endDay.difference(startDay).inHours / 24).round() + 1;
+        if (totalDays > 120) totalDays = 1;
+        for (int i = 0; i < totalDays; i++) {
+          items.add(
+            _AgendaItem(
+              key: totalDays > 1
+                  ? 'proj_${project['id']}_${s['id']}_d$i'
+                  : 'proj_${project['id']}_${s['id']}',
+              date: i == 0
+                  ? date
+                  : DateTime(startDay.year, startDay.month, startDay.day + i),
+              hasTime: i == 0,
+              title: totalDays > 1
+                  ? '$baseTitle (${i + 1}/$totalDays일)'
+                  : baseTitle,
+              category: category,
+              isCompleted: s['isCompleted'] == true,
+              isPersonal: false,
+              projectId: project['id']?.toString(),
+              projectName: (project['name'] as String?) ?? '이름 없음',
+              scheduleId: s['id']?.toString(),
+              spanIndex: i,
+              spanTotal: totalDays,
+              spanKey: totalDays > 1
+                  ? 'proj_${project['id']}_${s['id']}'
+                  : null,
+            ),
+          );
+        }
       }
     }
     return items;
@@ -321,6 +350,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
             recurrence: recurrence,
             spanIndex: i,
             spanTotal: totalDays,
+            spanKey: docId,
           );
         });
       }
@@ -1747,8 +1777,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     final Map<String, int> lengths = {};
     byDay.forEach((day, items) {
       for (final it in items) {
-        if (it.spanTotal > 1 && it.personalDocId != null) {
-          final id = it.personalDocId!;
+        if (it.spanTotal > 1 && it.spanKey != null) {
+          final id = it.spanKey!;
           final start = day.subtract(Duration(days: it.spanIndex));
           starts[id] = _normalize(start);
           lengths[id] = it.spanTotal;
@@ -1840,8 +1870,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                 .where(
                   (e) =>
                       e.spanTotal > 1 &&
-                      e.personalDocId != null &&
-                      (barLanes[e.personalDocId] ?? 0) < _kMaxBarLanes,
+                      e.spanKey != null &&
+                      (barLanes[e.spanKey] ?? 0) < _kMaxBarLanes,
                 )
                 .toList();
             final dots = events.where((e) => !bars.contains(e)).toList();
@@ -1854,7 +1884,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                   Positioned(
                     left: (e.spanIndex == 0 || isSun) ? 3 : 0,
                     right: (e.spanIndex == e.spanTotal - 1 || isSat) ? 3 : 0,
-                    bottom: 2 + (barLanes[e.personalDocId] ?? 0) * 6.0,
+                    bottom: 2 + (barLanes[e.spanKey] ?? 0) * 6.0,
                     height: 4,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
