@@ -99,9 +99,9 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
           : _resolutionCtrl.text.trim();
       _changed = true;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("처리 완료로 저장했습니다.")),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("처리 완료로 저장했습니다.")));
   }
 
   void _reopen() {
@@ -110,9 +110,9 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
       _punch['resolved_at'] = null;
       _changed = true;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("미처리 상태로 되돌렸습니다.")),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("미처리 상태로 되돌렸습니다.")));
   }
 
   @override
@@ -200,10 +200,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
                   ),
                   _infoRow("위치", _punch['location'] ?? '위치 미상'),
                   _infoRow("결함 유형", _punch['defect_type'] ?? '-'),
-                  _infoRow(
-                    "우선순위",
-                    _priorityCadenceLabel(_punch['priority']),
-                  ),
+                  _infoRow("우선순위", _priorityCadenceLabel(_punch['priority'])),
                   const SizedBox(height: 12),
                   Text(
                     _punch['content'] ?? '',
@@ -492,9 +489,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
               backgroundColor: tossInputBg,
               side: BorderSide.none,
               label: Text(
-                dt != null
-                    ? "$label (${dt.month}/${dt.day})"
-                    : label,
+                dt != null ? "$label (${dt.month}/${dt.day})" : label,
                 style: const TextStyle(
                   color: tossText,
                   fontWeight: FontWeight.w600,

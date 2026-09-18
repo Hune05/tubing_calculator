@@ -113,7 +113,8 @@ class _PunchListPageState extends State<PunchListPage> {
   Future<void> _pickDueDate() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _customDueDate ?? DateTime.now().add(const Duration(days: 3)),
+      initialDate:
+          _customDueDate ?? DateTime.now().add(const Duration(days: 3)),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );

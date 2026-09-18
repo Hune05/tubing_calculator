@@ -47,7 +47,10 @@ class _FloorPlanPinPageState extends State<FloorPlanPinPage> {
                 : () => Navigator.pop(context, _fraction),
             child: const Text(
               "확인",
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -62,10 +65,7 @@ class _FloorPlanPinPageState extends State<FloorPlanPinPage> {
                 final RenderBox box = context.findRenderObject() as RenderBox;
                 final local = box.globalToLocal(details.globalPosition);
                 final double dx = (local.dx / box.size.width).clamp(0.0, 1.0);
-                final double dy = (local.dy / box.size.height).clamp(
-                  0.0,
-                  1.0,
-                );
+                final double dy = (local.dy / box.size.height).clamp(0.0, 1.0);
                 setState(() => _fraction = Offset(dx, dy));
               },
               child: Stack(

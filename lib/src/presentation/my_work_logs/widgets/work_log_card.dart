@@ -310,7 +310,7 @@ class WorkLogCard extends StatelessWidget {
                     // 🚀 [추가] 매일 하나씩 쌓이는 목록이라 오래 진행되는
                     // 현장은 카드 하나가 한없이 길어진다 - 5개씩 페이지로
                     // 나눠서 보여준다.
-                    _DailyReportPager(
+                    DailyReportPager(
                       reports: dailyReports,
                       onOpenReport: onOpenDailyReport,
                     ),
@@ -319,7 +319,7 @@ class WorkLogCard extends StatelessWidget {
 
                   // ⚠️ 이슈 리스트 목록
                   if (punchLists.isNotEmpty) ...[
-                    _PunchListSection(
+                    PunchListSection(
                       punchLists: punchLists,
                       onOpenPunchDetail: onOpenPunchDetail,
                     ),
@@ -421,7 +421,7 @@ class WorkLogCard extends StatelessWidget {
   }
 }
 
-// 리스트 아이템 (WorkLogCard와 아래 _DailyReportPager가 함께 쓰므로
+// 리스트 아이템 (WorkLogCard와 아래 DailyReportPager가 함께 쓰므로
 // 최상위 함수로 뺐다)
 Widget _buildUnifiedRecordItem({
   required BuildContext context,
@@ -520,20 +520,20 @@ Widget _buildUnifiedRecordItem({
 
 // 🚀 [신규] 이슈 목록도 시간이 지나면 계속 쌓이므로, 일정 관리와
 // 동일하게 "완료 숨김"(기본 켜짐) 필터와 5개씩 페이지네이션을 둔다.
-class _PunchListSection extends StatefulWidget {
+class PunchListSection extends StatefulWidget {
   final List<dynamic> punchLists;
   final void Function(Map<String, dynamic> punch) onOpenPunchDetail;
 
-  const _PunchListSection({
+  const PunchListSection({
     required this.punchLists,
     required this.onOpenPunchDetail,
   });
 
   @override
-  State<_PunchListSection> createState() => _PunchListSectionState();
+  State<PunchListSection> createState() => PunchListSectionState();
 }
 
-class _PunchListSectionState extends State<_PunchListSection> {
+class PunchListSectionState extends State<PunchListSection> {
   static const int _pageSize = 5;
   bool _hideCompleted = true;
   int _page = 0;
@@ -669,17 +669,17 @@ class _PunchListSectionState extends State<_PunchListSection> {
 // 보여주는 위젯. WorkLogCard는 setState가 잦아서(펼침/접힘 등) 페이지
 // 상태를 카드 안에 그냥 두면 리렌더 때마다 흔들릴 수 있어, 별도
 // StatefulWidget으로 분리해 페이지 번호를 독립적으로 기억한다.
-class _DailyReportPager extends StatefulWidget {
+class DailyReportPager extends StatefulWidget {
   final List<dynamic> reports;
   final void Function(Map<String, dynamic> report) onOpenReport;
 
-  const _DailyReportPager({required this.reports, required this.onOpenReport});
+  const DailyReportPager({required this.reports, required this.onOpenReport});
 
   @override
-  State<_DailyReportPager> createState() => _DailyReportPagerState();
+  State<DailyReportPager> createState() => DailyReportPagerState();
 }
 
-class _DailyReportPagerState extends State<_DailyReportPager> {
+class DailyReportPagerState extends State<DailyReportPager> {
   static const int _pageSize = 5;
   int _page = 0;
 

@@ -40,12 +40,21 @@ class ProjectSchedulePage extends StatefulWidget {
   // 그 검사일정 카드에 "미해결 이슈 N건"을 보여주기 위한 참조용 목록.
   // 여기서 수정하지는 않고 개수만 세는 용도라 읽기 전용으로 받는다.
   final List<Map<String, dynamic>> punchLists;
+  // 🚀 [프로젝트 단계] 이 프로젝트의 단계 목록(id/name). 일정을 단계에 붙이고
+  // 단계별로 걸러볼 때 쓴다. initialPhaseId가 있으면 그 단계만 보여주고 새
+  // 일정도 그 단계로 만든다. openEditorOnStart면 열자마자 새 일정 입력을 띄운다.
+  final List<Map<String, dynamic>> phases;
+  final String? initialPhaseId;
+  final bool openEditorOnStart;
 
   const ProjectSchedulePage({
     super.key,
     required this.projectName,
     required this.initialSchedules,
     this.punchLists = const [],
+    this.phases = const [],
+    this.initialPhaseId,
+    this.openEditorOnStart = false,
   });
 
   @override
@@ -77,7 +86,26 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
     if (_hideCompleted) {
       list = list.where((s) => s['isCompleted'] != true);
     }
+    if (_phaseFilter != null) {
+      list = list.where((s) {
+        final pid = s['phaseId']?.toString();
+        if (_phaseFilter == '__none__') return pid == null || pid.isEmpty;
+        return pid == _phaseFilter;
+      });
+    }
     return list.toList();
+  }
+
+  // null=전체, '__none__'=단계 미지정, 그 외=단계 id
+  String? _phaseFilter;
+
+  String? _phaseNameOf(Map<String, dynamic> item) {
+    final pid = item['phaseId']?.toString();
+    if (pid == null) return null;
+    for (final p in widget.phases) {
+      if (p['id']?.toString() == pid) return p['name']?.toString();
+    }
+    return null;
   }
 
   @override
@@ -89,6 +117,12 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
     _sort();
     final now = DateTime.now();
     _calendarMonth = DateTime(now.year, now.month);
+    _phaseFilter = widget.initialPhaseId;
+    if (widget.openEditorOnStart) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showEditor();
+      });
+    }
   }
 
   void _sort() {
@@ -195,6 +229,11 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
     // 60~75분 전 1회 알림, 기존과 동일). 검사일정처럼 미리 준비가
     // 필요한 일정은 3일/7일 전부터로 늘려서 쓸 수 있다.
     int reminderLeadDays = existing?['reminderLeadDays'] ?? 0;
+    // 🚀 [프로젝트 단계] 이 일정이 속한 단계. 새 일정이면 지금 보고 있는
+    // 단계(있으면)를 기본으로 한다.
+    String? phaseId = existing != null
+        ? existing['phaseId']?.toString()
+        : widget.initialPhaseId;
     // 🚀 [기간 일정] 며칠~몇 주에 걸친 작업(설치·시운전 등)은 종료일까지
     // 넣으면 내 일정 관리 달력에 이어진 막대로 보인다. null이면 하루짜리.
     DateTime? endDate = existing?['endDate'] != null
@@ -279,6 +318,44 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                           );
                         }).toList(),
                       ),
+                      if (widget.phases.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        const Text(
+                          "단계",
+                          style: TextStyle(
+                            color: tossSubText,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final p in [
+                              {'id': null, 'name': '미지정'},
+                              ...widget.phases,
+                            ])
+                              ChoiceChip(
+                                label: Text(p['name'].toString()),
+                                selected: phaseId == p['id']?.toString(),
+                                selectedColor: tossBlue.withValues(alpha: 0.15),
+                                labelStyle: TextStyle(
+                                  color: phaseId == p['id']?.toString()
+                                      ? tossBlue
+                                      : tossSubText,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                backgroundColor: tossBg,
+                                side: BorderSide.none,
+                                onSelected: (_) => setModalState(
+                                  () => phaseId = p['id']?.toString(),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 20),
                       TextField(
                         controller: titleCtrl,
@@ -580,6 +657,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                                   : type,
                               'dateTime': dateTime,
                               'endDate': endDate,
+                              'phaseId': phaseId,
                               'note': noteCtrl.text.trim(),
                               'isCompleted': existing?['isCompleted'] ?? false,
                               // 🚀 입고일을 아직 모르는 "자재 요청"이 "발주한
@@ -1318,6 +1396,34 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                               ),
                             );
                           }),
+                          if (widget.phases.isNotEmpty)
+                            ...[
+                              {'id': null, 'name': '전 단계'},
+                              ...widget.phases,
+                              {'id': '__none__', 'name': '단계 미지정'},
+                            ].map((p) {
+                              final bool selected =
+                                  _phaseFilter == p['id']?.toString();
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  label: Text(p['name'].toString()),
+                                  selected: selected,
+                                  selectedColor: tossBlue.withValues(
+                                    alpha: 0.15,
+                                  ),
+                                  labelStyle: TextStyle(
+                                    color: selected ? tossBlue : tossSubText,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  backgroundColor: tossBg,
+                                  side: BorderSide.none,
+                                  onSelected: (_) => setState(
+                                    () => _phaseFilter = p['id']?.toString(),
+                                  ),
+                                ),
+                              );
+                            }),
                           // 🚀 [추가] 완료된 일정 숨기기/보기 토글
                           FilterChip(
                             label: const Text("완료 숨김"),
@@ -1441,9 +1547,14 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
-                                            dt != null
-                                                ? _formatDateTime(dt)
-                                                : _pendingRequestLabel(item),
+                                            (dt != null
+                                                    ? _formatDateTime(dt)
+                                                    : _pendingRequestLabel(
+                                                        item,
+                                                      )) +
+                                                (_phaseNameOf(item) != null
+                                                    ? "  ·  ${_phaseNameOf(item)}"
+                                                    : ''),
                                             style: TextStyle(
                                               color: isPending
                                                   ? warningRed

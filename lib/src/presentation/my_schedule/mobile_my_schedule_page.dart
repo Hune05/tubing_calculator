@@ -12,6 +12,7 @@ import 'package:tubing_calculator/main.dart'
 import '../../data/repositories/work_project_repository.dart';
 import '../../core/common_widgets/makita_time_picker.dart';
 import '../my_work_logs/screens/work_log_main_screen.dart';
+import '../my_work_logs/models/project_phase.dart' show colorForProject;
 
 // 🚀 [신규] "내 일정 관리" - 마키타 틸 팔레트로 앱 전체와 통일.
 const Color scheduleTeal = Color(0xFF007580);
@@ -52,25 +53,6 @@ const Map<String, Color> kScheduleColors = {
 
 // 🚀 [프로젝트별 색] 여러 프로젝트가 동시에 진행돼도 달력에서 구분되도록,
 // 프로젝트 ID로 고정된 색을 배정한다(같은 프로젝트는 언제나 같은 색).
-const List<Color> kProjectPalette = [
-  Color(0xFF2F80ED),
-  Color(0xFFE0432B),
-  Color(0xFF1D8A4E),
-  Color(0xFF8E63CE),
-  Color(0xFFC77700),
-  Color(0xFF0E9AA7),
-  Color(0xFFD6336C),
-  Color(0xFF5C6BC0),
-];
-
-Color colorForProject(String projectId) {
-  int h = 0;
-  for (final c in projectId.codeUnits) {
-    h = (h * 31 + c) & 0x7fffffff;
-  }
-  return kProjectPalette[h % kProjectPalette.length];
-}
-
 Color colorForCategory(String cat) =>
     kScheduleColors[cat] ?? kScheduleColors['기타']!;
 

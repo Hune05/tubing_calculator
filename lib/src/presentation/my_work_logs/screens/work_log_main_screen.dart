@@ -5,7 +5,9 @@ import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 // 🚀 [수정됨] Dialog가 아니라 새로 만든 Page를 임포트합니다.
 // 경로가 본인 프로젝트 폴더와 맞는지 꼭 확인해 주세요!
 import '../widgets/create_log_sheet.dart';
-import '../widgets/work_log_card.dart';
+import '../widgets/project_summary_card.dart';
+import '../models/project_phase.dart';
+import '../pages/project_detail_page.dart';
 import '../pages/daily_report_page.dart'; // 다이얼로그 대신 Page 임포트
 import '../pages/punch_list_page.dart'; // 다이얼로그 대신 Page 임포트
 import '../pages/punch_detail_page.dart';
@@ -34,8 +36,10 @@ class WorkLogMainScreen extends StatefulWidget {
 class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   final WorkProjectRepository _repo = WorkProjectRepository();
   List<Map<String, dynamic>> _workLogs = [];
-  int? _expandedIndex;
   bool _isLoading = true;
+  // 🚀 [프로젝트 목록 정렬] due=납기 임박순(납기 없는 건 뒤로), recent=최근 생성순,
+  // progress=진행률 낮은순(뒤처진 프로젝트 먼저)
+  String _sortMode = 'due';
   // 🚀 [추가] 완료 처리된 프로젝트는 기본적으로 목록/대시보드에서 숨기고
   // "완료됨" 탭을 눌러야 보이게 한다 - 오래 쓸수록 목록이 무한정
   // 길어지는 걸 막기 위함.
@@ -57,6 +61,11 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   Future<void> _loadData() async {
     try {
       final projects = await _repo.fetchAllProjects();
+      // 🚀 [단계 구조 이전] 단계(phases)가 없던 기존 프로젝트를, 등록된 일정
+      // 종류/날짜를 기준으로 새 구조로 옮겨 한 번만 저장한다.
+      for (final p in projects) {
+        if (migrateProjectToPhases(p)) _repo.upsertProject(p);
+      }
       if (!mounted) return;
       setState(() {
         _workLogs = projects;
@@ -69,7 +78,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         );
         if (match.isNotEmpty && mounted) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _openSchedule(match);
+            if (mounted) _openDetail(match, tab: 1);
           });
         }
       }
@@ -97,14 +106,151 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     }
   }
 
+  // 🚀 [프로젝트 상세] 카드 안에 인라인으로 흩어져 있던 동작들을 메서드로 빼서,
+  // 새 프로젝트 상세 화면(ProjectDetailPage)이 그대로 재사용하게 했다.
+  Future<void> _openDetail(Map<String, dynamic> log, {int tab = 0}) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProjectDetailPage(
+          log: log,
+          actions: _actionsFor(log),
+          initialTab: tab,
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
+  ProjectActions _actionsFor(Map<String, dynamic> log) => ProjectActions(
+    addPunch: () => _addPunchFor(log),
+    openPunch: (p) => _openPunchDetail(log, p),
+    addReport: () => _addDailyReportFor(log),
+    openReport: (r) => _openReportFor(log, r),
+    openReportCalendar: () => _openReportCalendarFor(log),
+    openSchedule: ({String? phaseId, bool add = false}) =>
+        _openSchedule(log, phaseId: phaseId, add: add),
+    save: () => _saveProject(log),
+    toggleStatus: () => _toggleProjectStatus(log),
+    delete: () {
+      final id = log['id']?.toString();
+      setState(() => _workLogs.remove(log));
+      if (id != null) _repo.deleteProject(id);
+    },
+  );
+
+  Future<void> _openReportFor(
+    Map<String, dynamic> log,
+    Map<String, dynamic> report,
+  ) async {
+    final updated = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DailyReportPage(
+          existingData: report,
+          relatedIssueCandidates: _issueCandidatesFor(log),
+          floorPlanImagePath: log['floor_plan_image_path'],
+        ),
+      ),
+    );
+    if (updated != null) {
+      setState(() {
+        final idx = log['daily_reports'].indexOf(report);
+        if (idx != -1) log['daily_reports'][idx] = updated;
+      });
+      _saveProject(log);
+    }
+  }
+
+  Future<void> _openReportCalendarFor(Map<String, dynamic> log) async {
+    final updated = await Navigator.push<List<Map<String, dynamic>>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DailyReportCalendarPage(
+          projectName: log['name'] ?? '이름 없음',
+          initialReports: List<Map<String, dynamic>>.from(
+            log['daily_reports'] ?? [],
+          ),
+        ),
+      ),
+    );
+    if (updated != null) {
+      setState(() => log['daily_reports'] = updated);
+      _saveProject(log);
+    }
+  }
+
+  Future<void> _addPunchFor(Map<String, dynamic> log) async {
+    // 같은 프로젝트에서 최근에 쓴 위치를 최신순으로 추려서 넘긴다(최대 6개).
+    final List<String> recentLocations = [];
+    for (final p in (log['punch_lists'] as List<dynamic>? ?? [])) {
+      final loc = p['location']?.toString();
+      if (loc != null &&
+          loc.isNotEmpty &&
+          loc != '위치 미상' &&
+          !recentLocations.contains(loc)) {
+        recentLocations.add(loc);
+      }
+      if (recentLocations.length >= 6) break;
+    }
+    final newPunch = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PunchListPage(
+          recentLocations: recentLocations,
+          floorPlanImagePath: log['floor_plan_image_path'],
+        ),
+      ),
+    );
+    if (newPunch != null) {
+      final String? newFloorPlanPath = newPunch.remove('__newFloorPlanPath');
+      if (newFloorPlanPath != null) {
+        log['floor_plan_image_path'] = newFloorPlanPath;
+      }
+      newPunch['id'] = DateTime.now().millisecondsSinceEpoch.toString();
+      newPunch['created_at'] = DateTime.now();
+      newPunch['lastPunchReminderAt'] = null;
+      newPunch['linkedScheduleId'] = null;
+      setState(() => log['punch_lists'].insert(0, newPunch));
+      _saveProject(log);
+    }
+  }
+
+  List<Map<String, dynamic>> _sortedLogs(List<Map<String, dynamic>> list) {
+    final out = [...list];
+    switch (_sortMode) {
+      case 'progress':
+        out.sort((a, b) => projectProgress(a).compareTo(projectProgress(b)));
+        break;
+      case 'recent':
+        break; // fetchAllProjects가 이미 최신순
+      default:
+        out.sort((a, b) {
+          final da = projectDue(a), db = projectDue(b);
+          if (da == null && db == null) return 0;
+          if (da == null) return 1;
+          if (db == null) return -1;
+          return da.compareTo(db);
+        });
+    }
+    return out;
+  }
+
   // 🚀 [추가] "일정 관리" 진입 로직을 하나로 모아서, 프로젝트 카드
   // 버튼과 아래 "전체 일정 확인" 요약 카드 둘 다에서 재사용한다.
-  Future<void> _openSchedule(Map<String, dynamic> log) async {
+  Future<void> _openSchedule(
+    Map<String, dynamic> log, {
+    String? phaseId,
+    bool add = false,
+  }) async {
     final updated = await Navigator.push<List<Map<String, dynamic>>>(
       context,
       MaterialPageRoute(
         builder: (context) => ProjectSchedulePage(
           projectName: log['name'] ?? '이름 없음',
+          phases: phasesOf(log),
+          initialPhaseId: phaseId,
+          openEditorOnStart: add,
           initialSchedules: List<Map<String, dynamic>>.from(
             log['schedules'] ?? [],
           ),
@@ -631,12 +777,50 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                       ],
                     ),
                   ),
+                if ((_showCompleted ? _doneLogs : _activeLogs).length > 1)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final e in const {
+                            'due': '납기 임박순',
+                            'progress': '진행률 낮은순',
+                            'recent': '최근 등록순',
+                          }.entries)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(
+                                  e.value,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                selected: _sortMode == e.key,
+                                selectedColor: tossBlue.withValues(alpha: 0.15),
+                                labelStyle: TextStyle(
+                                  color: _sortMode == e.key
+                                      ? tossBlue
+                                      : tossSubText,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                backgroundColor: tossBg,
+                                side: BorderSide.none,
+                                visualDensity: VisualDensity.compact,
+                                onSelected: (_) =>
+                                    setState(() => _sortMode = e.key),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
                 Expanded(
                   child: Builder(
                     builder: (context) {
-                      final visibleLogs = _showCompleted
-                          ? _doneLogs
-                          : _activeLogs;
+                      final visibleLogs = _sortedLogs(
+                        _showCompleted ? _doneLogs : _activeLogs,
+                      );
                       if (visibleLogs.isEmpty) {
                         return Center(
                           child: Text(
@@ -663,193 +847,10 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                         itemCount: visibleLogs.length,
                         itemBuilder: (context, index) {
                           final log = visibleLogs[index];
-                          final int workLogIndex = _workLogs.indexOf(log);
-                          final bool isExpanded =
-                              _expandedIndex == workLogIndex;
-
-                          return WorkLogCard(
+                          return ProjectSummaryCard(
                             log: log,
-                            isExpanded: isExpanded,
-                            onToggleExpand: () {
-                              setState(() {
-                                _expandedIndex = isExpanded
-                                    ? null
-                                    : workLogIndex;
-                              });
-                            },
-                            onToggleProjectStatus: () =>
-                                _toggleProjectStatus(log),
-                            isProjectActive: _isActive(log),
-                            // 🚀 [수정] 예전엔 debugPrint만 찍던 죽은 "계산기" 버튼을
-                            // "일정 관리"로 교체 - 자재 요청/입고일/납기일/검사일정을
-                            // 등록해두면 서버가 알림을 보내준다. 진입 로직은
-                            // "전체 일정 확인" 요약 카드와 공유하는 _openSchedule로 뺐다.
-                            onOpenSchedule: () => _openSchedule(log),
-                            // 🚀 [에러 해결] Dialog.show 대신 Navigator.push로 새로운 Page 열기
-                            // (진입 로직은 대시보드와 공유하는 _addDailyReportFor로 뺐다)
-                            onAddDailyReport: () => _addDailyReportFor(log),
-                            // 🚀 [추가] 작업 일지 항목을 탭하면 사진 모달이 아니라
-                            // 그날 작업 일보 전체를 보고 수정할 수 있는 화면으로
-                            // 들어간다 (등록 때 쓰는 화면을 수정 모드로 재사용).
-                            onOpenDailyReport: (report) async {
-                              final updated =
-                                  await Navigator.push<Map<String, dynamic>>(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => DailyReportPage(
-                                        existingData: report,
-                                        relatedIssueCandidates:
-                                            _issueCandidatesFor(log),
-                                        floorPlanImagePath:
-                                            log['floor_plan_image_path'],
-                                      ),
-                                    ),
-                                  );
-                              if (updated != null) {
-                                setState(() {
-                                  final idx = log['daily_reports'].indexOf(
-                                    report,
-                                  );
-                                  if (idx != -1)
-                                    log['daily_reports'][idx] = updated;
-                                });
-                                _saveProject(log);
-                              }
-                            },
-                            // 🚀 [추가] 달력으로 빠진 날 확인 + 기간 통계/내보내기.
-                            onOpenDailyReportCalendar: () async {
-                              final updated =
-                                  await Navigator.push<
-                                    List<Map<String, dynamic>>
-                                  >(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          DailyReportCalendarPage(
-                                            projectName: log['name'] ?? '이름 없음',
-                                            initialReports:
-                                                List<Map<String, dynamic>>.from(
-                                                  log['daily_reports'] ?? [],
-                                                ),
-                                          ),
-                                    ),
-                                  );
-                              if (updated != null) {
-                                setState(() {
-                                  log['daily_reports'] = updated;
-                                });
-                                _saveProject(log);
-                              }
-                            },
-
-                            onAddPunchList: () async {
-                              // 🚀 [추가] 같은 프로젝트에서 최근에 쓴 위치를
-                              // 최신순으로 추려서 넘긴다(최대 6개, 중복 제거).
-                              final List<String> recentLocations = [];
-                              for (final p
-                                  in (log['punch_lists'] as List<dynamic>? ??
-                                      [])) {
-                                final loc = p['location']?.toString();
-                                if (loc != null &&
-                                    loc.isNotEmpty &&
-                                    loc != '위치 미상' &&
-                                    !recentLocations.contains(loc)) {
-                                  recentLocations.add(loc);
-                                }
-                                if (recentLocations.length >= 6) break;
-                              }
-
-                              // 🚀 Navigator.push를 사용하여 전체 화면 페이지로 이동
-                              final newPunch =
-                                  await Navigator.push<Map<String, dynamic>>(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => PunchListPage(
-                                        recentLocations: recentLocations,
-                                        floorPlanImagePath:
-                                            log['floor_plan_image_path'],
-                                      ),
-                                    ),
-                                  );
-
-                              if (newPunch != null) {
-                                // 🚀 이번에 새로 고른 도면이면 프로젝트에
-                                // 저장해서 다음 이슈 등록부터도 재사용한다.
-                                final String? newFloorPlanPath = newPunch
-                                    .remove('__newFloorPlanPath');
-                                if (newFloorPlanPath != null) {
-                                  log['floor_plan_image_path'] =
-                                      newFloorPlanPath;
-                                }
-                                // 🚀 [추가] 이슈가 처리될 때까지 매일 알림을 보내기
-                                // 위한 식별자/플래그. 등록일 기준으로 "며칠째
-                                // 미해결"인지 계산하고, 하루 1회만 보내도록
-                                // lastPunchReminderDate로 중복 발송을 막는다
-                                // (자재 발주/일정 알림과 동일한 패턴).
-                                newPunch['id'] = DateTime.now()
-                                    .millisecondsSinceEpoch
-                                    .toString();
-                                newPunch['created_at'] = DateTime.now();
-                                newPunch['lastPunchReminderAt'] = null;
-                                // 🚀 [추가] 검사일정(파이널 검사 등)에 연결해두면
-                                // 그 기한 임박/초과 시 우선순위와 무관하게 더 자주
-                                // 알림이 오도록 서버(checkPunchIssues)에서 처리한다.
-                                newPunch['linkedScheduleId'] = null;
-                                setState(() {
-                                  log['punch_lists'].insert(0, newPunch);
-                                });
-                                _saveProject(log);
-                              }
-                            },
-                            // 🚀 [변경] 이슈를 탭하면 언제 발생했고 어떻게 처리
-                            // 했는지 정리할 수 있는 상세 화면으로 들어간다.
-                            onOpenPunchDetail: (punch) async {
-                              // 🚀 검사일정 연결 선택지를 보여주기 위해, 이
-                              // 프로젝트의 "검사일정" 타입 일정만 추려서 넘긴다.
-                              final inspectionSchedules =
-                                  (log['schedules'] as List<dynamic>? ?? [])
-                                      .where((s) => s['type'] == '검사일정')
-                                      .map((s) => Map<String, dynamic>.from(s))
-                                      .toList();
-                              final updated =
-                                  await Navigator.push<Map<String, dynamic>>(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => PunchDetailPage(
-                                        punch: punch,
-                                        inspectionSchedules:
-                                            inspectionSchedules,
-                                        floorPlanImagePath:
-                                            log['floor_plan_image_path'],
-                                      ),
-                                    ),
-                                  );
-                              if (updated != null) {
-                                setState(() {
-                                  final idx = log['punch_lists'].indexOf(punch);
-                                  if (idx != -1)
-                                    log['punch_lists'][idx] = updated;
-                                });
-                                _saveProject(log);
-                              }
-                            },
-                            onDelete: () {
-                              final deletedId = log['id']?.toString();
-                              setState(() {
-                                _workLogs.removeAt(workLogIndex);
-
-                                // 🚀 [에러 해결] if문 중괄호 추가 적용
-                                if (_expandedIndex == workLogIndex) {
-                                  _expandedIndex = null;
-                                } else if (_expandedIndex != null &&
-                                    _expandedIndex! > workLogIndex) {
-                                  _expandedIndex = _expandedIndex! - 1;
-                                }
-                              });
-                              if (deletedId != null) {
-                                _repo.deleteProject(deletedId);
-                              }
-                            },
+                            isActive: _isActive(log),
+                            onTap: () => _openDetail(log),
                           );
                         },
                       );
