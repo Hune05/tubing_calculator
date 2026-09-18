@@ -50,6 +50,27 @@ const Map<String, Color> kScheduleColors = {
   '기타': Color(0xFF8B95A1),
 };
 
+// 🚀 [프로젝트별 색] 여러 프로젝트가 동시에 진행돼도 달력에서 구분되도록,
+// 프로젝트 ID로 고정된 색을 배정한다(같은 프로젝트는 언제나 같은 색).
+const List<Color> kProjectPalette = [
+  Color(0xFF2F80ED),
+  Color(0xFFE0432B),
+  Color(0xFF1D8A4E),
+  Color(0xFF8E63CE),
+  Color(0xFFC77700),
+  Color(0xFF0E9AA7),
+  Color(0xFFD6336C),
+  Color(0xFF5C6BC0),
+];
+
+Color colorForProject(String projectId) {
+  int h = 0;
+  for (final c in projectId.codeUnits) {
+    h = (h * 31 + c) & 0x7fffffff;
+  }
+  return kProjectPalette[h % kProjectPalette.length];
+}
+
 Color colorForCategory(String cat) =>
     kScheduleColors[cat] ?? kScheduleColors['기타']!;
 
@@ -110,6 +131,14 @@ class _AgendaItem {
   final int spanIndex;
   final int spanTotal;
   final String? spanKey;
+
+  // 프로젝트 일정은 프로젝트 고유색, 개인 일정은 카테고리색.
+  Color get color => projectId != null
+      ? colorForProject(projectId!)
+      : colorForCategory(category);
+
+  // "제목 (2/3일)"에서 뒤의 일차 표시를 뺀 원래 제목 - 막대 위 글자용.
+  String get baseTitle => title.replaceFirst(RegExp(r' \(\d+/\d+일\)$'), '');
 
   const _AgendaItem({
     required this.key,
@@ -1812,10 +1841,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           width: 5,
           height: 5,
           margin: const EdgeInsets.symmetric(horizontal: 1),
-          decoration: BoxDecoration(
-            color: colorForCategory(e.category),
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: e.color, shape: BoxShape.circle),
         );
       }).toList(),
     );
@@ -1831,7 +1857,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         lastDay: DateTime.utc(2035, 12, 31),
         focusedDay: _focusedDay,
         calendarFormat: _calendarFormat,
-        rowHeight: 62,
+        rowHeight: 84,
         startingDayOfWeek: StartingDayOfWeek.sunday,
         selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
         eventLoader: (day) => byDay[_normalize(day)] ?? [],
@@ -1861,6 +1887,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           ),
           weekendTextStyle: TextStyle(color: scheduleDanger),
           markersMaxCount: 3,
+          cellAlignment: Alignment.topCenter,
+          cellPadding: EdgeInsets.only(top: 4),
           markerMargin: EdgeInsets.symmetric(horizontal: 1),
         ),
         calendarBuilders: CalendarBuilders(
@@ -1875,39 +1903,76 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                 )
                 .toList();
             final dots = events.where((e) => !bars.contains(e)).toList();
-            final bool isSun = day.weekday == DateTime.sunday;
-            final bool isSat = day.weekday == DateTime.saturday;
-            return Stack(
-              clipBehavior: Clip.none,
-              children: [
-                for (final e in bars)
-                  Positioned(
-                    left: (e.spanIndex == 0 || isSun) ? 3 : 0,
-                    right: (e.spanIndex == e.spanTotal - 1 || isSat) ? 3 : 0,
-                    bottom: 2 + (barLanes[e.spanKey] ?? 0) * 6.0,
-                    height: 4,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: colorForCategory(e.category),
-                        borderRadius: BorderRadius.horizontal(
-                          left: Radius.circular(
-                            (e.spanIndex == 0 || isSun) ? 2 : 0,
-                          ),
-                          right: Radius.circular(
-                            (e.spanIndex == e.spanTotal - 1 || isSat) ? 2 : 0,
-                          ),
+            // 일요일=0 … 토요일=6 (달력이 일요일 시작이라 주 경계 계산용)
+            final int dayIdx = day.weekday % 7;
+            return LayoutBuilder(
+              builder: (context, box) {
+                final double cellW = box.maxWidth;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    // 🚀 막대는 "구간의 첫 칸"(기간 첫날 또는 그 주의 일요일)에서
+                    // 그 주 끝(또는 종료일)까지 한 덩어리로 그려서 제목을 쓴다.
+                    // 뒤 칸들이 자기 막대를 또 그리면 제목이 덮이므로, 그 칸들은
+                    // 이 일정의 막대를 그리지 않는다.
+                    for (final e in bars)
+                      if (e.spanIndex == 0 || dayIdx == 0)
+                        Builder(
+                          builder: (_) {
+                            final int remaining = e.spanTotal - e.spanIndex;
+                            final int n = remaining < (7 - dayIdx)
+                                ? remaining
+                                : (7 - dayIdx);
+                            final bool roundLeft = e.spanIndex == 0;
+                            final bool roundRight = n == remaining;
+                            return Positioned(
+                              left: roundLeft ? 3 : 0,
+                              width:
+                                  cellW * n -
+                                  (roundLeft ? 3 : 0) -
+                                  (roundRight ? 3 : 0),
+                              bottom: 2 + (barLanes[e.spanKey] ?? 0) * 14.0,
+                              height: 12,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: e.color,
+                                  borderRadius: BorderRadius.horizontal(
+                                    left: Radius.circular(roundLeft ? 4 : 0),
+                                    right: Radius.circular(roundRight ? 4 : 0),
+                                  ),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.only(left: 4),
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      e.baseTitle,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.clip,
+                                      softWrap: false,
+                                      style: const TextStyle(
+                                        fontSize: 9,
+                                        height: 1.0,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
+                    if (dots.isNotEmpty)
+                      Positioned(
+                        bottom: 2 + _kMaxBarLanes * 14.0,
+                        left: 0,
+                        right: 0,
+                        child: Center(child: _dotRow(dots)),
                       ),
-                    ),
-                  ),
-                if (dots.isNotEmpty)
-                  Positioned(
-                    bottom: 2 + _kMaxBarLanes * 6.0,
-                    left: 0,
-                    right: 0,
-                    child: Center(child: _dotRow(dots)),
-                  ),
-              ],
+                  ],
+                );
+              },
             );
           },
         ),
@@ -2086,6 +2151,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       return Padding(
         padding: const EdgeInsets.only(right: 8),
         child: ChoiceChip(
+          avatar: id == null
+              ? null
+              : CircleAvatar(backgroundColor: colorForProject(id), radius: 5),
           label: Text(label, style: const TextStyle(fontSize: 12)),
           selected: selected,
           onSelected: (_) {
@@ -2118,7 +2186,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   }
 
   Widget _buildAgendaCard(_AgendaItem item) {
-    final Color c = colorForCategory(item.category);
+    final Color c = item.color;
     final bool overdue = _isOverdue(item);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
