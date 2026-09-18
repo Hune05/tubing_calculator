@@ -330,69 +330,10 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                 ),
                 child: Column(
                   children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: const BoxDecoration(
-                        color: slate100,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        isGuest ? LucideIcons.userX : LucideIcons.user,
-                        size: 40,
-                        color: isGuest
-                            ? slate600.withValues(alpha: 0.5)
-                            : tossBlue,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // 💡 아이디 표시 및 변경 버튼 영역
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            isGuest ? "로그인이 필요합니다" : _displayName,
-                            style: TextStyle(
-                              color: isGuest ? slate600 : slate900,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: -0.5,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (!isGuest) ...[
-                          const SizedBox(width: 8),
-                          InkWell(
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-                              _showEditAppIdDialog();
-                            },
-                            borderRadius: BorderRadius.circular(12),
-                            child: Padding(
-                              padding: const EdgeInsets.all(4.0),
-                              child: Icon(
-                                LucideIcons.pencil,
-                                size: 20,
-                                color: slate600.withValues(alpha: 0.8),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-
-                    const SizedBox(height: 4),
-                    Text(
-                      isGuest ? "현장 관리 기능을 100% 활용해보세요" : "현장 작업자",
-                      style: const TextStyle(
-                        color: slate600,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                    if (isGuest)
+                      _buildGuestIdentity()
+                    else
+                      _buildUserIdentity(),
 
                     // 🚀 비로그인 상태일 때만 로그인 버튼들 표시
                     if (isGuest) ...[
@@ -514,6 +455,214 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGuestIdentity() {
+    return Column(
+      children: [
+        Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(color: slate100, shape: BoxShape.circle),
+          child: Icon(
+            LucideIcons.userX,
+            size: 40,
+            color: slate600.withValues(alpha: 0.5),
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          "로그인이 필요합니다",
+          style: TextStyle(
+            color: slate600,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          "현장 관리 기능을 100% 활용해보세요",
+          style: TextStyle(
+            color: slate600,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 🚀 [프로필 고도화] 예전엔 이 화면이 이름만 보여줬다 - 상세 프로필에서
+  // 소속팀/직급/연락처를 입력할 수 있는데도 정작 요약 화면에선 전혀
+  // 보이지 않아서, 입력해도 확인할 방법이 없었다. users/{이름} 문서를
+  // 실시간으로 구독해서 사진·직급·소속팀·연락처를 실제로 보여주고,
+  // 상세 프로필에서 뭘 바꾸면 여기도 즉시 반영되게 했다.
+  Widget _buildUserIdentity() {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(_displayName)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data() as Map<String, dynamic>?;
+        final String? photoUrl = data?['photoUrl'] as String?;
+        final String team = (data?['team'] as String?) ?? '';
+        final String role = (data?['role'] as String?) ?? '';
+        final String phone = (data?['phoneNumber'] as String?) ?? '';
+        final bool isVerified = FirebaseAuth.instance.currentUser != null;
+
+        return Column(
+          children: [
+            Stack(
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: slate100,
+                    shape: BoxShape.circle,
+                    image: (photoUrl != null && photoUrl.isNotEmpty)
+                        ? DecorationImage(
+                            image: NetworkImage(photoUrl),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                  child: (photoUrl == null || photoUrl.isEmpty)
+                      ? const Icon(LucideIcons.user, size: 40, color: tossBlue)
+                      : null,
+                ),
+                if (isVerified)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      width: 22,
+                      height: 22,
+                      decoration: const BoxDecoration(
+                        color: tossBlue,
+                        shape: BoxShape.circle,
+                        border: Border.fromBorderSide(
+                          BorderSide(color: pureWhite, width: 2),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.check_rounded,
+                        size: 14,
+                        color: pureWhite,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    _displayName,
+                    style: const TextStyle(
+                      color: slate900,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    _showEditAppIdDialog();
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4.0),
+                    child: Icon(
+                      LucideIcons.pencil,
+                      size: 20,
+                      color: slate600.withValues(alpha: 0.8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              role.isNotEmpty ? role : "현장 작업자",
+              style: const TextStyle(
+                color: slate600,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            if (team.isNotEmpty || phone.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  if (team.isNotEmpty)
+                    _buildInfoChip(icon: LucideIcons.users, label: team),
+                  if (phone.isNotEmpty)
+                    _buildInfoChip(
+                      icon: LucideIcons.phone,
+                      label: phone,
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: phone));
+                        HapticFeedback.lightImpact();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('연락처를 복사했습니다.'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                    ),
+                ],
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoChip({
+    required IconData icon,
+    required String label,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: slate100,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: slate600),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                color: slate800,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -1,9 +1,14 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 
 // 🎨 색상 팔레트
 const Color slate900 = Color(0xFF191F28);
@@ -31,6 +36,8 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
   late TextEditingController _phoneController;
 
   bool _isLoading = true;
+  String? _photoUrl;
+  bool _isUploadingPhoto = false;
 
   @override
   void initState() {
@@ -60,6 +67,7 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
             _teamController.text = data['team'] ?? "";
             _roleController.text = data['role'] ?? "";
             _phoneController.text = data['phoneNumber'] ?? ""; // 🔥 키값 통일
+            _photoUrl = data['photoUrl'];
           });
         }
       } catch (e) {
@@ -172,6 +180,74 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
     );
   }
 
+  // 🚀 [프로필 고도화] "사진 변경은 다음 버전에 업데이트됩니다"라는 미구현
+  // 스텁이었던 걸 실제 갤러리 선택 → 정사각형 자르기 → Firebase Storage
+  // 업로드 → users/{이름} 문서에 photoUrl 저장까지 실제로 동작하게
+  // 만들었다. 다른 화면(채팅 이미지 전송)이 이미 쓰던 것과 같은
+  // ImagePicker → FirebaseStorage 패턴을 그대로 따랐다.
+  Future<void> _pickAndUploadPhoto() async {
+    final userKey = widget.initialName;
+    if (userKey.isEmpty || userKey == "로그인 필요") {
+      _showErrorSnackBar('먼저 로그인한 뒤 사진을 등록해주세요.');
+      return;
+    }
+
+    final picker = ImagePicker();
+    final XFile? picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1080,
+      maxHeight: 1080,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+    if (!mounted) return;
+
+    final CroppedFile? cropped = await ImageCropper().cropImage(
+      sourcePath: picked.path,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: '프로필 사진 편집',
+          toolbarColor: blue500,
+          toolbarWidgetColor: pureWhite,
+          initAspectRatio: CropAspectRatioPreset.square,
+          lockAspectRatio: true,
+        ),
+        IOSUiSettings(title: '프로필 사진 편집', aspectRatioLockEnabled: true),
+      ],
+    );
+    if (cropped == null) return;
+    if (!mounted) return;
+
+    setState(() => _isUploadingPhoto = true);
+    try {
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('profile_photos')
+          .child('$userKey.jpg');
+      await ref.putFile(File(cropped.path));
+      final url = await ref.getDownloadURL();
+
+      await FirebaseFirestore.instance.collection('users').doc(userKey).set({
+        'photoUrl': url,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      if (!mounted) return;
+      setState(() {
+        _photoUrl = url;
+        _isUploadingPhoto = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('프로필 사진을 변경했습니다.')));
+    } catch (e) {
+      debugPrint('프로필 사진 업로드 실패: $e');
+      if (mounted) setState(() => _isUploadingPhoto = false);
+      _showErrorSnackBar('사진 업로드에 실패했습니다.');
+    }
+  }
+
   Widget _buildProfileImage() {
     return Stack(
       children: [
@@ -182,19 +258,46 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
             color: slate100,
             shape: BoxShape.circle,
             border: Border.all(color: slate300, width: 1),
+            image: (_photoUrl != null && _photoUrl!.isNotEmpty)
+                ? DecorationImage(
+                    image: NetworkImage(_photoUrl!),
+                    fit: BoxFit.cover,
+                  )
+                : null,
           ),
-          child: const Icon(LucideIcons.user, size: 50, color: slate600),
+          child: (_photoUrl == null || _photoUrl!.isEmpty)
+              ? const Icon(LucideIcons.user, size: 50, color: slate600)
+              : null,
         ),
+        if (_isUploadingPhoto)
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.4),
+                shape: BoxShape.circle,
+              ),
+              child: const Center(
+                child: SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(
+                    color: pureWhite,
+                    strokeWidth: 3,
+                  ),
+                ),
+              ),
+            ),
+          ),
         Positioned(
           bottom: 0,
           right: 0,
           child: InkWell(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("사진 변경은 다음 버전에 업데이트됩니다.")),
-              );
-            },
+            onTap: _isUploadingPhoto
+                ? null
+                : () {
+                    HapticFeedback.lightImpact();
+                    _pickAndUploadPhoto();
+                  },
             borderRadius: BorderRadius.circular(20),
             child: Container(
               width: 36,
