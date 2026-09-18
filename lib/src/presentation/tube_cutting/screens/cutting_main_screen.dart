@@ -190,16 +190,27 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 그룹 표시(_groupSameLengths)는 화면에 "보여주는" 방식일 뿐이라, 실제
   // 필요한 조각 수는 항상 "구간마다 세트 수만큼"이 정답이라 여기서
   // 통일해서 뽑는다.
-  List<double> _collectRequiredPieces() {
-    final List<double> pieces = [];
+  // 🚀 [규격별 분리] 리듀서로 규격이 바뀌는 라인은 구간마다 실제로 잘리는
+  // 튜브 규격이 다를 수 있다 - 다른 규격은 같은 원자재 한 본에서 나올 수
+  // 없으니, 형강 컷팅과 같은 이유로 규격별로 나눠 최적화해야 한다. 구간의
+  // 규격은 CutRecord 저장 때 쓰는 것과 같은 규칙(시작 쪽 피팅이 있으면
+  // 그 규격, 없으면(직관) 끝 쪽 피팅 규격)을 그대로 따른다.
+  Map<String, List<double>> _collectRequiredPiecesByTubeSize() {
+    final Map<String, List<double>> byTubeSize = {};
     for (int i = 0; i < _points.length - 1; i++) {
       final p = _points[i];
       if (p.c2cController.text.isEmpty || p.calculatedCut <= 0) continue;
+      final nextFitting = _points[i + 1].fitting;
+      final rawOd = p.fitting.id != "none"
+          ? p.fitting.tubeOD
+          : nextFitting.tubeOD;
+      final key = rawOd == "ALL" || rawOd.isEmpty ? "" : "튜브 $rawOd";
+      final list = byTubeSize.putIfAbsent(key, () => []);
       for (int k = 0; k < _setMultiplier; k++) {
-        pieces.add(p.calculatedCut);
+        list.add(p.calculatedCut);
       }
     }
-    return pieces;
+    return byTubeSize;
   }
 
   // 🚀 [형강 컷팅 신규 기능 대비 리팩터링] 이 시트 자체는 이제 공용
@@ -209,10 +220,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 목록"을 뽑아서 넘기고, 원자재 기준 길이가 바뀌면 기존처럼
   // SharedPreferences에 저장하는 역할만 담당한다.
   Future<void> _showOptimizationDialog() async {
-    final pieces = _collectRequiredPieces();
     await showCuttingOptimizationSheet(
       context,
-      pieces: pieces,
+      groupedPieces: _collectRequiredPiecesByTubeSize(),
       initialStockLength: _stockLength,
       kerf: _bladeKerf,
       onStockLengthChanged: (parsed) {
