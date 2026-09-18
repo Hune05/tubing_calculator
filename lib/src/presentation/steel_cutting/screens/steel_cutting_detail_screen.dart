@@ -34,20 +34,37 @@ class SteelCuttingDetailScreen extends StatefulWidget {
 class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
   late List<SteelCutItem> _items;
   late double _stockLength;
+  late int _setMultiplier;
   double _bladeKerf = 0.0;
+  String _categoryFilter = '전체';
 
   // 🚀 톱날 손실은 어차피 같은 톱으로 자르는 같은 물리 현상이라, 튜브
   // 컷팅 화면(cutting_main_screen.dart)과 같은 SharedPreferences 키를
   // 그대로 공유한다 - 톱을 바꾸지 않는 한 두 화면에서 각각 새로 입력할
   // 필요가 없다.
   static const String _kerfPrefsKey = 'cutting_blade_kerf';
+  static const List<String> _categories = ['전체', '앵글', '찬넬', '커스텀'];
 
   @override
   void initState() {
     super.initState();
     _items = List.of(widget.project.items);
     _stockLength = widget.project.stockLength;
+    _setMultiplier = widget.project.setMultiplier;
     _loadBladeKerf();
+  }
+
+  List<SteelCutItem> get _filteredItems {
+    switch (_categoryFilter) {
+      case '앵글':
+        return _items.where((i) => i.category == 'ANGLE').toList();
+      case '찬넬':
+        return _items.where((i) => i.category == 'CHANNEL').toList();
+      case '커스텀':
+        return _items.where((i) => i.category == 'CUSTOM').toList();
+      default:
+        return _items;
+    }
   }
 
   Future<void> _loadBladeKerf() async {
@@ -78,10 +95,14 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
     await _docRef.update({'stockLength': v});
   }
 
+  Future<void> _persistSetMultiplier(int v) async {
+    await _docRef.update({'setMultiplier': v});
+  }
+
   List<double> _collectPieces() {
     final List<double> pieces = [];
     for (final item in _items) {
-      for (int k = 0; k < item.qty; k++) {
+      for (int k = 0; k < item.qty * _setMultiplier; k++) {
         pieces.add(item.length);
       }
     }
@@ -107,6 +128,41 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
           final idx = _items.indexWhere((e) => e.id == item.id);
           if (idx >= 0) _items[idx] = updated;
         });
+        _persistItems();
+      },
+    );
+  }
+
+  void _duplicateItem(SteelCutItem item) {
+    final copy = SteelCutItem(
+      id: '${DateTime.now().millisecondsSinceEpoch}_dup',
+      category: item.category,
+      shapeLabel: item.shapeLabel,
+      length: item.length,
+      qty: item.qty,
+      note: item.note,
+    );
+    setState(() => _items.add(copy));
+    _persistItems();
+    showCuttingUndoSnack(
+      context,
+      "'${item.shapeLabel}' 항목을 복제했습니다.",
+      onUndo: () {
+        setState(() => _items.removeWhere((e) => e.id == copy.id));
+        _persistItems();
+      },
+    );
+  }
+
+  void _deleteItem(SteelCutItem item) {
+    final index = _items.indexOf(item);
+    setState(() => _items.removeWhere((e) => e.id == item.id));
+    _persistItems();
+    showCuttingUndoSnack(
+      context,
+      "'${item.shapeLabel}' ${item.length.toStringAsFixed(0)}mm 항목을 삭제했습니다.",
+      onUndo: () {
+        setState(() => _items.insert(index.clamp(0, _items.length), item));
         _persistItems();
       },
     );
@@ -160,13 +216,16 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
             (i) => [
               i.shapeLabel,
               i.length.toStringAsFixed(0),
-              "${i.qty}",
-              i.totalLength.toStringAsFixed(0),
+              "${i.qty * _setMultiplier}",
+              (i.totalLength * _setMultiplier).toStringAsFixed(0),
               i.note,
             ],
           )
           .toList();
-      final grandTotal = _items.fold(0.0, (sum, i) => sum + i.totalLength);
+      final grandTotal = _items.fold(
+        0.0,
+        (sum, i) => sum + i.totalLength * _setMultiplier,
+      );
 
       final pieces = _collectPieces();
       final optResult = optimizeCutting(
@@ -201,7 +260,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
             pw.Text("프로젝트: ${widget.project.name}"),
             pw.Text("작성일시: $dateStr"),
             pw.Text(
-              "원자재 기준 길이: ${_stockLength.toStringAsFixed(0)}mm"
+              "원자재 기준 길이: ${_stockLength.toStringAsFixed(0)}mm    세트 수: $_setMultiplier SET"
               "${_bladeKerf > 0 ? '    톱날 손실: ${_bladeKerf.toStringAsFixed(1)}mm/회' : ''}",
             ),
             pw.SizedBox(height: 16),
@@ -294,8 +353,11 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final totalPieces = _items.fold(0, (sum, i) => sum + i.qty);
-    final totalLength = _items.fold(0.0, (sum, i) => sum + i.totalLength);
+    final totalPieces =
+        _items.fold(0, (sum, i) => sum + i.qty) * _setMultiplier;
+    final totalLength =
+        _items.fold(0.0, (sum, i) => sum + i.totalLength) * _setMultiplier;
+    final filteredItems = _filteredItems;
 
     return Scaffold(
       backgroundColor: CuttingColors.background,
@@ -333,17 +395,96 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
               color: CuttingColors.surface,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Row(
+            child: Column(
               children: [
-                _buildSummaryStat("항목 수", "${_items.length}건"),
-                _buildSummaryStat("총 수량", "$totalPieces개"),
-                _buildSummaryStat(
-                  "총 길이",
-                  "${(totalLength / 1000).toStringAsFixed(1)}m",
+                Row(
+                  children: [
+                    _buildSummaryStat("항목 수", "${_items.length}건"),
+                    _buildSummaryStat("총 수량", "$totalPieces개"),
+                    _buildSummaryStat(
+                      "총 길이",
+                      "${(totalLength / 1000).toStringAsFixed(1)}m",
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Divider(height: 1),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "세트 수 (전체 수량 배수)",
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: CuttingColors.surface,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: CuttingColors.primary),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            icon: const Icon(
+                              Icons.remove,
+                              color: CuttingColors.primary,
+                            ),
+                            onPressed: () {
+                              if (_setMultiplier <= 1) return;
+                              HapticFeedback.selectionClick();
+                              setState(() => _setMultiplier--);
+                              _persistSetMultiplier(_setMultiplier);
+                            },
+                          ),
+                          Text(
+                            "$_setMultiplier SET",
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: CuttingColors.textPrimary,
+                            ),
+                          ),
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            icon: const Icon(
+                              Icons.add,
+                              color: CuttingColors.primary,
+                            ),
+                            onPressed: () {
+                              HapticFeedback.selectionClick();
+                              setState(() => _setMultiplier++);
+                              _persistSetMultiplier(_setMultiplier);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
+          if (_items.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Row(
+                children: _categories
+                    .map(
+                      (c) => Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: _buildCategoryFilterChip(c),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
           Expanded(
             child: _items.isEmpty
                 ? Center(
@@ -376,116 +517,122 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
                       ),
                     ),
                   )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-                    itemCount: _items.length,
-                    itemBuilder: (context, index) {
-                      final item = _items[index];
-                      return Dismissible(
-                        key: ValueKey(item.id),
-                        direction: DismissDirection.endToStart,
-                        background: Container(
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 20),
-                          margin: const EdgeInsets.only(bottom: 10),
-                          decoration: BoxDecoration(
-                            color: CuttingColors.danger,
-                            borderRadius: BorderRadius.circular(14),
+                : (filteredItems.isEmpty
+                      ? Center(
+                          child: Text(
+                            "'$_categoryFilter'에 해당하는 항목이 없습니다.",
+                            style: const TextStyle(
+                              color: CuttingColors.textSecondary,
+                            ),
                           ),
-                          child: const Icon(
-                            Icons.delete_outline,
-                            color: Colors.white,
-                          ),
-                        ),
-                        confirmDismiss: (_) async {
-                          final confirmed = await showCuttingConfirmDialog(
-                            context,
-                            title: "항목 삭제",
-                            message:
-                                "'${item.shapeLabel}' ${item.length.toStringAsFixed(0)}mm 항목을 삭제할까요?",
-                            confirmLabel: "삭제",
-                            danger: true,
-                            icon: Icons.delete_outline_rounded,
-                          );
-                          return confirmed;
-                        },
-                        onDismissed: (_) {
-                          setState(
-                            () => _items.removeWhere((e) => e.id == item.id),
-                          );
-                          _persistItems();
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          decoration: BoxDecoration(
-                            color: CuttingColors.surface,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(14),
-                            onTap: () => _editItem(item),
-                            child: Padding(
-                              padding: const EdgeInsets.all(14),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: CuttingColors.primary.withValues(
-                                        alpha: 0.1,
-                                      ),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Icon(
-                                      item.category == 'ANGLE'
-                                          ? Icons.change_history_rounded
-                                          : Icons.view_week_rounded,
-                                      color: CuttingColors.primary,
-                                      size: 20,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                          itemCount: filteredItems.length,
+                          itemBuilder: (context, index) {
+                            final item = filteredItems[index];
+                            return Dismissible(
+                              key: ValueKey(item.id),
+                              direction: DismissDirection.endToStart,
+                              background: Container(
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.only(right: 20),
+                                margin: const EdgeInsets.only(bottom: 10),
+                                decoration: BoxDecoration(
+                                  color: CuttingColors.danger,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: const Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              onDismissed: (_) => _deleteItem(item),
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                decoration: BoxDecoration(
+                                  color: CuttingColors.surface,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(14),
+                                  onTap: () => _editItem(item),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(14),
+                                    child: Row(
                                       children: [
-                                        Text(
-                                          item.shapeLabel,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: CuttingColors.textPrimary,
-                                            fontSize: 15,
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: CuttingColors.primary
+                                                .withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            item.category == 'ANGLE'
+                                                ? Icons.change_history_rounded
+                                                : Icons.view_week_rounded,
+                                            color: CuttingColors.primary,
+                                            size: 20,
                                           ),
                                         ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          "${item.length.toStringAsFixed(0)}mm × ${item.qty}개  =  ${item.totalLength.toStringAsFixed(0)}mm"
-                                          "${item.note.isNotEmpty ? '  ·  ${item.note}' : ''}",
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            color: CuttingColors.textSecondary,
-                                            fontSize: 12,
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                item.shapeLabel,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  color:
+                                                      CuttingColors.textPrimary,
+                                                  fontSize: 15,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                "${item.length.toStringAsFixed(0)}mm × ${item.qty}개  =  ${item.totalLength.toStringAsFixed(0)}mm"
+                                                "${item.note.isNotEmpty ? '  ·  ${item.note}' : ''}",
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  color: CuttingColors
+                                                      .textSecondary,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        InkWell(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          onTap: () => _duplicateItem(item),
+                                          child: const Padding(
+                                            padding: EdgeInsets.all(6),
+                                            child: Icon(
+                                              Icons.copy_rounded,
+                                              size: 18,
+                                              color:
+                                                  CuttingColors.textSecondary,
+                                            ),
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  const Icon(
-                                    Icons.chevron_right_rounded,
-                                    color: CuttingColors.textSecondary,
-                                  ),
-                                ],
+                                ),
                               ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                            );
+                          },
+                        )),
           ),
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -561,6 +708,29 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
         },
         backgroundColor: CuttingColors.primary,
         child: const Icon(Icons.add, color: CuttingColors.surface),
+      ),
+    );
+  }
+
+  Widget _buildCategoryFilterChip(String label) {
+    final bool selected = _categoryFilter == label;
+    return Material(
+      color: selected ? CuttingColors.primary : Colors.grey.shade100,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => setState(() => _categoryFilter = label),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : Colors.grey.shade700,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+        ),
       ),
     );
   }

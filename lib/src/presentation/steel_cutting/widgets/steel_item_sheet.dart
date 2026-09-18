@@ -4,6 +4,7 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import '../../../data/models/steel_cutting_project_model.dart';
 import '../../../data/models/steel_shape_db.dart';
 import '../../tube_cutting/cutting_theme.dart';
+import '../steel_cutting_favorites.dart';
 import 'steel_shape_picker_sheet.dart';
 
 /// 새 항목을 추가하거나([existing]이 null) 기존 항목을 수정한다([existing]이
@@ -43,6 +44,8 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
   late final TextEditingController _qtyCtrl;
   late final TextEditingController _noteCtrl;
   int _addedCount = 0;
+  List<SteelQuickPick> _favorites = [];
+  List<SteelQuickPick> _recents = [];
 
   bool get _isEditing => widget.existing != null;
 
@@ -62,6 +65,19 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
     );
     _qtyCtrl = TextEditingController(text: e != null ? '${e.qty}' : '1');
     _noteCtrl = TextEditingController(text: e?.note ?? '');
+    // 즐겨찾기 별 아이콘이 길이 입력에 맞춰 즉시 켜지고/꺼지게.
+    _lengthCtrl.addListener(() => setState(() {}));
+    if (!_isEditing) _loadQuickPicks();
+  }
+
+  Future<void> _loadQuickPicks() async {
+    final favorites = await loadFavoriteSteelItems();
+    final recents = await loadRecentSteelItems();
+    if (!mounted) return;
+    setState(() {
+      _favorites = favorites;
+      _recents = recents;
+    });
   }
 
   @override
@@ -179,6 +195,13 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
     );
     widget.onSave(item);
     HapticFeedback.lightImpact();
+    saveRecentSteelItem(
+      SteelQuickPick(
+        category: shape.category,
+        shapeLabel: shape.label,
+        length: length,
+      ),
+    );
 
     if (!keepOpen) {
       Navigator.pop(context);
@@ -197,8 +220,108 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
     );
   }
 
+  SteelQuickPick? get _currentQuickPick {
+    final shape = _shape;
+    final length = double.tryParse(_lengthCtrl.text.trim());
+    if (shape == null || length == null || length <= 0) return null;
+    return SteelQuickPick(
+      category: shape.category,
+      shapeLabel: shape.label,
+      length: length,
+    );
+  }
+
+  Future<void> _toggleFavorite() async {
+    final current = _currentQuickPick;
+    if (current == null) return;
+    final wasFav = _favorites.any((f) => f.key == current.key);
+    final updated = await toggleFavoriteSteelItem(current);
+    if (!mounted) return;
+    setState(() => _favorites = updated);
+    showCuttingSnack(context, wasFav ? "즐겨찾기에서 제거했습니다." : "즐겨찾기에 추가했습니다.");
+  }
+
+  Widget _buildQuickPickChip(SteelQuickPick pick, IconData icon) {
+    return Material(
+      color: CuttingColors.primarySoft,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () {
+          setState(() {
+            _shape = SteelShapeItem(
+              id: pick.category == 'CUSTOM'
+                  ? 'custom_${DateTime.now().millisecondsSinceEpoch}'
+                  : pick.shapeLabel,
+              category: pick.category,
+              label: pick.shapeLabel,
+            );
+            _lengthCtrl.text = pick.length.toStringAsFixed(0);
+          });
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 13, color: CuttingColors.primaryDark),
+              const SizedBox(width: 4),
+              Text(
+                "${pick.shapeLabel} ${pick.length.toStringAsFixed(0)}mm",
+                style: const TextStyle(
+                  color: CuttingColors.primaryDark,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickPickSection() {
+    final picks = <MapEntry<SteelQuickPick, IconData>>[
+      ..._favorites.map((f) => MapEntry(f, Icons.star_rounded)),
+      ..._recents
+          .where((r) => !_favorites.any((f) => f.key == r.key))
+          .map((r) => MapEntry(r, Icons.history_rounded)),
+    ];
+    if (picks.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "즐겨찾기 / 최근 사용",
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey.shade700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 32,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: picks.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, i) =>
+                _buildQuickPickChip(picks[i].key, picks[i].value),
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bool isFav =
+        _currentQuickPick != null &&
+        _favorites.any((f) => f.key == _currentQuickPick!.key);
+
     return SafeArea(
       top: false,
       child: Container(
@@ -233,16 +356,36 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  "규격",
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey.shade700,
-                  ),
+                if (!_isEditing) ...[
+                  const SizedBox(height: 4),
+                  _buildQuickPickSection(),
+                ],
+                Row(
+                  children: [
+                    Text(
+                      "규격",
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      tooltip: isFav ? "즐겨찾기 해제" : "이 규격+길이 즐겨찾기",
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(
+                        isFav ? Icons.star_rounded : Icons.star_border_rounded,
+                        color: isFav ? Colors.amber.shade700 : Colors.grey,
+                        size: 20,
+                      ),
+                      onPressed: _currentQuickPick == null
+                          ? null
+                          : _toggleFavorite,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 Material(
                   color: Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(10),

@@ -61,8 +61,61 @@ class SteelShapeDB {
     ),
   ];
 
-  // 찬넬(C형강, mm, 춤x폭xt) - KS 표준 규격에 가까운 대표 규격.
+  // 찬넬(C형강, mm, 춤x폭xt) - KS 표준 규격에 가까운 대표 규격. 앞쪽은
+  // 전선관 지지대/행거처럼 가벼운 작업에 흔히 쓰는 경량 규격, 뒤쪽은
+  // 건축 구조용 중량 규격이다 - 둘 다 두께(t)를 라벨에 표기해서
+  // 구분되게 했다.
   static const List<SteelShapeItem> channels = [
+    SteelShapeItem(
+      id: 'channel_25x25x1.6',
+      category: 'CHANNEL',
+      label: '찬넬 25x25x1.6',
+    ),
+    SteelShapeItem(
+      id: 'channel_40x20x1.6',
+      category: 'CHANNEL',
+      label: '찬넬 40x20x1.6',
+    ),
+    SteelShapeItem(
+      id: 'channel_50x25x1.6',
+      category: 'CHANNEL',
+      label: '찬넬 50x25x1.6',
+    ),
+    SteelShapeItem(
+      id: 'channel_60x30x2.0',
+      category: 'CHANNEL',
+      label: '찬넬 60x30x2.0',
+    ),
+    SteelShapeItem(
+      id: 'channel_75x35x2.3',
+      category: 'CHANNEL',
+      label: '찬넬 75x35x2.3',
+    ),
+    SteelShapeItem(
+      id: 'channel_90x40x2.3',
+      category: 'CHANNEL',
+      label: '찬넬 90x40x2.3',
+    ),
+    SteelShapeItem(
+      id: 'channel_100x50x2.3',
+      category: 'CHANNEL',
+      label: '찬넬 100x50x2.3',
+    ),
+    SteelShapeItem(
+      id: 'channel_125x50x2.3',
+      category: 'CHANNEL',
+      label: '찬넬 125x50x2.3',
+    ),
+    SteelShapeItem(
+      id: 'channel_150x50x2.3',
+      category: 'CHANNEL',
+      label: '찬넬 150x50x2.3',
+    ),
+    SteelShapeItem(
+      id: 'channel_200x75x3.2',
+      category: 'CHANNEL',
+      label: '찬넬 200x75x3.2',
+    ),
     SteelShapeItem(
       id: 'channel_75x40x5',
       category: 'CHANNEL',

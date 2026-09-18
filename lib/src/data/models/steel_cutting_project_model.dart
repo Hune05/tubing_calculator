@@ -48,6 +48,7 @@ class SteelCuttingProject {
   final DateTime createdAt;
   final String currentWorker;
   double stockLength;
+  int setMultiplier;
   List<SteelCutItem> items;
 
   SteelCuttingProject({
@@ -56,17 +57,20 @@ class SteelCuttingProject {
     required this.createdAt,
     this.currentWorker = '',
     this.stockLength = 6000.0,
+    this.setMultiplier = 1,
     List<SteelCutItem>? items,
   }) : items = items ?? [];
 
-  int get totalPieces => items.fold(0, (sum, i) => sum + i.qty);
-  double get totalLength => items.fold(0.0, (sum, i) => sum + i.totalLength);
+  int get totalPieces => items.fold(0, (sum, i) => sum + i.qty) * setMultiplier;
+  double get totalLength =>
+      items.fold(0.0, (sum, i) => sum + i.totalLength) * setMultiplier;
 
   Map<String, dynamic> toMap() => {
     'name': name,
     'createdAt': createdAt.toIso8601String(),
     'currentWorker': currentWorker,
     'stockLength': stockLength,
+    'setMultiplier': setMultiplier,
     'items': items.map((e) => e.toMap()).toList(),
   };
 
@@ -81,6 +85,7 @@ class SteelCuttingProject {
       createdAt: createdAt,
       currentWorker: map['currentWorker'] ?? '',
       stockLength: (map['stockLength'] as num?)?.toDouble() ?? 6000.0,
+      setMultiplier: (map['setMultiplier'] as num?)?.toInt() ?? 1,
       items: ((map['items'] as List?) ?? [])
           .map((e) => SteelCutItem.fromMap(Map<String, dynamic>.from(e as Map)))
           .toList(),

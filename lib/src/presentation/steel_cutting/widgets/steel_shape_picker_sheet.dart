@@ -189,14 +189,23 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                   child: Row(
-                    children: _categories
-                        .map(
-                          (c) => Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: _buildCategoryChip(c),
-                          ),
-                        )
-                        .toList(),
+                    children: [
+                      ..._categories.map(
+                        (c) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _buildCategoryChip(c),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        "${results.length}개",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const Divider(
