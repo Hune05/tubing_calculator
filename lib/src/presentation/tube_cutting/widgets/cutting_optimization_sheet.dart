@@ -189,20 +189,20 @@ Future<void> showCuttingOptimizationSheet(
               children: [
                 _buildOptStat(
                   Icons.inventory_2_outlined,
-                  "필요 원자재",
+                  isGroupedView ? "전체 필요 원자재" : "필요 원자재",
                   "$totalBarCount본",
                 ),
                 const SizedBox(width: 8),
                 _buildOptStat(
                   Icons.delete_sweep_outlined,
-                  "총 로스",
+                  isGroupedView ? "전체 로스" : "총 로스",
                   "${totalWaste.toStringAsFixed(0)}mm",
                   accent: CuttingColors.warning,
                 ),
                 const SizedBox(width: 8),
                 _buildOptStat(
                   Icons.percent_rounded,
-                  "사용률",
+                  isGroupedView ? "전체 사용률" : "사용률",
                   totalStock > 0
                       ? "${(totalUsed / totalStock * 100).toStringAsFixed(1)}%"
                       : "-",
@@ -210,6 +210,13 @@ Future<void> showCuttingOptimizationSheet(
                 ),
               ],
             ),
+            if (isGroupedView) ...[
+              const SizedBox(height: 4),
+              Text(
+                "규격별 상세 수치는 아래 각 섹션에서 확인하세요.",
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              ),
+            ],
             if (totalOversized > 0) ...[
               const SizedBox(height: 10),
               Text(
@@ -233,33 +240,7 @@ Future<void> showCuttingOptimizationSheet(
         } else {
           for (final entry in groups.entries) {
             final r = results[entry.key]!;
-            barWidgets.add(
-              Padding(
-                padding: const EdgeInsets.only(top: 6, bottom: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        entry.key.isEmpty ? "규격 미지정" : entry.key,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                          color: CuttingColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      "${r.barCount}본",
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: CuttingColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
+            barWidgets.add(_buildGroupSummaryHeader(entry.key, r));
             for (int i = 0; i < r.bars.length; i++) {
               barWidgets.add(_buildOptBarCard(r.bars[i], i));
             }
@@ -425,6 +406,71 @@ Widget _buildOptStat(
         ],
       ),
     ),
+  );
+}
+
+// 🚀 [규격별 상세 수치] 상단 요약은 전체 규격을 합산한 값이라, 규격별로
+// "본수는 이만큼인데 로스/사용률은 어떤지"를 알 수 없었다. 각 규격
+// 섹션 머리에 그 규격만의 본수·로스·사용률을 작은 배지로 보여준다.
+Widget _buildGroupSummaryHeader(String label, CuttingOptimizationResult r) {
+  final double usageRatio = r.totalStock > 0
+      ? (r.totalUsed / r.totalStock * 100)
+      : 0.0;
+  final bool highWaste =
+      r.totalStock > 0 && (r.totalWaste / r.totalStock) > 0.15;
+
+  return Container(
+    margin: const EdgeInsets.only(top: 10, bottom: 8),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+      color: CuttingColors.primarySoft,
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.isEmpty ? "규격 미지정" : label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 13,
+            color: CuttingColors.primaryDark,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 14,
+          runSpacing: 4,
+          children: [
+            _miniStat(Icons.inventory_2_outlined, "${r.barCount}본"),
+            _miniStat(
+              Icons.delete_sweep_outlined,
+              "로스 ${r.totalWaste.toStringAsFixed(0)}mm",
+              color: highWaste ? CuttingColors.warning : null,
+            ),
+            _miniStat(
+              Icons.percent_rounded,
+              "사용률 ${usageRatio.toStringAsFixed(1)}%",
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _miniStat(IconData icon, String text, {Color? color}) {
+  final Color c = color ?? CuttingColors.primaryDark;
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, size: 13, color: c),
+      const SizedBox(width: 4),
+      Text(
+        text,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: c),
+      ),
+    ],
   );
 }
 

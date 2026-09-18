@@ -309,7 +309,8 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
             for (final entry in optResultsByShape.entries) ...[
               pw.SizedBox(height: 12),
               pw.Text(
-                "${entry.key} (${entry.value.barCount}본)",
+                "${entry.key} (${entry.value.barCount}본, 로스 ${entry.value.totalWaste.toStringAsFixed(0)}mm, "
+                "사용률 ${entry.value.totalStock > 0 ? (entry.value.totalUsed / entry.value.totalStock * 100).toStringAsFixed(1) : '0.0'}%)",
                 style: pw.TextStyle(
                   fontSize: 12,
                   fontWeight: pw.FontWeight.bold,
