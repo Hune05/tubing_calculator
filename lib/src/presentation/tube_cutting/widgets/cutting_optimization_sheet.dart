@@ -13,15 +13,30 @@ import '../cutting_theme.dart';
 // 공용화했다. 원자재 기준 길이가 바뀌면 [onStockLengthChanged]로 호출한
 // 쪽에 알려줘서, 화면마다 다른 저장 방식(SharedPreferences vs Firestore)에
 // 맡긴다.
+//
+// 🚀 [형강 컷팅 - 규격별 분리] 튜브는 프로젝트 전체가 같은 원자재(한 종류
+// 튜브)라 모든 구간을 섞어서 최적화해도 됐지만, 형강은 프로젝트 안에
+// 앵글/찬넬 등 서로 다른 규격이 섞일 수 있다 - 다른 규격은 물리적으로
+// 같은 원자재에서 나올 수 없으니 한 원자재(본) 안에 섞어 배치하면 실제로
+// 불가능한 지시서가 나온다. [groupedPieces]를 넘기면 규격(라벨)별로 각각
+// 독립적으로 최적화하고, 결과도 규격별 섹션으로 나눠 보여준다. 넘기지
+// 않으면(튜브처럼 규격이 하나뿐이면) 기존처럼 구분 없이 하나로 보여준다.
 Future<void> showCuttingOptimizationSheet(
   BuildContext context, {
-  required List<double> pieces,
+  List<double> pieces = const [],
+  Map<String, List<double>>? groupedPieces,
   required double initialStockLength,
   double kerf = 0.0,
   String title = "재단 최적화 (원자재 소요 계산)",
   ValueChanged<double>? onStockLengthChanged,
 }) async {
-  if (pieces.isEmpty) {
+  final Map<String, List<double>> groups =
+      (groupedPieces != null && groupedPieces.isNotEmpty)
+      ? groupedPieces
+      : {'': pieces};
+  final bool isGroupedView = groups.length > 1 || !groups.containsKey('');
+
+  if (groups.values.every((p) => p.isEmpty)) {
     showCuttingSnack(context, "치수를 먼저 입력하세요.", isError: true);
     return;
   }
@@ -29,11 +44,14 @@ Future<void> showCuttingOptimizationSheet(
   final ctrl = TextEditingController(
     text: initialStockLength.toStringAsFixed(0),
   );
-  CuttingOptimizationResult result = optimizeCutting(
-    pieces: pieces,
-    stockLength: initialStockLength,
-    kerf: kerf,
-  );
+  Map<String, CuttingOptimizationResult> results = {
+    for (final e in groups.entries)
+      e.key: optimizeCutting(
+        pieces: e.value,
+        stockLength: initialStockLength,
+        kerf: kerf,
+      ),
+  };
 
   await showModalBottomSheet(
     context: context,
@@ -47,11 +65,14 @@ Future<void> showCuttingOptimizationSheet(
           HapticFeedback.selectionClick();
           ctrl.text = parsed.toStringAsFixed(0);
           setSheetState(() {
-            result = optimizeCutting(
-              pieces: pieces,
-              stockLength: parsed,
-              kerf: kerf,
-            );
+            results = {
+              for (final e in groups.entries)
+                e.key: optimizeCutting(
+                  pieces: e.value,
+                  stockLength: parsed,
+                  kerf: kerf,
+                ),
+            };
           });
           onStockLengthChanged?.call(parsed);
         }
@@ -77,6 +98,27 @@ Future<void> showCuttingOptimizationSheet(
             ),
           );
         }
+
+        final int totalBarCount = results.values.fold(
+          0,
+          (sum, r) => sum + r.barCount,
+        );
+        final double totalWaste = results.values.fold(
+          0.0,
+          (sum, r) => sum + r.totalWaste,
+        );
+        final double totalUsed = results.values.fold(
+          0.0,
+          (sum, r) => sum + r.totalUsed,
+        );
+        final double totalStock = results.values.fold(
+          0.0,
+          (sum, r) => sum + r.totalStock,
+        );
+        final int totalOversized = results.values.fold(
+          0,
+          (sum, r) => sum + r.oversizedPieces.length,
+        );
 
         final inputAndStats = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,6 +168,13 @@ Future<void> showCuttingOptimizationSheet(
                 ),
               ],
             ),
+            if (isGroupedView) ...[
+              const SizedBox(height: 8),
+              Text(
+                "규격이 다르면 같은 원자재를 함께 쓸 수 없어 규격별로 따로 계산합니다.",
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              ),
+            ],
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -141,30 +190,30 @@ Future<void> showCuttingOptimizationSheet(
                 _buildOptStat(
                   Icons.inventory_2_outlined,
                   "필요 원자재",
-                  "${result.barCount}본",
+                  "$totalBarCount본",
                 ),
                 const SizedBox(width: 8),
                 _buildOptStat(
                   Icons.delete_sweep_outlined,
                   "총 로스",
-                  "${result.totalWaste.toStringAsFixed(0)}mm",
+                  "${totalWaste.toStringAsFixed(0)}mm",
                   accent: CuttingColors.warning,
                 ),
                 const SizedBox(width: 8),
                 _buildOptStat(
                   Icons.percent_rounded,
                   "사용률",
-                  result.totalStock > 0
-                      ? "${(result.totalUsed / result.totalStock * 100).toStringAsFixed(1)}%"
+                  totalStock > 0
+                      ? "${(totalUsed / totalStock * 100).toStringAsFixed(1)}%"
                       : "-",
                   accent: CuttingColors.success,
                 ),
               ],
             ),
-            if (result.oversizedPieces.isNotEmpty) ...[
+            if (totalOversized > 0) ...[
               const SizedBox(height: 10),
               Text(
-                "⚠ 원자재보다 긴 구간 ${result.oversizedPieces.length}개는 계산에서 제외됨",
+                "⚠ 원자재보다 긴 구간 $totalOversized개는 계산에서 제외됨",
                 style: const TextStyle(
                   color: CuttingColors.danger,
                   fontSize: 12,
@@ -174,6 +223,59 @@ Future<void> showCuttingOptimizationSheet(
             ],
           ],
         );
+
+        final List<Widget> barWidgets = [];
+        if (!isGroupedView) {
+          final bars = results['']!.bars;
+          for (int i = 0; i < bars.length; i++) {
+            barWidgets.add(_buildOptBarCard(bars[i], i));
+          }
+        } else {
+          for (final entry in groups.entries) {
+            final r = results[entry.key]!;
+            barWidgets.add(
+              Padding(
+                padding: const EdgeInsets.only(top: 6, bottom: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        entry.key.isEmpty ? "규격 미지정" : entry.key,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          color: CuttingColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      "${r.barCount}본",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        color: CuttingColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+            for (int i = 0; i < r.bars.length; i++) {
+              barWidgets.add(_buildOptBarCard(r.bars[i], i));
+            }
+            if (r.bars.isEmpty) {
+              barWidgets.add(
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    "배치할 원자재가 없습니다.",
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                  ),
+                ),
+              );
+            }
+          }
+        }
 
         Widget barsHeader() => const Padding(
           padding: EdgeInsets.only(bottom: 8),
@@ -187,11 +289,8 @@ Future<void> showCuttingOptimizationSheet(
           ),
         );
 
-        Widget barsList(ScrollController controller) => ListView.builder(
-          controller: controller,
-          itemCount: result.bars.length,
-          itemBuilder: (context, i) => _buildOptBarCard(result.bars[i], i),
-        );
+        Widget barsList(ScrollController controller) =>
+            ListView(controller: controller, children: barWidgets);
 
         return DraggableScrollableSheet(
           initialChildSize: 0.9,
@@ -254,7 +353,7 @@ Future<void> showCuttingOptimizationSheet(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      barsHeader(),
+                                      if (!isGroupedView) barsHeader(),
                                       Expanded(
                                         child: barsList(scrollController),
                                       ),
@@ -271,7 +370,7 @@ Future<void> showCuttingOptimizationSheet(
                               children: [
                                 inputAndStats,
                                 const SizedBox(height: 16),
-                                barsHeader(),
+                                if (!isGroupedView) barsHeader(),
                                 Expanded(child: barsList(scrollController)),
                               ],
                             ),

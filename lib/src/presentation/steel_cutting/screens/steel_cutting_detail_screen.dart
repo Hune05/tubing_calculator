@@ -99,14 +99,18 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
     await _docRef.update({'setMultiplier': v});
   }
 
-  List<double> _collectPieces() {
-    final List<double> pieces = [];
+  // 🚀 [규격별 분리] 앵글과 찬넬처럼 서로 다른 규격은 같은 원자재(본)에서
+  // 나올 수 없으니, 재단 최적화는 규격(shapeLabel)별로 따로 계산해야
+  // 실제로 현장에서 그대로 따라 할 수 있는 지시서가 나온다.
+  Map<String, List<double>> _collectPiecesByShape() {
+    final Map<String, List<double>> byShape = {};
     for (final item in _items) {
+      final list = byShape.putIfAbsent(item.shapeLabel, () => []);
       for (int k = 0; k < item.qty * _setMultiplier; k++) {
-        pieces.add(item.length);
+        list.add(item.length);
       }
     }
-    return pieces;
+    return byShape;
   }
 
   void _addItem() {
@@ -169,10 +173,9 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
   }
 
   Future<void> _showOptimization() async {
-    final pieces = _collectPieces();
     await showCuttingOptimizationSheet(
       context,
-      pieces: pieces,
+      groupedPieces: _collectPiecesByShape(),
       initialStockLength: _stockLength,
       kerf: _bladeKerf,
       title: "재단 최적화 (원자재 소요 계산)",
@@ -227,26 +230,30 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
         (sum, i) => sum + i.totalLength * _setMultiplier,
       );
 
-      final pieces = _collectPieces();
-      final optResult = optimizeCutting(
-        pieces: pieces,
-        stockLength: _stockLength,
-        kerf: _bladeKerf,
+      // 🚀 [규격별 분리] 앵글/찬넬처럼 서로 다른 규격은 같은 원자재에서
+      // 나올 수 없으니, 규격별로 각각 최적화해서 규격마다 별도 표로
+      // 보여준다 - 한 표에 섞으면 실제로는 불가능한 배치가 나온다.
+      final piecesByShape = _collectPiecesByShape();
+      final optResultsByShape = {
+        for (final e in piecesByShape.entries)
+          e.key: optimizeCutting(
+            pieces: e.value,
+            stockLength: _stockLength,
+            kerf: _bladeKerf,
+          ),
+      };
+      final int totalBarCount = optResultsByShape.values.fold(
+        0,
+        (sum, r) => sum + r.barCount,
       );
-      final barRows = optResult.bars
-          .asMap()
-          .entries
-          .map(
-            (e) => [
-              "${e.key + 1}",
-              e.value.pieces
-                  .map((p) => "${p.toStringAsFixed(0)}mm")
-                  .join(" + "),
-              e.value.usedLength.toStringAsFixed(0),
-              e.value.wasteLength.toStringAsFixed(0),
-            ],
-          )
-          .toList();
+      final double totalWasteAll = optResultsByShape.values.fold(
+        0.0,
+        (sum, r) => sum + r.totalWaste,
+      );
+      final int totalOversized = optResultsByShape.values.fold(
+        0,
+        (sum, r) => sum + r.oversizedPieces.length,
+      );
 
       pdf.addPage(
         pw.MultiPage(
@@ -296,28 +303,60 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
             ),
             pw.SizedBox(height: 20),
             pw.Text(
-              "2. 원자재별 배치 (재단 최적화, 총 ${optResult.barCount}본)",
+              "2. 원자재별 배치 (재단 최적화, 총 $totalBarCount본 - 규격별로 각각 계산됨)",
               style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
             ),
-            pw.SizedBox(height: 8),
-            pw.TableHelper.fromTextArray(
-              headers: ["원자재 #", "배치 구성", "사용(mm)", "잔여(mm)"],
-              data: barRows,
-              headerStyle: pw.TextStyle(
-                fontWeight: pw.FontWeight.bold,
-                font: koreanFont,
+            for (final entry in optResultsByShape.entries) ...[
+              pw.SizedBox(height: 12),
+              pw.Text(
+                "${entry.key} (${entry.value.barCount}본)",
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                  font: koreanFont,
+                ),
               ),
-              cellStyle: pw.TextStyle(font: koreanFont),
-              headerDecoration: const pw.BoxDecoration(
-                color: PdfColors.grey300,
+              pw.SizedBox(height: 6),
+              pw.TableHelper.fromTextArray(
+                headers: ["원자재 #", "배치 구성", "사용(mm)", "잔여(mm)"],
+                data: entry.value.bars
+                    .asMap()
+                    .entries
+                    .map(
+                      (e) => [
+                        "${e.key + 1}",
+                        e.value.pieces
+                            .map((p) => "${p.toStringAsFixed(0)}mm")
+                            .join(" + "),
+                        e.value.usedLength.toStringAsFixed(0),
+                        e.value.wasteLength.toStringAsFixed(0),
+                      ],
+                    )
+                    .toList(),
+                headerStyle: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold,
+                  font: koreanFont,
+                ),
+                cellStyle: pw.TextStyle(font: koreanFont),
+                headerDecoration: const pw.BoxDecoration(
+                  color: PdfColors.grey300,
+                ),
+                cellAlignment: pw.Alignment.centerLeft,
+                border: pw.TableBorder.all(
+                  color: PdfColors.grey400,
+                  width: 0.5,
+                ),
               ),
-              cellAlignment: pw.Alignment.centerLeft,
-              border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
-            ),
-            if (optResult.oversizedPieces.isNotEmpty) ...[
+              if (entry.value.oversizedPieces.isNotEmpty)
+                pw.Text(
+                  "⚠ 원자재보다 긴 항목 ${entry.value.oversizedPieces.length}건은 배치에서 제외됨",
+                  style: const pw.TextStyle(fontSize: 9, color: PdfColors.red),
+                ),
+            ],
+            if (totalOversized > 0) ...[
               pw.SizedBox(height: 8),
               pw.Text(
-                "⚠ 원자재보다 긴 항목 ${optResult.oversizedPieces.length}건은 배치에서 제외됨 - 원자재 기준 길이를 확인하세요.",
+                "⚠ 원자재보다 긴 항목 총 $totalOversized건은 배치에서 제외됨 - 원자재 기준 길이를 확인하세요.",
                 style: const pw.TextStyle(fontSize: 10, color: PdfColors.red),
               ),
             ],
@@ -325,7 +364,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
             pw.Align(
               alignment: pw.Alignment.centerRight,
               child: pw.Text(
-                "총 로스: ${optResult.totalWaste.toStringAsFixed(0)} mm",
+                "총 로스: ${totalWasteAll.toStringAsFixed(0)} mm",
                 style: pw.TextStyle(
                   fontSize: 14,
                   fontWeight: pw.FontWeight.bold,
