@@ -628,50 +628,6 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
   // 눈에 띄는 자리를 차지하는 것도 어색했음). 아이콘은 화면 맨 위 독립된
   // 얇은 상단바로 분리하고, 날씨/공지/차량 카드는 그 아래 자기만의
   // 줄로 내렸다.
-  bool get _hasIdentity =>
-      widget.currentWorker.isNotEmpty && widget.currentWorker != "로그인 필요";
-
-  // 🚀 [알림 고도화] 알림 종 아이콘에 실제 안읽은 건수를 배지로 보여준다.
-  // announcements 문서마다 readBy(배열) 필드를 두고, 이 기기의
-  // currentWorker가 그 안에 없으면 "안읽음"으로 센다.
-  Widget _buildUnreadBadge() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('announcements')
-          .orderBy('createdAt', descending: true)
-          .limit(50)
-          .snapshots(),
-      builder: (context, snap) {
-        if (!snap.hasData) return const SizedBox.shrink();
-        final unread = snap.data!.docs.where((d) {
-          final readBy =
-              ((d.data() as Map<String, dynamic>)['readBy'] as List?) ?? [];
-          return !readBy.contains(widget.currentWorker);
-        }).length;
-        if (unread == 0) return const SizedBox.shrink();
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-          constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-          decoration: BoxDecoration(
-            color: warningRed,
-            shape: unread > 9 ? BoxShape.rectangle : BoxShape.circle,
-            borderRadius: unread > 9 ? BorderRadius.circular(9) : null,
-            border: Border.all(color: pureWhite, width: 2),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            unread > 9 ? '9+' : '$unread',
-            style: const TextStyle(
-              color: pureWhite,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildTopBar(BuildContext context) {
     const weekdaysKo = ['월', '화', '수', '목', '금', '토', '일'];
     final now = DateTime.now();
@@ -691,75 +647,27 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
               letterSpacing: -0.5,
             ),
           ),
-          Row(
-            children: [
-              InkWell(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => MobileNotificationPage(
-                        currentWorker: widget.currentWorker,
-                      ),
-                    ),
-                  );
-                },
-                borderRadius: BorderRadius.circular(24),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: const BoxDecoration(
-                        color: slate100,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        LucideIcons.bell,
-                        size: 24,
-                        color: slate900,
-                      ),
-                    ),
-                    if (_hasIdentity)
-                      Positioned(
-                        top: -2,
-                        right: -2,
-                        child: _buildUnreadBadge(),
-                      ),
-                  ],
+          InkWell(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      MobileProfilePage(currentWorker: widget.currentWorker),
                 ),
+              );
+            },
+            borderRadius: BorderRadius.circular(24),
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: const BoxDecoration(
+                color: slate100,
+                shape: BoxShape.circle,
               ),
-              const SizedBox(width: 8),
-              InkWell(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => MobileProfilePage(
-                        currentWorker: widget.currentWorker,
-                      ),
-                    ),
-                  );
-                },
-                borderRadius: BorderRadius.circular(24),
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: const BoxDecoration(
-                    color: slate100,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    LucideIcons.user,
-                    size: 24,
-                    color: slate900,
-                  ),
-                ),
-              ),
-            ],
+              child: const Icon(LucideIcons.user, size: 24, color: slate900),
+            ),
           ),
         ],
       ),
