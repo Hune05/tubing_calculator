@@ -674,72 +674,78 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
                           },
                         )),
           ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            decoration: BoxDecoration(
-              color: CuttingColors.surface,
-              border: Border(top: BorderSide(color: Colors.grey.shade200)),
-            ),
-            child: SafeArea(
-              top: false,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _showOptimization,
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: const BorderSide(
-                          color: CuttingColors.primary,
-                          width: 2,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      icon: const Icon(
-                        Icons.view_column_outlined,
-                        color: CuttingColors.primary,
-                      ),
-                      label: const Text(
-                        "재단 최적화",
-                        style: TextStyle(
-                          color: CuttingColors.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _exportInstructionSheet,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: CuttingColors.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      icon: const Icon(
-                        Icons.picture_as_pdf_outlined,
-                        color: CuttingColors.surface,
-                      ),
-                      label: const Text(
-                        "지시서 PDF",
-                        style: TextStyle(
-                          color: CuttingColors.surface,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
         ],
+      ),
+      // 🚀 [버그 수정] 이 버튼 줄이 body Column의 마지막 자식이라 화면
+      // 우측 하단 구석을 차지하고 있었는데, 같은 자리에 floatingActionButton
+      // ("+")도 기본 위치(우측 하단)로 떠서 "지시서 PDF" 버튼과 정확히
+      // 겹쳐 보이는 문제가 있었다. Scaffold의 bottomNavigationBar로
+      // 옮기면 Scaffold가 이 영역만큼 자동으로 공간을 확보하고 FAB를
+      // 그 위로 띄워서 겹치지 않는다.
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        decoration: BoxDecoration(
+          color: CuttingColors.surface,
+          border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _showOptimization,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: const BorderSide(
+                      color: CuttingColors.primary,
+                      width: 2,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: const Icon(
+                    Icons.view_column_outlined,
+                    color: CuttingColors.primary,
+                  ),
+                  label: const Text(
+                    "재단 최적화",
+                    style: TextStyle(
+                      color: CuttingColors.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _exportInstructionSheet,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: CuttingColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: const Icon(
+                    Icons.picture_as_pdf_outlined,
+                    color: CuttingColors.surface,
+                  ),
+                  label: const Text(
+                    "지시서 PDF",
+                    style: TextStyle(
+                      color: CuttingColors.surface,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
