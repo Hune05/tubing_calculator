@@ -806,6 +806,19 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
   // 앱이 없었다) 웹 브라우저로 날씨 검색 결과를 대신 보여준다.
   Future<void> _openWeatherApp() async {
     HapticFeedback.lightImpact();
+    // 🚀 삼성 날씨는 런처 아이콘용 MAIN/LAUNCHER 액티비티가 없어서(기기의
+    // dumpsys로 확인) 일반적인 "앱 실행" 방식으론 안 열렸다. 대신 앱
+    // 자체의 MainActivity를 직접 지정해서 연다.
+    try {
+      await const AndroidIntent(
+        action: 'android.intent.action.MAIN',
+        package: 'com.sec.android.daemonapp',
+        componentName: 'com.sec.android.daemonapp.app.MainActivity',
+      ).launch();
+      return;
+    } catch (_) {
+      // 삼성 날씨가 없는 기기면 아래 일반 날씨 앱 → 웹 순으로 폴백.
+    }
     try {
       final intent = AndroidIntent(
         action: 'android.intent.action.MAIN',
