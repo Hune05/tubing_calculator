@@ -67,7 +67,6 @@ class MobileMenuPage extends StatefulWidget {
 }
 
 class _MobileMenuPageState extends State<MobileMenuPage> {
-  String _weatherGreeting = "";
   // 🚀 [신규] "내 일정 관리" 메뉴 버튼에 "오늘 N건" 배지를 보여주기 위한
   // 오늘 미완료 일정 개수 - 프로젝트 일정 + 개인 일정(반복 포함)을 합산.
   int? _todayScheduleCount;
@@ -85,7 +84,6 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
   @override
   void initState() {
     super.initState();
-    _weatherGreeting = _getTimeBasedGreeting();
     _fetchDetailedWeather();
     _loadTodayScheduleCount();
   }
@@ -181,7 +179,6 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
             } else {
               _rainExpected = false;
             }
-            _weatherGreeting = _getTimeBasedGreeting();
             _isWeatherLoaded = true;
           });
         }
@@ -196,31 +193,6 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
   void _setFallback() {
     if (mounted) {
       setState(() => _isWeatherLoaded = true);
-    }
-  }
-
-  // 🚀 시간대별 맞춤 인사말
-  String _getTimeBasedGreeting() {
-    int hour = DateTime.now().hour;
-    // 🚀 [수정] 로그인 안 한 상태의 sentinel 값 "로그인 필요"가 그대로
-    // "${currentWorker}님"에 끼워져 "로그인 필요님"이라는 어색한 문구가
-    // 나오고 있었음(다른 화면들은 이 값을 게스트 상태로 따로 처리하는데
-    // 이 인사말 함수만 빠져 있었음). 로그인 전에는 이름을 붙이지 않는다.
-    final bool isGuest = widget.currentWorker == "로그인 필요";
-    final String namePrefix = isGuest ? "" : "${widget.currentWorker}님,\n";
-
-    if (hour >= 5 && hour < 9) {
-      return "$namePrefix활기찬 아침입니다! 오늘도 안전 작업 하세요.";
-    } else if (hour >= 9 && hour < 11) {
-      return "$namePrefix오전 작업 중이시군요. 항상 안전 유의하세요!";
-    } else if (hour >= 11 && hour < 14) {
-      return "$namePrefix맛있는 점심 드시고 오셨나요?";
-    } else if (hour >= 14 && hour < 17) {
-      return "$namePrefix나른한 오후도 파이팅입니다!";
-    } else if (hour >= 17 && hour <= 23) {
-      return "$namePrefix오늘 하루도 정말 고생 많으셨습니다. 푹 쉬세요!";
-    } else {
-      return "$namePrefix늦은 시간까지 고생이 많으십니다.";
     }
   }
 
@@ -682,7 +654,6 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                     }
 
                     return _buildHeaderContent(
-                      title: _weatherGreeting,
                       customSubWidget: _buildWeatherWidget(),
                       isActionable: false,
                     );
@@ -761,59 +732,52 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
         style: TextStyle(color: slate600, fontSize: 12),
       );
     }
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    // 🚀 [삭제] 위에 있던 인사말 제목이 없어진 뒤로는 이 top 여백이
+    // "동기화 중..." 상태(여백 없음)와 로드 완료 상태 사이에 불필요한
+    // 위치 차이를 만들어서 없앴다.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              "부산시 $_currentTemp°C  /  $_weatherDesc",
+              style: const TextStyle(color: slate600, fontSize: 12),
+            ),
+            const SizedBox(width: 8),
+            Container(width: 1, height: 10, color: Colors.grey.shade300),
+            const SizedBox(width: 8),
+            // 🚀 [수정] 고정 Text라 온도/날씨 문구가 조금만 길어져도 우측이
+            // 화면 밖으로 넘쳐 "RIGHT OVERFLOWED" 경고가 떴음. Flexible +
+            // ellipsis로 감싸서 공간이 부족하면 이 텍스트만 잘리게 한다.
+            Flexible(
+              child: Text(
+                "미세먼지 : $_pmState",
+                style: const TextStyle(color: slate600, fontSize: 12),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        if (_rainExpected) ...[
+          const SizedBox(height: 6),
           Row(
             children: [
+              Icon(Icons.water_drop, size: 12, color: Colors.blueGrey.shade400),
+              const SizedBox(width: 4),
               Text(
-                "부산시 $_currentTemp°C  /  $_weatherDesc",
-                style: const TextStyle(color: slate600, fontSize: 12),
-              ),
-              const SizedBox(width: 8),
-              Container(width: 1, height: 10, color: Colors.grey.shade300),
-              const SizedBox(width: 8),
-              // 🚀 [수정] 고정 Text라 온도/날씨 문구가 조금만 길어져도 우측이
-              // 화면 밖으로 넘쳐 "RIGHT OVERFLOWED" 경고가 떴음. Flexible +
-              // ellipsis로 감싸서 공간이 부족하면 이 텍스트만 잘리게 한다.
-              Flexible(
-                child: Text(
-                  "미세먼지 : $_pmState",
-                  style: const TextStyle(color: slate600, fontSize: 12),
-                  overflow: TextOverflow.ellipsis,
-                ),
+                "$_rainStart시에 비 예상 ($_rainEnd시까지 ${_totalRain.toStringAsFixed(1)}mm)",
+                style: TextStyle(color: Colors.blueGrey.shade600, fontSize: 12),
               ),
             ],
           ),
-          if (_rainExpected) ...[
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Icon(
-                  Icons.water_drop,
-                  size: 12,
-                  color: Colors.blueGrey.shade400,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  "$_rainStart시에 비 예상 ($_rainEnd시까지 ${_totalRain.toStringAsFixed(1)}mm)",
-                  style: TextStyle(
-                    color: Colors.blueGrey.shade600,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ],
         ],
-      ),
+      ],
     );
   }
 
   Widget _buildHeaderContent({
-    required String title,
+    String? title,
     IconData? titleIcon,
     String? subText,
     Widget? customSubWidget,
@@ -838,17 +802,24 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: slate900,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                      height: 1.3,
+                  // 🚀 [삭제] 시간대별 "수고했다"류 인사말 문구는 없앴다 -
+                  // 이 헤더를 날씨 전용으로 쓸 땐 title을 아예 넘기지
+                  // 않아서(null), 날씨 정보(customSubWidget)만 남는다.
+                  // 공지/회의 배너처럼 진짜 제목이 필요한 다른 곳은
+                  // 그대로 title을 넘겨서 쓴다.
+                  if (title != null) ...[
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: slate900,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                        height: 1.3,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
+                    const SizedBox(height: 6),
+                  ],
                   if (customSubWidget != null)
                     customSubWidget
                   else if (subText != null)
