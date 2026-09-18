@@ -32,6 +32,7 @@ const String kScheduleChannelId = 'personal_schedule_channel';
 const List<String> kPersonalCategories = [
   "개인",
   "영업",
+  "출장",
   "자재 요청",
   "납기일",
   "검사일정",
@@ -41,6 +42,7 @@ const List<String> kPersonalCategories = [
 const Map<String, Color> kScheduleColors = {
   '개인': scheduleTeal,
   '영업': Color(0xFFC77700),
+  '출장': Color(0xFF0E9AA7),
   '자재 요청': Color(0xFF8E63CE),
   '입고일': Color(0xFF2F80ED),
   '납기일': Color(0xFFE0432B),
@@ -57,6 +59,8 @@ IconData iconForCategory(String cat) {
       return Icons.person_outline_rounded;
     case '영업':
       return Icons.handshake_outlined;
+    case '출장':
+      return Icons.flight_takeoff_rounded;
     case '자재 요청':
       return Icons.local_shipping_outlined;
     case '입고일':
