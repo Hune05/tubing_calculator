@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:geocoding/geocoding.dart';
 
 // 🚀 [수정됨] 단일 설정 페이지 대신 통합 네비게이션 페이지 임포트
 // (실제 파일 경로에 맞게 수정해 주세요)
@@ -139,13 +140,49 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
 
       return await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium,
+          accuracy: LocationAccuracy.high,
           timeLimit: Duration(seconds: 8),
         ),
       );
     } catch (e) {
       return null;
     }
+  }
+
+  // 🚀 [날씨 위치 버그 수정] OpenWeatherMap의 지역명(weather API의 "name"
+  // 필드)은 자체 도시 목록 중 좌표에서 가장 가까운 항목을 고르는 방식이라,
+  // "부산 지사동"처럼 실제로는 잘 안 쓰는 동네 이름이 나올 수 있었다(GPS
+  // 좌표 자체는 맞아도, OWM 도시 목록의 매칭 결과가 지나치게 세분화됨).
+  // 기기 자체 지오코더(Android는 Google 지오코딩 서비스 이용)로 "시/도 +
+  // 구/군" 수준의 더 알아보기 쉬운 이름을 만들고, 실패하면 OWM 이름으로
+  // 폴백한다.
+  Future<String?> _resolveCityLabel(Position? position, String? owmName) async {
+    if (position != null) {
+      try {
+        final placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+        if (placemarks.isNotEmpty) {
+          final p = placemarks.first;
+          final String city = (p.locality?.isNotEmpty ?? false)
+              ? p.locality!
+              : (p.administrativeArea ?? '');
+          final String district = (p.subLocality?.isNotEmpty ?? false)
+              ? p.subLocality!
+              : (p.subAdministrativeArea ?? '');
+          final parts = <String>{
+            city,
+            district,
+          }.where((s) => s.isNotEmpty).toList();
+          if (parts.isNotEmpty) return parts.join(' ');
+        }
+      } catch (e) {
+        // 기기 지오코더가 없거나(플레이 서비스 미탑재 등) 실패하면
+        // 아래 OWM 이름으로 조용히 폴백한다.
+      }
+    }
+    return (owmName != null && owmName.isNotEmpty) ? owmName : null;
   }
 
   // 🚀 API 3개(현재날씨, 대기질, 일기예보)를 동시에 불러와 분석
@@ -207,11 +244,12 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
           }
         }
 
-        // 🚀 [날씨 고도화] OpenWeatherMap이 좌표로부터 역으로 찾아준
-        // 지역명 - GPS 위치를 실제로 반영했는지 화면에서 바로 보이게
-        // 한다(lang=kr 파라미터는 날씨 설명에만 적용되고 이 name
-        // 필드는 영향받지 않아, 외국 지명은 영문으로 나올 수 있다).
-        final String? resolvedCity = weatherData['name'] as String?;
+        // 🚀 [날씨 위치 버그 수정] 기기 지오코더로 먼저 시도하고, 실패하면
+        // OWM의 지역명으로 폴백한다 (자세한 이유는 _resolveCityLabel 참고).
+        final String? resolvedCity = await _resolveCityLabel(
+          position,
+          weatherData['name'] as String?,
+        );
 
         if (mounted) {
           setState(() {
@@ -590,6 +628,50 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
   // 눈에 띄는 자리를 차지하는 것도 어색했음). 아이콘은 화면 맨 위 독립된
   // 얇은 상단바로 분리하고, 날씨/공지/차량 카드는 그 아래 자기만의
   // 줄로 내렸다.
+  bool get _hasIdentity =>
+      widget.currentWorker.isNotEmpty && widget.currentWorker != "로그인 필요";
+
+  // 🚀 [알림 고도화] 알림 종 아이콘에 실제 안읽은 건수를 배지로 보여준다.
+  // announcements 문서마다 readBy(배열) 필드를 두고, 이 기기의
+  // currentWorker가 그 안에 없으면 "안읽음"으로 센다.
+  Widget _buildUnreadBadge() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('announcements')
+          .orderBy('createdAt', descending: true)
+          .limit(50)
+          .snapshots(),
+      builder: (context, snap) {
+        if (!snap.hasData) return const SizedBox.shrink();
+        final unread = snap.data!.docs.where((d) {
+          final readBy =
+              ((d.data() as Map<String, dynamic>)['readBy'] as List?) ?? [];
+          return !readBy.contains(widget.currentWorker);
+        }).length;
+        if (unread == 0) return const SizedBox.shrink();
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+          constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+          decoration: BoxDecoration(
+            color: warningRed,
+            shape: unread > 9 ? BoxShape.rectangle : BoxShape.circle,
+            borderRadius: unread > 9 ? BorderRadius.circular(9) : null,
+            border: Border.all(color: pureWhite, width: 2),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            unread > 9 ? '9+' : '$unread',
+            style: const TextStyle(
+              color: pureWhite,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildTopBar(BuildContext context) {
     const weekdaysKo = ['월', '화', '수', '목', '금', '토', '일'];
     final now = DateTime.now();
@@ -617,23 +699,36 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const MobileNotificationPage(),
+                      builder: (context) => MobileNotificationPage(
+                        currentWorker: widget.currentWorker,
+                      ),
                     ),
                   );
                 },
                 borderRadius: BorderRadius.circular(24),
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: const BoxDecoration(
-                    color: slate100,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    LucideIcons.bell,
-                    size: 24,
-                    color: slate900,
-                  ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: const BoxDecoration(
+                        color: slate100,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        LucideIcons.bell,
+                        size: 24,
+                        color: slate900,
+                      ),
+                    ),
+                    if (_hasIdentity)
+                      Positioned(
+                        top: -2,
+                        right: -2,
+                        child: _buildUnreadBadge(),
+                      ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
@@ -755,7 +850,9 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const MobileNotificationPage(),
+                          builder: (context) => MobileNotificationPage(
+                            currentWorker: widget.currentWorker,
+                          ),
                         ),
                       );
                     },
@@ -772,7 +869,9 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const MobileNotificationPage(),
+                        builder: (context) => MobileNotificationPage(
+                          currentWorker: widget.currentWorker,
+                        ),
                       ),
                     );
                   },
