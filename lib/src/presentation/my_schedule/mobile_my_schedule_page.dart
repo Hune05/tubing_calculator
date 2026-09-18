@@ -2206,6 +2206,49 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     return lanes;
   }
 
+  // 🚀 날짜 숫자를 칸 위쪽에 두고, 선택/오늘 표시는 칸 전체가 아니라
+  // 그 숫자 주변의 작은 원에만 그린다. 칸이 세로로 길어지면서 기본 표시
+  // (칸 정중앙에 큰 원)가 날짜를 가리고 어색해져서 직접 그린다.
+  Widget _dayNumberCell(
+    DateTime day, {
+    bool selected = false,
+    bool today = false,
+    bool outside = false,
+  }) {
+    final bool weekend =
+        day.weekday == DateTime.saturday || day.weekday == DateTime.sunday;
+    final Color textColor = selected
+        ? Colors.white
+        : outside
+        ? Colors.grey.shade400
+        : today
+        ? scheduleTeal
+        : (weekend ? scheduleDanger : scheduleText);
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Container(
+        margin: const EdgeInsets.only(top: 4),
+        width: 28,
+        height: 28,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected
+              ? scheduleTeal
+              : (today ? scheduleTeal.withValues(alpha: 0.15) : null),
+          shape: BoxShape.circle,
+        ),
+        child: Text(
+          '${day.day}',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: (selected || today) ? FontWeight.bold : FontWeight.w500,
+            color: textColor,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _dotRow(List<_AgendaItem> dots) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -2260,11 +2303,22 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           ),
           weekendTextStyle: TextStyle(color: scheduleDanger),
           markersMaxCount: 3,
-          cellAlignment: Alignment.topCenter,
-          cellPadding: EdgeInsets.only(top: 4),
           markerMargin: EdgeInsets.symmetric(horizontal: 1),
         ),
         calendarBuilders: CalendarBuilders(
+          defaultBuilder: (context, day, focused) => _dayNumberCell(day),
+          outsideBuilder: (context, day, focused) =>
+              _dayNumberCell(day, outside: true),
+          todayBuilder: (context, day, focused) => _dayNumberCell(
+            day,
+            today: true,
+            selected: isSameDay(_selectedDay, day),
+          ),
+          selectedBuilder: (context, day, focused) => _dayNumberCell(
+            day,
+            selected: true,
+            today: isSameDay(day, DateTime.now()),
+          ),
           markerBuilder: (context, day, events) {
             if (events.isEmpty) return null;
             final bars = events
