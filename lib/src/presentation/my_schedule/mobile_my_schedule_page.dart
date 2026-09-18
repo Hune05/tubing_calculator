@@ -279,6 +279,39 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     );
 
     if (recurrence == 'none') {
+      // 🚀 [기간 일정] 출장처럼 여러 날에 걸친 일정은 endDate(마지막 날)까지
+      // 하루씩 펼쳐서, 달력 마커/오늘 일정/목록이 매일 자연스럽게 잡히게
+      // 한다. 시간은 첫날에만 있고 이후 날은 종일로 취급한다.
+      final DateTime startDay = DateTime(base.year, base.month, base.day);
+      final DateTime? rawEnd = data['endDate'] != null
+          ? _asDateTime(data['endDate'])
+          : null;
+      final DateTime endDay = rawEnd != null
+          ? DateTime(rawEnd.year, rawEnd.month, rawEnd.day)
+          : startDay;
+      final int totalDays = endDay.isBefore(startDay)
+          ? 1
+          : (endDay.difference(startDay).inHours / 24).round() + 1;
+      if (totalDays > 1 && totalDays <= 120) {
+        return List.generate(totalDays, (i) {
+          final DateTime day = DateTime(
+            startDay.year,
+            startDay.month,
+            startDay.day + i,
+          );
+          return _AgendaItem(
+            key: 'personal_${docId}_d$i',
+            date: i == 0 ? base : day,
+            hasTime: i == 0 ? hasTime : false,
+            title: '$title (${i + 1}/$totalDays일)',
+            category: category,
+            isCompleted: data['isCompleted'] == true,
+            isPersonal: true,
+            personalDocId: docId,
+            recurrence: recurrence,
+          );
+        });
+      }
       return [
         _AgendaItem(
           key: 'personal_$docId',
@@ -516,6 +549,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         : _selectedDay;
     bool hasTime = existing?['hasTime'] != false;
     TimeOfDay time = TimeOfDay(hour: baseDate.hour, minute: baseDate.minute);
+    DateTime endDate = existing?['endDate'] != null
+        ? _asDateTime(existing!['endDate'])
+        : baseDate;
     String recurrence = (existing?['recurrence'] as String?) ?? 'none';
     int reminderMinutes = (existing?['reminderMinutesBefore'] as int?) ?? 0;
 
@@ -669,7 +705,26 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                         lastDate: DateTime(2035),
                                       );
                                       if (picked != null) {
-                                        setSheetState(() => baseDate = picked);
+                                        setSheetState(() {
+                                          final int span =
+                                              DateTime(
+                                                    endDate.year,
+                                                    endDate.month,
+                                                    endDate.day,
+                                                  )
+                                                  .difference(
+                                                    DateTime(
+                                                      baseDate.year,
+                                                      baseDate.month,
+                                                      baseDate.day,
+                                                    ),
+                                                  )
+                                                  .inDays;
+                                          baseDate = picked;
+                                          endDate = picked.add(
+                                            Duration(days: span < 0 ? 0 : span),
+                                          );
+                                        });
                                       }
                                     },
                                     icon: const Icon(
@@ -743,6 +798,96 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                               onChanged: (v) =>
                                   setSheetState(() => hasTime = !v),
                             ),
+                            if (recurrence == 'none') ...[
+                              const SizedBox(height: 8),
+                              const Text(
+                                "기간 (출장·연차처럼 여러 날)",
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  for (final n in [1, 2, 3, 4, 5, 7])
+                                    Builder(
+                                      builder: (_) {
+                                        final int cur =
+                                            DateTime(
+                                                  endDate.year,
+                                                  endDate.month,
+                                                  endDate.day,
+                                                )
+                                                .difference(
+                                                  DateTime(
+                                                    baseDate.year,
+                                                    baseDate.month,
+                                                    baseDate.day,
+                                                  ),
+                                                )
+                                                .inDays +
+                                            1;
+                                        final bool selected = cur == n;
+                                        return ChoiceChip(
+                                          label: Text(
+                                            n == 1 ? "당일" : "${n - 1}박 $n일",
+                                          ),
+                                          selected: selected,
+                                          onSelected: (_) => setSheetState(
+                                            () => endDate = baseDate.add(
+                                              Duration(days: n - 1),
+                                            ),
+                                          ),
+                                          selectedColor: scheduleTeal,
+                                          labelStyle: TextStyle(
+                                            color: selected
+                                                ? Colors.white
+                                                : scheduleText,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          backgroundColor: Colors.grey.shade100,
+                                        );
+                                      },
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              OutlinedButton.icon(
+                                onPressed: () async {
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: endDate.isBefore(baseDate)
+                                        ? baseDate
+                                        : endDate,
+                                    firstDate: DateTime(
+                                      baseDate.year,
+                                      baseDate.month,
+                                      baseDate.day,
+                                    ),
+                                    lastDate: DateTime(2035),
+                                  );
+                                  if (picked != null) {
+                                    setSheetState(() => endDate = picked);
+                                  }
+                                },
+                                icon: const Icon(
+                                  Icons.event_available_outlined,
+                                  size: 16,
+                                  color: scheduleTeal,
+                                ),
+                                label: Text(
+                                  "종료일 ${endDate.year}.${endDate.month.toString().padLeft(2, '0')}.${endDate.day.toString().padLeft(2, '0')}",
+                                  style: const TextStyle(color: scheduleTeal),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: scheduleTeal),
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 8),
                             const Text(
                               "반복",
@@ -852,6 +997,15 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                     'category': category,
                                     'dateTime': combined.toIso8601String(),
                                     'hasTime': hasTime,
+                                    'endDate':
+                                        (recurrence == 'none' &&
+                                            !endDate.isBefore(baseDate))
+                                        ? DateTime(
+                                            endDate.year,
+                                            endDate.month,
+                                            endDate.day,
+                                          ).toIso8601String()
+                                        : null,
                                     'recurrence': recurrence,
                                     'owner': _currentWorker,
                                     'isCompleted':
