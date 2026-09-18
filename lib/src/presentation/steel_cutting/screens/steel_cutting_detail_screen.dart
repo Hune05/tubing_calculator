@@ -31,12 +31,20 @@ class SteelCuttingDetailScreen extends StatefulWidget {
       _SteelCuttingDetailScreenState();
 }
 
-class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
+class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
+    with SingleTickerProviderStateMixin {
   late List<SteelCutItem> _items;
   late double _stockLength;
   late int _setMultiplier;
   double _bladeKerf = 0.0;
   String _categoryFilter = '전체';
+
+  // 🚀 [튜브 컷팅에 준한 페이지 구성] 튜브 컷팅 계산기와 같은 방식으로
+  // 넓은 화면(태블릿/폴더블 펼침)에서는 입력/결과를 좌우 2단으로 동시에
+  // 보여주고, 좁은 화면(폰)에서는 "입력"/"결과" 탭으로 나눠 한 화면에
+  // 하나씩 전체 폭을 쓰게 한다. 형강은 배치도(다이어그램) 개념이 없어서
+  // 튜브의 3탭(입력/배치도/결과)이 아니라 2탭만 쓴다.
+  late final TabController _tabController;
 
   // 🚀 톱날 손실은 어차피 같은 톱으로 자르는 같은 물리 현상이라, 튜브
   // 컷팅 화면(cutting_main_screen.dart)과 같은 SharedPreferences 키를
@@ -48,10 +56,17 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _items = List.of(widget.project.items);
     _stockLength = widget.project.stockLength;
     _setMultiplier = widget.project.setMultiplier;
     _loadBladeKerf();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   List<SteelCutItem> get _filteredItems {
@@ -114,6 +129,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
   }
 
   void _addItem() {
+    HapticFeedback.lightImpact();
     showSteelItemSheet(
       context,
       onSave: (item) {
@@ -391,140 +407,143 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
     }
   }
 
+  // 🚀 [튜브 컷팅에 준한 페이지 구성] 튜브 컷팅 계산기(cutting_main_screen.dart)의
+  // AppBar와 똑같이 브랜드 틸 색 배경 + 흰 글씨, 제목은 "프로젝트: 이름"
+  // 형식으로 맞췄다. 다른 컷팅 관련 화면들이 최근 흰 배경 AppBar로
+  // 통일됐지만, 실제로 매일 쓰는 계산기 화면(cutting_main_screen)만은
+  // 이 틸 색 헤더를 그대로 쓰고 있어서 - 사용자가 "마음에 든다"고 콕
+  // 짚은 게 바로 이 화면이었다.
   @override
   Widget build(BuildContext context) {
-    final totalPieces =
-        _items.fold(0, (sum, i) => sum + i.qty) * _setMultiplier;
-    final totalLength =
-        _items.fold(0.0, (sum, i) => sum + i.totalLength) * _setMultiplier;
-    final filteredItems = _filteredItems;
-
     return Scaffold(
       backgroundColor: CuttingColors.background,
       appBar: AppBar(
-        backgroundColor: CuttingColors.surface,
+        backgroundColor: CuttingColors.primary,
+        foregroundColor: CuttingColors.surface,
         elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: false,
         title: Text(
-          widget.project.name,
-          style: const TextStyle(
-            color: CuttingColors.textPrimary,
-            fontWeight: FontWeight.w800,
-            fontSize: 18,
-          ),
+          "프로젝트: ${widget.project.name}",
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
         ),
-        iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
         actions: [
           IconButton(
             tooltip: "톱날 손실(커프) 설정",
-            icon: const Icon(
-              Icons.content_cut_rounded,
-              color: CuttingColors.textSecondary,
-            ),
+            icon: const Icon(Icons.content_cut_rounded),
             onPressed: _showKerfDialog,
           ),
         ],
       ),
-      body: Column(
+      body: Builder(
+        builder: (context) {
+          final bool isWide = MediaQuery.of(context).size.shortestSide >= 600;
+          return isWide ? _buildWideBody() : _buildNarrowBody();
+        },
+      ),
+    );
+  }
+
+  // 🚀 넓은 화면(태블릿/폴더블 펼침) - 입력과 결과를 좌우 2단으로 동시에
+  // 보여준다. 튜브 컷팅 계산기의 좌우 2단(flex 4/5)과 같은 비율.
+  Widget _buildWideBody() {
+    return Row(
+      children: [
+        Expanded(flex: 4, child: _buildInputPane()),
+        Container(width: 1, color: Colors.black12),
+        Expanded(flex: 5, child: _buildResultPane()),
+      ],
+    );
+  }
+
+  // 🚀 좁은 화면(폰) - 좌우로 욱여넣는 대신 "입력"/"결과" 탭으로 나눠서
+  // 한 화면에 한 섹션씩 전체 폭을 다 쓴다.
+  Widget _buildNarrowBody() {
+    return Column(
+      children: [
+        TabBar(
+          controller: _tabController,
+          labelColor: CuttingColors.primary,
+          unselectedLabelColor: Colors.grey.shade600,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+          indicatorColor: CuttingColors.primary,
+          indicatorWeight: 3,
+          tabs: const [
+            Tab(text: "입력"),
+            Tab(text: "결과"),
+          ],
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [_buildInputPane(), _buildResultPane()],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 🚀 "1. 절단 항목 입력" - 항목 추가 버튼 + 카테고리 필터 + 목록.
+  // 튜브 컷팅의 "포인트 추가" 전체 폭 버튼 자리를 그대로 가져왔다 - 예전엔
+  // 이 자리 대신 floatingActionButton("+")을 썼는데, 화면 우측 하단에서
+  // 결과 버튼과 겹쳐 보이는 문제가 있었다. 인라인 버튼으로 바꾸면서 그
+  // 문제 자체가 없어졌다.
+  Widget _buildInputPane() {
+    final filteredItems = _filteredItems;
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: CuttingColors.surface,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    _buildSummaryStat("항목 수", "${_items.length}건"),
-                    _buildSummaryStat("총 수량", "$totalPieces개"),
-                    _buildSummaryStat(
-                      "총 길이",
-                      "${(totalLength / 1000).toStringAsFixed(1)}m",
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                const Divider(height: 1),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "세트 수 (전체 수량 배수)",
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: CuttingColors.surface,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: CuttingColors.primary),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            icon: const Icon(
-                              Icons.remove,
-                              color: CuttingColors.primary,
-                            ),
-                            onPressed: () {
-                              if (_setMultiplier <= 1) return;
-                              HapticFeedback.selectionClick();
-                              setState(() => _setMultiplier--);
-                              _persistSetMultiplier(_setMultiplier);
-                            },
-                          ),
-                          Text(
-                            "$_setMultiplier SET",
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: CuttingColors.textPrimary,
-                            ),
-                          ),
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            icon: const Icon(
-                              Icons.add,
-                              color: CuttingColors.primary,
-                            ),
-                            onPressed: () {
-                              HapticFeedback.selectionClick();
-                              setState(() => _setMultiplier++);
-                              _persistSetMultiplier(_setMultiplier);
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+          const Text(
+            "1. 절단 항목 입력",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: CuttingColors.textPrimary,
             ),
           ),
-          if (_items.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Row(
-                children: _categories
-                    .map(
-                      (c) => Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: _buildCategoryFilterChip(c),
-                      ),
-                    )
-                    .toList(),
+          const SizedBox(height: 2),
+          Text(
+            "규격을 선택하고 길이·수량을 입력하세요",
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _addItem,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: CuttingColors.primary,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              icon: const Icon(Icons.add, color: CuttingColors.surface),
+              label: const Text(
+                "항목 추가",
+                style: TextStyle(
+                  color: CuttingColors.surface,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
+          ),
+          if (_items.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: _categories
+                  .map(
+                    (c) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _buildCategoryFilterChip(c),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+          const SizedBox(height: 12),
           Expanded(
             child: _items.isEmpty
                 ? Center(
@@ -547,7 +566,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
                           ),
                           const SizedBox(height: 4),
                           const Text(
-                            "우측 하단 + 버튼으로 규격과 길이를 추가해보세요.",
+                            "위 '항목 추가' 버튼으로 규격과 길이를 추가해보세요.",
                             style: TextStyle(
                               color: CuttingColors.textSecondary,
                               fontSize: 13,
@@ -567,7 +586,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                          padding: EdgeInsets.zero,
                           itemCount: filteredItems.length,
                           itemBuilder: (context, index) {
                             final item = filteredItems[index];
@@ -676,37 +695,119 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
           ),
         ],
       ),
-      // 🚀 [버그 수정] 이 버튼 줄이 body Column의 마지막 자식이라 화면
-      // 우측 하단 구석을 차지하고 있었는데, 같은 자리에 floatingActionButton
-      // ("+")도 기본 위치(우측 하단)로 떠서 "지시서 PDF" 버튼과 정확히
-      // 겹쳐 보이는 문제가 있었다. Scaffold의 bottomNavigationBar로
-      // 옮기면 Scaffold가 이 영역만큼 자동으로 공간을 확보하고 FAB를
-      // 그 위로 띄워서 겹치지 않는다.
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        decoration: BoxDecoration(
-          color: CuttingColors.surface,
-          border: Border(top: BorderSide(color: Colors.grey.shade200)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Row(
+    );
+  }
+
+  // 🚀 "2. 재단 결과" - 세트 수 조절 + 요약 통계 + 재단 최적화/지시서
+  // 버튼. 튜브 컷팅의 "2. 컷팅 지시서" 결과 패널(회색 배경, SET 스테퍼를
+  // 우측에 두는 spaceBetween 레이아웃, 아웃라인 버튼 2개 나란히)과 같은
+  // 구성으로 맞췄다.
+  Widget _buildResultPane() {
+    final totalPieces =
+        _items.fold(0, (sum, i) => sum + i.qty) * _setMultiplier;
+    final totalLength =
+        _items.fold(0.0, (sum, i) => sum + i.totalLength) * _setMultiplier;
+
+    return Container(
+      color: Colors.grey.shade50,
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "2. 재단 결과",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: CuttingColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "세트 수 (전체 수량 배수)",
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+              Container(
+                decoration: BoxDecoration(
+                  color: CuttingColors.surface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: CuttingColors.primary),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.remove,
+                        color: CuttingColors.primary,
+                      ),
+                      onPressed: () {
+                        if (_setMultiplier <= 1) return;
+                        HapticFeedback.selectionClick();
+                        setState(() => _setMultiplier--);
+                        _persistSetMultiplier(_setMultiplier);
+                      },
+                    ),
+                    Text(
+                      "$_setMultiplier SET",
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: CuttingColors.textPrimary,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add, color: CuttingColors.primary),
+                      onPressed: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _setMultiplier++);
+                        _persistSetMultiplier(_setMultiplier);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: CuttingColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: CuttingColors.border),
+            ),
+            child: Row(
+              children: [
+                _buildSummaryStat("항목 수", "${_items.length}건"),
+                _buildSummaryStat("총 수량", "$totalPieces개"),
+                _buildSummaryStat(
+                  "총 길이",
+                  "${(totalLength / 1000).toStringAsFixed(1)}m",
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _showOptimization,
+                  onPressed: _items.isEmpty ? null : _showOptimization,
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: const BorderSide(
-                      color: CuttingColors.primary,
-                      width: 2,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                    side: const BorderSide(color: CuttingColors.primary),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   icon: const Icon(
                     Icons.view_column_outlined,
+                    size: 18,
                     color: CuttingColors.primary,
                   ),
                   label: const Text(
@@ -720,24 +821,21 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _exportInstructionSheet,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: CuttingColors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                child: OutlinedButton.icon(
+                  onPressed: _items.isEmpty ? null : _exportInstructionSheet,
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: CuttingColors.primary),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   icon: const Icon(
                     Icons.picture_as_pdf_outlined,
-                    color: CuttingColors.surface,
+                    size: 18,
+                    color: CuttingColors.primary,
                   ),
                   label: const Text(
                     "지시서 PDF",
                     style: TextStyle(
-                      color: CuttingColors.surface,
+                      color: CuttingColors.primary,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -745,15 +843,14 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen> {
               ),
             ],
           ),
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          HapticFeedback.lightImpact();
-          _addItem();
-        },
-        backgroundColor: CuttingColors.primary,
-        child: const Icon(Icons.add, color: CuttingColors.surface),
+          if (_items.isEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              "절단 항목을 먼저 추가하면 재단 최적화와 지시서를 만들 수 있어요.",
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            ),
+          ],
+        ],
       ),
     );
   }
