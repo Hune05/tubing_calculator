@@ -4,6 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart';
+import 'package:android_intent_plus/android_intent.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // 🚀 [수정됨] 단일 설정 페이지 대신 통합 네비게이션 페이지 임포트
 // (실제 파일 경로에 맞게 수정해 주세요)
@@ -75,6 +78,10 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
   String _weatherDesc = "확인 중";
   String _pmState = "확인 중";
   String _currentTemp = "-";
+  // 🚀 [날씨 고도화] GPS로 위치를 못 가져올 때(권한 거부, 위치 서비스
+  // 꺼짐 등)를 대비한 기본 지역명 - 원래 하드코딩돼 있던 부산을 그대로
+  // 폴백 값으로 남겨뒀다.
+  String _cityName = "부산";
   bool _rainExpected = false;
   String _rainStart = "";
   String _rainEnd = "";
@@ -111,12 +118,46 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
     }
   }
 
+  // 🚀 [날씨 고도화] 위치 권한을 확인/요청하고 현재 위치를 가져온다.
+  // 위치 서비스가 꺼져 있거나, 권한이 거부/영구거부됐거나, 어떤
+  // 이유로든 실패하면 null을 돌려줘서 호출한 쪽이 기존 하드코딩된
+  // 부산 좌표로 조용히 폴백하게 한다 - 위치를 못 가져왔다고 날씨
+  // 기능 자체가 죽으면 안 되니까.
+  Future<Position?> _determinePosition() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return null;
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return null;
+      }
+
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
+    } catch (e) {
+      return null;
+    }
+  }
+
   // 🚀 API 3개(현재날씨, 대기질, 일기예보)를 동시에 불러와 분석
   Future<void> _fetchDetailedWeather() async {
     try {
       const String apiKey = 'ce796b79713bbdf70ec6a7cfb98f2b11';
-      const double lat = 35.1795;
-      const double lon = 129.0756; // 부산 좌표
+      // 🚀 [날씨 고도화] 원래 부산 좌표로 고정돼 있던 걸, GPS로 가져온
+      // 현재 위치가 있으면 그걸 쓰고 없으면 부산으로 폴백하도록 바꿨다 -
+      // 현장을 옮겨 다니는 작업 특성상 지금 있는 곳 날씨가 더 쓸모 있다.
+      final position = await _determinePosition();
+      final double lat = position?.latitude ?? 35.1795;
+      final double lon = position?.longitude ?? 129.0756; // 부산 좌표(폴백)
 
       final weatherUrl = Uri.parse(
         'https://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$lon&appid=$apiKey&units=metric&lang=kr',
@@ -166,8 +207,17 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
           }
         }
 
+        // 🚀 [날씨 고도화] OpenWeatherMap이 좌표로부터 역으로 찾아준
+        // 지역명 - GPS 위치를 실제로 반영했는지 화면에서 바로 보이게
+        // 한다(lang=kr 파라미터는 날씨 설명에만 적용되고 이 name
+        // 필드는 영향받지 않아, 외국 지명은 영문으로 나올 수 있다).
+        final String? resolvedCity = weatherData['name'] as String?;
+
         if (mounted) {
           setState(() {
+            if (resolvedCity != null && resolvedCity.isNotEmpty) {
+              _cityName = resolvedCity;
+            }
             _weatherDesc = desc;
             _currentTemp = temp.toStringAsFixed(1);
             _pmState = pm;
@@ -213,6 +263,7 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _buildTopBar(context),
                 _buildSmartHeader(context),
                 const SizedBox(height: 16),
 
@@ -533,136 +584,31 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
     );
   }
 
-  Widget _buildSmartHeader(BuildContext context) {
+  // 🚀 [홈 화면 레이아웃 고도화] 예전엔 날씨/공지 카드와 알림 종·프로필
+  // 아이콘이 한 Row 안에 같이 있어서, 아이콘들이 마치 날씨 카드에 딸린
+  // 부속물처럼 어색하게 붙어 있었다(날씨가 화면에서 제일 위 - 가장
+  // 눈에 띄는 자리를 차지하는 것도 어색했음). 아이콘은 화면 맨 위 독립된
+  // 얇은 상단바로 분리하고, 날씨/공지/차량 카드는 그 아래 자기만의
+  // 줄로 내렸다.
+  Widget _buildTopBar(BuildContext context) {
+    const weekdaysKo = ['월', '화', '수', '목', '금', '토', '일'];
+    final now = DateTime.now();
+    final dateStr =
+        "${now.month}월 ${now.day}일 (${weekdaysKo[now.weekday - 1]})";
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 40, 24, 20),
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('vehicles')
-                  .where('currentUser', isEqualTo: widget.currentWorker)
-                  .snapshots(),
-              builder: (context, vehicleSnap) {
-                if (vehicleSnap.hasData && vehicleSnap.data!.docs.isNotEmpty) {
-                  var vehicleData =
-                      vehicleSnap.data!.docs.first.data()
-                          as Map<String, dynamic>;
-                  var status = vehicleData['status'];
-                  var number = vehicleData['number'] ?? '';
-
-                  if (status == '예약 중') {
-                    return _buildHeaderContent(
-                      title: "곧 $number 차량 운행이\n예정되어 있습니다.",
-                      titleIcon: LucideIcons.calendarClock,
-                      subText: "터치하여 예약 상태를 확인해 주세요.",
-                      isActionable: true,
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => MobileVehicleManagementPage(
-                              currentUser: widget.currentWorker,
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  } else if (status == '운행 중') {
-                    return _buildHeaderContent(
-                      title: "현재 $number 차량을\n운행 중입니다.",
-                      titleIcon: LucideIcons.car,
-                      subText: "안전 운행하시고, 사용 후 반납해 주세요.",
-                      isActionable: true,
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => MobileVehicleManagementPage(
-                              currentUser: widget.currentWorker,
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  }
-                }
-
-                return StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('announcements')
-                      .where('isActive', isEqualTo: true)
-                      .orderBy('createdAt', descending: true)
-                      .limit(1)
-                      .snapshots(),
-                  builder: (context, noticeSnap) {
-                    if (noticeSnap.connectionState == ConnectionState.waiting) {
-                      return const SizedBox(height: 60);
-                    }
-
-                    if (noticeSnap.hasData &&
-                        noticeSnap.data!.docs.isNotEmpty) {
-                      var noticeData =
-                          noticeSnap.data!.docs.first.data()
-                              as Map<String, dynamic>;
-                      String noticeTitle =
-                          noticeData['title'] ?? "새로운 사내 공지가 있습니다.";
-
-                      if (noticeTitle.contains("회식") ||
-                          noticeTitle.contains("회의")) {
-                        return _buildHeaderContent(
-                          title: noticeTitle.contains("회의")
-                              ? "오늘 중요한 회의 일정이\n예정되어 있습니다."
-                              : "오늘 사내 회식 일정이\n등록되어 있습니다.",
-                          titleIcon: LucideIcons.bellRing,
-                          subText: "터치하여 전체 알림을 확인하세요.",
-                          isActionable: true,
-                          onTap: () {
-                            HapticFeedback.heavyImpact();
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const MobileNotificationPage(),
-                              ),
-                            );
-                          },
-                        );
-                      }
-
-                      return _buildHeaderContent(
-                        title: "새로운 사내 공지가\n등록되었습니다.",
-                        titleIcon: LucideIcons.clipboardList,
-                        subText: noticeTitle,
-                        isActionable: true,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  const MobileNotificationPage(),
-                            ),
-                          );
-                        },
-                      );
-                    }
-
-                    return _buildHeaderContent(
-                      customSubWidget: _buildWeatherWidget(),
-                      isActionable: false,
-                    );
-                  },
-                );
-              },
+          Text(
+            dateStr,
+            style: const TextStyle(
+              color: slate900,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(width: 16),
           Row(
             children: [
               InkWell(
@@ -725,6 +671,158 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
     );
   }
 
+  Widget _buildSmartHeader(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+      child: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('vehicles')
+            .where('currentUser', isEqualTo: widget.currentWorker)
+            .snapshots(),
+        builder: (context, vehicleSnap) {
+          if (vehicleSnap.hasData && vehicleSnap.data!.docs.isNotEmpty) {
+            var vehicleData =
+                vehicleSnap.data!.docs.first.data() as Map<String, dynamic>;
+            var status = vehicleData['status'];
+            var number = vehicleData['number'] ?? '';
+
+            if (status == '예약 중') {
+              return _buildHeaderContent(
+                title: "곧 $number 차량 운행이\n예정되어 있습니다.",
+                titleIcon: LucideIcons.calendarClock,
+                subText: "터치하여 예약 상태를 확인해 주세요.",
+                isActionable: true,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => MobileVehicleManagementPage(
+                        currentUser: widget.currentWorker,
+                      ),
+                    ),
+                  );
+                },
+              );
+            } else if (status == '운행 중') {
+              return _buildHeaderContent(
+                title: "현재 $number 차량을\n운행 중입니다.",
+                titleIcon: LucideIcons.car,
+                subText: "안전 운행하시고, 사용 후 반납해 주세요.",
+                isActionable: true,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => MobileVehicleManagementPage(
+                        currentUser: widget.currentWorker,
+                      ),
+                    ),
+                  );
+                },
+              );
+            }
+          }
+
+          return StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('announcements')
+                .where('isActive', isEqualTo: true)
+                .orderBy('createdAt', descending: true)
+                .limit(1)
+                .snapshots(),
+            builder: (context, noticeSnap) {
+              if (noticeSnap.connectionState == ConnectionState.waiting) {
+                return const SizedBox(height: 60);
+              }
+
+              if (noticeSnap.hasData && noticeSnap.data!.docs.isNotEmpty) {
+                var noticeData =
+                    noticeSnap.data!.docs.first.data() as Map<String, dynamic>;
+                String noticeTitle = noticeData['title'] ?? "새로운 사내 공지가 있습니다.";
+
+                if (noticeTitle.contains("회식") || noticeTitle.contains("회의")) {
+                  return _buildHeaderContent(
+                    title: noticeTitle.contains("회의")
+                        ? "오늘 중요한 회의 일정이\n예정되어 있습니다."
+                        : "오늘 사내 회식 일정이\n등록되어 있습니다.",
+                    titleIcon: LucideIcons.bellRing,
+                    subText: "터치하여 전체 알림을 확인하세요.",
+                    isActionable: true,
+                    onTap: () {
+                      HapticFeedback.heavyImpact();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MobileNotificationPage(),
+                        ),
+                      );
+                    },
+                  );
+                }
+
+                return _buildHeaderContent(
+                  title: "새로운 사내 공지가\n등록되었습니다.",
+                  titleIcon: LucideIcons.clipboardList,
+                  subText: noticeTitle,
+                  isActionable: true,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const MobileNotificationPage(),
+                      ),
+                    );
+                  },
+                );
+              }
+
+              return _buildHeaderContent(
+                customSubWidget: _buildWeatherWidget(),
+                isActionable: true,
+                onTap: _openWeatherApp,
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  // 🚀 [날씨 고도화] 날씨 카드를 탭하면 기기에 설치된 날씨 앱을 직접
+  // 열어본다. Android는 "날씨 앱"이라는 표준 앱이 정해져 있지 않아서
+  // (기종/제조사마다 다르거나 아예 없기도 함), CATEGORY_APP_WEATHER로
+  // 등록된 앱이 있는지 먼저 확인해서 있으면 그걸 열고, 없으면(이
+  // 사용자의 갤럭시 폴드4는 실제로 확인해보니 따로 실행 가능한 날씨
+  // 앱이 없었다) 웹 브라우저로 날씨 검색 결과를 대신 보여준다.
+  Future<void> _openWeatherApp() async {
+    HapticFeedback.lightImpact();
+    try {
+      final intent = AndroidIntent(
+        action: 'android.intent.action.MAIN',
+        category: 'android.intent.category.APP_WEATHER',
+      );
+      final canResolve = await intent.canResolveActivity() ?? false;
+      if (canResolve) {
+        await intent.launch();
+        return;
+      }
+    } catch (_) {
+      // 기기에 날씨 앱이 없거나 인텐트를 해석할 수 없으면 아래 웹
+      // 폴백으로 넘어간다.
+    }
+
+    final query = Uri.encodeComponent("$_cityName 날씨");
+    final webUri = Uri.parse(
+      "https://search.naver.com/search.naver?query=$query",
+    );
+    if (await canLaunchUrl(webUri)) {
+      await launchUrl(webUri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   Widget _buildWeatherWidget() {
     if (!_isWeatherLoaded) {
       return const Text(
@@ -741,7 +839,7 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
         Row(
           children: [
             Text(
-              "부산시 $_currentTemp°C  /  $_weatherDesc",
+              "$_cityName $_currentTemp°C  /  $_weatherDesc",
               style: const TextStyle(color: slate600, fontSize: 12),
             ),
             const SizedBox(width: 8),
@@ -757,6 +855,10 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            const SizedBox(width: 4),
+            // 🚀 [날씨 고도화] 이 카드를 탭하면 날씨 앱(또는 웹 날씨
+            // 페이지)이 열린다는 걸 알려주는 작은 표시.
+            Icon(Icons.chevron_right_rounded, size: 14, color: slate600),
           ],
         ),
         if (_rainExpected) ...[

@@ -54,6 +54,12 @@ dependencies:
   table_calendar: ^3.2.0
   sensors_plus: ^7.0.0
 
+  # 🚀 [홈 화면 날씨 고도화] GPS로 현재 위치 날씨를 자동으로 불러오고,
+  # 날씨 카드를 눌렀을 때 기기에 설치된 날씨 앱을 직접 열어보기 위한
+  # 패키지.
+  geolocator: ^13.0.2
+  android_intent_plus: ^5.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
