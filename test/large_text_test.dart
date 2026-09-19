@@ -5,6 +5,7 @@ import 'package:tubing_calculator/src/core/utils/error_log.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_logic.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_search_dialog.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/app_status_page.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/widgets/cutting_optimization_sheet.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/daily_report_calendar_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/daily_report_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/project_stats_page.dart';
@@ -291,5 +292,36 @@ void main() {
   testWidgets('보고서 양식', (tester) async {
     await show(tester, const ReportStylePage());
     expectNoOverflow(tester, '보고서 양식');
+  });
+
+  testWidgets('재단 최적화 시트(남은 토막 포함)', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'cutting_leftovers_v1': ['1000튜브 1/2"', '850튜브 1/2"'],
+    });
+    await show(
+      tester,
+      Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () => showCuttingOptimizationSheet(
+              context,
+              groupedPieces: {
+                '튜브 1/2"': [900, 800, 2600, 2600, 2000, 1400],
+                '튜브 3/4"': [3000, 3000],
+              },
+              initialStockLength: 6000,
+              kerf: 3,
+            ),
+            child: const Text('열기'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+    expectNoOverflow(tester, '재단 최적화 시트');
+    await tester.tap(find.text('남은 토막 관리'));
+    await tester.pumpAndSettle();
+    expectNoOverflow(tester, '남은 토막 관리 창');
   });
 }

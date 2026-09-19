@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 
+import '../cutting_leftovers.dart';
 import '../cutting_optimizer.dart';
 import '../cutting_theme.dart';
 
@@ -44,14 +45,28 @@ Future<void> showCuttingOptimizationSheet(
   final ctrl = TextEditingController(
     text: initialStockLength.toStringAsFixed(0),
   );
-  Map<String, CuttingOptimizationResult> results = {
+  // 남은 토막(이전에 자르고 남겨 둔 것). 켜 두면 같은 규격의 토막부터 먼저 쓴다.
+  var leftovers = await loadLeftovers();
+  if (!context.mounted) return;
+  bool useLeftovers = true;
+  bool leftoversSaved = false;
+  double stockNow = initialStockLength;
+
+  Map<String, CuttingOptimizationResult> compute(double stock) => {
     for (final e in groups.entries)
       e.key: optimizeCutting(
         pieces: e.value,
-        stockLength: initialStockLength,
+        stockLength: stock,
         kerf: kerf,
+        leftovers: useLeftovers
+            ? [
+                for (final l in leftovers)
+                  if (l.label == e.key) l.length,
+              ]
+            : const [],
       ),
   };
+  Map<String, CuttingOptimizationResult> results = compute(stockNow);
 
   await showModalBottomSheet(
     context: context,
@@ -65,14 +80,9 @@ Future<void> showCuttingOptimizationSheet(
           HapticFeedback.selectionClick();
           ctrl.text = parsed.toStringAsFixed(0);
           setSheetState(() {
-            results = {
-              for (final e in groups.entries)
-                e.key: optimizeCutting(
-                  pieces: e.value,
-                  stockLength: parsed,
-                  kerf: kerf,
-                ),
-            };
+            stockNow = parsed;
+            leftoversSaved = false;
+            results = compute(parsed);
           });
           onStockLengthChanged?.call(parsed);
         }
@@ -232,19 +242,82 @@ Future<void> showCuttingOptimizationSheet(
         );
 
         final List<Widget> barWidgets = [];
+        barWidgets.add(
+          _buildLeftoverCard(
+            leftovers: leftovers,
+            useLeftovers: useLeftovers,
+            usedCount: results.values.fold(
+              0,
+              (sum, r) => sum + r.leftoverBars.length,
+            ),
+            savedBars: results.values.fold(0, (sum, r) => sum + r.savedBars),
+            saved: leftoversSaved,
+            onToggle: (v) => setSheetState(() {
+              useLeftovers = v;
+              leftoversSaved = false;
+              results = compute(stockNow);
+            }),
+            onSave: () async {
+              final used = [
+                for (final e in results.entries)
+                  for (final b in e.value.leftoverBars)
+                    Leftover(e.key, b.stockLength),
+              ];
+              final added = [
+                for (final e in results.entries)
+                  for (final len in e.value.keepableScraps())
+                    Leftover(e.key, len),
+              ];
+              leftovers = applyLeftoverChange(
+                leftovers,
+                used: used,
+                added: added,
+              );
+              await saveLeftovers(leftovers);
+              setSheetState(() => leftoversSaved = true);
+              if (ctx.mounted) {
+                showCuttingSnack(
+                  ctx,
+                  "남은 토막을 저장했습니다. 이번에 쓴 토막 ${used.length}개는 빼고, 새로 남은 토막 ${added.length}개를 더했습니다.",
+                );
+              }
+            },
+            onManage: () async {
+              final changed = await _manageLeftovers(
+                ctx,
+                leftovers,
+                groups.keys.toList(),
+              );
+              if (changed != null) {
+                leftovers = changed;
+                await saveLeftovers(leftovers);
+                setSheetState(() {
+                  leftoversSaved = false;
+                  results = compute(stockNow);
+                });
+              }
+            },
+          ),
+        );
         if (!isGroupedView) {
-          final bars = results['']!.bars;
-          for (int i = 0; i < bars.length; i++) {
-            barWidgets.add(_buildOptBarCard(bars[i], i));
+          final r = results['']!;
+          for (int i = 0; i < r.leftoverBars.length; i++) {
+            barWidgets.add(_buildOptBarCard(r.leftoverBars[i], i));
+          }
+          for (int i = 0; i < r.bars.length; i++) {
+            barWidgets.add(_buildOptBarCard(r.bars[i], i));
           }
         } else {
           for (final entry in groups.entries) {
             final r = results[entry.key]!;
             barWidgets.add(_buildGroupSummaryHeader(entry.key, r));
+            for (int i = 0; i < r.leftoverBars.length; i++) {
+              barWidgets.add(_buildOptBarCard(r.leftoverBars[i], i));
+            }
             for (int i = 0; i < r.bars.length; i++) {
               barWidgets.add(_buildOptBarCard(r.bars[i], i));
             }
-            if (r.bars.isEmpty) {
+            if (r.bars.isEmpty && r.leftoverBars.isEmpty) {
               barWidgets.add(
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
@@ -505,7 +578,7 @@ Widget _buildOptBarCard(StockBarPlan bar, int index) {
                 shape: BoxShape.circle,
               ),
               child: Text(
-                "${index + 1}",
+                bar.isLeftover ? "토" : "${index + 1}",
                 style: const TextStyle(
                   color: CuttingColors.surface,
                   fontWeight: FontWeight.w900,
@@ -542,9 +615,13 @@ Widget _buildOptBarCard(StockBarPlan bar, int index) {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              "사용 ${bar.usedLength.toStringAsFixed(0)}mm",
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            Flexible(
+              child: Text(
+                bar.isLeftover
+                    ? "남은 토막 ${bar.stockLength.toStringAsFixed(0)}mm · 사용 ${bar.usedLength.toStringAsFixed(0)}mm"
+                    : "사용 ${bar.usedLength.toStringAsFixed(0)}mm",
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              ),
             ),
             Text(
               "잔여 ${bar.wasteLength.toStringAsFixed(0)}mm",
@@ -557,6 +634,203 @@ Widget _buildOptBarCard(StockBarPlan bar, int index) {
           ],
         ),
       ],
+    ),
+  );
+}
+
+// 남은 토막 카드: 쓸지 말지, 이번 계산대로 잘랐을 때 저장, 목록 관리.
+Widget _buildLeftoverCard({
+  required List<Leftover> leftovers,
+  required bool useLeftovers,
+  required int usedCount,
+  required int savedBars,
+  required bool saved,
+  required ValueChanged<bool> onToggle,
+  required VoidCallback onSave,
+  required VoidCallback onManage,
+}) {
+  return Container(
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: CuttingColors.primarySoft,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (savedBars > 0)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              "촘촘하게 다시 배치해서 원자재 $savedBars본을 아꼈습니다.",
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: CuttingColors.success,
+              ),
+            ),
+          ),
+        if (leftovers.isNotEmpty)
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            title: Text(
+              "남은 토막 먼저 쓰기 (${leftovers.length}개)",
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+            ),
+            subtitle: Text(
+              useLeftovers
+                  ? "이번 계산에서 토막 $usedCount개를 씁니다."
+                  : "꺼 두어서 새 원자재만으로 계산합니다.",
+              style: const TextStyle(fontSize: 11),
+            ),
+            value: useLeftovers,
+            onChanged: onToggle,
+          ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            OutlinedButton(
+              onPressed: saved ? null : onSave,
+              child: Text(saved ? "저장했습니다" : "이 계산대로 잘랐습니다 (남는 토막 저장)"),
+            ),
+            TextButton(onPressed: onManage, child: const Text("남은 토막 관리")),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+// 남은 토막 목록을 보고, 지우거나 직접 더한다. 바꾼 목록을 돌려주고, 닫기만 하면 null.
+Future<List<Leftover>?> _manageLeftovers(
+  BuildContext context,
+  List<Leftover> current,
+  List<String> labels,
+) {
+  final list = [...current];
+  final ctrl = TextEditingController();
+  String label = labels.first;
+  bool changed = false;
+  return showDialog<List<Leftover>>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setD) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "남은 토막",
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "${kMinLeftoverMm.toStringAsFixed(0)}mm보다 짧은 토막은 남겨 두지 않습니다.",
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: list.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Text("저장된 토막이 없습니다."),
+                        )
+                      : ListView(
+                          shrinkWrap: true,
+                          children: [
+                            for (int i = 0; i < list.length; i++)
+                              ListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(
+                                  "${list[i].label.isEmpty ? '규격 미지정' : list[i].label}  ${list[i].length.toStringAsFixed(0)}mm",
+                                ),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.delete_outline),
+                                  tooltip: "삭제",
+                                  onPressed: () => setD(() {
+                                    list.removeAt(i);
+                                    changed = true;
+                                  }),
+                                ),
+                              ),
+                          ],
+                        ),
+                ),
+                const Divider(),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (labels.length > 1)
+                      DropdownButton<String>(
+                        value: label,
+                        items: [
+                          for (final l in labels)
+                            DropdownMenuItem(
+                              value: l,
+                              child: Text(l.isEmpty ? '규격 미지정' : l),
+                            ),
+                        ],
+                        onChanged: (v) => setD(() => label = v ?? label),
+                      ),
+                    SizedBox(
+                      width: 140,
+                      child: TextField(
+                        controller: ctrl,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: "길이",
+                          suffixText: "mm",
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    OutlinedButton(
+                      onPressed: () {
+                        final v = double.tryParse(ctrl.text.trim());
+                        if (v == null || v < kMinLeftoverMm) return;
+                        setD(() {
+                          list.add(Leftover(label, v.floorToDouble()));
+                          ctrl.clear();
+                          changed = true;
+                        });
+                      },
+                      child: const Text("추가"),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text("닫기"),
+                    ),
+                    FilledButton(
+                      onPressed: () =>
+                          Navigator.pop(ctx, changed ? list : null),
+                      child: const Text("저장"),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     ),
   );
 }

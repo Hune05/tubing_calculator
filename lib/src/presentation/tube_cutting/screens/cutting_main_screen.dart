@@ -15,6 +15,7 @@ import '../../../data/models/smart_fitting_db.dart';
 import '../widgets/smart_fitting_selector_sheet.dart';
 import 'cutting_history_page.dart';
 import '../widgets/cutting_optimization_sheet.dart';
+import '../cutting_math.dart' show cutLengthMm;
 import '../cutting_theme.dart';
 import '../../inventory/pages/mobile_inventory_ocr.dart';
 import '../cutting_fitting_favorites.dart';
@@ -481,11 +482,12 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         // 🚀 [4번 강화] 공제값(deduction)은 항상 mm 기준(부속 DB)이라,
         // 입력값이 인치 모드면 계산 전에 먼저 mm로 환산한다. 계산/저장/
         // PDF/재단 최적화 등 이후 모든 로직은 계속 mm만 다루면 된다.
-        double c2c = _lengthUnit == 'in' ? c2cRaw * kInchToMm : c2cRaw;
-        double deduction1 = _points[i].fitting.deduction;
-        double deduction2 = _points[i + 1].fitting.deduction;
-
-        _points[i].calculatedCut = c2c - deduction1 - deduction2;
+        _points[i].calculatedCut = cutLengthMm(
+          c2cInput: c2cRaw,
+          inputIsInch: _lengthUnit == 'in',
+          startDeduction: _points[i].fitting.deduction,
+          endDeduction: _points[i + 1].fitting.deduction,
+        );
       }
     });
     _saveDraftState();
@@ -1612,7 +1614,11 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     if (_points.any(
       (p) => p.c2cController.text.isNotEmpty && p.calculatedCut < 0,
     )) {
-      showCuttingSnack(context, "간섭이 발생한 구간이 있습니다. 치수를 확인해 주십시오!", isError: true);
+      showCuttingSnack(
+        context,
+        "간섭이 발생한 구간이 있습니다. 치수를 확인해 주십시오!",
+        isError: true,
+      );
       return;
     }
 
@@ -2365,7 +2371,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                isInterference ? "간섭 발생! 치수를 확인하십시오" : "다음 지점까지",
+                                isInterference
+                                    ? "간섭 발생! 치수를 확인하십시오"
+                                    : "다음 지점까지",
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
