@@ -281,21 +281,92 @@ class _DailyReportPageState extends State<DailyReportPage> {
     setState(() {});
   }
 
-  // 어제 일보를 통째로(사진 제외) 복사: 값 + 작업 내용 + 사용 자재.
-  void _copyPreviousAll() {
+  // 가져올 일보의 날짜("9월 18일"). 가장 최근 일보라서 어제가 아닐 수 있어 날짜로 알려 준다.
+  String _previousDateLabel() {
     final prev = widget.previousReport;
-    if (prev == null) return;
-    _loadPreviousValues();
-    setState(() {
-      final n = (prev['note']?.toString() ?? '').trim();
-      if (_noteCtrl.text.trim().isEmpty && n.isNotEmpty && n != '특이사항 없음') {
-        _noteCtrl.text = n;
-      }
-      final m = (prev['materials_used']?.toString() ?? '').trim();
-      if (_materialsUsedCtrl.text.trim().isEmpty && m.isNotEmpty) {
-        _materialsUsedCtrl.text = m;
-      }
-    });
+    if (prev == null) return '이전';
+    final iso = DateTime.tryParse(prev['dateISO']?.toString() ?? '');
+    if (iso != null) return '${iso.month}월 ${iso.day}일';
+    final p = (prev['date']?.toString() ?? '').split('/');
+    final m = p.length == 2 ? int.tryParse(p[0]) : null;
+    final d = p.length == 2 ? int.tryParse(p[1]) : null;
+    return (m != null && d != null) ? '$m월 $d일' : '이전';
+  }
+
+  // 이전 일보로 채우기. 기본 정보(단계·유형·인원·연장)는 지금 골라 둔 것을 바꾸고,
+  // 작업 내용·자재는 비어 있는 칸에만 채운다. 사진·벤딩/결선 숫자·이슈는 옮기지 않는다.
+  void _fillFromPrevious({required bool basic, required bool memo}) {
+    final prev = widget.previousReport;
+    if (prev == null || (!basic && !memo)) return;
+    if (basic) _applyPreviousBasic();
+    if (memo) {
+      setState(() {
+        final n = (prev['note']?.toString() ?? '').trim();
+        if (_noteCtrl.text.trim().isEmpty && n.isNotEmpty && n != '특이사항 없음') {
+          _noteCtrl.text = n;
+        }
+        final m = (prev['materials_used']?.toString() ?? '').trim();
+        if (_materialsUsedCtrl.text.trim().isEmpty && m.isNotEmpty) {
+          _materialsUsedCtrl.text = m;
+        }
+      });
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(keepWords("${_previousDateLabel()} 일보로 채웠습니다."))),
+    );
+  }
+
+  Future<void> _showFillDialog() async {
+    var basic = true;
+    var memo = false;
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text(keepWords("${_previousDateLabel()} 일보로 채웁니다")),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                value: basic,
+                onChanged: (v) => setD(() => basic = v ?? false),
+                title: const Text("단계·유형·인원"),
+                subtitle: const Text("지금 골라 둔 것이 바뀝니다"),
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                value: memo,
+                onChanged: (v) => setD(() => memo = v ?? false),
+                title: const Text("작업 내용·자재"),
+                subtitle: const Text("비어 있는 칸에만 채웁니다"),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                keepWords("사진, 벤딩·결선 숫자, 이슈는 옮기지 않습니다."),
+                style: const TextStyle(color: tossSubText, fontSize: 12),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("취소"),
+            ),
+            TextButton(
+              onPressed: (basic || memo)
+                  ? () => Navigator.pop(ctx, true)
+                  : null,
+              child: const Text("채우기"),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (go == true && mounted) _fillFromPrevious(basic: basic, memo: memo);
   }
 
   // ───────────── 임시 저장 ─────────────
@@ -318,7 +389,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
 
   // 🚀 [추가] 어제(가장 최근) 일지의 작업유형/인원/연장여부를 그대로
   // 불러온다 - 반복되는 작업일 때 타이핑을 줄여준다.
-  void _loadPreviousValues() {
+  void _applyPreviousBasic() {
     final prev = widget.previousReport;
     if (prev == null) return;
     setState(() {
@@ -339,9 +410,6 @@ class _DailyReportPageState extends State<DailyReportPage> {
           ..addAll(prevPhases);
       }
     });
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(keepWords("어제 일보의 기본 정보를 가져왔습니다."))));
   }
 
   Future<void> _pickTag(String path) async {
@@ -760,52 +828,41 @@ class _DailyReportPageState extends State<DailyReportPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.bolt_rounded,
-                          color: makitaTeal,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 6),
-                        const Expanded(
-                          child: Text(
-                            "어제 일보",
-                            style: TextStyle(
+                    InkWell(
+                      onTap: _showFillDialog,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.bolt_rounded,
                               color: makitaTeal,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
+                              size: 18,
                             ),
-                          ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                keepWords("${_previousDateLabel()} 일보로 채우기"),
+                                style: const TextStyle(
+                                  color: makitaTeal,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right_rounded,
+                              color: makitaTeal,
+                              size: 20,
+                            ),
+                          ],
                         ),
-                        TextButton(
-                          onPressed: _loadPreviousValues,
-                          style: TextButton.styleFrom(
-                            foregroundColor: makitaTeal,
-                            minimumSize: const Size(0, 32),
-                          ),
-                          child: const Text(
-                            "기본 정보만",
-                            style: TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: _copyPreviousAll,
-                          style: TextButton.styleFrom(
-                            foregroundColor: makitaTeal,
-                            minimumSize: const Size(0, 32),
-                          ),
-                          child: const Text(
-                            "내용까지",
-                            style: TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                     if (prevPlan.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
-                        "어제 적은 계획: $prevPlan",
+                        "${_previousDateLabel()} 일보의 계획: $prevPlan",
                         style: const TextStyle(
                           color: makitaTeal,
                           fontSize: 13,
