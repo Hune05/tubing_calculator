@@ -164,6 +164,7 @@ List<String> _sectionLines(
 ReportDoc buildWeeklyPlanDoc(
   List<Map<String, dynamic>> logs, {
   Set<String>? onlyIds,
+  bool includePhotos = false,
 }) {
   final today = dayOnly(DateTime.now());
   final weeks = weekRanges(today);
@@ -233,6 +234,40 @@ ReportDoc buildWeeklyPlanDoc(
     sections.add(ReportSection('미해결 이슈 현황', issueLines));
   }
 
+  // 사진: 지난주·이번주 일보에 붙은 사진 중 최근 12장.
+  final photos = <(DateTime, ReportPhoto)>[];
+  if (includePhotos) {
+    for (final log in targets) {
+      for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
+        final d = reportDateOf(r);
+        if (!weeks[0].contains(d) && !weeks[1].contains(d)) continue;
+        final tags = Map<String, dynamic>.from((r['image_tags'] as Map?) ?? {});
+        final caps = Map<String, dynamic>.from(
+          (r['image_captions'] as Map?) ?? {},
+        );
+        for (final p in (r['image_paths'] as List? ?? [])) {
+          final k = p.toString();
+          photos.add((
+            d,
+            ReportPhoto(
+              k,
+              [
+                if (targets.length > 1) log['name'],
+                _md(d),
+                if (tags[k] != null) tags[k],
+                if (caps[k] != null) caps[k],
+              ].join(' · '),
+            ),
+          ));
+        }
+      }
+    }
+    photos.sort((a, b) => a.$1.compareTo(b.$1));
+  }
+  final picked = photos.length > 12
+      ? photos.sublist(photos.length - 12)
+      : photos;
+
   return ReportDoc(
     targets.length == 1
         ? (targets.first['name']?.toString() ?? '프로젝트')
@@ -240,5 +275,6 @@ ReportDoc buildWeeklyPlanDoc(
     '${today.year}.${today.month}.${today.day} 기준',
     sections,
     heading: '주간 업무 보고',
+    photos: [for (final e in picked) e.$2],
   );
 }

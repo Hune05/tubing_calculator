@@ -20,6 +20,7 @@ class WeeklyReportPage extends StatefulWidget {
 
 class _WeeklyReportPageState extends State<WeeklyReportPage> {
   String? _projectId; // null = 진행중 전체
+  bool _photos = false;
 
   List<Map<String, dynamic>> get _active =>
       widget.logs.where((l) => l['status'] != 'DONE').toList();
@@ -27,6 +28,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
   ReportDoc get _doc => buildWeeklyPlanDoc(
     widget.logs,
     onlyIds: _projectId == null ? null : {_projectId!},
+    includePhotos: _photos,
   );
 
   Future<void> _pdf(ReportDoc doc) async {
@@ -105,6 +107,30 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
+                  ),
+                ),
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: SwitchListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                    activeThumbColor: _teal,
+                    title: const Text(
+                      "PDF에 작업 사진 넣기",
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                    ),
+                    subtitle: Text(
+                      _photos
+                          ? "지난주·이번주 일보 사진 ${doc.photos.length}장(최근 12장까지)"
+                          : "지난주·이번주 일보에 붙인 사진",
+                      style: const TextStyle(fontSize: 12, color: _sub),
+                    ),
+                    value: _photos,
+                    onChanged: (v) => setState(() => _photos = v),
                   ),
                 ),
                 for (final s in doc.sections)
