@@ -11,6 +11,8 @@ class ReportStyle {
   bool signature;
   String sig1;
   String sig2;
+  String? sig1B64; // 손서명 이미지(PNG base64)
+  String? sig2B64;
   bool defaultPhotos;
   Set<String> hiddenSections;
 
@@ -21,6 +23,8 @@ class ReportStyle {
     this.signature = false,
     this.sig1 = '작성자',
     this.sig2 = '확인자',
+    this.sig1B64,
+    this.sig2B64,
     this.defaultPhotos = false,
     Set<String>? hiddenSections,
   }) : hiddenSections = hiddenSections ?? {};
@@ -44,6 +48,8 @@ class ReportStyle {
     'signature': signature,
     'sig1': sig1,
     'sig2': sig2,
+    'sig1B64': sig1B64,
+    'sig2B64': sig2B64,
     'defaultPhotos': defaultPhotos,
     'hidden': hiddenSections.toList(),
   };
@@ -57,6 +63,12 @@ class ReportStyle {
     signature: j['signature'] == true,
     sig1: j['sig1']?.toString() ?? '작성자',
     sig2: j['sig2']?.toString() ?? '확인자',
+    sig1B64: (j['sig1B64']?.toString() ?? '').isEmpty
+        ? null
+        : j['sig1B64'].toString(),
+    sig2B64: (j['sig2B64']?.toString() ?? '').isEmpty
+        ? null
+        : j['sig2B64'].toString(),
     defaultPhotos: j['defaultPhotos'] == true,
     hiddenSections: ((j['hidden'] as List?) ?? [])
         .map((e) => e.toString())
@@ -111,7 +123,15 @@ Map<String, dynamic> _decode(String raw) {
 Future<void> _saveLocal(ReportStyle s) async {
   final j = s.toJson();
   final raw = [
-    for (final k in ['company', 'manager', 'logoB64', 'sig1', 'sig2'])
+    for (final k in [
+      'company',
+      'manager',
+      'logoB64',
+      'sig1',
+      'sig2',
+      'sig1B64',
+      'sig2B64',
+    ])
       '$k${j[k] ?? ''}',
     'signature${s.signature}',
     'defaultPhotos${s.defaultPhotos}',
@@ -127,4 +147,13 @@ Future<void> saveReportStyle(ReportStyle s) async {
   try {
     await _doc.set(s.toJson());
   } catch (_) {}
+}
+
+// 프로젝트별 머리말 덮어쓰기(발주처마다 다른 회사명/담당자): log['reportHeader'].
+// 비어 있으면 null → 기본 양식 값을 쓴다.
+String? headerOverride(Map<String, dynamic> log, String key) {
+  final h = log['reportHeader'];
+  if (h is! Map) return null;
+  final v = h[key]?.toString().trim() ?? '';
+  return v.isEmpty ? null : v;
 }

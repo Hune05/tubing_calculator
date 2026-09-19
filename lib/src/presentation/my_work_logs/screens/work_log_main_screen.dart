@@ -11,6 +11,8 @@ import '../models/report_tools.dart';
 import '../models/photo_store.dart';
 import '../models/backup_tools.dart';
 import '../models/report_style.dart';
+import '../models/summary_image.dart';
+import 'package:share_plus/share_plus.dart';
 import '../pages/report_style_page.dart';
 import '../pages/report_search_page.dart';
 import '../pages/project_stats_page.dart';
@@ -767,6 +769,20 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   // 🚀 [신규] "오늘 일지 / 다가오는 일정 / 미해결 이슈"를 한 화면에
   // 모은 통합 대시보드. 프로젝트마다 따로 열어보지 않아도 오늘 뭘 해야
   // 하는지 여기서 다 보인다.
+  Future<void> _shareOverviewImage() async {
+    try {
+      final f = await createOverviewImage(_workLogs);
+      // ignore: deprecated_member_use
+      await Share.shareXFiles([XFile(f.path)], text: '오늘의 전체 현황');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("이미지 만들기 실패: $e")));
+      }
+    }
+  }
+
   bool _backupFailed = false;
 
   Future<void> _runAutoBackup() async {
@@ -1252,6 +1268,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             tooltip: "더보기",
             onSelected: (v) {
               if (v == 'reminder') _showReminderSettings();
+              if (v == 'overview') _shareOverviewImage();
               if (v == 'style') {
                 Navigator.push(
                   context,
@@ -1272,6 +1289,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'reminder', child: Text("일보·주간 알림 설정")),
+              PopupMenuItem(value: 'overview', child: Text("전체 현황 이미지 공유")),
               PopupMenuItem(value: 'style', child: Text("보고서 양식 설정")),
               PopupMenuItem(value: 'storage', child: Text("저장 공간 관리")),
             ],

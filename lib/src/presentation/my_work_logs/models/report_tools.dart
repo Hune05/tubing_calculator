@@ -105,6 +105,8 @@ class ReportDoc {
   final List<ReportPin> pins;
   final List<ReportCompare> compares;
   final String heading; // 문서 종류 표시(예: 작업 보고 / 이슈 보고)
+  final String? company; // 프로젝트별 머리말(없으면 기본 양식)
+  final String? manager;
   ReportDoc(
     this.title,
     this.period,
@@ -114,17 +116,18 @@ class ReportDoc {
     this.pins = const [],
     this.compares = const [],
     this.heading = '작업 보고',
+    this.company,
+    this.manager,
   });
 
   String toText() {
     final b = StringBuffer('[$title] $heading\n$period\n');
     final st = ReportStyle.current;
-    if (st.company.isNotEmpty || st.manager.isNotEmpty) {
+    final co = company ?? st.company;
+    final mg = manager ?? st.manager;
+    if (co.isNotEmpty || mg.isNotEmpty) {
       b.writeln(
-        [
-          if (st.company.isNotEmpty) st.company,
-          if (st.manager.isNotEmpty) '담당 ${st.manager}',
-        ].join(' · '),
+        [if (co.isNotEmpty) co, if (mg.isNotEmpty) '담당 $mg'].join(' · '),
       );
     }
     for (final s in sections) {
@@ -325,6 +328,8 @@ ReportDoc buildReportDoc(
         ? '선택한 일보 ${only.length}건'
         : '기간 ${f.year}.${f.month}.${f.day} ~ ${t.year}.${t.month}.${t.day}',
     sections,
+    company: headerOverride(log, 'company'),
+    manager: headerOverride(log, 'manager'),
     photos: photos,
     pins: [
       if ((log['floor_plan_image_path']?.toString() ?? '').isNotEmpty)
@@ -429,6 +434,8 @@ ReportDoc buildIssueReportDoc(
         lines.isEmpty ? ['해당하는 이슈가 없습니다.'] : lines,
       ),
     ],
+    company: headerOverride(log, 'company'),
+    manager: headerOverride(log, 'manager'),
     photos: photos,
     pins: pins,
     compares: compares,
@@ -479,6 +486,9 @@ Future<void> shareReportText(ReportDoc doc) async {
   // ignore: deprecated_member_use
   await Share.share(doc.toText());
 }
+
+// 요약 이미지 등 다른 곳에서 사진 바이트가 필요할 때(줄여서 돌려준다).
+Future<Uint8List?> loadPhotoBytes(String path) => _pdfPhotoBytes(path);
 
 Future<Uint8List?> _pdfPhotoBytes(String path) async {
   try {
@@ -614,6 +624,8 @@ Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
     }
   }
   final style = ReportStyle.current;
+  final hdrCompany = doc.company ?? style.company;
+  final hdrManager = doc.manager ?? style.manager;
   pw.MemoryImage? logoImg;
   if (style.logoB64 != null) {
     try {
@@ -630,9 +642,7 @@ Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
   pdf.addPage(
     pw.MultiPage(
       build: (ctx) => [
-        if (logoImg != null ||
-            style.company.isNotEmpty ||
-            style.manager.isNotEmpty)
+        if (logoImg != null || hdrCompany.isNotEmpty || hdrManager.isNotEmpty)
           pw.Padding(
             padding: const pw.EdgeInsets.only(bottom: 10),
             child: pw.Row(
@@ -647,17 +657,17 @@ Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    if (style.company.isNotEmpty)
+                    if (hdrCompany.isNotEmpty)
                       pw.Text(
-                        style.company,
+                        hdrCompany,
                         style: pw.TextStyle(
                           fontSize: 12,
                           fontWeight: pw.FontWeight.bold,
                         ),
                       ),
-                    if (style.manager.isNotEmpty)
+                    if (hdrManager.isNotEmpty)
                       pw.Text(
-                        '담당 ${style.manager}',
+                        '담당 ${hdrManager}',
                         style: const pw.TextStyle(fontSize: 10),
                       ),
                   ],
@@ -851,7 +861,10 @@ Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
           pw.SizedBox(height: 30),
           pw.Row(
             children: [
-              for (final label in [style.sig1, style.sig2])
+              for (final (label, sigImg) in [
+                (style.sig1, style.sig1B64),
+                (style.sig2, style.sig2B64),
+              ])
                 pw.Expanded(
                   child: pw.Container(
                     height: 64,
@@ -860,9 +873,20 @@ Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
                     decoration: pw.BoxDecoration(
                       border: pw.Border.all(color: PdfColors.grey500),
                     ),
-                    child: pw.Text(
-                      '$label (서명)',
-                      style: const pw.TextStyle(fontSize: 10),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          '$label (서명)',
+                          style: const pw.TextStyle(fontSize: 10),
+                        ),
+                        if (sigImg != null)
+                          pw.Image(
+                            pw.MemoryImage(base64Decode(sigImg)),
+                            height: 34,
+                            fit: pw.BoxFit.contain,
+                          ),
+                      ],
                     ),
                   ),
                 ),

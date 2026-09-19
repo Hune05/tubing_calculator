@@ -1453,6 +1453,64 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     }
   }
 
+  Future<void> _editReportHeader() async {
+    final cur = (log['reportHeader'] as Map?) ?? {};
+    final company = TextEditingController(
+      text: cur['company']?.toString() ?? '',
+    );
+    final manager = TextEditingController(
+      text: cur['manager']?.toString() ?? '',
+    );
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("이 프로젝트 보고서 머리말"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "발주처마다 다른 머리말이 필요할 때 적어요. 비워 두면 기본 보고서 양식을 써요.",
+              style: TextStyle(fontSize: 12, color: tossSubText),
+            ),
+            TextField(
+              controller: company,
+              decoration: InputDecoration(
+                labelText: "회사명 / 현장명",
+                hintText: ReportStyle.current.company,
+              ),
+            ),
+            TextField(
+              controller: manager,
+              decoration: InputDecoration(
+                labelText: "담당자",
+                hintText: ReportStyle.current.manager,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("취소"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("저장"),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final c = company.text.trim(), m = manager.text.trim();
+    if (c.isEmpty && m.isEmpty) {
+      log.remove('reportHeader');
+    } else {
+      log['reportHeader'] = {'company': c, 'manager': m};
+    }
+    _changed();
+  }
+
   Future<void> _shareSummaryImage() async {
     try {
       final f = await createSummaryImage(log);
@@ -2940,9 +2998,11 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             onSelected: (v) {
               if (v == 'optimize') _optimizePhotos();
               if (v == 'summary') _shareSummaryImage();
+              if (v == 'header') _editReportHeader();
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'summary', child: Text("현황 요약 이미지 공유")),
+              PopupMenuItem(value: 'header', child: Text("이 프로젝트 보고서 머리말")),
               PopupMenuItem(value: 'optimize', child: Text("사진 용량 정리")),
             ],
           ),

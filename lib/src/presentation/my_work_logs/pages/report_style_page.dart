@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -70,6 +71,62 @@ class _ReportStylePageState extends State<ReportStylePage> {
       }
     }
   }
+
+  Future<void> _drawSig(bool first) async {
+    final b64 = await showDialog<String>(
+      context: context,
+      builder: (ctx) =>
+          _SignatureDialog(title: first ? _sig1.text : _sig2.text),
+    );
+    if (b64 == null) return;
+    setState(() {
+      if (first) {
+        _s.sig1B64 = b64;
+      } else {
+        _s.sig2B64 = b64;
+      }
+    });
+  }
+
+  Widget _sigRow(String label, String? b64, bool first) => Padding(
+    padding: const EdgeInsets.only(top: 10),
+    child: Row(
+      children: [
+        Container(
+          width: 120,
+          height: 48,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: b64 == null
+              ? const Center(
+                  child: Text(
+                    "서명 없음",
+                    style: TextStyle(color: _sub, fontSize: 11),
+                  ),
+                )
+              : Image.memory(base64Decode(b64), fit: BoxFit.contain),
+        ),
+        const SizedBox(width: 10),
+        OutlinedButton(
+          onPressed: () => _drawSig(first),
+          child: Text(b64 == null ? "$label 손서명 그리기" : "다시 그리기"),
+        ),
+        if (b64 != null)
+          TextButton(
+            onPressed: () => setState(() {
+              if (first) {
+                _s.sig1B64 = null;
+              } else {
+                _s.sig2B64 = null;
+              }
+            }),
+            child: const Text("삭제"),
+          ),
+      ],
+    ),
+  );
 
   Future<void> _save() async {
     _s.company = _company.text.trim();
@@ -189,6 +246,17 @@ class _ReportStylePageState extends State<ReportStylePage> {
                   ),
                 ],
               ),
+            if (_s.signature) ...[
+              _sigRow("서명 1", _s.sig1B64, true),
+              _sigRow("서명 2", _s.sig2B64, false),
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Text(
+                  "손서명을 저장해 두면 PDF 서명란에 자동으로 들어가요.",
+                  style: TextStyle(color: _sub, fontSize: 11),
+                ),
+              ),
+            ],
           ]),
           _card("작업 보고서에 넣을 항목", [
             const Text(
@@ -241,4 +309,114 @@ class _ReportStylePageState extends State<ReportStylePage> {
       ),
     );
   }
+}
+
+// 손으로 서명을 그리는 대화상자. 저장하면 PNG(base64)를 돌려준다.
+class _SignatureDialog extends StatefulWidget {
+  final String title;
+  const _SignatureDialog({required this.title});
+
+  @override
+  State<_SignatureDialog> createState() => _SignatureDialogState();
+}
+
+class _SignatureDialogState extends State<_SignatureDialog> {
+  final List<List<Offset>> _strokes = [];
+  static const _w = 300.0, _h = 150.0;
+
+  void _paintStrokes(Canvas c) {
+    final p = Paint()
+      ..color = Colors.black
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    for (final s in _strokes) {
+      if (s.length == 1) {
+        c.drawPoints(ui.PointMode.points, s, p);
+      } else {
+        final path = Path()..moveTo(s.first.dx, s.first.dy);
+        for (final o in s.skip(1)) {
+          path.lineTo(o.dx, o.dy);
+        }
+        c.drawPath(path, p);
+      }
+    }
+  }
+
+  Future<void> _done() async {
+    if (_strokes.isEmpty) {
+      Navigator.pop(context);
+      return;
+    }
+    final rec = ui.PictureRecorder();
+    final c = Canvas(rec, const Rect.fromLTWH(0, 0, _w, _h));
+    _paintStrokes(c);
+    final img = await rec.endRecording().toImage(_w.toInt(), _h.toInt());
+    final data = await img.toByteData(format: ui.ImageByteFormat.png);
+    if (!mounted) return;
+    Navigator.pop(context, base64Encode(data!.buffer.asUint8List()));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text("${widget.title} 손서명"),
+      content: Container(
+        width: _w,
+        height: _h,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.black26),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: GestureDetector(
+          onPanStart: (d) => setState(() => _strokes.add([d.localPosition])),
+          onPanUpdate: (d) =>
+              setState(() => _strokes.last.add(d.localPosition)),
+          child: CustomPaint(
+            painter: _SigPainter(_strokes),
+            size: const Size(_w, _h),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => setState(_strokes.clear),
+          child: const Text("지우기"),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("취소"),
+        ),
+        TextButton(onPressed: _done, child: const Text("저장")),
+      ],
+    );
+  }
+}
+
+class _SigPainter extends CustomPainter {
+  final List<List<Offset>> strokes;
+  _SigPainter(this.strokes);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()
+      ..color = Colors.black
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    for (final s in strokes) {
+      if (s.length == 1) {
+        canvas.drawPoints(ui.PointMode.points, s, p);
+      } else {
+        final path = Path()..moveTo(s.first.dx, s.first.dy);
+        for (final o in s.skip(1)) {
+          path.lineTo(o.dx, o.dy);
+        }
+        canvas.drawPath(path, p);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SigPainter old) => true;
 }
