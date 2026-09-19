@@ -1040,7 +1040,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
               child: OutlinedButton.icon(
                 onPressed: () => Navigator.pop(ctx, 'annotate'),
                 icon: const Icon(Icons.draw_rounded, size: 18),
-                label: const Text("사진에 화살표·동그라미 표시 (사본으로 추가)"),
+                label: const Text("화살표·동그라미 표시 (사본 추가)"),
               ),
             ),
             const SizedBox(height: 8),

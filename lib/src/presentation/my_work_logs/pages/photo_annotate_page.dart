@@ -83,7 +83,7 @@ class _PhotoAnnotatePageState extends State<PhotoAnnotatePage> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: const Text("사진에 표시하기"),
+        title: const Text("표시하기"),
         actions: [
           IconButton(
             tooltip: "되돌리기",
@@ -168,21 +168,30 @@ class _PhotoAnnotatePageState extends State<PhotoAnnotatePage> {
                     ),
                     child: Row(
                       children: [
-                        for (final t in _Tool.values)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              label: Text(switch (t) {
-                                _Tool.arrow => "화살표",
-                                _Tool.circle => "동그라미",
-                                _Tool.pen => "자유선",
-                              }),
-                              selected: _tool == t,
-                              showCheckmark: false,
-                              onSelected: (_) => setState(() => _tool = t),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                for (final t in _Tool.values)
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: ChoiceChip(
+                                      label: Text(switch (t) {
+                                        _Tool.arrow => "화살표",
+                                        _Tool.circle => "동그라미",
+                                        _Tool.pen => "자유선",
+                                      }),
+                                      selected: _tool == t,
+                                      showCheckmark: false,
+                                      onSelected: (_) =>
+                                          setState(() => _tool = t),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
-                        const Spacer(),
+                        ),
                         for (final col in [
                           Colors.red,
                           Colors.yellow,
