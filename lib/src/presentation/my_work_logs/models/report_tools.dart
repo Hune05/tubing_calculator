@@ -1021,17 +1021,20 @@ const String _kReminderChannel = 'daily_report_reminder';
 const String _kPrefEnabled = 'report_reminder_enabled';
 const String _kPrefMinutes = 'report_reminder_minutes';
 const String _kPrefWeekly = 'weekly_report_reminder_enabled';
+const String _kPrefWeeklyMinutes = 'weekly_report_reminder_minutes';
 const int _kWeeklyId = 918274;
 // 금요일 알림을 누르면 주간 업무 보고를 바로 여는 데 쓰는 표식.
 const String kWeeklyReportPayload = 'work_weekly_report';
 bool _tzReady = false;
 
-Future<({bool enabled, int minutes, bool weekly})> loadReportReminder() async {
+Future<({bool enabled, int minutes, bool weekly, int weeklyMinutes})>
+loadReportReminder() async {
   final p = await SharedPreferences.getInstance();
   return (
     enabled: p.getBool(_kPrefEnabled) ?? true,
     minutes: p.getInt(_kPrefMinutes) ?? 18 * 60,
     weekly: p.getBool(_kPrefWeekly) ?? true,
+    weeklyMinutes: p.getInt(_kPrefWeeklyMinutes) ?? 17 * 60,
   );
 }
 
@@ -1039,19 +1042,21 @@ Future<void> saveReportReminder(
   bool enabled,
   int minutes, {
   bool weekly = true,
+  int weeklyMinutes = 17 * 60,
 }) async {
   final p = await SharedPreferences.getInstance();
   await p.setBool(_kPrefEnabled, enabled);
   await p.setInt(_kPrefMinutes, minutes);
   await p.setBool(_kPrefWeekly, weekly);
+  await p.setInt(_kPrefWeeklyMinutes, weeklyMinutes);
 }
 
-// 매주 금요일 17:00에 "이번 주 보고서 초안" 알림(진행중 프로젝트가 있을 때).
-Future<void> _syncWeeklyReminder(bool on) async {
+// 매주 금요일(기본 17:00)에 주간 업무 보고 알림(진행중 프로젝트가 있을 때).
+Future<void> _syncWeeklyReminder(bool on, int minutes) async {
   await flutterLocalNotificationsPlugin.cancel(id: _kWeeklyId);
   if (!on) return;
   final now = DateTime.now();
-  var at = DateTime(now.year, now.month, now.day, 17, 0);
+  var at = DateTime(now.year, now.month, now.day, minutes ~/ 60, minutes % 60);
   while (at.weekday != DateTime.friday || !at.isAfter(now)) {
     at = at.add(const Duration(days: 1));
   }
@@ -1087,7 +1092,10 @@ Future<void> syncReportReminder(List<Map<String, dynamic>> logs) async {
       tz.setLocalLocation(tz.getLocation('Asia/Seoul'));
       _tzReady = true;
     }
-    await _syncWeeklyReminder(pref.weekly && active.isNotEmpty);
+    await _syncWeeklyReminder(
+      pref.weekly && active.isNotEmpty,
+      pref.weeklyMinutes,
+    );
     if (!pref.enabled || active.isEmpty) return;
 
     final now = DateTime.now();

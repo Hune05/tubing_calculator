@@ -112,11 +112,13 @@ List<String> _plannedLines(Map<String, dynamic> log, WeekRange w) {
     // 이미 지난 미완료 일정은 "이번주"에 지연으로 함께 올린다.
     final late =
         st.isBefore(w.start) && w.contains(today) && en.isBefore(today);
+    // 지난주에 끝났어야 하는 일정이면 "이월", 그보다 더 오래됐으면 "지연".
+    final carried = late && !en.isBefore(weekRanges(today)[0].start);
     if (w.overlaps(st, en) || late) {
       items.add((
         st,
         '  · ${_md(st)}${en != st ? '~${_md(en)}' : ''} $title'
-            '${late ? ' (지연)' : ''}',
+            '${late ? (carried ? ' (지난주 이월)' : ' (지연)') : ''}',
       ));
     }
   }
@@ -139,6 +141,34 @@ List<String> _plannedLines(Map<String, dynamic> log, WeekRange w) {
     }
   }
   return lines;
+}
+
+// 이번주 한눈에 보는 요약: 작업일수·투입, 완료한 일정, 이슈 신규/처리.
+List<String> _summaryLines(List<Map<String, dynamic>> logs, WeekRange w) {
+  int days = 0, manDays = 0, doneSchedules = 0, created = 0, resolved = 0;
+  for (final log in logs) {
+    for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
+      if (!w.contains(reportDateOf(r))) continue;
+      days++;
+      manDays += (r['worker_count'] as num?)?.toInt() ?? 1;
+      doneSchedules += reportIds(r, 'completedScheduleIds').length;
+    }
+    for (final p in (log['punch_lists'] as List? ?? []).whereType<Map>()) {
+      if (p['created_at'] != null && w.contains(asDate(p['created_at']))) {
+        created++;
+      }
+      if (p['is_completed'] == true &&
+          p['resolved_at'] != null &&
+          w.contains(asDate(p['resolved_at']))) {
+        resolved++;
+      }
+    }
+  }
+  return [
+    '  · 작업 ${days}일(일보 기준) · 투입 ${manDays}인·일',
+    '  · 완료한 일정 ${doneSchedules}건',
+    '  · 이슈 신규 ${created}건 · 처리 ${resolved}건',
+  ];
 }
 
 // 프로젝트별로 묶어 한 섹션의 줄 목록을 만든다. 내용이 없는 프로젝트는 뺀다.
@@ -265,6 +295,13 @@ ReportDoc buildWeeklyPlanDoc(
   } else {
     sections.addAll(combined);
   }
+  sections.insert(
+    0,
+    ReportSection(
+      '이번주 요약 (${weeks[1].range})',
+      _summaryLines(targets, weeks[1]),
+    ),
+  );
   if (memo.isNotEmpty) {
     sections.add(ReportSection('최근 일보의 다음 계획 메모', memo));
   }

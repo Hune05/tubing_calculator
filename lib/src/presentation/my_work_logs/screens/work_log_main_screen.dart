@@ -217,6 +217,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     bool enabled = cur.enabled;
     int minutes = cur.minutes;
     bool weekly = cur.weekly;
+    int weeklyMinutes = cur.weeklyMinutes;
+    String hm(int m) =>
+        "${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}";
     await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -235,9 +238,34 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text("주간 보고서 알림"),
-                subtitle: const Text("매주 금요일 17:00에 보고서 초안을 만들어 보라고 알려줘요."),
+                subtitle: Text(
+                  "매주 금요일 ${hm(weeklyMinutes)}에 주간 업무 보고를 열어 보라고 알려줘요.",
+                ),
                 value: weekly,
                 onChanged: (v) => setS(() => weekly = v),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                enabled: weekly,
+                title: const Text("주간 알림 시각(금요일)"),
+                trailing: Text(
+                  hm(weeklyMinutes),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                onTap: !weekly
+                    ? null
+                    : () async {
+                        final t = await showTimePicker(
+                          context: ctx,
+                          initialTime: TimeOfDay(
+                            hour: weeklyMinutes ~/ 60,
+                            minute: weeklyMinutes % 60,
+                          ),
+                        );
+                        if (t != null) {
+                          setS(() => weeklyMinutes = t.hour * 60 + t.minute);
+                        }
+                      },
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -271,7 +299,12 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             ),
             TextButton(
               onPressed: () async {
-                await saveReportReminder(enabled, minutes, weekly: weekly);
+                await saveReportReminder(
+                  enabled,
+                  minutes,
+                  weekly: weekly,
+                  weeklyMinutes: weeklyMinutes,
+                );
                 await syncReportReminder(_workLogs);
                 if (ctx.mounted) Navigator.pop(ctx);
               },
