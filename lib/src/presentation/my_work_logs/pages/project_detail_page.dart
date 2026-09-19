@@ -1285,24 +1285,9 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       children: [
-        ElevatedButton.icon(
-          onPressed: () => _run(widget.actions.addPunch),
-          icon: const Icon(Icons.add_rounded, color: pureWhite),
-          label: const Text(
-            "이슈 등록",
-            style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: tossBlue,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
-        ),
         if (punches.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: EdgeInsets.zero,
             child: OutlinedButton.icon(
               onPressed: _showIssueExport,
               icon: const Icon(Icons.ios_share_rounded, size: 18),
