@@ -17,6 +17,8 @@ import 'package:share_plus/share_plus.dart';
 import '../pages/report_style_page.dart';
 import '../pages/report_search_page.dart';
 import '../pages/project_stats_page.dart';
+import '../pages/weekly_report_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../pages/retro_overview_page.dart';
 import '../pages/storage_management_page.dart';
 import 'dart:async';
@@ -89,6 +91,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   void initState() {
     super.initState();
     _loadData();
+    _loadGuideFlag();
   }
 
   Future<void> _loadData() async {
@@ -468,6 +471,25 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         break;
       case 'recent':
         break; // fetchAllProjects가 이미 최신순
+      case 'stale':
+        // 마지막 일보가 오래된(또는 없는) 프로젝트를 위로 - 일보를 빠뜨린 곳 찾기.
+        DateTime? lastOf(Map<String, dynamic> l) {
+          DateTime? last;
+          for (final r
+              in (l['daily_reports'] as List? ?? []).whereType<Map>()) {
+            final d = reportDateOf(r);
+            if (last == null || d.isAfter(last)) last = d;
+          }
+          return last;
+        }
+        out.sort((a, b) {
+          final da = lastOf(a), db = lastOf(b);
+          if (da == null && db == null) return 0;
+          if (da == null) return -1;
+          if (db == null) return 1;
+          return da.compareTo(db);
+        });
+        break;
       default:
         out.sort((a, b) {
           final da = projectDue(a), db = projectDue(b);
@@ -953,51 +975,130 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   }
 
   // 금~일에는 주간 보고서 초안을 바로 만들 수 있는 카드를 보여준다.
-  Widget _buildWeeklyReportCard() {
-    if (DateTime.now().weekday < DateTime.friday) {
-      return const SizedBox.shrink();
-    }
-    final active = _activeLogs;
-    if (active.isEmpty) return const SizedBox.shrink();
+  void _openWeeklyReport() {
+    Navigator.push(
+      context,
+      WorkRoute(builder: (_) => WeeklyReportPage(logs: _workLogs)),
+    );
+  }
 
-    // 프로젝트 목록 위를 차지하지 않도록 한 줄짜리 바로 줄였다. 프로젝트가 하나면
-    // 바로 보고서 내보내기로, 여러 개면 고르는 시트를 연다.
-    Future<void> pick() async {
-      if (active.length == 1) {
-        _openDetail(active.first, tab: 3, openExport: true);
-        return;
-      }
-      final log = await showModalBottomSheet<Map<String, dynamic>>(
-        context: context,
-        backgroundColor: pureWhite,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        builder: (ctx) => SafeArea(
-          child: ListView(
-            shrinkWrap: true,
+  // 처음 쓰는 사람을 위한 안내 카드(한 번 확인하면 다시 안 뜬다). 메뉴의 "사용 안내"로
+  // 언제든 다시 볼 수 있다.
+  bool _showGuide = false;
+
+  Future<void> _loadGuideFlag() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final seen = p.getBool('work_guide_seen_v1') ?? false;
+      if (!seen && mounted) setState(() => _showGuide = true);
+    } catch (_) {}
+  }
+
+  Future<void> _dismissGuide() async {
+    setState(() => _showGuide = false);
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setBool('work_guide_seen_v1', true);
+    } catch (_) {}
+  }
+
+  static const List<String> _guideTips = [
+    "프로젝트를 만들고 '단계·일정' 탭에서 표준 단계로 시작하세요. 기간에 맞춰 자동으로 나눠 줘요.",
+    "매일 '일지 작성'에 작업 내용·사진·처리한 이슈를 남기면 진행률과 통계에 쌓여요.",
+    "자재는 입고일이 미정이어도 먼저 등록하고, 날짜가 정해지면 채우세요. 지연되면 알려줘요.",
+    "금요일엔 '주간 보고'로 지난주·이번주·다음주 업무를 한 번에 공유하세요.",
+    "⋮ 메뉴에서 보고서 양식, 백업, 저장 공간 관리를 할 수 있어요.",
+  ];
+
+  Widget _buildGuideCard() {
+    if (!_showGuide) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
+      decoration: BoxDecoration(
+        color: pureWhite,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: tossBlue.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 16, 20, 6),
-                child: Text(
-                  "보고서를 만들 프로젝트",
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              Icon(Icons.lightbulb_outline_rounded, color: tossBlue, size: 18),
+              SizedBox(width: 6),
+              Text(
+                "이렇게 쓰면 편해요",
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  color: tossText,
                 ),
               ),
-              for (final l in active)
-                ListTile(
-                  title: Text(l['name']?.toString() ?? '이름 없음'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => Navigator.pop(ctx, l),
+            ],
+          ),
+          const SizedBox(height: 8),
+          for (final t in _guideTips)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Text(
+                "• $t",
+                style: const TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: tossSubText,
+                ),
+              ),
+            ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: _dismissGuide,
+              child: const Text(
+                "확인했어요",
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showGuideSheet() async {
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "내 프로젝트 사용 안내",
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+              ),
+              const SizedBox(height: 10),
+              for (final t in _guideTips)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text("• $t", style: const TextStyle(height: 1.4)),
                 ),
             ],
           ),
         ),
-      );
-      if (log != null && mounted) {
-        _openDetail(log, tab: 3, openExport: true);
-      }
-    }
+      ),
+    );
+  }
+
+  Widget _buildWeeklyReportCard() {
+    final active = _activeLogs;
+    if (active.isEmpty) return const SizedBox.shrink();
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -1012,7 +1113,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           const SizedBox(width: 8),
           const Expanded(
             child: Text(
-              "이번 주 보고",
+              "주간 보고",
               style: TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 14,
@@ -1021,14 +1122,14 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             ),
           ),
           TextButton(
-            onPressed: pick,
+            onPressed: _openWeeklyReport,
             style: TextButton.styleFrom(
               foregroundColor: tossBlue,
               minimumSize: const Size(0, 36),
               padding: const EdgeInsets.symmetric(horizontal: 10),
             ),
             child: const Text(
-              "보고서 초안",
+              "지난·이번·다음주",
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
@@ -1362,6 +1463,8 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             tooltip: "더보기",
             onSelected: (v) {
               if (v == 'reminder') _showReminderSettings();
+              if (v == 'weekly') _openWeeklyReport();
+              if (v == 'guide') _showGuideSheet();
               if (v == 'overview') _shareOverviewImage();
               if (v == 'style') {
                 Navigator.push(
@@ -1382,10 +1485,12 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
               }
             },
             itemBuilder: (_) => const [
+              PopupMenuItem(value: 'weekly', child: Text("주간 업무 보고")),
               PopupMenuItem(value: 'reminder', child: Text("일보·주간 알림 설정")),
               PopupMenuItem(value: 'overview', child: Text("전체 현황 이미지 공유")),
               PopupMenuItem(value: 'style', child: Text("보고서 양식 설정")),
               PopupMenuItem(value: 'storage', child: Text("저장 공간 관리")),
+              PopupMenuItem(value: 'guide', child: Text("사용 안내")),
             ],
           ),
         ],
@@ -1403,12 +1508,14 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                   'due': '납기 임박순',
                   'progress': '진행률 낮은순',
                   'recent': '최근 등록순',
+                  'stale': '일보 오래된 순',
                 };
                 // 요약 카드/필터는 목록과 같이 스크롤된다(예전엔 위에 고정돼서
                 // 오늘 할 일이 많으면 프로젝트 목록이 좁은 창에 갇혔다).
                 final header = Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _buildGuideCard(),
                     _buildSyncBanner(),
                     _buildBackupBanner(),
                     if (!_showCompleted) _buildWeeklyReportCard(),

@@ -535,14 +535,21 @@ class PunchListSection extends StatefulWidget {
 
 class PunchListSectionState extends State<PunchListSection> {
   static const int _pageSize = 5;
-  bool _hideCompleted = true;
+  // 0=미해결 1=전체(미해결 먼저) 2=완료만
+  int _mode = 0;
   int _page = 0;
 
   @override
   Widget build(BuildContext context) {
-    final List<dynamic> visible = _hideCompleted
-        ? widget.punchLists.where((p) => p['is_completed'] != true).toList()
-        : widget.punchLists;
+    final openList = widget.punchLists
+        .where((p) => p['is_completed'] != true)
+        .toList();
+    final doneList = widget.punchLists
+        .where((p) => p['is_completed'] == true)
+        .toList();
+    final List<dynamic> visible = _mode == 0
+        ? openList
+        : (_mode == 2 ? doneList : [...openList, ...doneList]);
 
     final int totalPages = (visible.length / _pageSize).ceil().clamp(
       1,
@@ -570,42 +577,55 @@ class PunchListSectionState extends State<PunchListSection> {
                 fontSize: 14,
               ),
             ),
-            InkWell(
-              onTap: () => setState(() {
-                _hideCompleted = !_hideCompleted;
-                _page = 0;
-              }),
-              borderRadius: BorderRadius.circular(8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _hideCompleted
-                        ? Icons.visibility_off_rounded
-                        : Icons.visibility_rounded,
-                    size: 14,
-                    color: tossBlue,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _hideCompleted ? "완료 숨김" : "전체 보기",
-                    style: const TextStyle(
-                      color: tossBlue,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final e in [
+                  (0, "미해결 ${openList.length}"),
+                  (1, "전체"),
+                  (2, "완료 ${doneList.length}"),
+                ])
+                  Padding(
+                    padding: const EdgeInsets.only(left: 6),
+                    child: GestureDetector(
+                      onTap: () => setState(() {
+                        _mode = e.$1;
+                        _page = 0;
+                      }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _mode == e.$1
+                              ? tossBlue.withValues(alpha: 0.15)
+                              : pureWhite,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          e.$2,
+                          style: TextStyle(
+                            color: _mode == e.$1 ? tossBlue : tossSubText,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ],
-              ),
+              ],
             ),
           ],
         ),
         const SizedBox(height: 12),
         if (visible.isEmpty)
           Text(
-            _hideCompleted && widget.punchLists.isNotEmpty
-                ? "미해결 이슈가 없습니다. 처리 완료한 ${widget.punchLists.length}건은 '완료 숨김'을 눌러 '전체 보기'로 확인하세요."
-                : "미해결 이슈가 없습니다.",
+            _mode == 2
+                ? "처리 완료한 이슈가 없습니다."
+                : (_mode == 0 && doneList.isNotEmpty
+                      ? "미해결 이슈가 없습니다. 처리 완료한 ${doneList.length}건은 '완료' 또는 '전체'에서 확인하세요."
+                      : "미해결 이슈가 없습니다."),
             style: const TextStyle(
               color: tossSubText,
               fontSize: 13,

@@ -285,7 +285,9 @@ bool applyReportEffects(Map<String, dynamic> log, Map report) {
   bool changed = false;
   final doneSchedules = reportIds(report, 'completedScheduleIds').toSet();
   final donePhases = reportIds(report, 'completedPhaseIds').toSet();
-  if (doneSchedules.isNotEmpty && log['schedules'] is List) {
+  if (report['scheduleNoApply'] != true &&
+      doneSchedules.isNotEmpty &&
+      log['schedules'] is List) {
     for (final s in log['schedules'] as List) {
       if (s is Map &&
           doneSchedules.contains(s['id']?.toString()) &&

@@ -732,6 +732,58 @@ class _DailyReportPageState extends State<DailyReportPage> {
       editHistory.add({'reason': reason, 'editedAt': DateTime.now()});
     }
 
+    // 끝낸 일정으로 체크한 미완료 일정이 있으면, 프로젝트 일정도 완료로 바꿀지 묻는다.
+    bool scheduleNoApply = false;
+    final newlyDone = widget.pendingSchedules
+        .where(
+          (s) =>
+              _completedScheduleIds.contains(s['id']?.toString()) &&
+              s['isCompleted'] != true,
+        )
+        .toList();
+    if (newlyDone.isNotEmpty) {
+      final mark = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text("일정을 완료로 표시할까요?"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "'오늘 끝낸 일정'으로 체크한 일정이에요. 완료로 바꾸면 진행률에 반영돼요.",
+                style: TextStyle(fontSize: 13, height: 1.4),
+              ),
+              const SizedBox(height: 10),
+              for (final s in newlyDone.take(4))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    "• ${s['title'] ?? s['type'] ?? ''}",
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              if (newlyDone.length > 4) Text("외 ${newlyDone.length - 4}건"),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("기록만 남기기"),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("완료로 표시"),
+            ),
+          ],
+        ),
+      );
+      if (mark == null || !mounted) return;
+      scheduleNoApply = !mark;
+    }
+
     // 고른 이슈 중 아직 미해결인 것이 있으면, 처리 완료로 표시할지 묻는다.
     final List<String> resolveIds = [];
     final unresolvedPicked = widget.relatedIssueCandidates
@@ -832,6 +884,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
       },
       "usedMaterialIds": _usedMaterialIds.toList(),
       "resolveIssueIds": resolveIds,
+      "scheduleNoApply": scheduleNoApply,
       "workedPhaseIds": _workedPhaseIds.toList(),
       "completedScheduleIds": _completedScheduleIds.toList(),
       "completedPhaseIds": _completedPhaseIds.toList(),
