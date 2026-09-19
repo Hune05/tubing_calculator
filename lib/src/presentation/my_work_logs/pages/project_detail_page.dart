@@ -630,7 +630,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     }
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 150),
       children: [
         ..._buildDelayBanner(),
         ReorderableListView(
