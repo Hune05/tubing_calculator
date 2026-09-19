@@ -954,64 +954,95 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
 
   // 금~일에는 주간 보고서 초안을 바로 만들 수 있는 카드를 보여준다.
   Widget _buildWeeklyReportCard() {
-    if (DateTime.now().weekday < DateTime.friday)
+    if (DateTime.now().weekday < DateTime.friday) {
       return const SizedBox.shrink();
+    }
     final active = _activeLogs;
     if (active.isEmpty) return const SizedBox.shrink();
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: tossBlue.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
+
+    // 프로젝트 목록 위를 차지하지 않도록 한 줄짜리 바로 줄였다. 프로젝트가 하나면
+    // 바로 보고서 내보내기로, 여러 개면 고르는 시트를 연다.
+    Future<void> pick() async {
+      if (active.length == 1) {
+        _openDetail(active.first, tab: 3, openExport: true);
+        return;
+      }
+      final log = await showModalBottomSheet<Map<String, dynamic>>(
+        context: context,
+        backgroundColor: pureWhite,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => SafeArea(
+          child: ListView(
+            shrinkWrap: true,
             children: [
-              Icon(Icons.summarize_rounded, color: tossBlue, size: 18),
-              SizedBox(width: 6),
-              Text(
-                "이번 주 보고서 초안",
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 15,
-                  color: tossBlue,
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 16, 20, 6),
+                child: Text(
+                  "보고서를 만들 프로젝트",
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                 ),
               ),
+              for (final l in active)
+                ListTile(
+                  title: Text(l['name']?.toString() ?? '이름 없음'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.pop(ctx, l),
+                ),
             ],
           ),
-          const SizedBox(height: 4),
-          const Text(
-            "프로젝트를 누르면 최근 7일 일보로 보고서를 만들어 공유할 수 있어요.",
-            style: TextStyle(color: tossSubText, fontSize: 12),
-          ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: _shareOverviewImage,
-              icon: const Icon(Icons.image_outlined, size: 18),
-              label: const Text("전체 현황 이미지 공유"),
-              style: TextButton.styleFrom(
-                foregroundColor: tossBlue,
-                padding: EdgeInsets.zero,
+        ),
+      );
+      if (log != null && mounted) {
+        _openDetail(log, tab: 3, openExport: true);
+      }
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+      decoration: BoxDecoration(
+        color: tossBlue.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.summarize_rounded, color: tossBlue, size: 18),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              "이번 주 보고",
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
+                color: tossBlue,
               ),
             ),
           ),
-          const SizedBox(height: 4),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final log in active)
-                ActionChip(
-                  label: Text(log['name']?.toString() ?? '이름 없음'),
-                  backgroundColor: pureWhite,
-                  side: BorderSide.none,
-                  onPressed: () => _openDetail(log, tab: 3, openExport: true),
-                ),
-            ],
+          TextButton(
+            onPressed: pick,
+            style: TextButton.styleFrom(
+              foregroundColor: tossBlue,
+              minimumSize: const Size(0, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+            ),
+            child: const Text(
+              "보고서 초안",
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          TextButton(
+            onPressed: _shareOverviewImage,
+            style: TextButton.styleFrom(
+              foregroundColor: tossBlue,
+              minimumSize: const Size(0, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+            ),
+            child: const Text(
+              "현황 이미지",
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
           ),
         ],
       ),
