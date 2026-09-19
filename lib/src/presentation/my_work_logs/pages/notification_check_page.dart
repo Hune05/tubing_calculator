@@ -15,7 +15,13 @@ const String _pkg = 'com.example.tubing_calculator';
 class NotificationCheckPage extends StatefulWidget {
   // 프로젝트별 알림 시각을 보여 주려면 프로젝트 목록을 넘긴다(없으면 목록 없이 상태만).
   final List<Map<String, dynamic>> logs;
-  const NotificationCheckPage({super.key, this.logs = const []});
+  // 프로젝트별 알림 시각을 바꿔 저장하고 알림을 다시 맞추는 함수(없으면 바꾸기 기능은 숨김).
+  final Future<void> Function(Map<String, dynamic> log)? onSaveProject;
+  const NotificationCheckPage({
+    super.key,
+    this.logs = const [],
+    this.onSaveProject,
+  });
 
   @override
   State<NotificationCheckPage> createState() => _NotificationCheckPageState();
@@ -25,6 +31,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     with WidgetsBindingObserver {
   bool? _allowed;
   ({bool daily, bool weekly})? _sched;
+  int? _dailyCount; // 폰에 실제 예약된 일보 알림 수(모르면 null)
   ({bool enabled, int minutes, bool weekly, int weeklyMinutes, bool autoPdf})?
   _pref;
   String? _msg;
@@ -58,14 +65,17 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
       ok = await areNotificationsAllowed();
     } catch (_) {}
     ({bool daily, bool weekly})? sched;
+    int? count;
     try {
       sched = await scheduledReminderStatus();
+      count = await scheduledDailyReminderCount();
     } catch (_) {}
     final pref = await loadReportReminder();
     if (mounted) {
       setState(() {
         _allowed = ok;
         _sched = sched;
+        _dailyCount = count;
         _pref = pref;
       });
     }
@@ -73,6 +83,86 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
 
   String _hm(int m) =>
       "${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}";
+
+  List<Map<String, dynamic>> get _activeLogs =>
+      widget.logs.where((l) => l['status'] != 'DONE').toList();
+
+  // 프로젝트 하나의 알림 시각을 고른다(취소하면 그대로, 기본 시각 쓰기도 가능).
+  Future<void> _changeProjectTime(Map<String, dynamic> l) async {
+    final pref = _pref;
+    if (pref == null || widget.onSaveProject == null) return;
+    final cur = (l['reportReminderMinutes'] as num?)?.toInt();
+    final t = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(
+        hour: (cur ?? pref.minutes) ~/ 60,
+        minute: (cur ?? pref.minutes) % 60,
+      ),
+    );
+    if (t == null) return;
+    l['reportReminderMinutes'] = t.hour * 60 + t.minute;
+    await widget.onSaveProject!(l);
+    await _refresh();
+  }
+
+  Future<void> _useDefaultTime(Map<String, dynamic> l) async {
+    l.remove('reportReminderMinutes');
+    await widget.onSaveProject!(l);
+    await _refresh();
+  }
+
+  // 필요한 예약 수와 실제 예약 수를 맞춰 보고, 다르면 다시 예약하는 버튼을 보여 준다.
+  List<Widget> _countCheck() {
+    final pref = _pref;
+    final actual = _dailyCount;
+    if (pref == null || !pref.enabled || actual == null) return const [];
+    final active = _activeLogs;
+    if (active.isEmpty) return const [];
+    final expected = planDailyReminders(
+      active,
+      pref.minutes,
+      DateTime.now(),
+    ).length;
+    final msg = reminderCountMismatch(expected, actual);
+    if (msg == null) {
+      return [
+        Padding(
+          padding: const EdgeInsets.only(left: 26, bottom: 6),
+          child: Text(
+            "프로젝트 ${active.length}곳 → 알림 $expected개, 예약과 일치해요.",
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.4,
+              color: Color(0xFF1B9E5A),
+            ),
+          ),
+        ),
+      ];
+    }
+    return [
+      Padding(
+        padding: const EdgeInsets.only(left: 26, bottom: 4),
+        child: Text(
+          msg,
+          style: const TextStyle(
+            fontSize: 12,
+            height: 1.4,
+            color: Color(0xFFE5484D),
+          ),
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.only(left: 26, bottom: 6),
+        child: OutlinedButton(
+          onPressed: () async {
+            await syncReportReminder(widget.logs);
+            await _refresh();
+          },
+          child: const Text("다시 예약"),
+        ),
+      ),
+    ];
+  }
 
   // 일보 알림이 켜져 있으면, 어느 시각에 어느 프로젝트 알림이 가는지 보여 준다.
   List<Widget> _projectTimeRows() {
@@ -82,6 +172,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     final plans = planDailyReminders(active, pref.minutes, DateTime.now());
     if (plans.isEmpty) return const [];
     return [
+      ..._countCheck(),
       for (final p in plans)
         Padding(
           padding: const EdgeInsets.only(left: 26, bottom: 4),
@@ -90,13 +181,50 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
             style: const TextStyle(fontSize: 12, height: 1.4, color: _text),
           ),
         ),
-      const Padding(
-        padding: EdgeInsets.only(left: 26, bottom: 6),
-        child: Text(
-          "프로젝트 화면 ⋮ 메뉴에서 프로젝트별 시각을 바꿀 수 있어요.",
-          style: TextStyle(fontSize: 11, height: 1.4, color: _sub),
+      if (widget.onSaveProject != null)
+        Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.only(left: 26),
+            childrenPadding: const EdgeInsets.only(left: 26),
+            dense: true,
+            title: const Text(
+              "프로젝트별 시각 바꾸기",
+              style: TextStyle(fontSize: 12, color: _teal),
+            ),
+            children: [
+              for (final l in _activeLogs)
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        "${l['name'] ?? '프로젝트'}  ${_hm((l['reportReminderMinutes'] as num?)?.toInt() ?? pref.minutes)}"
+                        "${l['reportReminderMinutes'] == null ? ' (기본)' : ''}",
+                        style: const TextStyle(fontSize: 12, color: _text),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => _changeProjectTime(l),
+                      child: const Text("시각"),
+                    ),
+                    if (l['reportReminderMinutes'] != null)
+                      TextButton(
+                        onPressed: () => _useDefaultTime(l),
+                        child: const Text("기본"),
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        )
+      else
+        const Padding(
+          padding: EdgeInsets.only(left: 26, bottom: 6),
+          child: Text(
+            "프로젝트 화면 ⋮ 메뉴에서 프로젝트별 시각을 바꿀 수 있어요.",
+            style: TextStyle(fontSize: 11, height: 1.4, color: _sub),
+          ),
         ),
-      ),
     ];
   }
 

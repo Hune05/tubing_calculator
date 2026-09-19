@@ -397,6 +397,15 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             ),
           ),
         ),
+        if (!_isActive && openIssueCount(log) > 0)
+          Center(
+            child: TextButton.icon(
+              onPressed: _resolveAllOpenIssues,
+              icon: const Icon(Icons.task_alt_rounded, size: 18),
+              label: Text("남은 이슈 ${openIssueCount(log)}건 모두 처리 완료"),
+              style: TextButton.styleFrom(foregroundColor: tossSubText),
+            ),
+          ),
         if (!_isActive)
           Center(
             child: TextButton.icon(
@@ -2728,6 +2737,37 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
   }
 
   // 이 프로젝트만 다른 시각에 일보 알림을 받고 싶을 때(기본 시각은 ⋮ 메뉴의 알림 설정).
+  // 완료된 프로젝트에 남은 미해결 이슈를 한꺼번에 처리 완료로 정리한다.
+  Future<void> _resolveAllOpenIssues() async {
+    final n = openIssueCount(log);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("남은 이슈를 모두 처리 완료할까요?"),
+        content: Text(
+          "미해결 이슈 $n건을 '처리 완료'로 바꿔요. 처리 내용에는 '프로젝트 완료 시 일괄 처리'라고 남아요.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("취소"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("모두 처리 완료"),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final done = resolveOpenIssues(log);
+    widget.actions.save();
+    setState(() {});
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text("이슈 $done건을 처리 완료로 바꿨어요.")));
+  }
+
   Future<void> _editProjectReminder() async {
     final cur = (log['reportReminderMinutes'] as num?)?.toInt();
     final base = (await loadReportReminder()).minutes;

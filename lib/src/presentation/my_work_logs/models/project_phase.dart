@@ -133,6 +133,45 @@ int openIssueCount(Map<String, dynamic> log) =>
         .where((p) => p['is_completed'] != true)
         .length;
 
+// 남은 미해결 이슈를 모두 처리 완료로 바꾼다. 바꾼 개수를 돌려준다.
+int resolveOpenIssues(
+  Map<String, dynamic> log, {
+  DateTime? now,
+  String note = '프로젝트 완료 시 일괄 처리',
+}) {
+  var n = 0;
+  for (final p in (log['punch_lists'] as List? ?? [])) {
+    if (p is! Map || p['is_completed'] == true) continue;
+    p['is_completed'] = true;
+    p['resolved_at'] = now ?? DateTime.now();
+    if ((p['resolution_note']?.toString() ?? '').trim().isEmpty) {
+      p['resolution_note'] = note;
+    }
+    n++;
+  }
+  return n;
+}
+
+// 주간 보고 진행률 카드 정렬: 0=기본(그대로) 1=진행률 낮은 순 2=납기 임박순(납기 없는 곳은 뒤).
+List<Map<String, dynamic>> sortedForOverview(
+  List<Map<String, dynamic>> logs,
+  int mode,
+) {
+  final out = [...logs];
+  if (mode == 1) {
+    out.sort((a, b) => projectProgress(a).compareTo(projectProgress(b)));
+  } else if (mode == 2) {
+    out.sort((a, b) {
+      final da = projectDue(a), db = projectDue(b);
+      if (da == null && db == null) return 0;
+      if (da == null) return 1;
+      if (db == null) return -1;
+      return da.compareTo(db);
+    });
+  }
+  return out;
+}
+
 // 미해결 이슈가 남아 있는 프로젝트만 골라낸다(완료된 프로젝트 목록 필터용).
 List<Map<String, dynamic>> withOpenIssues(List<Map<String, dynamic>> logs) =>
     logs.where((l) => openIssueCount(l) > 0).toList();

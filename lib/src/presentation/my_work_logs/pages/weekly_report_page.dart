@@ -83,6 +83,8 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
   bool _photos = false;
   bool _split = false;
   DateTime? _asOf; // null = 오늘
+  int _overviewSort = 0; // 0=기본 1=진행률 낮은 순 2=납기 임박순
+  static const _overviewSortLabels = ['기본 순', '진행률 낮은 순', '납기 임박순'];
   // 접어 둔 "섹션|프로젝트" 키(프로젝트가 많을 때 화면을 짧게 보려고).
   final Set<String> _collapsed = {};
   late List<Map<String, dynamic>> _logs = widget.logs;
@@ -411,16 +413,35 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "이번 주 한눈에",
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 15,
-              color: _teal,
-            ),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  "이번 주 한눈에",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    color: _teal,
+                  ),
+                ),
+              ),
+              if (list.length > 1)
+                TextButton.icon(
+                  onPressed: () =>
+                      setState(() => _overviewSort = (_overviewSort + 1) % 3),
+                  icon: const Icon(Icons.sort_rounded, size: 16),
+                  label: Text(_overviewSortLabels[_overviewSort]),
+                  style: TextButton.styleFrom(
+                    foregroundColor: _sub,
+                    minimumSize: const Size(0, 30),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(height: 10),
-          for (final l in list) ...[
+          const SizedBox(height: 6),
+          for (final l in sortedForOverview(list, _overviewSort)) ...[
             Builder(
               builder: (_) {
                 final p = projectProgress(l);

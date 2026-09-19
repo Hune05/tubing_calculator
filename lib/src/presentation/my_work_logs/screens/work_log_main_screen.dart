@@ -1733,7 +1733,13 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                 Navigator.push(
                   context,
                   WorkRoute(
-                    builder: (_) => NotificationCheckPage(logs: _workLogs),
+                    builder: (_) => NotificationCheckPage(
+                      logs: _workLogs,
+                      onSaveProject: (log) async {
+                        await _repo.upsertProject(log);
+                        await syncReportReminder(_workLogs);
+                      },
+                    ),
                   ),
                 );
               }

@@ -1362,6 +1362,29 @@ Future<void> _syncWeeklyReminder(bool on, int minutes, bool autoPdf) async {
 }
 
 // 알림 점검용: 일보/주간 보고 알림이 실제로 예약돼 있는지(폰이 알고 있는지) 읽는다.
+// 폰에 예약된 일보 알림 개수(프로젝트별 시각 묶음 수와 비교하려는 값).
+Future<int> scheduledDailyReminderCount() async {
+  final pending = await flutterLocalNotificationsPlugin
+      .pendingNotificationRequests();
+  return pending
+      .where(
+        (e) =>
+            e.id == _kReminderId ||
+            (e.id >= _kDailyBaseId && e.id < _kDailyBaseId + _kMaxDailyGroups),
+      )
+      .length;
+}
+
+// 필요한 예약 수와 실제 예약 수가 다르면 안내 문구, 맞으면 null.
+String? reminderCountMismatch(int expected, int actual) {
+  if (expected == actual) return null;
+  if (actual == 0) return '일보 알림 $expected개가 필요한데 예약이 하나도 없어요.';
+  if (actual < expected) {
+    return '일보 알림 $expected개가 필요한데 $actual개만 예약돼 있어요.';
+  }
+  return '일보 알림이 필요한 $expected개보다 많은 $actual개 예약돼 있어요.';
+}
+
 Future<({bool daily, bool weekly})> scheduledReminderStatus() async {
   final pending = await flutterLocalNotificationsPlugin
       .pendingNotificationRequests();
