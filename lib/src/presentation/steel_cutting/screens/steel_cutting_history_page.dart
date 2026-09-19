@@ -10,7 +10,7 @@ const List<String> _kWeekdaysKo = ['월', '화', '수', '목', '금', '토', '�
 // 🚀 [형강 컷팅 기록 신규] 튜브 컷팅의 "컷팅 기록" 화면(cutting_history_page.dart)과
 // 같은 형식(날짜별로 스와이프해서 넘겨보는 하루 단위 화면)을 그대로
 // 따랐다. 다만 형강은 "완료" 시점의 절단 세션이 아니라, 항목을
-// 추가/수정/삭제/복제할 때마다 자동으로 쌓이는 변경 이력이라 - 개별
+// 추가/수정/삭제/복제할 때마다 자동으로 쌓이는 변경 기록이라 - 개별
 // 기록을 지우는 기능은 없다(로그를 사후에 편집하면 이력으로서의
 // 의미가 없어지므로).
 class SteelCuttingHistoryPage extends StatefulWidget {
@@ -83,7 +83,7 @@ class _SteelCuttingHistoryPageState extends State<SteelCuttingHistoryPage> {
         scrolledUnderElevation: 0,
         iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
         title: Text(
-          "변경 이력 · ${widget.project.name}",
+          "변경 기록 · ${widget.project.name}",
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             color: CuttingColors.textPrimary,
@@ -126,7 +126,7 @@ class _SteelCuttingHistoryPageState extends State<SteelCuttingHistoryPage> {
                     Icon(Icons.history_rounded, size: 48, color: Colors.grey),
                     SizedBox(height: 16),
                     Text(
-                      "아직 변경 이력이 없습니다.",
+                      "아직 변경 기록이 없습니다.",
                       style: TextStyle(
                         color: CuttingColors.textSecondary,
                         fontSize: 15,

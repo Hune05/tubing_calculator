@@ -140,7 +140,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
     if (!mounted) return;
     final when = prev.exportedAt == null
         ? ''
-        : '\n(백업 시각: ${prev.exportedAt!.year}.${prev.exportedAt!.month}.${prev.exportedAt!.day})';
+        : '\n(백업 시간: ${prev.exportedAt!.year}.${prev.exportedAt!.month}.${prev.exportedAt!.day})';
     final go = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -267,7 +267,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
     );
     if (ok != true) return;
     final dir = await getTemporaryDirectory();
-    // 방금 만든 파일까지 지우려고 기준 시각을 1초 뒤로 잡는다.
+    // 방금 만든 파일까지 지우려고 기준 시간을 1초 뒤로 잡는다.
     final n = await runPdfCleanup(
       dir,
       maxAge: Duration.zero,

@@ -66,7 +66,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   final WorkProjectRepository _repo = WorkProjectRepository();
   List<Map<String, dynamic>> _workLogs = [];
   bool _isLoading = true;
-  // 🚀 [프로젝트 목록 정렬] due=납기 임박순(납기 없는 건 뒤로), recent=최근 생성순,
+  // 🚀 [프로젝트 목록 정렬] due=납기 빠른 순(납기 없는 건 뒤로), recent=최근 생성순,
   // progress=진행률 낮은순(뒤처진 프로젝트 먼저)
   String _sortMode = 'due';
   // 🚀 [추가] 완료 처리된 프로젝트는 기본적으로 목록/대시보드에서 숨기고
@@ -290,7 +290,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 enabled: weekly,
-                title: const Text("주간 알림 시각(금요일)"),
+                title: const Text("주간 알림 시간(금요일)"),
                 trailing: Text(
                   hm(weeklyMinutes),
                   style: const TextStyle(fontWeight: FontWeight.w800),
@@ -313,7 +313,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 enabled: enabled,
-                title: const Text("알림 시각"),
+                title: const Text("알림 시간"),
                 trailing: Text(
                   keepWords(
                     "${(minutes ~/ 60).toString().padLeft(2, '0')}:${(minutes % 60).toString().padLeft(2, '0')}",
@@ -428,7 +428,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(keepWords("수정하려면 확정을 풀어야 하고, 사유가 이력으로 남습니다.")),
+              Text(keepWords("수정하려면 확정을 풀어야 하고, 사유가 기록으로 남습니다.")),
               const SizedBox(height: 10),
               TextField(
                 controller: reasonCtrl,
@@ -516,7 +516,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       final loc = p['location']?.toString();
       if (loc != null &&
           loc.isNotEmpty &&
-          loc != '위치 미상' &&
+          loc != '위치 모름' &&
           !recentLocations.contains(loc)) {
         recentLocations.add(loc);
       }
@@ -656,7 +656,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                 TextButton.icon(
                   onPressed: () => setState(() => _selectProjects = true),
                   icon: const Icon(Icons.checklist_rounded, size: 18),
-                  label: const Text("골라서 통합 보고서"),
+                  label: const Text("선택해서 통합 보고서"),
                   style: TextButton.styleFrom(foregroundColor: tossSubText),
                 )
               else ...[
@@ -1140,7 +1140,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           text = "사진 $_localPhotos장이 아직 올라가지 않았습니다. 네트워크를 확인해 주십시오.";
           warn = true;
         } else {
-          text = "변경사항을 서버에 동기화하는 중입니다. 오프라인이면 연결될 때 자동으로 올라갑니다.";
+          text = "변경사항을 서버에 저장하는 중입니다. 오프라인이면 연결될 때 자동으로 올라갑니다.";
         }
         final color = warn ? const Color(0xFFC77700) : tossBlue;
         return Container(
@@ -1215,7 +1215,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   bool _showGuide = false;
 
   bool _showNotifHint = false;
-  String? _reminderProblem; // 알림 예약이 어긋났을 때의 안내 문구
+  String? _reminderProblem; // 알림 예약이 안 맞을 때의 안내 문구
   bool _problemPreview = false; // 점검 화면에서 "미리 보기"로 띄운 카드인지
 
   Future<void> _loadGuideFlag() async {
@@ -1545,7 +1545,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  keepWords("오늘 일지 미작성 ${missingReports.length}건"),
+                  keepWords("오늘 일지 안 쓴 것 ${missingReports.length}건"),
                   style: const TextStyle(
                     color: tossSubText,
                     fontSize: 12,
@@ -1850,7 +1850,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                       : (_showCompleted ? _doneLogs : _activeLogs),
                 );
                 const sortLabels = {
-                  'due': '납기 임박순',
+                  'due': '납기 빠른 순',
                   'progress': '진행률 낮은순',
                   'recent': '최근 등록순',
                   'stale': '일보 오래된 순',

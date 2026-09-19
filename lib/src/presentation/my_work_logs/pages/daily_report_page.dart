@@ -925,7 +925,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
         ),
         child: Text(
           // 위치가 있으면 함께 보여줘서 같은 내용의 이슈도 구분되게 한다.
-          "${(issue['location']?.toString() ?? '').isEmpty || issue['location'] == '위치 미상' ? '' : '${issue['location']} · '}${issue['content'] ?? '이슈'}",
+          "${(issue['location']?.toString() ?? '').isEmpty || issue['location'] == '위치 모름' ? '' : '${issue['location']} · '}${issue['content'] ?? '이슈'}",
           style: TextStyle(
             color: selected ? pureWhite : tossSubText,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
@@ -1994,7 +1994,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                 ],
               ),
             _more(
-              title: "도면 반영 요청",
+              title: "도면 수정 요청",
               icon: Icons.draw_outlined,
               summary: _isAsBuilt ? _asBuiltCtrl.text.trim() : "",
               filled: _isAsBuilt,
@@ -2003,7 +2003,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                   children: [
                     Expanded(
                       child: Text(
-                        keepWords("실제 시공이 도면과 달라 반영이 필요합니다"),
+                        keepWords("실제 시공이 도면과 달라 수정이 필요합니다"),
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,

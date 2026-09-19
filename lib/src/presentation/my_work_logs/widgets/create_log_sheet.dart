@@ -27,10 +27,10 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _revController = TextEditingController();
   String? _workType;
-  int? _remindMinutes; // null이면 기본 시각을 쓴다
+  int? _remindMinutes; // null이면 기본 시간을 쓴다
 
   Future<void> _pickRemindTime() async {
-    // 시각 창을 닫은 뒤 이름 입력칸으로 포커스가 돌아와 키보드가 다시 뜨지 않게 미리 내려 둔다.
+    // 시간 창을 닫은 뒤 이름 입력칸으로 포커스가 돌아와 키보드가 다시 뜨지 않게 미리 내려 둔다.
     FocusManager.instance.primaryFocus?.unfocus();
     final t = await showTimePicker(
       context: context,
@@ -56,7 +56,7 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
       "date":
           "${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')} ~ 진행중",
       "revision": _revController.text.trim().isEmpty
-          ? "기준 도면 미상"
+          ? "기준 도면 없음"
           : _revController.text.trim(),
       if (_workType != null) "workType": _workType,
       if (_remindMinutes != null) "reportReminderMinutes": _remindMinutes,
@@ -190,7 +190,7 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
               ),
               const SizedBox(height: 16),
               const Text(
-                "일보 알림 시각 (선택)",
+                "일보 알림 시간 (선택)",
                 style: TextStyle(color: tossSubText, fontSize: 13),
               ),
               const SizedBox(height: 8),
@@ -200,7 +200,7 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
                     avatar: const Icon(Icons.alarm_rounded, size: 16),
                     label: Text(
                       _remindMinutes == null
-                          ? "기본 시각 사용"
+                          ? "기본 시간 사용"
                           : _hm(_remindMinutes!),
                     ),
                     onPressed: _pickRemindTime,

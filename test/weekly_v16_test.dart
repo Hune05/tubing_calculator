@@ -19,7 +19,7 @@ Map<String, dynamic> proj(
     'id': name,
     'name': name,
     'date': '2026-09-19 ~ 진행중',
-    'revision': '기준 도면 미상',
+    'revision': '기준 도면 없음',
     'status': status,
     'phases': [],
     'schedules': [],
@@ -86,7 +86,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('진행률 낮은 순'));
       await tester.pumpAndSettle();
-      expect(find.text('납기 임박순'), findsOneWidget);
+      expect(find.text('납기 빠른 순'), findsOneWidget);
       expect(
         (await SharedPreferences.getInstance()).getInt('weekly_overview_sort'),
         2,
@@ -94,7 +94,7 @@ void main() {
       // 화면을 닫았다 다시 연다.
       await pump(tester, const SizedBox());
       await openPage(tester);
-      expect(find.text('납기 임박순'), findsOneWidget);
+      expect(find.text('납기 빠른 순'), findsOneWidget);
     });
 
     testWidgets('an out-of-range saved value falls back to the default', (
@@ -193,8 +193,8 @@ void main() {
     testWidgets('picking a time stores it; 기본으로 clears it', (tester) async {
       final r = await runSheet(tester, () async {
         await tester.enterText(find.byType(TextField).first, '새현장');
-        expect(find.text('기본 시각 사용'), findsOneWidget);
-        await tester.tap(find.text('기본 시각 사용'));
+        expect(find.text('기본 시간 사용'), findsOneWidget);
+        await tester.tap(find.text('기본 시간 사용'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('OK')); // 시간 선택창 기본값(18:00) 확정
         await tester.pumpAndSettle();
@@ -206,13 +206,13 @@ void main() {
 
       final cleared = await runSheet(tester, () async {
         await tester.enterText(find.byType(TextField).first, '새현장');
-        await tester.tap(find.text('기본 시각 사용'));
+        await tester.tap(find.text('기본 시간 사용'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('OK'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('기본으로'));
         await tester.pumpAndSettle();
-        expect(find.text('기본 시각 사용'), findsOneWidget);
+        expect(find.text('기본 시간 사용'), findsOneWidget);
         await tester.tap(find.text('만들기'));
         await tester.pumpAndSettle();
       });
@@ -222,11 +222,11 @@ void main() {
     testWidgets('canceling the time picker keeps the default', (tester) async {
       final r = await runSheet(tester, () async {
         await tester.enterText(find.byType(TextField).first, '새현장');
-        await tester.tap(find.text('기본 시각 사용'));
+        await tester.tap(find.text('기본 시간 사용'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Cancel'));
         await tester.pumpAndSettle();
-        expect(find.text('기본 시각 사용'), findsOneWidget);
+        expect(find.text('기본 시간 사용'), findsOneWidget);
         await tester.tap(find.text('만들기'));
         await tester.pumpAndSettle();
       });
@@ -260,7 +260,7 @@ void _focusTest() {
     await tester.tap(find.byType(TextField).first); // 이름 입력칸에 포커스
     await tester.pump();
     expect(FocusManager.instance.primaryFocus?.hasFocus, true);
-    await tester.tap(find.text('기본 시각 사용'));
+    await tester.tap(find.text('기본 시간 사용'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();

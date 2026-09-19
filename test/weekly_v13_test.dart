@@ -113,7 +113,7 @@ void main() {
       );
       expect(bad.length, 1);
       expect(bad.single.minutes, 600);
-      // 시각이 9종류면 8개로 줄이고 넘친 프로젝트는 마지막 묶음에 합친다.
+      // 시간이 9종류면 8개로 줄이고 넘친 프로젝트는 마지막 묶음에 합친다.
       final many = planDailyReminders(
         [
           for (var i = 0; i < 9; i++)

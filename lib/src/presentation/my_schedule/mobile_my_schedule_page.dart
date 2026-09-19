@@ -240,7 +240,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     return DateTime.now();
   }
 
-  // 🚀 [1번 강화] 완료 안 된 채로 시각(또는 종일이면 그 날 자정)이 이미
+  // 🚀 [1번 강화] 완료 안 된 채로 시간(또는 종일이면 그 날 자정)이 이미
   // 지난 일정 - 놓친 일정을 놓치지 않고 알아채도록 목록에서 강조한다.
   bool _isOverdue(_AgendaItem item) {
     if (item.isCompleted) return false;
@@ -502,8 +502,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
 
   // 🚀 [오늘 일정 알림] 저장할 때마다 예전 예약은 취소하고 다시 잡는다
   // (수정/반복설정 변경 시 중복 알림이 남지 않게). 반복 일정은
-  // matchDateTimeComponents로 "매주 이 요일 이 시각"/"매월 이 날짜 이
-  // 시각"에 계속 울리도록 한다.
+  // matchDateTimeComponents로 "매주 이 요일 이 시간"/"매월 이 날짜 이
+  // 시간"에 계속 울리도록 한다.
   Future<void> _scheduleOrCancelReminder(
     String docId,
     Map<String, dynamic> data,

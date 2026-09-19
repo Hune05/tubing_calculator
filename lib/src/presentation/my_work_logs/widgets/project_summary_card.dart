@@ -229,7 +229,7 @@ class ProjectSummaryCard extends StatelessWidget {
                           if (cur == null && issues == 0)
                             _chip(
                               Icons.check_circle_outline_rounded,
-                              phasesOf(log).isEmpty ? "단계 미설정" : "모든 단계 완료",
+                              phasesOf(log).isEmpty ? "단계 없음" : "모든 단계 완료",
                               _tossSub,
                             ),
                         ],

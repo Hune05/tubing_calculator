@@ -293,7 +293,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
                     "발생 일시",
                     occurredAt != null ? _formatDateTime(occurredAt) : "기록 없음",
                   ),
-                  _infoRow("위치", _punch['location'] ?? '위치 미상'),
+                  _infoRow("위치", _punch['location'] ?? '위치 모름'),
                   _infoRow("결함 유형", _punch['defect_type'] ?? '-'),
                   _infoRow("우선순위", _priorityCadenceLabel(_punch['priority'])),
                   const SizedBox(height: 12),

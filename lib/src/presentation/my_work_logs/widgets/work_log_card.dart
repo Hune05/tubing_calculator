@@ -694,7 +694,7 @@ class PunchListSectionState extends State<PunchListSection> {
               context: context,
               // 위치를 제목에 보여줘서 어느 곳 이슈인지 목록에서 바로 알 수 있게 한다.
               title:
-                  "${(punch['location']?.toString() ?? '').isEmpty || punch['location'] == '위치 미상' ? '' : '${punch['location']} · '}${isPunchDone ? '처리 완료' : (issueOverdueDays(punch) > 0 ? '기한 초과 ${issueOverdueDays(punch)}일' : '확인 요망')}${issueWeeklyExcluded(punch) ? ' · 주간 제외' : ''}",
+                  "${(punch['location']?.toString() ?? '').isEmpty || punch['location'] == '위치 모름' ? '' : '${punch['location']} · '}${isPunchDone ? '처리 완료' : (issueOverdueDays(punch) > 0 ? '기한 초과 ${issueOverdueDays(punch)}일' : '확인 요망')}${issueWeeklyExcluded(punch) ? ' · 주간 제외' : ''}",
               content: punch['priority'] == '긴급'
                   ? "[긴급] ${punch['content'] ?? ''}"
                   : (punch['content'] ?? '').toString(),

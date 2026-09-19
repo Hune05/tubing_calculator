@@ -30,7 +30,7 @@ class _MobileScheduleLogPageState extends State<MobileScheduleLogPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         title: const Text(
-          "일정 및 상태 변경 이력",
+          "일정 및 상태 변경 기록",
           style: TextStyle(
             color: slate900,
             fontWeight: FontWeight.w800,
@@ -62,7 +62,7 @@ class _MobileScheduleLogPageState extends State<MobileScheduleLogPage> {
                   }
 
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return _buildEmptyState("아직 변경 이력이 없습니다.");
+                    return _buildEmptyState("아직 변경 기록이 없습니다.");
                   }
 
                   // 검색 및 필터 적용

@@ -80,7 +80,7 @@ void main() {
       final ps = log['punch_lists'] as List;
       expect(ps[0]['is_completed'], true);
       expect(ps[0]['resolved_at'], now);
-      expect(ps[0]['resolution_note'], '프로젝트 완료 시 일괄 처리');
+      expect(ps[0]['resolution_note'], '프로젝트 완료 시 한꺼번에 처리');
       expect(ps[1]['resolution_note'], '메모'); // 기존 메모는 유지
       expect(ps[2]['resolved_at'], DateTime(2026, 9, 1)); // 이미 완료된 것은 그대로
       expect(ps[2]['resolution_note'], '원래처리');
@@ -231,7 +231,7 @@ void main() {
       ]);
     });
 
-    testWidgets('button cycles 기본 → 진행률 낮은 순 → 납기 임박순', (tester) async {
+    testWidgets('button cycles 기본 → 진행률 낮은 순 → 납기 빠른 순', (tester) async {
       await pump(
         tester,
         WeeklyReportPage(
@@ -263,8 +263,8 @@ void main() {
       expect(y('낮음') < y('높음'), true);
       await tester.tap(find.text('진행률 낮은 순'));
       await tester.pumpAndSettle();
-      expect(find.text('납기 임박순'), findsOneWidget);
-      await tester.tap(find.text('납기 임박순'));
+      expect(find.text('납기 빠른 순'), findsOneWidget);
+      await tester.tap(find.text('납기 빠른 순'));
       await tester.pumpAndSettle();
       expect(find.text('기본 순'), findsOneWidget); // 한 바퀴 돌아옴
     });
@@ -296,12 +296,12 @@ void main() {
           onSaveProject: (l) async => saved.add(l['name'] as String),
         ),
       );
-      expect(find.text('프로젝트별 시각 바꾸기'), findsOneWidget);
-      await tester.tap(find.text('프로젝트별 시각 바꾸기'));
+      expect(find.text('프로젝트별 시간 바꾸기'), findsOneWidget);
+      await tester.tap(find.text('프로젝트별 시간 바꾸기'));
       await tester.pumpAndSettle();
       expect(find.textContaining('A현장  21:00'), findsOneWidget);
       expect(find.textContaining('B현장  18:00 (기본)'), findsOneWidget);
-      // A현장에만 "기본" 버튼이 있다(따로 정한 시각이 있으니까).
+      // A현장에만 "기본" 버튼이 있다(따로 정한 시간이 있으니까).
       expect(find.text('기본'), findsOneWidget);
       await tester.tap(find.text('기본'));
       await tester.pumpAndSettle();
@@ -317,7 +317,7 @@ void main() {
         tester,
         NotificationCheckPage(logs: [proj('A현장', reportToday: false)]),
       );
-      expect(find.text('프로젝트별 시각 바꾸기'), findsNothing);
+      expect(find.text('프로젝트별 시간 바꾸기'), findsNothing);
       expect(findTextContaining('프로젝트 화면 ⋮ 메뉴'), findsOneWidget);
     });
   });

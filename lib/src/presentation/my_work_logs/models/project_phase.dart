@@ -137,7 +137,7 @@ int openIssueCount(Map<String, dynamic> log) =>
 int resolveOpenIssues(
   Map<String, dynamic> log, {
   DateTime? now,
-  String note = '프로젝트 완료 시 일괄 처리',
+  String note = '프로젝트 완료 시 한꺼번에 처리',
 }) {
   var n = 0;
   for (final p in (log['punch_lists'] as List? ?? [])) {
@@ -152,7 +152,7 @@ int resolveOpenIssues(
   return n;
 }
 
-// 주간 보고 진행률 카드 정렬: 0=기본(그대로) 1=진행률 낮은 순 2=납기 임박순(납기 없는 곳은 뒤).
+// 주간 보고 진행률 카드 정렬: 0=기본(그대로) 1=진행률 낮은 순 2=납기 빠른 순(납기 없는 곳은 뒤).
 List<Map<String, dynamic>> sortedForOverview(
   List<Map<String, dynamic>> logs,
   int mode,

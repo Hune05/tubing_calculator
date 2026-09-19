@@ -159,12 +159,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('프로젝트 결과 정리'), findsWidgets);
       await tester.enterText(find.byType(TextField).first, '자재 입고 지연');
-      await tester.enterText(find.byType(TextField).last, '착수 전에 발주');
+      await tester.enterText(find.byType(TextField).last, '시작하기 전에 발주');
       await tester.tap(find.text('저장'));
       await tester.pumpAndSettle();
       final r = log['retro'] as Map;
       expect(r['cause'], '자재 입고 지연');
-      expect(r['lesson'], '착수 전에 발주');
+      expect(r['lesson'], '시작하기 전에 발주');
       // 저장 뒤에 마무리 보고서 질문이 이어진다.
       expect(findText('마무리 보고서를 만드시겠습니까?'), findsOneWidget);
     });

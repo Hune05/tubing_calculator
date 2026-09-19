@@ -123,7 +123,7 @@ void main() {
     // 3일 기본값이면 새 파일은 남는다.
     expect(await runPdfCleanup(dir), 0);
     expect(fresh.existsSync(), true);
-    // 지금 정리: 기준 시각을 1초 뒤로 잡아 방금 만든 파일도 지운다.
+    // 지금 정리: 기준 시간을 1초 뒤로 잡아 방금 만든 파일도 지운다.
     final n = await runPdfCleanup(
       dir,
       maxAge: Duration.zero,

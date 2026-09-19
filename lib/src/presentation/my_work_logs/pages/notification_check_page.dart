@@ -17,9 +17,9 @@ const String _pkg = 'com.example.tubing_calculator';
 const String kPreviewProblem = 'preview_problem';
 
 class NotificationCheckPage extends StatefulWidget {
-  // 프로젝트별 알림 시각을 보여 주려면 프로젝트 목록을 넘긴다(없으면 목록 없이 상태만).
+  // 프로젝트별 알림 시간을 보여 주려면 프로젝트 목록을 넘긴다(없으면 목록 없이 상태만).
   final List<Map<String, dynamic>> logs;
-  // 프로젝트별 알림 시각을 바꿔 저장하고 알림을 다시 맞추는 함수(없으면 바꾸기 기능은 숨김).
+  // 프로젝트별 알림 시간을 바꿔 저장하고 알림을 다시 맞추는 함수(없으면 바꾸기 기능은 숨김).
   final Future<void> Function(Map<String, dynamic> log)? onSaveProject;
   // 폰에 예약된 알림 아이디를 읽는 함수(테스트에서 바꿔 끼운다). 기본은 실제 폰 조회.
   final Future<Set<int>> Function()? pendingIdsLoader;
@@ -115,7 +115,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
   List<Map<String, dynamic>> get _activeLogs =>
       widget.logs.where((l) => l['status'] != 'DONE').toList();
 
-  // 프로젝트 하나의 알림 시각을 고른다(취소하면 그대로, 기본 시각 쓰기도 가능).
+  // 프로젝트 하나의 알림 시간을 고른다(취소하면 그대로, 기본 시간 쓰기도 가능).
   Future<void> _changeProjectTime(Map<String, dynamic> l) async {
     final pref = _pref;
     if (pref == null || widget.onSaveProject == null) return;
@@ -157,7 +157,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
         Padding(
           padding: const EdgeInsets.only(left: 26, bottom: 6),
           child: Text(
-            keepWords("프로젝트 ${active.length}곳 → 알림 $expected개, 예약과 일치합니다."),
+            keepWords("프로젝트 ${active.length}곳 → 알림 $expected개, 예약과 같습니다."),
             style: const TextStyle(
               fontSize: 12,
               height: 1.4,
@@ -250,7 +250,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     await _refresh();
   }
 
-  // 일보 알림이 켜져 있으면, 어느 시각에 어느 프로젝트 알림이 가는지 보여 준다.
+  // 일보 알림이 켜져 있으면, 어느 시간에 어느 프로젝트 알림이 가는지 보여 준다.
   List<Widget> _projectTimeRows() {
     final pref = _pref;
     if (pref == null || !pref.enabled || widget.logs.isEmpty) return const [];
@@ -282,7 +282,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
             childrenPadding: const EdgeInsets.only(left: 26),
             dense: true,
             title: const Text(
-              "프로젝트별 시각 바꾸기",
+              "프로젝트별 시간 바꾸기",
               style: TextStyle(fontSize: 12, color: _teal),
             ),
             children: [
@@ -298,7 +298,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
                     ),
                     TextButton(
                       onPressed: () => _changeProjectTime(l),
-                      child: const Text("시각"),
+                      child: const Text("시간"),
                     ),
                     if (l['reportReminderMinutes'] != null)
                       TextButton(
@@ -314,7 +314,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
         Padding(
           padding: EdgeInsets.only(left: 26, bottom: 6),
           child: Text(
-            keepWords("프로젝트 화면 ⋮ 메뉴에서 프로젝트별 시각을 바꿀 수 있습니다."),
+            keepWords("프로젝트 화면 ⋮ 메뉴에서 프로젝트별 시간을 바꿀 수 있습니다."),
             style: TextStyle(fontSize: 11, height: 1.4, color: _sub),
           ),
         ),
@@ -550,7 +550,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
             _title("4. 예약 알림이 안 올 때 (배터리 제한)"),
             Text(
               keepWords(
-                "일보·주간 보고 알림은 정해진 시각에 폰이 앱을 깨워서 보냅니다. 삼성 등 일부 폰은 "
+                "일보·주간 보고 알림은 정해진 시간에 폰이 앱을 깨워서 보냅니다. 삼성 등 일부 폰은 "
                 "절전 기능이 앱을 재워서 예약 알림이 오지 않을 수 있습니다.\n\n"
                 "• 설정 → 배터리 → 백그라운드 사용 제한에서 이 앱을 빼 주십시오.\n"
                 "• 앱 정보 → 배터리 → '제한 없음'(또는 최적화 안 함)으로 바꿔 주십시오.",
@@ -577,7 +577,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
             _title("5. 안내 카드 미리 보기"),
             Text(
               keepWords(
-                "알림 예약이 어긋났을 때 내 프로젝트 화면 위에 뜨는 안내 카드가 어떻게 보이는지 확인합니다. 실제 문제가 있는 것은 아닙니다.",
+                "알림 예약이 안 맞을 때 내 프로젝트 화면 위에 뜨는 안내 카드가 어떻게 보이는지 확인합니다. 실제 문제가 있는 것은 아닙니다.",
               ),
               style: const TextStyle(fontSize: 13, height: 1.4, color: _sub),
             ),

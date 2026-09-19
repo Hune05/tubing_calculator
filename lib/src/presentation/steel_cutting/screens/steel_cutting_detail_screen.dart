@@ -116,7 +116,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   }
 
   // 🚀 [형강 컷팅 기록 신규] 항목을 추가/수정/삭제/복제할 때마다 자동으로
-  // 남기는 변경 이력. 되돌리기(실행 취소)로 다시 사라지는 항목까지
+  // 남기는 변경 기록. 되돌리기(실행 취소)로 다시 사라지는 항목까지
   // 기록하면 노이즈만 늘어나므로, 사용자가 의도적으로 한 정방향 동작만
   // 남기고 실행 취소 자체는 별도로 기록하지 않는다.
   Future<void> _logChange(String action, SteelCutItem item) async {
@@ -454,7 +454,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         ),
         actions: [
           IconButton(
-            tooltip: "변경 이력",
+            tooltip: "변경 기록",
             icon: const Icon(Icons.history_rounded),
             onPressed: () {
               Navigator.push(

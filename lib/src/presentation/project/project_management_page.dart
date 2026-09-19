@@ -599,7 +599,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                             .toString(),
                         "created_at": DateTime.now(),
                         // 🚀 처리 완료 전까지 우선순위별 주기로 알림을
-                        // 보내기 위한 발송 시각 기록 (모바일 이슈 등록과 동일)
+                        // 보내기 위한 발송 시간 기록 (모바일 이슈 등록과 동일)
                         "lastPunchReminderAt": null,
                         "linkedScheduleId": null,
                         "content": textValue.isEmpty
@@ -1317,7 +1317,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                             "date":
                                 "${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')} ~ 진행중",
                             "revision": revController.text.trim().isEmpty
-                                ? "기준 도면 미상"
+                                ? "기준 도면 없음"
                                 : revController.text.trim(),
                             "status": "ONGOING",
                             "progress": 0.0,

@@ -484,7 +484,7 @@ ReportDoc buildIssueReportDoc(
       ]),
       ReportSection(
         onlyOpen ? '미해결 이슈 (${list.length})' : '이슈 목록 (${list.length})',
-        lines.isEmpty ? ['해당하는 이슈가 없습니다.'] : lines,
+        lines.isEmpty ? ['맞는 이슈가 없습니다.'] : lines,
       ),
     ],
     logoB64: headerOverride(log, 'logoB64'),
@@ -763,7 +763,7 @@ Future<int> cleanupOldPdfs(
   return removed;
 }
 
-// 정리를 실행하고 결과(마지막 실행 시각·지운 개수·누적 개수)를 기록한다.
+// 정리를 실행하고 결과(마지막 실행 시간·지운 개수·누적 개수)를 기록한다.
 Future<int> runPdfCleanup(
   Directory dir, {
   DateTime? now,
@@ -1281,13 +1281,13 @@ String dailyReminderBody(int missingCount, {String? name}) {
   return '${who}오늘 작업 일보 아직 작성하지 않았습니다. 눌러서 바로 남겨 두십시오.';
 }
 
-// 일보 알림 예약 계획 한 건: 이 시각(분)에 울릴 알림 하나.
+// 일보 알림 예약 계획 한 건: 이 시간(분)에 울릴 알림 하나.
 class DailyReminderPlan {
   final int minutes; // 하루 중 몇 분(0~1439)
   final int count; // 알림 문구에 쓸 미작성 프로젝트 수
-  final DateTime at; // 다음에 울릴 시각
-  final String? name; // 이 시각에 묶인 프로젝트가 하나뿐일 때 그 이름
-  final List<String> names; // 이 시각에 묶인 프로젝트 이름들
+  final DateTime at; // 다음에 울릴 시간
+  final String? name; // 이 시간에 묶인 프로젝트가 하나뿐일 때 그 이름
+  final List<String> names; // 이 시간에 묶인 프로젝트 이름들
   DailyReminderPlan(
     this.minutes,
     this.count,
@@ -1300,8 +1300,8 @@ class DailyReminderPlan {
 const int _kDailyBaseId = 918300; // 918300 ~ 918307을 일보 알림에 쓴다
 const int _kMaxDailyGroups = 8;
 
-// 프로젝트별 알림 시각(reportReminderMinutes, 없으면 기본 시각)으로 묶어 예약 계획을 만든다.
-// 시각이 8종류를 넘으면 넘치는 프로젝트는 마지막 묶음에 합친다(알림이 빠지지 않게).
+// 프로젝트별 알림 시간(reportReminderMinutes, 없으면 기본 시간)으로 묶어 예약 계획을 만든다.
+// 시간이 8종류를 넘으면 넘치는 프로젝트는 마지막 묶음에 합친다(알림이 빠지지 않게).
 List<DailyReminderPlan> planDailyReminders(
   List<Map<String, dynamic>> active,
   int defaultMinutes,
@@ -1329,7 +1329,7 @@ List<DailyReminderPlan> planDailyReminders(
   final plans = <DailyReminderPlan>[];
   for (final m in keys) {
     final g = groups[m]!;
-    // 이 묶음에서 오늘 일보를 아직 안 쓴 곳. 전부 썼거나 시각이 지났으면 내일부터.
+    // 이 묶음에서 오늘 일보를 아직 안 쓴 곳. 전부 썼거나 시간이 지났으면 내일부터.
     final missing = projectsMissingReport(g, todayStr);
     var at = DateTime(now.year, now.month, now.day, m ~/ 60, m % 60);
     final skipToday = missing.isEmpty || !at.isAfter(now);
@@ -1417,7 +1417,7 @@ Future<void> _syncWeeklyReminder(bool on, int minutes, bool autoPdf) async {
       android: AndroidNotificationDetails(
         _kReminderChannel,
         '작업일보 알림',
-        channelDescription: '작업일보 작성 리마인더',
+        channelDescription: '작업일보 작성 알림',
         importance: Importance.high,
         priority: Priority.high,
       ),
@@ -1428,7 +1428,7 @@ Future<void> _syncWeeklyReminder(bool on, int minutes, bool autoPdf) async {
 }
 
 // 알림 점검용: 일보/주간 보고 알림이 실제로 예약돼 있는지(폰이 알고 있는지) 읽는다.
-// 폰에 예약된 일보 알림 개수(프로젝트별 시각 묶음 수와 비교하려는 값).
+// 폰에 예약된 일보 알림 개수(프로젝트별 시간 묶음 수와 비교하려는 값).
 Future<int> scheduledDailyReminderCount() async {
   final pending = await flutterLocalNotificationsPlugin
       .pendingNotificationRequests();
@@ -1502,7 +1502,7 @@ Future<void> showTestNotification() async {
   const channel = AndroidNotificationChannel(
     _kReminderChannel,
     '작업일보 알림',
-    description: '작업일보 작성 리마인더',
+    description: '작업일보 작성 알림',
     importance: Importance.high,
   );
   await flutterLocalNotificationsPlugin
@@ -1518,7 +1518,7 @@ Future<void> showTestNotification() async {
       android: AndroidNotificationDetails(
         _kReminderChannel,
         '작업일보 알림',
-        channelDescription: '작업일보 작성 리마인더',
+        channelDescription: '작업일보 작성 알림',
         importance: Importance.high,
         priority: Priority.high,
       ),
@@ -1526,7 +1526,7 @@ Future<void> showTestNotification() async {
   );
 }
 
-// 진행중 프로젝트가 있는데 오늘 일보가 아직 없으면 오늘 정해진 시각에, 이미
+// 진행중 프로젝트가 있는데 오늘 일보가 아직 없으면 오늘 정해진 시간에, 이미
 // 썼으면 내일부터 매일 알린다. 앱을 열 때/일보 저장 후에 다시 맞춘다.
 Future<void> syncReportReminder(List<Map<String, dynamic>> logs) async {
   try {
@@ -1545,13 +1545,13 @@ Future<void> syncReportReminder(List<Map<String, dynamic>> logs) async {
     );
     if (!pref.enabled || active.isEmpty) return;
 
-    // 프로젝트마다 알림 시각이 다를 수 있어, 같은 시각끼리 묶어 알림을 한 개씩 예약한다.
+    // 프로젝트마다 알림 시간이 다를 수 있어, 같은 시간끼리 묶어 알림을 한 개씩 예약한다.
     final plans = planDailyReminders(active, pref.minutes, DateTime.now());
 
     const channel = AndroidNotificationChannel(
       _kReminderChannel,
       '작업일보 알림',
-      description: '작업일보 작성 리마인더',
+      description: '작업일보 작성 알림',
       importance: Importance.high,
     );
     await flutterLocalNotificationsPlugin
@@ -1578,7 +1578,7 @@ Future<void> _scheduleDailyPlan(DailyReminderPlan plan, int index) async {
       android: AndroidNotificationDetails(
         _kReminderChannel,
         '작업일보 알림',
-        channelDescription: '작업일보 작성 리마인더',
+        channelDescription: '작업일보 작성 알림',
         importance: Importance.high,
         priority: Priority.high,
       ),
@@ -1605,7 +1605,7 @@ bool isReminderNotificationId(int id) =>
     id == _kWeeklyId ||
     (id >= _kDailyBaseId && id < _kDailyBaseId + 8);
 
-// 기록 한 줄은 "알림아이디|시각(ISO)". 같은 알림이 20시간 안에 또 보이면 새로 적지 않고,
+// 기록 한 줄은 "알림아이디|시간(ISO)". 같은 알림이 20시간 안에 또 보이면 새로 적지 않고,
 // 최근 10건만 남긴다.
 List<String> addSeenReminder(List<String> raw, int id, DateTime at) {
   for (final e in raw) {
@@ -1669,7 +1669,7 @@ Future<List<String>> loadSeenReminderLabels() async {
 
 // ── 예약 항목별 점검: 어긋난 것만 골라 다시 예약 ──
 
-// 일보 알림 한 건(같은 시각에 묶인 프로젝트들)과, 폰에 실제로 예약돼 있는지.
+// 일보 알림 한 건(같은 시간에 묶인 프로젝트들)과, 폰에 실제로 예약돼 있는지.
 class ReminderSlot {
   final int id; // 알림 아이디(폰에 예약될 때 쓰는 값)
   final DailyReminderPlan plan;

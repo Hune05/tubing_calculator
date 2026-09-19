@@ -15,7 +15,7 @@ const String kWorkProjectsCollection = 'my_projects';
 // Map 안에서 직접 List.insert/remove하는 부분)을 전부 다시 짜면
 // 위험이 너무 커지므로, 저장 방식만 이 저장소를 거치도록 바꿨다:
 // 프로젝트 하나 = Firestore 문서 하나(문서 ID는 기존에 쓰던
-// `id`(생성 시각 epoch millis 문자열)를 그대로 사용), 무언가 바뀌면
+// `id`(생성 시간 epoch millis 문자열)를 그대로 사용), 무언가 바뀌면
 // 그 프로젝트 문서 하나만 다시 쓴다 - 화면은 여전히 Map을 그대로
 // 주고받고, 저장 시점만 비동기(Firestore)로 바뀐 셈이다.
 class WorkProjectRepository {

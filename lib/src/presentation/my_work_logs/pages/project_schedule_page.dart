@@ -97,7 +97,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
     return list.toList();
   }
 
-  // null=전체, '__none__'=단계 미지정, 그 외=단계 id
+  // null=전체, '__none__'=단계 없음, 그 외=단계 id
   String? _phaseFilter;
 
   String? _phaseNameOf(Map<String, dynamic> item) {
@@ -342,7 +342,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                                 runSpacing: 8,
                                 children: [
                                   for (final p in [
-                                    {'id': null, 'name': '미지정'},
+                                    {'id': null, 'name': '지정 안 함'},
                                     ...widget.phases,
                                   ])
                                     ChoiceChip(
@@ -691,7 +691,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                             'isCompleted': existing?['isCompleted'] ?? false,
                             // 🚀 입고일을 아직 모르는 "자재 요청"이 "발주한
                             // 지 며칠째"를 알려줄 수 있도록 최초 등록
-                            // 시각을 남겨둔다 (수정해도 값은 유지).
+                            // 시간을 남겨둔다 (수정해도 값은 유지).
                             'requestedAt':
                                 existing?['requestedAt'] ?? DateTime.now(),
                             'changeHistory': changeHistory,
@@ -708,7 +708,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                             'inspectionResultAt':
                                 existing?['inspectionResultAt'],
                             // 🚀 시간/종류가 바뀔 수 있으니 저장할 때마다
-                            // 알림 발송 플래그를 초기화해서, 새 시각
+                            // 알림 발송 플래그를 초기화해서, 새 시간
                             // 기준으로 다시 알림이 잡히게 한다.
                             'reminderSent': false,
                             'lastOverdueReminderDate': null,
@@ -956,7 +956,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              keepWords("${item['title'] ?? item['type'] ?? ''} · 변경 이력"),
+              keepWords("${item['title'] ?? item['type'] ?? ''} · 변경 기록"),
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
@@ -1464,7 +1464,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                                   [
                                     {'id': null, 'name': '전 단계'},
                                     ...widget.phases,
-                                    {'id': '__none__', 'name': '단계 미지정'},
+                                    {'id': '__none__', 'name': '단계 없음'},
                                   ].map((p) {
                                     final bool selected =
                                         _phaseFilter == p['id']?.toString();

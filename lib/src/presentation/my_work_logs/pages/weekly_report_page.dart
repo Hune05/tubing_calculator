@@ -84,8 +84,8 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
   bool _photos = false;
   bool _split = false;
   DateTime? _asOf; // null = 오늘
-  int _overviewSort = 0; // 0=기본 1=진행률 낮은 순 2=납기 임박순
-  static const _overviewSortLabels = ['기본 순', '진행률 낮은 순', '납기 임박순'];
+  int _overviewSort = 0; // 0=기본 1=진행률 낮은 순 2=납기 빠른 순
+  static const _overviewSortLabels = ['기본 순', '진행률 낮은 순', '납기 빠른 순'];
   // 접어 둔 "섹션|프로젝트" 키(프로젝트가 많을 때 화면을 짧게 보려고).
   final Set<String> _collapsed = {};
   late List<Map<String, dynamic>> _logs = widget.logs;
@@ -167,7 +167,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
       initialDate: _asOf ?? now,
       firstDate: DateTime(now.year - 2),
       lastDate: DateTime(now.year + 1, 12, 31),
-      helpText: "기준일을 고르면 그 날이 속한 주가 '금주'가 됩니다",
+      helpText: "기준일을 선택하면 그 날이 속한 주가 '금주'가 됩니다",
     );
     if (picked != null) {
       setState(() {

@@ -48,7 +48,7 @@ class SteelCutItem {
 // 🚀 [형강 컷팅 기록 신규] 형강은 튜브처럼 "완료" 시점에 세션을 저장하는
 // 개념이 없다 - 항목이 계속 살아있는 목록에 바로바로 반영된다. 그래서
 // "컷팅 기록"은 튜브의 CutRecord(완료한 절단 세션)와 다르게, 언제 어떤
-// 항목을 추가/수정/삭제/복제했는지 자동으로 남기는 변경 이력이다.
+// 항목을 추가/수정/삭제/복제했는지 자동으로 남기는 변경 기록이다.
 class SteelChangeLogEntry {
   final String id;
   final String action; // 'ADD' | 'EDIT' | 'DELETE' | 'DUPLICATE'

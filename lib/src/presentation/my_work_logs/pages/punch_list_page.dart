@@ -202,7 +202,7 @@ class _PunchListPageState extends State<PunchListPage> {
     }
 
     final newPunch = {
-      "location": locValue.isEmpty ? "위치 미상" : locValue,
+      "location": locValue.isEmpty ? "위치 모름" : locValue,
       "defect_type": _selectedDefect,
       "priority": _selectedPriority,
       "content": textValue.isEmpty ? "내용 없음 (사진 참조)" : textValue,

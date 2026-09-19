@@ -1730,7 +1730,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         onProgress: (d, t) => progress.value = "사진 확인 중… $d / $t",
       );
       if (res.count > 0) {
-        progress.value = "저장 반영 대기 중…";
+        progress.value = "저장 대기 중…";
         widget.actions.save();
         // 서버에 새 URL이 반영된 뒤에만 옛 파일을 지운다(최대 20초 대기).
         for (int i = 0; i < 100; i++) {
@@ -2194,7 +2194,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                 maxLines: 3,
                 decoration: const InputDecoration(
                   labelText: "다음에 참고할 점",
-                  hintText: "예: 자재는 착수 전에 미리 발주",
+                  hintText: "예: 자재는 시작하기 전에 미리 발주",
                 ),
               ),
             ],
@@ -2414,7 +2414,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                     foregroundColor: warningRed,
                     side: const BorderSide(color: warningRed),
                   ),
-                  child: Text(keepWords("지연 반영: 뒤 단계 ${d.days}일 밀기")),
+                  child: Text(keepWords("지연 적용: 뒤 단계 ${d.days}일 밀기")),
                 ),
               ),
             ],
@@ -2802,7 +2802,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     _changed();
   }
 
-  // 이 프로젝트만 다른 시각에 일보 알림을 받고 싶을 때(기본 시각은 ⋮ 메뉴의 알림 설정).
+  // 이 프로젝트만 다른 시간에 일보 알림을 받고 싶을 때(기본 시간은 ⋮ 메뉴의 알림 설정).
   // 완료된 프로젝트에 남은 미해결 이슈를 한꺼번에 처리 완료로 정리한다.
   Future<void> _resolveAllOpenIssues() async {
     final n = openIssueCount(log);
@@ -2812,7 +2812,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         title: Text(keepWords("남은 이슈를 모두 완료하시겠습니까?")),
         content: Text(
           keepWords(
-            "미해결 이슈 $n건을 '처리 완료'로 바꿉니다. 처리 내용에는 '프로젝트 완료 시 일괄 처리'라고 남습니다.",
+            "미해결 이슈 $n건을 '처리 완료'로 바꿉니다. 처리 내용에는 '프로젝트 완료 시 한꺼번에 처리'라고 남습니다.",
           ),
         ),
         actions: [
@@ -2845,11 +2845,11 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     final pick = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(keepWords("이 프로젝트 일보 알림 시각")),
+        title: Text(keepWords("이 프로젝트 일보 알림 시간")),
         content: Text(
           cur == null
-              ? "지금은 기본 시각(${hm(base)})에 알림을 보냅니다."
-              : "지금은 ${hm(cur)}에 알림을 보냅니다. (기본 시각 ${hm(base)})",
+              ? "지금은 기본 시간(${hm(base)})에 알림을 보냅니다."
+              : "지금은 ${hm(cur)}에 알림을 보냅니다. (기본 시간 ${hm(base)})",
         ),
         actions: [
           TextButton(
@@ -2859,11 +2859,11 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
           if (cur != null)
             TextButton(
               onPressed: () => Navigator.pop(ctx, 'default'),
-              child: const Text("기본 시각 쓰기"),
+              child: const Text("기본 시간 쓰기"),
             ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, 'pick'),
-            child: const Text("시각 고르기"),
+            child: const Text("시간 설정"),
           ),
         ],
       ),
@@ -2889,7 +2889,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            m == null ? "기본 시각으로 알림을 보내겠습니다." : "${hm(m)}에 알림을 보내겠습니다.",
+            m == null ? "기본 시간으로 알림을 보내겠습니다." : "${hm(m)}에 알림을 보내겠습니다.",
           ),
         ),
       );
@@ -2903,7 +2903,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       builder: (ctx) => AlertDialog(
         title: Text(keepWords("마무리 보고서를 만드시겠습니까?")),
         content: Text(
-          keepWords("착수부터 지금까지의 전체 기록을 사진 포함 PDF로 만들어 공유할 수 있습니다."),
+          keepWords("시작부터 지금까지의 전체 기록을 사진 포함 PDF로 만들어 공유할 수 있습니다."),
         ),
         actions: [
           TextButton(
@@ -3164,7 +3164,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                     if (issueCnt > 0) chip("이슈 처리 $issueCnt", warningRed),
                     if (doneCnt > 0) chip("일정 완료 $doneCnt", Colors.green),
                     if (r['is_as_built'] == true)
-                      chip("도면 반영 요청", const Color(0xFFC77700)),
+                      chip("도면 수정 요청", const Color(0xFFC77700)),
                   ],
                 ),
               ],
@@ -3310,7 +3310,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                       TextButton.icon(
                         onPressed: () => setState(() => _selectMode = true),
                         icon: const Icon(Icons.checklist_rounded, size: 18),
-                        label: const Text("골라서 내보내기/확정"),
+                        label: const Text("선택해서 내보내기/확정"),
                         style: TextButton.styleFrom(
                           foregroundColor: tossSubText,
                         ),
@@ -3379,7 +3379,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'summary', child: Text("현황 요약 이미지 공유")),
               PopupMenuItem(value: 'header', child: Text("이 프로젝트 보고서 머리말")),
-              PopupMenuItem(value: 'reminder', child: Text("이 프로젝트 일보 알림 시각")),
+              PopupMenuItem(value: 'reminder', child: Text("이 프로젝트 일보 알림 시간")),
               PopupMenuItem(value: 'optimize', child: Text("사진 용량 정리")),
             ],
           ),

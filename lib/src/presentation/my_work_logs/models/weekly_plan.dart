@@ -262,7 +262,7 @@ ReportDoc buildWeeklyPlanDoc(
   ReportSection sec(WeekRange w, String suffix, List<String> lines) =>
       ReportSection(
         '${w.label} (${w.range}) $suffix',
-        lines.isEmpty ? ['해당 내용 없음'] : lines,
+        lines.isEmpty ? ['내용 없음'] : lines,
       );
 
   final combined = <ReportSection>[
@@ -326,7 +326,7 @@ ReportDoc buildWeeklyPlanDoc(
         sections.add(
           ReportSection(
             '${t['name'] ?? '프로젝트'} · ${w.label} (${w.range}) $suffix',
-            lines.isEmpty ? ['해당 내용 없음'] : lines,
+            lines.isEmpty ? ['내용 없음'] : lines,
             newPage: wi == 0 && i > 0,
           ),
         );
