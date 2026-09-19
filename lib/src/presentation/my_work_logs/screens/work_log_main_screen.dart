@@ -124,11 +124,11 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         _isLoading = false;
       });
       // 알림을 다시 맞춘 뒤에도 예약이 어긋나 있으면 목록 위에 안내 카드를 띄운다.
-      syncReportReminder(_workLogs)
-          .then((_) => dailyReminderProblem(_workLogs))
-          .then((msg) {
-            if (mounted) setState(() => _reminderProblem = msg);
-          });
+      syncReportReminder(
+        _workLogs,
+      ).then((_) => dailyReminderProblem(_workLogs)).then((msg) {
+        if (mounted) setState(() => _reminderProblem = msg);
+      });
       cleanOldDrafts();
       _runAutoBackup();
       loadReportStyle();
@@ -399,6 +399,8 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       final id = log['id']?.toString();
       setState(() => _workLogs.remove(log));
       if (id != null) _repo.deleteProject(id);
+      // 삭제한 프로젝트에 걸려 있던 일보 알림이 남지 않도록 바로 다시 맞춘다.
+      syncReportReminder(_workLogs);
     },
   );
 
@@ -1226,7 +1228,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       decoration: BoxDecoration(
         color: pureWhite,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5484D).withValues(alpha: 0.4)),
+        border: Border.all(
+          color: const Color(0xFFE5484D).withValues(alpha: 0.4),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1238,26 +1242,31 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           const SizedBox(height: 4),
           Text(
             "$msg 알림 점검에서 확인하십시오.",
-            style: const TextStyle(fontSize: 12, height: 1.4, color: tossSubText),
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.4,
+              color: tossSubText,
+            ),
           ),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
-              onPressed: () => Navigator.push(
-                context,
-                WorkRoute(
-                  builder: (_) => NotificationCheckPage(
-                    logs: _workLogs,
-                    onSaveProject: (log) async {
-                      await _repo.upsertProject(log);
-                      await syncReportReminder(_workLogs);
-                    },
-                  ),
-                ),
-              ).then((_) async {
-                final m = await dailyReminderProblem(_workLogs);
-                if (mounted) setState(() => _reminderProblem = m);
-              }),
+              onPressed: () =>
+                  Navigator.push(
+                    context,
+                    WorkRoute(
+                      builder: (_) => NotificationCheckPage(
+                        logs: _workLogs,
+                        onSaveProject: (log) async {
+                          await _repo.upsertProject(log);
+                          await syncReportReminder(_workLogs);
+                        },
+                      ),
+                    ),
+                  ).then((_) async {
+                    final m = await dailyReminderProblem(_workLogs);
+                    if (mounted) setState(() => _reminderProblem = m);
+                  }),
               child: const Text(
                 "알림 점검 열기",
                 style: TextStyle(fontWeight: FontWeight.w800),

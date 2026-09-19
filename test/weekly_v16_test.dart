@@ -44,6 +44,7 @@ Future<void> pump(WidgetTester tester, Widget w) async {
 }
 
 void main() {
+  _deleteReminderTest();
   _focusTest();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
@@ -269,4 +270,23 @@ void _focusTest() {
     );
     expect(editable.widget.focusNode.hasFocus, false);
   });
+}
+
+void _deleteReminderTest() {
+  test(
+    'after a project is deleted its own reminder time is no longer planned',
+    () {
+      final now = DateTime(2026, 9, 19, 10);
+      final a = proj('루마');
+      final b = proj('TESTN')..['reportReminderMinutes'] = 21 * 60;
+      a['daily_reports'] = [];
+      b['daily_reports'] = [];
+      final before = planDailyReminders([a, b], 18 * 60, now);
+      expect(before.map((p) => p.minutes).toList(), [1080, 1260]);
+      // 삭제 후 남은 목록으로 다시 계획하면 21:00 알림이 사라진다.
+      final after = planDailyReminders([a], 18 * 60, now);
+      expect(after.map((p) => p.minutes).toList(), [1080]);
+      expect(after.single.names, ['루마']);
+    },
+  );
 }
