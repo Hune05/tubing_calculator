@@ -1374,74 +1374,99 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          ...["전체", "자재"].map((f) {
-                            final bool selected = f == _filter;
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ChoiceChip(
-                                label: Text(f == "자재" ? "자재 요청/입고일만" : f),
-                                selected: selected,
-                                selectedColor: tossBlue.withValues(alpha: 0.15),
-                                labelStyle: TextStyle(
-                                  color: selected ? tossBlue : tossSubText,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 1줄: 종류 필터 + 완료 표시. 칩 배경이 화면 배경과 같아서
+                        // 안 눌린 칩이 안 보이던 것을 흰색으로 고쳤다.
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              ...["전체", "자재"].map((f) {
+                                final bool selected = f == _filter;
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: ChoiceChip(
+                                    label: Text(f == "자재" ? "자재 요청/입고일" : f),
+                                    selected: selected,
+                                    showCheckmark: false,
+                                    selectedColor: const Color(0xFFD5E9EB),
+                                    labelStyle: TextStyle(
+                                      color: selected ? tossBlue : tossSubText,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    backgroundColor: pureWhite,
+                                    side: BorderSide.none,
+                                    onSelected: (_) =>
+                                        setState(() => _filter = f),
+                                  ),
+                                );
+                              }),
+                              // 🚀 [추가] 완료된 일정 숨기기/보기 토글
+                              FilterChip(
+                                label: Text(_hideCompleted ? "완료 숨김" : "완료 표시"),
+                                selected: !_hideCompleted,
+                                showCheckmark: false,
+                                avatar: Icon(
+                                  _hideCompleted
+                                      ? Icons.visibility_off_rounded
+                                      : Icons.visibility_rounded,
+                                  size: 16,
+                                  color: tossBlue,
+                                ),
+                                selectedColor: const Color(0xFFD5E9EB),
+                                labelStyle: const TextStyle(
+                                  color: tossBlue,
                                   fontWeight: FontWeight.bold,
                                 ),
-                                backgroundColor: tossBg,
+                                backgroundColor: pureWhite,
                                 side: BorderSide.none,
-                                onSelected: (_) => setState(() => _filter = f),
+                                onSelected: (v) =>
+                                    setState(() => _hideCompleted = !v),
                               ),
-                            );
-                          }),
-                          if (widget.phases.isNotEmpty)
-                            ...[
-                              {'id': null, 'name': '전 단계'},
-                              ...widget.phases,
-                              {'id': '__none__', 'name': '단계 미지정'},
-                            ].map((p) {
-                              final bool selected =
-                                  _phaseFilter == p['id']?.toString();
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: ChoiceChip(
-                                  label: Text(p['name'].toString()),
-                                  selected: selected,
-                                  selectedColor: tossBlue.withValues(
-                                    alpha: 0.15,
-                                  ),
-                                  labelStyle: TextStyle(
-                                    color: selected ? tossBlue : tossSubText,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  backgroundColor: tossBg,
-                                  side: BorderSide.none,
-                                  onSelected: (_) => setState(
-                                    () => _phaseFilter = p['id']?.toString(),
-                                  ),
-                                ),
-                              );
-                            }),
-                          // 🚀 [추가] 완료된 일정 숨기기/보기 토글
-                          FilterChip(
-                            label: const Text("완료 숨김"),
-                            selected: _hideCompleted,
-                            showCheckmark: true,
-                            checkmarkColor: tossBlue,
-                            selectedColor: tossBlue.withValues(alpha: 0.15),
-                            labelStyle: TextStyle(
-                              color: _hideCompleted ? tossBlue : tossSubText,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            backgroundColor: tossBg,
-                            side: BorderSide.none,
-                            onSelected: (v) =>
-                                setState(() => _hideCompleted = v),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                        // 2줄: 단계 필터
+                        if (widget.phases.isNotEmpty)
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children:
+                                  [
+                                    {'id': null, 'name': '전 단계'},
+                                    ...widget.phases,
+                                    {'id': '__none__', 'name': '단계 미지정'},
+                                  ].map((p) {
+                                    final bool selected =
+                                        _phaseFilter == p['id']?.toString();
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: ChoiceChip(
+                                        label: Text(p['name'].toString()),
+                                        selected: selected,
+                                        showCheckmark: false,
+                                        selectedColor: const Color(0xFFD5E9EB),
+                                        labelStyle: TextStyle(
+                                          color: selected
+                                              ? tossBlue
+                                              : tossSubText,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        backgroundColor: pureWhite,
+                                        side: BorderSide.none,
+                                        visualDensity: VisualDensity.compact,
+                                        onSelected: (_) => setState(
+                                          () => _phaseFilter = p['id']
+                                              ?.toString(),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                   Expanded(
@@ -1646,28 +1671,46 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.end,
                                       children: [
-                                        Text(
-                                          isCompleted &&
-                                                  item['inspectionResult'] !=
-                                                      null
-                                              ? (item['inspectionResult'] ==
-                                                        'FAIL'
-                                                    ? "❌ 불합격"
-                                                    : "✅ 합격")
-                                              : dt != null
-                                              ? _relativeLabel(dt, isCompleted)
-                                              : (isCompleted ? "완료됨" : "미정"),
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                            color: isCompleted
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 3,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: pureWhite,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.black12,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            isCompleted &&
+                                                    item['inspectionResult'] !=
+                                                        null
                                                 ? (item['inspectionResult'] ==
                                                           'FAIL'
-                                                      ? warningRed
-                                                      : tossSubText)
-                                                : (isOverdue || isPending
-                                                      ? warningRed
-                                                      : tossBlue),
+                                                      ? "❌ 불합격"
+                                                      : "✅ 합격")
+                                                : dt != null
+                                                ? _relativeLabel(
+                                                    dt,
+                                                    isCompleted,
+                                                  )
+                                                : (isCompleted ? "완료됨" : "미정"),
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: isCompleted
+                                                  ? (item['inspectionResult'] ==
+                                                            'FAIL'
+                                                        ? warningRed
+                                                        : tossSubText)
+                                                  : (isOverdue || isPending
+                                                        ? warningRed
+                                                        : tossBlue),
+                                            ),
                                           ),
                                         ),
                                         IconButton(
