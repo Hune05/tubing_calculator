@@ -17,6 +17,7 @@ Future<void> pump(WidgetTester tester, Widget w) async {
 }
 
 void main() {
+  _finalReportNameTest();
   group('공유 결과 안내 문구', () {
     test(
       'each status has its own message and never claims what it cannot know',
@@ -170,4 +171,41 @@ void main() {
       expect(await resyncRemindersAndCheck([]), isNull);
     },
   );
+}
+
+void _finalReportNameTest() {
+  test('final report is labelled 마무리 보고서, not the generic 작업 보고', () {
+    final t = DateTime.now();
+    final log = <String, dynamic>{
+      'id': 'a',
+      'name': 'A현장',
+      'status': 'DONE',
+      'completedAt': t,
+      'phases': [],
+      'schedules': [],
+      'punch_lists': [],
+      'retro': {'cause': '원인', 'lesson': '교훈'},
+      'daily_reports': [
+        {
+          'date':
+              '${t.month.toString().padLeft(2, '0')}/${t.day.toString().padLeft(2, '0')}',
+          'dateISO': DateTime(t.year, t.month, t.day).toIso8601String(),
+          'worker_count': 2,
+        },
+      ],
+    };
+    final doc = buildFinalReportDoc(log);
+    expect(doc.heading, '마무리 보고서');
+    expect(doc.toText().startsWith('[A현장] 마무리 보고서'), true);
+    expect(
+      reportPdfFileName(doc, DateTime(2026, 9, 19)),
+      'A현장_마무리_보고서_20260919.pdf',
+    );
+    // 내용(총 통계, 결과 정리)은 그대로 들어 있다.
+    expect(doc.sections.any((s) => s.heading == '총 통계'), true);
+    expect(doc.sections.last.heading, '결과 정리');
+    // 복사본만 바뀌고 원본 종류 표시는 그대로.
+    expect(ReportDoc('t', 'p', []).withHeading('x').heading, 'x');
+    expect(ReportDoc('t', 'p', []).heading, '작업 보고');
+  });
 }

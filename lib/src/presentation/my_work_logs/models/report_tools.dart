@@ -143,6 +143,25 @@ class ReportDoc {
     this.fileStamp,
   });
 
+  // 문서 종류 표시(heading)만 바꾼 복사본. 마무리 보고서가 일반 "작업 보고"와 구분되게 한다.
+  ReportDoc withHeading(String newHeading) => ReportDoc(
+    title,
+    period,
+    sections,
+    photos: photos,
+    charts: charts,
+    pins: pins,
+    compares: compares,
+    heading: newHeading,
+    company: company,
+    manager: manager,
+    logoB64: logoB64,
+    boxedHeadings: boxedHeadings,
+    showAuthorLine: showAuthorLine,
+    textFooter: textFooter,
+    fileStamp: fileStamp,
+  );
+
   // "작성일 2026.9.19 · 작성 홍길동"(작성자는 양식 설정의 담당자, 없으면 생략).
   String authorLine([DateTime? now]) {
     final d = now ?? DateTime.now();
@@ -703,7 +722,7 @@ ReportDoc buildFinalReportDoc(Map<String, dynamic> log) {
       ]),
     );
   }
-  return doc;
+  return doc.withHeading('마무리 보고서');
 }
 
 // PDF 파일 이름: 프로젝트_보고서종류_날짜.pdf (폴더/특수문자는 뺀다).

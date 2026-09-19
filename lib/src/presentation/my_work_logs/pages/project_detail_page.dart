@@ -2919,7 +2919,9 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(pdfShareNotice(r.status, '마무리 보고서'))),
+          SnackBar(
+            content: Text(keepWords(pdfShareNotice(r.status, '마무리 보고서'))),
+          ),
         );
       }
     } catch (e) {
