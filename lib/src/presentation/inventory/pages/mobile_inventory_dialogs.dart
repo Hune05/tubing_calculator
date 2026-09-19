@@ -26,7 +26,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
             titlePadding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
             contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
             title: Text(
-              "$item\n얼마나 있나요?",
+              "$item\n얼마나 있습니까?",
               style: const TextStyle(
                 color: slate900,
                 fontSize: 20,
@@ -55,7 +55,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                   ),
                 ),
                 const Text(
-                  "숫자를 눌러서 수정하세요",
+                  "숫자를 눌러서 수정하십시오",
                   style: TextStyle(
                     color: slate600,
                     fontSize: 14,
@@ -460,7 +460,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                             if (name.isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text("자재명을 입력해주세요."),
+                                  content: Text("자재명을 입력해 주십시오."),
                                   backgroundColor: Colors.redAccent,
                                 ),
                               );
@@ -611,7 +611,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: slate100,
-                        hintText: "직접 입력해주세요",
+                        hintText: "직접 입력해 주십시오",
                         hintStyle: TextStyle(
                           color: slate600.withValues(alpha: 0.6),
                           fontSize: 16,
@@ -801,7 +801,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                         Padding(
                           padding: const EdgeInsets.only(top: 16),
                           child: Text(
-                            "※ 칩을 길게 누르면 위치가 삭제돼요.",
+                            "※ 칩을 길게 누르면 위치가 삭제됩니다.",
                             style: TextStyle(
                               fontSize: 12,
                               color: slate600.withValues(alpha: 0.8),

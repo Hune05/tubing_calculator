@@ -150,7 +150,7 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
     final confirmed = await showCuttingConfirmDialog(
       context,
       title: "작업 삭제",
-      message: "이 컷팅 작업과 저장된 컷팅 기록을 모두 삭제할까요? 되돌릴 수 없습니다.",
+      message: "이 컷팅 작업과 저장된 컷팅 기록을 모두 삭제하시겠습니까? 되돌릴 수 없습니다.",
       confirmLabel: "삭제",
       danger: true,
       icon: Icons.delete_outline_rounded,
@@ -302,7 +302,7 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      "우측 하단의 + 버튼을 눌러 새 작업을 생성하세요.",
+                      "우측 하단의 + 버튼을 눌러 새 작업을 생성하십시오.",
                       style: TextStyle(
                         color: CuttingColors.textSecondary,
                         fontSize: 13,

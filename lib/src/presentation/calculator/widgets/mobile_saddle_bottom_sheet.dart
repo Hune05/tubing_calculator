@@ -186,7 +186,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
             ],
           ),
           content: const Text(
-            "장애물 회피 방향을 먼저 선택해주세요!",
+            "장애물 회피 방향을 먼저 선택해 주십시오!",
             style: TextStyle(color: slate900, fontSize: 15),
           ),
           actions: [
@@ -309,7 +309,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
             ],
           ),
           content: const Text(
-            "장애물 회피 방향을 먼저 선택해주세요!",
+            "장애물 회피 방향을 먼저 선택해 주십시오!",
             style: TextStyle(color: slate900, fontSize: 15),
           ),
           actions: [

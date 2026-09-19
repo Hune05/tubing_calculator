@@ -455,7 +455,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                         color: slate700,
                         fontWeight: FontWeight.bold,
                       ),
-                      hintText: "여기에 내용을 입력하세요",
+                      hintText: "여기에 내용을 입력하십시오",
                       filled: true,
                       fillColor: pureWhite,
                       enabledBorder: OutlineInputBorder(
@@ -618,7 +618,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text("내용을 입력하거나 사진을 최소 1장 첨부해주세요!"),
+                        content: Text("내용을 입력하거나 사진을 최소 1장 첨부해 주십시오!"),
                         backgroundColor: Colors.red,
                         duration: Duration(seconds: 2),
                       ),
@@ -980,7 +980,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text("포인트 수, 작업 내용, 또는 사진 중 하나는 입력해주세요!"),
+                          content: Text("포인트 수, 작업 내용, 또는 사진 중 하나는 입력해 주십시오!"),
                           backgroundColor: Colors.red,
                           duration: Duration(seconds: 2),
                         ),
@@ -1224,7 +1224,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                       color: makitaTeal,
                       fontWeight: FontWeight.bold,
                     ),
-                    hintText: "새로운 프로젝트 이름을 입력하세요",
+                    hintText: "새로운 프로젝트 이름을 입력하십시오",
                     hintStyle: const TextStyle(
                       color: slate400,
                       fontWeight: FontWeight.normal,
@@ -1534,7 +1534,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
           : projects.isEmpty
           ? const Center(
               child: Text(
-                "등록된 프로젝트가 없습니다.\n우측 하단 버튼을 눌러 추가하세요.",
+                "등록된 프로젝트가 없습니다.\n우측 하단 버튼을 눌러 추가하십시오.",
                 textAlign: TextAlign.center,
                 style: TextStyle(color: slate600, height: 1.5),
               ),

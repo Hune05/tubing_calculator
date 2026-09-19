@@ -439,7 +439,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
                 onTap: () {
                   _showHelpDialog(
                     "작동 방식",
-                    "현장에서 사용하는 벤더의 종류(수동, 유압식, 시카고식)를 선택하세요.\n선택한 장비에 맞춰 데이터 파일에서 제조사와 규격을 불러옵니다.",
+                    "현장에서 사용하는 벤더의 종류(수동, 유압식, 시카고식)를 선택하십시오.\n선택한 장비에 맞춰 데이터 파일에서 제조사와 규격을 불러옵니다.",
                   );
                 },
                 child: Icon(
@@ -556,7 +556,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             "규격 사이즈",
             _availableConduitSizes,
             _conduitSize,
-            helpText: "작업할 전선관의 외경(KS 규격)을 선택하세요.",
+            helpText: "작업할 전선관의 외경(KS 규격)을 선택하십시오.",
             (v) {
               if (v != null) {
                 setState(() {

@@ -158,7 +158,7 @@ Future<void> deductCuttingProjectInventory({
   final confirmed = await showCuttingConfirmDialog(
     context,
     title: "재고 차감",
-    message: "'$projectName'에서 사용된 자재 ${materials.length}건을 창고 재고에서 차감할까요?",
+    message: "'$projectName'에서 사용된 자재 ${materials.length}건을 창고 재고에서 차감하시겠습니까?",
     confirmLabel: "차감하기",
     icon: Icons.inventory_2_outlined,
   );

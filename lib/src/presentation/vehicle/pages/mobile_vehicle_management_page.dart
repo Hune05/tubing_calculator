@@ -109,7 +109,7 @@ class _MobileVehicleManagementPageState
         if (overStart >= 5 &&
             overStart < 15 &&
             !_shownAlerts.contains('over_5_$docId')) {
-          _showAlert("[$number] 예약 시간이 5분 지났습니다. 운행을 시작해주세요.");
+          _showAlert("[$number] 예약 시간이 5분 지났습니다. 운행을 시작해 주십시오.");
           _shownAlerts.add('over_5_$docId');
         } else if (overStart >= 15 &&
             overStart < 30 &&
@@ -222,7 +222,7 @@ class _MobileVehicleManagementPageState
                   .collection('vehicles')
                   .doc(vehicleId)
                   .update({'status': '운행 중'});
-              _showAlert("운행이 시작되었습니다. 안전 운행하세요!");
+              _showAlert("운행이 시작되었습니다. 안전 운행하십시오!");
             },
             child: const Text(
               "지금 운행 시작",
@@ -265,7 +265,7 @@ class _MobileVehicleManagementPageState
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text("곧 반납할게요", style: TextStyle(color: slate600)),
+            child: const Text("곧 반납하겠습니다", style: TextStyle(color: slate600)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -702,7 +702,7 @@ class _MobileVehicleManagementPageState
                                               .collection('vehicles')
                                               .doc(vehicleData['id'])
                                               .update({'status': '운행 중'});
-                                          _showAlert("안전 운행하세요!");
+                                          _showAlert("안전 운행하십시오!");
                                         } else {
                                           Navigator.push(
                                             context,

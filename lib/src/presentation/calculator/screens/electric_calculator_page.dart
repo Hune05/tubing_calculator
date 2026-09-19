@@ -165,7 +165,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                             ),
                           ),
                           Text(
-                            "마진이 필요없다면 0을 입력하세요",
+                            "마진이 필요없다면 0을 입력하십시오",
                             style: TextStyle(color: slate600, fontSize: 12),
                           ),
                         ],
@@ -461,11 +461,11 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     final double? val = double.tryParse(_tempController.text);
     if (val != null && val > 0) {
       if (_currentAngle == null) {
-        _showError("⚠️ 벤딩 각도를 먼저 선택해주세요.");
+        _showError("⚠️ 벤딩 각도를 먼저 선택해 주십시오.");
         return;
       }
       if (_currentRotation == null) {
-        _showError("⚠️ 배관 진행 방향(6축)을 먼저 선택해주세요.");
+        _showError("⚠️ 배관 진행 방향(6축)을 먼저 선택해 주십시오.");
         return;
       }
 
@@ -822,7 +822,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                             child: widget.bendList.isEmpty
                                 ? const Center(
                                     child: Text(
-                                      "치수와 방향을 셋팅하세요\n입력 후 스와이프하여 마킹 확인",
+                                      "치수와 방향을 셋팅하십시오\n입력 후 스와이프하여 마킹 확인",
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         color: slate600,
@@ -1277,7 +1277,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                               widget.onListChanged(newList);
                             });
                           } else {
-                            _showError("삭제할 라인을 위 리스트에서 먼저 선택해주세요.");
+                            _showError("삭제할 라인을 위 리스트에서 먼저 선택해 주십시오.");
                           }
                         },
                       ),

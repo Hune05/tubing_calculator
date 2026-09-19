@@ -207,7 +207,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
           (log) => log['id'] == newRecord['id'],
         )['status'] = "failed",
       );
-      _showErrorSnackBar("전송 실패: 네트워크를 확인하세요.");
+      _showErrorSnackBar("전송 실패: 네트워크를 확인하십시오.");
     }
   }
 }

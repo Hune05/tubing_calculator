@@ -223,7 +223,7 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
                   child: results.isEmpty
                       ? Center(
                           child: Text(
-                            "검색 결과가 없습니다.\n위 '직접 입력'을 이용해보세요.",
+                            "검색 결과가 없습니다.\n위 '직접 입력'을 이용해 보십시오.",
                             textAlign: TextAlign.center,
                             style: TextStyle(color: Colors.grey.shade500),
                           ),

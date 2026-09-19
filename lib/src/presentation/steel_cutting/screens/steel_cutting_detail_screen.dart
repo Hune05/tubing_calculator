@@ -236,7 +236,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     if (_items.isEmpty) {
       showCuttingSnack(
         context,
-        "내보낼 항목이 없습니다. 먼저 절단 항목을 추가하세요.",
+        "내보낼 항목이 없습니다. 먼저 절단 항목을 추가하십시오.",
         isError: true,
       );
       return;
@@ -399,7 +399,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             if (totalOversized > 0) ...[
               pw.SizedBox(height: 8),
               pw.Text(
-                "⚠ 원자재보다 긴 항목 총 $totalOversized건은 배치에서 제외됨 - 원자재 기준 길이를 확인하세요.",
+                "⚠ 원자재보다 긴 항목 총 $totalOversized건은 배치에서 제외됨 - 원자재 기준 길이를 확인하십시오.",
                 style: const pw.TextStyle(fontSize: 10, color: PdfColors.red),
               ),
             ],
@@ -543,7 +543,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
           ),
           const SizedBox(height: 2),
           Text(
-            "규격을 선택하고 길이·수량을 입력하세요",
+            "규격을 선택하고 길이·수량을 입력하십시오",
             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 12),
@@ -605,7 +605,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                           ),
                           const SizedBox(height: 4),
                           const Text(
-                            "위 '항목 추가' 버튼으로 규격과 길이를 추가해보세요.",
+                            "위 '항목 추가' 버튼으로 규격과 길이를 추가해 보십시오.",
                             style: TextStyle(
                               color: CuttingColors.textSecondary,
                               fontSize: 13,
@@ -885,7 +885,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
           if (_items.isEmpty) ...[
             const SizedBox(height: 10),
             Text(
-              "절단 항목을 먼저 추가하면 재단 최적화와 지시서를 만들 수 있어요.",
+              "절단 항목을 먼저 추가하면 재단 최적화와 지시서를 만들 수 있습니다.",
               style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
             ),
           ],

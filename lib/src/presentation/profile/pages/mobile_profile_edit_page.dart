@@ -188,7 +188,7 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
   Future<void> _pickAndUploadPhoto() async {
     final userKey = widget.initialName;
     if (userKey.isEmpty || userKey == "로그인 필요") {
-      _showErrorSnackBar('먼저 로그인한 뒤 사진을 등록해주세요.');
+      _showErrorSnackBar('먼저 로그인한 뒤 사진을 등록해 주십시오.');
       return;
     }
 
@@ -408,7 +408,7 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
 
           // 🔥 1. 무조건 번호(또는 이름)를 넣게 강제!
           if (userName.isEmpty) {
-            _showErrorSnackBar('이름을 입력해주세요.');
+            _showErrorSnackBar('이름을 입력해 주십시오.');
             return;
           }
           if (phoneNumber.isEmpty) {

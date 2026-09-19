@@ -270,7 +270,7 @@ class _UserSelectionPageState extends State<UserSelectionPage> {
                     ),
                     child: Text(
                       _selectedUserNames.isEmpty
-                          ? "상대를 선택해주세요"
+                          ? "상대를 선택해 주십시오"
                           : "${_selectedUserNames.length}명과 대화 시작하기",
                       style: TextStyle(
                         fontSize: 16,

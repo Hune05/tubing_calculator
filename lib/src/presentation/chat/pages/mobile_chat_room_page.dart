@@ -488,7 +488,7 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
                   : _messages.isEmpty
                   ? const Center(
                       child: Text(
-                        "대화를 시작해보세요.",
+                        "대화를 시작해 보십시오.",
                         style: TextStyle(color: slate600),
                       ),
                     )

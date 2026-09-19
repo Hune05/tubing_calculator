@@ -245,7 +245,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       visibleIndices.add(i);
     }
     if (visibleIndices.isEmpty) {
-      showCuttingSnack(context, "내보낼 치수가 없습니다. 먼저 치수를 입력하세요.", isError: true);
+      showCuttingSnack(context, "내보낼 치수가 없습니다. 먼저 치수를 입력하십시오.", isError: true);
       return;
     }
 
@@ -570,7 +570,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
 
     final match = RegExp(r'\d+(\.\d+)?').firstMatch(text.replaceAll(',', ''));
     if (match == null) {
-      showCuttingSnack(context, "숫자를 인식하지 못했습니다. 다시 촬영해주세요.", isError: true);
+      showCuttingSnack(context, "숫자를 인식하지 못했습니다. 다시 촬영해 주십시오.", isError: true);
       return;
     }
 
@@ -673,7 +673,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       final confirmed = await showCuttingConfirmDialog(
         context,
         title: "템플릿 불러오기",
-        message: "현재 입력 중인 라인 구성이 템플릿 내용으로 바뀝니다. 계속할까요?",
+        message: "현재 입력 중인 라인 구성이 템플릿 내용으로 바뀝니다. 계속하시겠습니까?",
         confirmLabel: "불러오기",
         icon: Icons.download_outlined,
       );
@@ -713,7 +713,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     final confirmed = await showCuttingConfirmDialog(
       context,
       title: "템플릿 삭제",
-      message: "이 템플릿을 삭제할까요? 되돌릴 수 없습니다.",
+      message: "이 템플릿을 삭제하시겠습니까? 되돌릴 수 없습니다.",
       confirmLabel: "삭제",
       danger: true,
       icon: Icons.delete_outline_rounded,
@@ -747,7 +747,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     final confirmed = await showCuttingConfirmDialog(
       context,
       title: "부속 세트 삭제",
-      message: "'$name' 세트를 삭제할까요?",
+      message: "'$name' 세트를 삭제하시겠습니까?",
       confirmLabel: "삭제",
       danger: true,
       icon: Icons.delete_outline_rounded,
@@ -765,7 +765,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     if (favorites.isEmpty) {
       showCuttingSnack(
         context,
-        "먼저 부속 검색 팝업에서 자주 쓰는 부속을 별표(즐겨찾기)해주세요.",
+        "먼저 부속 검색 팝업에서 자주 쓰는 부속을 별표(즐겨찾기)해 주십시오.",
         isError: true,
       );
       return;
@@ -1542,7 +1542,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                               if (trimmedName.isEmpty) {
                                 showCuttingSnack(
                                   context,
-                                  "품명을 입력해주세요.",
+                                  "품명을 입력해 주십시오.",
                                   isError: true,
                                 );
                                 return;
@@ -1550,7 +1550,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                               if (rawDed.isNotEmpty && parsedDed == null) {
                                 showCuttingSnack(
                                   context,
-                                  "공제값 숫자를 확인해주세요.",
+                                  "공제값 숫자를 확인해 주십시오.",
                                   isError: true,
                                 );
                                 return;
@@ -1610,7 +1610,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     if (_points.any(
       (p) => p.c2cController.text.isNotEmpty && p.calculatedCut < 0,
     )) {
-      showCuttingSnack(context, "간섭이 발생한 구간이 있습니다. 치수를 확인해주세요!", isError: true);
+      showCuttingSnack(context, "간섭이 발생한 구간이 있습니다. 치수를 확인해 주십시오!", isError: true);
       return;
     }
 
@@ -2003,7 +2003,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                     ),
                     SizedBox(height: 2),
                     Text(
-                      "카드를 길게 눌러 드래그하면 순서를 바꿀 수 있어요",
+                      "카드를 길게 눌러 드래그하면 순서를 바꿀 수 있습니다",
                       style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ],
@@ -2363,7 +2363,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                isInterference ? "간섭 발생! 치수를 확인하세요" : "다음 지점까지",
+                                isInterference ? "간섭 발생! 치수를 확인하십시오" : "다음 지점까지",
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -3195,7 +3195,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                       const SizedBox(width: 4),
                       const Expanded(
                         child: Text(
-                          "절단 길이가 매우 짧습니다. 치수를 다시 확인해주세요.",
+                          "절단 길이가 매우 짧습니다. 치수를 다시 확인해 주십시오.",
                           style: TextStyle(
                             color: CuttingColors.warning,
                             fontSize: 12,
@@ -3226,7 +3226,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       );
       return Center(
         child: Text(
-          hasError ? "간섭이 발생한 구간을 수정하세요." : "치수를 입력하세요.",
+          hasError ? "간섭이 발생한 구간을 수정하십시오." : "치수를 입력하십시오.",
           style: TextStyle(
             color: hasError ? Colors.red : Colors.grey.shade600,
             fontWeight: FontWeight.bold,

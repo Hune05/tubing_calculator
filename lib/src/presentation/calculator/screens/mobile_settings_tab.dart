@@ -379,7 +379,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                     ),
                     onPressed: () => Navigator.pop(ctx),
                     child: const Text(
-                      "이해했어요!",
+                      "이해했습니다!",
                       style: TextStyle(
                         color: pureWhite,
                         fontWeight: FontWeight.bold,

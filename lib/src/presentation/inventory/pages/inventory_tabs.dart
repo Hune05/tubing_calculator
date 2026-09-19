@@ -838,9 +838,9 @@ extension InventoryTabsExt on _InventoryPageState {
               color: Colors.blue.shade700,
               title: "1. 소분 바구니(Bin) 및 라벨링 철저",
               points: [
-                "박스째 뜯어서 선반에 굴리지 마세요. 자재가 섞이고 오염됩니다.",
+                "박스째 뜯어서 선반에 굴리지 마십시오. 자재가 섞이고 오염됩니다.",
                 "피팅류는 규격별로 전용 소분 바구니에 담아 보관합니다.",
-                "바구니 전면 라벨에 앱과 동일하게 [제조사 / 규격 / 품명 / 히트넘버]를 부착하세요.",
+                "바구니 전면 라벨에 앱과 동일하게 [제조사 / 규격 / 품명 / 히트넘버]를 부착하십시오.",
               ],
             ),
             _buildGuideSection(
@@ -848,8 +848,8 @@ extension InventoryTabsExt on _InventoryPageState {
               color: Colors.purple.shade600,
               title: "2. A급 신품 / B급 잉여 분리",
               points: [
-                "현장에서 반납된 '포장 개봉품'이나 '성적서 불가' 피팅을 새 박스에 섞지 마세요.",
-                "선반 맨 아래 칸이나 '빨간색 바구니'를 잉여/B급 전용칸으로 지정하세요.",
+                "현장에서 반납된 '포장 개봉품'이나 '성적서 불가' 피팅을 새 박스에 섞지 마십시오.",
+                "선반 맨 아래 칸이나 '빨간색 바구니'를 잉여/B급 전용칸으로 지정하십시오.",
               ],
             ),
             _buildGuideSection(
@@ -857,7 +857,7 @@ extension InventoryTabsExt on _InventoryPageState {
               color: Colors.orange.shade800,
               title: "3. 이종 금속 접촉 금지",
               points: [
-                "카본(Carbon)과 서스(SUS) 배관재를 같은 선반에 혼합 보관하지 마세요.",
+                "카본(Carbon)과 서스(SUS) 배관재를 같은 선반에 혼합 보관하지 마십시오.",
                 "카본 분진이 스뎅에 묻으면 '갈바닉 부식'이 발생합니다.",
               ],
             ),
@@ -875,7 +875,7 @@ extension InventoryTabsExt on _InventoryPageState {
               color: slate900,
               title: "5. 정기 재고 조사(실사) 및 전산 보정",
               points: [
-                "전산 수량과 실제 보관함 수량이 다를 경우 점 3개(⋮) 메뉴에서 [재고 임의 수정] 기능을 사용해 개수를 맞추세요.",
+                "전산 수량과 실제 보관함 수량이 다를 경우 점 3개(⋮) 메뉴에서 [재고 임의 수정] 기능을 사용해 개수를 맞추십시오.",
               ],
               isLast: true,
             ),

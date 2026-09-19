@@ -240,7 +240,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
               ),
               const SizedBox(height: 8),
               const Text(
-                "하단 패널에서 배관 형태와 길이를\n입력하여 루트를 추가해보세요.",
+                "하단 패널에서 배관 형태와 길이를\n입력하여 루트를 추가해 보십시오.",
                 textAlign: TextAlign.center,
                 style: TextStyle(color: slate600, height: 1.5, fontSize: 14),
               ),
@@ -460,7 +460,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
               if (_selectedType == 90.0) ...[
                 _buildSectionLabel(
                   "진행 방향 (필수)",
-                  subtitle: "배관이 꺾여서 향할 방향을 선택해주세요",
+                  subtitle: "배관이 꺾여서 향할 방향을 선택해 주십시오",
                   titleColor: Colors.deepOrangeAccent,
                 ),
                 Column(

@@ -246,7 +246,7 @@ class TubeReferencePage extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       children: [
         _buildIntroBadge(
-          "이 도표들은 이론값이 아닌 '현장 실무' 기준입니다. 특히 U벤딩 시 공간 간섭을 피하기 위해 도면상의 '센터'보다 실제 파이프가 차지하는 '외경 폭'을 우선적으로 확인하세요.",
+          "이 도표들은 이론값이 아닌 '현장 실무' 기준입니다. 특히 U벤딩 시 공간 간섭을 피하기 위해 도면상의 '센터'보다 실제 파이프가 차지하는 '외경 폭'을 우선적으로 확인하십시오.",
         ),
         const SizedBox(height: 16),
 
@@ -514,7 +514,7 @@ class TubeReferencePage extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       children: [
         _buildIntroBadge(
-          "수동 벤더기 및 현장에 배치된 NC(Numerical Control) 전동 벤더기의 핵심 조작법입니다. 기계와 파이프의 충돌을 막기 위해 작업 전 반드시 숙지하세요.",
+          "수동 벤더기 및 현장에 배치된 NC(Numerical Control) 전동 벤더기의 핵심 조작법입니다. 기계와 파이프의 충돌을 막기 위해 작업 전 반드시 숙지하십시오.",
         ),
         const SizedBox(height: 16),
 
@@ -651,7 +651,7 @@ class TubeReferencePage extends StatelessWidget {
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
-                      "NC 벤더 주의: 스텝(Step) 순서가 꼬이지 않게 주의하세요. 기계는 현재 몇 번째 스텝인지 화면에 표시합니다. 잘못 밟으면 90도 꺾을 타이밍에 45도를 꺾어 파이프를 버리게 됩니다.",
+                      "NC 벤더 주의: 스텝(Step) 순서가 꼬이지 않게 주의하십시오. 기계는 현재 몇 번째 스텝인지 화면에 표시합니다. 잘못 밟으면 90도 꺾을 타이밍에 45도를 꺾어 파이프를 버리게 됩니다.",
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.redAccent,
@@ -693,7 +693,7 @@ class TubeReferencePage extends StatelessWidget {
         // 표 대신, 한 번만 재두면 평생 쓰는 실측 절차를 안내한다.
         _buildTossCard(
           title: "4. 유압식(Ram)/시카고식 - 내 장비 실측 캘리브레이션",
-          subtitle: "제조사 표는 기계마다 다 달라서 못 믿습니다 - 딱 한 번 실측해서 설정에 저장해두세요",
+          subtitle: "제조사 표는 기계마다 다 달라서 못 믿습니다 - 딱 한 번 실측해서 설정에 저장해두십시오",
           icon: Icons.straighten_rounded,
           iconColor: Colors.deepPurple,
           children: [
@@ -768,7 +768,7 @@ class TubeReferencePage extends StatelessWidget {
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
-                      "실측한 값은 계산기 '설정' 탭(수동/유압식/시카고식 각각의 제원 입력란)에 그대로 입력해두세요. "
+                      "실측한 값은 계산기 '설정' 탭(수동/유압식/시카고식 각각의 제원 입력란)에 그대로 입력해두십시오. "
                       "한 번만 해두면 이 장비로 작업하는 한 평생 다시 계산할 필요 없이 자동으로 적용됩니다.",
                       style: TextStyle(
                         fontSize: 12,

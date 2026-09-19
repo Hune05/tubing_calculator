@@ -147,7 +147,7 @@ class _BendingLandscapeMarkingScreenState
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      data.error != null ? "이 도면은 계산할 수 없습니다" : "데이터를 입력해주세요",
+                      data.error != null ? "이 도면은 계산할 수 없습니다" : "데이터를 입력해 주십시오",
                       style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w900,

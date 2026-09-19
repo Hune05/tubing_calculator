@@ -180,7 +180,7 @@ class _MobileVehicleReturnPageState extends State<MobileVehicleReturnPage> {
               ),
               const SizedBox(height: 8),
               const Text(
-                "다음 사용자가 차를 쉽게 찾을 수 있도록 정확히 적어주세요.",
+                "다음 사용자가 차를 쉽게 찾을 수 있도록 정확히 적어 주십시오.",
                 style: TextStyle(
                   color: tossBlue,
                   fontSize: 13,
@@ -319,7 +319,7 @@ class _MobileVehicleReturnPageState extends State<MobileVehicleReturnPage> {
                 controller: _remarksCtrl,
                 maxLines: 3,
                 decoration: InputDecoration(
-                  hintText: "주유 필요, 스크래치 발생, 워셔액 부족 등\n다음 사용자와 관리자를 위해 남겨주세요.",
+                  hintText: "주유 필요, 스크래치 발생, 워셔액 부족 등\n다음 사용자와 관리자를 위해 남겨 주십시오.",
                   hintStyle: const TextStyle(
                     color: Colors.black26,
                     fontSize: 14,
@@ -398,7 +398,7 @@ class _MobileVehicleReturnPageState extends State<MobileVehicleReturnPage> {
         finalKey.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("주행거리, 주차 위치, 차키 위치를 모두 입력해 주세요."),
+          content: Text("주행거리, 주차 위치, 차키 위치를 모두 입력해 주십시오."),
           backgroundColor: warningRed,
         ),
       );
@@ -409,7 +409,7 @@ class _MobileVehicleReturnPageState extends State<MobileVehicleReturnPage> {
     if (finalMileage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("주행거리를 올바르게 입력해 주세요."),
+          content: Text("주행거리를 올바르게 입력해 주십시오."),
           backgroundColor: warningRed,
         ),
       );
@@ -423,7 +423,7 @@ class _MobileVehicleReturnPageState extends State<MobileVehicleReturnPage> {
     if (previousMileage != null && finalMileage < previousMileage) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("입력한 주행거리가 이전 기록(${previousMileage}km)보다 작습니다. 다시 확인해 주세요."),
+          content: Text("입력한 주행거리가 이전 기록(${previousMileage}km)보다 작습니다. 다시 확인해 주십시오."),
           backgroundColor: warningRed,
         ),
       );
@@ -474,7 +474,7 @@ class _MobileVehicleReturnPageState extends State<MobileVehicleReturnPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("오류가 발생했습니다. 다시 시도해 주세요.")),
+          const SnackBar(content: Text("오류가 발생했습니다. 다시 시도해 주십시오.")),
         );
       }
     } finally {

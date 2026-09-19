@@ -71,7 +71,7 @@ class MobileSteelProjectListPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  "작업 위치나 라인 이름으로 구분해두면 나중에 찾기 편해요",
+                  "작업 위치나 라인 이름으로 구분해두면 나중에 찾기 편합니다",
                   style: TextStyle(
                     color: CuttingColors.textSecondary,
                     fontSize: 13,
@@ -228,7 +228,7 @@ class MobileSteelProjectListPage extends StatelessWidget {
     final confirmed = await showCuttingConfirmDialog(
       context,
       title: "작업 삭제",
-      message: "이 형강 컷팅 작업을 삭제할까요? 되돌릴 수 없습니다.",
+      message: "이 형강 컷팅 작업을 삭제하시겠습니까? 되돌릴 수 없습니다.",
       confirmLabel: "삭제",
       danger: true,
       icon: Icons.delete_outline_rounded,
@@ -391,7 +391,7 @@ class MobileSteelProjectListPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      "우측 하단 + 버튼으로 새 작업을 만들어보세요.",
+                      "우측 하단 + 버튼으로 새 작업을 만들어 보십시오.",
                       style: TextStyle(
                         color: CuttingColors.textSecondary,
                         fontSize: 13,

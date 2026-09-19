@@ -88,7 +88,7 @@ class _MobileInputTabState extends State<MobileInputTab>
     if (length <= 0.0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("정확한 길이를 입력해주세요."),
+          content: Text("정확한 길이를 입력해 주십시오."),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -98,7 +98,7 @@ class _MobileInputTabState extends State<MobileInputTab>
     if (_bendType == "custom" && _selectedAngle <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("각도를 정확히 입력해주세요."),
+          content: Text("각도를 정확히 입력해 주십시오."),
           backgroundColor: Colors.deepOrange,
         ),
       );
@@ -108,7 +108,7 @@ class _MobileInputTabState extends State<MobileInputTab>
     if (_selectedAngle > 0 && _selectedRotation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("벤딩 진행 방향(6축)을 먼저 선택해주세요!"),
+          content: Text("벤딩 진행 방향(6축)을 먼저 선택해 주십시오!"),
           backgroundColor: Colors.deepOrange,
         ),
       );
@@ -502,7 +502,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                       child: bendList.isEmpty
                           ? const Center(
                               child: Text(
-                                "아래에서 수치와 방향을 입력해\n배관을 조립해 주세요.",
+                                "아래에서 수치와 방향을 입력해\n배관을 조립해 주십시오.",
                                 textAlign: TextAlign.center,
                                 style: TextStyle(color: slate600, height: 1.5),
                               ),
@@ -775,7 +775,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                                 fontFamily: 'monospace',
                               ),
                               decoration: InputDecoration(
-                                hintText: "원하는 각도를 입력하세요 (예: 45)",
+                                hintText: "원하는 각도를 입력하십시오 (예: 45)",
                                 filled: true,
                                 fillColor: Colors.orange.shade50,
                                 contentPadding: const EdgeInsets.symmetric(
@@ -814,7 +814,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                             ),
                             if (_selectedRotation == null)
                               const Text(
-                                " *방향을 선택하세요",
+                                " *방향을 선택하십시오",
                                 style: TextStyle(
                                   color: Colors.redAccent,
                                   fontSize: 11,

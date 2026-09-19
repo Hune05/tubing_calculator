@@ -90,7 +90,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
                     borderRadius: BorderRadius.circular(24),
                   ),
                   child: const Text(
-                    "도면의 QR 코드를 사각형 안에 맞춰주세요",
+                    "도면의 QR 코드를 사각형 안에 맞춰 주십시오",
                     style: TextStyle(
                       color: pureWhite,
                       fontSize: 14,

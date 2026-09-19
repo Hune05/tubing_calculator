@@ -297,7 +297,7 @@ class MobileVehicleDetailPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  "${vehicle['number']} 차량의 운행 계획을 입력해주세요.",
+                  "${vehicle['number']} 차량의 운행 계획을 입력해 주십시오.",
                   style: const TextStyle(color: slate600, fontSize: 14),
                 ),
                 const SizedBox(height: 24),
@@ -480,7 +480,7 @@ class MobileVehicleDetailPage extends StatelessWidget {
                       if (destinationCtrl.text.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text("목적지를 입력해주세요."),
+                            content: Text("목적지를 입력해 주십시오."),
                             backgroundColor: warningRed,
                           ),
                         );
@@ -489,7 +489,7 @@ class MobileVehicleDetailPage extends StatelessWidget {
                       if (finalPurpose.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text("운행 목적을 선택하거나 입력해주세요."),
+                            content: Text("운행 목적을 선택하거나 입력해 주십시오."),
                             backgroundColor: warningRed,
                           ),
                         );
@@ -555,7 +555,7 @@ class MobileVehicleDetailPage extends StatelessWidget {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text(
-                                "다른 사용자가 방금 먼저 배차했습니다. 목록을 새로고침 해주세요.",
+                                "다른 사용자가 방금 먼저 배차했습니다. 목록을 새로고침 해 주십시오.",
                               ),
                               backgroundColor: warningRed,
                             ),
@@ -588,7 +588,7 @@ class MobileVehicleDetailPage extends StatelessWidget {
                           SnackBar(
                             content: Text(
                               isNow
-                                  ? "배차가 완료되었습니다. 안전 운행하세요!"
+                                  ? "배차가 완료되었습니다. 안전 운행하십시오!"
                                   : "차량 예약이 완료되었습니다.",
                             ),
                             backgroundColor: tossBlue,

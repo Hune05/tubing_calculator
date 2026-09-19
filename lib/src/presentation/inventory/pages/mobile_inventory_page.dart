@@ -207,7 +207,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                         if (totalCount == 0) {
                           return const Center(
                             child: Text(
-                              "등록된 자재가 없어요",
+                              "등록된 자재가 없습니다",
                               style: TextStyle(
                                 color: slate600,
                                 fontSize: 16,
@@ -337,8 +337,8 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                                     ),
                                     content: Text(
                                       isLocalNew
-                                          ? "'$itemName' 항목을 전송 목록에서 지울까요?"
-                                          : "'$itemName' 항목을 데이터베이스에서 완전히 지울까요?\n이 작업은 되돌릴 수 없어요.",
+                                          ? "'$itemName' 항목을 전송 목록에서 삭제하시겠습니까?"
+                                          : "'$itemName' 항목을 데이터베이스에서 완전히 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.",
                                       style: const TextStyle(color: slate600),
                                     ),
                                     actions: [
@@ -390,7 +390,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                                               ).showSnackBar(
                                                 const SnackBar(
                                                   content: Text(
-                                                    "삭제 중 오류가 발생했어요",
+                                                    "삭제 중 오류가 발생했습니다",
                                                   ),
                                                 ),
                                               );
@@ -403,7 +403,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                                             context,
                                           ).showSnackBar(
                                             const SnackBar(
-                                              content: Text("성공적으로 삭제됐어요"),
+                                              content: Text("성공적으로 삭제되었습니다"),
                                               behavior:
                                                   SnackBarBehavior.floating,
                                             ),

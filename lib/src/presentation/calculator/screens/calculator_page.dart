@@ -365,7 +365,7 @@ class _CalculatorPageState extends State<CalculatorPage>
       if (_currentAngle == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("⚠️ 벤딩 각도를 먼저 선택해주세요."),
+            content: Text("⚠️ 벤딩 각도를 먼저 선택해 주십시오."),
             backgroundColor: slate600,
             duration: Duration(milliseconds: 1500),
           ),
@@ -376,7 +376,7 @@ class _CalculatorPageState extends State<CalculatorPage>
       if (_currentRotation == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("⚠️ 배관 진행 방향(6축)을 먼저 선택해주세요."),
+            content: Text("⚠️ 배관 진행 방향(6축)을 먼저 선택해 주십시오."),
             backgroundColor: slate600,
             duration: Duration(milliseconds: 1500),
           ),
@@ -408,7 +408,7 @@ class _CalculatorPageState extends State<CalculatorPage>
     // 🚀 [수정] 길이가 비어있거나 0 이하일 때도 다른 검증들과 일관되게 안내
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text("⚠️ 올바른 길이를 입력해주세요."),
+        content: Text("⚠️ 올바른 길이를 입력해 주십시오."),
         backgroundColor: slate600,
         duration: Duration(milliseconds: 1500),
       ),
@@ -755,7 +755,7 @@ class _CalculatorPageState extends State<CalculatorPage>
                                           ),
                                           const SizedBox(height: 12),
                                           const Text(
-                                            "치수와 방향을 셋팅하세요\n또는 리모컨으로 데이터를 전송하세요",
+                                            "치수와 방향을 셋팅하십시오\n또는 리모컨으로 데이터를 전송하십시오",
                                             textAlign: TextAlign.center,
                                             style: TextStyle(
                                               color: slate600,
@@ -1325,7 +1325,7 @@ class _CalculatorPageState extends State<CalculatorPage>
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text(
-                                        "삭제할 라인을 위 리스트에서 먼저 선택해주세요.",
+                                        "삭제할 라인을 위 리스트에서 먼저 선택해 주십시오.",
                                       ),
                                       backgroundColor: slate600,
                                       duration: Duration(milliseconds: 1500),

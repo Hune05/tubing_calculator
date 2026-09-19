@@ -443,7 +443,7 @@ class _LandscapeMarkingScreenState extends State<LandscapeMarkingScreen> {
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      "데이터를 입력해주세요",
+                      "데이터를 입력해 주십시오",
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w900,

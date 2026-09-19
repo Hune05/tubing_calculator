@@ -195,7 +195,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
             ],
           ),
           content: const Text(
-            "돌출 방향(Direction)을 먼저 선택해주세요!",
+            "돌출 방향(Direction)을 먼저 선택해 주십시오!",
             style: TextStyle(color: slate900, fontSize: 15),
           ),
           actions: [

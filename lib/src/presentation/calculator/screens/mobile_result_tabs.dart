@@ -506,7 +506,7 @@ class _MobileResultTabState extends State<MobileResultTab>
                 child: displayMarks.isEmpty
                     ? Center(
                         child: Text(
-                          "1번 탭에서 치수를 입력해 주세요.",
+                          "1번 탭에서 치수를 입력해 주십시오.",
                           style: TextStyle(
                             color: slate600.withValues(alpha: 0.6),
                             fontSize: 15,

@@ -219,7 +219,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
     await Clipboard.setData(ClipboardData(text: buffer.toString()));
     if (!mounted) return;
 
-    _showSnackBar("발주서 및 채팅 기록이 클립보드에 복사되었습니다.\n(카카오톡 등에 붙여넣기 하세요)");
+    _showSnackBar("발주서 및 채팅 기록이 클립보드에 복사되었습니다.\n(카카오톡 등에 붙여넣기 하십시오)");
   }
 
   Future<void> _deleteOrderConfirm(OrderModel order) async {
@@ -499,7 +499,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
               ),
               child: Text(
                 _cartItems.isEmpty
-                    ? "품목을 먼저 담아주세요"
+                    ? "품목을 먼저 담아 주십시오"
                     : "${_cartItems.length}건 발주 요청하기",
                 style: const TextStyle(
                   fontSize: 17,
@@ -517,7 +517,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
 
   void _addToCart() {
     if (_itemCtrl.text.trim().isEmpty || _qtyCtrl.text.trim().isEmpty) {
-      _showSnackBar("자재명과 수량을 입력해주세요.", isError: true);
+      _showSnackBar("자재명과 수량을 입력해 주십시오.", isError: true);
       return;
     }
 
@@ -633,7 +633,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
               cursorColor: tossBlue,
               decoration: const InputDecoration(
                 prefixIcon: Icon(LucideIcons.link, color: slate600, size: 18),
-                hintText: "인터넷 쇼핑몰 등의 제품 URL을 붙여넣으세요",
+                hintText: "인터넷 쇼핑몰 등의 제품 URL을 붙여넣으십시오",
                 hintStyle: TextStyle(color: Colors.black26, fontSize: 14),
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(
@@ -677,7 +677,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    _selectedManager ?? "담당자를 선택해주세요",
+                    _selectedManager ?? "담당자를 선택해 주십시오",
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: _selectedManager == null
@@ -801,7 +801,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
 
   Widget _buildDateSelector() {
     String dateText = _selectedDate == null
-        ? "납기 희망일을 선택해주세요"
+        ? "납기 희망일을 선택해 주십시오"
         : "${_selectedDate!.year}년 ${_selectedDate!.month}월 ${_selectedDate!.day}일";
     return Padding(
       padding: const EdgeInsets.only(bottom: 24),
@@ -902,7 +902,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                       cursorColor: makitaTeal,
                       decoration: InputDecoration(
                         hintText:
-                            "가공 치수, 홀 타공 사이즈 등을 적어주세요.\n(예: 100x100, 10파이 2홀)",
+                            "가공 치수, 홀 타공 사이즈 등을 적어 주십시오.\n(예: 100x100, 10파이 2홀)",
                         hintStyle: const TextStyle(
                           color: Colors.black26,
                           fontSize: 14,
@@ -1398,7 +1398,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                     const SizedBox(width: 8),
                     Text(
                       dDayInfo!['text'] == "D-Day"
-                          ? "오늘 입고 예정입니다. 수령 상태를 확인해주세요!"
+                          ? "오늘 입고 예정입니다. 수령 상태를 확인해 주십시오!"
                           : "입고가 지연되고 있습니다. 관리자 확인 요망!",
                       style: const TextStyle(
                         color: warningRed,
@@ -2128,7 +2128,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              "작업자에게 전달할 반려 사유를 적어주세요.",
+              "작업자에게 전달할 반려 사유를 적어 주십시오.",
               style: TextStyle(color: slate600, fontSize: 13),
             ),
             const SizedBox(height: 12),
@@ -2163,7 +2163,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
           ElevatedButton(
             onPressed: () async {
               if (reasonCtrl.text.trim().isEmpty) {
-                _showSnackBar("반려 사유를 입력해주세요.", isError: true);
+                _showSnackBar("반려 사유를 입력해 주십시오.", isError: true);
                 return;
               }
               Navigator.pop(context);
@@ -2445,11 +2445,11 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
 
   void _submitOrder() async {
     if (_cartItems.isEmpty) {
-      _showSnackBar("먼저 품목을 장바구니에 담아주세요.", isError: true);
+      _showSnackBar("먼저 품목을 장바구니에 담아 주십시오.", isError: true);
       return;
     }
     if (_selectedManager == null) {
-      _showSnackBar("발주를 수신할 담당자를 선택해주세요.", isError: true);
+      _showSnackBar("발주를 수신할 담당자를 선택해 주십시오.", isError: true);
       return;
     }
 

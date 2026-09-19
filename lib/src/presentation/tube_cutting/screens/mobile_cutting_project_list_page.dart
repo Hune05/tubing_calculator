@@ -78,7 +78,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  "작업 위치나 라인 이름으로 구분해두면 나중에 찾기 편해요",
+                  "작업 위치나 라인 이름으로 구분해두면 나중에 찾기 편합니다",
                   style: TextStyle(
                     color: CuttingColors.textSecondary,
                     fontSize: 13,
@@ -170,7 +170,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
     final confirmed = await showCuttingConfirmDialog(
       context,
       title: "작업 삭제",
-      message: "이 컷팅 작업과 저장된 컷팅 기록을 모두 삭제할까요? 되돌릴 수 없습니다.",
+      message: "이 컷팅 작업과 저장된 컷팅 기록을 모두 삭제하시겠습니까? 되돌릴 수 없습니다.",
       confirmLabel: "삭제",
       danger: true,
       icon: Icons.delete_outline_rounded,
@@ -334,7 +334,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
       title: "부속 DB 새로고침",
       message:
           "부속 카탈로그를 최신 버전(DK-Lok 브랜드, 나사산 구분, 규격쌍 리듀서 포함)으로 다시 만듭니다. "
-          "기존 부속 데이터는 전부 지워지고 새로 올라갑니다(현장에서 직접 입력한 커스텀 부속은 영향 없음). 계속할까요?",
+          "기존 부속 데이터는 전부 지워지고 새로 올라갑니다(현장에서 직접 입력한 커스텀 부속은 영향 없음). 계속하시겠습니까?",
       confirmLabel: "새로고침",
       icon: Icons.cloud_sync_outlined,
     );
@@ -442,7 +442,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      "우측 하단 + 버튼으로 새 작업을 만들어보세요.",
+                      "우측 하단 + 버튼으로 새 작업을 만들어 보십시오.",
                       style: TextStyle(
                         color: CuttingColors.textSecondary,
                         fontSize: 13,

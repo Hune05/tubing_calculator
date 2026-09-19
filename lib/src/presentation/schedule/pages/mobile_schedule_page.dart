@@ -475,7 +475,7 @@ class _MobileSchedulePageState extends State<MobileSchedulePage> {
                           controller: descCtrl,
                           maxLines: 3, // 여러 줄 입력 가능
                           decoration: InputDecoration(
-                            hintText: "참석자, 장소, 준비물 등 상세 내용을 적어주세요.",
+                            hintText: "참석자, 장소, 준비물 등 상세 내용을 적어 주십시오.",
                             filled: true,
                             fillColor: tossGrey,
                             border: OutlineInputBorder(

@@ -171,15 +171,15 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
     final qty = int.tryParse(_qtyCtrl.text.trim());
 
     if (shape == null) {
-      showCuttingSnack(context, "규격을 선택해주세요.", isError: true);
+      showCuttingSnack(context, "규격을 선택해 주십시오.", isError: true);
       return;
     }
     if (length == null || length <= 0) {
-      showCuttingSnack(context, "길이를 정확히 입력해주세요.", isError: true);
+      showCuttingSnack(context, "길이를 정확히 입력해 주십시오.", isError: true);
       return;
     }
     if (qty == null || qty <= 0) {
-      showCuttingSnack(context, "수량을 정확히 입력해주세요.", isError: true);
+      showCuttingSnack(context, "수량을 정확히 입력해 주십시오.", isError: true);
       return;
     }
 

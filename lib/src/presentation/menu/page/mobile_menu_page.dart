@@ -694,7 +694,7 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
               return _buildHeaderContent(
                 title: "곧 $number 차량 운행이\n예정되어 있습니다.",
                 titleIcon: LucideIcons.calendarClock,
-                subText: "터치하여 예약 상태를 확인해 주세요.",
+                subText: "터치하여 예약 상태를 확인해 주십시오.",
                 isActionable: true,
                 onTap: () {
                   HapticFeedback.lightImpact();
@@ -712,7 +712,7 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
               return _buildHeaderContent(
                 title: "현재 $number 차량을\n운행 중입니다.",
                 titleIcon: LucideIcons.car,
-                subText: "안전 운행하시고, 사용 후 반납해 주세요.",
+                subText: "안전 운행하시고, 사용 후 반납해 주십시오.",
                 isActionable: true,
                 onTap: () {
                   HapticFeedback.lightImpact();
@@ -762,7 +762,7 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                         ? "오늘 중요한 회의 일정이\n예정되어 있습니다."
                         : "오늘 사내 회식 일정이\n등록되어 있습니다.",
                     titleIcon: LucideIcons.bellRing,
-                    subText: "터치하여 전체 알림을 확인하세요.",
+                    subText: "터치하여 전체 알림을 확인하십시오.",
                     isActionable: true,
                     onTap: () {
                       HapticFeedback.heavyImpact();

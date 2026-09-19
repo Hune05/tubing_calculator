@@ -288,7 +288,7 @@ class _MarkingPageState extends State<MarkingPage> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      "⚠️ 주의: 버리는 값이 아닙니다. 마지막 벤딩 곡선을 완성하기 위한 '필수 기장'이므로 반드시 위 총 기장대로 절단하세요.",
+                                      "⚠️ 주의: 버리는 값이 아닙니다. 마지막 벤딩 곡선을 완성하기 위한 '필수 기장'이므로 반드시 위 총 기장대로 절단하십시오.",
                                       style: TextStyle(
                                         color: Colors.red.shade600,
                                         fontSize: 11,
@@ -492,7 +492,7 @@ class _MarkingPageState extends State<MarkingPage> {
                   child: displayMarks.isEmpty
                       ? const Center(
                           child: Text(
-                            "계산기 화면에서 데이터를 입력해주세요.",
+                            "계산기 화면에서 데이터를 입력해 주십시오.",
                             style: TextStyle(color: slate600, fontSize: 16),
                           ),
                         )

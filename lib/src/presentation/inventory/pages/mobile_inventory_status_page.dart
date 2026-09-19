@@ -225,7 +225,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
               if (filteredDocs.isEmpty) {
                 return const Center(
                   child: Text(
-                    "검색 결과가 없어요.",
+                    "검색 결과가 없습니다.",
                     style: TextStyle(
                       color: slate600,
                       fontSize: 16,
@@ -403,7 +403,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                 Icon(LucideIcons.checkCircle2, size: 64, color: slate100),
                 const SizedBox(height: 16),
                 const Text(
-                  "가져간 자재가 없어요.",
+                  "가져간 자재가 없습니다.",
                   style: TextStyle(
                     color: slate600,
                     fontSize: 16,

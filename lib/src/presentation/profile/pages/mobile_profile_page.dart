@@ -88,7 +88,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
     } catch (error) {
       debugPrint("🚨 구글 로그인 에러: $error");
       if (mounted) {
-        _showSnackBar("로그인에 실패했습니다. 오프라인 모드를 사용해주세요.", isError: true);
+        _showSnackBar("로그인에 실패했습니다. 오프라인 모드를 사용해 주십시오.", isError: true);
       }
     } finally {
       if (mounted) setState(() => _isLoggingIn = false);
@@ -116,7 +116,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                "현장에서 사용할 정확한 본인 실명(또는 직급)을 입력해주세요.",
+                "현장에서 사용할 정확한 본인 실명(또는 직급)을 입력해 주십시오.",
                 style: TextStyle(fontSize: 14, color: slate600, height: 1.4),
               ),
               const SizedBox(height: 16),
@@ -171,7 +171,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                     );
                   }
                 } else {
-                  _showSnackBar("이름을 입력해주세요.", isError: true);
+                  _showSnackBar("이름을 입력해 주십시오.", isError: true);
                 }
               },
               child: const Text(
@@ -205,7 +205,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                "앱에서 사용할 새로운 아이디나 직급을 입력해주세요.",
+                "앱에서 사용할 새로운 아이디나 직급을 입력해 주십시오.",
                 style: TextStyle(fontSize: 14, color: slate600, height: 1.4),
               ),
               const SizedBox(height: 16),
@@ -275,7 +275,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                     }
                   }
                 } else {
-                  _showSnackBar("아이디를 입력해주세요.", isError: true);
+                  _showSnackBar("아이디를 입력해 주십시오.", isError: true);
                 }
               },
               child: const Text(
@@ -485,7 +485,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
         ),
         const SizedBox(height: 4),
         const Text(
-          "현장 관리 기능을 100% 활용해보세요",
+          "현장 관리 기능을 100% 활용해 보십시오",
           style: TextStyle(
             color: slate600,
             fontSize: 15,
@@ -726,7 +726,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
             ),
           ),
           content: const Text(
-            "안전한 작업을 위해\n작업이 끝났다면 로그아웃 해주세요.",
+            "안전한 작업을 위해\n작업이 끝났다면 로그아웃 해 주십시오.",
             style: TextStyle(fontSize: 15, color: slate600, height: 1.4),
           ),
           actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),

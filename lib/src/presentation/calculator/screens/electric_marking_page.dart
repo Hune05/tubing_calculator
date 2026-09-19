@@ -573,7 +573,7 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  "⚠️ 주의: 버리는 값이 아닙니다. 필수 기장이므로 반드시 위 총 기장대로 절단하세요.",
+                                  "⚠️ 주의: 버리는 값이 아닙니다. 필수 기장이므로 반드시 위 총 기장대로 절단하십시오.",
                                   style: TextStyle(
                                     color: Colors.red.shade600,
                                     fontSize: 11,
@@ -752,7 +752,7 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
               child: displayMarks.isEmpty
                   ? const Center(
                       child: Text(
-                        "치수를 먼저 입력해주세요.",
+                        "치수를 먼저 입력해 주십시오.",
                         style: TextStyle(color: slate600, fontSize: 16),
                       ),
                     )

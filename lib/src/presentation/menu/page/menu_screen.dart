@@ -234,7 +234,7 @@ class MenuScreen extends StatelessWidget {
             bool isOk = await _checkMode(
               context,
               "전동 (Electric)",
-              "현재 수동 모드입니다. 설정에서 전동 모드로 변경해 주세요.",
+              "현재 수동 모드입니다. 설정에서 전동 모드로 변경해 주십시오.",
             );
             if (!isOk) return;
 
@@ -267,7 +267,7 @@ class MenuScreen extends StatelessWidget {
             bool isOk = await _checkMode(
               context,
               "수동 (Hand)",
-              "현재 전동 모드입니다. 설정에서 수동 모드로 변경해 주세요.",
+              "현재 전동 모드입니다. 설정에서 수동 모드로 변경해 주십시오.",
             );
             if (!isOk) return;
 

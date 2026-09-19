@@ -105,7 +105,7 @@ class _RollingOffsetBottomSheetState extends State<RollingOffsetBottomSheet> {
     if (_selectedRotation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("진행할 기준면 축을 먼저 선택해주세요!"),
+          content: Text("진행할 기준면 축을 먼저 선택해 주십시오!"),
           backgroundColor: Colors.deepOrange,
         ),
       );

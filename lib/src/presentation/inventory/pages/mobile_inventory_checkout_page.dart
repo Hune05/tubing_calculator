@@ -70,9 +70,9 @@ class _MobileInventoryCheckoutPageState
       _currentInputQty = int.tryParse(_qtyController.text) ?? 0;
 
       if (_currentInputQty < 0) {
-        _errorMessage = "수량은 0보다 커야 해요";
+        _errorMessage = "수량은 0보다 커야 합니다";
       } else if (_currentInputQty > widget.currentQty) {
-        _errorMessage = widget.isCheckout ? "창고에 있는 재고보다 많아요" : "불출했던 수량보다 많아요";
+        _errorMessage = widget.isCheckout ? "창고에 있는 재고보다 많습니다" : "불출했던 수량보다 많습니다";
       } else {
         _errorMessage = null;
       }
@@ -117,14 +117,14 @@ class _MobileInventoryCheckoutPageState
         });
 
         if (!mounted) return;
-        _showSnackBar("현장 소진 처리되어 목록에서 삭제됐어요", slate900);
+        _showSnackBar("현장 소진 처리되어 목록에서 삭제되었습니다", slate900);
         Navigator.pop(context);
         return;
       }
 
       int amount = int.tryParse(_qtyController.text) ?? 0;
       if (amount <= 0) {
-        _showSnackBar("수량을 1개 이상 입력해주세요", Colors.redAccent);
+        _showSnackBar("수량을 1개 이상 입력해 주십시오", Colors.redAccent);
         setState(() => _isLoading = false);
         return;
       }
@@ -132,7 +132,7 @@ class _MobileInventoryCheckoutPageState
       String reasonText = _reasonController.text.trim();
       if (reasonText.isEmpty) {
         _showSnackBar(
-          widget.isCheckout ? "어디에 사용하시는지 적어주세요" : "반납하시는 이유를 적어주세요",
+          widget.isCheckout ? "어디에 사용하시는지 적어 주십시오" : "반납하시는 이유를 적어 주십시오",
           Colors.redAccent,
         );
         setState(() => _isLoading = false);
@@ -189,13 +189,13 @@ class _MobileInventoryCheckoutPageState
       if (!mounted) return;
       HapticFeedback.mediumImpact();
       _showSnackBar(
-        widget.isCheckout ? "성공적으로 불출되었어요" : "성공적으로 반납되었어요",
+        widget.isCheckout ? "성공적으로 불출되었습니다" : "성공적으로 반납되었습니다",
         makitaTeal,
       );
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      _showSnackBar("오류가 발생했어요: $e", Colors.redAccent);
+      _showSnackBar("오류가 발생했습니다: $e", Colors.redAccent);
       setState(() => _isLoading = false);
     }
   }
@@ -283,8 +283,8 @@ class _MobileInventoryCheckoutPageState
                       const SizedBox(height: 8),
                       Text(
                         widget.isCheckout
-                            ? '현재 창고에 ${widget.currentQty} ${widget.unit} 남았어요'
-                            : '내가 가져간 수량은 ${widget.currentQty} ${widget.unit} 이에요',
+                            ? '현재 창고에 ${widget.currentQty} ${widget.unit} 남았습니다'
+                            : '내가 가져간 수량은 ${widget.currentQty} ${widget.unit} 입니다',
                         style: const TextStyle(
                           color: slate600,
                           fontSize: 15,
@@ -344,7 +344,7 @@ class _MobileInventoryCheckoutPageState
                           child: Text(
                             hasError
                                 ? _errorMessage!
-                                : "불출 후 ${widget.currentQty - _currentInputQty} ${widget.unit} 남아요",
+                                : "불출 후 ${widget.currentQty - _currentInputQty} ${widget.unit} 남습니다",
                             style: TextStyle(
                               color: hasError ? Colors.redAccent : slate600,
                               fontWeight: FontWeight.w600,
@@ -377,8 +377,8 @@ class _MobileInventoryCheckoutPageState
                         ),
                         decoration: InputDecoration(
                           hintText: widget.isCheckout
-                              ? "어디에 사용하시나요?"
-                              : "반납 사유를 적어주세요 (예: 불량, 남음)",
+                              ? "어디에 사용하십니까?"
+                              : "반납 사유를 적어 주십시오 (예: 불량, 남음)",
                           hintStyle: TextStyle(
                             color: slate600.withOpacity(0.6),
                             fontWeight: FontWeight.normal,
@@ -437,7 +437,7 @@ class _MobileInventoryCheckoutPageState
                               ? null
                               : () => _submit(unpinOnly: true),
                           child: const Text(
-                            "현장에서 전량 소진했어요",
+                            "현장에서 전량 소진했습니다",
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,

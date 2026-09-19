@@ -576,7 +576,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           style: TextStyle(color: scheduleText, fontWeight: FontWeight.bold),
         ),
         content: const Text(
-          "이 개인 일정을 삭제할까요? 되돌릴 수 없습니다.",
+          "이 개인 일정을 삭제하시겠습니까? 되돌릴 수 없습니다.",
           style: TextStyle(color: scheduleSubText),
         ),
         actions: [

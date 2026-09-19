@@ -144,7 +144,7 @@ class _SaddleBottomSheetState extends State<SaddleBottomSheet>
     if (_selectedRotation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("장애물 회피 방향을 선택해주세요!"),
+          content: Text("장애물 회피 방향을 선택해 주십시오!"),
           backgroundColor: Colors.deepOrange,
         ),
       );
@@ -175,7 +175,7 @@ class _SaddleBottomSheetState extends State<SaddleBottomSheet>
     if (_selectedRotation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("장애물 회피 방향을 선택해주세요!"),
+          content: Text("장애물 회피 방향을 선택해 주십시오!"),
           backgroundColor: Colors.deepOrange,
         ),
       );

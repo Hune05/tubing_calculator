@@ -594,7 +594,7 @@ class _OrderLogPageState extends State<OrderLogPage> {
     }
     await Clipboard.setData(ClipboardData(text: csv.toString()));
     if (!mounted) return;
-    _showSnackBar("✅ 목록이 복사되었습니다! 엑셀에 붙여넣기 하세요.");
+    _showSnackBar("✅ 목록이 복사되었습니다! 엑셀에 붙여넣기 하십시오.");
   }
 
   Future<void> _exportOrderData(OrderModel order) async {
@@ -636,7 +636,7 @@ class _OrderLogPageState extends State<OrderLogPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('발주 삭제'),
-        content: const Text('기록을 영구히 삭제할까요?'),
+        content: const Text('기록을 영구히 삭제하시겠습니까?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),

@@ -37,7 +37,7 @@ Future<void> showCuttingOptimizationSheet(
   final bool isGroupedView = groups.length > 1 || !groups.containsKey('');
 
   if (groups.values.every((p) => p.isEmpty)) {
-    showCuttingSnack(context, "치수를 먼저 입력하세요.", isError: true);
+    showCuttingSnack(context, "치수를 먼저 입력하십시오.", isError: true);
     return;
   }
 
@@ -213,7 +213,7 @@ Future<void> showCuttingOptimizationSheet(
             if (isGroupedView) ...[
               const SizedBox(height: 4),
               Text(
-                "규격별 상세 수치는 아래 각 섹션에서 확인하세요.",
+                "규격별 상세 수치는 아래 각 섹션에서 확인하십시오.",
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
               ),
             ],

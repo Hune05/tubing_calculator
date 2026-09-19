@@ -465,7 +465,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
           ),
           const SizedBox(height: 24),
           const Text(
-            "보관된 도면이 없어요",
+            "보관된 도면이 없습니다",
             style: TextStyle(
               fontWeight: FontWeight.w800,
               fontSize: 20,
@@ -475,7 +475,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
           ),
           const SizedBox(height: 8),
           const Text(
-            "마킹 탭에서 작업 결과를 저장해보세요.",
+            "마킹 탭에서 작업 결과를 저장해 보십시오.",
             style: TextStyle(
               color: slate600,
               fontSize: 15,

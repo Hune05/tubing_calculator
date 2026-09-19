@@ -54,7 +54,7 @@ class MobileInventoryLogsPage extends StatelessWidget {
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(
               child: Text(
-                "기록이 없어요",
+                "기록이 없습니다",
                 style: TextStyle(
                   color: slate600,
                   fontSize: 16,

@@ -42,7 +42,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
     final confirmed = await showCuttingConfirmDialog(
       context,
       title: "기록 삭제",
-      message: "이 컷팅 기록을 삭제할까요? 프로젝트 누적 합계에서도 이만큼 함께 빠집니다.",
+      message: "이 컷팅 기록을 삭제하시겠습니까? 프로젝트 누적 합계에서도 이만큼 함께 빠집니다.",
       confirmLabel: "삭제",
       danger: true,
       icon: Icons.delete_outline_rounded,

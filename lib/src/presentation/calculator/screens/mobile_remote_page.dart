@@ -562,7 +562,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: const Text(
-                      "필수 수치를 입력해주세요!",
+                      "필수 수치를 입력해 주십시오!",
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     backgroundColor: Colors.redAccent.shade700,
@@ -824,7 +824,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text(
-                    "연동 반경 값을 최신화했어요.",
+                    "연동 반경 값을 최신화했습니다.",
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   backgroundColor: makitaTeal,
@@ -845,7 +845,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const Text(
-          "어느 방향으로 꺾을까요?", // 문구 부드럽게
+          "어느 방향으로 꺾으시겠습니까?", // 문구 부드럽게
           style: TextStyle(
             fontSize: 22,
             color: slate900,
@@ -916,7 +916,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
               : Text(
                   _isInputFinishedList[_currentMode]
                       ? "태블릿으로 전송하기"
-                      : "수치를 먼저 입력해주세요",
+                      : "수치를 먼저 입력해 주십시오",
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
@@ -963,7 +963,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                 child: _historyLogs.isEmpty
                     ? const Center(
                         child: Text(
-                          "아직 전송한 기록이 없어요.",
+                          "아직 전송한 기록이 없습니다.",
                           style: TextStyle(
                             color: slate600,
                             fontSize: 16,

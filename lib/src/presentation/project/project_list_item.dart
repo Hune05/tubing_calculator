@@ -319,7 +319,7 @@ class ProjectListItem extends StatelessWidget {
                         if (project['materials'] == null ||
                             project['materials'].isEmpty)
                           const Text(
-                            "자재 내역이 없습니다.\n'컷팅 작업하기' 버튼을 눌러 작업을 시작하세요.",
+                            "자재 내역이 없습니다.\n'컷팅 작업하기' 버튼을 눌러 작업을 시작하십시오.",
                             style: TextStyle(
                               color: slate600,
                               fontSize: 13,

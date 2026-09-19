@@ -53,7 +53,7 @@ class _MobileInventoryLoginScreenState
           );
         } else {
           // ❌ 본인 계정이 아님! 접근 거부
-          _showErrorAndPop("⚠️ 본인 계정으로 로그인해주세요.");
+          _showErrorAndPop("⚠️ 본인 계정으로 로그인해 주십시오.");
         }
       } else {
         _showErrorAndPop("로그인 정보를 찾을 수 없습니다.");

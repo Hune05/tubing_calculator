@@ -100,7 +100,7 @@ class TubeBendingEngine {
         if (inst.angle <= 0 || inst.angle >= _maxSafeAngle) {
           throw ArgumentError(
             '벤딩 각도(${inst.angle}°)가 유효 범위(0° 초과 ~ $_maxSafeAngle° 미만)를 벗어났습니다. '
-            '180°에 가까운 U-Bend는 전용 U-Bend 계산기를 사용해주세요.',
+            '180°에 가까운 U-Bend는 전용 U-Bend 계산기를 사용해 주십시오.',
           );
         }
 
