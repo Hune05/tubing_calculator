@@ -1,8 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import '../models/report_tools.dart';
+import '../models/photo_store.dart';
 import '../widgets/photo_detail_modal.dart' show PhotoDetailModal;
 import 'daily_report_page.dart'
     show tossBlue, tossText, tossSubText, tossInputBg, pureWhite;
@@ -253,17 +252,7 @@ class _ProjectPhotosPageState extends State<ProjectPhotosPage> {
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              Image.file(
-                                File(it.path),
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => Container(
-                                  color: tossInputBg,
-                                  child: const Icon(
-                                    Icons.image_not_supported_outlined,
-                                    color: tossSubText,
-                                  ),
-                                ),
-                              ),
+                              PhotoImage(it.path),
                               Positioned(
                                 left: 0,
                                 right: 0,

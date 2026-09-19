@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart'; // 🚀 HapticFeedback을 위해 추가
@@ -12,8 +11,9 @@ import '../widgets/photo_detail_modal.dart';
 import 'floor_plan_pin_page.dart';
 import '../models/project_phase.dart';
 import '../models/report_tools.dart';
+import '../models/photo_store.dart';
 
-const Color tossBlue = Color(0xFF3182F6);
+const Color tossBlue = Color(0xFF007580); // 마키타 틸로 통일(다른 화면과 동일)
 const Color tossText = Color(0xFF191F28);
 const Color tossSubText = Color(0xFF8B95A1);
 const Color tossInputBg = Color(0xFFF2F4F6);
@@ -355,7 +355,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
   }
 
   void _handleAddImage() async {
-    if (_attachedImages.length >= 5) return;
+    if (_attachedImages.length >= 10) return;
     FocusScope.of(context).unfocus();
     final path = await ImagePickerHelper.pickImage(context);
     if (path != null) setState(() => _attachedImages.add(path));
@@ -465,6 +465,9 @@ class _DailyReportPageState extends State<DailyReportPage> {
 
     final newReport = {
       "date": dateStr,
+      "dateISO": _isEdit
+          ? widget.existingData!['dateISO']
+          : DateTime.now().toIso8601String().substring(0, 10),
       "work_type": _selectedWorkTypes.toList(),
       "worker_count": _workerCount,
       "is_overtime": _isOvertime,
@@ -535,10 +538,289 @@ class _DailyReportPageState extends State<DailyReportPage> {
     );
   }
 
+  // ───────────────────────── 새 UI 조각들 ─────────────────────────
+  Widget _card({
+    required String title,
+    IconData? icon,
+    required Widget child,
+    Widget? trailing,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: pureWhite,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 18, color: makitaTeal),
+                const SizedBox(width: 6),
+              ],
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: tossText,
+                  ),
+                ),
+              ),
+              if (trailing != null) trailing,
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _dec({String? hint, String? label}) => InputDecoration(
+    hintText: hint,
+    labelText: label,
+    labelStyle: const TextStyle(color: tossSubText, fontSize: 13),
+    hintStyle: const TextStyle(color: Color(0xFFB0B8C1), fontSize: 14),
+    filled: true,
+    fillColor: tossInputBg,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide.none,
+    ),
+  );
+
+  Widget _selChip(String label, bool sel, VoidCallback onTap) =>
+      GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            color: sel ? makitaTeal : tossInputBg,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: sel ? pureWhite : tossSubText,
+              fontWeight: sel ? FontWeight.w800 : FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      );
+
+  // 접이식 항목: 접혀 있어도 채워진 값은 요약으로 보인다.
+  Widget _more({
+    required String title,
+    required IconData icon,
+    required String summary,
+    required bool filled,
+    required List<Widget> children,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: pureWhite,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: filled && _isEdit,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+          leading: Icon(
+            icon,
+            color: filled ? makitaTeal : tossSubText,
+            size: 20,
+          ),
+          title: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: tossText,
+            ),
+          ),
+          subtitle: summary.isEmpty
+              ? null
+              : Text(
+                  summary,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, color: makitaTeal),
+                ),
+          children: children,
+        ),
+      ),
+    );
+  }
+
+  Widget _timeBox(String label, TimeOfDay? t, bool isStart) => Expanded(
+    child: InkWell(
+      onTap: () => _pickOvertimeTime(isStart: isStart),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: tossInputBg,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              t != null ? _formatTimeOfDay(t) : label,
+              style: TextStyle(
+                color: t != null ? tossText : tossSubText,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            const Icon(Icons.access_time_rounded, size: 16, color: tossSubText),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  Widget _photoThumb(int index, String path) {
+    final tag = _imageTags[path];
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: Stack(
+        children: [
+          GestureDetector(
+            onTap: () => PhotoDetailModal.show(
+              context: context,
+              title: "현장 사진",
+              content: "",
+              imagePaths: _attachedImages,
+              initialIndex: index,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: PhotoImage(path, width: 88, height: 88),
+            ),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: GestureDetector(
+              onTap: () => setState(() {
+                _imageTags.remove(path);
+                _attachedImages.removeAt(index);
+              }),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: Colors.black87,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, color: Colors.white, size: 12),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 4,
+            bottom: 4,
+            child: GestureDetector(
+              onTap: () => _pickTag(path),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: tag == null ? Colors.black54 : makitaTeal,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  tag ?? '+ 분류',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _photoAction(IconData icon, String label, VoidCallback onTap) =>
+      Padding(
+        padding: const EdgeInsets.only(right: 10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: 88,
+            height: 88,
+            decoration: BoxDecoration(
+              color: tossInputBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: tossSubText, size: 24),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: tossSubText,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+  Future<void> _openSketch() async {
+    HapticFeedback.lightImpact();
+    final bool isTabletSize = MediaQuery.of(context).size.shortestSide >= 600;
+    final String? capturedPath = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => isTabletSize
+            ? const TabletLayoutBoardPage(attachToReport: true)
+            : const MobileLayoutBoardPage(attachToReport: true),
+      ),
+    );
+    if (capturedPath != null && mounted) {
+      setState(() => _attachedImages.add(capturedPath));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final String prevPlan =
+        (widget.previousReport?['next_day_plan'] as String?)?.trim() ?? '';
+    final String dateLabel = _isEdit
+        ? "${widget.existingData!['date']}"
+        : _todayDateStr();
+
     return Scaffold(
-      backgroundColor: pureWhite,
+      backgroundColor: const Color(0xFFF2F4F6),
       appBar: AppBar(
         backgroundColor: pureWhite,
         scrolledUnderElevation: 0,
@@ -550,991 +832,554 @@ class _DailyReportPageState extends State<DailyReportPage> {
           ),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          _isEdit ? "작업 일보 수정" : "작업 일보 작성",
-          style: const TextStyle(
-            color: tossText,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-          ),
+        title: Column(
+          children: [
+            Text(
+              _isEdit ? "작업 일보 수정" : "작업 일보",
+              style: const TextStyle(
+                color: tossText,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            Text(
+              dateLabel,
+              style: const TextStyle(color: tossSubText, fontSize: 12),
+            ),
+          ],
         ),
         centerTitle: true,
       ),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 🚀 [추가] 오늘 날짜가 아닌 일지를 열었을 때, 저장 시 사유가
-              // 필요하다는 걸 미리 알려준다.
-              if (_isPastEdit) ...[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.orange.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.history_edu_rounded,
-                        color: Colors.orange.shade700,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          "${widget.existingData!['date']}의 지난 일지입니다. 저장하려면 수정 사유를 입력해야 해요.",
-                          style: TextStyle(
-                            color: Colors.orange.shade800,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
+          children: [
+            if (_isPastEdit)
+              Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                const SizedBox(height: 20),
-              ],
-              // 🚀 [추가] 새로 작성 중이고 어제(최근) 일지가 있으면, 반복
-              // 작업일 때 타이핑을 줄이는 버튼과 어제 적어둔 계획을 보여준다.
-              if (!_isEdit && widget.previousReport != null) ...[
-                Row(
+                child: Row(
                   children: [
+                    Icon(
+                      Icons.history_edu_rounded,
+                      color: Colors.orange.shade700,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _loadPreviousValues,
-                        icon: const Icon(Icons.history_rounded, size: 18),
-                        label: const Text("어제 값 불러오기"),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: tossBlue,
-                          side: BorderSide(
-                            color: tossBlue.withValues(alpha: 0.4),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                      child: Text(
+                        "${widget.existingData!['date']}의 지난 일지입니다. 저장하려면 수정 사유를 입력해야 해요.",
+                        style: TextStyle(
+                          color: Colors.orange.shade800,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                   ],
                 ),
-                if ((widget.previousReport!['next_day_plan'] as String?)
-                        ?.isNotEmpty ==
-                    true) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: makitaTeal.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+
+            // ── 빠른 시작 (새 일보 + 어제 일보가 있을 때) ──
+            if (!_isEdit && widget.previousReport != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: makitaTeal.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
                         const Icon(
-                          Icons.event_note_rounded,
+                          Icons.bolt_rounded,
                           color: makitaTeal,
                           size: 18,
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
+                        const SizedBox(width: 6),
+                        const Expanded(
                           child: Text(
-                            "어제 적어둔 계획: ${widget.previousReport!['next_day_plan']}",
-                            style: const TextStyle(
+                            "어제 일보로 빠르게 시작",
+                            style: TextStyle(
                               color: makitaTeal,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
                             ),
                           ),
                         ),
                         TextButton(
+                          onPressed: _loadPreviousValues,
+                          style: TextButton.styleFrom(
+                            foregroundColor: makitaTeal,
+                            minimumSize: const Size(0, 32),
+                          ),
+                          child: const Text(
+                            "값 불러오기",
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (prevPlan.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        "어제 적은 계획: $prevPlan",
+                        style: const TextStyle(
+                          color: makitaTeal,
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
                           onPressed: _usePlanAsNote,
                           style: TextButton.styleFrom(
                             foregroundColor: makitaTeal,
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            minimumSize: const Size(0, 32),
+                            minimumSize: const Size(0, 30),
                           ),
                           child: const Text(
                             "오늘 내역에 넣기",
                             style: TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 20),
-              ],
-              if (widget.phases.isNotEmpty) ...[
-                const Text(
-                  "오늘 작업한 단계",
-                  style: TextStyle(
-                    color: tossText,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: widget.phases.map((p) {
-                    final id = p['id'].toString();
-                    final sel = _workedPhaseIds.contains(id);
-                    return ChoiceChip(
-                      label: Text(p['name'].toString()),
-                      selected: sel,
-                      showCheckmark: false,
-                      selectedColor: tossBlue,
-                      backgroundColor: tossInputBg,
-                      side: BorderSide.none,
-                      labelStyle: TextStyle(
-                        color: sel ? pureWhite : tossSubText,
-                        fontWeight: FontWeight.w700,
                       ),
-                      onSelected: (_) => setState(() {
-                        sel
-                            ? _workedPhaseIds.remove(id)
-                            : _workedPhaseIds.add(id);
-                      }),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 32),
-              ],
-              // 1. 작업 유형 선택 (🚀 복수 선택 가능)
-              const Text(
-                "작업 유형 (여러 개 선택 가능)",
-                style: TextStyle(
-                  color: tossText,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _workTypes.map((type) {
-                  final bool selected = _selectedWorkTypes.contains(type);
-                  return GestureDetector(
-                    onTap: () => setState(() {
-                      if (selected) {
-                        // 최소 1개는 남겨둔다.
-                        if (_selectedWorkTypes.length > 1) {
-                          _selectedWorkTypes.remove(type);
-                        }
-                      } else {
-                        _selectedWorkTypes.add(type);
-                      }
-                    }),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: selected ? tossBlue : tossInputBg,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (selected) ...[
-                            const Icon(
-                              Icons.check_rounded,
-                              size: 16,
-                              color: pureWhite,
-                            ),
-                            const SizedBox(width: 4),
-                          ],
-                          Text(
-                            type,
-                            style: TextStyle(
-                              color: selected ? pureWhite : tossSubText,
-                              fontWeight: selected
-                                  ? FontWeight.w700
-                                  : FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 32),
-
-              // 2. 투입 인원 및 연장 여부
-              const Text(
-                "투입 인원 및 시간",
-                style: TextStyle(
-                  color: tossText,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: tossInputBg,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "오늘 투입된 인원",
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: tossText,
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            IconButton(
-                              onPressed: () => setState(() {
-                                if (_workerCount > 1) _workerCount--;
-                              }),
-                              icon: const Icon(
-                                Icons.remove_circle_outline,
-                                color: tossSubText,
-                              ),
-                            ),
-                            Text(
-                              "$_workerCount 명",
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: tossText,
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () => setState(() => _workerCount++),
-                              icon: const Icon(
-                                Icons.add_circle_outline,
-                                color: tossBlue,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const Divider(color: Color(0xFFD1D6DB), height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "연장 / 야간 작업 수행",
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: tossText,
-                          ),
-                        ),
-                        CupertinoSwitch(
-                          value: _isOvertime,
-                          activeTrackColor:
-                              tossBlue, // 🚀 activeColor -> activeTrackColor 변경 완료
-                          onChanged: (val) => setState(() => _isOvertime = val),
-                        ),
-                      ],
-                    ),
-                    // 🚀 [추가] 연장/야간 작업 시간대 입력
-                    if (_isOvertime) ...[
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: () => _pickOvertimeTime(isStart: true),
-                              borderRadius: BorderRadius.circular(10),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: pureWhite,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      _overtimeStart != null
-                                          ? _formatTimeOfDay(_overtimeStart!)
-                                          : "시작 시간",
-                                      style: TextStyle(
-                                        color: _overtimeStart != null
-                                            ? tossText
-                                            : tossSubText,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    const Icon(
-                                      Icons.access_time_rounded,
-                                      size: 16,
-                                      color: tossSubText,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 8),
-                            child: Text(
-                              "~",
-                              style: TextStyle(color: tossSubText),
-                            ),
-                          ),
-                          Expanded(
-                            child: InkWell(
-                              onTap: () => _pickOvertimeTime(isStart: false),
-                              borderRadius: BorderRadius.circular(10),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: pureWhite,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      _overtimeEnd != null
-                                          ? _formatTimeOfDay(_overtimeEnd!)
-                                          : "종료 시간",
-                                      style: TextStyle(
-                                        color: _overtimeEnd != null
-                                            ? tossText
-                                            : tossSubText,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    const Icon(
-                                      Icons.access_time_rounded,
-                                      size: 16,
-                                      color: tossSubText,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (_overtimeHours != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          "연장/야간 근무 시간: ${_overtimeHours!.toStringAsFixed(1)}시간",
-                          style: const TextStyle(
-                            color: tossBlue,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
                     ],
                   ],
                 ),
               ),
-              const SizedBox(height: 32),
 
-              // 3. 작업 포인트 및 상세 내용
-              const Text(
-                "상세 작업 내역",
-                style: TextStyle(
-                  color: tossText,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
+            // ── 오늘 작업 (핵심) ──
+            _card(
+              title: "오늘 작업",
+              icon: Icons.construction_rounded,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _pointCtrl,
-                      keyboardType: TextInputType.number,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: tossText,
+                  if (widget.phases.isNotEmpty) ...[
+                    const Text(
+                      "작업한 단계",
+                      style: TextStyle(
+                        color: tossSubText,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
                       ),
-                      decoration: InputDecoration(
-                        labelText: "벤딩 완료 (pt)",
-                        labelStyle: const TextStyle(
-                          color: tossSubText,
-                          fontSize: 13,
-                        ),
-                        filled: true,
-                        fillColor: tossInputBg,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: widget.phases.map((p) {
+                        final id = p['id'].toString();
+                        final sel = _workedPhaseIds.contains(id);
+                        return _selChip(p['name'].toString(), sel, () {
+                          setState(() {
+                            sel
+                                ? _workedPhaseIds.remove(id)
+                                : _workedPhaseIds.add(id);
+                          });
+                        });
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  const Text(
+                    "작업 유형 (여러 개 선택)",
+                    style: TextStyle(
+                      color: tossSubText,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: _wiringPointCtrl,
-                      keyboardType: TextInputType.number,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: tossText,
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _workTypes.map((type) {
+                      final sel = _selectedWorkTypes.contains(type);
+                      return _selChip(type, sel, () {
+                        setState(() {
+                          if (sel) {
+                            if (_selectedWorkTypes.length > 1) {
+                              _selectedWorkTypes.remove(type);
+                            }
+                          } else {
+                            _selectedWorkTypes.add(type);
+                          }
+                        });
+                      });
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Text(
+                        "투입 인원",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: tossText,
+                          fontSize: 14,
+                        ),
                       ),
-                      decoration: InputDecoration(
-                        labelText: "결선 완료 (개소)",
-                        labelStyle: const TextStyle(
+                      const Spacer(),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => setState(() {
+                          if (_workerCount > 1) _workerCount--;
+                        }),
+                        icon: const Icon(
+                          Icons.remove_circle_outline,
                           color: tossSubText,
-                          fontSize: 13,
-                        ),
-                        filled: true,
-                        fillColor: tossInputBg,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
                         ),
                       ),
+                      Text(
+                        "$_workerCount명",
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: tossText,
+                        ),
+                      ),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => setState(() => _workerCount++),
+                        icon: const Icon(
+                          Icons.add_circle_outline,
+                          color: makitaTeal,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _pointCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: _dec(label: "벤딩 완료 (pt)"),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: _wiringPointCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: _dec(label: "결선 완료 (개소)"),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _noteCtrl,
+                    maxLines: 4,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: tossText,
+                      height: 1.5,
                     ),
+                    decoration: _dec(
+                      hint: "오늘 작업 내용·특이사항\n(예: 센서 3개소 결선 완료, 튜브 라인 연결)",
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: _quickPhrases
+                        .map(
+                          (p) => ActionChip(
+                            label: Text(
+                              p,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            backgroundColor: tossInputBg,
+                            side: BorderSide.none,
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => _addPhrase(p),
+                          ),
+                        )
+                        .toList(),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _noteCtrl,
-                maxLines: 4,
+            ),
+
+            // ── 사진 ──
+            _card(
+              title: "현장 사진",
+              icon: Icons.photo_camera_rounded,
+              trailing: Text(
+                "${_attachedImages.length}/10",
                 style: const TextStyle(
-                  fontSize: 15,
-                  color: tossText,
-                  height: 1.5,
-                ),
-                decoration: InputDecoration(
-                  hintText:
-                      "오늘 작업의 특이사항이나 전달사항을 적어주세요.\n(예: 센서 3개소 결선 완료, 튜브 라인 연결)",
-                  hintStyle: const TextStyle(color: Color(0xFFB0B8C1)),
-                  filled: true,
-                  fillColor: tossInputBg,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: _quickPhrases
-                    .map(
-                      (p) => ActionChip(
-                        label: Text(p, style: const TextStyle(fontSize: 12)),
-                        backgroundColor: tossInputBg,
-                        side: BorderSide.none,
-                        visualDensity: VisualDensity.compact,
-                        onPressed: () => _addPhrase(p),
-                      ),
-                    )
-                    .toList(),
-              ),
-              const SizedBox(height: 22),
-
-              // 🚀 오늘 끝낸 세부 일정 체크 (저장 시 프로젝트 일정에 완료로 반영)
-              if (widget.pendingSchedules.isNotEmpty) ...[
-                const Text(
-                  "오늘 끝낸 일정 체크 (선택)",
-                  style: TextStyle(
-                    color: tossText,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  "체크하면 저장할 때 프로젝트 일정이 완료로 바뀝니다.",
-                  style: TextStyle(color: tossSubText, fontSize: 12),
-                ),
-                const SizedBox(height: 8),
-                ...widget.pendingSchedules.map((sc) {
-                  final id = sc['id']?.toString() ?? '';
-                  final checked = _completedScheduleIds.contains(id);
-                  return CheckboxListTile(
-                    value: checked,
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    activeColor: makitaTeal,
-                    title: Text(
-                      sc['title']?.toString() ?? sc['type']?.toString() ?? '',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: tossText,
-                        fontSize: 14,
-                      ),
-                    ),
-                    subtitle: Text(
-                      sc['type']?.toString() ?? '',
-                      style: const TextStyle(color: tossSubText, fontSize: 12),
-                    ),
-                    onChanged: (v) => setState(() {
-                      v == true
-                          ? _completedScheduleIds.add(id)
-                          : _completedScheduleIds.remove(id);
-                    }),
-                  );
-                }),
-                const SizedBox(height: 22),
-              ],
-
-              // 🚀 [추가] 오늘 사용한 자재 (간단 기록)
-              const Text(
-                "오늘 사용한 자재 (선택)",
-                style: TextStyle(
-                  color: tossText,
-                  fontSize: 16,
+                  color: tossSubText,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _materialsUsedCtrl,
-                maxLines: 2,
-                style: const TextStyle(
-                  fontSize: 15,
-                  color: tossText,
-                  height: 1.5,
-                ),
-                decoration: InputDecoration(
-                  hintText: "예: 1/2\" 튜빙 10m, 유니온 피팅 5개",
-                  hintStyle: const TextStyle(color: Color(0xFFB0B8C1)),
-                  filled: true,
-                  fillColor: tossInputBg,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // 🚀 [추가] 내일 계획 메모
-              const Text(
-                "내일 계획 (선택)",
-                style: TextStyle(
-                  color: tossText,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _nextDayPlanCtrl,
-                maxLines: 2,
-                style: const TextStyle(
-                  fontSize: 15,
-                  color: tossText,
-                  height: 1.5,
-                ),
-                decoration: InputDecoration(
-                  hintText: "예: 내일은 B동 결선 마무리 예정",
-                  hintStyle: const TextStyle(color: Color(0xFFB0B8C1)),
-                  filled: true,
-                  fillColor: tossInputBg,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // 🚀 [추가] 오늘 처리한 이슈 태그
-              if (widget.relatedIssueCandidates.isNotEmpty) ...[
-                const Text(
-                  "오늘 처리한 이슈 (선택)",
-                  style: TextStyle(
-                    color: tossText,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: widget.relatedIssueCandidates
-                      .map(_buildIssueChip)
-                      .toList(),
-                ),
-                const SizedBox(height: 32),
-              ],
-
-              // 🚀 [추가] 도면 위 작업 위치 핀
-              if (widget.floorPlanImagePath != null) ...[
-                const Text(
-                  "오늘 작업 위치 (선택)",
-                  style: TextStyle(
-                    color: tossText,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                FloorPlanThumbnail(
-                  imagePath: widget.floorPlanImagePath!,
-                  dx: _pinDx,
-                  dy: _pinDy,
-                  onTap: _openPinPicker,
-                ),
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: _openPinPicker,
-                  icon: const Icon(Icons.push_pin_outlined, size: 16),
-                  label: Text(_pinDx == null ? "위치 찍기" : "위치 다시 찍기"),
-                  style: TextButton.styleFrom(
-                    foregroundColor: makitaTeal,
-                    padding: EdgeInsets.zero,
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-
-              // 🚀 4. 현장 배치도 스케치 연동 버튼
-              const Text(
-                "현장 배치도 스케치",
-                style: TextStyle(
-                  color: tossText,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 12),
-              InkWell(
-                onTap: () async {
-                  HapticFeedback.lightImpact();
-                  // 🚀 [수정] 화면 크기를 다시 재서 태블릿 폭이면 좌우 패널형
-                  // 태블릿 버전을, 아니면 기존 바텀시트형 모바일 버전을 연다.
-                  final bool isTabletSize =
-                      MediaQuery.of(context).size.shortestSide >= 600;
-                  // 🚀 [신규] attachToReport: true로 열면 배치도 저장 시트에
-                  // "일지 사진으로 추가" 버튼이 뜨고, 완성된 배치도 사진 경로를
-                  // 결과값으로 받아 바로 이 일지의 현장 사진 목록에 넣어준다.
-                  final String? capturedPath = await Navigator.push<String>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => isTabletSize
-                          ? const TabletLayoutBoardPage(attachToReport: true)
-                          : const MobileLayoutBoardPage(attachToReport: true),
-                    ),
-                  );
-                  if (capturedPath != null && mounted) {
-                    setState(() => _attachedImages.add(capturedPath));
-                  }
-                },
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: tossBlue.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: tossBlue.withValues(alpha: 0.2)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.architecture_rounded,
-                        color: tossBlue,
-                        size: 32,
-                      ),
-                      const SizedBox(width: 16),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "배치도 및 스케치 작성",
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: tossText,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              "장비 배치, 튜빙/결선 라인을 직접 그려보세요.",
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: tossSubText,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        color: tossSubText,
-                        size: 16,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // 5. As-Built
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: _isAsBuilt
-                      ? Colors.orange.withValues(alpha: 0.05)
-                      : tossInputBg,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: _isAsBuilt
-                        ? Colors.orange.withValues(alpha: 0.3)
-                        : Colors.transparent,
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "도면 반영 요청",
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: tossText,
-                          ),
-                        ),
-                        CupertinoSwitch(
-                          value: _isAsBuilt,
-                          activeTrackColor: Colors
-                              .orange
-                              .shade500, // 🚀 activeColor -> activeTrackColor 변경 완료
-                          onChanged: (val) => setState(() => _isAsBuilt = val),
-                        ),
-                      ],
-                    ),
-                    if (_isAsBuilt) ...[
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _asBuiltCtrl,
-                        style: const TextStyle(fontSize: 14, color: tossText),
-                        decoration: InputDecoration(
-                          hintText: "변경 사유 및 실제 시공 치수를 입력하세요.",
-                          hintStyle: const TextStyle(color: Color(0xFFB0B8C1)),
-                          filled: true,
-                          fillColor: pureWhite,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: Colors.orange.shade200,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // 6. 사진 첨부
-              const Text(
-                "현장 사진 첨부",
-                style: TextStyle(
-                  color: tossText,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 12),
-              SingleChildScrollView(
+              child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                    InkWell(
-                      onTap: _handleAddImage,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: tossInputBg,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.camera_alt_rounded,
-                              color: tossSubText,
-                              size: 24,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              "${_attachedImages.length}/5",
-                              style: const TextStyle(
-                                color: tossSubText,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    _photoAction(
+                      Icons.add_a_photo_rounded,
+                      "사진 추가",
+                      _handleAddImage,
                     ),
-                    const SizedBox(width: 12),
-                    ..._attachedImages.asMap().entries.map((entry) {
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 12),
-                        child: Stack(
-                          alignment: Alignment.topRight,
-                          children: [
-                            InkWell(
-                              borderRadius: BorderRadius.circular(12),
-                              // 🚀 [추가] 첨부한 사진을 탭하면 삭제밖에
-                              // 못 하던 걸 고쳐서, 눌렀을 때 크게(줌 가능)
-                              // 볼 수 있게 했다.
-                              onTap: () => PhotoDetailModal.show(
-                                context: context,
-                                title: "현장 사진",
-                                content: "",
-                                imagePaths: _attachedImages,
-                                initialIndex: entry.key,
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: Image.file(
-                                  File(entry.value),
-                                  width: 80,
-                                  height: 80,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            ),
-                            InkWell(
-                              onTap: () => setState(
-                                () => _attachedImages.removeAt(entry.key),
-                              ),
-                              child: Container(
-                                margin: const EdgeInsets.all(4),
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: Colors.black87,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.close,
-                                  color: Colors.white,
-                                  size: 12,
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              left: 4,
-                              bottom: 4,
-                              child: GestureDetector(
-                                onTap: () => _pickTag(entry.value),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _imageTags[entry.value] == null
-                                        ? Colors.black54
-                                        : makitaTeal,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    _imageTags[entry.value] ?? '+ 분류',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
+                    _photoAction(
+                      Icons.architecture_rounded,
+                      "배치도 스케치",
+                      _openSketch,
+                    ),
+                    for (int i = 0; i < _attachedImages.length; i++)
+                      _photoThumb(i, _attachedImages[i]),
                   ],
                 ),
               ),
-              const SizedBox(height: 80),
-            ],
-          ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 6, 0, 8),
+              child: Text(
+                "더 기록하기 (선택)",
+                style: TextStyle(
+                  color: tossSubText,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+
+            // ── 접이식 항목들 ──
+            _more(
+              title: "연장 / 야간 작업",
+              icon: Icons.nights_stay_outlined,
+              summary: _isOvertime
+                  ? (_overtimeHours != null
+                        ? "${_overtimeHours!.toStringAsFixed(1)}시간"
+                        : "연장 작업함")
+                  : "",
+              filled: _isOvertime,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      "연장/야간 작업 수행",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: tossText,
+                      ),
+                    ),
+                    const Spacer(),
+                    CupertinoSwitch(
+                      value: _isOvertime,
+                      activeTrackColor: makitaTeal,
+                      onChanged: (v) => setState(() => _isOvertime = v),
+                    ),
+                  ],
+                ),
+                if (_isOvertime) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      _timeBox("시작 시간", _overtimeStart, true),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text("~", style: TextStyle(color: tossSubText)),
+                      ),
+                      _timeBox("종료 시간", _overtimeEnd, false),
+                    ],
+                  ),
+                  if (_overtimeHours != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        "연장/야간 근무 시간: ${_overtimeHours!.toStringAsFixed(1)}시간",
+                        style: const TextStyle(
+                          color: makitaTeal,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                ],
+              ],
+            ),
+            _more(
+              title: "사용한 자재",
+              icon: Icons.inventory_2_outlined,
+              summary: _materialsUsedCtrl.text.trim(),
+              filled: _materialsUsedCtrl.text.trim().isNotEmpty,
+              children: [
+                TextField(
+                  controller: _materialsUsedCtrl,
+                  maxLines: 2,
+                  onChanged: (_) => setState(() {}),
+                  decoration: _dec(hint: "예: 1/2\" 튜빙 10m, 유니온 피팅 5개"),
+                ),
+              ],
+            ),
+            _more(
+              title: "내일 계획",
+              icon: Icons.event_note_outlined,
+              summary: _nextDayPlanCtrl.text.trim(),
+              filled: _nextDayPlanCtrl.text.trim().isNotEmpty,
+              children: [
+                TextField(
+                  controller: _nextDayPlanCtrl,
+                  maxLines: 2,
+                  onChanged: (_) => setState(() {}),
+                  decoration: _dec(hint: "예: 내일은 B동 결선 마무리 예정"),
+                ),
+              ],
+            ),
+            if (widget.pendingSchedules.isNotEmpty)
+              _more(
+                title: "오늘 끝낸 일정",
+                icon: Icons.task_alt_rounded,
+                summary: _completedScheduleIds.isEmpty
+                    ? ""
+                    : "${_completedScheduleIds.length}건 완료 처리",
+                filled: _completedScheduleIds.isNotEmpty,
+                children: [
+                  const Text(
+                    "체크하면 저장할 때 프로젝트 일정이 완료로 바뀝니다.",
+                    style: TextStyle(color: tossSubText, fontSize: 12),
+                  ),
+                  ...widget.pendingSchedules.map((sc) {
+                    final id = sc['id']?.toString() ?? '';
+                    return CheckboxListTile(
+                      value: _completedScheduleIds.contains(id),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      activeColor: makitaTeal,
+                      title: Text(
+                        sc['title']?.toString() ?? sc['type']?.toString() ?? '',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: tossText,
+                          fontSize: 14,
+                        ),
+                      ),
+                      subtitle: Text(
+                        sc['type']?.toString() ?? '',
+                        style: const TextStyle(
+                          color: tossSubText,
+                          fontSize: 12,
+                        ),
+                      ),
+                      onChanged: (v) => setState(() {
+                        v == true
+                            ? _completedScheduleIds.add(id)
+                            : _completedScheduleIds.remove(id);
+                      }),
+                    );
+                  }),
+                ],
+              ),
+            if (widget.relatedIssueCandidates.isNotEmpty)
+              _more(
+                title: "오늘 처리한 이슈",
+                icon: Icons.build_circle_outlined,
+                summary: _selectedIssueIds.isEmpty
+                    ? ""
+                    : "${_selectedIssueIds.length}건",
+                filled: _selectedIssueIds.isNotEmpty,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: widget.relatedIssueCandidates
+                        .map(_buildIssueChip)
+                        .toList(),
+                  ),
+                ],
+              ),
+            if (widget.floorPlanImagePath != null)
+              _more(
+                title: "작업 위치 (도면 핀)",
+                icon: Icons.push_pin_outlined,
+                summary: _pinDx == null ? "" : "위치 지정됨",
+                filled: _pinDx != null,
+                children: [
+                  FloorPlanThumbnail(
+                    imagePath: widget.floorPlanImagePath!,
+                    dx: _pinDx,
+                    dy: _pinDy,
+                    onTap: _openPinPicker,
+                  ),
+                  TextButton.icon(
+                    onPressed: _openPinPicker,
+                    icon: const Icon(Icons.push_pin_outlined, size: 16),
+                    label: Text(_pinDx == null ? "위치 찍기" : "위치 다시 찍기"),
+                    style: TextButton.styleFrom(
+                      foregroundColor: makitaTeal,
+                      padding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
+              ),
+            _more(
+              title: "도면 반영 요청",
+              icon: Icons.draw_outlined,
+              summary: _isAsBuilt ? _asBuiltCtrl.text.trim() : "",
+              filled: _isAsBuilt,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        "실제 시공이 도면과 달라 반영이 필요해요",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: tossText,
+                        ),
+                      ),
+                    ),
+                    CupertinoSwitch(
+                      value: _isAsBuilt,
+                      activeTrackColor: Colors.orange.shade500,
+                      onChanged: (v) => setState(() => _isAsBuilt = v),
+                    ),
+                  ],
+                ),
+                if (_isAsBuilt) ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _asBuiltCtrl,
+                    onChanged: (_) => setState(() {}),
+                    decoration: _dec(hint: "변경 사유 및 실제 시공 치수를 입력하세요."),
+                  ),
+                ],
+              ],
+            ),
+          ],
         ),
       ),
       bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          decoration: const BoxDecoration(
+            color: pureWhite,
+            border: Border(top: BorderSide(color: Color(0xFFEDEFF2))),
+          ),
           child: SizedBox(
-            height: 56,
+            height: 54,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: tossBlue,
+                backgroundColor: makitaTeal,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -1542,11 +1387,11 @@ class _DailyReportPageState extends State<DailyReportPage> {
               ),
               onPressed: _submit,
               child: Text(
-                _isEdit ? "수정 완료" : "일보 저장하기",
+                _isEdit ? "수정 완료" : "일보 저장",
                 style: const TextStyle(
                   color: pureWhite,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),

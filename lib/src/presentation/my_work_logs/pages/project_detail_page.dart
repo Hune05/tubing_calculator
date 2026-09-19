@@ -1,11 +1,11 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/project_phase.dart';
 import '../widgets/work_log_card.dart';
 import '../models/report_tools.dart';
+import '../models/photo_store.dart';
+import '../models/phase_templates.dart';
 import 'report_search_page.dart' show ProjectPhotosPage;
 
 // 🚀 [프로젝트 상세 - 신규] 예전엔 프로젝트 카드를 펼치면 일정/일지/이슈가 한 카드
@@ -41,12 +41,14 @@ class ProjectDetailPage extends StatefulWidget {
   final Map<String, dynamic> log;
   final ProjectActions actions;
   final int initialTab;
+  final bool openExport;
 
   const ProjectDetailPage({
     super.key,
     required this.log,
     required this.actions,
     this.initialTab = 0,
+    this.openExport = false,
   });
 
   @override
@@ -68,6 +70,11 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       vsync: this,
       initialIndex: widget.initialTab,
     );
+    if (widget.openExport) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showReportExport();
+      });
+    }
   }
 
   @override
@@ -609,6 +616,12 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             padding: const EdgeInsets.symmetric(vertical: 12),
           ),
         ),
+        TextButton.icon(
+          onPressed: _saveAsTemplate,
+          icon: const Icon(Icons.bookmark_add_outlined, size: 18),
+          label: const Text("이 단계 구성을 템플릿으로 저장"),
+          style: TextButton.styleFrom(foregroundColor: tossSubText),
+        ),
       ],
     );
   }
@@ -1004,13 +1017,21 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
   Future<void> _showStandardSetup() async {
     DateTime start = dayOnly(DateTime.now());
     DateTime end = start.add(const Duration(days: 55));
+    var templates = await loadPhaseTemplates();
+    var tpl = templates.first;
+    if (!mounted) return;
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) {
-          final preview = buildStandardPhases(start, end);
+          final preview = buildPhasesFromWeights(
+            tpl.names,
+            tpl.weights,
+            start,
+            end,
+          );
           return Container(
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
             decoration: const BoxDecoration(
@@ -1023,7 +1044,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    "표준 단계로 시작하기",
+                    "단계 만들기",
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
@@ -1039,7 +1060,55 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                       height: 1.4,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (final t in templates)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: GestureDetector(
+                              onLongPress: t.builtIn
+                                  ? null
+                                  : () async {
+                                      await deletePhaseTemplate(t.name);
+                                      final all = await loadPhaseTemplates();
+                                      setSheet(() {
+                                        templates = all;
+                                        tpl = all.first;
+                                      });
+                                    },
+                              child: ChoiceChip(
+                                label: Text(t.name),
+                                selected:
+                                    identical(tpl, t) || tpl.name == t.name,
+                                showCheckmark: false,
+                                selectedColor: tossBlue,
+                                backgroundColor: tossBg,
+                                side: BorderSide.none,
+                                labelStyle: TextStyle(
+                                  color: tpl.name == t.name
+                                      ? pureWhite
+                                      : tossSubText,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                onSelected: (_) => setSheet(() => tpl = t),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (templates.length > 1)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Text(
+                        "저장한 템플릿은 길게 누르면 삭제돼요.",
+                        style: TextStyle(color: tossSubText, fontSize: 11),
+                      ),
+                    ),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
@@ -1183,6 +1252,38 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
           ),
       ],
     );
+  }
+
+  Future<void> _saveAsTemplate() async {
+    final ctrl = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("템플릿 이름"),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: "예: 배관 신설 공사"),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("취소"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text("저장"),
+          ),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty || name == '표준') return;
+    await savePhaseTemplate(templateFromPhases(name, phasesOf(log)));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("'$name' 템플릿을 저장했어요. 단계 만들기에서 불러올 수 있습니다.")),
+      );
+    }
   }
 
   // ───────────────────────── 지연 경고 ─────────────────────────
@@ -1460,8 +1561,9 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     for (final r in reports) {
       if (r is! Map) continue;
       final date = r['date']?.toString() ?? '';
+      final rd = reportDateOf(r);
       final month = date.contains('/')
-          ? "${int.tryParse(date.split('/')[0]) ?? 0}월"
+          ? "${rd.year == DateTime.now().year ? '' : '${rd.year}년 '}${rd.month}월"
           : '';
       if (month != lastMonth) {
         lastMonth = month;
@@ -1603,22 +1705,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                       borderRadius: BorderRadius.circular(8),
                       child: Stack(
                         children: [
-                          Image.file(
-                            File(imgs[i]),
-                            width: 56,
-                            height: 56,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Container(
-                              width: 56,
-                              height: 56,
-                              color: tossBg,
-                              child: const Icon(
-                                Icons.image_not_supported_outlined,
-                                size: 18,
-                                color: tossSubText,
-                              ),
-                            ),
-                          ),
+                          PhotoImage(imgs[i], width: 56, height: 56),
                           if (imgTags[imgs[i]] != null)
                             Positioned(
                               left: 0,
@@ -1763,6 +1850,40 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             ],
           ],
         ),
+      ),
+      floatingActionButton: AnimatedBuilder(
+        animation: _tab.animation!,
+        builder: (context, _) {
+          final i = _tab.index;
+          if (i == 0 || !_isActive) return const SizedBox.shrink();
+          final (label, icon, action) = switch (i) {
+            1 => (
+              "일정 추가",
+              Icons.add_task_rounded,
+              () => _run(() => widget.actions.openSchedule(add: true)),
+            ),
+            2 => (
+              "이슈 등록",
+              Icons.error_outline_rounded,
+              () => _run(widget.actions.addPunch),
+            ),
+            _ => (
+              "일지 작성",
+              Icons.edit_document,
+              () => _run(widget.actions.addReport),
+            ),
+          };
+          return FloatingActionButton.extended(
+            onPressed: action,
+            backgroundColor: tossBlue,
+            foregroundColor: pureWhite,
+            icon: Icon(icon),
+            label: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          );
+        },
       ),
       body: Column(
         children: [

@@ -8,6 +8,7 @@ import '../widgets/create_log_sheet.dart';
 import '../widgets/project_summary_card.dart';
 import '../models/project_phase.dart';
 import '../models/report_tools.dart';
+import '../models/photo_store.dart';
 import '../pages/report_search_page.dart';
 import '../pages/project_detail_page.dart';
 import '../pages/daily_report_page.dart'; // 다이얼로그 대신 Page 임포트
@@ -74,6 +75,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         _isLoading = false;
       });
       syncReportReminder(_workLogs);
+      _migrateLocalPhotos();
       if (widget.initialProjectId != null) {
         final match = _workLogs.firstWhere(
           (l) => l['id']?.toString() == widget.initialProjectId,
@@ -101,6 +103,29 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     syncReportReminder(_workLogs);
   }
 
+  // 저장한 일보의 사진을 백그라운드로 클라우드에 올리고, 성공하면 문서를 URL로
+  // 갱신한다(실패하면 로컬 경로가 그대로 남아 다음 실행 때 다시 시도).
+  Future<void> _uploadReportPhotosFor(
+    Map<String, dynamic> log,
+    Map report,
+  ) async {
+    final pid = log['id']?.toString();
+    if (pid == null) return;
+    if (await uploadReportPhotos(pid, report)) {
+      if (mounted) setState(() {});
+      _repo.upsertProject(log);
+    }
+  }
+
+  // 예전에 저장된 로컬 경로 사진들도 한 번씩 올린다.
+  Future<void> _migrateLocalPhotos() async {
+    for (final log in List<Map<String, dynamic>>.from(_workLogs)) {
+      for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
+        await _uploadReportPhotosFor(log, r);
+      }
+    }
+  }
+
   Future<void> _openSearch() async {
     await Navigator.push(
       context,
@@ -121,6 +146,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     if (!mounted) return;
     bool enabled = cur.enabled;
     int minutes = cur.minutes;
+    bool weekly = cur.weekly;
     await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -135,6 +161,13 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                 subtitle: const Text("진행중 프로젝트가 있고 오늘 일보를 안 썼으면 알려줘요."),
                 value: enabled,
                 onChanged: (v) => setS(() => enabled = v),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text("주간 보고서 알림"),
+                subtitle: const Text("매주 금요일 17:00에 보고서 초안을 만들어 보라고 알려줘요."),
+                value: weekly,
+                onChanged: (v) => setS(() => weekly = v),
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -168,7 +201,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             ),
             TextButton(
               onPressed: () async {
-                await saveReportReminder(enabled, minutes);
+                await saveReportReminder(enabled, minutes, weekly: weekly);
                 await syncReportReminder(_workLogs);
                 if (ctx.mounted) Navigator.pop(ctx);
               },
@@ -192,7 +225,11 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
 
   // 🚀 [프로젝트 상세] 카드 안에 인라인으로 흩어져 있던 동작들을 메서드로 빼서,
   // 새 프로젝트 상세 화면(ProjectDetailPage)이 그대로 재사용하게 했다.
-  Future<void> _openDetail(Map<String, dynamic> log, {int tab = 0}) async {
+  Future<void> _openDetail(
+    Map<String, dynamic> log, {
+    int tab = 0,
+    bool openExport = false,
+  }) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -200,6 +237,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           log: log,
           actions: _actionsFor(log),
           initialTab: tab,
+          openExport: openExport,
         ),
       ),
     );
@@ -246,6 +284,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         applyReportEffects(log, updated);
       });
       _saveProject(log);
+      _uploadReportPhotosFor(log, updated);
     }
   }
 
@@ -509,6 +548,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         applyReportEffects(log, newReport);
       });
       _saveProject(log);
+      _uploadReportPhotosFor(log, newReport);
     }
   }
 
@@ -548,6 +588,60 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   // 🚀 [신규] "오늘 일지 / 다가오는 일정 / 미해결 이슈"를 한 화면에
   // 모은 통합 대시보드. 프로젝트마다 따로 열어보지 않아도 오늘 뭘 해야
   // 하는지 여기서 다 보인다.
+  // 금~일에는 주간 보고서 초안을 바로 만들 수 있는 카드를 보여준다.
+  Widget _buildWeeklyReportCard() {
+    if (DateTime.now().weekday < DateTime.friday)
+      return const SizedBox.shrink();
+    final active = _activeLogs;
+    if (active.isEmpty) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: tossBlue.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.summarize_rounded, color: tossBlue, size: 18),
+              SizedBox(width: 6),
+              Text(
+                "이번 주 보고서 초안",
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  color: tossBlue,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            "프로젝트를 누르면 최근 7일 일보로 보고서를 만들어 공유할 수 있어요.",
+            style: TextStyle(color: tossSubText, fontSize: 12),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final log in active)
+                ActionChip(
+                  label: Text(log['name']?.toString() ?? '이름 없음'),
+                  backgroundColor: pureWhite,
+                  side: BorderSide.none,
+                  onPressed: () => _openDetail(log, tab: 3, openExport: true),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDashboard() {
     final missingReports = _projectsMissingTodayReport;
     final schedules = _allUpcomingSchedules;
@@ -855,127 +949,134 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: tossBlue))
-          : Column(
-              children: [
-                if (!_showCompleted) _buildDashboard(),
-                // 🚀 [추가] 진행중/완료됨 전환 - 완료 처리한 프로젝트는
-                // 기본 목록에서 빠지고 이 탭을 눌러야 보인다.
-                if (_doneLogs.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: Row(
-                      children: [
-                        ChoiceChip(
-                          label: Text("진행중 (${_activeLogs.length})"),
-                          selected: !_showCompleted,
-                          selectedColor: tossBlue.withValues(alpha: 0.15),
-                          labelStyle: TextStyle(
-                            color: !_showCompleted ? tossBlue : tossSubText,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          backgroundColor: tossBg,
-                          side: BorderSide.none,
-                          onSelected: (_) =>
-                              setState(() => _showCompleted = false),
-                        ),
-                        const SizedBox(width: 8),
-                        ChoiceChip(
-                          label: Text("완료됨 (${_doneLogs.length})"),
-                          selected: _showCompleted,
-                          selectedColor: tossBlue.withValues(alpha: 0.15),
-                          labelStyle: TextStyle(
-                            color: _showCompleted ? tossBlue : tossSubText,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          backgroundColor: tossBg,
-                          side: BorderSide.none,
-                          onSelected: (_) =>
-                              setState(() => _showCompleted = true),
-                        ),
-                      ],
-                    ),
-                  ),
-                if ((_showCompleted ? _doneLogs : _activeLogs).length > 1)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
+          : Builder(
+              builder: (context) {
+                final visibleLogs = _sortedLogs(
+                  _showCompleted ? _doneLogs : _activeLogs,
+                );
+                const sortLabels = {
+                  'due': '납기 임박순',
+                  'progress': '진행률 낮은순',
+                  'recent': '최근 등록순',
+                };
+                // 요약 카드/필터는 목록과 같이 스크롤된다(예전엔 위에 고정돼서
+                // 오늘 할 일이 많으면 프로젝트 목록이 좁은 창에 갇혔다).
+                final header = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!_showCompleted) _buildWeeklyReportCard(),
+                    if (!_showCompleted) _buildDashboard(),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 8, 6),
                       child: Row(
                         children: [
-                          for (final e in const {
-                            'due': '납기 임박순',
-                            'progress': '진행률 낮은순',
-                            'recent': '최근 등록순',
-                          }.entries)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ChoiceChip(
-                                label: Text(
-                                  e.value,
-                                  style: const TextStyle(fontSize: 12),
+                          ChoiceChip(
+                            label: Text("진행중 (${_activeLogs.length})"),
+                            selected: !_showCompleted,
+                            showCheckmark: false,
+                            selectedColor: tossBlue.withValues(alpha: 0.15),
+                            labelStyle: TextStyle(
+                              color: !_showCompleted ? tossBlue : tossSubText,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            backgroundColor: pureWhite,
+                            side: BorderSide.none,
+                            onSelected: (_) =>
+                                setState(() => _showCompleted = false),
+                          ),
+                          if (_doneLogs.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            ChoiceChip(
+                              label: Text("완료됨 (${_doneLogs.length})"),
+                              selected: _showCompleted,
+                              showCheckmark: false,
+                              selectedColor: tossBlue.withValues(alpha: 0.15),
+                              labelStyle: TextStyle(
+                                color: _showCompleted ? tossBlue : tossSubText,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              backgroundColor: pureWhite,
+                              side: BorderSide.none,
+                              onSelected: (_) =>
+                                  setState(() => _showCompleted = true),
+                            ),
+                          ],
+                          const Spacer(),
+                          PopupMenuButton<String>(
+                            tooltip: "정렬",
+                            initialValue: _sortMode,
+                            onSelected: (v) => setState(() => _sortMode = v),
+                            itemBuilder: (_) => [
+                              for (final e in sortLabels.entries)
+                                PopupMenuItem(
+                                  value: e.key,
+                                  child: Text(e.value),
                                 ),
-                                selected: _sortMode == e.key,
-                                selectedColor: tossBlue.withValues(alpha: 0.15),
-                                labelStyle: TextStyle(
-                                  color: _sortMode == e.key
-                                      ? tossBlue
-                                      : tossSubText,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                backgroundColor: tossBg,
-                                side: BorderSide.none,
-                                visualDensity: VisualDensity.compact,
-                                onSelected: (_) =>
-                                    setState(() => _sortMode = e.key),
+                            ],
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 6,
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.sort_rounded,
+                                    size: 18,
+                                    color: tossSubText,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    sortLabels[_sortMode]!,
+                                    style: const TextStyle(
+                                      color: tossSubText,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
+                          ),
                         ],
                       ),
                     ),
-                  ),
-                Expanded(
-                  child: Builder(
-                    builder: (context) {
-                      final visibleLogs = _sortedLogs(
-                        _showCompleted ? _doneLogs : _activeLogs,
-                      );
-                      if (visibleLogs.isEmpty) {
-                        return Center(
-                          child: Text(
-                            _showCompleted
-                                ? "완료된 프로젝트가 없습니다."
-                                : "아직 등록된 작업 기록이 없어요.\n아래 버튼을 눌러 새로 시작해 보세요.",
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: tossSubText,
-                              height: 1.5,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                            ),
+                  ],
+                );
+                return ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 100),
+                  itemCount: visibleLogs.isEmpty ? 2 : visibleLogs.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index == 0) return header;
+                    if (visibleLogs.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 60),
+                        child: Text(
+                          _showCompleted
+                              ? "완료된 프로젝트가 없습니다."
+                              : "아직 등록된 작업 기록이 없어요.\n아래 버튼을 눌러 새로 시작해 보세요.",
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: tossSubText,
+                            height: 1.5,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
                           ),
-                        );
-                      }
-                      return ListView.builder(
-                        padding: const EdgeInsets.only(
-                          top: 16,
-                          left: 16,
-                          right: 16,
-                          bottom: 100,
                         ),
-                        itemCount: visibleLogs.length,
-                        itemBuilder: (context, index) {
-                          final log = visibleLogs[index];
-                          return ProjectSummaryCard(
-                            log: log,
-                            isActive: _isActive(log),
-                            onTap: () => _openDetail(log),
-                          );
-                        },
                       );
-                    },
-                  ),
-                ),
-              ],
+                    }
+                    final log = visibleLogs[index - 1];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: ProjectSummaryCard(
+                        log: log,
+                        isActive: _isActive(log),
+                        onTap: () => _openDetail(log),
+                      ),
+                    );
+                  },
+                );
+              },
             ),
       // 🚀 토스 스타일 그림자가 들어간 플로팅 버튼
       floatingActionButton: FloatingActionButton.extended(

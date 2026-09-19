@@ -32,6 +32,16 @@ DateTime reportDate(String mmdd) {
   return dt;
 }
 
+// 새 일보는 'dateISO'(yyyy-MM-dd)를 함께 저장한다. 없으면(예전 일보) 위 추정을 쓴다.
+DateTime reportDateOf(Map r) {
+  final iso = r['dateISO']?.toString();
+  if (iso != null) {
+    final d = DateTime.tryParse(iso);
+    if (d != null) return dayOnly(d);
+  }
+  return reportDate(r['date']?.toString() ?? '');
+}
+
 // ───────────────────────── 기간 보고서 ─────────────────────────
 class ReportSection {
   final String heading;
@@ -84,15 +94,12 @@ ReportDoc buildReportDoc(Map<String, dynamic> log, DateTime from, DateTime to) {
     overview.add('⚠ ${delay.phase['name']} 단계 ${delay.days}일 지연');
   }
 
-  final reports =
-      (log['daily_reports'] as List? ?? []).whereType<Map>().where((r) {
-        final d = reportDate(r['date']?.toString() ?? '');
-        return !d.isBefore(f) && !d.isAfter(t);
-      }).toList()..sort(
-        (a, b) => reportDate(
-          a['date'].toString(),
-        ).compareTo(reportDate(b['date'].toString())),
-      );
+  final reports = (log['daily_reports'] as List? ?? []).whereType<Map>().where((
+    r,
+  ) {
+    final d = reportDateOf(r);
+    return !d.isBefore(f) && !d.isAfter(t);
+  }).toList()..sort((a, b) => reportDateOf(a).compareTo(reportDateOf(b)));
 
   final phaseNames = {
     for (final p in phasesOf(log)) p['id'].toString(): p['name'].toString(),
@@ -321,20 +328,56 @@ const int _kReminderId = 918273;
 const String _kReminderChannel = 'daily_report_reminder';
 const String _kPrefEnabled = 'report_reminder_enabled';
 const String _kPrefMinutes = 'report_reminder_minutes';
+const String _kPrefWeekly = 'weekly_report_reminder_enabled';
+const int _kWeeklyId = 918274;
 bool _tzReady = false;
 
-Future<({bool enabled, int minutes})> loadReportReminder() async {
+Future<({bool enabled, int minutes, bool weekly})> loadReportReminder() async {
   final p = await SharedPreferences.getInstance();
   return (
     enabled: p.getBool(_kPrefEnabled) ?? true,
     minutes: p.getInt(_kPrefMinutes) ?? 18 * 60,
+    weekly: p.getBool(_kPrefWeekly) ?? true,
   );
 }
 
-Future<void> saveReportReminder(bool enabled, int minutes) async {
+Future<void> saveReportReminder(
+  bool enabled,
+  int minutes, {
+  bool weekly = true,
+}) async {
   final p = await SharedPreferences.getInstance();
   await p.setBool(_kPrefEnabled, enabled);
   await p.setInt(_kPrefMinutes, minutes);
+  await p.setBool(_kPrefWeekly, weekly);
+}
+
+// 매주 금요일 17:00에 "이번 주 보고서 초안" 알림(진행중 프로젝트가 있을 때).
+Future<void> _syncWeeklyReminder(bool on) async {
+  await flutterLocalNotificationsPlugin.cancel(id: _kWeeklyId);
+  if (!on) return;
+  final now = DateTime.now();
+  var at = DateTime(now.year, now.month, now.day, 17, 0);
+  while (at.weekday != DateTime.friday || !at.isAfter(now)) {
+    at = at.add(const Duration(days: 1));
+  }
+  await flutterLocalNotificationsPlugin.zonedSchedule(
+    id: _kWeeklyId,
+    title: '주간 보고서',
+    body: '이번 주 작업 보고서 초안을 만들어 공유해보세요.',
+    scheduledDate: tz.TZDateTime.from(at, tz.local),
+    notificationDetails: const NotificationDetails(
+      android: AndroidNotificationDetails(
+        _kReminderChannel,
+        '작업일보 알림',
+        channelDescription: '작업일보 작성 리마인더',
+        importance: Importance.high,
+        priority: Priority.high,
+      ),
+    ),
+    androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+    matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+  );
 }
 
 // 진행중 프로젝트가 있는데 오늘 일보가 아직 없으면 오늘 정해진 시각에, 이미
@@ -344,13 +387,14 @@ Future<void> syncReportReminder(List<Map<String, dynamic>> logs) async {
     final pref = await loadReportReminder();
     await flutterLocalNotificationsPlugin.cancel(id: _kReminderId);
     final active = logs.where((l) => l['status'] != 'DONE').toList();
-    if (!pref.enabled || active.isEmpty) return;
-
     if (!_tzReady) {
       tzdata.initializeTimeZones();
       tz.setLocalLocation(tz.getLocation('Asia/Seoul'));
       _tzReady = true;
     }
+    await _syncWeeklyReminder(pref.weekly && active.isNotEmpty);
+    if (!pref.enabled || active.isEmpty) return;
+
     final now = DateTime.now();
     final todayStr =
         '${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';

@@ -1,4 +1,4 @@
-import 'dart:io';
+import '../models/photo_store.dart';
 import 'package:flutter/material.dart';
 
 const Color makitaTeal = Color(0xFF007580);
@@ -142,8 +142,8 @@ class PhotoDetailModal extends StatelessWidget {
                               child: InteractiveViewer(
                                 minScale: 1.0,
                                 maxScale: 5.0,
-                                child: Image.file(
-                                  File(imagePaths![index]),
+                                child: PhotoImage(
+                                  imagePaths![index].toString(),
                                   width: double.infinity,
                                   height: double.infinity,
                                   fit: BoxFit.contain,

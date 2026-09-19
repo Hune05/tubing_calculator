@@ -175,15 +175,28 @@ int unresolvedIssueCount(Map<String, dynamic> log) =>
         .length;
 
 // 시작~종료 기간을 표준 단계 비중대로 나눠 단계 리스트를 만든다.
-List<Map<String, dynamic>> buildStandardPhases(DateTime start, DateTime end) {
+List<Map<String, dynamic>> buildStandardPhases(DateTime start, DateTime end) =>
+    buildPhasesFromWeights(
+      kStandardPhaseNames,
+      kStandardPhaseWeights,
+      start,
+      end,
+    );
+
+List<Map<String, dynamic>> buildPhasesFromWeights(
+  List<String> names,
+  List<double> weights,
+  DateTime start,
+  DateTime end,
+) {
   final s = dayOnly(start);
   final e = dayOnly(end.isBefore(s) ? s : end);
   final int total = e.difference(s).inDays + 1;
-  final double weightSum = kStandardPhaseWeights.fold(0.0, (a, b) => a + b);
+  final double weightSum = weights.fold(0.0, (a, b) => a + b);
   final List<Map<String, dynamic>> result = [];
   double cursor = 0;
-  for (int i = 0; i < kStandardPhaseNames.length; i++) {
-    final double span = total * kStandardPhaseWeights[i] / weightSum;
+  for (int i = 0; i < names.length; i++) {
+    final double span = total * weights[i] / weightSum;
     final int startOffset = cursor.round();
     cursor += span;
     int endOffset = cursor.round() - 1;
@@ -191,7 +204,7 @@ List<Map<String, dynamic>> buildStandardPhases(DateTime start, DateTime end) {
     if (endOffset > total - 1) endOffset = total - 1;
     result.add(
       makePhase(
-        kStandardPhaseNames[i],
+        names[i],
         start: s.add(Duration(days: startOffset)),
         end: s.add(Duration(days: endOffset)),
       ),
