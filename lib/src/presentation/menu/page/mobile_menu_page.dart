@@ -732,18 +732,28 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
           return StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('announcements')
-                .where('isActive', isEqualTo: true)
+                // isActive+createdAt 복합 색인 없이도 동작하도록, 최신순 20건만 받아서
+                // 활성 공지를 앱에서 고른다.
                 .orderBy('createdAt', descending: true)
-                .limit(1)
+                .limit(20)
                 .snapshots(),
             builder: (context, noticeSnap) {
               if (noticeSnap.connectionState == ConnectionState.waiting) {
                 return const SizedBox(height: 60);
               }
 
-              if (noticeSnap.hasData && noticeSnap.data!.docs.isNotEmpty) {
+              final activeNotices = noticeSnap.hasData
+                  ? noticeSnap.data!.docs
+                        .where(
+                          (d) =>
+                              (d.data() as Map<String, dynamic>)['isActive'] ==
+                              true,
+                        )
+                        .toList()
+                  : <QueryDocumentSnapshot>[];
+              if (activeNotices.isNotEmpty) {
                 var noticeData =
-                    noticeSnap.data!.docs.first.data() as Map<String, dynamic>;
+                    activeNotices.first.data() as Map<String, dynamic>;
                 String noticeTitle = noticeData['title'] ?? "새로운 사내 공지가 있습니다.";
 
                 if (noticeTitle.contains("회식") || noticeTitle.contains("회의")) {

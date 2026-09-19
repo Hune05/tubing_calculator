@@ -176,10 +176,14 @@ class _PunchListPageState extends State<PunchListPage> {
   }
 
   void _handleAddImage() async {
-    if (_attachedImages.length >= 5) return;
+    if (_attachedImages.length >= 10) return;
     FocusScope.of(context).unfocus();
-    final path = await ImagePickerHelper.pickImage(context);
-    if (path != null) setState(() => _attachedImages.add(path));
+    // 갤러리에서 여러 장을 한 번에 고를 수 있다(카메라는 1장).
+    final paths = await ImagePickerHelper.pickImages(
+      context,
+      maxCount: 10 - _attachedImages.length,
+    );
+    if (paths.isNotEmpty) setState(() => _attachedImages.addAll(paths));
   }
 
   void _submit() {
@@ -578,7 +582,7 @@ class _PunchListPageState extends State<PunchListPage> {
 
               // 5. 사진 첨부
               const Text(
-                "현장 사진 (최대 5장)",
+                "현장 사진 (최대 10장)",
                 style: TextStyle(
                   color: tossText,
                   fontSize: 16,
@@ -610,7 +614,7 @@ class _PunchListPageState extends State<PunchListPage> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              "${_attachedImages.length}/5",
+                              "${_attachedImages.length}/10",
                               style: const TextStyle(
                                 color: tossSubText,
                                 fontSize: 12,

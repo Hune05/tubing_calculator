@@ -602,17 +602,27 @@ class PunchListSectionState extends State<PunchListSection> {
         ),
         const SizedBox(height: 12),
         if (visible.isEmpty)
-          const Text(
-            "미해결 이슈가 없습니다.",
-            style: TextStyle(color: tossSubText, fontSize: 13),
+          Text(
+            _hideCompleted && widget.punchLists.isNotEmpty
+                ? "미해결 이슈가 없습니다. 처리 완료한 ${widget.punchLists.length}건은 '완료 숨김'을 눌러 '전체 보기'로 확인하세요."
+                : "미해결 이슈가 없습니다.",
+            style: const TextStyle(
+              color: tossSubText,
+              fontSize: 13,
+              height: 1.4,
+            ),
           )
         else ...[
           ...pageItems.map((punch) {
             final bool isPunchDone = punch['is_completed'] == true;
             return _buildUnifiedRecordItem(
               context: context,
-              title: isPunchDone ? "이슈 처리 완료" : "이슈 확인 요망",
-              content: punch['content'],
+              // 위치를 제목에 보여줘서 어느 곳 이슈인지 목록에서 바로 알 수 있게 한다.
+              title:
+                  "${(punch['location']?.toString() ?? '').isEmpty || punch['location'] == '위치 미상' ? '' : '${punch['location']} · '}${isPunchDone ? '처리 완료' : '확인 요망'}",
+              content: punch['priority'] == '긴급'
+                  ? "[긴급] ${punch['content'] ?? ''}"
+                  : (punch['content'] ?? '').toString(),
               itemData: punch,
               icon: Icons.priority_high_rounded,
               isWarning: true,
