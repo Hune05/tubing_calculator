@@ -212,6 +212,10 @@ optimizeProjectPhotos(
     for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
       final paths = (r['image_paths'] as List? ?? []).map(m).toList();
       final tags = Map<String, dynamic>.from((r['image_tags'] as Map?) ?? {});
+      final caps = Map<String, dynamic>.from(
+        (r['image_captions'] as Map?) ?? {},
+      );
+      r['image_captions'] = {for (final e in caps.entries) m(e.key): e.value};
       r['image_paths'] = paths;
       if (r['image_path'] != null) r['image_path'] = m(r['image_path']);
       r['image_tags'] = {for (final e in tags.entries) m(e.key): e.value};
@@ -278,6 +282,10 @@ Future<bool> uploadReportPhotos(String projectId, Map report) async {
   final tags = Map<String, dynamic>.from((report['image_tags'] as Map?) ?? {});
   final newPaths = <String>[];
   final newTags = <String, dynamic>{};
+  final caps = Map<String, dynamic>.from(
+    (report['image_captions'] as Map?) ?? {},
+  );
+  final newCaps = <String, dynamic>{};
   bool changed = false;
   for (final p in paths) {
     String out = p;
@@ -290,11 +298,13 @@ Future<bool> uploadReportPhotos(String projectId, Map report) async {
     }
     newPaths.add(out);
     if (tags[p] != null) newTags[out] = tags[p];
+    if (caps[p] != null) newCaps[out] = caps[p];
   }
   if (changed) {
     report['image_paths'] = newPaths;
     report['image_path'] = newPaths.isNotEmpty ? newPaths.first : null;
     report['image_tags'] = newTags;
+    report['image_captions'] = newCaps;
   }
   return changed;
 }

@@ -56,7 +56,21 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   List<Map<String, dynamic>> get _activeLogs =>
       _workLogs.where(_isActive).toList();
   List<Map<String, dynamic>> get _doneLogs =>
-      _workLogs.where((l) => !_isActive(l)).toList();
+      _workLogs.where((l) => !_isActive(l) && l['archived'] != true).toList();
+  List<Map<String, dynamic>> get _archivedLogs =>
+      _workLogs.where((l) => !_isActive(l) && l['archived'] == true).toList();
+  bool _showArchived = false;
+
+  void _toggleArchive(Map<String, dynamic> log) {
+    setState(() {
+      if (log['archived'] == true) {
+        log.remove('archived');
+      } else {
+        log['archived'] = true;
+      }
+    });
+    _saveProject(log);
+  }
 
   @override
   void dispose() {
@@ -294,6 +308,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         _openSchedule(log, phaseId: phaseId, add: add),
     save: () => _saveProject(log),
     toggleStatus: () => _toggleProjectStatus(log),
+    toggleArchive: () => _toggleArchive(log),
     delete: () {
       final id = log['id']?.toString();
       setState(() => _workLogs.remove(log));
@@ -313,6 +328,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           relatedIssueCandidates: _issueCandidatesFor(log),
           floorPlanImagePath: log['floor_plan_image_path'],
           phases: phasesOf(log),
+          materialItems: schedulesOf(log).where(isMaterialSchedule).toList(),
           pendingSchedules: _pendingSchedulesFor(log, report),
         ),
       ),
@@ -585,6 +601,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           floorPlanImagePath: log['floor_plan_image_path'],
           draftKey: 'report_draft_${log['id']}',
           phases: phasesOf(log),
+          materialItems: schedulesOf(log).where(isMaterialSchedule).toList(),
           pendingSchedules: _pendingSchedulesFor(log, null),
           defaultPhaseId: currentPhase(log)?['id']?.toString(),
         ),
@@ -1081,7 +1098,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           : Builder(
               builder: (context) {
                 final visibleLogs = _sortedLogs(
-                  _showCompleted ? _doneLogs : _activeLogs,
+                  _showArchived
+                      ? _archivedLogs
+                      : (_showCompleted ? _doneLogs : _activeLogs),
                 );
                 const sortLabels = {
                   'due': '납기 임박순',
@@ -1130,7 +1149,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                         children: [
                           ChoiceChip(
                             label: Text("진행중 (${_activeLogs.length})"),
-                            selected: !_showCompleted,
+                            selected: !_showCompleted && !_showArchived,
                             showCheckmark: false,
                             selectedColor: tossBlue.withValues(alpha: 0.15),
                             labelStyle: TextStyle(
@@ -1139,14 +1158,16 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                             ),
                             backgroundColor: pureWhite,
                             side: BorderSide.none,
-                            onSelected: (_) =>
-                                setState(() => _showCompleted = false),
+                            onSelected: (_) => setState(() {
+                              _showCompleted = false;
+                              _showArchived = false;
+                            }),
                           ),
                           if (_doneLogs.isNotEmpty) ...[
                             const SizedBox(width: 8),
                             ChoiceChip(
                               label: Text("완료됨 (${_doneLogs.length})"),
-                              selected: _showCompleted,
+                              selected: _showCompleted && !_showArchived,
                               showCheckmark: false,
                               selectedColor: tossBlue.withValues(alpha: 0.15),
                               labelStyle: TextStyle(
@@ -1155,8 +1176,29 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                               ),
                               backgroundColor: pureWhite,
                               side: BorderSide.none,
-                              onSelected: (_) =>
-                                  setState(() => _showCompleted = true),
+                              onSelected: (_) => setState(() {
+                                _showCompleted = true;
+                                _showArchived = false;
+                              }),
+                            ),
+                          ],
+                          if (_archivedLogs.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            ChoiceChip(
+                              label: Text("보관함 (${_archivedLogs.length})"),
+                              selected: _showArchived,
+                              showCheckmark: false,
+                              selectedColor: tossBlue.withValues(alpha: 0.15),
+                              labelStyle: TextStyle(
+                                color: _showArchived ? tossBlue : tossSubText,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              backgroundColor: pureWhite,
+                              side: BorderSide.none,
+                              onSelected: (_) => setState(() {
+                                _showCompleted = true;
+                                _showArchived = true;
+                              }),
                             ),
                           ],
                           const Spacer(),

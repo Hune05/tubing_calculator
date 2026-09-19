@@ -69,7 +69,12 @@ class ReportDoc {
 
 String _md(DateTime d) => '${d.month}/${d.day}';
 
-ReportDoc buildReportDoc(Map<String, dynamic> log, DateTime from, DateTime to) {
+ReportDoc buildReportDoc(
+  Map<String, dynamic> log,
+  DateTime from,
+  DateTime to, {
+  List<Map>? only, // 지정하면 기간 대신 이 일보들만 포함
+}) {
   final f = dayOnly(from), t = dayOnly(to);
   final progress = (projectProgress(log) * 100).round();
   final cur = currentPhase(log);
@@ -94,12 +99,17 @@ ReportDoc buildReportDoc(Map<String, dynamic> log, DateTime from, DateTime to) {
     overview.add('⚠ ${delay.phase['name']} 단계 ${delay.days}일 지연');
   }
 
-  final reports = (log['daily_reports'] as List? ?? []).whereType<Map>().where((
+  final inRange = (log['daily_reports'] as List? ?? []).whereType<Map>().where((
     r,
   ) {
     final d = reportDateOf(r);
     return !d.isBefore(f) && !d.isAfter(t);
   }).toList()..sort((a, b) => reportDateOf(a).compareTo(reportDateOf(b)));
+
+  final reports = only != null
+      ? (List<Map>.from(only)
+          ..sort((a, b) => reportDateOf(a).compareTo(reportDateOf(b))))
+      : inRange;
 
   final phaseNames = {
     for (final p in phasesOf(log)) p['id'].toString(): p['name'].toString(),
@@ -136,6 +146,12 @@ ReportDoc buildReportDoc(Map<String, dynamic> log, DateTime from, DateTime to) {
     }
     final mats = (r['materials_used']?.toString() ?? '').trim();
     if (mats.isNotEmpty) dayLines.add('   자재: $mats');
+    final caps = Map<String, dynamic>.from((r['image_captions'] as Map?) ?? {});
+    final tags = Map<String, dynamic>.from((r['image_tags'] as Map?) ?? {});
+    for (final e in caps.entries) {
+      final tg = tags[e.key]?.toString();
+      dayLines.add('   사진${tg == null ? '' : '($tg)'}: ${e.value}');
+    }
     for (final id in reportIds(r, 'workedPhaseIds')) {
       final n = phaseNames[id];
       if (n != null) phaseDays[n] = (phaseDays[n] ?? 0) + 1;
@@ -211,7 +227,9 @@ ReportDoc buildReportDoc(Map<String, dynamic> log, DateTime from, DateTime to) {
 
   return ReportDoc(
     log['name']?.toString() ?? '프로젝트',
-    '기간 ${f.year}.${f.month}.${f.day} ~ ${t.year}.${t.month}.${t.day}',
+    only != null
+        ? '선택한 일보 ${only.length}건'
+        : '기간 ${f.year}.${f.month}.${f.day} ~ ${t.year}.${t.month}.${t.day}',
     sections,
   );
 }

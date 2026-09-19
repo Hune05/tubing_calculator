@@ -24,6 +24,7 @@ class ProjectActions {
   final Future<void> Function({String? phaseId, bool add}) openSchedule;
   final void Function() save;
   final void Function() toggleStatus;
+  final void Function() toggleArchive;
   final void Function() delete;
 
   const ProjectActions({
@@ -35,6 +36,7 @@ class ProjectActions {
     required this.openSchedule,
     required this.save,
     required this.toggleStatus,
+    required this.toggleArchive,
     required this.delete,
   });
 }
@@ -343,6 +345,28 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             ),
           ),
         ),
+        if (!_isActive)
+          Center(
+            child: TextButton.icon(
+              onPressed: () {
+                final was = log['archived'] == true;
+                widget.actions.toggleArchive();
+                if (!was) {
+                  Navigator.pop(context);
+                } else {
+                  setState(() {});
+                }
+              },
+              icon: Icon(
+                log['archived'] == true
+                    ? Icons.unarchive_outlined
+                    : Icons.archive_outlined,
+                size: 18,
+              ),
+              label: Text(log['archived'] == true ? "보관 해제" : "보관함으로 이동"),
+              style: TextButton.styleFrom(foregroundColor: tossSubText),
+            ),
+          ),
         Center(
           child: TextButton(
             onPressed: _confirmDelete,
@@ -1955,6 +1979,34 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         ],
       ),
       const SizedBox(height: 6),
+      ...(() {
+        final used = mats
+            .where(
+              (m) => materialUsageCount(log, m['id']?.toString() ?? '') > 0,
+            )
+            .toList();
+        if (used.isEmpty) return <Widget>[];
+        return <Widget>[
+          const SizedBox(height: 10),
+          const Text(
+            "일보에서 사용 기록",
+            style: TextStyle(
+              color: tossSubText,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          for (final m in used.take(6))
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                "• ${m['title'] ?? m['type']} · ${materialUsageCount(log, m['id'].toString())}일 사용",
+                style: const TextStyle(color: tossText, fontSize: 13),
+              ),
+            ),
+          const SizedBox(height: 6),
+        ];
+      })(),
       ...open.take(5).map(_scheduleRow),
       if (open.length > 5)
         Align(
@@ -1972,6 +2024,54 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     final st = phaseWorkStats(log, phaseId);
     if (st.days == 0) return "";
     return "  ·  투입 ${st.days}일 (${st.manDays}인·일)";
+  }
+
+  // ───────────────────────── 일보 선택 내보내기 ─────────────────────────
+  bool _selectMode = false;
+  final Set<Map> _sel = {};
+
+  Future<void> _exportSelected() async {
+    if (_sel.isEmpty) return;
+    final doc = buildReportDoc(
+      log,
+      DateTime(2000),
+      DateTime.now().add(const Duration(days: 1)),
+      only: _sel.toList(),
+    );
+    final fmt = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.chat_outlined),
+              title: const Text("텍스트로 공유 (카톡)"),
+              onTap: () => Navigator.pop(ctx, 'text'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf_outlined),
+              title: const Text("PDF로 공유"),
+              onTap: () => Navigator.pop(ctx, 'pdf'),
+            ),
+          ],
+        ),
+      ),
+    );
+    try {
+      if (fmt == 'text') await shareReportText(doc);
+      if (fmt == 'pdf') await shareReportPdf(doc);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("내보내기 실패: $e")));
+      }
+    }
   }
 
   // ───────────────────────── 일지 타임라인 ─────────────────────────
@@ -2006,7 +2106,23 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
           ),
         );
       }
-      out.add(_reportCard(r, phaseNames));
+      final card = _reportCard(r, phaseNames);
+      out.add(
+        _selectMode
+            ? Row(
+                children: [
+                  Checkbox(
+                    value: _sel.contains(r),
+                    activeColor: tossBlue,
+                    onChanged: (_) => setState(() {
+                      _sel.contains(r) ? _sel.remove(r) : _sel.add(r);
+                    }),
+                  ),
+                  Expanded(child: card),
+                ],
+              )
+            : card,
+      );
     }
     return out;
   }
@@ -2054,8 +2170,15 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () =>
-            _run(() => widget.actions.openReport(r as Map<String, dynamic>)),
+        onTap: () {
+          if (_selectMode) {
+            setState(() {
+              _sel.contains(r) ? _sel.remove(r) : _sel.add(r);
+            });
+          } else {
+            _run(() => widget.actions.openReport(r as Map<String, dynamic>));
+          }
+        },
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
@@ -2235,7 +2358,49 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 6),
+        if (reports.isNotEmpty)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _selectMode
+                ? Row(
+                    children: [
+                      TextButton(
+                        onPressed: () => setState(() {
+                          _selectMode = false;
+                          _sel.clear();
+                        }),
+                        child: const Text("취소"),
+                      ),
+                      TextButton(
+                        onPressed: () => setState(() {
+                          _sel
+                            ..clear()
+                            ..addAll(reports.whereType<Map>());
+                        }),
+                        child: const Text("전체 선택"),
+                      ),
+                      const Spacer(),
+                      ElevatedButton(
+                        onPressed: _sel.isEmpty ? null : _exportSelected,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: tossBlue,
+                        ),
+                        child: Text(
+                          "${_sel.length}건 내보내기",
+                          style: const TextStyle(color: pureWhite),
+                        ),
+                      ),
+                    ],
+                  )
+                : TextButton.icon(
+                    onPressed: () => setState(() => _selectMode = true),
+                    icon: const Icon(Icons.checklist_rounded, size: 18),
+                    label: const Text("일보 골라서 내보내기"),
+                    style: TextButton.styleFrom(foregroundColor: tossSubText),
+                  ),
+          ),
+        const SizedBox(height: 10),
         if (reports.isEmpty)
           _emptyText("작성된 일지가 없습니다.")
         else

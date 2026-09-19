@@ -255,7 +255,8 @@ class _PhotoItem {
   final String path;
   final String tag;
   final String date;
-  _PhotoItem(this.path, this.tag, this.date);
+  final String caption;
+  _PhotoItem(this.path, this.tag, this.date, this.caption);
 }
 
 class _ProjectPhotosPageState extends State<ProjectPhotosPage> {
@@ -266,12 +267,16 @@ class _ProjectPhotosPageState extends State<ProjectPhotosPage> {
     for (final r
         in (widget.log['daily_reports'] as List? ?? []).whereType<Map>()) {
       final tags = Map<String, dynamic>.from((r['image_tags'] as Map?) ?? {});
+      final caps = Map<String, dynamic>.from(
+        (r['image_captions'] as Map?) ?? {},
+      );
       for (final p in (r['image_paths'] as List? ?? [])) {
         out.add(
           _PhotoItem(
             p.toString(),
             tags[p.toString()]?.toString() ?? '미분류',
             r['date']?.toString() ?? '',
+            caps[p.toString()]?.toString() ?? '',
           ),
         );
       }
@@ -351,7 +356,7 @@ class _ProjectPhotosPageState extends State<ProjectPhotosPage> {
                         onTap: () => PhotoDetailModal.show(
                           context: context,
                           title: "${it.date} · ${it.tag}",
-                          content: "",
+                          content: it.caption,
                           imagePaths: paths,
                           initialIndex: i,
                         ),

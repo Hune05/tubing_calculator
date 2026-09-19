@@ -42,6 +42,8 @@ class DailyReportPage extends StatefulWidget {
   final String? defaultPhaseId;
   // 새 일보 작성 중 임시 저장 키(전화가 오거나 앱이 꺼져도 내용을 이어 쓴다).
   final String? draftKey;
+  // 프로젝트의 자재 요청/입고 항목들(사용한 자재를 골라 연결하는 용도).
+  final List<Map<String, dynamic>> materialItems;
 
   const DailyReportPage({
     super.key,
@@ -53,6 +55,7 @@ class DailyReportPage extends StatefulWidget {
     this.pendingSchedules = const [],
     this.defaultPhaseId,
     this.draftKey,
+    this.materialItems = const [],
   });
 
   @override
@@ -93,6 +96,10 @@ class _DailyReportPageState extends State<DailyReportPage> {
 
   // 사진 태그(작업 전/중/후 등): 경로 → 태그
   final Map<String, String> _imageTags = {};
+  // 사진 메모(캡션): 경로 → 텍스트
+  final Map<String, String> _imageCaptions = {};
+  // 이 일보에서 사용했다고 고른 자재 요청/입고 항목 id
+  final Set<String> _usedMaterialIds = {};
   final Set<String> _workedPhaseIds = {};
   final Set<String> _completedScheduleIds = {};
   final Set<String> _completedPhaseIds = {};
@@ -156,6 +163,12 @@ class _DailyReportPageState extends State<DailyReportPage> {
       _workedPhaseIds.addAll(reportIds(widget.existingData!, 'workedPhaseIds'));
       ((widget.existingData!['image_tags'] as Map?) ?? {}).forEach(
         (k, v) => _imageTags[k.toString()] = v.toString(),
+      );
+      ((widget.existingData!['image_captions'] as Map?) ?? {}).forEach(
+        (k, v) => _imageCaptions[k.toString()] = v.toString(),
+      );
+      _usedMaterialIds.addAll(
+        reportIds(widget.existingData!, 'usedMaterialIds'),
       );
       _completedScheduleIds.addAll(
         reportIds(widget.existingData!, 'completedScheduleIds'),
@@ -309,6 +322,8 @@ class _DailyReportPageState extends State<DailyReportPage> {
       'otEnd': _overtimeEnd == null ? null : _formatTimeOfDay(_overtimeEnd!),
       'images': _attachedImages,
       'imageTags': _imageTags,
+      'imageCaptions': _imageCaptions,
+      'usedMaterials': _usedMaterialIds.toList(),
       'phases': _workedPhaseIds.toList(),
       'doneSchedules': _completedScheduleIds.toList(),
       'issues': _selectedIssueIds.toList(),
@@ -408,6 +423,16 @@ class _DailyReportPageState extends State<DailyReportPage> {
             (m['imageTags'] as Map?) ?? {},
           ).map((k, v) => MapEntry(k, v.toString())),
         );
+      _imageCaptions
+        ..clear()
+        ..addAll(
+          Map<String, dynamic>.from(
+            (m['imageCaptions'] as Map?) ?? {},
+          ).map((k, v) => MapEntry(k, v.toString())),
+        );
+      _usedMaterialIds
+        ..clear()
+        ..addAll(_strList(m['usedMaterials']));
       _workedPhaseIds
         ..clear()
         ..addAll(_strList(m['phases']));
@@ -736,6 +761,11 @@ class _DailyReportPageState extends State<DailyReportPage> {
         for (final p in _attachedImages)
           if (_imageTags[p] != null) p: _imageTags[p]!,
       },
+      "image_captions": {
+        for (final p in _attachedImages)
+          if ((_imageCaptions[p] ?? '').isNotEmpty) p: _imageCaptions[p]!,
+      },
+      "usedMaterialIds": _usedMaterialIds.toList(),
       "workedPhaseIds": _workedPhaseIds.toList(),
       "completedScheduleIds": _completedScheduleIds.toList(),
       "completedPhaseIds": _completedPhaseIds.toList(),
@@ -939,6 +969,98 @@ class _DailyReportPageState extends State<DailyReportPage> {
     ),
   );
 
+  Future<void> _editPhoto(int index) async {
+    final path = _attachedImages[index];
+    final ctrl = TextEditingController(text: _imageCaptions[path] ?? '');
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          20 + MediaQuery.of(ctx).viewInsets.bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "사진 메모 / 순서",
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              maxLines: 2,
+              decoration: _dec(hint: "예: B동 3층 배관 취부 후 (치수 확인용)"),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: index == 0
+                        ? null
+                        : () => Navigator.pop(ctx, 'left'),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                    label: const Text("앞으로"),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: index >= _attachedImages.length - 1
+                        ? null
+                        : () => Navigator.pop(ctx, 'right'),
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                    label: const Text("뒤로"),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, 'save'),
+                style: ElevatedButton.styleFrom(backgroundColor: makitaTeal),
+                child: const Text(
+                  "저장",
+                  style: TextStyle(
+                    color: pureWhite,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (action == null) return;
+    setState(() {
+      final c = ctrl.text.trim();
+      if (c.isEmpty) {
+        _imageCaptions.remove(path);
+      } else {
+        _imageCaptions[path] = c;
+      }
+      if (action == 'left' && index > 0) {
+        final t = _attachedImages.removeAt(index);
+        _attachedImages.insert(index - 1, t);
+      } else if (action == 'right' && index < _attachedImages.length - 1) {
+        final t = _attachedImages.removeAt(index);
+        _attachedImages.insert(index + 1, t);
+      }
+    });
+  }
+
   Widget _photoThumb(int index, String path) {
     final tag = _imageTags[path];
     return Padding(
@@ -946,10 +1068,11 @@ class _DailyReportPageState extends State<DailyReportPage> {
       child: Stack(
         children: [
           GestureDetector(
+            onLongPress: () => _editPhoto(index),
             onTap: () => PhotoDetailModal.show(
               context: context,
-              title: "현장 사진",
-              content: "",
+              title: _imageTags[path] ?? "현장 사진",
+              content: _imageCaptions[path] ?? "",
               imagePaths: _attachedImages,
               initialIndex: index,
             ),
@@ -964,6 +1087,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
             child: GestureDetector(
               onTap: () => setState(() {
                 _imageTags.remove(path);
+                _imageCaptions.remove(path);
                 _attachedImages.removeAt(index);
               }),
               child: Container(
@@ -976,6 +1100,12 @@ class _DailyReportPageState extends State<DailyReportPage> {
               ),
             ),
           ),
+          if ((_imageCaptions[path] ?? '').isNotEmpty)
+            const Positioned(
+              left: 4,
+              top: 4,
+              child: Icon(Icons.notes_rounded, color: Colors.white, size: 16),
+            ),
           Positioned(
             left: 4,
             bottom: 4,
@@ -1469,9 +1599,51 @@ class _DailyReportPageState extends State<DailyReportPage> {
             _more(
               title: "사용한 자재",
               icon: Icons.inventory_2_outlined,
-              summary: _materialsUsedCtrl.text.trim(),
-              filled: _materialsUsedCtrl.text.trim().isNotEmpty,
+              summary: [
+                if (_usedMaterialIds.isNotEmpty)
+                  "자재 요청 ${_usedMaterialIds.length}건",
+                if (_materialsUsedCtrl.text.trim().isNotEmpty)
+                  _materialsUsedCtrl.text.trim(),
+              ].join(' · '),
+              filled:
+                  _materialsUsedCtrl.text.trim().isNotEmpty ||
+                  _usedMaterialIds.isNotEmpty,
               children: [
+                if (widget.materialItems.isNotEmpty) ...[
+                  const Text(
+                    "발주한 자재 중 오늘 사용한 것",
+                    style: TextStyle(color: tossSubText, fontSize: 12),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final m in widget.materialItems)
+                        FilterChip(
+                          label: Text(
+                            (m['title'] ?? m['type'] ?? '').toString(),
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          selected: _usedMaterialIds.contains(
+                            m['id']?.toString(),
+                          ),
+                          showCheckmark: false,
+                          selectedColor: makitaTeal.withValues(alpha: 0.2),
+                          backgroundColor: tossInputBg,
+                          side: BorderSide.none,
+                          visualDensity: VisualDensity.compact,
+                          onSelected: (v) => setState(() {
+                            final id = m['id']?.toString() ?? '';
+                            v
+                                ? _usedMaterialIds.add(id)
+                                : _usedMaterialIds.remove(id);
+                          }),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 TextField(
                   controller: _materialsUsedCtrl,
                   maxLines: 2,

@@ -389,3 +389,12 @@ void shiftPhasesAfterDelay(
   }
   setPhases(log, phases);
 }
+
+// 일보의 "사용한 자재"에서 이 자재 요청/입고 항목을 골라 둔 횟수.
+int materialUsageCount(Map<String, dynamic> log, String scheduleId) {
+  int n = 0;
+  for (final r in (log['daily_reports'] as List? ?? [])) {
+    if (r is Map && reportIds(r, 'usedMaterialIds').contains(scheduleId)) n++;
+  }
+  return n;
+}
