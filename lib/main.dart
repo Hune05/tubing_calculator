@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 
@@ -103,6 +105,7 @@ void main() async {
   await setupFlutterNotifications();
 
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  await initializeDateFormatting('ko_KR', null); // 달력 등 한글 요일/월 이름
   runApp(const MyApp());
 }
 
@@ -188,6 +191,14 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      // 날짜 선택기·달력 등 기본 위젯 문구를 한국어로(예전엔 Select date/Cancel/OK 영어).
+      locale: const Locale('ko', 'KR'),
+      supportedLocales: const [Locale('ko', 'KR'), Locale('en', 'US')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF121212),
       ),

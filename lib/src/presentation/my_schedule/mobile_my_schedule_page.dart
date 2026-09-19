@@ -2252,6 +2252,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       color: scheduleWhite,
       padding: const EdgeInsets.only(bottom: 8),
       child: TableCalendar<_AgendaItem>(
+        locale: 'ko_KR',
         firstDay: DateTime.utc(2020, 1, 1),
         lastDay: DateTime.utc(2035, 12, 31),
         focusedDay: _focusedDay,
