@@ -778,6 +778,11 @@ class _DailyReportPageState extends State<DailyReportPage> {
                             ),
                           ),
                         ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
                         TextButton(
                           onPressed: _loadPreviousValues,
                           style: TextButton.styleFrom(
