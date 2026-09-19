@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -261,6 +263,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
           _buildPhaseStrip(phases),
           const SizedBox(height: 22),
         ],
+        ..._buildMaterialCard(),
         _sectionTitle("이번 주 · 지연 일정 (${upcoming.length})"),
         const SizedBox(height: 8),
         if (upcoming.isEmpty)
@@ -695,9 +698,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          (s != null && e != null)
-                              ? "${_md(s)} ~ ${_md(e)}  ·  일정 ${items.length}건"
-                              : "기간 미정  ·  일정 ${items.length}건",
+                          ((s != null && e != null)
+                                  ? "${_md(s)} ~ ${_md(e)}  ·  일정 ${items.length}건"
+                                  : "기간 미정  ·  일정 ${items.length}건") +
+                              _workStatText(p['id'].toString()),
                           style: const TextStyle(
                             color: tossSubText,
                             fontSize: 12,
@@ -1177,6 +1181,269 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     );
   }
 
+  // ───────────────────────── 자재 현황 ─────────────────────────
+  List<Widget> _buildMaterialCard() {
+    final mats = schedulesOf(log).where(isMaterialSchedule).toList();
+    if (mats.isEmpty) return [];
+    final counts = {'pending': 0, 'expected': 0, 'late': 0, 'done': 0};
+    for (final m in mats) {
+      counts[materialState(m)] = counts[materialState(m)]! + 1;
+    }
+    final open = mats.where((m) => materialState(m) != 'done').toList()
+      ..sort((a, b) {
+        int rank(Map m) => switch (materialState(m)) {
+          'late' => 0,
+          'pending' => 1,
+          _ => 2,
+        };
+        final r = rank(a).compareTo(rank(b));
+        if (r != 0) return r;
+        if (a['dateTime'] == null || b['dateTime'] == null) return 0;
+        return asDate(a['dateTime']).compareTo(asDate(b['dateTime']));
+      });
+    Widget stat(String label, String key, Color c) => Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: c.withValues(alpha: counts[key]! > 0 ? 0.12 : 0.05),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Text(
+              "${counts[key]}",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: counts[key]! > 0 ? c : tossSubText,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: counts[key]! > 0 ? c : tossSubText,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    return [
+      _sectionTitle("자재 현황"),
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          stat("입고일 미정", 'pending', const Color(0xFFC77700)),
+          const SizedBox(width: 8),
+          stat("입고 예정", 'expected', tossBlue),
+          const SizedBox(width: 8),
+          stat("입고 지연", 'late', warningRed),
+          const SizedBox(width: 8),
+          stat("입고 완료", 'done', Colors.green),
+        ],
+      ),
+      const SizedBox(height: 6),
+      ...open.take(5).map(_scheduleRow),
+      if (open.length > 5)
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: () => _tab.animateTo(1),
+            child: Text("나머지 ${open.length - 5}건 더 보기"),
+          ),
+        ),
+      const SizedBox(height: 22),
+    ];
+  }
+
+  String _workStatText(String phaseId) {
+    final st = phaseWorkStats(log, phaseId);
+    if (st.days == 0) return "";
+    return "  ·  투입 ${st.days}일 (${st.manDays}인·일)";
+  }
+
+  // ───────────────────────── 일지 타임라인 ─────────────────────────
+  // 날짜는 "MM/dd" 문자열이라 월 단위로 묶어 헤더를 붙이고, 카드마다 요약 한 줄,
+  // 사진 썸네일, 단계/이슈/일정완료 칩을 보여준다.
+  List<Widget> _buildReportTimeline(List reports) {
+    final phaseNames = {
+      for (final p in phasesOf(log)) p['id'].toString(): p['name'].toString(),
+    };
+    final out = <Widget>[];
+    String? lastMonth;
+    for (final r in reports) {
+      if (r is! Map) continue;
+      final date = r['date']?.toString() ?? '';
+      final month = date.contains('/')
+          ? "${int.tryParse(date.split('/')[0]) ?? 0}월"
+          : '';
+      if (month != lastMonth) {
+        lastMonth = month;
+        out.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 10, bottom: 8),
+            child: Text(
+              month,
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
+                color: tossSubText,
+              ),
+            ),
+          ),
+        );
+      }
+      out.add(_reportCard(r, phaseNames));
+    }
+    return out;
+  }
+
+  Widget _reportCard(Map r, Map<String, String> phaseNames) {
+    final note = (r['note']?.toString() ?? '').trim();
+    final summary = (note.isEmpty || note == '특이사항 없음')
+        ? (r['materials_used']?.toString().isNotEmpty == true
+              ? "자재: ${r['materials_used']}"
+              : "특이사항 없음")
+        : note.split('\n').first;
+    final types = (r['work_type'] is List)
+        ? (r['work_type'] as List).join(' · ')
+        : (r['work_type']?.toString() ?? '');
+    final phaseChips = reportIds(
+      r,
+      'workedPhaseIds',
+    ).map((id) => phaseNames[id]).whereType<String>().toList();
+    final imgs = (r['image_paths'] as List? ?? [])
+        .map((e) => e.toString())
+        .toList();
+    final issueCnt = reportIds(r, 'linkedIssueIds').length;
+    final doneCnt = reportIds(r, 'completedScheduleIds').length;
+    final pt = (r['points'] as num?)?.toInt() ?? 0;
+    final wp = (r['wiring_points'] as num?)?.toInt() ?? 0;
+
+    Widget chip(String t, Color c) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        t,
+        style: TextStyle(color: c, fontSize: 11, fontWeight: FontWeight.w800),
+      ),
+    );
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: pureWhite,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () =>
+            _run(() => widget.actions.openReport(r as Map<String, dynamic>)),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    "${r['date'] ?? ''}",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                      color: tossText,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "$types · ${r['worker_count'] ?? 1}명${r['is_overtime'] == true ? ' · 연장' : ''}",
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, color: tossSubText),
+                    ),
+                  ),
+                  if (pt > 0 || wp > 0)
+                    Text(
+                      [if (pt > 0) "${pt}pt", if (wp > 0) "결선 $wp"].join(' · '),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: tossBlue,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                summary,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: tossText,
+                  height: 1.4,
+                ),
+              ),
+              if (phaseChips.isNotEmpty ||
+                  issueCnt > 0 ||
+                  doneCnt > 0 ||
+                  r['is_as_built'] == true) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final n in phaseChips) chip(n, tossBlue),
+                    if (issueCnt > 0) chip("이슈 처리 $issueCnt", warningRed),
+                    if (doneCnt > 0) chip("일정 완료 $doneCnt", Colors.green),
+                    if (r['is_as_built'] == true)
+                      chip("도면 반영 요청", const Color(0xFFC77700)),
+                  ],
+                ),
+              ],
+              if (imgs.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 56,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: imgs.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 6),
+                    itemBuilder: (_, i) => ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.file(
+                        File(imgs[i]),
+                        width: 56,
+                        height: 56,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Container(
+                          width: 56,
+                          height: 56,
+                          color: tossBg,
+                          child: const Icon(
+                            Icons.image_not_supported_outlined,
+                            size: 18,
+                            color: tossSubText,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildReportsTab() {
     final reports = (log['daily_reports'] as List? ?? []);
     return ListView(
@@ -1224,10 +1491,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         if (reports.isEmpty)
           _emptyText("작성된 일지가 없습니다.")
         else
-          DailyReportPager(
-            reports: reports,
-            onOpenReport: (r) => _run(() => widget.actions.openReport(r)),
-          ),
+          ..._buildReportTimeline(reports),
       ],
     );
   }

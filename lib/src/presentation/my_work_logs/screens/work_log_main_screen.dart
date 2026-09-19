@@ -150,6 +150,8 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           existingData: report,
           relatedIssueCandidates: _issueCandidatesFor(log),
           floorPlanImagePath: log['floor_plan_image_path'],
+          phases: phasesOf(log),
+          pendingSchedules: _pendingSchedulesFor(log, report),
         ),
       ),
     );
@@ -157,6 +159,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       setState(() {
         final idx = log['daily_reports'].indexOf(report);
         if (idx != -1) log['daily_reports'][idx] = updated;
+        applyReportEffects(log, updated);
       });
       _saveProject(log);
     }
@@ -387,6 +390,21 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
 
   // 🚀 [추가] 작업 일지 작성 화면 열기 - 대시보드의 "오늘 일지 미작성"
   // 칩에서 특정 프로젝트로 바로 들어갈 때도 재사용한다.
+  // 일보에서 "오늘 끝낸 일정"으로 고를 수 있는 일정: 미완료 + (수정 중인
+  // 일보에서 이미 체크한 것). 검사일정은 별도 흐름이라 제외.
+  List<Map<String, dynamic>> _pendingSchedulesFor(
+    Map<String, dynamic> log,
+    Map<String, dynamic>? report,
+  ) {
+    final already = report == null
+        ? <String>{}
+        : reportIds(report, 'completedScheduleIds').toSet();
+    return schedulesOf(log).where((s) {
+      if (s['type'] == '검사일정') return false;
+      return s['isCompleted'] != true || already.contains(s['id']?.toString());
+    }).toList();
+  }
+
   Future<void> _addDailyReportFor(Map<String, dynamic> log) async {
     final newReport = await Navigator.push<Map<String, dynamic>>(
       context,
@@ -395,12 +413,16 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           previousReport: _previousReportFor(log),
           relatedIssueCandidates: _issueCandidatesFor(log),
           floorPlanImagePath: log['floor_plan_image_path'],
+          phases: phasesOf(log),
+          pendingSchedules: _pendingSchedulesFor(log, null),
+          defaultPhaseId: currentPhase(log)?['id']?.toString(),
         ),
       ),
     );
     if (newReport != null) {
       setState(() {
         log['daily_reports'].insert(0, newReport);
+        applyReportEffects(log, newReport);
       });
       _saveProject(log);
     }

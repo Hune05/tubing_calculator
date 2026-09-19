@@ -255,3 +255,64 @@ bool migrateProjectToPhases(Map<String, dynamic> log) {
   log['phasesMigrated'] = true;
   return true;
 }
+
+// ───────────────────── 작업일보 ↔ 단계/일정 연결 ─────────────────────
+
+List<String> reportIds(Map report, String key) =>
+    (report[key] as List? ?? []).map((e) => e.toString()).toList();
+
+// 일보에서 "오늘 완료"로 체크한 세부 일정/단계를 프로젝트에 반영한다.
+// 이미 완료된 것은 그대로 두고, 체크 해제해도 되돌리지 않는다(멱등).
+// 바뀐 게 있으면 true.
+bool applyReportEffects(Map<String, dynamic> log, Map report) {
+  bool changed = false;
+  final doneSchedules = reportIds(report, 'completedScheduleIds').toSet();
+  final donePhases = reportIds(report, 'completedPhaseIds').toSet();
+  if (doneSchedules.isNotEmpty && log['schedules'] is List) {
+    for (final s in log['schedules'] as List) {
+      if (s is Map &&
+          doneSchedules.contains(s['id']?.toString()) &&
+          s['isCompleted'] != true) {
+        s['isCompleted'] = true;
+        changed = true;
+      }
+    }
+  }
+  if (donePhases.isNotEmpty && log['phases'] is List) {
+    for (final p in log['phases'] as List) {
+      if (p is Map &&
+          donePhases.contains(p['id']?.toString()) &&
+          p['isCompleted'] != true) {
+        p['isCompleted'] = true;
+        changed = true;
+      }
+    }
+  }
+  return changed;
+}
+
+// 단계별 실제 투입: 일보 일수 / 투입 인원-일(명 x 일).
+({int days, int manDays}) phaseWorkStats(
+  Map<String, dynamic> log,
+  String phaseId,
+) {
+  int days = 0, manDays = 0;
+  for (final r in (log['daily_reports'] as List? ?? [])) {
+    if (r is! Map) continue;
+    if (reportIds(r, 'workedPhaseIds').contains(phaseId)) {
+      days++;
+      manDays += (r['worker_count'] as num?)?.toInt() ?? 1;
+    }
+  }
+  return (days: days, manDays: manDays);
+}
+
+bool isMaterialSchedule(Map s) => s['type'] == '자재 요청' || s['type'] == '입고일';
+
+// 자재 상태: pending(입고일 미정) / expected(입고 예정) / late(입고일 지남) / done(입고 완료)
+String materialState(Map s) {
+  if (s['isCompleted'] == true) return 'done';
+  if (s['dateTime'] == null) return 'pending';
+  final d = dayOnly(asDate(s['dateTime']));
+  return d.isBefore(dayOnly(DateTime.now())) ? 'late' : 'expected';
+}

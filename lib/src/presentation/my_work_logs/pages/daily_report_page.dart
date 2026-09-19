@@ -10,6 +10,7 @@ import 'layout_board_page.dart';
 import 'tablet_layout_board_page.dart';
 import '../widgets/photo_detail_modal.dart';
 import 'floor_plan_pin_page.dart';
+import '../models/project_phase.dart';
 
 const Color tossBlue = Color(0xFF3182F6);
 const Color tossText = Color(0xFF191F28);
@@ -29,6 +30,11 @@ class DailyReportPage extends StatefulWidget {
   // 🚀 [추가] 작업 위치를 텍스트 대신 도면 위에 핀으로 찍기 위한 이미지
   // (이슈 등록과 동일한 프로젝트 도면을 공유).
   final String? floorPlanImagePath;
+  // 🚀 [일보↔단계 연결] 오늘 작업한 단계를 고르고, 오늘 끝낸 세부 일정을 체크하면
+  // 저장 시 프로젝트에 자동 반영된다.
+  final List<Map<String, dynamic>> phases;
+  final List<Map<String, dynamic>> pendingSchedules;
+  final String? defaultPhaseId;
 
   const DailyReportPage({
     super.key,
@@ -36,6 +42,9 @@ class DailyReportPage extends StatefulWidget {
     this.previousReport,
     this.relatedIssueCandidates = const [],
     this.floorPlanImagePath,
+    this.phases = const [],
+    this.pendingSchedules = const [],
+    this.defaultPhaseId,
   });
 
   @override
@@ -73,6 +82,22 @@ class _DailyReportPageState extends State<DailyReportPage> {
 
   // 🚀 [추가] 오늘 처리한 이슈 태그
   final Set<String> _selectedIssueIds = {};
+
+  final Set<String> _workedPhaseIds = {};
+  final Set<String> _completedScheduleIds = {};
+  final Set<String> _completedPhaseIds = {};
+
+  // 자주 쓰는 작업 문구 - 누르면 상세 내역에 한 줄 추가된다.
+  static const List<String> _quickPhrases = [
+    '배관 취부',
+    '용접',
+    '튜빙 벤딩',
+    '지지대 설치',
+    '배선/결선',
+    '압력 테스트',
+    '누설 점검',
+    '자재 정리',
+  ];
 
   // 🚀 [추가] 도면 위 작업 위치 핀
   double? _pinDx;
@@ -114,7 +139,17 @@ class _DailyReportPageState extends State<DailyReportPage> {
       text: _isEdit ? (widget.existingData!['materials_used'] ?? '') : '',
     );
 
+    if (!_isEdit && widget.defaultPhaseId != null) {
+      _workedPhaseIds.add(widget.defaultPhaseId!);
+    }
     if (_isEdit) {
+      _workedPhaseIds.addAll(reportIds(widget.existingData!, 'workedPhaseIds'));
+      _completedScheduleIds.addAll(
+        reportIds(widget.existingData!, 'completedScheduleIds'),
+      );
+      _completedPhaseIds.addAll(
+        reportIds(widget.existingData!, 'completedPhaseIds'),
+      );
       _isAsBuilt = widget.existingData!['is_as_built'] ?? false;
       // 🚀 예전엔 work_type이 단일 문자열이었다 - 리스트/문자열 둘 다
       // 안전하게 처리해서 이전에 저장된 일지도 그대로 열린다.
@@ -174,10 +209,34 @@ class _DailyReportPageState extends State<DailyReportPage> {
       if (_selectedWorkTypes.isEmpty) _selectedWorkTypes.add('신규 설치');
       _workerCount = prev['worker_count'] ?? _workerCount;
       _isOvertime = prev['is_overtime'] ?? _isOvertime;
+      final prevPhases = reportIds(prev, 'workedPhaseIds');
+      if (prevPhases.isNotEmpty) {
+        _workedPhaseIds
+          ..clear()
+          ..addAll(prevPhases);
+      }
     });
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text("어제 값을 불러왔습니다.")));
+  }
+
+  void _addPhrase(String p) {
+    final t = _noteCtrl.text.trimRight();
+    _noteCtrl.text = t.isEmpty ? p : '$t\n$p';
+    _noteCtrl.selection = TextSelection.collapsed(
+      offset: _noteCtrl.text.length,
+    );
+    setState(() {});
+  }
+
+  // 어제 적어둔 "내일 계획"을 오늘 작업 내역의 시작점으로 넣는다.
+  void _usePlanAsNote() {
+    final plan = (widget.previousReport?['next_day_plan'] as String?)?.trim();
+    if (plan == null || plan.isEmpty) return;
+    final t = _noteCtrl.text.trimRight();
+    _noteCtrl.text = t.isEmpty ? plan : '$t\n$plan';
+    setState(() {});
   }
 
   TimeOfDay? _parseTimeOfDay(dynamic v) {
@@ -379,6 +438,9 @@ class _DailyReportPageState extends State<DailyReportPage> {
       // 🚀 [추가] 도면 위 작업 위치 핀.
       "locationPinDx": _pinDx,
       "locationPinDy": _pinDy,
+      "workedPhaseIds": _workedPhaseIds.toList(),
+      "completedScheduleIds": _completedScheduleIds.toList(),
+      "completedPhaseIds": _completedPhaseIds.toList(),
     };
 
     if (!mounted) return;
@@ -536,11 +598,60 @@ class _DailyReportPageState extends State<DailyReportPage> {
                             ),
                           ),
                         ),
+                        TextButton(
+                          onPressed: _usePlanAsNote,
+                          style: TextButton.styleFrom(
+                            foregroundColor: makitaTeal,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: const Size(0, 32),
+                          ),
+                          child: const Text(
+                            "오늘 내역에 넣기",
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 ],
                 const SizedBox(height: 20),
+              ],
+              if (widget.phases.isNotEmpty) ...[
+                const Text(
+                  "오늘 작업한 단계",
+                  style: TextStyle(
+                    color: tossText,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: widget.phases.map((p) {
+                    final id = p['id'].toString();
+                    final sel = _workedPhaseIds.contains(id);
+                    return ChoiceChip(
+                      label: Text(p['name'].toString()),
+                      selected: sel,
+                      showCheckmark: false,
+                      selectedColor: tossBlue,
+                      backgroundColor: tossInputBg,
+                      side: BorderSide.none,
+                      labelStyle: TextStyle(
+                        color: sel ? pureWhite : tossSubText,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      onSelected: (_) => setState(() {
+                        sel
+                            ? _workedPhaseIds.remove(id)
+                            : _workedPhaseIds.add(id);
+                      }),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 32),
               ],
               // 1. 작업 유형 선택 (🚀 복수 선택 가능)
               const Text(
@@ -890,7 +1001,70 @@ class _DailyReportPageState extends State<DailyReportPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: _quickPhrases
+                    .map(
+                      (p) => ActionChip(
+                        label: Text(p, style: const TextStyle(fontSize: 12)),
+                        backgroundColor: tossInputBg,
+                        side: BorderSide.none,
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => _addPhrase(p),
+                      ),
+                    )
+                    .toList(),
+              ),
+              const SizedBox(height: 22),
+
+              // 🚀 오늘 끝낸 세부 일정 체크 (저장 시 프로젝트 일정에 완료로 반영)
+              if (widget.pendingSchedules.isNotEmpty) ...[
+                const Text(
+                  "오늘 끝낸 일정 체크 (선택)",
+                  style: TextStyle(
+                    color: tossText,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  "체크하면 저장할 때 프로젝트 일정이 완료로 바뀝니다.",
+                  style: TextStyle(color: tossSubText, fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                ...widget.pendingSchedules.map((sc) {
+                  final id = sc['id']?.toString() ?? '';
+                  final checked = _completedScheduleIds.contains(id);
+                  return CheckboxListTile(
+                    value: checked,
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    activeColor: makitaTeal,
+                    title: Text(
+                      sc['title']?.toString() ?? sc['type']?.toString() ?? '',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: tossText,
+                        fontSize: 14,
+                      ),
+                    ),
+                    subtitle: Text(
+                      sc['type']?.toString() ?? '',
+                      style: const TextStyle(color: tossSubText, fontSize: 12),
+                    ),
+                    onChanged: (v) => setState(() {
+                      v == true
+                          ? _completedScheduleIds.add(id)
+                          : _completedScheduleIds.remove(id);
+                    }),
+                  );
+                }),
+                const SizedBox(height: 22),
+              ],
 
               // 🚀 [추가] 오늘 사용한 자재 (간단 기록)
               const Text(
