@@ -628,10 +628,30 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
             style: TextStyle(fontSize: 12, color: tossSubText),
           ),
           value: include,
-          onChanged: (v) => setState(() {
-            setIssueWeeklyExcluded(_punch, !v);
-            _changed = true;
-          }),
+          onChanged: (v) {
+            setState(() {
+              setIssueWeeklyExcluded(_punch, !v);
+              _changed = true;
+            });
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                SnackBar(
+                  content: Text(v ? "주간 보고에 포함했어요." : "주간 보고에서 뺐어요."),
+                  action: SnackBarAction(
+                    label: "되돌리기",
+                    onPressed: () {
+                      if (!mounted) return;
+                      // 바꾸기 전 상태(제외 여부 = v)로 되돌린다.
+                      setState(() {
+                        setIssueWeeklyExcluded(_punch, v);
+                        _changed = true;
+                      });
+                    },
+                  ),
+                ),
+              );
+          },
         ),
       ],
     );

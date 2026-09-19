@@ -335,12 +335,31 @@ ReportDoc buildWeeklyPlanDoc(
   } else {
     sections.addAll(combined);
   }
+  // 이번 주에 완료 처리한 프로젝트(전체 보기일 때만): 진행중 목록에서는 빠지므로 따로 알린다.
+  final doneLines = <String>[];
+  if (onlyIds == null) {
+    final doneNow = <(DateTime, String)>[];
+    for (final l in logs) {
+      if (l['status'] != 'DONE' || l['completedAt'] == null) continue;
+      final d = asDate(l['completedAt']);
+      if (weeks[1].contains(d)) {
+        doneNow.add((
+          dayOnly(d),
+          '${l['name'] ?? '프로젝트'}(${d.month}/${d.day})',
+        ));
+      }
+    }
+    doneNow.sort((a, b) => a.$1.compareTo(b.$1));
+    if (doneNow.isNotEmpty) {
+      doneLines.add('  ✓ 금주 완료 프로젝트: ${doneNow.map((e) => e.$2).join(', ')}');
+    }
+  }
   sections.insert(
     0,
-    ReportSection(
-      '금주 요약 (${weeks[1].range})',
-      _summaryLines(targets, weeks[1]),
-    ),
+    ReportSection('금주 요약 (${weeks[1].range})', [
+      ..._summaryLines(targets, weeks[1]),
+      ...doneLines,
+    ]),
   );
   if (memo.isNotEmpty) {
     sections.add(ReportSection('최근 일보의 다음 계획 메모', memo));
@@ -512,7 +531,7 @@ ReportDoc buildWeeklyPlanDoc(
     sections,
     heading: '주간 업무 보고',
     boxedHeadings: true,
-    showAuthorLine: true,
+    showAuthorLine: ReportStyle.current.weeklyAuthorLine,
     fileStamp:
         '${today.year}${today.month.toString().padLeft(2, '0')}${today.day.toString().padLeft(2, '0')}',
     // 사진을 넣도록 골랐으면, 카톡 텍스트에는 사진이 안 가니 PDF를 안내한다.

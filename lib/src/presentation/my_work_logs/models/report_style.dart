@@ -14,6 +14,7 @@ class ReportStyle {
   String? sig1B64; // 손서명 이미지(PNG base64)
   String? sig2B64;
   bool defaultPhotos;
+  bool weeklyAuthorLine; // 주간 보고 PDF 제목 아래 "작성일 · 작성자" 줄
   Set<String> hiddenSections;
 
   ReportStyle({
@@ -26,6 +27,7 @@ class ReportStyle {
     this.sig1B64,
     this.sig2B64,
     this.defaultPhotos = false,
+    this.weeklyAuthorLine = true,
     Set<String>? hiddenSections,
   }) : hiddenSections = hiddenSections ?? {};
 
@@ -51,6 +53,7 @@ class ReportStyle {
     'sig1B64': sig1B64,
     'sig2B64': sig2B64,
     'defaultPhotos': defaultPhotos,
+    'weeklyAuthorLine': weeklyAuthorLine,
     'hidden': hiddenSections.toList(),
   };
 
@@ -70,6 +73,7 @@ class ReportStyle {
         ? null
         : j['sig2B64'].toString(),
     defaultPhotos: j['defaultPhotos'] == true,
+    weeklyAuthorLine: j['weeklyAuthorLine'] != false, // 없으면 켬(기본)
     hiddenSections: ((j['hidden'] as List?) ?? [])
         .map((e) => e.toString())
         .toSet(),
@@ -112,6 +116,7 @@ Map<String, dynamic> _decode(String raw) {
     ...m,
     'signature': m['signature'] == 'true',
     'defaultPhotos': m['defaultPhotos'] == 'true',
+    'weeklyAuthorLine': m['weeklyAuthorLine'] != 'false',
     'hidden': (m['hidden'] ?? '')
         .toString()
         .split('')
@@ -135,6 +140,7 @@ Future<void> _saveLocal(ReportStyle s) async {
       '$k${j[k] ?? ''}',
     'signature${s.signature}',
     'defaultPhotos${s.defaultPhotos}',
+    'weeklyAuthorLine${s.weeklyAuthorLine}',
     'hidden${s.hiddenSections.join('')}',
   ].join('');
   final p = await SharedPreferences.getInstance();

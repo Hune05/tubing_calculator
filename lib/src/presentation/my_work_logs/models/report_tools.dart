@@ -1203,6 +1203,11 @@ const String kWeeklyReportPayload = 'work_weekly_report';
 // 일보 알림을 누르면 오늘 일보 작성으로 바로 가는 데 쓰는 표식.
 const String kDailyReportPayload = 'work_daily_report';
 
+// 일보 알림 문구. 여러 프로젝트가 걸렸으면 몇 곳인지 알려 준다.
+String dailyReminderBody(int missingCount) => missingCount >= 2
+    ? '오늘 일보를 아직 안 쓴 프로젝트가 ${missingCount}곳 있어요. 눌러서 바로 남겨두세요.'
+    : '오늘 작업 일보 아직 안 썼어요. 눌러서 바로 남겨두세요.';
+
 // 오늘 일보를 아직 안 쓴 진행중 프로젝트(오늘은 "MM/dd" 형식 문자열).
 List<Map<String, dynamic>> projectsMissingReport(
   List<Map<String, dynamic>> logs,
@@ -1343,11 +1348,9 @@ Future<void> syncReportReminder(List<Map<String, dynamic>> logs) async {
     final now = DateTime.now();
     final todayStr =
         '${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
-    final wroteToday = active.any(
-      (l) => (l['daily_reports'] as List? ?? []).whereType<Map>().any(
-        (r) => r['date'] == todayStr,
-      ),
-    );
+    // 오늘 일보를 아직 안 쓴 진행중 프로젝트. 전부 썼으면 오늘 알림은 건너뛴다.
+    final missing = projectsMissingReport(active, todayStr);
+    final wroteToday = missing.isEmpty;
     var at = DateTime(
       now.year,
       now.month,
@@ -1355,7 +1358,10 @@ Future<void> syncReportReminder(List<Map<String, dynamic>> logs) async {
       pref.minutes ~/ 60,
       pref.minutes % 60,
     );
-    if (wroteToday || !at.isAfter(now)) at = at.add(const Duration(days: 1));
+    final skipToday = wroteToday || !at.isAfter(now);
+    if (skipToday) at = at.add(const Duration(days: 1));
+    // 오늘 울릴 알림이면 실제 미작성 수, 내일 알림이면 진행중 프로젝트 수를 안내한다.
+    final notifyCount = skipToday ? active.length : missing.length;
 
     const channel = AndroidNotificationChannel(
       _kReminderChannel,
@@ -1371,7 +1377,7 @@ Future<void> syncReportReminder(List<Map<String, dynamic>> logs) async {
     await flutterLocalNotificationsPlugin.zonedSchedule(
       id: _kReminderId,
       title: '작업일보',
-      body: '오늘 작업 일보 아직 안 썼어요. 눌러서 바로 남겨두세요.',
+      body: dailyReminderBody(notifyCount),
       payload: kDailyReportPayload,
       scheduledDate: tz.TZDateTime.from(at, tz.local),
       notificationDetails: const NotificationDetails(

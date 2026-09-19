@@ -284,6 +284,13 @@ class _ReportStylePageState extends State<ReportStylePage> {
               value: _s.defaultPhotos,
               onChanged: (v) => setState(() => _s.defaultPhotos = v),
             ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text("주간 보고 PDF에 작성일·작성자 줄 넣기"),
+              subtitle: const Text("제목 아래에 '작성일 · 작성 담당자' 한 줄이 들어가요."),
+              value: _s.weeklyAuthorLine,
+              onChanged: (v) => setState(() => _s.weeklyAuthorLine = v),
+            ),
           ]),
           SizedBox(
             height: 52,
