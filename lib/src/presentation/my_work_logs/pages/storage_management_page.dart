@@ -298,7 +298,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("임시 저장 삭제"),
-        content: Text(keepWords("저장하지 않고 남아 있는 일보 임시 저장 내용이 모두 삭제됩니다.")),
+        content: Text(keepWords("저장하지 않은 일보 임시 저장본이 모두 삭제됩니다.")),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),

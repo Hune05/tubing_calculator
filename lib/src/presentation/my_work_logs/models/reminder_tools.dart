@@ -27,7 +27,7 @@ String dailyReminderBody(int missingCount, {String? name}) {
     return '오늘 일보를 아직 안 쓴 프로젝트가 $missingCount곳 있습니다. 눌러서 바로 남겨 두십시오.';
   }
   final who = (name == null || name.trim().isEmpty) ? '' : '${name.trim()} ';
-  return '$who오늘 작업 일보 아직 작성하지 않았습니다. 눌러서 바로 남겨 두십시오.';
+  return '$who오늘 작업 일보를 아직 작성하지 않았습니다. 눌러서 바로 남겨 두십시오.';
 }
 
 // 일보 알림 예약 계획 한 건: 이 시간(분)에 울릴 알림 하나.

@@ -292,7 +292,7 @@ class _PunchListPageState extends State<PunchListPage> {
             children: [
               // 1. 위치 및 태그
               const Text(
-                "발생 위치 및 태그",
+                "위치와 태그",
                 style: TextStyle(
                   color: tossText,
                   fontSize: 16,
@@ -540,7 +540,7 @@ class _PunchListPageState extends State<PunchListPage> {
 
               // 4. 상세 내용
               const Text(
-                "상세 보완 내용",
+                "자세한 수정 내용",
                 style: TextStyle(
                   color: tossText,
                   fontSize: 16,

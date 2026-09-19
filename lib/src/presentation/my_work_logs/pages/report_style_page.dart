@@ -281,7 +281,7 @@ class _ReportStylePageState extends State<ReportStylePage> {
           _card("기본값", [
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(keepWords("PDF 내보낼 때 사진 포함을 기본으로")),
+              title: Text(keepWords("PDF에 사진을 기본으로 포함")),
               value: _s.defaultPhotos,
               onChanged: (v) => setState(() => _s.defaultPhotos = v),
             ),

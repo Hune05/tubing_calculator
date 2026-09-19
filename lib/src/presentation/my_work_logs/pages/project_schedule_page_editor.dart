@@ -287,7 +287,7 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                                       MaterialTapTargetSize.shrinkWrap,
                                 ),
                                 child: const Text(
-                                  "아직 모름으로 되돌리기",
+                                  "입고일 모름으로 되돌리기",
                                   style: TextStyle(fontSize: 13),
                                 ),
                               ),

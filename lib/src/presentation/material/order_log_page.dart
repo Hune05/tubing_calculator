@@ -628,7 +628,7 @@ class _OrderLogPageState extends State<OrderLogPage> {
     Navigator.pop(context);
     await Clipboard.setData(ClipboardData(text: buffer.toString()));
     if (!mounted) return;
-    _showSnackBar("내역이 클립보드에 복사되었습니다.");
+    _showSnackBar("내역이 클립보드에 복사했습니다.");
   }
 
   Future<void> _deleteOrderConfirm(OrderModel order) async {

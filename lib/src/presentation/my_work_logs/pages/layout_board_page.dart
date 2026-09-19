@@ -472,7 +472,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
                   child: Text(
-                    keepWords("실행 취소 히스토리 (${_undoStack.length}단계)"),
+                    keepWords("실행 취소 기록 (${_undoStack.length}단계)"),
                     style: const TextStyle(
                       color: tossText,
                       fontWeight: FontWeight.w800,
@@ -579,7 +579,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                 style: TextStyle(fontWeight: FontWeight.w800, color: tossText),
               ),
               content: Text(
-                keepWords("저장하지 않고 나간 작업 내용이 남아있습니다."),
+                keepWords("저장하지 않고 나간 작업 내용이 있습니다."),
                 style: TextStyle(color: tossSubText),
               ),
               actions: [
@@ -2967,7 +2967,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    keepWords("'${item.name}' 모듈이 복사되었습니다."),
+                                    keepWords("'${item.name}' 모듈을 복사했습니다."),
                                   ),
                                   backgroundColor: tossText,
                                   behavior: SnackBarBehavior.floating,
@@ -3972,13 +3972,13 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          // 🚀 [신규] 길게 누르면 실행 취소 히스토리 목록을 열어 원하는
+          // 🚀 [신규] 길게 누르면 실행 취소 기록 목록을 열어 원하는
           // 시점으로 한 번에 이동할 수 있다(짧게 누르면 기존처럼 한
           // 단계만 되돌린다).
           GestureDetector(
             onLongPress: _undoStack.isEmpty ? null : _showUndoHistorySheet,
             child: IconButton(
-              tooltip: "실행 취소 (길게 눌러 히스토리)",
+              tooltip: "실행 취소 (길게 누르면 기록 보기)",
               onPressed: _undoStack.isEmpty ? null : _undo,
               icon: Icon(
                 Icons.undo_rounded,
@@ -4724,7 +4724,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                                       color: tossBlue,
                                                     ),
                                                     label: const Text(
-                                                      "샘플 배치 불러보기",
+                                                      "샘플 배치 불러오기",
                                                       style: TextStyle(
                                                         color: tossBlue,
                                                         fontWeight:

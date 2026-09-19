@@ -1124,7 +1124,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
             "is_dead_stock": false,
             "unit": mat['type'] == 'TUBE' ? "본" : "EA",
             "createdAt": FieldValue.serverTimestamp(),
-            "location": "임시 등록 (확인 요망)",
+            "location": "임시 등록 (확인 필요)",
           });
         }
         batch.set(_db.collection('inventory_logs').doc(), {

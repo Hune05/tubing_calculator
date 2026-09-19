@@ -341,7 +341,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
     });
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(keepWords("어제 값을 불러왔습니다."))));
+    ).showSnackBar(SnackBar(content: Text(keepWords("어제 일보의 기본 정보를 가져왔습니다."))));
   }
 
   Future<void> _pickTag(String path) async {
@@ -770,7 +770,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                         const SizedBox(width: 6),
                         const Expanded(
                           child: Text(
-                            "어제 일보로 빠르게 시작",
+                            "어제 일보",
                             style: TextStyle(
                               color: makitaTeal,
                               fontWeight: FontWeight.w800,
@@ -778,11 +778,6 @@ class _DailyReportPageState extends State<DailyReportPage> {
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
                         TextButton(
                           onPressed: _loadPreviousValues,
                           style: TextButton.styleFrom(
@@ -790,7 +785,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                             minimumSize: const Size(0, 32),
                           ),
                           child: const Text(
-                            "값 불러오기",
+                            "기본 정보만",
                             style: TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ),
@@ -801,7 +796,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                             minimumSize: const Size(0, 32),
                           ),
                           child: const Text(
-                            "내용까지 복사",
+                            "내용까지",
                             style: TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ),
@@ -826,7 +821,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                             minimumSize: const Size(0, 30),
                           ),
                           child: const Text(
-                            "오늘 내역에 넣기",
+                            "오늘 작업 내용에 넣기",
                             style: TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ),

@@ -219,7 +219,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
     await Clipboard.setData(ClipboardData(text: buffer.toString()));
     if (!mounted) return;
 
-    _showSnackBar("발주서 및 채팅 기록이 클립보드에 복사되었습니다.\n(카카오톡 등에 붙여넣기 하십시오)");
+    _showSnackBar("발주서 및 채팅 기록이 클립보드에 복사했습니다.\n(카카오톡 등에 붙여넣기 하십시오)");
   }
 
   Future<void> _deleteOrderConfirm(OrderModel order) async {
@@ -1399,7 +1399,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                     Text(
                       dDayInfo!['text'] == "D-Day"
                           ? "오늘 입고 예정입니다. 수령 상태를 확인해 주십시오!"
-                          : "입고가 지연되고 있습니다. 관리자 확인 요망!",
+                          : "입고가 지연되고 있습니다. 관리자 확인 필요!",
                       style: const TextStyle(
                         color: warningRed,
                         fontSize: 12,

@@ -703,7 +703,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                     foregroundColor: warningRed,
                     side: const BorderSide(color: warningRed),
                   ),
-                  child: Text(keepWords("지연 적용: 뒤 단계 ${d.days}일 밀기")),
+                  child: Text(keepWords("뒤 단계도 ${d.days}일 밀기")),
                 ),
               ),
             ],
@@ -941,7 +941,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         return <Widget>[
           const SizedBox(height: 10),
           const Text(
-            "일보에서 사용 기록",
+            "일보에 적힌 사용 기록",
             style: TextStyle(
               color: tossSubText,
               fontSize: 12,
@@ -1063,7 +1063,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         title: const Text("일보 확정"),
         content: Text(
           keepWords(
-            "일보 ${targets.length}건을 확정본으로 잠그시겠습니까?\n확정 후 수정하려면 사유를 남기고 확정을 풀어야 해요(이력이 남습니다).",
+            "일보 ${targets.length}건을 확정본으로 잠그시겠습니까?\n확정한 뒤 수정하려면 사유를 남기고 확정을 풀어야 합니다(기록이 남습니다).",
           ),
         ),
         actions: [

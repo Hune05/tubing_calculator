@@ -150,7 +150,7 @@ class LayoutBoardProjectListPage extends StatelessWidget {
           style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
         ),
         content: Text(
-          keepWords("이 저장된 도면을 삭제하시겠습니까? 되돌릴 수 없습니다."),
+          keepWords("저장된 도면을 삭제하시겠습니까? 되돌릴 수 없습니다."),
           style: TextStyle(color: tossSubText),
         ),
         actions: [

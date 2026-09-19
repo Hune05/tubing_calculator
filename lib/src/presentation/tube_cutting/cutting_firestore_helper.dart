@@ -203,7 +203,7 @@ Future<void> deductCuttingProjectInventory({
           "is_dead_stock": false,
           "unit": isTube ? "본" : "EA",
           "createdAt": FieldValue.serverTimestamp(),
-          "location": "임시 등록 (확인 요망)",
+          "location": "임시 등록 (확인 필요)",
         });
       }
       batch.set(db.collection('inventory_logs').doc(), {

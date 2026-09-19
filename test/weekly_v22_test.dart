@@ -8,9 +8,10 @@ import 'helpers_text.dart';
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('어제 일보로 시작 배너: 제목이 한 줄로 나오고 버튼 둘이 아래에 나란히 있다', (tester) async {
-    // 폰 폭(360dp)에서 확인한다. 좁은 폭에서 제목이 세 줄로 끊기던 모양이 다시 생기면 실패한다.
-    tester.view.physicalSize = const Size(1080, 2400);
+  testWidgets('어제 일보 배너: 폰 폭에서 제목과 버튼 둘이 한 줄에 어색하게 끊기지 않고 들어간다', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400); // 360dp 폭
     tester.view.devicePixelRatio = 3.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
@@ -28,20 +29,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
-    final title = findText('어제 일보로 빠르게 시작');
+    final title = findText('어제 일보');
     expect(title, findsOneWidget);
-    final titleSize = tester.getSize(title);
-    expect(titleSize.height, lessThan(24), reason: '제목이 한 줄이어야 한다');
-
-    final b1 = tester.getRect(find.text('값 불러오기'));
-    final b2 = tester.getRect(find.text('내용까지 복사'));
+    expect(tester.getSize(title).height, lessThan(24), reason: '제목은 한 줄');
+    final b1 = tester.getRect(find.text('기본 정보만'));
+    final b2 = tester.getRect(find.text('내용까지'));
+    expect(tester.getSize(find.text('기본 정보만')).height, lessThan(24));
+    expect(tester.getSize(find.text('내용까지')).height, lessThan(24));
     final t = tester.getRect(title);
-    expect(b1.top, greaterThan(t.bottom - 1), reason: '버튼은 제목 아래');
-    expect(
-      (b1.center.dy - b2.center.dy).abs(),
-      lessThan(4),
-      reason: '버튼 둘은 같은 줄',
-    );
-    expect(b2.left, greaterThan(b1.right - 1));
+    // 셋이 같은 줄에 있다.
+    expect((t.center.dy - b1.center.dy).abs(), lessThan(6));
+    expect((b1.center.dy - b2.center.dy).abs(), lessThan(4));
   });
 }

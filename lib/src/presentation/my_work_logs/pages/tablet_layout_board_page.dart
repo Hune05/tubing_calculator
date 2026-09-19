@@ -434,7 +434,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
             borderRadius: BorderRadius.circular(20),
           ),
           title: Text(
-            keepWords("실행 취소 히스토리 (${_undoStack.length}단계)"),
+            keepWords("실행 취소 기록 (${_undoStack.length}단계)"),
             style: const TextStyle(
               color: tossText,
               fontWeight: FontWeight.w800,
@@ -535,7 +535,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                 style: TextStyle(fontWeight: FontWeight.w800, color: tossText),
               ),
               content: Text(
-                keepWords("저장하지 않고 나간 작업 내용이 남아있습니다."),
+                keepWords("저장하지 않고 나간 작업 내용이 있습니다."),
                 style: TextStyle(color: tossSubText),
               ),
               actions: [
@@ -2941,7 +2941,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
           GestureDetector(
             onLongPress: _undoStack.isEmpty ? null : _showUndoHistorySheet,
             child: IconButton(
-              tooltip: "실행 취소 (길게 눌러 히스토리)",
+              tooltip: "실행 취소 (길게 누르면 기록 보기)",
               onPressed: _undoStack.isEmpty ? null : _undo,
               icon: Icon(
                 Icons.undo_rounded,
@@ -4399,7 +4399,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                                                   color: tossBlue,
                                                 ),
                                                 label: const Text(
-                                                  "샘플 배치 불러보기",
+                                                  "샘플 배치 불러오기",
                                                   style: TextStyle(
                                                     color: tossBlue,
                                                     fontWeight: FontWeight.bold,
