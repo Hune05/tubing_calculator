@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'helpers_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/report_tools.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/weekly_plan.dart';
@@ -116,7 +117,7 @@ void main() {
     expect(punch['weeklyExclude'], true);
     expect(changed.length, 1);
     expect(find.textContaining('밀어서제외'), findsNothing);
-    expect(find.text('이 이슈를 주간 보고에서 뺐습니다.'), findsOneWidget);
+    expect(findText('이 이슈를 주간 보고에서 뺐습니다.'), findsOneWidget);
 
     await tester.tap(find.text('되돌리기'));
     await tester.pumpAndSettle();

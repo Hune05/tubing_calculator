@@ -366,9 +366,9 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
                 if (v == 'pdf') await _exportPdf(s);
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text("내보내기 실패: $e")));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(keepWords("내보내기 실패: $e"))),
+                  );
                 }
               }
             },

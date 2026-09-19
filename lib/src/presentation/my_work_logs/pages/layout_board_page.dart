@@ -838,8 +838,8 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
       if (!mounted) return;
       if (!doc.exists) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("프로젝트를 찾을 수 없습니다."),
+          SnackBar(
+            content: Text(keepWords("프로젝트를 찾을 수 없습니다.")),
             backgroundColor: warningRed,
           ),
         );
@@ -851,7 +851,10 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("불러오기 실패: $e"), backgroundColor: warningRed),
+        SnackBar(
+          content: Text(keepWords("불러오기 실패: $e")),
+          backgroundColor: warningRed,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isLoadingProject = false);
@@ -999,7 +1002,10 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("사진 저장 실패: $e"), backgroundColor: warningRed),
+        SnackBar(
+          content: Text(keepWords("사진 저장 실패: $e")),
+          backgroundColor: warningRed,
+        ),
       );
       setState(() => _isSaving = false);
     }
@@ -1389,7 +1395,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("PDF 생성 오류: $e")));
+      ).showSnackBar(SnackBar(content: Text(keepWords("PDF 생성 오류: $e"))));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -1426,12 +1432,18 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
       await _clearDraftPrefs();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("프로젝트 저장 완료!"), backgroundColor: tossBlue),
+        SnackBar(
+          content: Text(keepWords("프로젝트 저장 완료!")),
+          backgroundColor: tossBlue,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("저장 실패"), backgroundColor: warningRed),
+        SnackBar(
+          content: Text(keepWords("저장 실패")),
+          backgroundColor: warningRed,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -1447,7 +1459,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
     if (!_hasAnyContent) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text("템플릿으로 저장할 내용이 없습니다.")));
+      ).showSnackBar(SnackBar(content: Text(keepWords("템플릿으로 저장할 내용이 없습니다."))));
       return;
     }
     final TextEditingController nameCtrl = TextEditingController(
@@ -1500,8 +1512,8 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                     });
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("템플릿으로 저장했습니다."),
+                  SnackBar(
+                    content: Text(keepWords("템플릿으로 저장했습니다.")),
                     backgroundColor: tossBlue,
                   ),
                 );
@@ -1509,7 +1521,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text("템플릿 저장 실패: $e"),
+                    content: Text(keepWords("템플릿 저장 실패: $e")),
                     backgroundColor: warningRed,
                   ),
                 );
@@ -3290,8 +3302,8 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                           );
                           HapticFeedback.lightImpact();
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("내 프리셋에 저장했습니다."),
+                            SnackBar(
+                              content: Text(keepWords("내 프리셋에 저장했습니다.")),
                               backgroundColor: tossText,
                               behavior: SnackBarBehavior.floating,
                               duration: Duration(seconds: 1),
@@ -3932,8 +3944,8 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                 );
                                 if (!context.mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text("자재 목록을 복사했습니다."),
+                                  SnackBar(
+                                    content: Text(keepWords("자재 목록을 복사했습니다.")),
                                   ),
                                 );
                               },

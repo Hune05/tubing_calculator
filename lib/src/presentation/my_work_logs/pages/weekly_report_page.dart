@@ -293,7 +293,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
             ..hideCurrentSnackBar()
             ..showSnackBar(
               SnackBar(
-                content: const Text("이 이슈를 주간 보고에서 뺐습니다."),
+                content: Text(keepWords("이 이슈를 주간 보고에서 뺐습니다.")),
                 action: SnackBarAction(
                   label: "되돌리기",
                   onPressed: () {
@@ -630,7 +630,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text("PDF 생성 실패: $e")));
+        ).showSnackBar(SnackBar(content: Text(keepWords("PDF 생성 실패: $e"))));
       }
     }
   }

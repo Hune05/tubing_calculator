@@ -718,7 +718,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text("내보내기 실패: $e")));
+        ).showSnackBar(SnackBar(content: Text(keepWords("내보내기 실패: $e"))));
       }
     }
   }
@@ -942,7 +942,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text("PDF 생성 실패: $e")));
+        ).showSnackBar(SnackBar(content: Text(keepWords("PDF 생성 실패: $e"))));
       }
     }
   }
@@ -1068,7 +1068,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text("이미지 만들기 실패: $e")));
+        ).showSnackBar(SnackBar(content: Text(keepWords("이미지 만들기 실패: $e"))));
       }
     }
   }

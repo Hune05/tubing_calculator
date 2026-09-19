@@ -491,7 +491,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
     });
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text("어제 값을 불러왔습니다.")));
+    ).showSnackBar(SnackBar(content: Text(keepWords("어제 값을 불러왔습니다."))));
   }
 
   Future<void> _pickTag(String path) async {

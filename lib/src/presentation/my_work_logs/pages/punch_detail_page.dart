@@ -196,7 +196,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
     });
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text("처리 완료로 저장했습니다.")));
+    ).showSnackBar(SnackBar(content: Text(keepWords("처리 완료로 저장했습니다."))));
   }
 
   void _reopen() {
@@ -207,7 +207,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
     });
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text("미처리 상태로 되돌렸습니다.")));
+    ).showSnackBar(SnackBar(content: Text(keepWords("미처리 상태로 되돌렸습니다."))));
   }
 
   @override

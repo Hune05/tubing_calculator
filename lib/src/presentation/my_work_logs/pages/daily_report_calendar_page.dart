@@ -397,7 +397,9 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
                   onTap: hasReport
                       ? () => _openReport(report)
                       : () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("이 날짜의 작업 일지가 없습니다.")),
+                          SnackBar(
+                            content: Text(keepWords("이 날짜의 작업 일지가 없습니다.")),
+                          ),
                         ),
                   child: Container(
                     decoration: BoxDecoration(

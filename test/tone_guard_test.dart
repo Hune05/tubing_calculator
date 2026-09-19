@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-// 내 프로젝트 화면들의 안내·팝업 문구는 "~습니다/~십시오" 체로 통일했다.
+// 앱 화면들의 안내·팝업 문구는 "~습니다/~십시오" 체로 통일했다.
 // 나중에 "~요"로 끝나는 문구가 다시 들어오면 이 검사가 알려 준다.
 
 // 문장 끝의 "요"가 아닌 단어(필요, 중요, 요약 …)는 검사에서 뺀다.
@@ -34,8 +34,8 @@ void main() {
     expect(findYoEndings('"요약"'), isEmpty);
   });
 
-  test('no user-facing string in my_work_logs ends with 요', () {
-    final root = Directory('lib/src/presentation/my_work_logs');
+  test('no user-facing string in the app ends with 요', () {
+    final root = Directory('lib');
     final bad = <String>[];
     for (final f in root.listSync(recursive: true).whereType<File>()) {
       if (!f.path.endsWith('.dart')) continue;

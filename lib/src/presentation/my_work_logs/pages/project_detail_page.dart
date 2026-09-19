@@ -386,7 +386,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: const Text("프로젝트를 완료 처리했습니다."),
+                    content: Text(keepWords("프로젝트를 완료 처리했습니다.")),
                     action: _retroFilled
                         ? null
                         : SnackBarAction(
@@ -1476,7 +1476,9 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                           } catch (e) {
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text("PDF 생성 실패: $e")),
+                                SnackBar(
+                                  content: Text(keepWords("PDF 생성 실패: $e")),
+                                ),
                               );
                             }
                           }
@@ -1663,7 +1665,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text("이미지 만들기 실패: $e")));
+        ).showSnackBar(SnackBar(content: Text(keepWords("이미지 만들기 실패: $e"))));
       }
     }
   }
@@ -2548,7 +2550,9 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                             } catch (e) {
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text("PDF 생성 실패: $e")),
+                                  SnackBar(
+                                    content: Text(keepWords("PDF 생성 실패: $e")),
+                                  ),
                                 );
                               }
                             }
@@ -2759,7 +2763,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     if (targets.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text("확정할 일보가 없습니다.")));
+      ).showSnackBar(SnackBar(content: Text(keepWords("확정할 일보가 없습니다."))));
       return;
     }
     final ok = await showDialog<bool>(
@@ -2928,7 +2932,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text("PDF 생성 실패: $e")));
+        ).showSnackBar(SnackBar(content: Text(keepWords("PDF 생성 실패: $e"))));
       }
     }
   }
@@ -2978,7 +2982,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text("내보내기 실패: $e")));
+        ).showSnackBar(SnackBar(content: Text(keepWords("내보내기 실패: $e"))));
       }
     }
   }

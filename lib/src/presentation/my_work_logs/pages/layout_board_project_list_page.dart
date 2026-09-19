@@ -58,8 +58,8 @@ class LayoutBoardProjectListPage extends StatelessWidget {
       });
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("배치도를 복제했습니다."),
+          SnackBar(
+            content: Text(keepWords("배치도를 복제했습니다.")),
             backgroundColor: tossBlue,
           ),
         );
@@ -67,7 +67,10 @@ class LayoutBoardProjectListPage extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("복제 실패: $e"), backgroundColor: warningRed),
+          SnackBar(
+            content: Text(keepWords("복제 실패: $e")),
+            backgroundColor: warningRed,
+          ),
         );
       }
     }
