@@ -240,9 +240,9 @@ class _MobileParallelShrinkBottomSheetState
                 width: double.infinity, // 전체 너비 사용
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: makitaTeal.withOpacity(0.05),
+                  color: makitaTeal.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: makitaTeal.withOpacity(0.3)),
+                  border: Border.all(color: makitaTeal.withValues(alpha: 0.3)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

@@ -296,10 +296,10 @@ class _MobileQuickKickBottomSheetState
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.deepOrange.withOpacity(0.05),
+                    color: Colors.deepOrange.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: Colors.deepOrange.withOpacity(0.3),
+                      color: Colors.deepOrange.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
@@ -394,9 +394,9 @@ class _MobileQuickKickBottomSheetState
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: makitaTeal.withOpacity(0.05),
+                  color: makitaTeal.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: makitaTeal.withOpacity(0.3)),
+                  border: Border.all(color: makitaTeal.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

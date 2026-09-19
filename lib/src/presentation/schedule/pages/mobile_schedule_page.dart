@@ -513,7 +513,7 @@ class _MobileSchedulePageState extends State<MobileSchedulePage> {
                               style: TextStyle(fontSize: 12),
                             ),
                             value: isUrgent,
-                            activeColor: warningRed,
+                            activeThumbColor: warningRed,
                             contentPadding: EdgeInsets.zero,
                             onChanged: (val) {
                               setModalState(() => isUrgent = val);

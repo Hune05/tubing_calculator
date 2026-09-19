@@ -23,7 +23,7 @@ class MakitaNumpadGlass extends StatefulWidget {
   }) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.4), // 바깥쪽 배경을 살짝 더 투명하게
+      barrierColor: Colors.black.withValues(alpha: 0.4), // 바깥쪽 배경을 살짝 더 투명하게
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -39,7 +39,7 @@ class MakitaNumpadGlass extends StatefulWidget {
               width: 340,
               height: 520, // 여백을 위해 높이를 살짝 키움
               decoration: BoxDecoration(
-                color: numpadBg.withOpacity(0.65), // 유리를 더 투명하게
+                color: numpadBg.withValues(alpha: 0.65), // 유리를 더 투명하게
                 borderRadius: BorderRadius.circular(32),
                 // 촌스러운 테두리(Border) 제거, 여백으로만 승부
               ),
@@ -171,7 +171,7 @@ class _MakitaNumpadGlassState extends State<MakitaNumpadGlass> {
               Text(
                 widget.title,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                   letterSpacing: -0.5,
@@ -183,7 +183,7 @@ class _MakitaNumpadGlassState extends State<MakitaNumpadGlass> {
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
+                      color: Colors.white.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(

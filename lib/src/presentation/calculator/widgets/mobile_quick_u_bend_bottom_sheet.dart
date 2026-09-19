@@ -297,7 +297,7 @@ class _MobileQuickUBendBottomSheetState
                         value: _isStartFitting,
                         onChanged: (val) =>
                             setState(() => _isStartFitting = val),
-                        activeColor: makitaTeal,
+                        activeThumbColor: makitaTeal,
                       ),
                     ],
                   ),
@@ -342,7 +342,7 @@ class _MobileQuickUBendBottomSheetState
                         value: _isReturnFitting,
                         onChanged: (val) =>
                             setState(() => _isReturnFitting = val),
-                        activeColor: makitaTeal,
+                        activeThumbColor: makitaTeal,
                       ),
                     ],
                   ),
@@ -411,9 +411,9 @@ class _MobileQuickUBendBottomSheetState
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: makitaTeal.withOpacity(0.05),
+                  color: makitaTeal.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: makitaTeal.withOpacity(0.3)),
+                  border: Border.all(color: makitaTeal.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

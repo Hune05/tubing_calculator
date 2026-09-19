@@ -584,7 +584,7 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: _isInverted ? Colors.red.withOpacity(0.15) : Colors.black45,
+            color: _isInverted ? Colors.red.withValues(alpha: 0.15) : Colors.black45,
             border: Border.all(
               color: _isInverted ? Colors.redAccent : Colors.white12,
             ),

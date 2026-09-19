@@ -812,7 +812,7 @@ class _SaddleBottomSheetState extends State<SaddleBottomSheet>
             decoration: BoxDecoration(
               color: Colors.black45,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: makitaTeal.withOpacity(0.3)),
+              border: Border.all(color: makitaTeal.withValues(alpha: 0.3)),
             ),
             child: Text(
               gainDetails,
@@ -829,7 +829,7 @@ class _SaddleBottomSheetState extends State<SaddleBottomSheet>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: makitaTeal.withOpacity(0.15),
+              color: makitaTeal.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: makitaTeal, width: 2),
             ),
@@ -875,10 +875,10 @@ class _SaddleBottomSheetState extends State<SaddleBottomSheet>
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.amber.withOpacity(0.1),
+              color: Colors.amber.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: Colors.amber.withOpacity(0.5),
+                color: Colors.amber.withValues(alpha: 0.5),
                 width: 1.5,
               ),
             ),

@@ -304,7 +304,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: slate900.withOpacity(0.03),
+            color: slate900.withValues(alpha: 0.03),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),

@@ -376,7 +376,7 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           decoration: BoxDecoration(
-            color: slate100.withOpacity(0.5),
+            color: slate100.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Text(

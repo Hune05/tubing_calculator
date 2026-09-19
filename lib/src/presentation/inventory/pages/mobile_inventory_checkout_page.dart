@@ -227,7 +227,7 @@ class _MobileInventoryCheckoutPageState
         decoration: BoxDecoration(color: slate100, shape: BoxShape.circle),
         child: Icon(
           icon,
-          color: isDisabled ? slate600.withOpacity(0.3) : slate900,
+          color: isDisabled ? slate600.withValues(alpha: 0.3) : slate900,
           size: 28,
         ),
       ),
@@ -380,7 +380,7 @@ class _MobileInventoryCheckoutPageState
                               ? "어디에 사용하십니까?"
                               : "반납 사유를 적어 주십시오 (예: 불량, 남음)",
                           hintStyle: TextStyle(
-                            color: slate600.withOpacity(0.6),
+                            color: slate600.withValues(alpha: 0.6),
                             fontWeight: FontWeight.normal,
                           ),
                           filled: true,
