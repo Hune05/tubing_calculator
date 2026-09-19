@@ -1126,6 +1126,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           onOpenProject: (log) => _openDetail(log),
           onOpenIssue: (log, p) =>
               _openPunchDetail(log, p as Map<String, dynamic>),
+          onIssueChanged: (log) => _saveProject(log),
         ),
       ),
     );

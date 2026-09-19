@@ -1,6 +1,7 @@
 import 'dart:async' show FutureOr;
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../data/repositories/work_project_repository.dart';
 import '../models/photo_store.dart';
@@ -37,11 +38,14 @@ class WeeklyReportPage extends StatefulWidget {
   // 있으면 미해결 이슈 줄을 눌러 이슈 상세로 이동할 수 있다.
   final FutureOr<void> Function(Map<String, dynamic> log, Map punch)?
   onOpenIssue;
+  // 이슈 줄을 밀어서 "주간 제외"했을 때 저장하라고 알리는 콜백(없으면 밀기 비활성).
+  final void Function(Map<String, dynamic> log)? onIssueChanged;
   const WeeklyReportPage({
     super.key,
     required this.logs,
     this.onOpenProject,
     this.onOpenIssue,
+    this.onIssueChanged,
   });
 
   @override
@@ -55,6 +59,33 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
   DateTime? _asOf; // null = 오늘
   // 접어 둔 "섹션|프로젝트" 키(프로젝트가 많을 때 화면을 짧게 보려고).
   final Set<String> _collapsed = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCollapsed();
+  }
+
+  // 접힘 상태는 앱을 다시 열어도 유지한다. 키에서 날짜 범위를 빼서 주가 바뀌어도 이어진다.
+  static const _kCollapsedPref = 'weekly_report_collapsed';
+
+  String _ck(String heading, String name) =>
+      '${heading.replaceAll(RegExp(r'\s*\([^)]*\)'), '')}|$name';
+
+  Future<void> _loadCollapsed() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final saved = p.getStringList(_kCollapsedPref);
+      if (saved != null && mounted) setState(() => _collapsed.addAll(saved));
+    } catch (_) {}
+  }
+
+  Future<void> _persistCollapsed() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setStringList(_kCollapsedPref, _collapsed.toList());
+    } catch (_) {}
+  }
 
   List<Map<String, dynamic>> get _active =>
       widget.logs.where((l) => l['status'] != 'DONE').toList();
@@ -107,7 +138,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
     for (var i = 0; i < s.lines.length; i++) {
       final name = _projectName(s.lines[i]);
       if (name != null) {
-        hide = _collapsed.contains('${s.heading}|$name');
+        hide = _collapsed.contains(_ck(s.heading, name));
         yield i;
       } else if (s.lines[i].startsWith('■ ')) {
         hide = false;
@@ -121,7 +152,8 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
   Widget _lineWidget(ReportSection s, int i) {
     final l = s.lines[i];
     if (widget.onOpenIssue != null && s.issueRefs?[i] != null) {
-      return InkWell(
+      final ref = s.issueRefs![i]!;
+      final row = InkWell(
         onTap: () async {
           await widget.onOpenIssue!(
             s.issueRefs![i]!.log,
@@ -150,19 +182,62 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
           ),
         ),
       );
+      if (widget.onIssueChanged == null) return row;
+      // 오른쪽에서 왼쪽으로 밀면 이 이슈를 주간 보고에서 바로 제외한다.
+      return Dismissible(
+        key: ValueKey('issue-${identityHashCode(ref.punch)}'),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          color: const Color(0xFFE5484D).withValues(alpha: 0.12),
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 16),
+          child: const Text(
+            "주간 제외",
+            style: TextStyle(
+              color: Color(0xFFE5484D),
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
+            ),
+          ),
+        ),
+        onDismissed: (_) {
+          ref.punch['weeklyExclude'] = true;
+          widget.onIssueChanged!(ref.log);
+          setState(() {});
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: const Text("이 이슈를 주간 보고에서 뺐어요."),
+                action: SnackBarAction(
+                  label: "되돌리기",
+                  onPressed: () {
+                    ref.punch.remove('weeklyExclude');
+                    widget.onIssueChanged!(ref.log);
+                    if (mounted) setState(() {});
+                  },
+                ),
+              ),
+            );
+        },
+        child: row,
+      );
     }
     final name = _projectName(l);
     if (name != null) {
-      final key = '${s.heading}|$name';
+      final key = _ck(s.heading, name);
       final closed = _collapsed.contains(key);
       final log = _projectFor(l);
       return Row(
         children: [
           Expanded(
             child: InkWell(
-              onTap: () => setState(() {
-                closed ? _collapsed.remove(key) : _collapsed.add(key);
-              }),
+              onTap: () {
+                setState(() {
+                  closed ? _collapsed.remove(key) : _collapsed.add(key);
+                });
+                _persistCollapsed();
+              },
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Row(
@@ -223,7 +298,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
   Set<String> _allProjectKeys(ReportDoc doc) => {
     for (final s in doc.sections)
       for (final l in s.lines)
-        if (_projectName(l) != null) '${s.heading}|${_projectName(l)}',
+        if (_projectName(l) != null) _ck(s.heading, _projectName(l)!),
   };
 
   Future<void> _pdf(ReportDoc doc) async {
@@ -341,16 +416,22 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton.icon(
-                          onPressed: () => setState(
-                            () => _collapsed
-                              ..clear()
-                              ..addAll(_allProjectKeys(doc)),
-                          ),
+                          onPressed: () {
+                            setState(
+                              () => _collapsed
+                                ..clear()
+                                ..addAll(_allProjectKeys(doc)),
+                            );
+                            _persistCollapsed();
+                          },
                           icon: const Icon(Icons.unfold_less_rounded, size: 18),
                           label: const Text("모두 접기"),
                         ),
                         TextButton.icon(
-                          onPressed: () => setState(_collapsed.clear),
+                          onPressed: () {
+                            setState(_collapsed.clear);
+                            _persistCollapsed();
+                          },
                           icon: const Icon(Icons.unfold_more_rounded, size: 18),
                           label: const Text("모두 펼치기"),
                         ),

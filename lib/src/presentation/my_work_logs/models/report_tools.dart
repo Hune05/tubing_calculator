@@ -709,6 +709,18 @@ String reportPdfFileName(ReportDoc doc, [DateTime? now]) {
   return '${title.isEmpty ? '보고서' : title}_${kind}_$stamp.pdf';
 }
 
+// 같은 이름의 파일이 이미 있으면 이름 뒤에 (2), (3)…을 붙여 덮어쓰지 않는다.
+String uniquePdfName(String name, bool Function(String) exists) {
+  if (!exists(name)) return name;
+  final base = name.toLowerCase().endsWith('.pdf')
+      ? name.substring(0, name.length - 4)
+      : name;
+  for (var i = 2; ; i++) {
+    final c = '$base($i).pdf';
+    if (!exists(c)) return c;
+  }
+}
+
 Future<Uint8List> buildReportPdfBytes(
   ReportDoc doc, {
   bool withPhotos = false,
@@ -1012,7 +1024,11 @@ Future<Uint8List> buildReportPdfBytes(
 Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
   final bytes = await buildReportPdfBytes(doc, withPhotos: withPhotos);
   final dir = await getTemporaryDirectory();
-  final file = File('${dir.path}/${reportPdfFileName(doc)}');
+  final name = uniquePdfName(
+    reportPdfFileName(doc),
+    (n) => File('${dir.path}/$n').existsSync(),
+  );
+  final file = File('${dir.path}/$name');
   await file.writeAsBytes(bytes);
   // ignore: deprecated_member_use
   await Share.shareXFiles([

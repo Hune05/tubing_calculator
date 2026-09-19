@@ -384,6 +384,22 @@ ReportDoc buildWeeklyPlanDoc(
     sections.add(ReportSection('미해결 이슈 현황', issueLines, issueRefs: issueRefs));
   }
 
+  // 주간 보고에서 뺀 미해결 이슈가 있으면 몇 건인지 한 줄로 알려 준다(누락 오해 방지).
+  final excludedOpen = targets.fold<int>(
+    0,
+    (n, l) =>
+        n +
+        (l['punch_lists'] as List? ?? [])
+            .whereType<Map>()
+            .where(
+              (p) => p['is_completed'] != true && p['weeklyExclude'] == true,
+            )
+            .length,
+  );
+  if (excludedOpen > 0) {
+    sections.add(ReportSection('참고', ['· 주간 보고에서 제외한 미해결 이슈 $excludedOpen건']));
+  }
+
   // 사진: 전주·금주 일보에 붙은 사진 중 최근 12장.
   final photos = <(int, DateTime, ReportPhoto)>[];
   if (includePhotos) {
