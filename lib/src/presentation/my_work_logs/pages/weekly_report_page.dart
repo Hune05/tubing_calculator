@@ -53,6 +53,8 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
   bool _photos = false;
   bool _split = false;
   DateTime? _asOf; // null = 오늘
+  // 접어 둔 "섹션|프로젝트" 키(프로젝트가 많을 때 화면을 짧게 보려고).
+  final Set<String> _collapsed = {};
 
   List<Map<String, dynamic>> get _active =>
       widget.logs.where((l) => l['status'] != 'DONE').toList();
@@ -90,6 +92,131 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
       if (l['name']?.toString() == name) return l;
     }
     return null;
+  }
+
+  // "■ 프로젝트 이름 …" 줄이면 프로젝트 이름(실제 프로젝트일 때만).
+  String? _projectName(String line) {
+    if (!line.startsWith('■ ')) return null;
+    final name = line.substring(2).split(' — ').first.split(' · ').first.trim();
+    return widget.logs.any((l) => l['name']?.toString() == name) ? name : null;
+  }
+
+  // 접힌 프로젝트의 하위 줄은 건너뛰고, 보여 줄 줄 번호만 돌려준다.
+  Iterable<int> _visibleLines(ReportSection s) sync* {
+    var hide = false;
+    for (var i = 0; i < s.lines.length; i++) {
+      final name = _projectName(s.lines[i]);
+      if (name != null) {
+        hide = _collapsed.contains('${s.heading}|$name');
+        yield i;
+      } else if (s.lines[i].startsWith('■ ')) {
+        hide = false;
+        yield i;
+      } else if (!hide) {
+        yield i;
+      }
+    }
+  }
+
+  Widget _lineWidget(ReportSection s, int i) {
+    final l = s.lines[i];
+    if (widget.onOpenIssue != null && s.issueRefs?[i] != null) {
+      return InkWell(
+        onTap: () async {
+          await widget.onOpenIssue!(
+            s.issueRefs![i]!.log,
+            s.issueRefs![i]!.punch,
+          );
+          // 이슈를 고치고 돌아왔을 수 있으니 다시 계산한다.
+          if (mounted) setState(() {});
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.4,
+                    color: _sub,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, size: 18, color: _sub),
+            ],
+          ),
+        ),
+      );
+    }
+    final name = _projectName(l);
+    if (name != null) {
+      final key = '${s.heading}|$name';
+      final closed = _collapsed.contains(key);
+      final log = _projectFor(l);
+      return Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              onTap: () => setState(() {
+                closed ? _collapsed.remove(key) : _collapsed.add(key);
+              }),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Icon(
+                      closed
+                          ? Icons.chevron_right_rounded
+                          : Icons.expand_more_rounded,
+                      size: 18,
+                      color: _sub,
+                    ),
+                    const SizedBox(width: 2),
+                    Expanded(
+                      child: Text(
+                        l,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          height: 1.4,
+                          color: _text,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (log != null)
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              iconSize: 18,
+              tooltip: "프로젝트 열기",
+              icon: const Icon(Icons.open_in_new_rounded, color: _sub),
+              onPressed: () async {
+                await widget.onOpenProject!(log);
+                if (mounted) setState(() {});
+              },
+            ),
+        ],
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Text(
+        l,
+        style: TextStyle(
+          fontSize: 13,
+          height: 1.4,
+          color: l.startsWith('■') ? _text : _sub,
+          fontWeight: l.startsWith('■') ? FontWeight.w800 : FontWeight.w500,
+        ),
+      ),
+    );
   }
 
   Future<void> _pdf(ReportDoc doc) async {
@@ -382,91 +509,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        for (final (i, l) in s.lines.indexed)
-                          if (widget.onOpenIssue != null &&
-                              s.issueRefs?[i] != null)
-                            InkWell(
-                              onTap: () async {
-                                await widget.onOpenIssue!(
-                                  s.issueRefs![i]!.log,
-                                  s.issueRefs![i]!.punch,
-                                );
-                                // 이슈를 고치고 돌아왔을 수 있으니 다시 계산한다.
-                                if (mounted) setState(() {});
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 4,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        l,
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          height: 1.4,
-                                          color: _sub,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                    const Icon(
-                                      Icons.chevron_right_rounded,
-                                      size: 18,
-                                      color: _sub,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
-                          else if (_projectFor(l) != null)
-                            InkWell(
-                              onTap: () async {
-                                await widget.onOpenProject!(_projectFor(l)!);
-                                if (mounted) setState(() {});
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 4,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        l,
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          height: 1.4,
-                                          color: _text,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                    ),
-                                    const Icon(
-                                      Icons.chevron_right_rounded,
-                                      size: 18,
-                                      color: _sub,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
-                          else
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 2),
-                              child: Text(
-                                l,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  height: 1.4,
-                                  color: l.startsWith('■') ? _text : _sub,
-                                  fontWeight: l.startsWith('■')
-                                      ? FontWeight.w800
-                                      : FontWeight.w500,
-                                ),
-                              ),
-                            ),
+                        for (final i in _visibleLines(s)) _lineWidget(s, i),
                       ],
                     ),
                   ),

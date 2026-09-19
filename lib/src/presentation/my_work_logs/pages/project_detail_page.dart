@@ -1332,6 +1332,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
           PunchListSection(
             punchLists: punches,
             onOpenPunchDetail: (p) => _run(() => widget.actions.openPunch(p)),
+            onBulkChanged: () {
+              widget.actions.save();
+              setState(() {});
+            },
           ),
       ],
     );

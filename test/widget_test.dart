@@ -1,30 +1,15 @@
-// // This is a basic Flutter widget test.
-// //
-// // To perform an interaction with a widget in your test, use the WidgetTester
-// // utility in the flutter_test package. For example, you can send tap and scroll
-// // gestures. You can also use WidgetTester to find child widgets in the widget
-// // tree, read text, and verify that the values of widget properties are correct.
+import 'package:flutter_test/flutter_test.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/models/weekly_plan.dart';
 
-// import 'package:flutter/material.dart';
-// import 'package:flutter_test/flutter_test.dart';
-
-// import 'package:tubing_calculator/main.dart';
-
-// void main() {
-//   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-//     // Build our app and trigger a frame.
-//     await tester.pumpWidget(const MyApp());
-
-//     // Verify that our counter starts at 0.
-//     expect(find.text('0'), findsOneWidget);
-//     expect(find.text('1'), findsNothing);
-
-//     // Tap the '+' icon and trigger a frame.
-//     await tester.tap(find.byIcon(Icons.add));
-//     await tester.pump();
-
-//     // Verify that our counter has incremented.
-//     expect(find.text('0'), findsNothing);
-//     expect(find.text('1'), findsOneWidget);
-//   });
-// }
+// 예전 카운터 앱용 테스트가 전부 주석 처리돼 main이 없어 전체 테스트를 깨뜨렸다.
+// Firebase 없이 돌릴 수 있는 간단한 확인으로 바꿨다.
+void main() {
+  test('weekRanges is Monday-based and consecutive', () {
+    final w = weekRanges(DateTime(2026, 9, 19)); // 토요일
+    expect(w.map((e) => e.label).toList(), ['전주', '금주', '차주']);
+    expect(w[1].start, DateTime(2026, 9, 14)); // 월요일
+    expect(w[1].end, DateTime(2026, 9, 20)); // 일요일
+    expect(w[0].end.add(const Duration(days: 1)), w[1].start);
+    expect(w[1].end.add(const Duration(days: 1)), w[2].start);
+  });
+}

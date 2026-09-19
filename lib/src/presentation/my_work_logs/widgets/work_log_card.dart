@@ -524,10 +524,13 @@ Widget _buildUnifiedRecordItem({
 class PunchListSection extends StatefulWidget {
   final List<dynamic> punchLists;
   final void Function(Map<String, dynamic> punch) onOpenPunchDetail;
+  // 주간 보고 포함 여부를 일괄로 바꾼 뒤 저장/새로고침하라고 알리는 콜백.
+  final VoidCallback? onBulkChanged;
 
   const PunchListSection({
     required this.punchLists,
     required this.onOpenPunchDetail,
+    this.onBulkChanged,
   });
 
   @override
@@ -570,13 +573,51 @@ class PunchListSectionState extends State<PunchListSection> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              "이슈 목록",
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: tossSubText,
-                fontSize: 14,
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "이슈 목록",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: tossSubText,
+                    fontSize: 14,
+                  ),
+                ),
+                if (widget.onBulkChanged != null && openList.isNotEmpty)
+                  PopupMenuButton<bool>(
+                    tooltip: "주간 보고 설정",
+                    icon: const Icon(
+                      Icons.summarize_outlined,
+                      size: 18,
+                      color: tossSubText,
+                    ),
+                    padding: EdgeInsets.zero,
+                    onSelected: (exclude) {
+                      // 미해결 이슈 전체를 주간 보고에서 빼거나 다시 넣는다.
+                      for (final p in openList) {
+                        if (p is! Map) continue;
+                        if (exclude) {
+                          p['weeklyExclude'] = true;
+                        } else {
+                          p.remove('weeklyExclude');
+                        }
+                      }
+                      setState(() {});
+                      widget.onBulkChanged!();
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
+                        value: true,
+                        child: Text("미해결 이슈 모두 주간 보고에서 제외"),
+                      ),
+                      PopupMenuItem(
+                        value: false,
+                        child: Text("미해결 이슈 모두 주간 보고에 포함"),
+                      ),
+                    ],
+                  ),
+              ],
             ),
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -640,7 +681,7 @@ class PunchListSectionState extends State<PunchListSection> {
               context: context,
               // 위치를 제목에 보여줘서 어느 곳 이슈인지 목록에서 바로 알 수 있게 한다.
               title:
-                  "${(punch['location']?.toString() ?? '').isEmpty || punch['location'] == '위치 미상' ? '' : '${punch['location']} · '}${isPunchDone ? '처리 완료' : (issueOverdueDays(punch) > 0 ? '기한 초과 ${issueOverdueDays(punch)}일' : '확인 요망')}",
+                  "${(punch['location']?.toString() ?? '').isEmpty || punch['location'] == '위치 미상' ? '' : '${punch['location']} · '}${isPunchDone ? '처리 완료' : (issueOverdueDays(punch) > 0 ? '기한 초과 ${issueOverdueDays(punch)}일' : '확인 요망')}${punch['weeklyExclude'] == true ? ' · 주간 제외' : ''}",
               content: punch['priority'] == '긴급'
                   ? "[긴급] ${punch['content'] ?? ''}"
                   : (punch['content'] ?? '').toString(),
