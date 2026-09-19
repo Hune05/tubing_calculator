@@ -133,6 +133,10 @@ int openIssueCount(Map<String, dynamic> log) =>
         .where((p) => p['is_completed'] != true)
         .length;
 
+// 미해결 이슈가 남아 있는 프로젝트만 골라낸다(완료된 프로젝트 목록 필터용).
+List<Map<String, dynamic>> withOpenIssues(List<Map<String, dynamic>> logs) =>
+    logs.where((l) => openIssueCount(l) > 0).toList();
+
 // 이슈를 주간 업무 보고에서 뺐는지. 이슈 상세 스위치, 주간 보고 밀어서 제외,
 // 이슈 목록 일괄 설정이 모두 이 두 함수만 거쳐 같은 값을 읽고 쓴다.
 bool issueWeeklyExcluded(Map p) => p['weeklyExclude'] == true;

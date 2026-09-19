@@ -426,62 +426,80 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                 final p = projectProgress(l);
                 final pct = (p * 100).round();
                 final d = progressDeltaSince(l, 7);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 84,
-                        child: Text(
-                          l['name']?.toString() ?? '프로젝트',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: _text,
+                final canOpen = widget.onOpenProject != null;
+                return InkWell(
+                  onTap: !canOpen
+                      ? null
+                      : () async {
+                          await widget.onOpenProject!(l);
+                          await _reloadLogs();
+                          if (mounted) setState(() {});
+                        },
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 8, top: 2),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 84,
+                          child: Text(
+                            l['name']?.toString() ?? '프로젝트',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: _text,
+                            ),
                           ),
                         ),
-                      ),
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: p.clamp(0.0, 1.0),
-                            minHeight: 8,
-                            backgroundColor: _bg,
-                            color: p >= 1 ? Colors.green : _teal,
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: p.clamp(0.0, 1.0),
+                              minHeight: 8,
+                              backgroundColor: _bg,
+                              color: p >= 1 ? Colors.green : _teal,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 34,
-                        child: Text(
-                          "$pct%",
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            color: _text,
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 34,
+                          child: Text(
+                            "$pct%",
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: _text,
+                            ),
                           ),
                         ),
-                      ),
-                      SizedBox(
-                        width: 52,
-                        child: Text(
-                          d == null || d == 0 ? '' : "${d > 0 ? '+' : ''}$d%p",
-                          textAlign: TextAlign.right,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: (d ?? 0) > 0
-                                ? const Color(0xFF1B9E5A)
-                                : const Color(0xFFE5484D),
+                        SizedBox(
+                          width: 52,
+                          child: Text(
+                            d == null || d == 0
+                                ? ''
+                                : "${d > 0 ? '+' : ''}$d%p",
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: (d ?? 0) > 0
+                                  ? const Color(0xFF1B9E5A)
+                                  : const Color(0xFFE5484D),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                        if (canOpen)
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            size: 16,
+                            color: _sub,
+                          ),
+                      ],
+                    ),
                   ),
                 );
               },

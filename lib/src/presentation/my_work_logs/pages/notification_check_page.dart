@@ -13,7 +13,9 @@ const String _pkg = 'com.example.tubing_calculator';
 // 🚀 [알림 점검] 예약 알림(일보/주간 보고)이 안 올 때 원인을 찾는 화면.
 // 알림 권한 확인, 즉시 테스트 알림, 배터리 제한 해제 안내를 한 곳에 모았다.
 class NotificationCheckPage extends StatefulWidget {
-  const NotificationCheckPage({super.key});
+  // 프로젝트별 알림 시각을 보여 주려면 프로젝트 목록을 넘긴다(없으면 목록 없이 상태만).
+  final List<Map<String, dynamic>> logs;
+  const NotificationCheckPage({super.key, this.logs = const []});
 
   @override
   State<NotificationCheckPage> createState() => _NotificationCheckPageState();
@@ -71,6 +73,32 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
 
   String _hm(int m) =>
       "${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}";
+
+  // 일보 알림이 켜져 있으면, 어느 시각에 어느 프로젝트 알림이 가는지 보여 준다.
+  List<Widget> _projectTimeRows() {
+    final pref = _pref;
+    if (pref == null || !pref.enabled || widget.logs.isEmpty) return const [];
+    final active = widget.logs.where((l) => l['status'] != 'DONE').toList();
+    final plans = planDailyReminders(active, pref.minutes, DateTime.now());
+    if (plans.isEmpty) return const [];
+    return [
+      for (final p in plans)
+        Padding(
+          padding: const EdgeInsets.only(left: 26, bottom: 4),
+          child: Text(
+            "· ${_hm(p.minutes)}  ${p.names.join(', ')}",
+            style: const TextStyle(fontSize: 12, height: 1.4, color: _text),
+          ),
+        ),
+      const Padding(
+        padding: EdgeInsets.only(left: 26, bottom: 6),
+        child: Text(
+          "프로젝트 화면 ⋮ 메뉴에서 프로젝트별 시각을 바꿀 수 있어요.",
+          style: TextStyle(fontSize: 11, height: 1.4, color: _sub),
+        ),
+      ),
+    ];
+  }
 
   // 설정이 켜져 있는데 예약이 안 돼 있으면 빨간 경고, 꺼 뒀으면 회색 "꺼짐".
   Widget _schedRow(String name, bool on, bool? scheduled, String when) {
@@ -226,6 +254,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
               _sched?.daily,
               "매일 ${_hm(_pref?.minutes ?? 1080)}",
             ),
+            ..._projectTimeRows(),
             _schedRow(
               "주간 보고 알림",
               _pref?.weekly ?? true,

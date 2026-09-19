@@ -1221,7 +1221,14 @@ class DailyReminderPlan {
   final int count; // 알림 문구에 쓸 미작성 프로젝트 수
   final DateTime at; // 다음에 울릴 시각
   final String? name; // 이 시각에 묶인 프로젝트가 하나뿐일 때 그 이름
-  DailyReminderPlan(this.minutes, this.count, this.at, this.name);
+  final List<String> names; // 이 시각에 묶인 프로젝트 이름들
+  DailyReminderPlan(
+    this.minutes,
+    this.count,
+    this.at,
+    this.name, {
+    this.names = const [],
+  });
 }
 
 const int _kDailyBaseId = 918300; // 918300 ~ 918307을 일보 알림에 쓴다
@@ -1267,6 +1274,7 @@ List<DailyReminderPlan> planDailyReminders(
         skipToday ? g.length : missing.length,
         at,
         g.length == 1 ? g.first['name']?.toString() : null,
+        names: [for (final l in g) l['name']?.toString() ?? '프로젝트'],
       ),
     );
   }

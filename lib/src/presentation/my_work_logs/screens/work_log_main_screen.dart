@@ -566,14 +566,25 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           return da.compareTo(db);
         });
     }
+    var res = out;
     if (_showCompleted && _nameFilter.trim().isNotEmpty) {
       final q = _nameFilter.trim().toLowerCase();
-      return out
+      res = res
           .where((l) => (l['name']?.toString() ?? '').toLowerCase().contains(q))
           .toList();
     }
-    return out;
+    if (_issueFilterOn) res = withOpenIssues(res);
+    return res;
   }
+
+  // 완료된 프로젝트 중 미해결 이슈가 남은 것만 보기. 그런 프로젝트가 없어지면
+  // (이슈를 다 처리하면) 필터는 저절로 꺼진다 - 끌 칩이 사라져도 목록이 비지 않게.
+  bool _onlyOpenIssueDone = false;
+  bool get _issueFilterOn =>
+      _showCompleted &&
+      !_showArchived &&
+      _onlyOpenIssueDone &&
+      withOpenIssues(_doneLogs).isNotEmpty;
 
   // ── 완료/보관 프로젝트: 이름 검색 + 여러 개 골라 통합 보고서 ──
   String _nameFilter = '';
@@ -601,6 +612,26 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             ),
           ),
           const SizedBox(height: 6),
+          if (!_showArchived && withOpenIssues(_doneLogs).isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: FilterChip(
+                label: Text(
+                  "이슈 남은 프로젝트만 (${withOpenIssues(_doneLogs).length})",
+                ),
+                selected: _issueFilterOn,
+                showCheckmark: false,
+                selectedColor: tossBlue.withValues(alpha: 0.15),
+                backgroundColor: pureWhite,
+                side: BorderSide.none,
+                labelStyle: TextStyle(
+                  color: _issueFilterOn ? tossBlue : tossSubText,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+                onSelected: (v) => setState(() => _onlyOpenIssueDone = v),
+              ),
+            ),
           Row(
             children: [
               if (!_selectProjects)
@@ -1175,7 +1206,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     if (open && mounted) {
       Navigator.push(
         context,
-        WorkRoute(builder: (_) => const NotificationCheckPage()),
+        WorkRoute(builder: (_) => NotificationCheckPage(logs: _workLogs)),
       );
     }
   }
@@ -1701,7 +1732,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
               if (v == 'notif') {
                 Navigator.push(
                   context,
-                  WorkRoute(builder: (_) => const NotificationCheckPage()),
+                  WorkRoute(
+                    builder: (_) => NotificationCheckPage(logs: _workLogs),
+                  ),
                 );
               }
               if (v == 'overview') _shareOverviewImage();
