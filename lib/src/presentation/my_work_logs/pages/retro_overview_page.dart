@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../widgets/korean_text.dart';
 
 import '../models/project_phase.dart';
-import '../models/report_tools.dart';
+import '../models/duration_hint.dart';
 
 const Color _teal = Color(0xFF007580);
 const Color _text = Color(0xFF191F28);
@@ -97,22 +97,9 @@ class _RetroOverviewPageState extends State<RetroOverviewPage> {
       )
       .toList();
 
-  static int? _planned(Map<String, dynamic> log) {
-    final s = projectStart(log), e = projectDue(log);
-    return (s != null && e != null) ? e.difference(s).inDays + 1 : null;
-  }
-
-  static int? _actual(Map<String, dynamic> log) {
-    final dates = [
-      for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>())
-        reportDateOf(r),
-    ]..sort();
-    if (dates.isEmpty) return null;
-    final end = log['completedAt'] != null
-        ? dayOnly(asDate(log['completedAt']))
-        : dates.last;
-    return end.difference(dates.first).inDays + 1;
-  }
+  // 계획·실제 기간 계산은 새 프로젝트 화면의 예상 기간 참고와 같은 함수를 쓴다.
+  static int? _planned(Map<String, dynamic> log) => plannedDaysOf(log);
+  static int? _actual(Map<String, dynamic> log) => actualDaysOf(log);
 
   static String _typeLine(List<Map<String, dynamic>> ls) {
     final plans = ls.map(_planned).whereType<int>().toList();
@@ -323,7 +310,9 @@ class _RetroOverviewPageState extends State<RetroOverviewPage> {
                       ),
                     ] else
                       Text(
-                        keepWords("계획 기간(단계 설정)과 작업 일지가 있는 프로젝트가 생기면 평균이 계산됩니다."),
+                        keepWords(
+                          "계획 기간(단계 설정)과 작업 일지가 있는 프로젝트가 생기면 평균이 계산됩니다.",
+                        ),
                         style: TextStyle(color: _sub, fontSize: 13),
                       ),
                   ]),

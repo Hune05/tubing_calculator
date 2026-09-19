@@ -60,6 +60,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     with WidgetsBindingObserver {
   bool? _allowed;
   bool _exact = false; // 정확한 시간 알림(정확한 알람) 허용 여부
+  ({bool enabled, int minutes})? _morning; // 아침 요약 알림 설정
   ({int expected, int scheduled})? _personal; // 개인 일정 알림 예약 상태(모르면 null)
   ({bool daily, bool weekly})? _sched;
   int? _dailyCount; // 폰에 실제 예약된 작업 일지 알림 수(모르면 null)
@@ -111,6 +112,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     } catch (_) {}
     final pref = await loadReportReminder();
     final exact = await (widget.exactChecker ?? canScheduleExactAlarms)();
+    final morning = await loadMorningSummary();
     ({int expected, int scheduled})? personal;
     try {
       personal =
@@ -130,6 +132,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     if (mounted) {
       setState(() {
         _exact = exact;
+        _morning = morning;
         _personal = personal;
         _seen = seen;
         _seenRaw = seenRaw;
@@ -479,6 +482,47 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     await _refresh();
   }
 
+  // 아침 요약 알림 상태 줄(꺼져 있으면 보이지 않는다).
+  List<Widget> _morningRows() {
+    final m = _morning;
+    if (m == null || !m.enabled) return const [];
+    final pending = _pendingIds;
+    final scheduled = pending == null
+        ? null
+        : pending.contains(kMorningSummaryId);
+    final ok = scheduled != false;
+    final color = ok ? const Color(0xFF1B9E5A) : const Color(0xFFE5484D);
+    return [
+      Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 4),
+        child: Row(
+          children: [
+            Icon(
+              ok ? Icons.check_circle_rounded : Icons.error_rounded,
+              size: 18,
+              color: color,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                keepWords(
+                  ok
+                      ? "아침 요약 알림: 예약됨 (매일 ${_hm(m.minutes)})"
+                      : "아침 요약 알림: 예약 안 됨 (매일 ${_hm(m.minutes)})",
+                ),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
   // 개인 일정(내 일정 관리) 알림 예약 상태 줄.
   List<Widget> _personalRows() {
     final p = _personal;
@@ -723,6 +767,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
                   ),
                 ),
               ),
+            ..._morningRows(),
             ..._personalRows(),
             if (_lastSync != null)
               Padding(

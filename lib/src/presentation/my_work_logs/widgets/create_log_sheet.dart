@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/duration_hint.dart';
 import '../models/project_phase.dart' show kProjectTypes;
 
 const Color tossBlue = Color(0xFF007580); // 🚀 마키타 틸로 통일
@@ -8,14 +9,19 @@ const Color tossInputBg = Color(0xFFF2F4F6); // 토스 특유의 옅은 회색 �
 const Color pureWhite = Color(0xFFFFFFFF);
 
 class CreateLogSheet extends StatefulWidget {
-  const CreateLogSheet({super.key});
+  // 지금 있는 프로젝트들(완료한 것의 기간으로 예상 기간을 참고로 보여 준다).
+  final List<Map<String, dynamic>> existingLogs;
+  const CreateLogSheet({super.key, this.existingLogs = const []});
 
-  static Future<Map<String, dynamic>?> show(BuildContext context) {
+  static Future<Map<String, dynamic>?> show(
+    BuildContext context, {
+    List<Map<String, dynamic>> existingLogs = const [],
+  }) {
     return showModalBottomSheet<Map<String, dynamic>?>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const CreateLogSheet(),
+      builder: (context) => CreateLogSheet(existingLogs: existingLogs),
     );
   }
 
@@ -40,6 +46,29 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
       ),
     );
     if (t != null) setState(() => _remindMinutes = t.hour * 60 + t.minute);
+  }
+
+  // 고른 유형으로 완료한 프로젝트가 있으면 걸린 기간을 참고로 보여 준다.
+  List<Widget> _durationHint() {
+    final t = _workType;
+    if (t == null) return const [];
+    final h = durationHintFor(widget.existingLogs, t);
+    if (h == null) return const [];
+    return [
+      const SizedBox(height: 8),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: tossBlue.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          durationHintText(h),
+          style: const TextStyle(color: tossBlue, fontSize: 12, height: 1.4),
+        ),
+      ),
+    ];
   }
 
   String _hm(int m) =>
@@ -188,6 +217,7 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
                     ),
                 ],
               ),
+              ..._durationHint(),
               const SizedBox(height: 16),
               const Text(
                 "작업 일지 알림 시간 (선택)",

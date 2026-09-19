@@ -253,6 +253,10 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     bool weekly = cur.weekly;
     int weeklyMinutes = cur.weeklyMinutes;
     bool autoPdf = cur.autoPdf;
+    final morning = await loadMorningSummary();
+    if (!mounted) return;
+    bool morningOn = morning.enabled;
+    int morningMinutes = morning.minutes;
     String hm(int m) =>
         "${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}";
     await showDialog(
@@ -260,85 +264,121 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) => AlertDialog(
           title: const Text("작업 일지 알림"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text("작업 일지 작성 알림"),
-                subtitle: Text(
-                  keepWords("진행중 프로젝트가 있고 오늘 작업 일지를 쓰지 않았으면 알려 줍니다."),
-                ),
-                value: enabled,
-                onChanged: (v) => setS(() => enabled = v),
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text("주간 보고서 알림"),
-                subtitle: Text(
-                  keepWords(
-                    "매주 금요일 ${hm(weeklyMinutes)}에 주간 업무 보고를 열어 보라고 알려 줍니다.",
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text("작업 일지 작성 알림"),
+                  subtitle: Text(
+                    keepWords("진행중 프로젝트가 있고 오늘 작업 일지를 쓰지 않았으면 알려 줍니다."),
                   ),
+                  value: enabled,
+                  onChanged: (v) => setS(() => enabled = v),
                 ),
-                value: weekly,
-                onChanged: (v) => setS(() => weekly = v),
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(keepWords("알림 누르면 PDF 바로 만들기")),
-                subtitle: Text(keepWords("끄면 주간 보고 화면이 열립니다.")),
-                value: autoPdf,
-                onChanged: weekly ? (v) => setS(() => autoPdf = v) : null,
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                enabled: weekly,
-                title: const Text("주간 알림 시간(금요일)"),
-                trailing: Text(
-                  hm(weeklyMinutes),
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                onTap: !weekly
-                    ? null
-                    : () async {
-                        final t = await showTimePicker(
-                          context: ctx,
-                          initialTime: TimeOfDay(
-                            hour: weeklyMinutes ~/ 60,
-                            minute: weeklyMinutes % 60,
-                          ),
-                        );
-                        if (t != null) {
-                          setS(() => weeklyMinutes = t.hour * 60 + t.minute);
-                        }
-                      },
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                enabled: enabled,
-                title: const Text("알림 시간"),
-                trailing: Text(
-                  keepWords(
-                    "${(minutes ~/ 60).toString().padLeft(2, '0')}:${(minutes % 60).toString().padLeft(2, '0')}",
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text("주간 보고서 알림"),
+                  subtitle: Text(
+                    keepWords(
+                      "매주 금요일 ${hm(weeklyMinutes)}에 주간 업무 보고를 열어 보라고 알려 줍니다.",
+                    ),
                   ),
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                  value: weekly,
+                  onChanged: (v) => setS(() => weekly = v),
                 ),
-                onTap: !enabled
-                    ? null
-                    : () async {
-                        final t = await showTimePicker(
-                          context: ctx,
-                          initialTime: TimeOfDay(
-                            hour: minutes ~/ 60,
-                            minute: minutes % 60,
-                          ),
-                        );
-                        if (t != null) {
-                          setS(() => minutes = t.hour * 60 + t.minute);
-                        }
-                      },
-              ),
-            ],
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(keepWords("알림 누르면 PDF 바로 만들기")),
+                  subtitle: Text(keepWords("끄면 주간 보고 화면이 열립니다.")),
+                  value: autoPdf,
+                  onChanged: weekly ? (v) => setS(() => autoPdf = v) : null,
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  enabled: weekly,
+                  title: const Text("주간 알림 시간(금요일)"),
+                  trailing: Text(
+                    hm(weeklyMinutes),
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  onTap: !weekly
+                      ? null
+                      : () async {
+                          final t = await showTimePicker(
+                            context: ctx,
+                            initialTime: TimeOfDay(
+                              hour: weeklyMinutes ~/ 60,
+                              minute: weeklyMinutes % 60,
+                            ),
+                          );
+                          if (t != null) {
+                            setS(() => weeklyMinutes = t.hour * 60 + t.minute);
+                          }
+                        },
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text("아침 요약 알림"),
+                  subtitle: Text(
+                    keepWords(
+                      "매일 ${hm(morningMinutes)}에 오늘 일정과 작성할 작업 일지를 확인하라고 알려 줍니다.",
+                    ),
+                  ),
+                  value: morningOn,
+                  onChanged: (v) => setS(() => morningOn = v),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  enabled: morningOn,
+                  title: const Text("아침 요약 시간"),
+                  trailing: Text(
+                    hm(morningMinutes),
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  onTap: !morningOn
+                      ? null
+                      : () async {
+                          final t = await showTimePicker(
+                            context: ctx,
+                            initialTime: TimeOfDay(
+                              hour: morningMinutes ~/ 60,
+                              minute: morningMinutes % 60,
+                            ),
+                          );
+                          if (t != null) {
+                            setS(() => morningMinutes = t.hour * 60 + t.minute);
+                          }
+                        },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  enabled: enabled,
+                  title: const Text("알림 시간"),
+                  trailing: Text(
+                    keepWords(
+                      "${(minutes ~/ 60).toString().padLeft(2, '0')}:${(minutes % 60).toString().padLeft(2, '0')}",
+                    ),
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  onTap: !enabled
+                      ? null
+                      : () async {
+                          final t = await showTimePicker(
+                            context: ctx,
+                            initialTime: TimeOfDay(
+                              hour: minutes ~/ 60,
+                              minute: minutes % 60,
+                            ),
+                          );
+                          if (t != null) {
+                            setS(() => minutes = t.hour * 60 + t.minute);
+                          }
+                        },
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -354,6 +394,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                   weeklyMinutes: weeklyMinutes,
                   autoPdf: autoPdf,
                 );
+                await saveMorningSummary(morningOn, morningMinutes);
                 await syncReportReminder(_workLogs);
                 if (ctx.mounted) Navigator.pop(ctx);
               },
@@ -366,7 +407,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   }
 
   void _showCreateSheet() async {
-    final newLog = await CreateLogSheet.show(context);
+    final newLog = await CreateLogSheet.show(context, existingLogs: _workLogs);
     if (newLog != null) {
       setState(() {
         _workLogs.insert(0, newLog);

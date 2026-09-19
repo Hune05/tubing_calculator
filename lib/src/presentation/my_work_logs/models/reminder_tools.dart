@@ -322,6 +322,69 @@ Future<bool> areNotificationsAllowed() async {
   return (await android?.areNotificationsEnabled()) ?? true;
 }
 
+// ── 아침 요약 알림 ──
+// 매일 정한 시간에 "오늘 일정과 작성할 작업 일지를 확인하십시오" 알림을 한 번 보낸다.
+// 예약 알림은 내용이 미리 정해져 있어서, 그날의 개수는 넣지 않고 확인하라는 문구만 보낸다.
+const int kMorningSummaryId = 918289; // 작업 일지 알림(918300~)·주간(918274)과 겹치지 않게
+const String _kPrefMorningOn = 'morning_summary_on';
+const String _kPrefMorningMinutes = 'morning_summary_minutes';
+const String kMorningSummaryBody = '오늘 일정과 작성할 작업 일지를 확인하십시오.';
+
+// 처음에는 꺼져 있다(모르는 새 알림이 매일 오지 않게). 켜면 기본은 07:30.
+Future<({bool enabled, int minutes})> loadMorningSummary() async {
+  final p = await SharedPreferences.getInstance();
+  return (
+    enabled: p.getBool(_kPrefMorningOn) ?? false,
+    minutes: p.getInt(_kPrefMorningMinutes) ?? 7 * 60 + 30,
+  );
+}
+
+Future<void> saveMorningSummary(bool enabled, int minutes) async {
+  final p = await SharedPreferences.getInstance();
+  await p.setBool(_kPrefMorningOn, enabled);
+  await p.setInt(_kPrefMorningMinutes, minutes);
+}
+
+// 아침 요약 알림을 예약/취소한다. 도착 창 안에서 이미 예약돼 있으면(켜 둔 채 시간이 지나기 전에 앱을 열면)
+// 오늘 알림이 사라지지 않게 그대로 둔다.
+Future<void> _syncMorningSummary(
+  DateTime now, {
+  required bool keepIfInWindow,
+}) async {
+  final pref = await loadMorningSummary();
+  if (!pref.enabled) {
+    await flutterLocalNotificationsPlugin.cancel(id: kMorningSummaryId);
+    return;
+  }
+  if (keepIfInWindow && inDeliveryWindow(now, pref.minutes)) return;
+  await flutterLocalNotificationsPlugin.cancel(id: kMorningSummaryId);
+  var at = DateTime(
+    now.year,
+    now.month,
+    now.day,
+    pref.minutes ~/ 60,
+    pref.minutes % 60,
+  );
+  if (!at.isAfter(now)) at = at.add(const Duration(days: 1));
+  await flutterLocalNotificationsPlugin.zonedSchedule(
+    id: kMorningSummaryId,
+    title: '오늘 할 일',
+    body: kMorningSummaryBody,
+    scheduledDate: tz.TZDateTime.from(at, tz.local),
+    notificationDetails: const NotificationDetails(
+      android: AndroidNotificationDetails(
+        _kReminderChannel,
+        '작업 일지 알림',
+        channelDescription: '작업 일지 작성 알림',
+        importance: Importance.high,
+        priority: Priority.high,
+      ),
+    ),
+    androidScheduleMode: await reminderScheduleMode(),
+    matchDateTimeComponents: DateTimeComponents.time,
+  );
+}
+
 // 정확한 시간 알림(정확한 알람)을 폰이 허용했는지. 허용돼 있으면 정해진 시간에 맞춰 울리고,
 // 아니면 폰이 배터리를 아끼려고 묶어서 보내서 최대 1시간까지 늦을 수 있다.
 Future<bool> canScheduleExactAlarms() async {
@@ -469,6 +532,10 @@ Future<void> syncReportReminder(
       keepIfInWindow:
           pending.contains(_kWeeklyId) &&
           inDeliveryWindow(now, pref.weeklyMinutes, onlyFriday: true),
+    );
+    await _syncMorningSummary(
+      now,
+      keepIfInWindow: pending.contains(kMorningSummaryId),
     );
     if (plans.isEmpty) return;
 
