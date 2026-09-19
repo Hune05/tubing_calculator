@@ -3,6 +3,7 @@ import 'package:tubing_calculator/src/presentation/my_work_logs/models/report_to
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/weekly_plan.dart';
 
 void main() {
+  _noDue();
   test('issue before/after photos become a compare when resolved this week', () {
     final now = DateTime.now();
     final logs = [
@@ -59,5 +60,23 @@ void main() {
     expect(stats.lines.join('\n').contains('2건 중 1건 처리'), true);
     expect(d.sections.last.heading, '회고');
     expect(d.sections.last.lines.join().contains('발주 먼저'), true);
+  });
+}
+
+void _noDue() {
+  test('open issues without a due date are flagged 기한 미정', () {
+    final logs = [
+      {
+        'id': 'a', 'name': 'A현장', 'status': 'ACTIVE',
+        'phases': [], 'schedules': [], 'daily_reports': [],
+        'punch_lists': [
+          {'content': '기한없음', 'location': '1층', 'is_completed': false},
+        ],
+      },
+    ];
+    final d = buildWeeklyPlanDoc(logs);
+    final s = d.sections.last;
+    expect(s.lines[0].contains('기한 미정 1건'), true);
+    expect(s.lines[1].contains('기한 미정'), true);
   });
 }

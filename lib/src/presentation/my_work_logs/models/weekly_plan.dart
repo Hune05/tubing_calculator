@@ -338,14 +338,16 @@ ReportDoc buildWeeklyPlanDoc(
 
     open.sort((x, y) => overdueDays(y).compareTo(overdueDays(x)));
     final overdue = open.where((p) => overdueDays(p) > 0).length;
+    final noDue = open.where((p) => p['dueDate'] == null).length;
     issueLines.add(
       '■ ${log['name']} — 미해결 ${open.length}건'
-      '${overdue > 0 ? ' (기한 초과 $overdue건)' : ''}',
+      '${overdue > 0 ? ' (기한 초과 $overdue건)' : ''}'
+      '${noDue > 0 ? ' (기한 미정 $noDue건)' : ''}',
     );
     for (final p in open.take(5)) {
       final od = overdueDays(p);
       final due = p['dueDate'] == null
-          ? ''
+          ? ' · 기한 미정'
           : ' · 기한 ${_md(asDate(p['dueDate']))}${od > 0 ? ' 초과 $od일' : ''}';
       issueLines.add(
         '  · [${p['priority'] ?? '보통'}] ${p['location'] ?? ''} ${p['content'] ?? ''}$due',

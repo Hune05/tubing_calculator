@@ -1131,6 +1131,43 @@ Future<void> _syncWeeklyReminder(bool on, int minutes, bool autoPdf) async {
   );
 }
 
+// 알림 점검용: 지금 바로 테스트 알림을 보내고, 알림 권한이 켜져 있는지 돌려준다.
+Future<bool> areNotificationsAllowed() async {
+  final android = flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >();
+  return (await android?.areNotificationsEnabled()) ?? true;
+}
+
+Future<void> showTestNotification() async {
+  const channel = AndroidNotificationChannel(
+    _kReminderChannel,
+    '작업일보 알림',
+    description: '작업일보 작성 리마인더',
+    importance: Importance.high,
+  );
+  await flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >()
+      ?.createNotificationChannel(channel);
+  await flutterLocalNotificationsPlugin.show(
+    id: 918299,
+    title: '알림 점검',
+    body: '이 알림이 보이면 알림 권한과 채널은 정상이에요.',
+    notificationDetails: const NotificationDetails(
+      android: AndroidNotificationDetails(
+        _kReminderChannel,
+        '작업일보 알림',
+        channelDescription: '작업일보 작성 리마인더',
+        importance: Importance.high,
+        priority: Priority.high,
+      ),
+    ),
+  );
+}
+
 // 진행중 프로젝트가 있는데 오늘 일보가 아직 없으면 오늘 정해진 시각에, 이미
 // 썼으면 내일부터 매일 알린다. 앱을 열 때/일보 저장 후에 다시 맞춘다.
 Future<void> syncReportReminder(List<Map<String, dynamic>> logs) async {

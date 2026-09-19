@@ -28,7 +28,9 @@ Future<void> openWeeklyReportFromNotification(
 // 미리 보고, 텍스트(카톡)나 PDF로 공유한다.
 class WeeklyReportPage extends StatefulWidget {
   final List<Map<String, dynamic>> logs;
-  const WeeklyReportPage({super.key, required this.logs});
+  // 있으면 "■ 프로젝트" 줄을 눌러 그 프로젝트 화면으로 이동할 수 있다.
+  final void Function(Map<String, dynamic> log)? onOpenProject;
+  const WeeklyReportPage({super.key, required this.logs, this.onOpenProject});
 
   @override
   State<WeeklyReportPage> createState() => _WeeklyReportPageState();
@@ -48,6 +50,16 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
     includePhotos: _photos,
     perProject: _split && _projectId == null,
   );
+
+  // "■ 프로젝트 이름 — ..." 줄이면 해당 프로젝트를 찾는다(이동 기능이 켜졌을 때만).
+  Map<String, dynamic>? _projectFor(String line) {
+    if (widget.onOpenProject == null || !line.startsWith('■ ')) return null;
+    final name = line.substring(2).split(' — ').first.split(' · ').first.trim();
+    for (final l in widget.logs) {
+      if (l['name']?.toString() == name) return l;
+    }
+    return null;
+  }
 
   Future<void> _pdf(ReportDoc doc) async {
     try {
@@ -310,20 +322,51 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                         ),
                         const SizedBox(height: 8),
                         for (final l in s.lines)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2),
-                            child: Text(
-                              l,
-                              style: TextStyle(
-                                fontSize: 13,
-                                height: 1.4,
-                                color: l.startsWith('■') ? _text : _sub,
-                                fontWeight: l.startsWith('■')
-                                    ? FontWeight.w800
-                                    : FontWeight.w500,
+                          if (_projectFor(l) != null)
+                            InkWell(
+                              onTap: () =>
+                                  widget.onOpenProject!(_projectFor(l)!),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        l,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          height: 1.4,
+                                          color: _text,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                    const Icon(
+                                      Icons.chevron_right_rounded,
+                                      size: 18,
+                                      color: _sub,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          else
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: Text(
+                                l,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  height: 1.4,
+                                  color: l.startsWith('■') ? _text : _sub,
+                                  fontWeight: l.startsWith('■')
+                                      ? FontWeight.w800
+                                      : FontWeight.w500,
+                                ),
                               ),
                             ),
-                          ),
                       ],
                     ),
                   ),

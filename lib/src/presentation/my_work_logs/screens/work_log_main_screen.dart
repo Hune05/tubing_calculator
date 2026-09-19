@@ -18,6 +18,7 @@ import '../pages/report_style_page.dart';
 import '../pages/report_search_page.dart';
 import '../pages/project_stats_page.dart';
 import '../pages/weekly_report_page.dart';
+import '../pages/notification_check_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../pages/retro_overview_page.dart';
 import '../pages/storage_management_page.dart';
@@ -824,6 +825,53 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     }).toList();
   }
 
+  // 완료된 프로젝트 카드를 길게 누르면: 마무리 보고서를 다시 만든다.
+  Future<void> _showDoneActions(Map<String, dynamic> log) async {
+    final pick = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "${log['name'] ?? '프로젝트'} (완료)",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf_outlined),
+              title: const Text("마무리 보고서 다시 만들기"),
+              subtitle: const Text("사진 포함 PDF"),
+              onTap: () => Navigator.pop(ctx, 'final'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (pick != 'final' || !mounted) return;
+    try {
+      await shareReportPdf(buildFinalReportDoc(log), withPhotos: true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("PDF 생성 실패: $e")));
+      }
+    }
+  }
+
   // 프로젝트 카드를 길게 누르면 자주 하는 작업으로 바로 간다.
   Future<void> _showQuickActions(Map<String, dynamic> log) async {
     final pick = await showModalBottomSheet<String>(
@@ -1072,7 +1120,12 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   void _openWeeklyReport() {
     Navigator.push(
       context,
-      WorkRoute(builder: (_) => WeeklyReportPage(logs: _workLogs)),
+      WorkRoute(
+        builder: (_) => WeeklyReportPage(
+          logs: _workLogs,
+          onOpenProject: (log) => _openDetail(log),
+        ),
+      ),
     );
   }
 
@@ -1559,6 +1612,12 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
               if (v == 'reminder') _showReminderSettings();
               if (v == 'weekly') _openWeeklyReport();
               if (v == 'guide') _showGuideSheet();
+              if (v == 'notif') {
+                Navigator.push(
+                  context,
+                  WorkRoute(builder: (_) => const NotificationCheckPage()),
+                );
+              }
               if (v == 'overview') _shareOverviewImage();
               if (v == 'style') {
                 Navigator.push(
@@ -1584,6 +1643,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
               PopupMenuItem(value: 'overview', child: Text("전체 현황 이미지 공유")),
               PopupMenuItem(value: 'style', child: Text("보고서 양식 설정")),
               PopupMenuItem(value: 'storage', child: Text("저장 공간 관리")),
+              PopupMenuItem(value: 'notif', child: Text("알림 점검")),
               PopupMenuItem(value: 'guide', child: Text("사용 안내")),
             ],
           ),
@@ -1797,9 +1857,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                               log: log,
                               isActive: _isActive(log),
                               onTap: () => _openDetail(log),
-                              onLongPress: _isActive(log)
-                                  ? () => _showQuickActions(log)
-                                  : null,
+                              onLongPress: () => _isActive(log)
+                                  ? _showQuickActions(log)
+                                  : _showDoneActions(log),
                             ),
                     );
                   },
