@@ -432,23 +432,9 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
               ),
           ]),
           _card([
-            _title("5. 안내 카드 미리 보기"),
-            Text(
-              keepWords(
-                "알림 예약이 어긋났을 때 내 프로젝트 화면 위에 뜨는 안내 카드가 어떻게 보이는지 확인합니다. 실제 문제가 있는 것은 아닙니다.",
-              ),
-              style: const TextStyle(fontSize: 13, height: 1.4, color: _sub),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton(
-              onPressed: () => Navigator.pop(context, kPreviewProblem),
-              child: const Text("안내 카드 미리 보기"),
-            ),
-          ]),
-          _card([
             _title("4. 예약 알림이 안 올 때 (배터리 제한)"),
             const Text(
-              "일보·주간 보고 알림은 정해진 시각에 폰이 앱을 깨워서 보내요. 삼성 등 일부 폰은 "
+              "일보·주간 보고 알림은 정해진 시각에 폰이 앱을 깨워서 보냅니다. 삼성 등 일부 폰은 "
               "절전 기능이 앱을 재워서 예약 알림이 오지 않을 수 있습니다.\n\n"
               "• 설정 → 배터리 → 백그라운드 사용 제한에서 이 앱을 빼 주십시오.\n"
               "• 앱 정보 → 배터리 → '제한 없음'(또는 최적화 안 함)으로 바꿔 주십시오.",
@@ -468,6 +454,20 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
                 data: 'package:$_pkg',
               ),
               child: const Text("앱 정보 열기"),
+            ),
+          ]),
+          _card([
+            _title("5. 안내 카드 미리 보기"),
+            Text(
+              keepWords(
+                "알림 예약이 어긋났을 때 내 프로젝트 화면 위에 뜨는 안내 카드가 어떻게 보이는지 확인합니다. 실제 문제가 있는 것은 아닙니다.",
+              ),
+              style: const TextStyle(fontSize: 13, height: 1.4, color: _sub),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton(
+              onPressed: () => Navigator.pop(context, kPreviewProblem),
+              child: const Text("안내 카드 미리 보기"),
             ),
           ]),
         ],
