@@ -2711,17 +2711,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     );
     if (make != true || !mounted) return;
     try {
-      DateTime? first;
-      for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
-        final d = reportDateOf(r);
-        if (first == null || d.isBefore(first)) first = d;
-      }
-      final doc = buildReportDoc(
-        log,
-        first ?? DateTime.now().subtract(const Duration(days: 30)),
-        DateTime.now(),
-      );
-      await shareReportPdf(doc, withPhotos: true);
+      await shareReportPdf(buildFinalReportDoc(log), withPhotos: true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

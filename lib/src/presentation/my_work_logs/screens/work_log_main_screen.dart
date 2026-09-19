@@ -218,6 +218,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     int minutes = cur.minutes;
     bool weekly = cur.weekly;
     int weeklyMinutes = cur.weeklyMinutes;
+    bool autoPdf = cur.autoPdf;
     String hm(int m) =>
         "${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}";
     await showDialog(
@@ -243,6 +244,13 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                 ),
                 value: weekly,
                 onChanged: (v) => setS(() => weekly = v),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text("알림 누르면 PDF 바로 만들기"),
+                subtitle: const Text("끄면 주간 보고 화면이 열려요."),
+                value: autoPdf,
+                onChanged: weekly ? (v) => setS(() => autoPdf = v) : null,
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -304,6 +312,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                   minutes,
                   weekly: weekly,
                   weeklyMinutes: weeklyMinutes,
+                  autoPdf: autoPdf,
                 );
                 await syncReportReminder(_workLogs);
                 if (ctx.mounted) Navigator.pop(ctx);
@@ -813,6 +822,56 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       if (s['type'] == '검사일정') return false;
       return s['isCompleted'] != true || already.contains(s['id']?.toString());
     }).toList();
+  }
+
+  // 프로젝트 카드를 길게 누르면 자주 하는 작업으로 바로 간다.
+  Future<void> _showQuickActions(Map<String, dynamic> log) async {
+    final pick = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "${log['name'] ?? '프로젝트'}",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_note_rounded),
+              title: const Text("오늘 일보 작성"),
+              onTap: () => Navigator.pop(ctx, 'report'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.error_outline_rounded),
+              title: const Text("이슈 등록"),
+              onTap: () => Navigator.pop(ctx, 'issue'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.event_available_rounded),
+              title: const Text("일정 추가"),
+              onTap: () => Navigator.pop(ctx, 'schedule'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (pick == null || !mounted) return;
+    if (pick == 'report') await _addDailyReportFor(log);
+    if (pick == 'issue') await _addPunchFor(log);
+    if (pick == 'schedule') await _openSchedule(log, add: true);
   }
 
   Future<void> _addDailyReportFor(Map<String, dynamic> log) async {
@@ -1738,6 +1797,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                               log: log,
                               isActive: _isActive(log),
                               onTap: () => _openDetail(log),
+                              onLongPress: _isActive(log)
+                                  ? () => _showQuickActions(log)
+                                  : null,
                             ),
                     );
                   },

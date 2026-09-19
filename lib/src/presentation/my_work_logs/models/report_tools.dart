@@ -632,6 +632,51 @@ List<pw.Widget> _photoRows(List<(Uint8List, String)> items) {
   ];
 }
 
+// 프로젝트 완료 시 마무리 보고서: 전체 기간 보고서에 총 통계와 회고를 더한다.
+ReportDoc buildFinalReportDoc(Map<String, dynamic> log) {
+  DateTime? first;
+  int days = 0, manDays = 0, points = 0, wiring = 0;
+  for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
+    final d = reportDateOf(r);
+    if (first == null || d.isBefore(first)) first = d;
+    days++;
+    manDays += (r['worker_count'] as num?)?.toInt() ?? 1;
+    points += (r['points'] as num?)?.toInt() ?? 0;
+    wiring += (r['wiring_points'] as num?)?.toInt() ?? 0;
+  }
+  final end = log['completedAt'] != null
+      ? asDate(log['completedAt'])
+      : DateTime.now();
+  final doc = buildReportDoc(
+    log,
+    first ?? end.subtract(const Duration(days: 30)),
+    end,
+  );
+  final punches = (log['punch_lists'] as List? ?? []).whereType<Map>().toList();
+  final resolved = punches.where((p) => p['is_completed'] == true).length;
+  doc.sections.insert(
+    1,
+    ReportSection('총 통계', [
+      '· 작업 $days일 · 총 투입 $manDays인·일',
+      if (points > 0) '· 벤딩 총 $points pt',
+      if (wiring > 0) '· 결선 총 $wiring개소',
+      '· 이슈 ${punches.length}건 중 $resolved건 처리',
+    ]),
+  );
+  final retro = Map<String, dynamic>.from((log['retro'] as Map?) ?? {});
+  final cause = (retro['cause']?.toString() ?? '').trim();
+  final lesson = (retro['lesson']?.toString() ?? '').trim();
+  if (cause.isNotEmpty || lesson.isNotEmpty) {
+    doc.sections.add(
+      ReportSection('회고', [
+        if (cause.isNotEmpty) '· 지연/문제 원인: $cause',
+        if (lesson.isNotEmpty) '· 다음에 적용할 점: $lesson',
+      ]),
+    );
+  }
+  return doc;
+}
+
 Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
   // 사진은 최대 24장까지, 페이지 안에서 잘리지 않게 두 장씩 한 줄로 넣는다.
   final loaded = <(Uint8List, String, String?)>[];
@@ -1025,9 +1070,12 @@ const String _kPrefWeeklyMinutes = 'weekly_report_reminder_minutes';
 const int _kWeeklyId = 918274;
 // 금요일 알림을 누르면 주간 업무 보고를 바로 여는 데 쓰는 표식.
 const String kWeeklyReportPayload = 'work_weekly_report';
+// 알림을 누르면 PDF까지 바로 만들어 공유창을 여는 설정일 때 쓰는 표식.
+const String kWeeklyReportPdfPayload = 'work_weekly_report_pdf';
+const String _kPrefWeeklyAutoPdf = 'weekly_report_autopdf';
 bool _tzReady = false;
 
-Future<({bool enabled, int minutes, bool weekly, int weeklyMinutes})>
+Future<({bool enabled, int minutes, bool weekly, int weeklyMinutes, bool autoPdf})>
 loadReportReminder() async {
   final p = await SharedPreferences.getInstance();
   return (
@@ -1035,6 +1083,7 @@ loadReportReminder() async {
     minutes: p.getInt(_kPrefMinutes) ?? 18 * 60,
     weekly: p.getBool(_kPrefWeekly) ?? true,
     weeklyMinutes: p.getInt(_kPrefWeeklyMinutes) ?? 17 * 60,
+    autoPdf: p.getBool(_kPrefWeeklyAutoPdf) ?? false,
   );
 }
 
@@ -1043,16 +1092,18 @@ Future<void> saveReportReminder(
   int minutes, {
   bool weekly = true,
   int weeklyMinutes = 17 * 60,
+  bool autoPdf = false,
 }) async {
   final p = await SharedPreferences.getInstance();
   await p.setBool(_kPrefEnabled, enabled);
   await p.setInt(_kPrefMinutes, minutes);
   await p.setBool(_kPrefWeekly, weekly);
   await p.setInt(_kPrefWeeklyMinutes, weeklyMinutes);
+  await p.setBool(_kPrefWeeklyAutoPdf, autoPdf);
 }
 
 // 매주 금요일(기본 17:00)에 주간 업무 보고 알림(진행중 프로젝트가 있을 때).
-Future<void> _syncWeeklyReminder(bool on, int minutes) async {
+Future<void> _syncWeeklyReminder(bool on, int minutes, bool autoPdf) async {
   await flutterLocalNotificationsPlugin.cancel(id: _kWeeklyId);
   if (!on) return;
   final now = DateTime.now();
@@ -1064,7 +1115,7 @@ Future<void> _syncWeeklyReminder(bool on, int minutes) async {
     id: _kWeeklyId,
     title: '주간 보고서',
     body: '지난·이번·다음주 업무를 정리해 공유해보세요. 눌러서 바로 열 수 있어요.',
-    payload: kWeeklyReportPayload,
+    payload: autoPdf ? kWeeklyReportPdfPayload : kWeeklyReportPayload,
     scheduledDate: tz.TZDateTime.from(at, tz.local),
     notificationDetails: const NotificationDetails(
       android: AndroidNotificationDetails(
@@ -1095,6 +1146,7 @@ Future<void> syncReportReminder(List<Map<String, dynamic>> logs) async {
     await _syncWeeklyReminder(
       pref.weekly && active.isNotEmpty,
       pref.weeklyMinutes,
+      pref.autoPdf,
     );
     if (!pref.enabled || active.isEmpty) return;
 

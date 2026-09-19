@@ -418,6 +418,30 @@ ReportDoc buildWeeklyPlanDoc(
     }
   }
 
+  // 이슈 처리 전(등록 사진) / 후(처리 사진) 사진도 그 주에 처리된 것은 전후 비교에 넣는다.
+  if (includePhotos) {
+    for (final log in targets) {
+      for (final p in (log['punch_lists'] as List? ?? []).whereType<Map>()) {
+        if (compares.length >= 6) break;
+        if (p['is_completed'] != true || p['resolved_at'] == null) continue;
+        final rd = asDate(p['resolved_at']);
+        if (!weeks[0].contains(rd) && !weeks[1].contains(rd)) continue;
+        final b = (p['image_paths'] as List? ?? []);
+        final a = (p['resolution_images'] as List? ?? []);
+        if (b.isEmpty || a.isEmpty) continue;
+        final loc = (p['location']?.toString() ?? '').trim();
+        final what = _firstLine((p['content']?.toString() ?? ''));
+        compares.add(
+          ReportCompare(
+            b.first.toString(),
+            a.first.toString(),
+            '${log['name'] ?? '프로젝트'} · 이슈 처리 (${loc.isEmpty ? what : '$loc $what'})',
+          ),
+        );
+      }
+    }
+  }
+
   // 최근 12장만 남기고, 프로젝트 순서로 묶어 그 안에서는 날짜순으로 둔다.
   photos.sort((a, b) => a.$2.compareTo(b.$2));
   final picked =

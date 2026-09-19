@@ -12,10 +12,15 @@ const Color _sub = Color(0xFF8B95A1);
 const Color _bg = Color(0xFFF2F4F6);
 
 // 알림을 눌렀을 때: 프로젝트를 불러와 주간 업무 보고 화면을 바로 연다.
-Future<void> openWeeklyReportFromNotification(NavigatorState nav) async {
+Future<void> openWeeklyReportFromNotification(
+  NavigatorState nav, {
+  bool autoPdf = false,
+}) async {
   try {
     final logs = await WorkProjectRepository().fetchAllProjects();
     nav.push(WorkRoute(builder: (_) => WeeklyReportPage(logs: logs)));
+    // 설정에서 켠 경우: 화면을 열자마자 PDF를 만들어 공유창까지 연다.
+    if (autoPdf) await shareReportPdf(buildWeeklyPlanDoc(logs));
   } catch (_) {}
 }
 

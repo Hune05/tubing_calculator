@@ -16,12 +16,14 @@ class ProjectSummaryCard extends StatelessWidget {
   final Map<String, dynamic> log;
   final bool isActive;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   const ProjectSummaryCard({
     super.key,
     required this.log,
     required this.isActive,
     required this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -76,6 +78,7 @@ class ProjectSummaryCard extends StatelessWidget {
       ),
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(20),
         child: IntrinsicHeight(
           child: Row(
