@@ -57,11 +57,14 @@ class ReportSection {
   final bool newPage; // true면 PDF에서 이 섹션부터 새 페이지
   // 줄 번호 -> 그 줄이 가리키는 이슈(화면에서 눌러 상세로 갈 때 쓴다).
   final Map<int, ({Map<String, dynamic> log, Map punch})>? issueRefs;
+  // 줄 번호 -> 그 줄이 가리키는 프로젝트(눌러서 그 프로젝트 화면으로 갈 때 쓴다).
+  final Map<int, Map<String, dynamic>>? projectRefs;
   ReportSection(
     this.heading,
     this.lines, {
     this.newPage = false,
     this.issueRefs,
+    this.projectRefs,
   });
 }
 
@@ -1203,10 +1206,79 @@ const String kWeeklyReportPayload = 'work_weekly_report';
 // 일보 알림을 누르면 오늘 일보 작성으로 바로 가는 데 쓰는 표식.
 const String kDailyReportPayload = 'work_daily_report';
 
-// 일보 알림 문구. 여러 프로젝트가 걸렸으면 몇 곳인지 알려 준다.
-String dailyReminderBody(int missingCount) => missingCount >= 2
-    ? '오늘 일보를 아직 안 쓴 프로젝트가 ${missingCount}곳 있어요. 눌러서 바로 남겨두세요.'
-    : '오늘 작업 일보 아직 안 썼어요. 눌러서 바로 남겨두세요.';
+// 일보 알림 문구. 여러 프로젝트가 걸렸으면 몇 곳인지, 프로젝트 하나짜리 알림이면 이름을 알려 준다.
+String dailyReminderBody(int missingCount, {String? name}) {
+  if (missingCount >= 2) {
+    return '오늘 일보를 아직 안 쓴 프로젝트가 ${missingCount}곳 있어요. 눌러서 바로 남겨두세요.';
+  }
+  final who = (name == null || name.trim().isEmpty) ? '' : '${name.trim()} ';
+  return '${who}오늘 작업 일보 아직 안 썼어요. 눌러서 바로 남겨두세요.';
+}
+
+// 일보 알림 예약 계획 한 건: 이 시각(분)에 울릴 알림 하나.
+class DailyReminderPlan {
+  final int minutes; // 하루 중 몇 분(0~1439)
+  final int count; // 알림 문구에 쓸 미작성 프로젝트 수
+  final DateTime at; // 다음에 울릴 시각
+  final String? name; // 이 시각에 묶인 프로젝트가 하나뿐일 때 그 이름
+  DailyReminderPlan(this.minutes, this.count, this.at, this.name);
+}
+
+const int _kDailyBaseId = 918300; // 918300 ~ 918307을 일보 알림에 쓴다
+const int _kMaxDailyGroups = 8;
+
+// 프로젝트별 알림 시각(reportReminderMinutes, 없으면 기본 시각)으로 묶어 예약 계획을 만든다.
+// 시각이 8종류를 넘으면 넘치는 프로젝트는 마지막 묶음에 합친다(알림이 빠지지 않게).
+List<DailyReminderPlan> planDailyReminders(
+  List<Map<String, dynamic>> active,
+  int defaultMinutes,
+  DateTime now,
+) {
+  int minutesOf(Map<String, dynamic> l) {
+    final v = (l['reportReminderMinutes'] as num?)?.toInt();
+    return (v != null && v >= 0 && v < 1440) ? v : defaultMinutes;
+  }
+
+  final groups = <int, List<Map<String, dynamic>>>{};
+  for (final l in active) {
+    groups.putIfAbsent(minutesOf(l), () => []).add(l);
+  }
+  final keys = groups.keys.toList()..sort();
+  if (keys.length > _kMaxDailyGroups) {
+    final last = keys[_kMaxDailyGroups - 1];
+    for (final k in keys.skip(_kMaxDailyGroups)) {
+      groups[last]!.addAll(groups.remove(k)!);
+    }
+    keys.removeRange(_kMaxDailyGroups, keys.length);
+  }
+  final todayStr =
+      '${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
+  final plans = <DailyReminderPlan>[];
+  for (final m in keys) {
+    final g = groups[m]!;
+    // 이 묶음에서 오늘 일보를 아직 안 쓴 곳. 전부 썼거나 시각이 지났으면 내일부터.
+    final missing = projectsMissingReport(g, todayStr);
+    var at = DateTime(now.year, now.month, now.day, m ~/ 60, m % 60);
+    final skipToday = missing.isEmpty || !at.isAfter(now);
+    if (skipToday) at = at.add(const Duration(days: 1));
+    plans.add(
+      DailyReminderPlan(
+        m,
+        skipToday ? g.length : missing.length,
+        at,
+        g.length == 1 ? g.first['name']?.toString() : null,
+      ),
+    );
+  }
+  return plans;
+}
+
+Future<void> _cancelDailyReminders() async {
+  await flutterLocalNotificationsPlugin.cancel(id: _kReminderId); // 예전 버전 알림
+  for (var i = 0; i < _kMaxDailyGroups; i++) {
+    await flutterLocalNotificationsPlugin.cancel(id: _kDailyBaseId + i);
+  }
+}
 
 // 오늘 일보를 아직 안 쓴 진행중 프로젝트(오늘은 "MM/dd" 형식 문자열).
 List<Map<String, dynamic>> projectsMissingReport(
@@ -1286,7 +1358,12 @@ Future<({bool daily, bool weekly})> scheduledReminderStatus() async {
   final pending = await flutterLocalNotificationsPlugin
       .pendingNotificationRequests();
   final ids = pending.map((e) => e.id).toSet();
-  return (daily: ids.contains(_kReminderId), weekly: ids.contains(_kWeeklyId));
+  final daily = ids.any(
+    (id) =>
+        id == _kReminderId ||
+        (id >= _kDailyBaseId && id < _kDailyBaseId + _kMaxDailyGroups),
+  );
+  return (daily: daily, weekly: ids.contains(_kWeeklyId));
 }
 
 // 알림 점검용: 지금 바로 테스트 알림을 보내고, 알림 권한이 켜져 있는지 돌려준다.
@@ -1331,7 +1408,7 @@ Future<void> showTestNotification() async {
 Future<void> syncReportReminder(List<Map<String, dynamic>> logs) async {
   try {
     final pref = await loadReportReminder();
-    await flutterLocalNotificationsPlugin.cancel(id: _kReminderId);
+    await _cancelDailyReminders();
     final active = logs.where((l) => l['status'] != 'DONE').toList();
     if (!_tzReady) {
       tzdata.initializeTimeZones();
@@ -1345,23 +1422,8 @@ Future<void> syncReportReminder(List<Map<String, dynamic>> logs) async {
     );
     if (!pref.enabled || active.isEmpty) return;
 
-    final now = DateTime.now();
-    final todayStr =
-        '${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
-    // 오늘 일보를 아직 안 쓴 진행중 프로젝트. 전부 썼으면 오늘 알림은 건너뛴다.
-    final missing = projectsMissingReport(active, todayStr);
-    final wroteToday = missing.isEmpty;
-    var at = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      pref.minutes ~/ 60,
-      pref.minutes % 60,
-    );
-    final skipToday = wroteToday || !at.isAfter(now);
-    if (skipToday) at = at.add(const Duration(days: 1));
-    // 오늘 울릴 알림이면 실제 미작성 수, 내일 알림이면 진행중 프로젝트 수를 안내한다.
-    final notifyCount = skipToday ? active.length : missing.length;
+    // 프로젝트마다 알림 시각이 다를 수 있어, 같은 시각끼리 묶어 알림을 한 개씩 예약한다.
+    final plans = planDailyReminders(active, pref.minutes, DateTime.now());
 
     const channel = AndroidNotificationChannel(
       _kReminderChannel,
@@ -1374,24 +1436,27 @@ Future<void> syncReportReminder(List<Map<String, dynamic>> logs) async {
           AndroidFlutterLocalNotificationsPlugin
         >()
         ?.createNotificationChannel(channel);
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      id: _kReminderId,
-      title: '작업일보',
-      body: dailyReminderBody(notifyCount),
-      payload: kDailyReportPayload,
-      scheduledDate: tz.TZDateTime.from(at, tz.local),
-      notificationDetails: const NotificationDetails(
-        android: AndroidNotificationDetails(
-          _kReminderChannel,
-          '작업일보 알림',
-          channelDescription: '작업일보 작성 리마인더',
-          importance: Importance.high,
-          priority: Priority.high,
+    for (var i = 0; i < plans.length; i++) {
+      final plan = plans[i];
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        id: _kDailyBaseId + i,
+        title: '작업일보',
+        body: dailyReminderBody(plan.count, name: plan.name),
+        payload: kDailyReportPayload,
+        scheduledDate: tz.TZDateTime.from(plan.at, tz.local),
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _kReminderChannel,
+            '작업일보 알림',
+            channelDescription: '작업일보 작성 리마인더',
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
         ),
-      ),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time,
-    );
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    }
   } catch (e) {
     debugPrint('일보 알림 설정 실패: $e');
   }

@@ -284,6 +284,36 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
         child: row,
       );
     }
+    // 금주 요약의 "✓ 금주 완료 · 프로젝트" 줄: 눌러서 완료된 프로젝트 화면으로.
+    final doneRef = s.projectRefs?[i];
+    if (doneRef != null && widget.onOpenProject != null) {
+      return InkWell(
+        onTap: () async {
+          await widget.onOpenProject!(doneRef);
+          await _reloadLogs();
+          if (mounted) setState(() {});
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.4,
+                    color: _sub,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, size: 18, color: _sub),
+            ],
+          ),
+        ),
+      );
+    }
     final name = _projectName(l);
     if (name != null) {
       final key = _ck(s.heading, name);
@@ -362,6 +392,105 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
       for (final l in s.lines)
         if (_projectName(l) != null) _ck(s.heading, _projectName(l)!),
   };
+
+  // 맨 위 "이번 주 한눈에": 진행중 프로젝트의 진행률 막대와 전주 대비 변화.
+  // 진행률은 현재 값이라 과거 기준일을 볼 때는 보여 주지 않는다.
+  Widget _overviewCard() {
+    if (_asOf != null) return const SizedBox.shrink();
+    final list = _active
+        .where((l) => _projectId == null || l['id']?.toString() == _projectId)
+        .toList();
+    if (list.isEmpty) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "이번 주 한눈에",
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+              color: _teal,
+            ),
+          ),
+          const SizedBox(height: 10),
+          for (final l in list) ...[
+            Builder(
+              builder: (_) {
+                final p = projectProgress(l);
+                final pct = (p * 100).round();
+                final d = progressDeltaSince(l, 7);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 84,
+                        child: Text(
+                          l['name']?.toString() ?? '프로젝트',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: _text,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: p.clamp(0.0, 1.0),
+                            minHeight: 8,
+                            backgroundColor: _bg,
+                            color: p >= 1 ? Colors.green : _teal,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 34,
+                        child: Text(
+                          "$pct%",
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: _text,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 52,
+                        child: Text(
+                          d == null || d == 0 ? '' : "${d > 0 ? '+' : ''}$d%p",
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: (d ?? 0) > 0
+                                ? const Color(0xFF1B9E5A)
+                                : const Color(0xFFE5484D),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
   // 현재 보이는 프로젝트들에서 주간 보고에서 뺀 미해결 이슈(원본 참조).
   List<({Map<String, dynamic> log, Map punch})> get _excludedIssues => [
@@ -498,6 +627,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               children: [
+                _overviewCard(),
                 Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(

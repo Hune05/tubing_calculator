@@ -126,6 +126,13 @@ double projectProgress(Map<String, dynamic> log) {
   return sum / phases.length;
 }
 
+// 아직 해결 안 된 이슈 수(주간 보고 제외 여부와 무관).
+int openIssueCount(Map<String, dynamic> log) =>
+    (log['punch_lists'] as List? ?? [])
+        .whereType<Map>()
+        .where((p) => p['is_completed'] != true)
+        .length;
+
 // 이슈를 주간 업무 보고에서 뺐는지. 이슈 상세 스위치, 주간 보고 밀어서 제외,
 // 이슈 목록 일괄 설정이 모두 이 두 함수만 거쳐 같은 값을 읽고 쓴다.
 bool issueWeeklyExcluded(Map p) => p['weeklyExclude'] == true;

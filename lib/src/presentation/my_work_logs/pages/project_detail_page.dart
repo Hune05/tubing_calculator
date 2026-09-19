@@ -336,6 +336,39 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         Center(
           child: TextButton.icon(
             onPressed: () async {
+              // 완료로 바꾸려는데 미해결 이슈가 남아 있으면 한 번 더 확인한다.
+              if (_isActive) {
+                final open = openIssueCount(log);
+                if (open > 0) {
+                  final go = await showDialog<String>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text("미해결 이슈가 남아 있어요"),
+                      content: Text("이슈 $open건이 아직 해결되지 않았어요. 그래도 완료 처리할까요?"),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, 'cancel'),
+                          child: const Text("취소"),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, 'issues'),
+                          child: const Text("이슈 보기"),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, 'done'),
+                          child: const Text("그래도 완료"),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (!mounted) return;
+                  if (go == 'issues') {
+                    _tab.animateTo(2); // 이슈 탭
+                    return;
+                  }
+                  if (go != 'done') return;
+                }
+              }
               widget.actions.toggleStatus();
               setState(() {});
               if (!_isActive) {
@@ -2694,6 +2727,65 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     _changed();
   }
 
+  // 이 프로젝트만 다른 시각에 일보 알림을 받고 싶을 때(기본 시각은 ⋮ 메뉴의 알림 설정).
+  Future<void> _editProjectReminder() async {
+    final cur = (log['reportReminderMinutes'] as num?)?.toInt();
+    final base = (await loadReportReminder()).minutes;
+    String hm(int m) =>
+        "${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}";
+    if (!mounted) return;
+    final pick = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("이 프로젝트 일보 알림 시각"),
+        content: Text(
+          cur == null
+              ? "지금은 기본 시각(${hm(base)})에 알려 줘요."
+              : "지금은 ${hm(cur)}에 알려 줘요. (기본 시각 ${hm(base)})",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'cancel'),
+            child: const Text("취소"),
+          ),
+          if (cur != null)
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'default'),
+              child: const Text("기본 시각 쓰기"),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'pick'),
+            child: const Text("시각 고르기"),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || pick == null || pick == 'cancel') return;
+    if (pick == 'default') {
+      log.remove('reportReminderMinutes');
+    } else {
+      final t = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay(
+          hour: (cur ?? base) ~/ 60,
+          minute: (cur ?? base) % 60,
+        ),
+      );
+      if (t == null || !mounted) return;
+      log['reportReminderMinutes'] = t.hour * 60 + t.minute;
+    }
+    widget.actions.save(); // 저장하면 알림도 다시 맞춘다
+    setState(() {});
+    if (mounted) {
+      final m = (log['reportReminderMinutes'] as num?)?.toInt();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(m == null ? "기본 시각으로 알려 드릴게요." : "${hm(m)}에 알려 드릴게요."),
+        ),
+      );
+    }
+  }
+
   // 프로젝트를 완료 처리하면 마무리 보고서(PDF, 사진 포함)를 바로 만들지 묻는다.
   Future<void> _offerFinalReport() async {
     final make = await showDialog<bool>(
@@ -3157,10 +3249,12 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
               if (v == 'optimize') _optimizePhotos();
               if (v == 'summary') _shareSummaryImage();
               if (v == 'header') _editReportHeader();
+              if (v == 'reminder') _editProjectReminder();
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'summary', child: Text("현황 요약 이미지 공유")),
               PopupMenuItem(value: 'header', child: Text("이 프로젝트 보고서 머리말")),
+              PopupMenuItem(value: 'reminder', child: Text("이 프로젝트 일보 알림 시각")),
               PopupMenuItem(value: 'optimize', child: Text("사진 용량 정리")),
             ],
           ),

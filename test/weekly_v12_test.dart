@@ -146,11 +146,16 @@ void main() {
     final d = buildWeeklyPlanDoc(logs);
     final sum = d.sections.first;
     expect(sum.heading.startsWith('금주 요약'), true);
-    final line = sum.lines.firstWhere((l) => l.contains('금주 완료 프로젝트'));
-    expect(line.contains('완료B(${now.month}/${now.day})'), true);
-    expect(line.contains('예전완료C'), false);
-    expect(line.contains('완료날짜없음D'), false);
-    expect(line.contains('진행중A'), false);
+    final dones = sum.lines.where((l) => l.contains('금주 완료 ·')).toList();
+    expect(dones.length, 1); // 이번 주에 완료한 것만, 프로젝트마다 한 줄
+    expect(dones.single.contains('완료B (${now.month}/${now.day})'), true);
+    final all = sum.lines.join(' | ');
+    expect(all.contains('예전완료C'), false);
+    expect(all.contains('완료날짜없음D'), false);
+    expect(all.contains('진행중A'), false);
+    // 눌러서 이동할 수 있게 그 줄이 프로젝트 원본을 가리킨다.
+    final idx = sum.lines.indexOf(dones.single);
+    expect(identical(sum.projectRefs![idx], logs[1]), true);
     // 진행중 프로젝트 하나만 골라 볼 때는 완료 안내가 붙지 않는다.
     final one = buildWeeklyPlanDoc(logs, onlyIds: {'진행중A'});
     expect(one.sections.first.lines.any((l) => l.contains('금주 완료')), false);
@@ -158,7 +163,7 @@ void main() {
     final none = buildWeeklyPlanDoc([proj('진행중A')]);
     expect(none.sections.first.lines.any((l) => l.contains('금주 완료')), false);
     // 카톡 텍스트에도 들어간다.
-    expect(d.toText().contains('금주 완료 프로젝트: 완료B'), true);
+    expect(d.toText().contains('금주 완료 · 완료B'), true);
     // 지난 주 기준일로 보면 그 주에 완료한 것이 잡힌다.
     final past = buildWeeklyPlanDoc(logs, asOf: long);
     expect(past.sections.first.lines.any((l) => l.contains('예전완료C')), true);
@@ -170,7 +175,7 @@ void main() {
       proj('완료B', status: 'DONE', completedAt: now),
     ]);
     expect(
-      d.sections.first.lines.any((l) => l.contains('금주 완료 프로젝트: 완료B')),
+      d.sections.first.lines.any((l) => l.contains('금주 완료 · 완료B')),
       true,
     );
   });

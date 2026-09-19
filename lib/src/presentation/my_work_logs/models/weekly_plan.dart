@@ -336,30 +336,31 @@ ReportDoc buildWeeklyPlanDoc(
     sections.addAll(combined);
   }
   // 이번 주에 완료 처리한 프로젝트(전체 보기일 때만): 진행중 목록에서는 빠지므로 따로 알린다.
+  // 프로젝트마다 한 줄씩 두고, 화면에서는 눌러서 그 프로젝트로 갈 수 있게 참조를 함께 넘긴다.
+  final summaryLines = _summaryLines(targets, weeks[1]);
   final doneLines = <String>[];
+  final doneRefs = <int, Map<String, dynamic>>{};
   if (onlyIds == null) {
-    final doneNow = <(DateTime, String)>[];
+    final doneNow = <(DateTime, Map<String, dynamic>)>[];
     for (final l in logs) {
       if (l['status'] != 'DONE' || l['completedAt'] == null) continue;
       final d = asDate(l['completedAt']);
-      if (weeks[1].contains(d)) {
-        doneNow.add((
-          dayOnly(d),
-          '${l['name'] ?? '프로젝트'}(${d.month}/${d.day})',
-        ));
-      }
+      if (weeks[1].contains(d)) doneNow.add((d, l));
     }
     doneNow.sort((a, b) => a.$1.compareTo(b.$1));
-    if (doneNow.isNotEmpty) {
-      doneLines.add('  ✓ 금주 완료 프로젝트: ${doneNow.map((e) => e.$2).join(', ')}');
+    for (final e in doneNow) {
+      doneRefs[summaryLines.length + doneLines.length] = e.$2;
+      doneLines.add(
+        '  ✓ 금주 완료 · ${e.$2['name'] ?? '프로젝트'} (${e.$1.month}/${e.$1.day})',
+      );
     }
   }
   sections.insert(
     0,
     ReportSection('금주 요약 (${weeks[1].range})', [
-      ..._summaryLines(targets, weeks[1]),
+      ...summaryLines,
       ...doneLines,
-    ]),
+    ], projectRefs: doneRefs.isEmpty ? null : doneRefs),
   );
   if (memo.isNotEmpty) {
     sections.add(ReportSection('최근 일보의 다음 계획 메모', memo));
