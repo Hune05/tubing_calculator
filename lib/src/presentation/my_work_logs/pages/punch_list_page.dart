@@ -225,9 +225,13 @@ class _PunchListPageState extends State<PunchListPage> {
     bool isWarning = false,
   }) {
     bool isSelected = label == currentValue;
-    Color activeColor = isWarning && label == '긴급'
-        ? warningRed
-        : (isWarning ? tossText : Colors.orange.shade600);
+    // 앱 전체와 같은 틸 톤으로 통일: 우선순위만 긴급=빨강, 보통=호박색, 여유=회색.
+    Color activeColor = const Color(0xFF007580);
+    if (isWarning) {
+      activeColor = label == '긴급'
+          ? warningRed
+          : (label == '여유' ? const Color(0xFF8B95A1) : const Color(0xFFC77700));
+    }
 
     return GestureDetector(
       onTap: () => onSelect(label),
