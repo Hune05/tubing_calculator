@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart'; // 🚀 HapticFeedback을 위해 추가
 import '../../../core/utils/image_picker_helper.dart';
@@ -207,11 +208,27 @@ class _DailyReportPageState extends State<DailyReportPage> {
   static const _kFavKey = 'fav_materials_v1';
   List<String> _favMaterials = [];
 
+  // 즐겨찾기는 Firestore(my_project_settings/fav_materials)와 이 기기 양쪽에 둔다.
+  DocumentReference<Map<String, dynamic>> get _favDoc => FirebaseFirestore
+      .instance
+      .collection('my_project_settings')
+      .doc('fav_materials');
+
   Future<void> _loadFavs() async {
     try {
       final p = await SharedPreferences.getInstance();
-      final l = p.getStringList(_kFavKey) ?? [];
-      if (mounted) setState(() => _favMaterials = l);
+      final local = p.getStringList(_kFavKey) ?? [];
+      if (mounted) setState(() => _favMaterials = local);
+      final snap = await _favDoc.get().timeout(const Duration(seconds: 6));
+      final cloud = ((snap.data()?['items'] as List?) ?? [])
+          .map((e) => e.toString())
+          .toList();
+      final merged = [...cloud, ...local.where((e) => !cloud.contains(e))];
+      if (mounted) setState(() => _favMaterials = merged);
+      await p.setStringList(_kFavKey, merged);
+      if (merged.length != cloud.length) {
+        await _favDoc.set({'items': merged});
+      }
     } catch (_) {}
   }
 
@@ -219,6 +236,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
     try {
       final p = await SharedPreferences.getInstance();
       await p.setStringList(_kFavKey, _favMaterials);
+      await _favDoc.set({'items': _favMaterials});
     } catch (_) {}
   }
 

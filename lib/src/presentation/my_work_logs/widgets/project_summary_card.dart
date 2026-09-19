@@ -162,6 +162,12 @@ class ProjectSummaryCard extends StatelessWidget {
                         children: [
                           if (cur != null)
                             _chip(Icons.flag_rounded, "${cur['name']}", color),
+                          if ((log['workType']?.toString() ?? '').isNotEmpty)
+                            _chip(
+                              Icons.category_outlined,
+                              log['workType'].toString(),
+                              _tossSub,
+                            ),
                           if (isActive && delayedPhase(log) != null)
                             _chip(
                               Icons.warning_amber_rounded,

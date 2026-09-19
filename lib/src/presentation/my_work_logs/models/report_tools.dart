@@ -266,7 +266,8 @@ class SearchHit {
   final String kind; // 일보 | 이슈
   final String title;
   final String snippet;
-  SearchHit(this.log, this.kind, this.title, this.snippet);
+  final Map item; // 원본 일보/이슈 Map(바로 열기용)
+  SearchHit(this.log, this.kind, this.title, this.snippet, this.item);
 }
 
 String _snippet(String text, String q) {
@@ -297,7 +298,7 @@ List<SearchHit> searchProjects(List<Map<String, dynamic>> logs, String query) {
       for (final f in fields) {
         if (f.toLowerCase().contains(q)) {
           hits.add(
-            SearchHit(log, '일보', '$name · ${r['date']}', _snippet(f, q)),
+            SearchHit(log, '일보', '$name · ${r['date']}', _snippet(f, q), r),
           );
           break;
         }
@@ -315,6 +316,7 @@ List<SearchHit> searchProjects(List<Map<String, dynamic>> logs, String query) {
             '이슈',
             '$name · ${p['location'] ?? ''}',
             _snippet(p['content']?.toString() ?? f, q),
+            p,
           ),
         );
       }

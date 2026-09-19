@@ -239,6 +239,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
       children: [
+        _buildTypeRow(),
         Row(
           children: [
             Expanded(
@@ -1297,6 +1298,98 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         SnackBar(content: Text("'$name' 템플릿을 저장했어요. 단계 만들기에서 불러올 수 있습니다.")),
       );
     }
+  }
+
+  // ───────────────────────── 공사 유형 ─────────────────────────
+  Widget _buildTypeRow() {
+    final t = log['workType']?.toString() ?? '';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: ActionChip(
+          avatar: const Icon(
+            Icons.category_outlined,
+            size: 16,
+            color: tossBlue,
+          ),
+          label: Text(t.isEmpty ? "공사 유형 지정" : "공사 유형: $t"),
+          backgroundColor: pureWhite,
+          side: BorderSide.none,
+          labelStyle: const TextStyle(
+            color: tossBlue,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+          ),
+          onPressed: _pickType,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickType() async {
+    final ctrl = TextEditingController();
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          20 + MediaQuery.of(ctx).viewInsets.bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "공사 유형",
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final t in kProjectTypes)
+                  ActionChip(
+                    label: Text(t),
+                    onPressed: () => Navigator.pop(ctx, t),
+                  ),
+                ActionChip(
+                  label: const Text("지정 안 함"),
+                  onPressed: () => Navigator.pop(ctx, ''),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: ctrl,
+              decoration: InputDecoration(
+                hintText: "직접 입력 (예: 반도체 라인 이설)",
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.check_rounded),
+                  onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+                ),
+              ),
+              onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null) return;
+    if (picked.isEmpty) {
+      log.remove('workType');
+    } else {
+      log['workType'] = picked;
+    }
+    _changed();
   }
 
   // ───────────────────────── 완료 회고 ─────────────────────────

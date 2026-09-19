@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 
 // 🚀 [일보 사진 클라우드 보관] 예전엔 일보 사진이 폰 안의 파일 경로로만 저장돼서,
@@ -72,6 +74,32 @@ class PhotoImage extends StatelessWidget {
 ImageProvider photoProvider(String path) =>
     isRemotePhoto(path) ? NetworkImage(path) : FileImage(File(path));
 
+// 업로드 전 긴 변 1600px, 품질 75로 줄인다(현장 사진 수 MB → 수백 KB). 도면/스케치
+// 같은 PNG는 형식을 유지한다. 실패하면 원본을 그대로 올린다.
+Future<File> _compressed(File src) async {
+  try {
+    final lower = src.path.toLowerCase();
+    final isPng = lower.endsWith('.png');
+    final dir = await getTemporaryDirectory();
+    final target =
+        '${dir.path}/up_${DateTime.now().microsecondsSinceEpoch}${isPng ? '.png' : '.jpg'}';
+    final out = await FlutterImageCompress.compressAndGetFile(
+      src.path,
+      target,
+      quality: 75,
+      minWidth: 1600,
+      minHeight: 1600,
+      format: isPng ? CompressFormat.png : CompressFormat.jpeg,
+    );
+    if (out == null) return src;
+    final f = File(out.path);
+    return (await f.length()) < (await src.length()) ? f : src;
+  } catch (e) {
+    debugPrint('사진 압축 실패(원본 업로드): $e');
+    return src;
+  }
+}
+
 // 로컬 경로 사진을 올리고 URL을 돌려준다. 실패하면 null(로컬 경로 유지).
 Future<String?> uploadPhoto(String projectId, String localPath) async {
   try {
@@ -84,7 +112,7 @@ Future<String?> uploadPhoto(String projectId, String localPath) async {
         .child('project_photos')
         .child(projectId)
         .child(name);
-    await ref.putFile(file);
+    await ref.putFile(await _compressed(file));
     return await ref.getDownloadURL();
   } catch (e) {
     debugPrint('사진 업로드 실패: $e');

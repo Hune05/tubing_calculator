@@ -29,6 +29,10 @@ Color colorForProject(String projectId) {
 //
 // phase: { id, name, startDate, endDate, isCompleted }  (순서 = 리스트 순서)
 
+// 공사 유형(프로젝트 태그): 회고/통계를 유형별로 묶어 보기 위한 분류.
+// 목록에 없는 유형은 직접 입력할 수 있다.
+const List<String> kProjectTypes = ['배관 신설', '튜빙 시공', '계장/결선', '보수·개조', '기타'];
+
 const List<String> kStandardPhaseNames = [
   '설계',
   '자재 입고',

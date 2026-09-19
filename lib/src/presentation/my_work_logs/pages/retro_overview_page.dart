@@ -32,6 +32,16 @@ class RetroOverviewPage extends StatelessWidget {
     return end.difference(dates.first).inDays + 1;
   }
 
+  static String _typeLine(List<Map<String, dynamic>> ls) {
+    final plans = ls.map(_planned).whereType<int>().toList();
+    final actuals = ls.map(_actual).whereType<int>().toList();
+    final man = ls.map(_manDays).toList();
+    String avg(List<num> v) => v.isEmpty
+        ? '-'
+        : (v.reduce((a, b) => a + b) / v.length).round().toString();
+    return "계획 ${avg(plans)}일 → 실제 ${avg(actuals)}일 · 투입 ${avg(man)}인·일";
+  }
+
   static int _manDays(Map<String, dynamic> log) =>
       (log['daily_reports'] as List? ?? []).whereType<Map>().fold<int>(
         0,
@@ -52,6 +62,15 @@ class RetroOverviewPage extends StatelessWidget {
     final avgActual = withBoth.isEmpty
         ? null
         : withBoth.fold<int>(0, (a, l) => a + _actual(l)!) / withBoth.length;
+
+    // 공사 유형별 묶음
+    final Map<String, List<Map<String, dynamic>>> byType = {};
+    for (final l in done) {
+      final t = (l['workType']?.toString() ?? '').isEmpty
+          ? '미분류'
+          : l['workType'].toString();
+      byType.putIfAbsent(t, () => []).add(l);
+    }
 
     // 단계 이름별 평균(작업일 / 인원-일 / 계획일)
     final Map<String, List<(int, int, int)>> byPhase = {};
@@ -137,6 +156,36 @@ class RetroOverviewPage extends StatelessWidget {
                       style: TextStyle(color: _sub, fontSize: 13),
                     ),
                 ]),
+                if (byType.isNotEmpty)
+                  card([
+                    h("공사 유형별 평균"),
+                    for (final e in byType.entries)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 5),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "${e.key}  (${e.value.length}건)",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: _text,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _typeLine(e.value),
+                              style: const TextStyle(
+                                color: _teal,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ]),
                 if (byPhase.isNotEmpty)
                   card([
                     h("단계별 평균 (일보 기준)"),

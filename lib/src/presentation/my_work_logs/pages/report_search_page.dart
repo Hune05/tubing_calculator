@@ -10,7 +10,7 @@ import 'daily_report_page.dart'
 // 내용에서 단어를 찾는다. 결과를 누르면 그 프로젝트의 일지(또는 이슈) 탭이 열린다.
 class ReportSearchPage extends StatefulWidget {
   final List<Map<String, dynamic>> logs;
-  final void Function(Map<String, dynamic> log, int tab) onOpen;
+  final void Function(SearchHit hit) onOpen;
 
   const ReportSearchPage({super.key, required this.logs, required this.onOpen});
 
@@ -71,7 +71,7 @@ class _ReportSearchPageState extends State<ReportSearchPage> {
                   borderRadius: BorderRadius.circular(14),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(14),
-                    onTap: () => widget.onOpen(h.log, h.kind == '이슈' ? 2 : 3),
+                    onTap: () => widget.onOpen(h),
                     child: Padding(
                       padding: const EdgeInsets.all(14),
                       child: Column(

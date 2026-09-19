@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/project_phase.dart' show kProjectTypes;
 
 const Color tossBlue = Color(0xFF007580); // 🚀 마키타 틸로 통일
 const Color tossText = Color(0xFF191F28);
@@ -25,6 +26,7 @@ class CreateLogSheet extends StatefulWidget {
 class _CreateLogSheetState extends State<CreateLogSheet> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _revController = TextEditingController();
+  String? _workType;
 
   void _submit() {
     final name = _nameController.text.trim();
@@ -39,6 +41,7 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
       "revision": _revController.text.trim().isEmpty
           ? "기준 도면 미상"
           : _revController.text.trim(),
+      if (_workType != null) "workType": _workType,
       "status": "ONGOING",
       "progress": 0.0,
       "isDeducted": false,
@@ -145,6 +148,25 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
                   borderSide: BorderSide.none,
                 ),
               ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "공사 유형 (선택)",
+              style: TextStyle(color: tossSubText, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final t in kProjectTypes)
+                  ChoiceChip(
+                    label: Text(t),
+                    selected: _workType == t,
+                    showCheckmark: false,
+                    onSelected: (v) => setState(() => _workType = v ? t : null),
+                  ),
+              ],
             ),
             const SizedBox(height: 32),
 

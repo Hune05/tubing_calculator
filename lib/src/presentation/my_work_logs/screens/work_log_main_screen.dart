@@ -167,9 +167,14 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       MaterialPageRoute(
         builder: (ctx) => ReportSearchPage(
           logs: _workLogs,
-          onOpen: (log, tab) {
+          onOpen: (hit) async {
             Navigator.pop(ctx);
-            _openDetail(log, tab: tab);
+            if (hit.kind == '이슈') {
+              await _openPunchDetail(hit.log, hit.item as Map<String, dynamic>);
+            } else {
+              await _openReportFor(hit.log, hit.item as Map<String, dynamic>);
+            }
+            if (mounted) setState(() {});
           },
         ),
       ),
