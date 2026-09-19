@@ -163,17 +163,23 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
 
   Widget _lineWidget(ReportSection s, int i) {
     final l = s.lines[i];
-    if (widget.onOpenIssue != null && s.issueRefs?[i] != null) {
+    // 이슈 줄: 눌러서 상세로 가는 기능(onOpenIssue)과 밀어서 제외하는 기능
+    // (onIssueChanged)은 서로 독립이다. 알림으로 연 화면은 후자만 가진다.
+    if (s.issueRefs?[i] != null &&
+        (widget.onOpenIssue != null || widget.onIssueChanged != null)) {
       final ref = s.issueRefs![i]!;
+      final canOpen = widget.onOpenIssue != null;
       final row = InkWell(
-        onTap: () async {
-          await widget.onOpenIssue!(
-            s.issueRefs![i]!.log,
-            s.issueRefs![i]!.punch,
-          );
-          // 이슈를 고치고 돌아왔을 수 있으니 다시 계산한다.
-          if (mounted) setState(() {});
-        },
+        onTap: !canOpen
+            ? null
+            : () async {
+                await widget.onOpenIssue!(
+                  s.issueRefs![i]!.log,
+                  s.issueRefs![i]!.punch,
+                );
+                // 이슈를 고치고 돌아왔을 수 있으니 다시 계산한다.
+                if (mounted) setState(() {});
+              },
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Row(
@@ -189,7 +195,8 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                   ),
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, size: 18, color: _sub),
+              if (canOpen)
+                const Icon(Icons.chevron_right_rounded, size: 18, color: _sub),
             ],
           ),
         ),

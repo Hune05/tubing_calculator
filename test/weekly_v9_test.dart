@@ -41,6 +41,7 @@ Future<void> pump(WidgetTester tester, Widget w) async {
 }
 
 void main() {
+  _swipeOnlyTest();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   test('cleanupOldPdfs removes only old top-level pdf files', () async {
@@ -149,5 +150,34 @@ void main() {
       ),
     );
     expect(find.text('제외한 이슈 1건 보기'), findsNothing);
+  });
+}
+
+// 알림으로 연 화면처럼 onOpenIssue 없이 onIssueChanged만 있어도 밀어서 제외할 수 있다.
+void _swipeOnlyTest() {
+  testWidgets('swipe works with only onIssueChanged (notification path)', (
+    tester,
+  ) async {
+    final punch = <String, dynamic>{
+      'content': '알림경로',
+      'location': '3층',
+      'is_completed': false,
+    };
+    final changed = <Map<String, dynamic>>[];
+    await pump(
+      tester,
+      WeeklyReportPage(
+        logs: [
+          proj('A현장', punches: [punch]),
+        ],
+        onIssueChanged: changed.add,
+      ),
+    );
+    // 열기 기능이 없으니 이슈 줄에는 화살표가 없다(남는 하나는 기준일 줄의 것).
+    expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
+    await tester.drag(find.textContaining('알림경로'), const Offset(-800, 0));
+    await tester.pumpAndSettle();
+    expect(punch['weeklyExclude'], true);
+    expect(changed.length, 1);
   });
 }
