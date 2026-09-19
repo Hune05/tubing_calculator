@@ -19,7 +19,7 @@ Map<String, dynamic> proj(
   List<Map<String, dynamic>> phases = const [],
   DateTime? completedAt,
 }) {
-  final t = DateTime.now();
+  final t = DateTime(2026, 9, 19); // 아래 now와 같은 날(실제 오늘이 바뀌어도 흔들리지 않게)
   return {
     'id': name,
     'name': name,
