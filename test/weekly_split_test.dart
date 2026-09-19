@@ -11,7 +11,7 @@ void main() {
     expect(d.sections.length, 7); // 요약 1 + 3x2
     expect(d.sections[1].newPage, false);
     expect(d.sections[4].newPage, true);
-    expect(d.sections[4].heading.startsWith('B현장 · 지난주'), true);
+    expect(d.sections[4].heading.startsWith('B현장 · 전주'), true);
     final c = buildWeeklyPlanDoc(logs);
     expect(c.sections.length, 4);
   });

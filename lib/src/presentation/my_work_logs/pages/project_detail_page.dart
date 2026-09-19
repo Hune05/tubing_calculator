@@ -292,10 +292,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
           const SizedBox(height: 22),
         ],
         ..._buildMaterialCard(),
-        _sectionTitle("이번 주 · 지연 일정 (${upcoming.length})"),
+        _sectionTitle("금주 · 지연 일정 (${upcoming.length})"),
         const SizedBox(height: 8),
         if (upcoming.isEmpty)
-          _emptyText("이번 주에 확인할 일정이 없습니다.")
+          _emptyText("금주에 확인할 일정이 없습니다.")
         else
           ...upcoming.take(6).map(_scheduleRow),
         const SizedBox(height: 22),

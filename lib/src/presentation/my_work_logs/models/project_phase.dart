@@ -145,7 +145,7 @@ String _dayKey(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
 // 오늘의 진행률(%)을 프로젝트에 기록해 둔다(하루 한 번, 최근 70일만 보관).
-// "지난주 대비" 변화를 보여주려면 그때의 값이 남아 있어야 해서 필요하다.
+// "전주 대비" 변화를 보여주려면 그때의 값이 남아 있어야 해서 필요하다.
 // 바뀌었으면 true(저장 필요).
 bool recordProgressSnapshot(Map<String, dynamic> log, [DateTime? now]) {
   final today = dayOnly(now ?? DateTime.now());

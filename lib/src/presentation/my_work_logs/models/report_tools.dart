@@ -1114,7 +1114,7 @@ Future<void> _syncWeeklyReminder(bool on, int minutes, bool autoPdf) async {
   await flutterLocalNotificationsPlugin.zonedSchedule(
     id: _kWeeklyId,
     title: '주간 보고서',
-    body: '지난·이번·다음주 업무를 정리해 공유해보세요. 눌러서 바로 열 수 있어요.',
+    body: '전주·금주·차주 업무를 정리해 공유해보세요. 눌러서 바로 열 수 있어요.',
     payload: autoPdf ? kWeeklyReportPdfPayload : kWeeklyReportPayload,
     scheduledDate: tz.TZDateTime.from(at, tz.local),
     notificationDetails: const NotificationDetails(

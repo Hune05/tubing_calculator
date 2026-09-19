@@ -1,7 +1,7 @@
 import 'project_phase.dart';
 import 'report_tools.dart';
 
-// 🚀 [주간 업무 보고] 지난주 실적 / 이번주 진행·예정 / 다음주 계획을 프로젝트별로 묶어
+// 🚀 [주간 업무 보고] 전주 실적 / 금주 진행·예정 / 차주 계획을 프로젝트별로 묶어
 // 한 장의 보고서로 만든다. 주는 월요일~일요일 기준.
 class WeekRange {
   final String label;
@@ -26,9 +26,9 @@ List<WeekRange> weekRanges([DateTime? now]) {
   WeekRange w(String label, DateTime mon) =>
       WeekRange(label, mon, mon.add(const Duration(days: 6)));
   return [
-    w('지난주', thisMon.subtract(const Duration(days: 7))),
-    w('이번주', thisMon),
-    w('다음주', thisMon.add(const Duration(days: 7))),
+    w('전주', thisMon.subtract(const Duration(days: 7))),
+    w('금주', thisMon),
+    w('차주', thisMon.add(const Duration(days: 7))),
   ];
 }
 
@@ -39,7 +39,7 @@ String _firstLine(String s) {
   return t.length > 60 ? '${t.substring(0, 60)}…' : t;
 }
 
-// 한 프로젝트의 한 주 실적(일보 기반). 이번주는 오늘까지 쓴 것만 잡힌다.
+// 한 프로젝트의 한 주 실적(일보 기반). 금주는 오늘까지 쓴 것만 잡힌다.
 List<String> _actualLines(Map<String, dynamic> log, WeekRange w) {
   final lines = <String>[];
   final reports = (log['daily_reports'] as List? ?? []).whereType<Map>().where((
@@ -109,16 +109,16 @@ List<String> _plannedLines(Map<String, dynamic> log, WeekRange w) {
     }
     final st = dayOnly(asDate(s['dateTime']));
     final en = s['endDate'] != null ? dayOnly(asDate(s['endDate'])) : st;
-    // 이미 지난 미완료 일정은 "이번주"에 지연으로 함께 올린다.
+    // 이미 지난 미완료 일정은 "금주"에 지연으로 함께 올린다.
     final late =
         st.isBefore(w.start) && w.contains(today) && en.isBefore(today);
-    // 지난주에 끝났어야 하는 일정이면 "이월", 그보다 더 오래됐으면 "지연".
+    // 전주에 끝났어야 하는 일정이면 "이월", 그보다 더 오래됐으면 "지연".
     final carried = late && !en.isBefore(weekRanges(today)[0].start);
     if (w.overlaps(st, en) || late) {
       items.add((
         st,
         '  · ${_md(st)}${en != st ? '~${_md(en)}' : ''} $title'
-            '${late ? (carried ? ' (지난주 이월)' : ' (지연)') : ''}',
+            '${late ? (carried ? ' (전주 이월)' : ' (지연)') : ''}',
       ));
     }
   }
@@ -131,7 +131,7 @@ List<String> _plannedLines(Map<String, dynamic> log, WeekRange w) {
     lines.add('  · 입고일 미정 자재 $undatedMaterial건 확인 필요');
   }
 
-  // 단계: 이번/다음주와 겹치는 미완료 단계
+  // 단계: 이번/차주와 겹치는 미완료 단계
   for (final p in phasesOf(log)) {
     if (phaseIsDone(log, p)) continue;
     final s = phaseStart(p), e = phaseEnd(p);
@@ -153,7 +153,7 @@ String _openIssueText(Map<String, dynamic> log) {
   return ' · 미해결 이슈 $open건${od > 0 ? '(기한 초과 $od)' : ''}';
 }
 
-// 이번주 한눈에 보는 요약: 작업일수·투입, 완료한 일정, 이슈 신규/처리.
+// 금주 한눈에 보는 요약: 작업일수·투입, 완료한 일정, 이슈 신규/처리.
 List<String> _summaryLines(List<Map<String, dynamic>> logs, WeekRange w) {
   int days = 0, manDays = 0, doneSchedules = 0, created = 0, resolved = 0;
   for (final log in logs) {
@@ -205,8 +205,8 @@ List<String> _sectionLines(
           '${d == null
               ? ''
               : d == 0
-              ? ' (지난주와 동일)'
-              : ' (지난주 대비 ${d > 0 ? '+' : ''}$d%p)'}';
+              ? ' (전주와 동일)'
+              : ' (전주 대비 ${d > 0 ? '+' : ''}$d%p)'}';
     }
     final block = <String>[
       if (prog != null) prog,
@@ -236,7 +236,7 @@ ReportDoc buildWeeklyPlanDoc(
       )
       .toList();
 
-  // 다음 계획 메모: 가장 최근 일보의 "내일 계획"(이번주 것만)
+  // 다음 계획 메모: 가장 최근 일보의 "내일 계획"(금주 것만)
   final memo = <String>[];
   for (final log in targets) {
     final rs = (log['daily_reports'] as List? ?? []).whereType<Map>().toList()
@@ -278,7 +278,7 @@ ReportDoc buildWeeklyPlanDoc(
     ),
   ];
 
-  // 프로젝트별로 나눠 보기: 프로젝트마다 지난주/이번주/다음주 세 칸, PDF는 새 페이지로 시작.
+  // 프로젝트별로 나눠 보기: 프로젝트마다 전주/금주/차주 세 칸, PDF는 새 페이지로 시작.
   final sections = <ReportSection>[];
   if (perProject && targets.length > 1) {
     const parts = [
@@ -313,7 +313,7 @@ ReportDoc buildWeeklyPlanDoc(
   sections.insert(
     0,
     ReportSection(
-      '이번주 요약 (${weeks[1].range})',
+      '금주 요약 (${weeks[1].range})',
       _summaryLines(targets, weeks[1]),
     ),
   );
@@ -356,7 +356,7 @@ ReportDoc buildWeeklyPlanDoc(
     sections.add(ReportSection('미해결 이슈 현황', issueLines));
   }
 
-  // 사진: 지난주·이번주 일보에 붙은 사진 중 최근 12장.
+  // 사진: 전주·금주 일보에 붙은 사진 중 최근 12장.
   final photos = <(int, DateTime, ReportPhoto)>[];
   if (includePhotos) {
     for (var ti = 0; ti < targets.length; ti++) {

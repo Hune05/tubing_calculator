@@ -24,7 +24,7 @@ Future<void> openWeeklyReportFromNotification(
   } catch (_) {}
 }
 
-// 🚀 [주간 업무 보고] 지난주 실적 · 이번주 진행/예정 · 다음주 계획을 한 번에 정리해
+// 🚀 [주간 업무 보고] 전주 실적 · 금주 진행/예정 · 차주 계획을 한 번에 정리해
 // 미리 보고, 텍스트(카톡)나 PDF로 공유한다.
 class WeeklyReportPage extends StatefulWidget {
   final List<Map<String, dynamic>> logs;
@@ -146,8 +146,8 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                     ),
                     subtitle: Text(
                       _photos
-                          ? "지난주·이번주 일보 사진 ${doc.photos.length}장(최근 12장까지)"
-                          : "지난주·이번주 일보에 붙인 사진",
+                          ? "전주·금주 일보 사진 ${doc.photos.length}장(최근 12장까지)"
+                          : "전주·금주 일보에 붙인 사진",
                       style: const TextStyle(fontSize: 12, color: _sub),
                     ),
                     value: _photos,

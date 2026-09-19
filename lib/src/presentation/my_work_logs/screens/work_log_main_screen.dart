@@ -1100,7 +1100,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     "프로젝트를 만들고 '단계·일정' 탭에서 표준 단계로 시작하세요. 기간에 맞춰 자동으로 나눠 줘요.",
     "매일 '일지 작성'에 작업 내용·사진·처리한 이슈를 남기면 진행률과 통계에 쌓여요.",
     "자재는 입고일이 미정이어도 먼저 등록하고, 날짜가 정해지면 채우세요. 지연되면 알려줘요.",
-    "금요일엔 '주간 보고'로 지난주·이번주·다음주 업무를 한 번에 공유하세요.",
+    "금요일엔 '주간 보고'로 전주·금주·차주 업무를 한 번에 공유하세요.",
     "⋮ 메뉴에서 보고서 양식, 백업, 저장 공간 관리를 할 수 있어요.",
   ];
 
@@ -1223,7 +1223,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 10),
             ),
             child: const Text(
-              "지난·이번·다음주",
+              "전주·금주·차주",
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
