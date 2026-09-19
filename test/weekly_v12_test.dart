@@ -90,7 +90,7 @@ void main() {
       // 끄면 "뺐어요" 안내가 뜨고 스위치가 꺼진다.
       await tester.tap(sw);
       await tester.pumpAndSettle();
-      expect(find.text('주간 보고에서 뺐어요.'), findsOneWidget);
+      expect(find.text('주간 보고에서 뺐습니다.'), findsOneWidget);
       expect(tester.widget<SwitchListTile>(sw).value, false);
 
       // 되돌리기 → 다시 켜진 상태로 돌아간다.
@@ -103,7 +103,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(sw); // 켬
       await tester.pumpAndSettle();
-      expect(find.text('주간 보고에 포함했어요.'), findsOneWidget);
+      expect(find.text('주간 보고에 포함했습니다.'), findsOneWidget);
       await tester.tap(find.text('되돌리기')); // 켠 것을 되돌리면 다시 꺼짐
       await tester.pumpAndSettle();
       expect(tester.widget<SwitchListTile>(sw).value, false);

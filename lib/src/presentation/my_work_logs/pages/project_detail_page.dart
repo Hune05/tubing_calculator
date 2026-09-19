@@ -343,8 +343,8 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                   final go = await showDialog<String>(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      title: const Text("미해결 이슈가 남아 있어요"),
-                      content: Text("이슈 $open건이 아직 해결되지 않았어요. 그래도 완료 처리할까요?"),
+                      title: const Text("미해결 이슈가 남아 있습니다"),
+                      content: Text("이슈 $open건이 아직 해결되지 않았습니다. 그래도 완료 처리하시겠습니까?"),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx, 'cancel'),
@@ -376,7 +376,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: const Text("프로젝트를 완료 처리했어요."),
+                    content: const Text("프로젝트를 완료 처리했습니다."),
                     action: SnackBarAction(
                       label: "회고 작성",
                       onPressed: _editRetro,
@@ -444,7 +444,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("프로젝트 삭제"),
-        content: const Text("일정·일지·이슈가 모두 함께 삭제됩니다. 계속할까요?"),
+        content: const Text("일정·일지·이슈가 모두 함께 삭제됩니다. 계속하시겠습니까?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -1540,7 +1540,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  "발주처마다 다른 머리말·로고가 필요할 때 적어요. 비워 두면 기본 보고서 양식을 써요.",
+                  "발주처마다 다른 머리말·로고가 필요할 때 적습니다. 비워 두면 기본 보고서 양식을 사용합니다.",
                   style: TextStyle(fontSize: 12, color: tossSubText),
                 ),
                 TextField(
@@ -1719,12 +1719,12 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
           }
         }
         message =
-            "${res.count}장을 줄였어요. 약 ${(res.savedBytes / 1024 / 1024).toStringAsFixed(1)}MB 절약";
+            "${res.count}장을 줄였습니다. 약 ${(res.savedBytes / 1024 / 1024).toStringAsFixed(1)}MB 절약했습니다.";
       } else {
-        message = "줄일 만한 큰 사진이 없어요.";
+        message = "줄일 만한 큰 사진이 없습니다.";
       }
     } catch (e) {
-      message = "정리 중 오류가 났어요: $e";
+      message = "정리 중 오류가 발생했습니다: $e";
     }
     if (mounted) {
       Navigator.of(context, rootNavigator: true).pop();
@@ -1749,7 +1749,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     final ok = await launchUrl(Uri(scheme: sms ? 'sms' : 'tel', path: n));
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(sms ? "문자 앱을 열 수 없어요." : "전화 앱을 열 수 없어요.")),
+        SnackBar(content: Text(sms ? "문자 앱을 열 수 없습니다." : "전화 앱을 열 수 없습니다.")),
       );
     }
   }
@@ -2701,7 +2701,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     if (targets.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text("확정할 일보가 없어요.")));
+      ).showSnackBar(const SnackBar(content: Text("확정할 일보가 없습니다.")));
       return;
     }
     final ok = await showDialog<bool>(
@@ -2743,9 +2743,9 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("남은 이슈를 모두 처리 완료할까요?"),
+        title: const Text("남은 이슈를 모두 처리 완료하시겠습니까?"),
         content: Text(
-          "미해결 이슈 $n건을 '처리 완료'로 바꿔요. 처리 내용에는 '프로젝트 완료 시 일괄 처리'라고 남아요.",
+          "미해결 이슈 $n건을 '처리 완료'로 바꿉니다. 처리 내용에는 '프로젝트 완료 시 일괄 처리'라고 남습니다.",
         ),
         actions: [
           TextButton(
@@ -2765,7 +2765,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     setState(() {});
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text("이슈 $done건을 처리 완료로 바꿨어요.")));
+    ).showSnackBar(SnackBar(content: Text("이슈 $done건을 처리 완료로 바꿨습니다.")));
   }
 
   Future<void> _editProjectReminder() async {
@@ -2780,8 +2780,8 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         title: const Text("이 프로젝트 일보 알림 시각"),
         content: Text(
           cur == null
-              ? "지금은 기본 시각(${hm(base)})에 알려 줘요."
-              : "지금은 ${hm(cur)}에 알려 줘요. (기본 시각 ${hm(base)})",
+              ? "지금은 기본 시각(${hm(base)})에 알림을 보냅니다."
+              : "지금은 ${hm(cur)}에 알림을 보냅니다. (기본 시각 ${hm(base)})",
         ),
         actions: [
           TextButton(
@@ -2820,7 +2820,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       final m = (log['reportReminderMinutes'] as num?)?.toInt();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(m == null ? "기본 시각으로 알려 드릴게요." : "${hm(m)}에 알려 드릴게요."),
+          content: Text(m == null ? "기본 시각으로 알림을 보내겠습니다." : "${hm(m)}에 알림을 보내겠습니다."),
         ),
       );
     }
@@ -2831,8 +2831,8 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     final make = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("마무리 보고서를 만들까요?"),
-        content: const Text("착수부터 지금까지의 전체 기록을 사진 포함 PDF로 만들어 공유할 수 있어요."),
+        title: const Text("마무리 보고서를 만드시겠습니까?"),
+        content: const Text("착수부터 지금까지의 전체 기록을 사진 포함 PDF로 만들어 공유할 수 있습니다."),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),

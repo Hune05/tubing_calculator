@@ -54,7 +54,7 @@ class _VoiceInputButtonState extends State<VoiceInputButton> {
       },
     );
     if (!ok) {
-      _toast("음성 인식을 쓸 수 없어요. 마이크 권한과 구글 음성 서비스를 확인해 주세요.");
+      _toast("음성 인식을 사용할 수 없습니다. 마이크 권한과 구글 음성 서비스를 확인해 주십시오.");
       return;
     }
     _base = widget.controller.text.trimRight();

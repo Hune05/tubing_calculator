@@ -559,7 +559,7 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: const Text(
-                              "QR 코드 데이터를 해석할 수 없어요.",
+                              "QR 코드 데이터를 해석할 수 없습니다.",
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                             backgroundColor: Colors.redAccent.shade400,

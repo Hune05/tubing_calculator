@@ -137,7 +137,7 @@ class _ReportStylePageState extends State<ReportStylePage> {
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text("보고서 양식을 저장했어요.")));
+    ).showSnackBar(const SnackBar(content: Text("보고서 양식을 저장했습니다.")));
     Navigator.pop(context);
   }
 

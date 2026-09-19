@@ -145,8 +145,8 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
       builder: (ctx) => AlertDialog(
         title: const Text("백업에서 복원"),
         content: Text(
-          "프로젝트 ${prev.projects}건, 템플릿 ${prev.templates}개가 들어 있어요.$when\n\n"
-          "같은 프로젝트가 이미 있으면 백업 내용으로 덮어써요. 계속할까요?",
+          "프로젝트 ${prev.projects}건, 템플릿 ${prev.templates}개가 들어 있습니다.$when\n\n"
+          "같은 프로젝트가 이미 있으면 백업 내용으로 덮어씁니다. 계속하시겠습니까?",
         ),
         actions: [
           TextButton(
@@ -162,7 +162,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
     );
     if (go != true) return;
     final n = await restoreBackup(prev);
-    _toast("프로젝트 $n건을 복원했어요.");
+    _toast("프로젝트 $n건을 복원했습니다.");
     widget.onRestored?.call();
   }
 
@@ -186,7 +186,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
     final ok = await uploadCloudBackup(widget.logs);
     await _loadAuto();
     if (mounted) setState(() => _cloudBusy = false);
-    _toast(ok ? "클라우드에 백업했어요." : "백업에 실패했어요. 네트워크를 확인해 주세요.");
+    _toast(ok ? "클라우드에 백업했습니다." : "백업에 실패했습니다. 네트워크를 확인해 주십시오.");
   }
 
   Future<void> _restoreFromCloud() async {
@@ -196,7 +196,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
       if (!mounted) return;
       setState(() => _cloudBusy = false);
       if (list.isEmpty) {
-        _toast("클라우드에 저장된 백업이 없어요.");
+        _toast("클라우드에 저장된 백업이 없습니다.");
         return;
       }
       final pick = await showModalBottomSheet<int>(
@@ -243,10 +243,10 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("임시 PDF를 지금 정리할까요?"),
+        title: const Text("임시 PDF를 지금 정리하시겠습니까?"),
         content: const Text(
-          "공유하려고 만들어 둔 PDF 파일만 지워요. 보고서 데이터와 사진은 그대로예요. "
-          "이미 보낸 PDF는 상대방에게 그대로 남아 있어요.",
+          "공유하려고 만들어 둔 PDF 파일만 삭제합니다. 보고서 데이터와 사진은 그대로 유지됩니다. "
+          "이미 보낸 PDF는 상대방에게 그대로 남아 있습니다.",
         ),
         actions: [
           TextButton(
@@ -268,7 +268,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
       maxAge: Duration.zero,
       now: DateTime.now().add(const Duration(seconds: 1)),
     );
-    _toast(n == 0 ? "정리할 PDF가 없어요." : "PDF $n개를 정리했어요.");
+    _toast(n == 0 ? "정리할 PDF가 없습니다." : "PDF $n개를 정리했습니다.");
     await _load();
   }
 
@@ -286,7 +286,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("임시 저장 삭제"),
-        content: const Text("저장하지 않고 남아 있는 일보 임시 저장 내용이 모두 삭제돼요."),
+        content: const Text("저장하지 않고 남아 있는 일보 임시 저장 내용이 모두 삭제됩니다."),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),

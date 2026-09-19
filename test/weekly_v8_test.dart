@@ -116,7 +116,7 @@ void main() {
     expect(punch['weeklyExclude'], true);
     expect(changed.length, 1);
     expect(find.textContaining('밀어서제외'), findsNothing);
-    expect(find.text('이 이슈를 주간 보고에서 뺐어요.'), findsOneWidget);
+    expect(find.text('이 이슈를 주간 보고에서 뺐습니다.'), findsOneWidget);
 
     await tester.tap(find.text('되돌리기'));
     await tester.pumpAndSettle();

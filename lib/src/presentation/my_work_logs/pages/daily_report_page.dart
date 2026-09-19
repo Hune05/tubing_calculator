@@ -372,9 +372,9 @@ class _DailyReportPageState extends State<DailyReportPage> {
       final resume = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text("작성 중이던 일보가 있어요"),
+          title: const Text("작성 중이던 일보가 있습니다"),
           content: Text(
-            "${saved.month}/${saved.day} ${saved.hour.toString().padLeft(2, '0')}:${saved.minute.toString().padLeft(2, '0')}에 저장된 임시 내용을 이어서 쓸까요?",
+            "${saved.month}/${saved.day} ${saved.hour.toString().padLeft(2, '0')}:${saved.minute.toString().padLeft(2, '0')}에 저장된 임시 내용을 이어서 작성하시겠습니까?",
           ),
           actions: [
             TextButton(
@@ -709,7 +709,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
         _usedMaterialIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("작업 내용, 사진, 또는 처리한 이슈/일정을 하나 이상 입력해주세요."),
+          content: Text("작업 내용, 사진, 또는 처리한 이슈/일정을 하나 이상 입력해야 합니다."),
           backgroundColor: Colors.red,
         ),
       );
@@ -745,13 +745,13 @@ class _DailyReportPageState extends State<DailyReportPage> {
       final mark = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text("일정을 완료로 표시할까요?"),
+          title: const Text("일정을 완료로 표시하시겠습니까?"),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                "'오늘 끝낸 일정'으로 체크한 일정이에요. 완료로 바꾸면 진행률에 반영돼요.",
+                "'오늘 끝낸 일정'으로 체크한 일정입니다. 완료로 바꾸면 진행률에 반영됩니다.",
                 style: TextStyle(fontSize: 13, height: 1.4),
               ),
               const SizedBox(height: 10),
@@ -797,13 +797,13 @@ class _DailyReportPageState extends State<DailyReportPage> {
       final mark = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text("이슈를 처리 완료로 표시할까요?"),
+          title: const Text("이슈를 처리 완료로 표시하시겠습니까?"),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                "'오늘 처리한 이슈'로 고른 미해결 이슈예요. 처리 완료로 바꾸면 이슈 목록에서도 완료로 정리돼요.",
+                "'오늘 처리한 이슈'로 고른 미해결 이슈입니다. 처리 완료로 바꾸면 이슈 목록에서도 완료로 정리됩니다.",
                 style: TextStyle(fontSize: 13, height: 1.4),
               ),
               const SizedBox(height: 10),
@@ -1182,7 +1182,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
         if (mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text("사진은 최대 10장까지예요.")));
+          ).showSnackBar(const SnackBar(content: Text("사진은 최대 10장까지 첨부할 수 있습니다.")));
         }
         return;
       }

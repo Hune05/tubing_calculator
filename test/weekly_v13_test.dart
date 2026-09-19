@@ -200,7 +200,7 @@ void main() {
       final calls = await pumpDetail(tester, log);
       await tester.tap(find.text('프로젝트 완료 처리'));
       await tester.pumpAndSettle();
-      expect(find.text('미해결 이슈가 남아 있어요'), findsOneWidget);
+      expect(find.text('미해결 이슈가 남아 있습니다'), findsOneWidget);
       expect(find.textContaining('이슈 1건'), findsOneWidget);
       await tester.tap(find.text('취소'));
       await tester.pumpAndSettle();
@@ -254,7 +254,7 @@ void main() {
       final calls = await pumpDetail(tester, log);
       await tester.tap(find.text('프로젝트 완료 처리'));
       await tester.pump();
-      expect(find.text('미해결 이슈가 남아 있어요'), findsNothing);
+      expect(find.text('미해결 이슈가 남아 있습니다'), findsNothing);
       expect(calls, ['toggle']);
     });
   });

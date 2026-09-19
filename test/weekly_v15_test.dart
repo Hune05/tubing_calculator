@@ -172,7 +172,7 @@ void main() {
       );
       await tester.tap(btn);
       await tester.pumpAndSettle();
-      expect(find.text('남은 이슈를 모두 처리 완료할까요?'), findsOneWidget);
+      expect(find.text('남은 이슈를 모두 처리 완료하시겠습니까?'), findsOneWidget);
       await tester.tap(find.text('취소'));
       await tester.pumpAndSettle();
       expect(openIssueCount(log), 1);
@@ -184,7 +184,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(openIssueCount(log), 0);
       expect(calls, ['save']);
-      expect(find.text('이슈 1건을 처리 완료로 바꿨어요.'), findsOneWidget);
+      expect(find.text('이슈 1건을 처리 완료로 바꿨습니다.'), findsOneWidget);
       // 남은 이슈가 없으니 버튼이 사라진다.
       expect(find.text('남은 이슈 1건 모두 처리 완료'), findsNothing);
     });

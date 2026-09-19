@@ -73,7 +73,7 @@ class BackupPreview {
 BackupPreview parseBackup(String text) {
   final j = jsonDecode(text);
   if (j is! Map || j['app'] != 'tubing_calculator' || j['projects'] is! List) {
-    throw const FormatException('이 앱의 백업 파일이 아니에요.');
+    throw const FormatException('이 앱의 백업 파일이 아닙니다.');
   }
   return BackupPreview(
     (j['projects'] as List).length,
@@ -190,6 +190,6 @@ Future<List<Reference>> listCloudBackups() async {
 
 Future<String> downloadBackupText(Reference ref) async {
   final bytes = await ref.getData(50 * 1024 * 1024);
-  if (bytes == null) throw const FormatException('백업 파일을 받지 못했어요.');
+  if (bytes == null) throw const FormatException('백업 파일을 받지 못했습니다.');
   return utf8.decode(bytes);
 }

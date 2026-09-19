@@ -255,7 +255,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text("일보 작성 알림"),
-                subtitle: const Text("진행중 프로젝트가 있고 오늘 일보를 안 썼으면 알려줘요."),
+                subtitle: const Text("진행중 프로젝트가 있고 오늘 일보를 쓰지 않았으면 알려 줍니다."),
                 value: enabled,
                 onChanged: (v) => setS(() => enabled = v),
               ),
@@ -263,7 +263,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                 contentPadding: EdgeInsets.zero,
                 title: const Text("주간 보고서 알림"),
                 subtitle: Text(
-                  "매주 금요일 ${hm(weeklyMinutes)}에 주간 업무 보고를 열어 보라고 알려줘요.",
+                  "매주 금요일 ${hm(weeklyMinutes)}에 주간 업무 보고를 열어 보라고 알려 줍니다.",
                 ),
                 value: weekly,
                 onChanged: (v) => setS(() => weekly = v),
@@ -271,7 +271,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text("알림 누르면 PDF 바로 만들기"),
-                subtitle: const Text("끄면 주간 보고 화면이 열려요."),
+                subtitle: const Text("끄면 주간 보고 화면이 열립니다."),
                 value: autoPdf,
                 onChanged: weekly ? (v) => setS(() => autoPdf = v) : null,
               ),
@@ -407,12 +407,12 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       final ok = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text("확정된 일보예요"),
+          title: const Text("확정된 일보입니다"),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("수정하려면 확정을 풀어야 하고, 사유가 이력으로 남아요."),
+              const Text("수정하려면 확정을 풀어야 하고, 사유가 이력으로 남습니다."),
               const SizedBox(height: 10),
               TextField(
                 controller: reasonCtrl,

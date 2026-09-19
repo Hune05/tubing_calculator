@@ -271,7 +271,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
             ..hideCurrentSnackBar()
             ..showSnackBar(
               SnackBar(
-                content: const Text("이 이슈를 주간 보고에서 뺐어요."),
+                content: const Text("이 이슈를 주간 보고에서 뺐습니다."),
                 action: SnackBarAction(
                   label: "되돌리기",
                   onPressed: () {

@@ -193,7 +193,7 @@ class _PunchListPageState extends State<PunchListPage> {
     if (textValue.isEmpty && _attachedImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("결함 내용이나 사진을 최소 1장 첨부해주세요."),
+          content: Text("결함 내용이나 사진을 최소 1장 첨부해야 합니다."),
           backgroundColor: warningRed,
         ),
       );

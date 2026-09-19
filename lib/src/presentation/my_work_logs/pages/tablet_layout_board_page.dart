@@ -398,19 +398,19 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "① 왼쪽 팔레트에서 모듈을 도면 위로 끌어다 놓으세요.",
+                  "① 왼쪽 팔레트에서 모듈을 도면 위로 끌어다 놓습니다.",
                   style: TextStyle(color: tossText, fontSize: 13, height: 1.6),
                 ),
                 Text(
-                  "② '고정 치수 측정' 모드에서 두 지점을 순서대로 탭하면 거리가 자동으로 표시돼요.",
+                  "② '고정 치수 측정' 모드에서 두 지점을 순서대로 탭하면 거리가 자동으로 표시됩니다.",
                   style: TextStyle(color: tossText, fontSize: 13, height: 1.6),
                 ),
                 Text(
-                  "③ 상단의 '다중 선택'을 켜면 여러 모듈을 한 번에 옮기거나 정렬할 수 있어요.",
+                  "③ 상단의 '다중 선택'을 켜면 여러 모듈을 한 번에 옮기거나 정렬할 수 있습니다.",
                   style: TextStyle(color: tossText, fontSize: 13, height: 1.6),
                 ),
                 Text(
-                  "④ ⋮ 더보기 메뉴에서 색상 범례, 배경 사진, 자재 수량 등을 확인할 수 있어요.",
+                  "④ ⋮ 더보기 메뉴에서 색상 범례, 배경 사진, 자재 수량 등을 확인할 수 있습니다.",
                   style: TextStyle(color: tossText, fontSize: 13, height: 1.6),
                 ),
               ],
@@ -1059,7 +1059,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
           style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
         ),
         content: const Text(
-          "템플릿을 불러오면 지금 작업 중인 배치는 사라집니다(실행 취소로 되돌릴 수 있어요). 계속할까요?",
+          "템플릿을 불러오면 지금 작업 중인 배치는 사라집니다(실행 취소로 되돌릴 수 있습니다). 계속하시겠습니까?",
           style: TextStyle(color: tossSubText),
         ),
         actions: [
@@ -2346,7 +2346,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
           style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
         ),
         content: Text(
-          "선택한 모듈 ${_multiSelectedIds.length}개를 삭제할까요?",
+          "선택한 모듈 ${_multiSelectedIds.length}개를 삭제하시겠습니까?",
           style: const TextStyle(color: tossSubText),
         ),
         actions: [
@@ -2647,7 +2647,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                "배치된 모듈을 이름별로 모아 세었어요.",
+                "배치된 모듈을 이름별로 모아 세었습니다.",
                 style: TextStyle(fontSize: 13, color: tossSubText),
               ),
               const SizedBox(height: 16),
@@ -2798,7 +2798,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      "카톡으로 받은 실제 도면 사진을 배경에 깔고 그 위에\n모듈을 배치할 수 있어요.",
+                      "카톡으로 받은 실제 도면 사진을 배경에 깔고 그 위에\n모듈을 배치할 수 있습니다.",
                       style: TextStyle(
                         fontSize: 14,
                         color: tossSubText,
@@ -2973,7 +2973,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                "실제 중판(캐비닛)의 사이즈를 mm 단위로 입력하세요.",
+                "실제 중판(캐비닛)의 사이즈를 mm 단위로 입력하십시오.",
                 style: TextStyle(color: tossSubText, fontSize: 14),
               ),
               const SizedBox(height: 24),
@@ -3779,7 +3779,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
           style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
         ),
         content: Text(
-          "'${preset.name}' 프리셋을 삭제할까요?",
+          "'${preset.name}' 프리셋을 삭제하시겠습니까?",
           style: const TextStyle(color: tossSubText),
         ),
         actions: [
