@@ -172,7 +172,7 @@ void main() {
       );
       await tester.tap(btn);
       await tester.pumpAndSettle();
-      expect(find.text('남은 이슈를 모두 처리 완료하시겠습니까?'), findsOneWidget);
+      expect(find.text('남은 이슈를 모두 완료하시겠습니까?'), findsOneWidget);
       await tester.tap(find.text('취소'));
       await tester.pumpAndSettle();
       expect(openIssueCount(log), 1);

@@ -2743,7 +2743,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("남은 이슈를 모두 처리 완료하시겠습니까?"),
+        title: const Text("남은 이슈를 모두 완료하시겠습니까?"),
         content: Text(
           "미해결 이슈 $n건을 '처리 완료'로 바꿉니다. 처리 내용에는 '프로젝트 완료 시 일괄 처리'라고 남습니다.",
         ),

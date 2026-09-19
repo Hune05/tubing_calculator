@@ -797,7 +797,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
       final mark = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text("이슈를 처리 완료로 표시하시겠습니까?"),
+          title: const Text("이슈를 완료로 표시하시겠습니까?"),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,

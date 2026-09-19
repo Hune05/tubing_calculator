@@ -22,9 +22,23 @@ ThemeData workThemeData() {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(foregroundColor: _kTeal),
     ),
+    // 팝업이 좁아 짧은 제목·안내가 억지로 두 줄이 되던 문제: 좌우 여백을 줄여 폭을 넓히고,
+    // 제목·본문 글자를 조금 줄였다. 글이 정말 길어서 넘어가는 줄바꿈은 그대로 둔다.
     dialogTheme: const DialogThemeData(
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
+      insetPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 24),
+      actionsPadding: EdgeInsets.fromLTRB(12, 0, 12, 10),
+      titleTextStyle: TextStyle(
+        color: Color(0xFF191F28),
+        fontSize: 17,
+        fontWeight: FontWeight.w700,
+      ),
+      contentTextStyle: TextStyle(
+        color: Color(0xFF4E5968),
+        fontSize: 15,
+        height: 1.45,
+      ),
     ),
     bottomSheetTheme: const BottomSheetThemeData(
       backgroundColor: Colors.white,
