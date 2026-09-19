@@ -137,6 +137,60 @@ List<LiteAgenda> conflictsWith(
   }).toList()..sort((a, b) => a.date.compareTo(b.date));
 }
 
+/// 검색에 쓸 일정 한 건. [groupKey]가 같은 것(반복 일정의 여러 회차, 여러 날 일정의 각 날)은 한 건으로 본다.
+class SearchEntry {
+  final String groupKey;
+  final String key;
+  final DateTime date;
+  final String title;
+  final String category;
+  final String? projectName;
+  const SearchEntry({
+    required this.groupKey,
+    required this.key,
+    required this.date,
+    required this.title,
+    required this.category,
+    this.projectName,
+  });
+}
+
+String _squash(String s) => s.replaceAll(RegExp(r'\s+'), '').toLowerCase();
+
+/// 제목·종류·프로젝트 이름에서 [query]를 찾는다(띄어쓰기·대소문자 무시).
+/// 같은 일정의 여러 회차는 오늘에 가장 가까운 하나만 돌려주고, 앞으로 올 것(오늘 포함)은 가까운 순,
+/// 지난 것은 최근 순으로 그 뒤에 붙인다. 최대 [limit]건.
+List<SearchEntry> searchAgenda(
+  List<SearchEntry> all,
+  String query, {
+  required DateTime now,
+  int limit = 50,
+}) {
+  final q = _squash(query);
+  if (q.isEmpty) return [];
+  final today = DateTime(now.year, now.month, now.day);
+  final best = <String, SearchEntry>{};
+  for (final e in all) {
+    final hay = _squash('${e.title} ${e.category} ${e.projectName ?? ''}');
+    if (!hay.contains(q)) continue;
+    final cur = best[e.groupKey];
+    if (cur == null) {
+      best[e.groupKey] = e;
+      continue;
+    }
+    final dNew = e.date.difference(today).inHours.abs();
+    final dCur = cur.date.difference(today).inHours.abs();
+    if (dNew < dCur || (dNew == dCur && !e.date.isBefore(today))) {
+      best[e.groupKey] = e;
+    }
+  }
+  final upcoming = best.values.where((e) => !e.date.isBefore(today)).toList()
+    ..sort((a, b) => a.date.compareTo(b.date));
+  final past = best.values.where((e) => e.date.isBefore(today)).toList()
+    ..sort((a, b) => b.date.compareTo(a.date));
+  return [...upcoming, ...past].take(limit).toList();
+}
+
 String _hm(DateTime d) =>
     '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 

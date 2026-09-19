@@ -13,6 +13,13 @@ import '../../data/repositories/work_project_repository.dart';
 import '../../core/common_widgets/makita_time_picker.dart';
 import '../my_work_logs/screens/work_log_main_screen.dart';
 import '../my_work_logs/models/project_phase.dart' show colorForProject;
+import 'dart:convert';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'schedule_backup.dart';
+import 'schedule_search_dialog.dart';
 import 'schedule_logic.dart';
 import 'schedule_reminders.dart';
 
@@ -81,9 +88,12 @@ IconData iconForCategory(String cat) {
 
 const Map<int, String> kReminderOptions = {
   0: "알림 없음",
+  10: "10분 전",
   30: "30분 전",
   60: "1시간 전",
+  120: "2시간 전",
   1440: "하루 전",
+  2880: "이틀 전",
 };
 
 const Map<String, String> kRecurrenceLabels = {
@@ -1992,6 +2002,139 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     );
   }
 
+  // ───────────── 일정 검색 ─────────────
+  Future<void> _showSearchDialog() async {
+    final entries = [
+      for (final it in _lastItems)
+        SearchEntry(
+          groupKey: it.personalDocId != null
+              ? 'p_${it.personalDocId}'
+              : 'j_${it.projectId}_${it.scheduleId ?? it.key}',
+          key: it.key,
+          date: it.date,
+          title: it.baseTitle,
+          category: it.category,
+          projectName: it.projectName,
+        ),
+    ];
+    final picked = await showDialog<SearchEntry>(
+      context: context,
+      builder: (ctx) => ScheduleSearchDialog(entries: entries),
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _focusedDay = picked.date;
+        _selectedDay = picked.date;
+      });
+    }
+  }
+
+  // ───────────── 내 일정 내보내기·가져오기 ─────────────
+  void _toast(String m) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+  }
+
+  Future<List<PersonalDoc>> _fetchMyPersonalDocs() async {
+    final snap = await FirebaseFirestore.instance
+        .collection(kPersonalSchedulesCollection)
+        .where('owner', isEqualTo: _currentWorker)
+        .get();
+    return [for (final d in snap.docs) (id: d.id, data: d.data())];
+  }
+
+  Future<void> _exportPersonal() async {
+    try {
+      final docs = await _fetchMyPersonalDocs();
+      if (docs.isEmpty) {
+        _toast("내보낼 개인 일정이 없습니다.");
+        return;
+      }
+      final now = DateTime.now();
+      final dir = await getTemporaryDirectory();
+      final file = File(
+        '${dir.path}/my_schedules_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.json',
+      );
+      await file.writeAsString(encodePersonalSchedules(docs, now));
+      // ignore: deprecated_member_use
+      await Share.shareXFiles([XFile(file.path)], text: '내 일정 백업');
+    } catch (e) {
+      _toast("내보내기 실패: $e");
+    }
+  }
+
+  Future<void> _importPersonal() async {
+    try {
+      final res = await FilePicker.pickFiles(
+        type: FileType.any,
+        withData: true,
+      );
+      if (res == null || res.files.isEmpty) return;
+      final pf = res.files.first;
+      final text = pf.bytes != null
+          ? utf8.decode(pf.bytes!)
+          : await File(pf.path!).readAsString();
+      final backup = parsePersonalSchedules(text);
+      if (backup.items.isEmpty) {
+        _toast("가져올 일정이 없습니다.");
+        return;
+      }
+      final existing = {for (final d in await _fetchMyPersonalDocs()) d.id};
+      final plan = planPersonalRestore(backup, existing);
+      if (!mounted) return;
+      String names(List<String> l) => l.length <= 3
+          ? l.join(', ')
+          : "${l.take(3).join(', ')} 외 ${l.length - 3}건";
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: scheduleWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            "내 일정 가져오기",
+            style: TextStyle(color: scheduleText, fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            "${plan.added.isEmpty ? '' : '새로 들어오는 일정 ${plan.added.length}건 (${names(plan.added)})\n'}"
+            "${plan.overwritten.isEmpty ? '' : '덮어쓰는 일정 ${plan.overwritten.length}건 (${names(plan.overwritten)})\n'}"
+            "${backup.skipped == 0 ? '' : '읽을 수 없어 건너뛰는 항목 ${backup.skipped}건\n'}"
+            "\n덮어쓰는 일정은 지금 내용이 백업 내용으로 바뀝니다. 계속하시겠습니까?",
+            style: const TextStyle(color: scheduleSubText),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("취소"),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("가져오기"),
+            ),
+          ],
+        ),
+      );
+      if (go != true) return;
+      var n = 0;
+      for (final d in backup.items) {
+        final data = dataForRestore(d.data, _currentWorker)
+          ..['updatedAt'] = FieldValue.serverTimestamp();
+        await FirebaseFirestore.instance
+            .collection(kPersonalSchedulesCollection)
+            .doc(d.id)
+            .set(data);
+        await _scheduleOrCancelReminder(d.id, data);
+        n++;
+      }
+      _toast("일정 $n건을 가져왔습니다.");
+    } on FormatException catch (e) {
+      _toast(e.message);
+    } catch (e) {
+      _toast("가져오기 실패: $e");
+    }
+  }
+
   // 맨 위 "오늘 일정" 한 줄 요약. 누르면 오늘로 이동한다.
   Widget _buildTodaySummary(String text) {
     return InkWell(
@@ -2569,6 +2712,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   Set<String> _overlapKeys = {};
   // 지금 화면에 있는 모든 일정(새 일정을 저장하기 전에 겹치는지 볼 때 쓴다).
   List<LiteAgenda> _lastLite = const [];
+  // 지금 화면에 있는 모든 일정(검색에 쓴다).
+  List<_AgendaItem> _lastItems = const [];
 
   // 저장하려는 일정과 시간이 겹치는 기존 일정이 있으면 물어본다. 계속 저장하면 true.
   Future<bool> _confirmConflicts(
@@ -2585,8 +2730,16 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     final go = await showDialog<bool>(
       context: ctx,
       builder: (d) => AlertDialog(
-        title: const Text("같은 시간대에 다른 일정이 있습니다"),
-        content: Text("앞뒤 1시간 안에 있는 일정입니다.\n\n$list$more\n\n그래도 저장하시겠습니까?"),
+        backgroundColor: scheduleWhite,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          "같은 시간대에 다른 일정이 있습니다",
+          style: TextStyle(color: scheduleText, fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          "앞뒤 1시간 안에 있는 일정입니다.\n\n$list$more\n\n그래도 저장하시겠습니까?",
+          style: const TextStyle(color: scheduleSubText),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(d, false),
@@ -2799,6 +2952,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: scheduleBg,
+      // 검색·입력 창에서 키보드가 올라와도 뒤의 달력 화면은 줄어들지 않게 한다(창이 스스로 피한다).
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         backgroundColor: scheduleWhite,
         elevation: 0,
@@ -2816,20 +2971,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         iconTheme: const IconThemeData(color: scheduleText),
         actions: [
           IconButton(
-            tooltip: "일정 세트 템플릿",
-            icon: const Icon(Icons.dataset_outlined),
-            onPressed: () {
-              HapticFeedback.selectionClick();
-              _showTemplateSheet();
-            },
-          ),
-          IconButton(
-            tooltip: "프로젝트 일정 새로고침",
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () {
-              HapticFeedback.selectionClick();
-              _loadProjects();
-            },
+            tooltip: "일정 검색",
+            icon: const Icon(Icons.search_rounded),
+            onPressed: _showSearchDialog,
           ),
           IconButton(
             tooltip: "오늘로 이동",
@@ -2838,6 +2982,27 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
               _focusedDay = DateTime.now();
               _selectedDay = DateTime.now();
             }),
+          ),
+          PopupMenuButton<String>(
+            tooltip: "더보기",
+            onSelected: (v) {
+              if (v == 'template') {
+                HapticFeedback.selectionClick();
+                _showTemplateSheet();
+              }
+              if (v == 'refresh') {
+                HapticFeedback.selectionClick();
+                _loadProjects();
+              }
+              if (v == 'export') _exportPersonal();
+              if (v == 'import') _importPersonal();
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'template', child: Text("일정 세트 템플릿")),
+              PopupMenuItem(value: 'refresh', child: Text("프로젝트 일정 새로고침")),
+              PopupMenuItem(value: 'export', child: Text("내 일정 내보내기")),
+              PopupMenuItem(value: 'import', child: Text("내 일정 가져오기")),
+            ],
           ),
         ],
       ),
@@ -2870,6 +3035,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                 }
 
                 final selectedItems = byDay[_normalize(_selectedDay)] ?? [];
+                _lastItems = allItems;
                 _lastLite = [
                   for (final it in allItems)
                     LiteAgenda(
