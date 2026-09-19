@@ -49,6 +49,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
   int? _dailyCount; // 폰에 실제 예약된 일보 알림 수(모르면 null)
   List<String> _seen = const []; // 최근 확인된 알림 기록
   List<String> _seenRaw = const []; // 기록 원본(오늘 알림 확인 여부 판단용)
+  String? _lastSync; // 알림을 마지막으로 예약한 기록
   Set<int>? _pendingIds; // 폰에 예약된 알림 아이디들(모르면 null)
   ({bool enabled, int minutes, bool weekly, int weeklyMinutes, bool autoPdf})?
   _pref;
@@ -95,6 +96,10 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     final pref = await loadReportReminder();
     List<String> seen = const [];
     List<String> seenRaw = const [];
+    String? lastSync;
+    try {
+      lastSync = await loadLastSyncLabel();
+    } catch (_) {}
     try {
       await (widget.recordActive ?? recordActiveReminders)();
       seen = await loadSeenReminderLabels();
@@ -104,6 +109,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
       setState(() {
         _seen = seen;
         _seenRaw = seenRaw;
+        _lastSync = lastSync;
         _allowed = ok;
         _sched = sched;
         _dailyCount = count;
@@ -525,6 +531,18 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
                   child: OutlinedButton(
                     onPressed: _rescheduleWeeklyOne,
                     child: const Text("주간 보고 알림만 다시 예약"),
+                  ),
+                ),
+              ),
+            if (_lastSync != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  keepWords("마지막 알림 예약: $_lastSync"),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    height: 1.4,
+                    color: _text,
                   ),
                 ),
               ),

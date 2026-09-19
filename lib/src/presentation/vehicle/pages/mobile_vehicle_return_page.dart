@@ -200,7 +200,7 @@ class _MobileVehicleReturnPageState extends State<MobileVehicleReturnPage> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _selectedParking,
+                initialValue: _selectedParking,
                 hint: const Text("주차 위치 선택"),
                 icon: const Icon(
                   Icons.keyboard_arrow_down_rounded,
@@ -258,7 +258,7 @@ class _MobileVehicleReturnPageState extends State<MobileVehicleReturnPage> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _selectedKey,
+                initialValue: _selectedKey,
                 hint: const Text("차키 보관 장소 선택"),
                 icon: const Icon(
                   Icons.keyboard_arrow_down_rounded,

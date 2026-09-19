@@ -1832,12 +1832,13 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
     Offset wallPos;
     if (minDist == distLeft) {
       wallPos = Offset(0, touchPosition.dy);
-    } else if (minDist == distRight)
+    } else if (minDist == distRight) {
       wallPos = Offset(_panelWidth, touchPosition.dy);
-    else if (minDist == distTop)
+    } else if (minDist == distTop) {
       wallPos = Offset(touchPosition.dx, 0);
-    else
+    } else {
       wallPos = Offset(touchPosition.dx, _panelHeight);
+    }
 
     return WallPoint(position: _snapToGrid(wallPos));
   }
@@ -5826,154 +5827,3 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
 
 // 🚀 SmartGuidePainter·GridPainter 는 models/layout_board_painters.dart 로 옮겼다(모바일·태블릿 공용).
 
-class DimensionPainter extends CustomPainter {
-  final List<PlacedDimension> dimensions;
-  final MeasurePoint? activePoint;
-  final double panelWidth;
-  final double panelHeight;
-  // 🚀 [신규] dimensions 리스트는 계속 같은 객체를 그 자리에서 바꿔쓰기
-  // 때문에(add/remove 제외) 기준/메모/최소 간격만 바뀌었을 땐 길이 비교로
-  // 감지가 안 된다. 그런 변경이 있을 때마다 이 값을 1씩 올려서 확실히
-  // 다시 그려지게 한다.
-  final int version;
-
-  DimensionPainter({
-    required this.dimensions,
-    this.activePoint,
-    required this.panelWidth,
-    required this.panelHeight,
-    this.version = 0,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (int i = 0; i < dimensions.length; i++) {
-      final dim = dimensions[i];
-      final endpoints = computeDimensionEndpoints(dim);
-
-      Color dColor = dim.type == DimensionType.center
-          ? centerDimColor
-          : edgeDimColor;
-      String labelPrefix = dim.type == DimensionType.center ? "센터" : "측면";
-
-      // 🚀 [신규] 대각선 모드면 축 기준 대신 실제 각도를 라벨에 표시한다.
-      if (dim.isDiagonal) {
-        dColor = diagonalDimColor;
-        final double angleDeg =
-            math.atan2(
-              endpoints.p2.dy - endpoints.p1.dy,
-              endpoints.p2.dx - endpoints.p1.dx,
-            ) *
-            180 /
-            math.pi;
-        final double normalized = angleDeg < 0 ? angleDeg + 360 : angleDeg;
-        labelPrefix = "대각 ${normalized.toInt()}°";
-      }
-
-      // 🚀 [신규] 안전 이격거리처럼 규정과 관련된 치수는 굵은 선 +
-      // 방패 아이콘 표시로 다른 치수와 구분되게 한다.
-      if (dim.isSafetyCritical) {
-        labelPrefix = "🛡 $labelPrefix";
-      }
-
-      // 🚀 [신규] 최소 유지 간격을 설정해뒀는데 현재 거리가 그보다
-      // 좁아지면(모듈을 옮기다가 실시간으로) 경고색으로 바뀌어 즉시
-      // 눈에 띄게 한다(가장 시급한 정보이므로 다른 라벨보다 우선).
-      final bool violatesMinGap =
-          dim.minGapMm != null && endpoints.distance < dim.minGapMm!;
-      if (violatesMinGap) {
-        dColor = warningRed;
-        labelPrefix = "⚠ 최소 ${dim.minGapMm!.toInt()}mm 미달";
-      }
-
-      drawCadDimensionLine(
-        canvas,
-        endpoints.p1,
-        endpoints.p2,
-        endpoints.distance,
-        dColor,
-        labelPrefix,
-        strokeWidth: dim.isSafetyCritical ? 2.4 : 1.3,
-      );
-
-      // 🚀 [신규] 치수선마다 번호 배지를 달아서, 도면이 복잡해져도
-      // 사진/PDF로 내보낸 치수 목록표와 대조해볼 수 있게 한다.
-      final Offset badgeCenter = endpoints.p1;
-      canvas.drawCircle(badgeCenter, 8, Paint()..color = dColor);
-      final numberSpan = TextSpan(
-        text: "${i + 1}",
-        style: const TextStyle(
-          color: pureWhite,
-          fontSize: 9,
-          fontWeight: FontWeight.w800,
-        ),
-      );
-      final numberPainter = TextPainter(
-        text: numberSpan,
-        textDirection: TextDirection.ltr,
-      )..layout();
-      numberPainter.paint(
-        canvas,
-        Offset(
-          badgeCenter.dx - numberPainter.width / 2,
-          badgeCenter.dy - numberPainter.height / 2,
-        ),
-      );
-
-      // 🚀 [신규] 메모가 있으면 선 아래쪽에 작게 표시.
-      if (dim.note != null && dim.note!.trim().isNotEmpty) {
-        final Offset mid = Offset(
-          (endpoints.p1.dx + endpoints.p2.dx) / 2,
-          (endpoints.p1.dy + endpoints.p2.dy) / 2,
-        );
-        final noteSpan = TextSpan(
-          text: dim.note,
-          style: const TextStyle(
-            color: tossSubText,
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
-            fontStyle: FontStyle.italic,
-          ),
-        );
-        final notePainter = TextPainter(
-          text: noteSpan,
-          textDirection: TextDirection.ltr,
-        )..layout();
-        notePainter.paint(
-          canvas,
-          Offset(mid.dx - notePainter.width / 2, mid.dy + 12),
-        );
-      }
-    }
-
-    // 🚀 [개선] 예전엔 벽 기준점(WallPoint)일 때만 대기 중 표시를 그려서,
-    // 모듈을 첫 지점으로 찍었을 땐 "측정 대기 중"이라는 표시가 전혀
-    // 없었다. 그래서 다음 터치가 바로 두 번째 지점으로 이어져 치수가
-    // 생기는 게 예상치 못하게 느껴졌다. 이제 첫 지점 종류와 상관없이
-    // 항상 표시해서 측정이 진행 중임을 분명히 보여준다.
-    if (activePoint != null) {
-      canvas.drawCircle(activePoint!.center, 6, Paint()..color = tossText);
-      canvas.drawCircle(
-        activePoint!.center,
-        16,
-        Paint()
-          ..color = tossText.withValues(alpha: 0.2)
-          ..style = PaintingStyle.fill,
-      );
-    }
-  }
-
-  // 🚀 [최적화] 예전엔 무조건 true라 모듈을 드래그해서 setState가 호출될
-  // 때마다(프레임마다) 치수선과 무관한데도 이 레이어 전체가 매번 다시
-  // 그려졌음(버벅임의 실제 원인). dimensions는 같은 List를 in-place로
-  // add/remove하므로 참조 비교 대신 길이로, 나머지는 값이 바뀔 때 항상
-  // 재할당되므로 값 비교로 실제 변경 여부를 판단한다.
-  @override
-  bool shouldRepaint(covariant DimensionPainter oldDelegate) {
-    return oldDelegate.dimensions.length != dimensions.length ||
-        oldDelegate.activePoint != activePoint ||
-        oldDelegate.panelWidth != panelWidth ||
-        oldDelegate.panelHeight != panelHeight ||
-        oldDelegate.version != version;
-  }
-}

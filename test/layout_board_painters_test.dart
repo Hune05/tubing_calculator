@@ -37,6 +37,7 @@ int hash(List<int> b) {
 
 void main() {
   const size = Size(300, 300);
+  dimensionTests();
 
   testWidgets('모눈 그리기: 모바일·태블릿 같음, 예전 그림과 같음', (tester) async {
     final a = await paint(tester, mob.GridPainter(gridSize: 10), size);
@@ -107,3 +108,108 @@ void main() {
 const int gridHash = 3494248389;
 const int guideCenterHash = 4129728922;
 const int guideEdgeHash = 1031198377;
+
+// ── 치수선 그리기 ──
+Future<List<int>> _dims(WidgetTester tester, bool mobile) async {
+  // 같은 배치를 두 화면의 클래스로 각각 만들어 그린다.
+  Map<String, dynamic> a(String id, double x, double y, double w, double h) => {
+    'type': 'item',
+    'id': id,
+    'name': id,
+    'x': x,
+    'y': y,
+    'w': w,
+    'h': h,
+  };
+  final specs = [
+    (
+      'd1',
+      a('a', 20, 20, 60, 40),
+      a('b', 200, 30, 50, 50),
+      'center',
+      false,
+      null,
+      false,
+      null,
+    ),
+    (
+      'd2',
+      a('a', 20, 20, 60, 40),
+      a('c', 30, 200, 40, 60),
+      'edge',
+      false,
+      500.0,
+      true,
+      '메모',
+    ),
+    (
+      'd3',
+      a('b', 200, 30, 50, 50),
+      a('c', 30, 200, 40, 60),
+      'center',
+      true,
+      null,
+      false,
+      null,
+    ),
+  ];
+  if (mobile) {
+    final dims = [
+      for (final s in specs)
+        mob.PlacedDimension(
+          id: s.$1,
+          p1: mob.PlacedItem.fromJson(s.$2),
+          p2: mob.PlacedItem.fromJson(s.$3),
+          type: mob.DimensionType.values.byName(s.$4),
+          isDiagonal: s.$5,
+          minGapMm: s.$6,
+          isSafetyCritical: s.$7,
+          note: s.$8,
+        ),
+    ];
+    return paint(
+      tester,
+      mob.DimensionPainter(
+        dimensions: dims,
+        activePoint: dims.first.p1,
+        panelWidth: 300,
+        panelHeight: 300,
+        version: 1,
+      ),
+      const Size(300, 300),
+    );
+  }
+  final dims = [
+    for (final s in specs)
+      tab.PlacedDimension(
+        id: s.$1,
+        p1: tab.PlacedItem.fromJson(s.$2),
+        p2: tab.PlacedItem.fromJson(s.$3),
+        type: tab.DimensionType.values.byName(s.$4),
+        isDiagonal: s.$5,
+        minGapMm: s.$6,
+        isSafetyCritical: s.$7,
+        note: s.$8,
+      ),
+  ];
+  return paint(
+    tester,
+    tab.DimensionPainter(
+      dimensions: dims,
+      activePoint: dims.first.p1,
+      version: 1,
+    ),
+    const Size(300, 300),
+  );
+}
+
+void dimensionTests() {
+  testWidgets('치수선 그리기: 모바일·태블릿 같음, 예전 그림과 같음', (tester) async {
+    final a = await _dims(tester, true);
+    final b = await _dims(tester, false);
+    expect(hash(a), hash(b));
+    expect(hash(a), dimensionHash);
+  });
+}
+
+const int dimensionHash = 1632631539;

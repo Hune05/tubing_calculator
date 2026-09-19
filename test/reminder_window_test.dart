@@ -135,4 +135,47 @@ void main() {
       expect(calls.contains('schedule:918300'), true);
     });
   });
+  group('알림 예약 기록', () {
+    final t = DateTime(2026, 9, 19, 19, 20);
+
+    test('줄 만들기·읽기', () {
+      final l = addSyncLog([], t, 1, 0);
+      expect(syncLogLabel(l.single), '9/19 19:20 · 새로 예약 1건');
+      final k = addSyncLog([], t, 0, 1);
+      expect(
+        syncLogLabel(k.single),
+        '9/19 19:20 · 새로 예약 0건 · 도착 시간 안이라 그대로 둔 알림 1건',
+      );
+      expect(syncLogLabel('깨짐'), isNull);
+      expect(syncLogLabel('a|b|c'), isNull);
+    });
+
+    test('최근 5건만 남는다', () {
+      var l = <String>[];
+      for (var i = 0; i < 8; i++) {
+        l = addSyncLog(l, t.add(Duration(minutes: i)), i, 0);
+      }
+      expect(l.length, 5);
+      expect(syncLogLabel(l.last), contains('새로 예약 7건'));
+    });
+
+    test('예약을 실제로 하면 기록이 남는다', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('dexterous.com/flutter/local_notifications'),
+            (call) async =>
+                call.method == 'pendingNotificationRequests' ? [] : null,
+          );
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(
+              const MethodChannel('dexterous.com/flutter/local_notifications'),
+              null,
+            ),
+      );
+      await syncReportReminder([proj('A')], nowForTest: t);
+      final label = await loadLastSyncLabel();
+      expect(label, '9/19 19:20 · 새로 예약 1건');
+    });
+  });
 }

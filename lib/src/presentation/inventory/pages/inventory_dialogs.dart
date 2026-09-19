@@ -309,41 +309,39 @@ extension _InventoryDialogsExt on _InventoryPageState {
                   border: Border.all(color: slate300),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Column(
-                  children: [
-                    // ignore: deprecated_member_use
-                    RadioListTile<String>(
-                      title: const Text(
-                        "정상품 (본 재고 합침)",
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: slate900,
-                          fontWeight: FontWeight.bold,
+                child: RadioGroup<String>(
+                  groupValue: returnStatus,
+                  onChanged: (v) => setDialogState(() => returnStatus = v!),
+                  child: Column(
+                    children: [
+                      RadioListTile<String>(
+                        title: const Text(
+                          "정상품 (본 재고 합침)",
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: slate900,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
+                        value: "정상",
+                        dense: true,
+                        activeColor: makitaTeal,
                       ),
-                      value: "정상",
-                      groupValue: returnStatus,
-                      dense: true,
-                      activeColor: makitaTeal,
-                      onChanged: (v) => setDialogState(() => returnStatus = v!),
-                    ),
-                    // ignore: deprecated_member_use
-                    RadioListTile<String>(
-                      title: const Text(
-                        "장기 보관 (희귀부속)",
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: slate900,
-                          fontWeight: FontWeight.bold,
+                      RadioListTile<String>(
+                        title: const Text(
+                          "장기 보관 (희귀부속)",
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: slate900,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
+                        value: "장기 보관",
+                        dense: true,
+                        activeColor: Colors.green.shade700,
                       ),
-                      value: "장기 보관",
-                      groupValue: returnStatus,
-                      dense: true,
-                      activeColor: Colors.green.shade700,
-                      onChanged: (v) => setDialogState(() => returnStatus = v!),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],

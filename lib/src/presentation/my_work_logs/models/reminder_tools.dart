@@ -111,6 +111,58 @@ bool inDeliveryWindow(DateTime now, int minutes, {bool onlyFriday = false}) {
   return !now.isBefore(at) && now.isBefore(at.add(const Duration(minutes: 70)));
 }
 
+// ── 알림을 마지막으로 예약한 기록(알림 점검 화면에서 "왜 이렇게 됐는지" 보려는 용도) ──
+const String _kPrefSyncLog = 'reminder_sync_log';
+
+// 한 줄은 "시각(ISO)|새로 예약한 개수|그대로 둔 개수". 최근 5건만 남긴다.
+List<String> addSyncLog(
+  List<String> raw,
+  DateTime at,
+  int scheduled,
+  int kept,
+) {
+  final out = [...raw, '${at.toIso8601String()}|$scheduled|$kept'];
+  return out.length > 5 ? out.sublist(out.length - 5) : out;
+}
+
+// "9/19 19:20 · 새로 예약 1건" / "… · 새로 예약 0건 · 도착 시간 안이라 그대로 둔 알림 1건". 읽을 수 없는 줄은 null.
+String? syncLogLabel(String entry) {
+  final p = entry.split('|');
+  if (p.length != 3) return null;
+  final t = DateTime.tryParse(p[0]);
+  final sc = int.tryParse(p[1]);
+  final kp = int.tryParse(p[2]);
+  if (t == null || sc == null || kp == null) return null;
+  final hm =
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+  final base = '${t.month}/${t.day} $hm · 새로 예약 $sc건';
+  return kp == 0 ? base : '$base · 도착 시간 안이라 그대로 둔 알림 $kp건';
+}
+
+Future<void> _recordSync(DateTime at, int scheduled, int kept) async {
+  try {
+    final p = await SharedPreferences.getInstance();
+    final list = addSyncLog(
+      p.getStringList(_kPrefSyncLog) ?? const <String>[],
+      at,
+      scheduled,
+      kept,
+    );
+    await p.setStringList(_kPrefSyncLog, list);
+  } catch (_) {}
+}
+
+// 가장 최근 예약 기록(없으면 null).
+Future<String?> loadLastSyncLabel() async {
+  final p = await SharedPreferences.getInstance();
+  final raw = p.getStringList(_kPrefSyncLog) ?? const <String>[];
+  for (final e in raw.reversed) {
+    final l = syncLogLabel(e);
+    if (l != null) return l;
+  }
+  return null;
+}
+
 Future<void> _cancelDailyReminders({Set<int> keep = const {}}) async {
   await flutterLocalNotificationsPlugin.cancel(id: _kReminderId); // 예전 버전 알림
   for (var i = 0; i < _kMaxDailyGroups; i++) {
@@ -360,10 +412,13 @@ Future<void> syncReportReminder(
           AndroidFlutterLocalNotificationsPlugin
         >()
         ?.createNotificationChannel(channel);
+    var scheduledCount = 0;
     for (var i = 0; i < plans.length; i++) {
       if (keep.contains(_kDailyBaseId + i)) continue;
       await _scheduleDailyPlan(plans[i], i);
+      scheduledCount++;
     }
+    await _recordSync(now, scheduledCount, keep.length);
   } catch (e) {
     debugPrint('일보 알림 설정 실패: $e');
   }
