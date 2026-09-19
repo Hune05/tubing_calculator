@@ -1,10 +1,17 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:share_plus/share_plus.dart';
 
 import '../../../data/models/cutting_project_model.dart';
 import '../cutting_firestore_helper.dart';
+import '../cutting_record_export.dart';
 import '../cutting_theme.dart';
 
 const List<String> _kWeekdaysKo = ['월', '화', '수', '목', '금', '토', '일'];
@@ -26,6 +33,8 @@ class CuttingHistoryPage extends StatefulWidget {
 class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  // 화면에 불러온 기록(내보내기에 그대로 쓴다).
+  List<CutRecord> _records = [];
 
   @override
   void dispose() {
@@ -67,6 +76,110 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
     }
   }
 
+  // 기록을 표로 만들어 PDF로 내보낸다(공유 창이 열린다).
+  Future<void> _exportRecords() async {
+    if (_records.isEmpty) {
+      showCuttingSnack(context, "내보낼 기록이 없습니다.", isError: true);
+      return;
+    }
+    try {
+      final data = buildRecordExport(_records);
+      final fontData = await rootBundle.load(
+        'assets/fonts/NotoSansKR-VariableFont_wght.ttf',
+      );
+      final font = pw.Font.ttf(fontData);
+      final pdf = pw.Document(
+        theme: pw.ThemeData.withFont(base: font, bold: font),
+      );
+      final now = DateTime.now();
+      final dateStr =
+          "${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')}";
+      pw.Widget table(List<String> headers, List<List<String>> rows) =>
+          pw.TableHelper.fromTextArray(
+            headers: headers,
+            data: rows,
+            headerStyle: pw.TextStyle(
+              fontWeight: pw.FontWeight.bold,
+              font: font,
+            ),
+            cellStyle: pw.TextStyle(font: font, fontSize: 10),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+            cellAlignment: pw.Alignment.centerLeft,
+            border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+          );
+      final fittings = widget.project.usedFittings.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          build: (context) => [
+            pw.Text(
+              "컷팅 기록",
+              style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold),
+            ),
+            pw.SizedBox(height: 8),
+            pw.Text("프로젝트: ${widget.project.name}"),
+            pw.Text("기간: ${recordPeriodText(data)}    작성일: $dateStr"),
+            pw.SizedBox(height: 14),
+            table(kRecordHeaders, data.rows),
+            pw.SizedBox(height: 14),
+            pw.Text(
+              "규격별 합계",
+              style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+            ),
+            pw.SizedBox(height: 4),
+            table(
+              ['규격', '개수', '길이(mm)'],
+              [
+                for (final e in data.byTubeSize.entries)
+                  [e.key, '${e.value.count}', e.value.mm.toStringAsFixed(1)],
+              ],
+            ),
+            pw.SizedBox(height: 10),
+            pw.Align(
+              alignment: pw.Alignment.centerRight,
+              child: pw.Text(
+                "총 ${data.totalCount}개 · ${data.totalMm.toStringAsFixed(1)} mm",
+                style: pw.TextStyle(
+                  fontSize: 15,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+            if (fittings.isNotEmpty) ...[
+              pw.SizedBox(height: 14),
+              pw.Text(
+                "사용한 피팅",
+                style: pw.TextStyle(
+                  fontSize: 13,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              table(
+                ['피팅', '수량'],
+                [
+                  for (final e in fittings) [e.key, '${e.value}'],
+                ],
+              ),
+            ],
+          ],
+        ),
+      );
+      final dir = await getTemporaryDirectory();
+      final file = File("${dir.path}/${widget.project.name}_컷팅기록.pdf");
+      await file.writeAsBytes(await pdf.save());
+      if (!mounted) return;
+      // ignore: deprecated_member_use
+      await Share.shareXFiles([
+        XFile(file.path),
+      ], text: "${widget.project.name} 컷팅 기록입니다.");
+    } catch (e) {
+      if (!mounted) return;
+      showCuttingSnack(context, "내보내기 실패: $e", isError: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -85,6 +198,13 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
             fontSize: 17,
           ),
         ),
+        actions: [
+          IconButton(
+            tooltip: "기록 내보내기",
+            icon: const Icon(Icons.ios_share_rounded),
+            onPressed: _exportRecords,
+          ),
+        ],
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -147,6 +267,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
               )
               .toList();
 
+          _records = records;
           final Map<DateTime, List<CutRecord>> grouped = {};
           for (final r in records) {
             final day = DateTime(

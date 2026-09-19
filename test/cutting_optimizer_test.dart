@@ -276,7 +276,7 @@ void main() {
     testWidgets('잘랐다고 누르면 남는 토막이 저장되고 다음에 먼저 쓴다', (tester) async {
       await open(tester);
       expect(find.text('필요 원자재'), findsOneWidget);
-      await tester.tap(find.textContaining('이 계산대로 잘랐습니다'));
+      await tester.tap(find.textContaining('잘랐습니다'));
       await tester.pumpAndSettle();
       expect(find.text('저장했습니다'), findsOneWidget);
       expect(await loadLeftovers(), [
@@ -299,7 +299,7 @@ void main() {
       });
       await open(tester, pieces: [900]);
       expect(find.text('0본'), findsOneWidget);
-      await tester.tap(find.byType(Switch));
+      await tester.tap(find.byType(Switch).last);
       await tester.pumpAndSettle();
       expect(find.text('1본'), findsOneWidget);
     });
@@ -333,6 +333,79 @@ void main() {
       // 결과가 어떻든 화면은 열려야 하고 줄인 본수 문구는 0본이면 안 나온다.
       expect(find.textContaining('아꼈습니다').evaluate().length <= 1, true);
       expect(findTextContaining('필요 원자재'), findsOneWidget);
+    });
+  });
+
+  group('원자재 길이 여러 가지', () {
+    test('짧은 조각 하나에 6m를 통째로 쓰지 않고 3m로 줄인다', () {
+      final r = optimizeCuttingMixed(
+        pieces: [5900, 2900],
+        stockLengths: [3000, 6000],
+      );
+      expect(r.totalStock, 9000);
+      expect(r.bars.map((b) => b.stockLength).toList()..sort(), [3000, 6000]);
+    });
+
+    test('한 가지만 넘기면 기존 계산과 같다', () {
+      final a = optimizeCutting(pieces: [2600, 2600, 2000], stockLength: 6000);
+      final b = optimizeCuttingMixed(
+        pieces: [2600, 2600, 2000],
+        stockLengths: [6000],
+      );
+      expect(b.barCount, a.barCount);
+      expect(b.totalStock, a.totalStock);
+    });
+
+    test('긴 원자재 한 본이 더 싸면 그쪽을 고른다', () {
+      final r = optimizeCuttingMixed(
+        pieces: [2500, 2500, 1000],
+        stockLengths: [3000, 6000],
+      );
+      expect(r.totalStock, 6000);
+      expect(r.barCount, 1);
+    });
+
+    test('가장 긴 원자재보다 긴 조각은 제외하고 그 조각 때문에 싸 보이지 않는다', () {
+      final r = optimizeCuttingMixed(
+        pieces: [7000, 2000],
+        stockLengths: [3000, 6000],
+      );
+      expect(r.oversizedPieces, [7000]);
+      expect(allPieces(r), [2000]);
+      expect(r.totalStock, 3000);
+    });
+
+    test('길이가 하나도 없으면 오류', () {
+      expect(
+        () => optimizeCuttingMixed(pieces: [1], stockLengths: []),
+        throwsArgumentError,
+      );
+    });
+
+    test('아무 입력이나 넣어도 가능한 배치이고 한 가지 길이만 쓸 때보다 나쁘지 않다', () {
+      final rnd = Random(11);
+      for (var t = 0; t < 150; t++) {
+        final n = 1 + rnd.nextInt(14);
+        final kerf = rnd.nextBool() ? 0.0 : 4.0;
+        final pieces = [for (var i = 0; i < n; i++) 200.0 + rnd.nextInt(2600)];
+        final lens = [3000.0, 6000.0, 8000.0];
+        final mixed = optimizeCuttingMixed(
+          pieces: pieces,
+          stockLengths: lens,
+          kerf: kerf,
+        );
+        expectValid(mixed, pieces, kerf: kerf);
+        for (final l in lens) {
+          final single = optimizeCutting(
+            pieces: pieces,
+            stockLength: l,
+            kerf: kerf,
+          );
+          if (single.oversizedPieces.isEmpty) {
+            expect(mixed.totalStock <= single.totalStock + 1e-6, true);
+          }
+        }
+      }
     });
   });
 }

@@ -40,4 +40,16 @@ void main() {
     final used = planRows(r).fold(0.0, (s, row) => s + double.parse(row[2]));
     expect(used, input.fold(0.0, (s, p) => s + p));
   });
+
+  test('길이가 섞이면 요약에 길이별 본수가 나온다', () {
+    final r = optimizeCuttingMixed(
+      pieces: [5900, 2900],
+      stockLengths: [3000, 6000],
+    );
+    expect(planSummary(r), '새 원자재 2본(3000mm 1본 + 6000mm 1본)');
+    expect(planRows(r).map((row) => row.first).toList(), [
+      '1번 (6000)',
+      '2번 (3000)',
+    ]);
+  });
 }

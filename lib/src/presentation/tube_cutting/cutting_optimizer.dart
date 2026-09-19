@@ -49,7 +49,8 @@ class CuttingOptimizationResult {
   int get barCount => bars.length;
   double get totalUsed => bars.fold(0.0, (sum, b) => sum + b.usedLength);
   double get totalWaste => bars.fold(0.0, (sum, b) => sum + b.wasteLength);
-  double get totalStock => bars.length * stockLength;
+  // 여러 길이를 섞어 쓰면 본마다 길이가 다르니 각 본의 길이를 더한다.
+  double get totalStock => bars.fold(0.0, (sum, b) => sum + b.stockLength);
 
   // 이 계산대로 자르고 나면 [minLength] 이상 남는 토막들의 길이.
   List<double> keepableScraps({double minLength = kMinLeftoverMm}) {
@@ -64,6 +65,69 @@ class CuttingOptimizationResult {
 
 // 이보다 짧은 토막은 쓸 데가 없다고 보고 남겨 두지 않는다.
 const double kMinLeftoverMm = 300;
+
+/// 원자재 길이가 여러 가지([stockLengths])일 때: 가장 긴 원자재로 배치한 뒤 각 본을
+/// 들어갈 수 있는 가장 짧은 길이로 바꾸는 방법과, 한 가지 길이만 쓰는 방법들을
+/// 모두 계산해서 원자재를 가장 적게 쓰는(같으면 본수가 적은) 쪽을 고른다.
+CuttingOptimizationResult optimizeCuttingMixed({
+  required List<double> pieces,
+  required List<double> stockLengths,
+  double kerf = 0.0,
+  List<double> leftovers = const [],
+}) {
+  final lens = ({...stockLengths.where((l) => l > 0)}.toList())..sort();
+  if (lens.isEmpty) {
+    throw ArgumentError('원자재 길이가 하나도 없습니다.');
+  }
+  final longest = optimizeCutting(
+    pieces: pieces,
+    stockLength: lens.last,
+    kerf: kerf,
+    leftovers: leftovers,
+  );
+  if (lens.length == 1) return longest;
+
+  // 가장 긴 원자재 배치에서 본마다 들어갈 수 있는 가장 짧은 길이로 줄인다.
+  final shrunk = <StockBarPlan>[];
+  for (final b in longest.bars) {
+    final need = b.pieces.fold(0.0, (s, p) => s + p + kerf);
+    final fit = lens.firstWhere(
+      (l) => need <= l + 1e-6,
+      orElse: () => lens.last,
+    );
+    shrunk.add(StockBarPlan(fit)..pieces.addAll(b.pieces));
+  }
+  var best = CuttingOptimizationResult(
+    bars: shrunk,
+    leftoverBars: longest.leftoverBars,
+    stockLength: lens.last,
+    kerf: kerf,
+    oversizedPieces: longest.oversizedPieces,
+    savedBars: longest.savedBars,
+  );
+
+  bool better(CuttingOptimizationResult a, CuttingOptimizationResult b) {
+    if ((a.totalStock - b.totalStock).abs() > 1e-6) {
+      return a.totalStock < b.totalStock;
+    }
+    return a.barCount < b.barCount;
+  }
+
+  for (final l in lens.take(lens.length - 1)) {
+    final single = optimizeCutting(
+      pieces: pieces,
+      stockLength: l,
+      kerf: kerf,
+      leftovers: leftovers,
+    );
+    // 짧은 길이 하나로는 못 자르는 조각이 더 생기면 비교하지 않는다(빠진 조각으로 싸 보이면 안 된다).
+    if (single.oversizedPieces.length != longest.oversizedPieces.length) {
+      continue;
+    }
+    if (better(single, best)) best = single;
+  }
+  return best;
+}
 
 const int _kMaxExactPieces = 24;
 const int _kExactNodeLimit = 200000;

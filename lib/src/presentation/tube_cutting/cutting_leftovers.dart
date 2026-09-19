@@ -58,3 +58,15 @@ List<Leftover> applyLeftoverChange(
   out.addAll(added);
   return out;
 }
+
+// 재단 최적화에서 "여러 길이 섞어 쓰기"를 켜 두었을 때 고른 원자재 길이들(꺼져 있으면 빈 목록).
+// 튜브 컷팅 화면과 절단 지시서(PDF)가 같은 설정을 쓴다.
+const String kTubeMixPrefsKey = 'cutting_mix_lengths_v1';
+
+Future<List<double>> loadMixLengths([String key = kTubeMixPrefsKey]) async {
+  final p = await SharedPreferences.getInstance();
+  return [
+    for (final v in p.getStringList(key) ?? const <String>[])
+      if (double.tryParse(v) != null && double.parse(v) > 0) double.parse(v),
+  ];
+}

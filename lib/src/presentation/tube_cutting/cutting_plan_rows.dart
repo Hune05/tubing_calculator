@@ -47,9 +47,24 @@ List<List<String>> planRows(CuttingOptimizationResult r) {
   return rows;
 }
 
+// "3000mm 1본 + 6000mm 2본" 처럼 길이별 본수. 길이가 하나뿐이면 "6000mm 3본".
+String barLengthsText(List<StockBarPlan> bars) {
+  final counts = <double, int>{};
+  for (final b in bars) {
+    counts[b.stockLength] = (counts[b.stockLength] ?? 0) + 1;
+  }
+  final keys = counts.keys.toList()..sort();
+  return keys.map((k) => '${_mm(k)}mm ${counts[k]}본').join(' + ');
+}
+
 // 표 위에 붙이는 한 줄 요약.
 String planSummary(CuttingOptimizationResult r) {
-  final head = '새 원자재 ${r.barCount}본(${_mm(r.stockLength)}mm)';
+  final lengths = r.bars.map((b) => b.stockLength).toSet();
+  final head = r.bars.isEmpty
+      ? '새 원자재 0본'
+      : lengths.length == 1
+      ? '새 원자재 ${r.barCount}본(${_mm(lengths.first)}mm)'
+      : '새 원자재 ${r.barCount}본(${barLengthsText(r.bars)})';
   final left = r.leftoverBars.isEmpty
       ? ''
       : ', 남은 토막 ${r.leftoverBars.length}개 사용';

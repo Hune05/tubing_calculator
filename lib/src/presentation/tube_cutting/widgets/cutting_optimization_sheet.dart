@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../cutting_leftovers.dart';
 import '../cutting_optimizer.dart';
@@ -30,6 +31,8 @@ Future<void> showCuttingOptimizationSheet(
   double kerf = 0.0,
   String title = "재단 최적화 (원자재 소요 계산)",
   ValueChanged<double>? onStockLengthChanged,
+  // 여러 길이 섞어 쓰기 설정을 저장할 곳. 없으면 저장하지 않는다.
+  String? mixPrefsKey,
 }) async {
   final Map<String, List<double>> groups =
       (groupedPieces != null && groupedPieces.isNotEmpty)
@@ -52,19 +55,61 @@ Future<void> showCuttingOptimizationSheet(
   bool leftoversSaved = false;
   double stockNow = initialStockLength;
 
+  // 여러 길이 섞어 쓰기: 켜면 고른 길이들만 섞어서 계산한다(위 기준 길이는 쓰지 않는다).
+  bool mix = false;
+  Set<double> mixSel = {3000, 6000, 8000};
+  if (mixPrefsKey != null) {
+    try {
+      final saved = (await SharedPreferences.getInstance()).getStringList(
+        mixPrefsKey,
+      );
+      final parsed = {
+        for (final v in saved ?? const <String>[])
+          if (double.tryParse(v) != null) double.parse(v),
+      };
+      if (parsed.isNotEmpty) {
+        mix = true;
+        mixSel = parsed;
+      }
+    } catch (_) {}
+    if (!context.mounted) return;
+  }
+  Future<void> saveMix() async {
+    if (mixPrefsKey == null) return;
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setStringList(mixPrefsKey, [
+        if (mix)
+          for (final v in mixSel) v.toStringAsFixed(0),
+      ]);
+    } catch (_) {}
+  }
+
   Map<String, CuttingOptimizationResult> compute(double stock) => {
     for (final e in groups.entries)
-      e.key: optimizeCutting(
-        pieces: e.value,
-        stockLength: stock,
-        kerf: kerf,
-        leftovers: useLeftovers
-            ? [
-                for (final l in leftovers)
-                  if (l.label == e.key) l.length,
-              ]
-            : const [],
-      ),
+      e.key: (mix && mixSel.isNotEmpty)
+          ? optimizeCuttingMixed(
+              pieces: e.value,
+              stockLengths: mixSel.toList(),
+              kerf: kerf,
+              leftovers: useLeftovers
+                  ? [
+                      for (final l in leftovers)
+                        if (l.label == e.key) l.length,
+                    ]
+                  : const [],
+            )
+          : optimizeCutting(
+              pieces: e.value,
+              stockLength: stock,
+              kerf: kerf,
+              leftovers: useLeftovers
+                  ? [
+                      for (final l in leftovers)
+                        if (l.label == e.key) l.length,
+                    ]
+                  : const [],
+            ),
   };
   Map<String, CuttingOptimizationResult> results = compute(stockNow);
 
@@ -88,13 +133,30 @@ Future<void> showCuttingOptimizationSheet(
         }
 
         Widget presetChip(String label, double value) {
+          final bool picked = mix && mixSel.contains(value);
           return InkWell(
-            onTap: () => recalc(value),
+            onTap: () {
+              if (!mix) {
+                recalc(value);
+                return;
+              }
+              // 섞어 쓰기: 눌러서 켜고 끈다(마지막 하나는 끌 수 없다).
+              setSheetState(() {
+                if (mixSel.contains(value)) {
+                  if (mixSel.length > 1) mixSel.remove(value);
+                } else {
+                  mixSel.add(value);
+                }
+                leftoversSaved = false;
+                results = compute(stockNow);
+              });
+              saveMix();
+            },
             borderRadius: BorderRadius.circular(8),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: picked ? CuttingColors.primary : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -102,7 +164,7 @@ Future<void> showCuttingOptimizationSheet(
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color: Colors.grey.shade700,
+                  color: picked ? CuttingColors.surface : Colors.grey.shade700,
                 ),
               ),
             ),
@@ -142,8 +204,15 @@ Future<void> showCuttingOptimizationSheet(
                       decimal: true,
                     ),
                     onSubmitted: (_) => recalc(),
+                    style: const TextStyle(
+                      color: CuttingColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
                     decoration: InputDecoration(
                       labelText: "원자재 기준 길이",
+                      labelStyle: const TextStyle(
+                        color: CuttingColors.textSecondary,
+                      ),
                       suffixText: "mm",
                       filled: true,
                       fillColor: Colors.grey.shade100,
@@ -194,7 +263,34 @@ Future<void> showCuttingOptimizationSheet(
                 presetChip("8m", 8000),
               ],
             ),
-            const SizedBox(height: 16),
+            _tealTheme(
+              context,
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: const Text(
+                  "여러 길이 섞어 쓰기",
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+                ),
+                subtitle: Text(
+                  mix
+                      ? "위에서 고른 길이만 섞어서, 원자재를 가장 아끼는 조합으로 계산합니다."
+                      : "켜면 3m·6m·8m 중 갖고 있는 길이를 골라 섞어서 계산합니다.",
+                  style: const TextStyle(fontSize: 11),
+                ),
+                value: mix,
+                activeThumbColor: CuttingColors.primary,
+                onChanged: (v) {
+                  setSheetState(() {
+                    mix = v;
+                    leftoversSaved = false;
+                    results = compute(stockNow);
+                  });
+                  saveMix();
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
             Row(
               children: [
                 _buildOptStat(
@@ -302,20 +398,24 @@ Future<void> showCuttingOptimizationSheet(
         if (!isGroupedView) {
           final r = results['']!;
           for (int i = 0; i < r.leftoverBars.length; i++) {
-            barWidgets.add(_buildOptBarCard(r.leftoverBars[i], i));
+            barWidgets.add(
+              _buildOptBarCard(r.leftoverBars[i], i, showLength: mix),
+            );
           }
           for (int i = 0; i < r.bars.length; i++) {
-            barWidgets.add(_buildOptBarCard(r.bars[i], i));
+            barWidgets.add(_buildOptBarCard(r.bars[i], i, showLength: mix));
           }
         } else {
           for (final entry in groups.entries) {
             final r = results[entry.key]!;
             barWidgets.add(_buildGroupSummaryHeader(entry.key, r));
             for (int i = 0; i < r.leftoverBars.length; i++) {
-              barWidgets.add(_buildOptBarCard(r.leftoverBars[i], i));
+              barWidgets.add(
+                _buildOptBarCard(r.leftoverBars[i], i, showLength: mix),
+              );
             }
             for (int i = 0; i < r.bars.length; i++) {
-              barWidgets.add(_buildOptBarCard(r.bars[i], i));
+              barWidgets.add(_buildOptBarCard(r.bars[i], i, showLength: mix));
             }
             if (r.bars.isEmpty && r.leftoverBars.isEmpty) {
               barWidgets.add(
@@ -417,17 +517,17 @@ Future<void> showCuttingOptimizationSheet(
                               ),
                             ],
                           )
-                        : Padding(
+                        : ListView(
+                            // 좁은 화면(폰)에서는 위쪽 입력·요약도 배치 목록과 함께 밀려 올라가게 한다
+                            // (글자가 크거나 화면이 작으면 위쪽이 고정돼 목록이 안 보이는 문제가 있었다).
+                            controller: scrollController,
                             padding: const EdgeInsets.all(20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                inputAndStats,
-                                const SizedBox(height: 16),
-                                if (!isGroupedView) barsHeader(),
-                                Expanded(child: barsList(scrollController)),
-                              ],
-                            ),
+                            children: [
+                              inputAndStats,
+                              const SizedBox(height: 16),
+                              if (!isGroupedView) barsHeader(),
+                              ...barWidgets,
+                            ],
                           ),
                   ),
                 ],
@@ -547,7 +647,11 @@ Widget _miniStat(IconData icon, String text, {Color? color}) {
   );
 }
 
-Widget _buildOptBarCard(StockBarPlan bar, int index) {
+Widget _buildOptBarCard(
+  StockBarPlan bar,
+  int index, {
+  bool showLength = false,
+}) {
   final double ratio = bar.stockLength > 0
       ? (bar.usedLength / bar.stockLength).clamp(0.0, 1.0)
       : 0.0;
@@ -619,6 +723,8 @@ Widget _buildOptBarCard(StockBarPlan bar, int index) {
               child: Text(
                 bar.isLeftover
                     ? "남은 토막 ${bar.stockLength.toStringAsFixed(0)}mm · 사용 ${bar.usedLength.toStringAsFixed(0)}mm"
+                    : showLength
+                    ? "${bar.stockLength.toStringAsFixed(0)}mm 원자재 · 사용 ${bar.usedLength.toStringAsFixed(0)}mm"
                     : "사용 ${bar.usedLength.toStringAsFixed(0)}mm",
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
               ),
@@ -639,6 +745,27 @@ Widget _buildOptBarCard(StockBarPlan bar, int index) {
 }
 
 // 남은 토막 카드: 쓸지 말지, 이번 계산대로 잘랐을 때 저장, 목록 관리.
+// 이 앱 기본 색(보라)이 아니라 컷팅 화면의 틸 색으로 버튼이 보이게 한다.
+Widget _tealTheme(BuildContext context, Widget child) {
+  final t = Theme.of(context);
+  return Theme(
+    data: t.copyWith(
+      colorScheme: t.colorScheme.copyWith(
+        primary: CuttingColors.primary,
+        onPrimary: CuttingColors.surface,
+        surface: CuttingColors.surface,
+        onSurface: CuttingColors.textPrimary,
+        onSurfaceVariant: CuttingColors.textSecondary,
+      ),
+      textTheme: t.textTheme.apply(
+        bodyColor: CuttingColors.textPrimary,
+        displayColor: CuttingColors.textPrimary,
+      ),
+    ),
+    child: child,
+  );
+}
+
 Widget _buildLeftoverCard({
   required List<Leftover> leftovers,
   required bool useLeftovers,
@@ -649,57 +776,78 @@ Widget _buildLeftoverCard({
   required VoidCallback onSave,
   required VoidCallback onManage,
 }) {
-  return Container(
-    margin: const EdgeInsets.only(bottom: 12),
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: CuttingColors.primarySoft,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (savedBars > 0)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              "촘촘하게 다시 배치해서 원자재 $savedBars본을 아꼈습니다.",
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: CuttingColors.success,
-              ),
-            ),
-          ),
-        if (leftovers.isNotEmpty)
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            dense: true,
-            title: Text(
-              "남은 토막 먼저 쓰기 (${leftovers.length}개)",
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
-            ),
-            subtitle: Text(
-              useLeftovers
-                  ? "이번 계산에서 토막 $usedCount개를 씁니다."
-                  : "꺼 두어서 새 원자재만으로 계산합니다.",
-              style: const TextStyle(fontSize: 11),
-            ),
-            value: useLeftovers,
-            onChanged: onToggle,
-          ),
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
+  return Builder(
+    builder: (context) => _tealTheme(
+      context,
+      Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: CuttingColors.primarySoft,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            OutlinedButton(
-              onPressed: saved ? null : onSave,
-              child: Text(saved ? "저장했습니다" : "이 계산대로 잘랐습니다 (남는 토막 저장)"),
+            if (savedBars > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  "촘촘하게 다시 배치해서 원자재 $savedBars본을 아꼈습니다.",
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: CuttingColors.success,
+                  ),
+                ),
+              ),
+            if (leftovers.isNotEmpty)
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: Text(
+                  "남은 토막 먼저 쓰기 (${leftovers.length}개)",
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                subtitle: Text(
+                  useLeftovers
+                      ? "이번 계산에서 토막 $usedCount개를 씁니다."
+                      : "꺼 두어서 새 원자재만으로 계산합니다.",
+                  style: const TextStyle(fontSize: 11),
+                ),
+                value: useLeftovers,
+                activeThumbColor: CuttingColors.primary,
+                onChanged: onToggle,
+              ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                if (saved)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                    child: Text(
+                      "저장했습니다",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: CuttingColors.success,
+                      ),
+                    ),
+                  )
+                else
+                  OutlinedButton(
+                    onPressed: onSave,
+                    child: const Text("잘랐습니다 (남는 토막 저장)"),
+                  ),
+                TextButton(onPressed: onManage, child: const Text("남은 토막 관리")),
+              ],
             ),
-            TextButton(onPressed: onManage, child: const Text("남은 토막 관리")),
           ],
         ),
-      ],
+      ),
     ),
   );
 }
@@ -717,116 +865,124 @@ Future<List<Leftover>?> _manageLeftovers(
   return showDialog<List<Leftover>>(
     context: context,
     builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setD) => Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "남은 토막",
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "${kMinLeftoverMm.toStringAsFixed(0)}mm보다 짧은 토막은 남겨 두지 않습니다.",
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 12),
-                Flexible(
-                  child: list.isEmpty
-                      ? const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Text("저장된 토막이 없습니다."),
-                        )
-                      : ListView(
-                          shrinkWrap: true,
-                          children: [
-                            for (int i = 0; i < list.length; i++)
-                              ListTile(
-                                dense: true,
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(
-                                  "${list[i].label.isEmpty ? '규격 미지정' : list[i].label}  ${list[i].length.toStringAsFixed(0)}mm",
+      builder: (ctx, setD) => _tealTheme(
+        ctx,
+        Dialog(
+          backgroundColor: CuttingColors.surface,
+          surfaceTintColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 24,
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "남은 토막",
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "${kMinLeftoverMm.toStringAsFixed(0)}mm보다 짧은 토막은 남겨 두지 않습니다.",
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 12),
+                  Flexible(
+                    child: list.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Text("저장된 토막이 없습니다."),
+                          )
+                        : ListView(
+                            shrinkWrap: true,
+                            children: [
+                              for (int i = 0; i < list.length; i++)
+                                ListTile(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(
+                                    "${list[i].label.isEmpty ? '규격 미지정' : list[i].label}  ${list[i].length.toStringAsFixed(0)}mm",
+                                  ),
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.delete_outline),
+                                    tooltip: "삭제",
+                                    onPressed: () => setD(() {
+                                      list.removeAt(i);
+                                      changed = true;
+                                    }),
+                                  ),
                                 ),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.delete_outline),
-                                  tooltip: "삭제",
-                                  onPressed: () => setD(() {
-                                    list.removeAt(i);
-                                    changed = true;
-                                  }),
-                                ),
+                            ],
+                          ),
+                  ),
+                  const Divider(),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (labels.length > 1)
+                        DropdownButton<String>(
+                          value: label,
+                          items: [
+                            for (final l in labels)
+                              DropdownMenuItem(
+                                value: l,
+                                child: Text(l.isEmpty ? '규격 미지정' : l),
                               ),
                           ],
+                          onChanged: (v) => setD(() => label = v ?? label),
                         ),
-                ),
-                const Divider(),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    if (labels.length > 1)
-                      DropdownButton<String>(
-                        value: label,
-                        items: [
-                          for (final l in labels)
-                            DropdownMenuItem(
-                              value: l,
-                              child: Text(l.isEmpty ? '규격 미지정' : l),
-                            ),
-                        ],
-                        onChanged: (v) => setD(() => label = v ?? label),
-                      ),
-                    SizedBox(
-                      width: 140,
-                      child: TextField(
-                        controller: ctrl,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: "길이",
-                          suffixText: "mm",
-                          isDense: true,
+                      SizedBox(
+                        width: 140,
+                        child: TextField(
+                          controller: ctrl,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: const InputDecoration(
+                            labelText: "길이",
+                            suffixText: "mm",
+                            isDense: true,
+                          ),
                         ),
                       ),
-                    ),
-                    OutlinedButton(
-                      onPressed: () {
-                        final v = double.tryParse(ctrl.text.trim());
-                        if (v == null || v < kMinLeftoverMm) return;
-                        setD(() {
-                          list.add(Leftover(label, v.floorToDouble()));
-                          ctrl.clear();
-                          changed = true;
-                        });
-                      },
-                      child: const Text("추가"),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text("닫기"),
-                    ),
-                    FilledButton(
-                      onPressed: () =>
-                          Navigator.pop(ctx, changed ? list : null),
-                      child: const Text("저장"),
-                    ),
-                  ],
-                ),
-              ],
+                      OutlinedButton(
+                        onPressed: () {
+                          final v = double.tryParse(ctrl.text.trim());
+                          if (v == null || v < kMinLeftoverMm) return;
+                          setD(() {
+                            list.add(Leftover(label, v.floorToDouble()));
+                            ctrl.clear();
+                            changed = true;
+                          });
+                        },
+                        child: const Text("추가"),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text("닫기"),
+                      ),
+                      FilledButton(
+                        onPressed: () =>
+                            Navigator.pop(ctx, changed ? list : null),
+                        child: const Text("저장"),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
