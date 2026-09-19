@@ -1,12 +1,22 @@
 import 'package:flutter/material.dart';
 
+import '../../../data/repositories/work_project_repository.dart';
 import '../models/report_tools.dart';
+import '../widgets/work_theme.dart';
 import '../models/weekly_plan.dart';
 
 const Color _teal = Color(0xFF007580);
 const Color _text = Color(0xFF191F28);
 const Color _sub = Color(0xFF8B95A1);
 const Color _bg = Color(0xFFF2F4F6);
+
+// 알림을 눌렀을 때: 프로젝트를 불러와 주간 업무 보고 화면을 바로 연다.
+Future<void> openWeeklyReportFromNotification(NavigatorState nav) async {
+  try {
+    final logs = await WorkProjectRepository().fetchAllProjects();
+    nav.push(WorkRoute(builder: (_) => WeeklyReportPage(logs: logs)));
+  } catch (_) {}
+}
 
 // 🚀 [주간 업무 보고] 지난주 실적 · 이번주 진행/예정 · 다음주 계획을 한 번에 정리해
 // 미리 보고, 텍스트(카톡)나 PDF로 공유한다.

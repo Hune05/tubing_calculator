@@ -997,6 +997,8 @@ const String _kPrefEnabled = 'report_reminder_enabled';
 const String _kPrefMinutes = 'report_reminder_minutes';
 const String _kPrefWeekly = 'weekly_report_reminder_enabled';
 const int _kWeeklyId = 918274;
+// 금요일 알림을 누르면 주간 업무 보고를 바로 여는 데 쓰는 표식.
+const String kWeeklyReportPayload = 'work_weekly_report';
 bool _tzReady = false;
 
 Future<({bool enabled, int minutes, bool weekly})> loadReportReminder() async {
@@ -1031,7 +1033,8 @@ Future<void> _syncWeeklyReminder(bool on) async {
   await flutterLocalNotificationsPlugin.zonedSchedule(
     id: _kWeeklyId,
     title: '주간 보고서',
-    body: '이번 주 작업 보고서 초안과 전체 현황 이미지를 공유해보세요.',
+    body: '지난·이번·다음주 업무를 정리해 공유해보세요. 눌러서 바로 열 수 있어요.',
+    payload: kWeeklyReportPayload,
     scheduledDate: tz.TZDateTime.from(at, tz.local),
     notificationDetails: const NotificationDetails(
       android: AndroidNotificationDetails(

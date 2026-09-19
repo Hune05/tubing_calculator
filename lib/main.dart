@@ -31,6 +31,28 @@ import 'package:tubing_calculator/src/presentation/menu/page/home_menu_router.da
 import 'package:tubing_calculator/src/presentation/menu/page/mobile_loading_screen.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_only_screen.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/responsive_layout_board_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/weekly_report_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/models/report_tools.dart'
+    show kWeeklyReportPayload;
+
+// 알림을 눌렀을 때 화면을 열기 위한 전역 내비게이터.
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
+void _handleNotificationPayload(String? payload) {
+  if (payload != kWeeklyReportPayload) return;
+  // 앱이 막 켜지는 중일 수 있어 내비게이터가 준비될 때까지 잠깐 기다린다.
+  Future<void> tryOpen(int left) async {
+    final nav = appNavigatorKey.currentState;
+    if (nav != null) {
+      await openWeeklyReportFromNotification(nav);
+    } else if (left > 0) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      await tryOpen(left - 1);
+    }
+  }
+
+  tryOpen(10);
+}
 
 // 🚀 [백그라운드 핸들러]
 @pragma('vm:entry-point')
@@ -88,8 +110,16 @@ Future<void> setupFlutterNotifications() async {
     settings: initializationSettings,
     onDidReceiveNotificationResponse: (NotificationResponse response) {
       debugPrint("앱 실행 중 포그라운드 알림 터치됨: ${response.payload}");
+      _handleNotificationPayload(response.payload);
     },
   );
+
+  // 앱이 꺼진 상태에서 알림을 눌러 시작한 경우.
+  final launch = await flutterLocalNotificationsPlugin
+      .getNotificationAppLaunchDetails();
+  if (launch?.didNotificationLaunchApp == true) {
+    _handleNotificationPayload(launch?.notificationResponse?.payload);
+  }
 
   isFlutterLocalNotificationsInitialized = true;
 }
@@ -190,6 +220,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       debugShowCheckedModeBanner: false,
       // 날짜 선택기·달력 등 기본 위젯 문구를 한국어로(예전엔 Select date/Cancel/OK 영어).
       locale: const Locale('ko', 'KR'),
