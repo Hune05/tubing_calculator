@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../../core/utils/error_log.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -491,6 +492,7 @@ Future<void> syncReportReminder(
     await _recordSync(now, scheduledCount, keep.length);
   } catch (e) {
     debugPrint('작업 일지 알림 설정 실패: $e');
+    recordError('알림 예약', e);
   }
 }
 

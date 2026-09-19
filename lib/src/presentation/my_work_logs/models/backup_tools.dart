@@ -8,6 +8,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../data/repositories/work_project_repository.dart';
+import '../../../core/utils/error_log.dart';
+import '../../my_schedule/schedule_reminders.dart'
+    show schedulePersonalReminder;
 import 'phase_templates.dart';
 
 // 🚀 [데이터 백업/복원] 내 프로젝트 전체(+단계 템플릿, 자재 즐겨찾기)를 JSON 파일 하나로
@@ -39,12 +42,50 @@ dynamic _dec(dynamic v) {
   return v;
 }
 
+// 작업 배치도(layouts 컬렉션 전체)와 내 개인 일정(로그인한 사람의 것)도 백업에 함께 담는다.
+const String _kLayoutsCollectionName = 'layouts';
+const String _kPersonalSchedulesName = 'personal_schedules';
+
+Future<({List<dynamic> layouts, List<dynamic> schedules})>
+_collectExtras() async {
+  final layouts = <dynamic>[];
+  final schedules = <dynamic>[];
+  try {
+    final snap = await FirebaseFirestore.instance
+        .collection(_kLayoutsCollectionName)
+        .get();
+    for (final d in snap.docs) {
+      layouts.add({'id': d.id, 'data': _enc(d.data())});
+    }
+  } catch (e) {
+    recordError('배치도 백업', e);
+  }
+  try {
+    final worker = (await SharedPreferences.getInstance()).getString(
+      'user_real_name',
+    );
+    if (worker != null && worker.isNotEmpty) {
+      final snap = await FirebaseFirestore.instance
+          .collection(_kPersonalSchedulesName)
+          .where('owner', isEqualTo: worker)
+          .get();
+      for (final d in snap.docs) {
+        schedules.add({'id': d.id, 'data': _enc(d.data())});
+      }
+    }
+  } catch (e) {
+    recordError('내 일정 백업', e);
+  }
+  return (layouts: layouts, schedules: schedules);
+}
+
 Future<File> createBackupFile(List<Map<String, dynamic>> projects) async {
   final p = await SharedPreferences.getInstance();
   final templates = (await loadPhaseTemplates())
       .where((t) => !t.builtIn)
       .map((t) => t.toJson())
       .toList();
+  final extras = await _collectExtras();
   final data = {
     'app': 'tubing_calculator',
     'version': _kBackupVersion,
@@ -52,6 +93,8 @@ Future<File> createBackupFile(List<Map<String, dynamic>> projects) async {
     'projects': projects.map(_enc).toList(),
     'templates': templates,
     'favMaterials': p.getStringList('fav_materials_v1') ?? [],
+    'layouts': extras.layouts,
+    'personalSchedules': extras.schedules,
   };
   final dir = await getTemporaryDirectory();
   final d = DateTime.now();
@@ -68,6 +111,23 @@ class BackupPreview {
   final DateTime? exportedAt;
   final Map<String, dynamic> raw;
   BackupPreview(this.projects, this.templates, this.exportedAt, this.raw);
+
+  // 옛 백업에는 배치도·내 일정이 없어서 0으로 본다.
+  int get layouts => (raw['layouts'] as List?)?.length ?? 0;
+  int get schedules => (raw['personalSchedules'] as List?)?.length ?? 0;
+}
+
+// 백업 안에 무엇이 들어 있는지 한 줄로("프로젝트 3건, 템플릿 1개, 배치도 2개, 내 일정 5건").
+String backupContentsLine(BackupPreview p) =>
+    '프로젝트 ${p.projects}건, 템플릿 ${p.templates}개'
+    '${p.layouts > 0 ? ', 배치도 ${p.layouts}개' : ''}'
+    '${p.schedules > 0 ? ', 내 일정 ${p.schedules}건' : ''}';
+
+class RestoreResult {
+  final int projects;
+  final int layouts;
+  final int schedules;
+  const RestoreResult(this.projects, this.layouts, this.schedules);
 }
 
 // 파일 내용을 읽어 검증만 한다(저장하지 않음). 형식이 다르면 예외.
@@ -110,9 +170,14 @@ RestorePlan planRestore(BackupPreview b, List<Map<String, dynamic>> current) {
 }
 
 // 같은 id의 프로젝트는 백업 내용으로 덮어쓴다. 성공한 프로젝트 수를 돌려준다.
-Future<int> restoreBackup(BackupPreview b) async {
+Future<int> restoreBackup(BackupPreview b) async =>
+    (await restoreBackupAll(b)).projects;
+
+// 프로젝트·템플릿·즐겨찾기에 더해 배치도와 내 일정도 되돌린다.
+Future<RestoreResult> restoreBackupAll(BackupPreview b) async {
   final repo = WorkProjectRepository();
   int ok = 0;
+  int layoutsOk = 0, schedulesOk = 0;
   for (final raw in (b.raw['projects'] as List)) {
     try {
       final proj = Map<String, dynamic>.from(_dec(raw) as Map);
@@ -121,6 +186,34 @@ Future<int> restoreBackup(BackupPreview b) async {
       ok++;
     } catch (e) {
       debugPrint('복원 실패(건너뜀): $e');
+      recordError('백업 복원', e);
+    }
+  }
+  for (final raw in (b.raw['layouts'] as List? ?? [])) {
+    try {
+      if (raw is! Map || raw['id'] is! String || raw['data'] is! Map) continue;
+      await FirebaseFirestore.instance
+          .collection(_kLayoutsCollectionName)
+          .doc(raw['id'] as String)
+          .set(Map<String, dynamic>.from(_dec(raw['data']) as Map));
+      layoutsOk++;
+    } catch (e) {
+      recordError('배치도 복원', e);
+    }
+  }
+  for (final raw in (b.raw['personalSchedules'] as List? ?? [])) {
+    try {
+      if (raw is! Map || raw['id'] is! String || raw['data'] is! Map) continue;
+      final id = raw['id'] as String;
+      final data = Map<String, dynamic>.from(_dec(raw['data']) as Map);
+      await FirebaseFirestore.instance
+          .collection(_kPersonalSchedulesName)
+          .doc(id)
+          .set(data);
+      await schedulePersonalReminder(id, data);
+      schedulesOk++;
+    } catch (e) {
+      recordError('내 일정 복원', e);
     }
   }
   for (final t in (b.raw['templates'] as List? ?? [])) {
@@ -147,7 +240,7 @@ Future<int> restoreBackup(BackupPreview b) async {
           .set({'items': merged});
     } catch (_) {}
   }
-  return ok;
+  return RestoreResult(ok, layoutsOk, schedulesOk);
 }
 
 // ───────────────────────── 클라우드 자동 백업 ─────────────────────────
@@ -194,6 +287,7 @@ Future<bool> uploadCloudBackup(List<Map<String, dynamic>> projects) async {
     return true;
   } catch (e) {
     debugPrint('클라우드 백업 실패: $e');
+    recordError('클라우드 백업', e);
     return false;
   }
 }

@@ -12,6 +12,8 @@ import 'package:share_plus/share_plus.dart';
 import '../models/backup_tools.dart';
 import '../models/report_tools.dart' show loadPdfCleanupRecord, runPdfCleanup;
 import '../models/photo_store.dart';
+import '../widgets/work_theme.dart';
+import 'app_status_page.dart';
 
 const Color _teal = Color(0xFF007580);
 const Color _text = Color(0xFF191F28);
@@ -151,7 +153,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
         title: const Text("백업에서 복원"),
         content: Text(
           keepWords(
-            "프로젝트 ${prev.projects}건, 템플릿 ${prev.templates}개가 들어 있습니다.$when\n\n"
+            "백업에 들어 있는 내용: ${backupContentsLine(prev)}.$when\n\n"
             "${plan.added.isEmpty ? '' : '새로 들어오는 프로젝트 ${plan.added.length}건 (${names(plan.added)})\n'}"
             "${plan.overwritten.isEmpty ? '' : '덮어쓰는 프로젝트 ${plan.overwritten.length}건 (${names(plan.overwritten)})\n'}"
             "${plan.untouched == 0 ? '' : '백업에 없는 지금 프로젝트 ${plan.untouched}건은 그대로 둡니다.\n'}"
@@ -171,8 +173,12 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
       ),
     );
     if (go != true) return;
-    final n = await restoreBackup(prev);
-    _toast("프로젝트 $n건을 복원했습니다.");
+    final r = await restoreBackupAll(prev);
+    _toast(
+      "복원했습니다. 프로젝트 ${r.projects}건"
+      "${r.layouts > 0 ? ', 배치도 ${r.layouts}개' : ''}"
+      "${r.schedules > 0 ? ', 내 일정 ${r.schedules}건' : ''}",
+    );
     widget.onRestored?.call();
   }
 
@@ -381,6 +387,21 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                card(
+                  "앱 상태",
+                  "알림·서버·백업 확인",
+                  "알림이 안 오거나 저장이 이상할 때 원인을 찾는 화면입니다. 최근 오류 기록도 볼 수 있습니다.",
+                  action: Align(
+                    alignment: Alignment.centerRight,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        WorkRoute(builder: (_) => const AppStatusPage()),
+                      ),
+                      child: const Text("앱 상태 보기"),
+                    ),
+                  ),
+                ),
                 card(
                   "임시 PDF 자동 정리",
                   "${_cleanup?.total ?? 0}개 정리됨",

@@ -3,6 +3,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
+import 'dart:ui' show PlatformDispatcher;
+import 'package:tubing_calculator/src/core/utils/error_log.dart';
 
 // 🚀 Hive 로컬 DB 연동
 import 'package:hive_flutter/hive_flutter.dart';
@@ -152,6 +154,20 @@ Future<void> setupFlutterNotifications() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 화면 그리기 오류와 잡히지 않은 오류를 기록해 둔다(앱 상태 화면에서 본다).
+  final previousOnError = FlutterError.onError;
+  FlutterError.onError = (details) {
+    recordError('화면 오류', details.exception);
+    if (previousOnError != null) {
+      previousOnError(details);
+    } else {
+      FlutterError.presentError(details);
+    }
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    recordError('앱 오류', error);
+    return false;
+  };
 
   await Hive.initFlutter();
   await Hive.openBox('projectsBox');

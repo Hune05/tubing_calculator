@@ -4,6 +4,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
+import '../../../core/utils/error_log.dart';
 
 // 🚀 [작업 일지 사진 클라우드 보관] 예전엔 작업 일지 사진이 폰 안의 파일 경로로만 저장돼서,
 // 앱을 지우고 다시 깔거나 다른 기기에서 열면 사진이 사라졌다. 저장한 작업 일지의 사진을
@@ -96,6 +97,7 @@ Future<File> _compressed(File src) async {
     return (await f.length()) < (await src.length()) ? f : src;
   } catch (e) {
     debugPrint('사진 압축 실패(원본 업로드): $e');
+    recordError('사진 압축', e);
     return src;
   }
 }
@@ -116,6 +118,7 @@ Future<String?> uploadPhoto(String projectId, String localPath) async {
     return await ref.getDownloadURL();
   } catch (e) {
     debugPrint('사진 업로드 실패: $e');
+    recordError('사진 업로드', e);
     return null;
   }
 }
