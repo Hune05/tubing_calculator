@@ -5,7 +5,12 @@ import 'package:tubing_calculator/src/core/utils/error_log.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_logic.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_search_dialog.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/app_status_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/daily_report_calendar_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/daily_report_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/project_stats_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/punch_detail_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/report_search_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/report_style_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/notification_check_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/project_detail_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/project_schedule_page.dart';
@@ -241,5 +246,50 @@ void main() {
     );
     await tester.pumpAndSettle();
     expectNoOverflow(tester, '일정 검색 창');
+  });
+
+  testWidgets('작업 일지 달력', (tester) async {
+    await show(
+      tester,
+      DailyReportCalendarPage(
+        projectName: '루마 현장 배관 신설 공사',
+        initialReports: List.from(
+          project()['daily_reports'] as List,
+        ).cast<Map<String, dynamic>>(),
+      ),
+    );
+    expectNoOverflow(tester, '작업 일지 달력');
+  });
+
+  testWidgets('통계', (tester) async {
+    await show(
+      tester,
+      ProjectStatsPage(logs: [project(), project(done: true)], title: '통계'),
+    );
+    expectNoOverflow(tester, '통계');
+  });
+
+  testWidgets('이슈 상세', (tester) async {
+    await show(
+      tester,
+      PunchDetailPage(
+        punch: Map<String, dynamic>.from(
+          (project()['punch_lists'] as List).first as Map,
+        ),
+      ),
+    );
+    expectNoOverflow(tester, '이슈 상세');
+  });
+
+  testWidgets('검색', (tester) async {
+    await show(tester, ReportSearchPage(logs: [project()], onOpen: (_) {}));
+    await tester.enterText(find.byType(TextField).first, '센서');
+    await tester.pumpAndSettle();
+    expectNoOverflow(tester, '검색');
+  });
+
+  testWidgets('보고서 양식', (tester) async {
+    await show(tester, const ReportStylePage());
+    expectNoOverflow(tester, '보고서 양식');
   });
 }

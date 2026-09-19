@@ -110,12 +110,14 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
             children: [
               Icon(Icons.show_chart_rounded, color: tossBlue, size: 18),
               SizedBox(width: 6),
-              Text(
-                "최근 6개월 벤딩 포인트 추이",
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 15,
-                  color: tossText,
+              Expanded(
+                child: Text(
+                  "최근 6개월 벤딩 포인트 추이",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    color: tossText,
+                  ),
                 ),
               ),
             ],
