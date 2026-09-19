@@ -179,6 +179,7 @@ ReportDoc buildWeeklyPlanDoc(
   List<Map<String, dynamic>> logs, {
   Set<String>? onlyIds,
   bool includePhotos = false,
+  bool perProject = false,
 }) {
   final today = dayOnly(DateTime.now());
   final weeks = weekRanges(today);
@@ -208,7 +209,7 @@ ReportDoc buildWeeklyPlanDoc(
         lines.isEmpty ? ['해당 내용 없음'] : lines,
       );
 
-  final sections = <ReportSection>[
+  final combined = <ReportSection>[
     sec(
       weeks[0],
       '— 실적',
@@ -231,6 +232,39 @@ ReportDoc buildWeeklyPlanDoc(
       _sectionLines(targets, weeks[2], actual: false, planned: true),
     ),
   ];
+
+  // 프로젝트별로 나눠 보기: 프로젝트마다 지난주/이번주/다음주 세 칸, PDF는 새 페이지로 시작.
+  final sections = <ReportSection>[];
+  if (perProject && targets.length > 1) {
+    const parts = [
+      (0, '— 실적', true, false),
+      (1, '— 진행 및 예정', true, true),
+      (2, '— 계획', false, true),
+    ];
+    for (var i = 0; i < targets.length; i++) {
+      final t = targets[i];
+      for (final (wi, suffix, actual, planned) in parts) {
+        final w = weeks[wi];
+        // 첫 줄은 프로젝트 이름 줄이라 뺀다(제목에 이미 들어 있다).
+        final lines = _sectionLines(
+          [t],
+          w,
+          actual: actual,
+          planned: planned,
+          showProgress: wi == 1,
+        ).skip(1).toList();
+        sections.add(
+          ReportSection(
+            '${t['name'] ?? '프로젝트'} · ${w.label} (${w.range}) $suffix',
+            lines.isEmpty ? ['해당 내용 없음'] : lines,
+            newPage: wi == 0 && i > 0,
+          ),
+        );
+      }
+    }
+  } else {
+    sections.addAll(combined);
+  }
   if (memo.isNotEmpty) {
     sections.add(ReportSection('최근 일보의 다음 계획 메모', memo));
   }

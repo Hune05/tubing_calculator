@@ -54,7 +54,8 @@ DateTime reportDateOf(Map r) {
 class ReportSection {
   final String heading;
   final List<String> lines;
-  ReportSection(this.heading, this.lines);
+  final bool newPage; // true면 PDF에서 이 섹션부터 새 페이지
+  ReportSection(this.heading, this.lines, {this.newPage = false});
 }
 
 // PDF에 넣을 사진 한 장(경로 또는 URL)과 설명(날짜 · 분류 · 메모).
@@ -687,7 +688,7 @@ Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
         pw.SizedBox(height: 4),
         pw.Text(doc.period, style: const pw.TextStyle(fontSize: 11)),
         for (final s in doc.sections) ...[
-          pw.SizedBox(height: 14),
+          if (s.newPage) pw.NewPage() else pw.SizedBox(height: 14),
           pw.Text(
             s.heading,
             style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),

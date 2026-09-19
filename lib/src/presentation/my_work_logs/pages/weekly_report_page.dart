@@ -31,6 +31,7 @@ class WeeklyReportPage extends StatefulWidget {
 class _WeeklyReportPageState extends State<WeeklyReportPage> {
   String? _projectId; // null = 진행중 전체
   bool _photos = false;
+  bool _split = false;
 
   List<Map<String, dynamic>> get _active =>
       widget.logs.where((l) => l['status'] != 'DONE').toList();
@@ -39,11 +40,12 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
     widget.logs,
     onlyIds: _projectId == null ? null : {_projectId!},
     includePhotos: _photos,
+    perProject: _split && _projectId == null,
   );
 
   Future<void> _pdf(ReportDoc doc) async {
     try {
-      await shareReportPdf(doc);
+      await shareReportPdf(doc, withPhotos: _photos);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -131,7 +133,10 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                     activeThumbColor: _teal,
                     title: const Text(
                       "PDF에 작업 사진 넣기",
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
                     ),
                     subtitle: Text(
                       _photos
@@ -143,6 +148,32 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                     onChanged: (v) => setState(() => _photos = v),
                   ),
                 ),
+                if (_projectId == null && _active.length > 1)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: SwitchListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                      activeThumbColor: _teal,
+                      title: const Text(
+                        "프로젝트별로 나눠 보기",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        "PDF에서는 프로젝트마다 새 페이지로 시작해요",
+                        style: TextStyle(fontSize: 12, color: _sub),
+                      ),
+                      value: _split,
+                      onChanged: (v) => setState(() => _split = v),
+                    ),
+                  ),
                 for (final s in doc.sections)
                   Container(
                     margin: const EdgeInsets.only(bottom: 12),
