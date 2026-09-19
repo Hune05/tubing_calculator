@@ -15,6 +15,7 @@ import '../../core/common_widgets/makita_time_picker.dart';
 import '../my_work_logs/screens/work_log_main_screen.dart';
 import '../my_work_logs/models/project_phase.dart' show colorForProject;
 import '../my_work_logs/models/report_tools.dart' show reminderScheduleMode;
+import 'schedule_logic.dart';
 
 // 🚀 [신규] "내 일정 관리" - 마키타 틸 팔레트로 앱 전체와 통일.
 const Color scheduleTeal = Color(0xFF007580);
@@ -400,39 +401,28 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     }
 
     final DateTime rangeStart = DateTime(DateTime.now().year - 1, 1, 1);
-    final DateTime rangeEnd = DateTime(DateTime.now().year + 2, 12, 31);
-    final List<_AgendaItem> occurrences = [];
-    DateTime cursor = base;
-    int guard = 0;
-    while (!cursor.isAfter(rangeEnd) && guard < 400) {
-      guard++;
-      if (!cursor.isBefore(rangeStart)) {
-        final occKey = _normalize(cursor).toIso8601String();
-        occurrences.add(
-          _AgendaItem(
-            key: 'personal_${docId}_$occKey',
-            date: cursor,
-            hasTime: hasTime,
-            title: title,
-            category: category,
-            isCompleted: completedMap[occKey] == true,
-            isPersonal: true,
-            personalDocId: docId,
-            recurrence: recurrence,
-          ),
-        );
-      }
-      cursor = recurrence == 'weekly'
-          ? cursor.add(const Duration(days: 7))
-          : DateTime(
-              cursor.year,
-              cursor.month + 1,
-              cursor.day,
-              cursor.hour,
-              cursor.minute,
-            );
-    }
-    return occurrences;
+    final DateTime rangeEnd = DateTime(DateTime.now().year + 2, 12, 31, 23, 59);
+    // 매달 반복은 31일처럼 없는 날짜를 그 달의 마지막 날로 맞춘다(schedule_logic.dart).
+    return [
+      for (final cursor in recurrenceDates(
+        base,
+        recurrence,
+        rangeStart: rangeStart,
+        rangeEnd: rangeEnd,
+      ))
+        _AgendaItem(
+          key: 'personal_${docId}_${_normalize(cursor).toIso8601String()}',
+          date: cursor,
+          hasTime: hasTime,
+          title: title,
+          category: category,
+          isCompleted:
+              completedMap[_normalize(cursor).toIso8601String()] == true,
+          isPersonal: true,
+          personalDocId: docId,
+          recurrence: recurrence,
+        ),
+    ];
   }
 
   // 🚀 [3번 강화] 프로젝트 유래 일정 카드에서 바로 "내 프로젝트"의 해당
@@ -512,37 +502,22 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     final int notifId = _notifIdFor(docId);
     await flutterLocalNotificationsPlugin.cancel(id: notifId);
 
-    final int reminderMinutes = (data['reminderMinutesBefore'] as int?) ?? 0;
-    if (reminderMinutes <= 0) return;
-    if (data['hasTime'] == false) return;
-
-    final DateTime base = DateTime.parse(data['dateTime'] as String);
-    DateTime remindAt = base.subtract(Duration(minutes: reminderMinutes));
     final String recurrence = (data['recurrence'] as String?) ?? 'none';
-
     DateTimeComponents? matchComponents;
     if (recurrence == 'weekly') {
       matchComponents = DateTimeComponents.dayOfWeekAndTime;
     } else if (recurrence == 'monthly') {
       matchComponents = DateTimeComponents.dayOfMonthAndTime;
     }
-
-    if (matchComponents != null) {
-      final now = DateTime.now();
-      while (remindAt.isBefore(now)) {
-        remindAt = recurrence == 'weekly'
-            ? remindAt.add(const Duration(days: 7))
-            : DateTime(
-                remindAt.year,
-                remindAt.month + 1,
-                remindAt.day,
-                remindAt.hour,
-                remindAt.minute,
-              );
-      }
-    } else if (remindAt.isBefore(DateTime.now())) {
-      return;
-    }
+    // 알림 시각 계산은 schedule_logic.dart 의 reminderTime 이 한다(테스트로 지킴).
+    final DateTime? remindAt = reminderTime(
+      base: DateTime.parse(data['dateTime'] as String),
+      minutesBefore: (data['reminderMinutesBefore'] as int?) ?? 0,
+      recurrence: recurrence,
+      hasTime: data['hasTime'] != false,
+      now: DateTime.now(),
+    );
+    if (remindAt == null) return;
 
     await _ensureScheduleChannel();
     await flutterLocalNotificationsPlugin.zonedSchedule(
@@ -2058,6 +2033,39 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     );
   }
 
+  // 맨 위 "오늘 일정" 한 줄 요약. 누르면 오늘로 이동한다.
+  Widget _buildTodaySummary(String text) {
+    return InkWell(
+      onTap: () => setState(() {
+        _focusedDay = DateTime.now();
+        _selectedDay = DateTime.now();
+      }),
+      child: Container(
+        width: double.infinity,
+        color: scheduleTeal.withValues(alpha: 0.07),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            const Icon(Icons.today_rounded, size: 16, color: scheduleTeal),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: scheduleTeal,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildViewModeToggle() {
     Widget segment(String label, _ViewMode mode) {
       final bool selected = _viewMode == mode;
@@ -2598,9 +2606,13 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     );
   }
 
+  // 시작 시간이 1시간 안쪽으로 겹치는 일정들의 key(화면을 그릴 때마다 다시 계산).
+  Set<String> _overlapKeys = {};
+
   Widget _buildAgendaCard(_AgendaItem item) {
     final Color c = item.color;
     final bool overdue = _isOverdue(item);
+    final bool overlaps = _overlapKeys.contains(item.key);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -2697,6 +2709,25 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    if (overlaps)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF1E0),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          "시간 겹침",
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFB54708),
                           ),
                         ),
                       ),
@@ -2846,6 +2877,27 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                 }
 
                 final selectedItems = byDay[_normalize(_selectedDay)] ?? [];
+                _overlapKeys = overlappingKeys([
+                  for (final it in allItems)
+                    LiteAgenda(
+                      key: it.key,
+                      date: it.date,
+                      hasTime: it.hasTime,
+                      title: it.title,
+                      isCompleted: it.isCompleted,
+                    ),
+                ]);
+                final todayItems = byDay[_normalize(DateTime.now())] ?? [];
+                final String todayText = todaySummary([
+                  for (final it in todayItems)
+                    LiteAgenda(
+                      key: it.key,
+                      date: it.date,
+                      hasTime: it.hasTime,
+                      title: it.title,
+                      isCompleted: it.isCompleted,
+                    ),
+                ], DateTime.now());
 
                 return RefreshIndicator(
                   color: scheduleTeal,
@@ -2863,6 +2915,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                           },
                     child: Column(
                       children: [
+                        _buildTodaySummary(todayText),
                         _buildViewModeToggle(),
                         if (_viewMode == _ViewMode.day)
                           _buildDayHeader()
@@ -2981,10 +3034,7 @@ Future<int> fetchTodayScheduleCount(String currentWorker) async {
           count++;
         }
       } else {
-        final bool matchesToday = recurrence == 'weekly'
-            ? base.weekday == today.weekday
-            : base.day == today.day;
-        if (matchesToday && !base.isAfter(today)) {
+        if (recurrenceOccursOn(base, recurrence, today)) {
           final occKey = today.toIso8601String();
           if (completedMap[occKey] != true) count++;
         }
