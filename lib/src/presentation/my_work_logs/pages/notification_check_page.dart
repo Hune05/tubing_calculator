@@ -21,10 +21,18 @@ class NotificationCheckPage extends StatefulWidget {
   final List<Map<String, dynamic>> logs;
   // 프로젝트별 알림 시각을 바꿔 저장하고 알림을 다시 맞추는 함수(없으면 바꾸기 기능은 숨김).
   final Future<void> Function(Map<String, dynamic> log)? onSaveProject;
+  // 폰에 예약된 알림 아이디를 읽는 함수(테스트에서 바꿔 끼운다). 기본은 실제 폰 조회.
+  final Future<Set<int>> Function()? pendingIdsLoader;
+  // 어긋난 일보 알림 한 건 / 주간 알림만 다시 예약하는 함수(테스트에서 바꿔 끼운다).
+  final Future<void> Function(ReminderSlot slot)? rescheduleSlot;
+  final Future<void> Function()? rescheduleWeekly;
   const NotificationCheckPage({
     super.key,
     this.logs = const [],
     this.onSaveProject,
+    this.pendingIdsLoader,
+    this.rescheduleSlot,
+    this.rescheduleWeekly,
   });
 
   @override
@@ -36,6 +44,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
   bool? _allowed;
   ({bool daily, bool weekly})? _sched;
   int? _dailyCount; // 폰에 실제 예약된 일보 알림 수(모르면 null)
+  Set<int>? _pendingIds; // 폰에 예약된 알림 아이디들(모르면 null)
   ({bool enabled, int minutes, bool weekly, int weeklyMinutes, bool autoPdf})?
   _pref;
   String? _msg;
@@ -70,9 +79,13 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     } catch (_) {}
     ({bool daily, bool weekly})? sched;
     int? count;
+    Set<int>? pendingIds;
     try {
       sched = await scheduledReminderStatus();
       count = await scheduledDailyReminderCount();
+    } catch (_) {}
+    try {
+      pendingIds = await (widget.pendingIdsLoader ?? pendingReminderIds)();
     } catch (_) {}
     final pref = await loadReportReminder();
     if (mounted) {
@@ -80,6 +93,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
         _allowed = ok;
         _sched = sched;
         _dailyCount = count;
+        _pendingIds = pendingIds;
         _pref = pref;
       });
     }
@@ -168,6 +182,64 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     ];
   }
 
+  // 알림 한 건의 상태 줄. 폰에 예약돼 있지 않으면 빨갛게 표시하고 그 건만 다시 예약할 수 있다.
+  Widget _slotRow(ReminderSlot s) {
+    final ok = s.scheduled;
+    return Padding(
+      padding: const EdgeInsets.only(left: 26, bottom: 2),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              keepWords("· ${_hm(s.plan.minutes)}  ${s.plan.names.join(', ')}"),
+              style: const TextStyle(fontSize: 12, height: 1.4, color: _text),
+            ),
+          ),
+          Text(
+            ok ? "예약됨" : "예약 안 됨",
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: ok ? const Color(0xFF1B9E5A) : const Color(0xFFE5484D),
+            ),
+          ),
+          if (!ok)
+            TextButton(
+              onPressed: () => _rescheduleOne(s),
+              style: TextButton.styleFrom(
+                minimumSize: const Size(0, 30),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+              child: const Text("다시 예약"),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _rescheduleOne(ReminderSlot s) async {
+    try {
+      await (widget.rescheduleSlot ?? rescheduleDailySlot)(s);
+      if (mounted) {
+        setState(() => _msg = "${_hm(s.plan.minutes)} 알림을 다시 예약했습니다.");
+      }
+    } catch (e) {
+      if (mounted) setState(() => _msg = "다시 예약하지 못했습니다: $e");
+    }
+    await _refresh();
+  }
+
+  Future<void> _rescheduleWeeklyOne() async {
+    try {
+      await (widget.rescheduleWeekly ??
+          () => rescheduleWeeklyOnly(widget.logs))();
+      if (mounted) setState(() => _msg = "주간 보고 알림을 다시 예약했습니다.");
+    } catch (e) {
+      if (mounted) setState(() => _msg = "다시 예약하지 못했습니다: $e");
+    }
+    await _refresh();
+  }
+
   // 일보 알림이 켜져 있으면, 어느 시각에 어느 프로젝트 알림이 가는지 보여 준다.
   List<Widget> _projectTimeRows() {
     final pref = _pref;
@@ -175,16 +247,23 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     final active = widget.logs.where((l) => l['status'] != 'DONE').toList();
     final plans = planDailyReminders(active, pref.minutes, DateTime.now());
     if (plans.isEmpty) return const [];
+    final pending = _pendingIds;
+    final slots = pending == null
+        ? null
+        : dailyReminderSlots(active, pref.minutes, DateTime.now(), pending);
     return [
       ..._countCheck(),
-      for (final p in plans)
-        Padding(
-          padding: const EdgeInsets.only(left: 26, bottom: 4),
-          child: Text(
-            "· ${_hm(p.minutes)}  ${p.names.join(', ')}",
-            style: const TextStyle(fontSize: 12, height: 1.4, color: _text),
+      if (slots != null)
+        for (final s in slots) _slotRow(s)
+      else
+        for (final p in plans)
+          Padding(
+            padding: const EdgeInsets.only(left: 26, bottom: 4),
+            child: Text(
+              "· ${_hm(p.minutes)}  ${p.names.join(', ')}",
+              style: const TextStyle(fontSize: 12, height: 1.4, color: _text),
+            ),
           ),
-        ),
       if (widget.onSaveProject != null)
         Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -398,6 +477,19 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
               _sched?.weekly,
               "금요일 ${_hm(_pref?.weeklyMinutes ?? 1020)}",
             ),
+            if ((_pref?.weekly ?? false) &&
+                _sched?.weekly == false &&
+                _activeLogs.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(left: 18, bottom: 4),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton(
+                    onPressed: _rescheduleWeeklyOne,
+                    child: const Text("주간 보고 알림만 다시 예약"),
+                  ),
+                ),
+              ),
             Text(
               keepWords(
                 "폰에 예약이 돼 있어도 절전 기능 때문에 제때 안 울릴 수 있습니다. 아래 4번을 확인하십시오.",

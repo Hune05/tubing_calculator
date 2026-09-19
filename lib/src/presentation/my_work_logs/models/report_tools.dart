@@ -1132,6 +1132,37 @@ String pdfShareNotice(ShareResultStatus status, String what) {
   }
 }
 
+// 마무리 보고서를 만들어 공유창을 연 결과를 프로젝트에 남긴다(나중에 "보냈는지" 확인용).
+void recordFinalReportShare(
+  Map<String, dynamic> log,
+  ShareResultStatus status, [
+  DateTime? now,
+]) {
+  log['finalReportShare'] = {
+    'status': status.name,
+    'at': now ?? DateTime.now(),
+  };
+}
+
+// 결과 정리 카드에 보여 줄 한 줄. 기록이 없으면 null.
+String? finalReportShareLabel(Map<String, dynamic> log) {
+  final r = log['finalReportShare'];
+  if (r is! Map) return null;
+  final at = r['at'] == null ? null : asDate(r['at']);
+  final when = at == null
+      ? ''
+      : '${at.month}/${at.day} ${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')} ';
+  switch (r['status']?.toString()) {
+    case 'success':
+      return '${when}공유함';
+    case 'dismissed':
+      return '${when}만들었지만 공유하지 않음';
+    case 'unavailable':
+      return '${when}만들어 공유창을 열었음(공유 여부는 확인할 수 없음)';
+  }
+  return null;
+}
+
 Future<ShareResult> shareReportPdf(
   ReportDoc doc, {
   bool withPhotos = false,
@@ -1529,27 +1560,91 @@ Future<void> syncReportReminder(List<Map<String, dynamic>> logs) async {
         >()
         ?.createNotificationChannel(channel);
     for (var i = 0; i < plans.length; i++) {
-      final plan = plans[i];
-      await flutterLocalNotificationsPlugin.zonedSchedule(
-        id: _kDailyBaseId + i,
-        title: '작업일보',
-        body: dailyReminderBody(plan.count, name: plan.name),
-        payload: kDailyReportPayload,
-        scheduledDate: tz.TZDateTime.from(plan.at, tz.local),
-        notificationDetails: const NotificationDetails(
-          android: AndroidNotificationDetails(
-            _kReminderChannel,
-            '작업일보 알림',
-            channelDescription: '작업일보 작성 리마인더',
-            importance: Importance.high,
-            priority: Priority.high,
-          ),
-        ),
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        matchDateTimeComponents: DateTimeComponents.time,
-      );
+      await _scheduleDailyPlan(plans[i], i);
     }
   } catch (e) {
     debugPrint('일보 알림 설정 실패: $e');
   }
+}
+
+Future<void> _scheduleDailyPlan(DailyReminderPlan plan, int index) async {
+  await flutterLocalNotificationsPlugin.zonedSchedule(
+    id: _kDailyBaseId + index,
+    title: '작업일보',
+    body: dailyReminderBody(plan.count, name: plan.name),
+    payload: kDailyReportPayload,
+    scheduledDate: tz.TZDateTime.from(plan.at, tz.local),
+    notificationDetails: const NotificationDetails(
+      android: AndroidNotificationDetails(
+        _kReminderChannel,
+        '작업일보 알림',
+        channelDescription: '작업일보 작성 리마인더',
+        importance: Importance.high,
+        priority: Priority.high,
+      ),
+    ),
+    androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+    matchDateTimeComponents: DateTimeComponents.time,
+  );
+}
+
+void _ensureTimezone() {
+  if (_tzReady) return;
+  tzdata.initializeTimeZones();
+  tz.setLocalLocation(tz.getLocation('Asia/Seoul'));
+  _tzReady = true;
+}
+
+// ── 예약 항목별 점검: 어긋난 것만 골라 다시 예약 ──
+
+// 일보 알림 한 건(같은 시각에 묶인 프로젝트들)과, 폰에 실제로 예약돼 있는지.
+class ReminderSlot {
+  final int id; // 알림 아이디(폰에 예약될 때 쓰는 값)
+  final DailyReminderPlan plan;
+  final bool scheduled;
+  ReminderSlot(this.id, this.plan, this.scheduled);
+}
+
+// 필요한 일보 알림마다 예약 여부를 붙인다. [pendingIds]는 폰에 예약돼 있는 알림 아이디들.
+List<ReminderSlot> dailyReminderSlots(
+  List<Map<String, dynamic>> logs,
+  int defaultMinutes,
+  DateTime now,
+  Set<int> pendingIds,
+) {
+  final active = logs.where((l) => l['status'] != 'DONE').toList();
+  final plans = planDailyReminders(active, defaultMinutes, now);
+  return [
+    for (var i = 0; i < plans.length; i++)
+      ReminderSlot(
+        _kDailyBaseId + i,
+        plans[i],
+        pendingIds.contains(_kDailyBaseId + i),
+      ),
+  ];
+}
+
+// 폰에 예약돼 있는 알림 아이디들.
+Future<Set<int>> pendingReminderIds() async {
+  final pending = await flutterLocalNotificationsPlugin
+      .pendingNotificationRequests();
+  return pending.map((e) => e.id).toSet();
+}
+
+// 어긋난 일보 알림 한 건만 다시 예약한다(다른 알림은 건드리지 않는다).
+Future<void> rescheduleDailySlot(ReminderSlot slot) async {
+  _ensureTimezone();
+  await _scheduleDailyPlan(slot.plan, slot.id - _kDailyBaseId);
+}
+
+// 주간 보고 알림만 다시 예약한다.
+Future<void> rescheduleWeeklyOnly(List<Map<String, dynamic>> logs) async {
+  _ensureTimezone();
+  final pref = await loadReportReminder();
+  final active = logs.where((l) => l['status'] != 'DONE').toList();
+  await _syncWeeklyReminder(
+    pref.weekly && active.isNotEmpty,
+    pref.weeklyMinutes,
+    pref.autoPdf,
+  );
 }

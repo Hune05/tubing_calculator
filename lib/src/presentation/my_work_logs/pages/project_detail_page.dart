@@ -2242,6 +2242,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     final r = _retro;
     final cause = r['cause']?.toString() ?? '';
     final lesson = r['lesson']?.toString() ?? '';
+    final finalShare = finalReportShareLabel(log);
 
     Widget line(String label, String value, {Color? color}) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
@@ -2318,6 +2319,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                 ),
               ],
             ),
+            if (finalShare != null) line("마무리 보고서", finalShare),
             if (planned != null) line("계획 기간", "$planned일"),
             if (actual != null) line("실제 기간", "$actual일"),
             if (diff != null)
@@ -2921,6 +2923,9 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         buildFinalReportDoc(log),
         withPhotos: true,
       );
+      recordFinalReportShare(log, r.status);
+      widget.actions.save();
+      if (mounted) setState(() {});
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

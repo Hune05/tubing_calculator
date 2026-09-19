@@ -931,6 +931,8 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         buildFinalReportDoc(log),
         withPhotos: true,
       );
+      recordFinalReportShare(log, r.status);
+      _saveProject(log);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

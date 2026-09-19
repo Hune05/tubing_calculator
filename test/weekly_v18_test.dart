@@ -17,6 +17,7 @@ Future<void> pump(WidgetTester tester, Widget w) async {
 }
 
 void main() {
+  _finalShareRecordTest();
   _finalReportNameTest();
   group('공유 결과 안내 문구', () {
     test(
@@ -207,5 +208,41 @@ void _finalReportNameTest() {
     // 복사본만 바뀌고 원본 종류 표시는 그대로.
     expect(ReportDoc('t', 'p', []).withHeading('x').heading, 'x');
     expect(ReportDoc('t', 'p', []).heading, '작업 보고');
+  });
+}
+
+void _finalShareRecordTest() {
+  test('final report share result is recorded and labelled', () {
+    final log = <String, dynamic>{};
+    expect(finalReportShareLabel(log), isNull);
+    final at = DateTime(2026, 9, 19, 15, 4);
+    recordFinalReportShare(log, ShareResultStatus.success, at);
+    expect(finalReportShareLabel(log), '9/19 15:04 공유함');
+    recordFinalReportShare(log, ShareResultStatus.dismissed, at);
+    expect(finalReportShareLabel(log), '9/19 15:04 만들었지만 공유하지 않음');
+    recordFinalReportShare(log, ShareResultStatus.unavailable, at);
+    expect(finalReportShareLabel(log)!.contains('공유 여부는 확인할 수 없음'), true);
+    // 다시 만들면 마지막 결과로 덮어쓴다.
+    recordFinalReportShare(
+      log,
+      ShareResultStatus.success,
+      DateTime(2026, 9, 20, 9, 5),
+    );
+    expect(finalReportShareLabel(log), '9/20 09:05 공유함');
+    // 알 수 없는 값·손상된 값은 표시하지 않는다.
+    expect(
+      finalReportShareLabel({
+        'finalReportShare': {'status': 'weird'},
+      }),
+      isNull,
+    );
+    expect(finalReportShareLabel({'finalReportShare': 'x'}), isNull);
+    // 저장 값이 Firestore를 거쳐 문자열/날짜로 돌아와도 읽힌다.
+    expect(
+      finalReportShareLabel({
+        'finalReportShare': {'status': 'success', 'at': at.toIso8601String()},
+      }),
+      '9/19 15:04 공유함',
+    );
   });
 }
