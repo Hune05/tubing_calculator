@@ -278,13 +278,22 @@ String _snippet(String text, String q) {
   return '${s > 0 ? '…' : ''}${text.substring(s, e).replaceAll('\n', ' ')}${e < text.length ? '…' : ''}';
 }
 
-List<SearchHit> searchProjects(List<Map<String, dynamic>> logs, String query) {
+List<SearchHit> searchProjects(
+  List<Map<String, dynamic>> logs,
+  String query, {
+  String? kind, // '일보' | '이슈' | null(전체)
+  String? projectId,
+  DateTime? from,
+}) {
   final q = query.trim().toLowerCase();
   if (q.isEmpty) return [];
   final hits = <SearchHit>[];
   for (final log in logs) {
+    if (projectId != null && log['id']?.toString() != projectId) continue;
     final name = log['name']?.toString() ?? '';
     for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
+      if (kind == '이슈') break;
+      if (from != null && reportDateOf(r).isBefore(from)) continue;
       final wt = r['work_type'] is List
           ? (r['work_type'] as List).join(' ')
           : (r['work_type']?.toString() ?? '');
@@ -305,6 +314,10 @@ List<SearchHit> searchProjects(List<Map<String, dynamic>> logs, String query) {
       }
     }
     for (final p in (log['punch_lists'] as List? ?? []).whereType<Map>()) {
+      if (kind == '일보') break;
+      if (from != null && p['created_at'] != null) {
+        if (dayOnly(asDate(p['created_at'])).isBefore(from)) continue;
+      }
       final f = [
         p['content'],
         p['location'],

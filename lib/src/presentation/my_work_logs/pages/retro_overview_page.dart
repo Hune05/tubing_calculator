@@ -11,9 +11,24 @@ const Color _red = Color(0xFFF04438);
 
 // 🚀 [회고 모아보기] 완료한 프로젝트들의 계획 대비 실제 기간, 인원-일, 원인·교훈을
 // 한곳에 모아 "이런 공사는 대략 이 정도 걸린다"를 파악하게 한다.
-class RetroOverviewPage extends StatelessWidget {
+class RetroOverviewPage extends StatefulWidget {
   final List<Map<String, dynamic>> logs;
   const RetroOverviewPage({super.key, required this.logs});
+
+  @override
+  State<RetroOverviewPage> createState() => _RetroOverviewPageState();
+}
+
+class _RetroOverviewPageState extends State<RetroOverviewPage> {
+  String? _type;
+
+  static String _typeOf(Map<String, dynamic> l) =>
+      (l['workType']?.toString() ?? '').isEmpty
+      ? '미분류'
+      : l['workType'].toString();
+
+  List<Map<String, dynamic>> get logs =>
+      widget.logs.where((l) => _type == null || _typeOf(l) == _type).toList();
 
   static int? _planned(Map<String, dynamic> log) {
     final s = projectStart(log), e = projectDue(log);
@@ -134,6 +149,37 @@ class RetroOverviewPage extends StatelessWidget {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (final t in <String?>[
+                        null,
+                        ...{
+                          for (final l in widget.logs)
+                            if (l['status'] == 'DONE') _typeOf(l),
+                        },
+                      ])
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(t ?? '모든 유형'),
+                            selected: _type == t,
+                            showCheckmark: false,
+                            selectedColor: _teal,
+                            backgroundColor: Colors.white,
+                            side: BorderSide.none,
+                            labelStyle: TextStyle(
+                              color: _type == t ? Colors.white : _sub,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            onSelected: (_) => setState(() => _type = t),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
                 card([
                   h("전체 요약 (완료 ${done.length}건)"),
                   if (avgPlan != null && avgActual != null) ...[

@@ -13,12 +13,15 @@ class PhaseTemplate {
   final List<String> names;
   final List<double> weights;
   final bool builtIn;
+  // 이 템플릿이 어울리는 공사 유형(같은 유형 프로젝트에서 자동 추천).
+  final String? workType;
 
   const PhaseTemplate(
     this.name,
     this.names,
     this.weights, {
     this.builtIn = false,
+    this.workType,
   });
 
   static const standard = PhaseTemplate(
@@ -32,12 +35,14 @@ class PhaseTemplate {
     'name': name,
     'names': names,
     'weights': weights,
+    if (workType != null) 'workType': workType,
   };
 
   static PhaseTemplate fromJson(Map<String, dynamic> j) => PhaseTemplate(
     j['name'].toString(),
     (j['names'] as List).map((e) => e.toString()).toList(),
     (j['weights'] as List).map((e) => (e as num).toDouble()).toList(),
+    workType: j['workType']?.toString(),
   );
 }
 
@@ -121,7 +126,11 @@ Future<void> deletePhaseTemplate(String name) async {
 }
 
 // 현재 프로젝트의 단계 구성을 템플릿으로: 각 단계 기간(일)을 비중으로 쓴다.
-PhaseTemplate templateFromPhases(String name, List<Map<String, dynamic>> ph) {
+PhaseTemplate templateFromPhases(
+  String name,
+  List<Map<String, dynamic>> ph, {
+  String? workType,
+}) {
   return PhaseTemplate(
     name,
     ph.map((p) => p['name'].toString()).toList(),
@@ -130,5 +139,6 @@ PhaseTemplate templateFromPhases(String name, List<Map<String, dynamic>> ph) {
       if (s == null || e == null) return 1.0;
       return (e.difference(s).inDays + 1).toDouble();
     }).toList(),
+    workType: (workType == null || workType.isEmpty) ? null : workType,
   );
 }

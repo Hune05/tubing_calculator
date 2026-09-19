@@ -21,6 +21,103 @@ class ReportSearchPage extends StatefulWidget {
 class _ReportSearchPageState extends State<ReportSearchPage> {
   final _ctrl = TextEditingController();
   List<SearchHit> _hits = [];
+  String? _kind;
+  String? _projectId;
+  int _period = 0; // 0=전체 1=이번 달 2=최근 3개월 3=올해
+  static const _periodLabels = ['전체 기간', '이번 달', '최근 3개월', '올해'];
+
+  DateTime? get _from {
+    final now = DateTime.now();
+    return switch (_period) {
+      1 => DateTime(now.year, now.month, 1),
+      2 => DateTime(now.year, now.month - 2, 1),
+      3 => DateTime(now.year, 1, 1),
+      _ => null,
+    };
+  }
+
+  void _run() => setState(
+    () => _hits = searchProjects(
+      widget.logs,
+      _ctrl.text,
+      kind: _kind,
+      projectId: _projectId,
+      from: _from,
+    ),
+  );
+
+  Widget _filters() {
+    Widget chip(String label, bool sel, VoidCallback onTap) => Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: sel,
+        showCheckmark: false,
+        selectedColor: tossBlue,
+        backgroundColor: pureWhite,
+        side: BorderSide.none,
+        labelStyle: TextStyle(
+          color: sel ? pureWhite : tossSubText,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+        onSelected: (_) => onTap(),
+      ),
+    );
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
+      child: Row(
+        children: [
+          for (final k in <String?>[null, '일보', '이슈'])
+            chip(k ?? '전체', _kind == k, () {
+              _kind = k;
+              _run();
+            }),
+          const SizedBox(width: 6),
+          PopupMenuButton<String?>(
+            onSelected: (v) {
+              _projectId = v == '' ? null : v;
+              _run();
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: '', child: Text("모든 프로젝트")),
+              for (final l in widget.logs)
+                PopupMenuItem(
+                  value: l['id']?.toString(),
+                  child: Text(l['name']?.toString() ?? '이름 없음'),
+                ),
+            ],
+            child: Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Chip(
+                label: Text(
+                  _projectId == null
+                      ? "모든 프로젝트"
+                      : (widget.logs
+                                .firstWhere(
+                                  (l) => l['id']?.toString() == _projectId,
+                                  orElse: () => {'name': '프로젝트'},
+                                )['name']
+                                ?.toString() ??
+                            '프로젝트'),
+                  style: const TextStyle(fontSize: 12),
+                ),
+                backgroundColor: pureWhite,
+                side: BorderSide.none,
+                avatar: const Icon(Icons.folder_open_rounded, size: 16),
+              ),
+            ),
+          ),
+          for (int i = 0; i < _periodLabels.length; i++)
+            chip(_periodLabels[i], _period == i, () {
+              _period = i;
+              _run();
+            }),
+        ],
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -45,91 +142,102 @@ class _ReportSearchPageState extends State<ReportSearchPage> {
             hintText: "일보·이슈 검색 (예: 용접, 유니온)",
             border: InputBorder.none,
           ),
-          onChanged: (v) =>
-              setState(() => _hits = searchProjects(widget.logs, v)),
+          onChanged: (_) => _run(),
         ),
       ),
-      body: _ctrl.text.trim().isEmpty
-          ? const Center(
-              child: Text(
-                "찾고 싶은 단어를 입력하세요.",
-                style: TextStyle(color: tossSubText),
-              ),
-            )
-          : _hits.isEmpty
-          ? const Center(
-              child: Text("검색 결과가 없습니다.", style: TextStyle(color: tossSubText)),
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: _hits.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 8),
-              itemBuilder: (_, i) {
-                final h = _hits[i];
-                return Material(
-                  color: pureWhite,
-                  borderRadius: BorderRadius.circular(14),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(14),
-                    onTap: () => widget.onOpen(h),
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 7,
-                                  vertical: 2,
+      body: Column(
+        children: [
+          _filters(),
+          Expanded(
+            child: _ctrl.text.trim().isEmpty
+                ? const Center(
+                    child: Text(
+                      "찾고 싶은 단어를 입력하세요.",
+                      style: TextStyle(color: tossSubText),
+                    ),
+                  )
+                : _hits.isEmpty
+                ? const Center(
+                    child: Text(
+                      "검색 결과가 없습니다.",
+                      style: TextStyle(color: tossSubText),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _hits.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (_, i) {
+                      final h = _hits[i];
+                      return Material(
+                        color: pureWhite,
+                        borderRadius: BorderRadius.circular(14),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(14),
+                          onTap: () => widget.onOpen(h),
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color:
+                                            (h.kind == '이슈'
+                                                    ? Colors.red
+                                                    : tossBlue)
+                                                .withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        h.kind,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                          color: h.kind == '이슈'
+                                              ? Colors.red
+                                              : tossBlue,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        h.title,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          color: tossText,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                decoration: BoxDecoration(
-                                  color:
-                                      (h.kind == '이슈' ? Colors.red : tossBlue)
-                                          .withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  h.kind,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    color: h.kind == '이슈'
-                                        ? Colors.red
-                                        : tossBlue,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  h.title,
-                                  overflow: TextOverflow.ellipsis,
+                                const SizedBox(height: 6),
+                                Text(
+                                  h.snippet,
                                   style: const TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    color: tossText,
+                                    fontSize: 13,
+                                    color: tossSubText,
+                                    height: 1.4,
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            h.snippet,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: tossSubText,
-                              height: 1.4,
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -40,6 +40,16 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
   int _period = 0;
   static const _periodLabels = ['전체', '이번 달', '최근 3개월', '올해'];
 
+  String? _type;
+
+  List<Map<String, dynamic>> get _logs =>
+      widget.logs.where((l) => _type == null || _typeOf(l) == _type).toList();
+
+  static String _typeOf(Map<String, dynamic> l) =>
+      (l['workType']?.toString() ?? '').isEmpty
+      ? '미분류'
+      : l['workType'].toString();
+
   static double _num(dynamic v) => (v as num?)?.toDouble() ?? 0;
 
   DateTime? get _from {
@@ -58,7 +68,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
   }
 
   List<(Map<String, dynamic>, Map)> get _reports => [
-    for (final l in widget.logs)
+    for (final l in _logs)
       for (final r in (l['daily_reports'] as List? ?? []).whereType<Map>())
         if (_inPeriod(r)) (l, r),
   ];
@@ -110,7 +120,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
         '작업일수 ${s.days}일 / 투입 ${s.manDays}인·일 / 하루 평균 ${s.days == 0 ? 0 : (s.manDays / s.days).toStringAsFixed(1)}명',
         '연장/야간 ${s.otHours.toStringAsFixed(1)}시간 / 벤딩 ${s.pt.round()}pt / 결선 ${s.wiring.round()}개소',
       ]),
-      ReportSection(widget.logs.length == 1 ? '단계별 투입' : '프로젝트별 투입', [
+      ReportSection(_logs.length == 1 ? '단계별 투입' : '프로젝트별 투입', [
         for (final r in s.rows) '· ${r.label}: ${r.right}  ${r.sub}',
       ]),
       ReportSection('월별 투입 인원-일', [
@@ -140,8 +150,8 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
     }
     s.months = s.monthMan.keys.toList()..sort();
 
-    if (widget.logs.length == 1) {
-      final log = widget.logs.first;
+    if (_logs.length == 1) {
+      final log = _logs.first;
       for (final p in phasesOf(log)) {
         final id = p['id'].toString();
         int d = 0, m = 0;
@@ -166,7 +176,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
         s.plan.add((p['name'].toString(), planned, d));
       }
     } else {
-      for (final log in widget.logs) {
+      for (final log in _logs) {
         final rs = reports.where((e) => identical(e.$1, log)).map((e) => e.$2);
         final m = rs.fold<int>(
           0,
@@ -364,6 +374,36 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
               ],
             ),
           ),
+          if (widget.logs.length > 1) ...[
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final t in <String?>[
+                    null,
+                    ...{for (final l in widget.logs) _typeOf(l)},
+                  ])
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(t ?? '모든 유형'),
+                        selected: _type == t,
+                        showCheckmark: false,
+                        selectedColor: _teal,
+                        backgroundColor: Colors.white,
+                        side: BorderSide.none,
+                        labelStyle: TextStyle(
+                          color: _type == t ? Colors.white : _sub,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        onSelected: (_) => setState(() => _type = t),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           if (s.days == 0)
             const Padding(
@@ -465,11 +505,10 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
                 ),
               ]),
             if (s.rows.isNotEmpty)
-              section(widget.logs.length == 1 ? "단계별 투입" : "프로젝트별 투입", [
+              section(_logs.length == 1 ? "단계별 투입" : "프로젝트별 투입", [
                 for (final r in s.rows)
                   bar(r.label, r.value, maxRow, r.right, r.sub),
-                if (widget.logs.length == 1 &&
-                    s.rows.every((r) => r.value == 0))
+                if (_logs.length == 1 && s.rows.every((r) => r.value == 0))
                   const Text(
                     "일보에서 '작업한 단계'를 선택하면 단계별로 집계돼요.",
                     style: TextStyle(color: _sub, fontSize: 12),

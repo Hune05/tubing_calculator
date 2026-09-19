@@ -6,6 +6,7 @@ import '../widgets/work_log_card.dart';
 import '../models/report_tools.dart';
 import '../models/photo_store.dart';
 import '../models/phase_templates.dart';
+import '../../../data/repositories/work_project_repository.dart';
 import 'report_search_page.dart' show ProjectPhotosPage;
 import 'project_stats_page.dart';
 
@@ -1032,7 +1033,12 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     DateTime start = dayOnly(DateTime.now());
     DateTime end = start.add(const Duration(days: 55));
     var templates = await loadPhaseTemplates();
-    var tpl = templates.first;
+    // 프로젝트 공사 유형과 같은 유형으로 저장된 템플릿이 있으면 그걸 먼저 고른다.
+    final myType = log['workType']?.toString() ?? '';
+    var tpl = templates.firstWhere(
+      (t) => myType.isNotEmpty && t.workType == myType,
+      orElse: () => templates.first,
+    );
     if (!mounted) return;
     await showModalBottomSheet(
       context: context,
@@ -1094,7 +1100,11 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                                       });
                                     },
                               child: ChoiceChip(
-                                label: Text(t.name),
+                                label: Text(
+                                  (myType.isNotEmpty && t.workType == myType)
+                                      ? "${t.name} ★추천"
+                                      : t.name,
+                                ),
                                 selected:
                                     identical(tpl, t) || tpl.name == t.name,
                                 showCheckmark: false,
@@ -1292,11 +1302,106 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       ),
     );
     if (name == null || name.isEmpty || name == '표준') return;
-    await savePhaseTemplate(templateFromPhases(name, phasesOf(log)));
+    await savePhaseTemplate(
+      templateFromPhases(
+        name,
+        phasesOf(log),
+        workType: log['workType']?.toString(),
+      ),
+    );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("'$name' 템플릿을 저장했어요. 단계 만들기에서 불러올 수 있습니다.")),
       );
+    }
+  }
+
+  // ───────────────────────── 사진 용량 정리 ─────────────────────────
+  Future<void> _optimizePhotos() async {
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("사진 용량 정리"),
+        content: const Text(
+          "이 프로젝트에 올라간 큰 사진(400KB 이상)을 줄여서 다시 올립니다. "
+          "새 사진으로 저장이 끝난 뒤에 옛 파일은 삭제돼요. 사진 수에 따라 시간이 걸릴 수 있습니다.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("취소"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("정리 시작"),
+          ),
+        ],
+      ),
+    );
+    if (go != true || !mounted) return;
+
+    final progress = ValueNotifier<String>("준비 중…");
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ValueListenableBuilder<String>(
+                  valueListenable: progress,
+                  builder: (_, v, _) => Text(v),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    String message;
+    try {
+      final res = await optimizeProjectPhotos(
+        log,
+        onProgress: (d, t) => progress.value = "사진 확인 중… $d / $t",
+      );
+      if (res.count > 0) {
+        progress.value = "저장 반영 대기 중…";
+        widget.actions.save();
+        // 서버에 새 URL이 반영된 뒤에만 옛 파일을 지운다(최대 20초 대기).
+        for (int i = 0; i < 100; i++) {
+          if (WorkProjectRepository.pendingWrites.value == 0) break;
+          await Future.delayed(const Duration(milliseconds: 200));
+        }
+        if (WorkProjectRepository.pendingWrites.value == 0) {
+          for (final r in res.oldRefs) {
+            try {
+              await r.delete();
+            } catch (_) {}
+          }
+        }
+        message =
+            "${res.count}장을 줄였어요. 약 ${(res.savedBytes / 1024 / 1024).toStringAsFixed(1)}MB 절약";
+      } else {
+        message = "줄일 만한 큰 사진이 없어요.";
+      }
+    } catch (e) {
+      message = "정리 중 오류가 났어요: $e";
+    }
+    if (mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+      setState(() {});
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -2171,6 +2276,15 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
           ],
         ),
         actions: [
+          PopupMenuButton<String>(
+            tooltip: "더보기",
+            onSelected: (v) {
+              if (v == 'optimize') _optimizePhotos();
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'optimize', child: Text("사진 용량 정리")),
+            ],
+          ),
           IconButton(
             tooltip: "투입 통계",
             icon: const Icon(Icons.bar_chart_rounded),

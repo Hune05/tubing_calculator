@@ -140,6 +140,93 @@ int countLocalPhotos(List<Map<String, dynamic>> logs) {
   return n;
 }
 
+// 이미 올라간 큰 사진을 다시 줄여 올린다. 새 URL로 문서를 바꾼 뒤(호출한 쪽이
+// 저장) 옛 파일은 [oldRefs]로 돌려주니, 저장이 서버에 반영된 다음 지우면 된다.
+// (저장 전에 지워서 링크가 깨지는 일이 없도록 여기서는 지우지 않는다.)
+Future<({int count, int savedBytes, List<Reference> oldRefs})>
+optimizeProjectPhotos(
+  Map<String, dynamic> log, {
+  void Function(int done, int total)? onProgress,
+}) async {
+  final pid = log['id']?.toString() ?? 'misc';
+  final urls = <String>{};
+  void collect(dynamic v) {
+    final s = v?.toString() ?? '';
+    if (isRemotePhoto(s)) urls.add(s);
+  }
+
+  for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
+    for (final p in (r['image_paths'] as List? ?? [])) {
+      collect(p);
+    }
+  }
+  for (final p in (log['punch_lists'] as List? ?? []).whereType<Map>()) {
+    for (final x in (p['image_paths'] as List? ?? [])) {
+      collect(x);
+    }
+  }
+  collect(log['floor_plan_image_path']);
+
+  final repl = <String, String>{};
+  final oldRefs = <Reference>[];
+  int saved = 0, done = 0;
+  for (final url in urls) {
+    onProgress?.call(done, urls.length);
+    try {
+      final ref = FirebaseStorage.instance.refFromURL(url);
+      final size = (await ref.getMetadata()).size ?? 0;
+      if (size >= 400 * 1024) {
+        final bytes = await ref.getData(25 * 1024 * 1024);
+        if (bytes != null) {
+          final dir = await getTemporaryDirectory();
+          final ext = ref.name.toLowerCase().endsWith('.png') ? '.png' : '.jpg';
+          final tmp = File(
+            '${dir.path}/dl_${DateTime.now().microsecondsSinceEpoch}$ext',
+          );
+          await tmp.writeAsBytes(bytes);
+          final small = await _compressed(tmp);
+          final newSize = await small.length();
+          if (newSize < size * 0.8) {
+            final name = '${DateTime.now().microsecondsSinceEpoch}_opt$ext';
+            final nref = FirebaseStorage.instance
+                .ref()
+                .child('project_photos')
+                .child(pid)
+                .child(name);
+            await nref.putFile(small);
+            repl[url] = await nref.getDownloadURL();
+            oldRefs.add(ref);
+            saved += size - newSize;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('사진 정리 실패(건너뜀): $e');
+    }
+    done++;
+  }
+  onProgress?.call(done, urls.length);
+
+  if (repl.isNotEmpty) {
+    String m(dynamic v) => repl[v?.toString() ?? ''] ?? (v?.toString() ?? '');
+    for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
+      final paths = (r['image_paths'] as List? ?? []).map(m).toList();
+      final tags = Map<String, dynamic>.from((r['image_tags'] as Map?) ?? {});
+      r['image_paths'] = paths;
+      if (r['image_path'] != null) r['image_path'] = m(r['image_path']);
+      r['image_tags'] = {for (final e in tags.entries) m(e.key): e.value};
+    }
+    for (final p in (log['punch_lists'] as List? ?? []).whereType<Map>()) {
+      p['image_paths'] = (p['image_paths'] as List? ?? []).map(m).toList();
+      if (p['image_path'] != null) p['image_path'] = m(p['image_path']);
+    }
+    if (log['floor_plan_image_path'] != null) {
+      log['floor_plan_image_path'] = m(log['floor_plan_image_path']);
+    }
+  }
+  return (count: repl.length, savedBytes: saved, oldRefs: oldRefs);
+}
+
 // 프로젝트 전체(일보 사진, 이슈 사진, 도면)의 로컬 사진을 올린다. 바뀐 게 있으면 true.
 Future<bool> uploadAllPhotos(Map<String, dynamic> log) async {
   final pid = log['id']?.toString();
