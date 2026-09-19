@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../widgets/korean_text.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -391,26 +392,26 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
             "작업 배치도 사용법",
             style: TextStyle(color: tossText, fontWeight: FontWeight.w800),
           ),
-          content: const SizedBox(
+          content: SizedBox(
             width: 360,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "① 왼쪽 팔레트에서 모듈을 도면 위로 끌어다 놓습니다.",
+                  keepWords("① 왼쪽 팔레트에서 모듈을 도면 위로 끌어다 놓습니다."),
                   style: TextStyle(color: tossText, fontSize: 13, height: 1.6),
                 ),
                 Text(
-                  "② '고정 치수 측정' 모드에서 두 지점을 순서대로 탭하면 거리가 자동으로 표시됩니다.",
+                  keepWords("② '고정 치수 측정' 모드에서 두 지점을 순서대로 탭하면 거리가 자동으로 표시됩니다."),
                   style: TextStyle(color: tossText, fontSize: 13, height: 1.6),
                 ),
                 Text(
-                  "③ 상단의 '다중 선택'을 켜면 여러 모듈을 한 번에 옮기거나 정렬할 수 있습니다.",
+                  keepWords("③ 상단의 '다중 선택'을 켜면 여러 모듈을 한 번에 옮기거나 정렬할 수 있습니다."),
                   style: TextStyle(color: tossText, fontSize: 13, height: 1.6),
                 ),
                 Text(
-                  "④ ⋮ 더보기 메뉴에서 색상 범례, 배경 사진, 자재 수량 등을 확인할 수 있습니다.",
+                  keepWords("④ ⋮ 더보기 메뉴에서 색상 범례, 배경 사진, 자재 수량 등을 확인할 수 있습니다."),
                   style: TextStyle(color: tossText, fontSize: 13, height: 1.6),
                 ),
               ],
@@ -639,7 +640,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
             borderRadius: BorderRadius.circular(20),
           ),
           title: Text(
-            "실행 취소 히스토리 (${_undoStack.length}단계)",
+            keepWords("실행 취소 히스토리 (${_undoStack.length}단계)"),
             style: const TextStyle(
               color: tossText,
               fontWeight: FontWeight.w800,
@@ -656,7 +657,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                 return ListTile(
                   leading: const Icon(Icons.history_rounded, color: tossBlue),
                   title: Text(
-                    "$stepsBack단계 전으로 이동",
+                    keepWords("$stepsBack단계 전으로 이동"),
                     style: const TextStyle(
                       color: tossText,
                       fontWeight: FontWeight.w700,
@@ -739,8 +740,8 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                 "이어서 작업하시겠습니까?",
                 style: TextStyle(fontWeight: FontWeight.w800, color: tossText),
               ),
-              content: const Text(
-                "저장하지 않고 나간 작업 내용이 남아있습니다.",
+              content: Text(
+                keepWords("저장하지 않고 나간 작업 내용이 남아있습니다."),
                 style: TextStyle(color: tossSubText),
               ),
               actions: [
@@ -957,9 +958,11 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                 }
                 final docs = snapshot.data?.docs ?? [];
                 if (docs.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Text(
-                      "저장된 템플릿이 없습니다.\n'더보기 > 템플릿으로 저장'으로 먼저 만들어 보십시오.",
+                      keepWords(
+                        "저장된 템플릿이 없습니다.\n'더보기 > 템플릿으로 저장'으로 먼저 만들어 보십시오.",
+                      ),
                       textAlign: TextAlign.center,
                       style: TextStyle(color: tossSubText),
                     ),
@@ -983,7 +986,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                         ),
                       ),
                       subtitle: Text(
-                        "모듈 $itemCount개",
+                        keepWords("모듈 $itemCount개"),
                         style: const TextStyle(
                           color: tossSubText,
                           fontSize: 12,
@@ -1058,8 +1061,10 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
           "템플릿 적용",
           style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
         ),
-        content: const Text(
-          "템플릿을 불러오면 지금 작업 중인 배치는 사라집니다(실행 취소로 되돌릴 수 있습니다). 계속하시겠습니까?",
+        content: Text(
+          keepWords(
+            "템플릿을 불러오면 지금 작업 중인 배치는 사라집니다(실행 취소로 되돌릴 수 있습니다). 계속하시겠습니까?",
+          ),
           style: TextStyle(color: tossSubText),
         ),
         actions: [
@@ -1243,9 +1248,9 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                     .where((d) => d.id != _currentProjectId)
                     .toList();
                 if (docs.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Text(
-                      "가져올 수 있는 다른 도면이 없습니다.",
+                      keepWords("가져올 수 있는 다른 도면이 없습니다."),
                       style: TextStyle(color: tossSubText),
                     ),
                   );
@@ -1268,7 +1273,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                         ),
                       ),
                       subtitle: Text(
-                        "모듈 $itemCount개",
+                        keepWords("모듈 $itemCount개"),
                         style: const TextStyle(
                           color: tossSubText,
                           fontSize: 12,
@@ -1313,7 +1318,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                 borderRadius: BorderRadius.circular(20),
               ),
               title: Text(
-                "가져올 모듈 선택 (${sourceData['projectName'] ?? ''})",
+                keepWords("가져올 모듈 선택 (${sourceData['projectName'] ?? ''})"),
                 style: const TextStyle(
                   color: tossText,
                   fontWeight: FontWeight.w800,
@@ -1347,7 +1352,9 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                         ),
                       ),
                       subtitle: Text(
-                        "${item.width.toInt()}×${item.height.toInt()}mm",
+                        keepWords(
+                          "${item.width.toInt()}×${item.height.toInt()}mm",
+                        ),
                         style: const TextStyle(
                           color: tossSubText,
                           fontSize: 12,
@@ -1381,7 +1388,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                     ),
                   ),
                   child: Text(
-                    "선택한 모듈 ${selectedIds.length}개 가져오기",
+                    keepWords("선택한 모듈 ${selectedIds.length}개 가져오기"),
                     style: const TextStyle(
                       color: pureWhite,
                       fontWeight: FontWeight.bold,
@@ -1474,7 +1481,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "최소 간격 기준을 만족하지 못하는 치수선이 ${violations.length}건 있습니다:",
+              keepWords("최소 간격 기준을 만족하지 못하는 치수선이 ${violations.length}건 있습니다:"),
               style: const TextStyle(color: tossText),
             ),
             const SizedBox(height: 8),
@@ -1937,7 +1944,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                 borderRadius: BorderRadius.circular(20),
               ),
               title: Text(
-                "치수선 - ${endpoints.distance.toInt()} mm",
+                keepWords("치수선 - ${endpoints.distance.toInt()} mm"),
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
@@ -2014,8 +2021,8 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                       },
                     ),
                     const SizedBox(height: 20),
-                    const Text(
-                      "최소 유지 간격 (mm) - 이보다 좁아지면 경고 표시",
+                    Text(
+                      keepWords("최소 유지 간격 (mm) - 이보다 좁아지면 경고 표시"),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -2140,8 +2147,8 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                           color: tossText,
                         ),
                       ),
-                      subtitle: const Text(
-                        "축에 맞추지 않고 실제 직선거리+각도로 표시",
+                      subtitle: Text(
+                        keepWords("축에 맞추지 않고 실제 직선거리+각도로 표시"),
                         style: TextStyle(fontSize: 11, color: tossSubText),
                       ),
                     ),
@@ -2157,16 +2164,16 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                         });
                         setModalState(() {});
                       },
-                      title: const Text(
-                        "안전 이격거리로 강조 표시",
+                      title: Text(
+                        keepWords("안전 이격거리로 강조 표시"),
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                           color: tossText,
                         ),
                       ),
-                      subtitle: const Text(
-                        "굵은 선 + 🛡 표시로 다른 치수와 구분",
+                      subtitle: Text(
+                        keepWords("굵은 선 + 🛡 표시로 다른 치수와 구분"),
                         style: TextStyle(fontSize: 11, color: tossSubText),
                       ),
                     ),
@@ -2346,7 +2353,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
           style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
         ),
         content: Text(
-          "선택한 모듈 ${_multiSelectedIds.length}개를 삭제하시겠습니까?",
+          keepWords("선택한 모듈 ${_multiSelectedIds.length}개를 삭제하시겠습니까?"),
           style: const TextStyle(color: tossSubText),
         ),
         actions: [
@@ -2646,8 +2653,8 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                "배치된 모듈을 이름별로 모아 세었습니다.",
+              Text(
+                keepWords("배치된 모듈을 이름별로 모아 세었습니다."),
                 style: TextStyle(fontSize: 13, color: tossSubText),
               ),
               const SizedBox(height: 16),
@@ -2712,7 +2719,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                   ),
                   const Spacer(),
                   Text(
-                    "${_placedItems.length}개",
+                    keepWords("${_placedItems.length}개"),
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
@@ -2797,8 +2804,10 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      "카톡으로 받은 실제 도면 사진을 배경에 깔고 그 위에\n모듈을 배치할 수 있습니다.",
+                    Text(
+                      keepWords(
+                        "카톡으로 받은 실제 도면 사진을 배경에 깔고 그 위에\n모듈을 배치할 수 있습니다.",
+                      ),
                       style: TextStyle(
                         fontSize: 14,
                         color: tossSubText,
@@ -2972,8 +2981,8 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                "실제 중판(캐비닛)의 사이즈를 mm 단위로 입력하십시오.",
+              Text(
+                keepWords("실제 중판(캐비닛)의 사이즈를 mm 단위로 입력하십시오."),
                 style: TextStyle(color: tossSubText, fontSize: 14),
               ),
               const SizedBox(height: 24),
@@ -3779,7 +3788,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
           style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
         ),
         content: Text(
-          "'${preset.name}' 프리셋을 삭제하시겠습니까?",
+          keepWords("'${preset.name}' 프리셋을 삭제하시겠습니까?"),
           style: const TextStyle(color: tossSubText),
         ),
         actions: [

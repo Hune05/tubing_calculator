@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../widgets/korean_text.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -367,7 +368,7 @@ class _SignatureDialogState extends State<_SignatureDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text("${widget.title} 손서명"),
+      title: Text(keepWords("${widget.title} 손서명")),
       content: Container(
         width: _w,
         height: _h,

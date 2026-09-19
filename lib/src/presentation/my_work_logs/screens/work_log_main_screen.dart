@@ -1,4 +1,5 @@
 import '../widgets/work_theme.dart';
+import '../widgets/korean_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'; // debugPrint 사용을 위해 추가
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
@@ -260,7 +261,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text("일보 작성 알림"),
-                subtitle: const Text("진행중 프로젝트가 있고 오늘 일보를 쓰지 않았으면 알려 줍니다."),
+                subtitle: Text(
+                  keepWords("진행중 프로젝트가 있고 오늘 일보를 쓰지 않았으면 알려 줍니다."),
+                ),
                 value: enabled,
                 onChanged: (v) => setS(() => enabled = v),
               ),
@@ -268,15 +271,17 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                 contentPadding: EdgeInsets.zero,
                 title: const Text("주간 보고서 알림"),
                 subtitle: Text(
-                  "매주 금요일 ${hm(weeklyMinutes)}에 주간 업무 보고를 열어 보라고 알려 줍니다.",
+                  keepWords(
+                    "매주 금요일 ${hm(weeklyMinutes)}에 주간 업무 보고를 열어 보라고 알려 줍니다.",
+                  ),
                 ),
                 value: weekly,
                 onChanged: (v) => setS(() => weekly = v),
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text("알림 누르면 PDF 바로 만들기"),
-                subtitle: const Text("끄면 주간 보고 화면이 열립니다."),
+                title: Text(keepWords("알림 누르면 PDF 바로 만들기")),
+                subtitle: Text(keepWords("끄면 주간 보고 화면이 열립니다.")),
                 value: autoPdf,
                 onChanged: weekly ? (v) => setS(() => autoPdf = v) : null,
               ),
@@ -308,7 +313,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                 enabled: enabled,
                 title: const Text("알림 시각"),
                 trailing: Text(
-                  "${(minutes ~/ 60).toString().padLeft(2, '0')}:${(minutes % 60).toString().padLeft(2, '0')}",
+                  keepWords(
+                    "${(minutes ~/ 60).toString().padLeft(2, '0')}:${(minutes % 60).toString().padLeft(2, '0')}",
+                  ),
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
                 onTap: !enabled
@@ -419,7 +426,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("수정하려면 확정을 풀어야 하고, 사유가 이력으로 남습니다."),
+              Text(keepWords("수정하려면 확정을 풀어야 하고, 사유가 이력으로 남습니다.")),
               const SizedBox(height: 10),
               TextField(
                 controller: reasonCtrl,

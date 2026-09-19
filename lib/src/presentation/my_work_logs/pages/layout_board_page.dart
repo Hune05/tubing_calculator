@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../widgets/korean_text.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -424,24 +425,24 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
             "작업 배치도 사용법",
             style: TextStyle(color: tossText, fontWeight: FontWeight.w800),
           ),
-          content: const Column(
+          content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "① 아래 팔레트에서 모듈을 도면 위로 끌어다 놓습니다.",
+                keepWords("① 아래 팔레트에서 모듈을 도면 위로 끌어다 놓습니다."),
                 style: TextStyle(color: tossText, fontSize: 13, height: 1.6),
               ),
               Text(
-                "② '고정 치수 측정' 모드에서 두 지점을 순서대로 탭하면 거리가 자동으로 표시됩니다.",
+                keepWords("② '고정 치수 측정' 모드에서 두 지점을 순서대로 탭하면 거리가 자동으로 표시됩니다."),
                 style: TextStyle(color: tossText, fontSize: 13, height: 1.6),
               ),
               Text(
-                "③ 상단의 '다중 선택'을 켜면 여러 모듈을 한 번에 옮기거나 정렬할 수 있습니다.",
+                keepWords("③ 상단의 '다중 선택'을 켜면 여러 모듈을 한 번에 옮기거나 정렬할 수 있습니다."),
                 style: TextStyle(color: tossText, fontSize: 13, height: 1.6),
               ),
               Text(
-                "④ ⋮ 더보기 메뉴에서 색상 범례, 배경 사진, 자재 수량 등을 확인할 수 있습니다.",
+                keepWords("④ ⋮ 더보기 메뉴에서 색상 범례, 배경 사진, 자재 수량 등을 확인할 수 있습니다."),
                 style: TextStyle(color: tossText, fontSize: 13, height: 1.6),
               ),
             ],
@@ -789,8 +790,8 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                 "이어서 작업하시겠습니까?",
                 style: TextStyle(fontWeight: FontWeight.w800, color: tossText),
               ),
-              content: const Text(
-                "저장하지 않고 나간 작업 내용이 남아있습니다.",
+              content: Text(
+                keepWords("저장하지 않고 나간 작업 내용이 남아있습니다."),
                 style: TextStyle(color: tossSubText),
               ),
               actions: [
@@ -1053,7 +1054,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "최소 간격 기준을 만족하지 못하는 치수선이 ${violations.length}건 있습니다:",
+              keepWords("최소 간격 기준을 만족하지 못하는 치수선이 ${violations.length}건 있습니다:"),
               style: const TextStyle(color: tossText),
             ),
             const SizedBox(height: 8),
@@ -1674,8 +1675,10 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
           "템플릿 적용",
           style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
         ),
-        content: const Text(
-          "템플릿을 불러오면 지금 작업 중인 배치는 사라집니다(실행 취소로 되돌릴 수 있습니다). 계속하시겠습니까?",
+        content: Text(
+          keepWords(
+            "템플릿을 불러오면 지금 작업 중인 배치는 사라집니다(실행 취소로 되돌릴 수 있습니다). 계속하시겠습니까?",
+          ),
           style: TextStyle(color: tossSubText),
         ),
         actions: [
@@ -2615,7 +2618,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
           style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
         ),
         content: Text(
-          "선택한 모듈 ${_multiSelectedIds.length}개를 삭제하시겠습니까?",
+          keepWords("선택한 모듈 ${_multiSelectedIds.length}개를 삭제하시겠습니까?"),
           style: const TextStyle(color: tossSubText),
         ),
         actions: [
@@ -5589,7 +5592,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
           style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
         ),
         content: Text(
-          "'${preset.name}' 프리셋을 삭제하시겠습니까?",
+          keepWords("'${preset.name}' 프리셋을 삭제하시겠습니까?"),
           style: const TextStyle(color: tossSubText),
         ),
         actions: [

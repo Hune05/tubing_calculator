@@ -1,4 +1,5 @@
 import '../widgets/work_theme.dart';
+import '../widgets/korean_text.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -372,9 +373,11 @@ class _DailyReportPageState extends State<DailyReportPage> {
       final resume = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text("작성 중이던 일보가 있습니다"),
+          title: Text(keepWords("작성 중이던 일보가 있습니다")),
           content: Text(
-            "${saved.month}/${saved.day} ${saved.hour.toString().padLeft(2, '0')}:${saved.minute.toString().padLeft(2, '0')}에 저장된 임시 내용을 이어서 작성하시겠습니까?",
+            keepWords(
+              "${saved.month}/${saved.day} ${saved.hour.toString().padLeft(2, '0')}:${saved.minute.toString().padLeft(2, '0')}에 저장된 임시 내용을 이어서 작성하시겠습니까?",
+            ),
           ),
           actions: [
             TextButton(
@@ -644,8 +647,8 @@ class _DailyReportPageState extends State<DailyReportPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              "지난 날짜의 작업 일보는 함부로 바꾸지 않도록, 수정할 때 사유를 남깁니다.",
+            Text(
+              keepWords("지난 날짜의 작업 일보는 함부로 바꾸지 않도록, 수정할 때 사유를 남깁니다."),
               style: TextStyle(color: tossSubText, fontSize: 13),
             ),
             const SizedBox(height: 12),
@@ -745,13 +748,13 @@ class _DailyReportPageState extends State<DailyReportPage> {
       final mark = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text("일정을 완료로 표시하시겠습니까?"),
+          title: Text(keepWords("일정을 완료로 표시하시겠습니까?")),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                "'오늘 끝낸 일정'으로 체크한 일정입니다. 완료로 바꾸면 진행률에 반영됩니다.",
+              Text(
+                keepWords("'오늘 끝낸 일정'으로 체크한 일정입니다. 완료로 바꾸면 진행률에 반영됩니다."),
                 style: TextStyle(fontSize: 13, height: 1.4),
               ),
               const SizedBox(height: 10),
@@ -759,13 +762,14 @@ class _DailyReportPageState extends State<DailyReportPage> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Text(
-                    "• ${s['title'] ?? s['type'] ?? ''}",
+                    keepWords("• ${s['title'] ?? s['type'] ?? ''}"),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
-              if (newlyDone.length > 4) Text("외 ${newlyDone.length - 4}건"),
+              if (newlyDone.length > 4)
+                Text(keepWords("외 ${newlyDone.length - 4}건")),
             ],
           ),
           actions: [
@@ -797,13 +801,15 @@ class _DailyReportPageState extends State<DailyReportPage> {
       final mark = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text("이슈를 완료로 표시하시겠습니까?"),
+          title: Text(keepWords("이슈를 완료로 표시하시겠습니까?")),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                "'오늘 처리한 이슈'로 고른 미해결 이슈입니다. 처리 완료로 바꾸면 이슈 목록에서도 완료로 정리됩니다.",
+              Text(
+                keepWords(
+                  "'오늘 처리한 이슈'로 고른 미해결 이슈입니다. 처리 완료로 바꾸면 이슈 목록에서도 완료로 정리됩니다.",
+                ),
                 style: TextStyle(fontSize: 13, height: 1.4),
               ),
               const SizedBox(height: 10),
@@ -811,14 +817,16 @@ class _DailyReportPageState extends State<DailyReportPage> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Text(
-                    "• ${(p['location']?.toString() ?? '').isEmpty ? '' : '${p['location']} · '}${p['content'] ?? ''}",
+                    keepWords(
+                      "• ${(p['location']?.toString() ?? '').isEmpty ? '' : '${p['location']} · '}${p['content'] ?? ''}",
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
               if (unresolvedPicked.length > 4)
-                Text("외 ${unresolvedPicked.length - 4}건"),
+                Text(keepWords("외 ${unresolvedPicked.length - 4}건")),
             ],
           ),
           actions: [
@@ -1180,9 +1188,9 @@ class _DailyReportPageState extends State<DailyReportPage> {
     if (action == 'annotate') {
       if (_attachedImages.length >= 10) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text("사진은 최대 10장까지 첨부할 수 있습니다.")));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("사진은 최대 10장까지 첨부할 수 있습니다.")),
+          );
         }
         return;
       }

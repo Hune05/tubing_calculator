@@ -275,7 +275,10 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     try {
       await showTestNotification();
       if (mounted) {
-        setState(() => _msg = "테스트 알림을 보냈습니다. 상단바에 보이는지 확인하십시오. 보이지 않으면 위 알림 설정을 확인하십시오.");
+        setState(
+          () => _msg =
+              "테스트 알림을 보냈습니다. 상단바에 보이는지 확인하십시오. 보이지 않으면 위 알림 설정을 확인하십시오.",
+        );
       }
     } catch (e) {
       if (mounted) setState(() => _msg = "테스트 알림 실패: $e");
@@ -359,7 +362,9 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
                   child: Text(
                     ok == null
                         ? "확인 중…"
-                        : (ok ? "알림이 허용돼 있습니다." : "알림이 꺼져 있습니다. 아래 버튼으로 켜 주십시오."),
+                        : (ok
+                              ? "알림이 허용돼 있습니다."
+                              : "알림이 꺼져 있습니다. 아래 버튼으로 켜 주십시오."),
                     style: const TextStyle(fontSize: 13, color: _text),
                   ),
                 ),

@@ -1,4 +1,5 @@
 import '../widgets/work_theme.dart';
+import '../widgets/korean_text.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -343,8 +344,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                   final go = await showDialog<String>(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      title: const Text("미해결 이슈가 남아 있습니다"),
-                      content: Text("이슈 $open건이 아직 해결되지 않았습니다. 그래도 완료 처리하시겠습니까?"),
+                      title: Text(keepWords("미해결 이슈가 남아 있습니다")),
+                      content: Text(
+                        keepWords("이슈 $open건이 아직 해결되지 않았습니다. 그래도 완료 처리하시겠습니까?"),
+                      ),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx, 'cancel'),
@@ -444,7 +447,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("프로젝트 삭제"),
-        content: const Text("일정·일지·이슈가 모두 함께 삭제됩니다. 계속하시겠습니까?"),
+        content: Text(keepWords("일정·일지·이슈가 모두 함께 삭제됩니다. 계속하시겠습니까?")),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -1533,14 +1536,16 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setD) => AlertDialog(
-          title: const Text("이 프로젝트 보고서 머리말"),
+          title: Text(keepWords("이 프로젝트 보고서 머리말")),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "발주처마다 다른 머리말·로고가 필요할 때 적습니다. 비워 두면 기본 보고서 양식을 사용합니다.",
+                Text(
+                  keepWords(
+                    "발주처마다 다른 머리말·로고가 필요할 때 적습니다. 비워 두면 기본 보고서 양식을 사용합니다.",
+                  ),
                   style: TextStyle(fontSize: 12, color: tossSubText),
                 ),
                 TextField(
@@ -1652,9 +1657,11 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("사진 용량 정리"),
-        content: const Text(
-          "이 프로젝트에 올라간 큰 사진(400KB 이상)을 줄여서 다시 올립니다. "
-          "새 사진으로 저장이 끝난 뒤에 옛 파일은 삭제됩니다. 사진 수에 따라 시간이 걸릴 수 있습니다.",
+        content: Text(
+          keepWords(
+            "이 프로젝트에 올라간 큰 사진(400KB 이상)을 줄여서 다시 올립니다. "
+            "새 사진으로 저장이 끝난 뒤에 옛 파일은 삭제됩니다. 사진 수에 따라 시간이 걸릴 수 있습니다.",
+          ),
         ),
         actions: [
           TextButton(
@@ -1812,8 +1819,8 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                   controlAffinity: ListTileControlAffinity.leading,
                   value: saveToBook,
                   onChanged: (v) => setD(() => saveToBook = v == true),
-                  title: const Text(
-                    "주소록에도 저장 (다른 프로젝트에서 재사용)",
+                  title: Text(
+                    keepWords("주소록에도 저장 (다른 프로젝트에서 재사용)"),
                     style: TextStyle(fontSize: 13),
                   ),
                 ),
@@ -2377,14 +2384,16 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("지연된 단계의 종료일을 오늘로 늘리고, 뒤 단계의 시작/종료일을 $days일씩 미룹니다."),
+              Text(
+                keepWords("지연된 단계의 종료일을 오늘로 늘리고, 뒤 단계의 시작/종료일을 $days일씩 미룹니다."),
+              ),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 controlAffinity: ListTileControlAffinity.leading,
                 value: withSchedules,
                 onChanged: (v) => setD(() => withSchedules = v == true),
-                title: const Text(
-                  "뒤 단계의 미완료 세부 일정도 함께 밀기 (알림도 새 날짜로 다시 보냅니다)",
+                title: Text(
+                  keepWords("뒤 단계의 미완료 세부 일정도 함께 밀기 (알림도 새 날짜로 다시 보냅니다)"),
                   style: TextStyle(fontSize: 14),
                 ),
               ),
@@ -2709,7 +2718,9 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       builder: (ctx) => AlertDialog(
         title: const Text("일보 확정"),
         content: Text(
-          "일보 ${targets.length}건을 확정본으로 잠그시겠습니까?\n확정 후 수정하려면 사유를 남기고 확정을 풀어야 해요(이력이 남습니다).",
+          keepWords(
+            "일보 ${targets.length}건을 확정본으로 잠그시겠습니까?\n확정 후 수정하려면 사유를 남기고 확정을 풀어야 해요(이력이 남습니다).",
+          ),
         ),
         actions: [
           TextButton(
@@ -2743,9 +2754,11 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("남은 이슈를 모두 완료하시겠습니까?"),
+        title: Text(keepWords("남은 이슈를 모두 완료하시겠습니까?")),
         content: Text(
-          "미해결 이슈 $n건을 '처리 완료'로 바꿉니다. 처리 내용에는 '프로젝트 완료 시 일괄 처리'라고 남습니다.",
+          keepWords(
+            "미해결 이슈 $n건을 '처리 완료'로 바꿉니다. 처리 내용에는 '프로젝트 완료 시 일괄 처리'라고 남습니다.",
+          ),
         ),
         actions: [
           TextButton(
@@ -2777,7 +2790,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     final pick = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("이 프로젝트 일보 알림 시각"),
+        title: Text(keepWords("이 프로젝트 일보 알림 시각")),
         content: Text(
           cur == null
               ? "지금은 기본 시각(${hm(base)})에 알림을 보냅니다."
@@ -2820,7 +2833,9 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       final m = (log['reportReminderMinutes'] as num?)?.toInt();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(m == null ? "기본 시각으로 알림을 보내겠습니다." : "${hm(m)}에 알림을 보내겠습니다."),
+          content: Text(
+            m == null ? "기본 시각으로 알림을 보내겠습니다." : "${hm(m)}에 알림을 보내겠습니다.",
+          ),
         ),
       );
     }
@@ -2831,8 +2846,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     final make = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("마무리 보고서를 만드시겠습니까?"),
-        content: const Text("착수부터 지금까지의 전체 기록을 사진 포함 PDF로 만들어 공유할 수 있습니다."),
+        title: Text(keepWords("마무리 보고서를 만드시겠습니까?")),
+        content: Text(
+          keepWords("착수부터 지금까지의 전체 기록을 사진 포함 PDF로 만들어 공유할 수 있습니다."),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
