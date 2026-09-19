@@ -147,10 +147,24 @@ List<String> _sectionLines(
   WeekRange w, {
   required bool actual,
   required bool planned,
+  bool showProgress = false,
 }) {
   final out = <String>[];
   for (final log in logs) {
+    String? prog;
+    if (showProgress) {
+      final pct = (projectProgress(log) * 100).round();
+      final d = progressDeltaSince(log, 7);
+      prog =
+          '  ◐ 진행률 $pct%'
+          '${d == null
+              ? ''
+              : d == 0
+              ? ' (지난주와 동일)'
+              : ' (지난주 대비 ${d > 0 ? '+' : ''}$d%p)'}';
+    }
     final block = <String>[
+      if (prog != null) prog,
       if (actual) ..._actualLines(log, w),
       if (planned) ..._plannedLines(log, w),
     ];
@@ -203,7 +217,13 @@ ReportDoc buildWeeklyPlanDoc(
     sec(
       weeks[1],
       '— 진행 및 예정',
-      _sectionLines(targets, weeks[1], actual: true, planned: true),
+      _sectionLines(
+        targets,
+        weeks[1],
+        actual: true,
+        planned: true,
+        showProgress: true,
+      ),
     ),
     sec(
       weeks[2],

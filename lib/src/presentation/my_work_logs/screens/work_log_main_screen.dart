@@ -100,7 +100,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       // 🚀 [단계 구조 이전] 단계(phases)가 없던 기존 프로젝트를, 등록된 일정
       // 종류/날짜를 기준으로 새 구조로 옮겨 한 번만 저장한다.
       for (final p in projects) {
-        if (migrateProjectToPhases(p)) _repo.upsertProject(p);
+        final migrated = migrateProjectToPhases(p);
+        final snapped = recordProgressSnapshot(p);
+        if (migrated || snapped) _repo.upsertProject(p);
       }
       if (!mounted) return;
       setState(() {

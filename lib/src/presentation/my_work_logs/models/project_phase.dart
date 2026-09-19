@@ -126,6 +126,48 @@ double projectProgress(Map<String, dynamic> log) {
   return sum / phases.length;
 }
 
+String _dayKey(DateTime d) =>
+    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+// 오늘의 진행률(%)을 프로젝트에 기록해 둔다(하루 한 번, 최근 70일만 보관).
+// "지난주 대비" 변화를 보여주려면 그때의 값이 남아 있어야 해서 필요하다.
+// 바뀌었으면 true(저장 필요).
+bool recordProgressSnapshot(Map<String, dynamic> log, [DateTime? now]) {
+  final today = dayOnly(now ?? DateTime.now());
+  final hist = Map<String, dynamic>.from(
+    (log['progressHistory'] as Map?) ?? {},
+  );
+  final pct = (projectProgress(log) * 100).round();
+  final key = _dayKey(today);
+  if (hist[key] == pct) return false;
+  hist[key] = pct;
+  hist.removeWhere((k, _) {
+    final d = DateTime.tryParse(k);
+    return d != null && today.difference(d).inDays > 70;
+  });
+  log['progressHistory'] = hist;
+  return true;
+}
+
+// 지금 진행률 - `days`일 전(그 이전 중 가장 가까운 기록) 진행률, %p. 기록이 없으면 null.
+int? progressDeltaSince(Map<String, dynamic> log, int days, [DateTime? now]) {
+  final today = dayOnly(now ?? DateTime.now());
+  final hist = (log['progressHistory'] as Map?) ?? {};
+  DateTime? best;
+  int? bestVal;
+  hist.forEach((k, v) {
+    final d = DateTime.tryParse(k.toString());
+    if (d == null || v is! num) return;
+    if (today.difference(d).inDays >= days &&
+        (best == null || d.isAfter(best!))) {
+      best = d;
+      bestVal = v.toInt();
+    }
+  });
+  if (bestVal == null) return null;
+  return (projectProgress(log) * 100).round() - bestVal!;
+}
+
 // 지금 진행 중인 단계: 완료되지 않은 첫 단계(오늘이 속한 단계를 우선).
 Map<String, dynamic>? currentPhase(Map<String, dynamic> log) {
   final phases = phasesOf(log);
