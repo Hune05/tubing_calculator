@@ -128,10 +128,7 @@ void main() {
   testWidgets('without onIssueChanged the issue line is not swipeable', (
     tester,
   ) async {
-    final punch = <String, dynamic>{
-      'content': '안밀림',
-      'is_completed': false,
-    };
+    final punch = <String, dynamic>{'content': '안밀림', 'is_completed': false};
     await pump(
       tester,
       WeeklyReportPage(

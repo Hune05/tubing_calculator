@@ -6,12 +6,26 @@ void main() {
     final now = DateTime.now();
     final logs = [
       {
-        'id': 'a', 'name': 'A현장', 'status': 'ACTIVE',
-        'phases': [], 'schedules': [], 'daily_reports': [],
+        'id': 'a',
+        'name': 'A현장',
+        'status': 'ACTIVE',
+        'phases': [],
+        'schedules': [],
+        'daily_reports': [],
         'punch_lists': [
-          {'content': '여유건', 'priority': '여유', 'location': '1층', 'is_completed': false},
-          {'content': '지연건', 'priority': '긴급', 'location': '2층', 'is_completed': false,
-           'dueDate': now.subtract(const Duration(days: 3))},
+          {
+            'content': '여유건',
+            'priority': '여유',
+            'location': '1층',
+            'is_completed': false,
+          },
+          {
+            'content': '지연건',
+            'priority': '긴급',
+            'location': '2층',
+            'is_completed': false,
+            'dueDate': now.subtract(const Duration(days: 3)),
+          },
         ],
       },
     ];

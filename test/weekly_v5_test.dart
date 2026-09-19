@@ -59,7 +59,9 @@ void main() {
       'location': '2층',
       'is_completed': false,
     };
-    final logs = [proj(punches: [p])];
+    final logs = [
+      proj(punches: [p]),
+    ];
     final d = buildWeeklyPlanDoc(logs);
     final s = d.sections.last;
     expect(s.heading, '미해결 이슈 현황');
@@ -91,38 +93,41 @@ void main() {
     expect(two.company, isNull);
   });
 
-  test('weekly PDF builds (header, signature) and can be written out', () async {
-    ReportStyle.current = ReportStyle(
-      company: '테스트설비',
-      manager: '담당자',
-      signature: true,
-      sig1: '작성자',
-      sig2: '확인자',
-    );
-    final logs = [
-      proj(
-        reports: [
-          {
-            'date': '09/19',
-            'dateISO': DateTime.now().toIso8601String(),
-            'note': '전선관 3개소 설치',
-            'worker_count': 2,
-          },
-        ],
-        punches: [
-          {'content': '누수', 'location': '2층', 'is_completed': false},
-        ],
-      ),
-    ];
-    final doc = buildWeeklyPlanDoc(logs);
-    final bytes = await buildReportPdfBytes(doc);
-    expect(utf8.decode(bytes.sublist(0, 4)), '%PDF');
-    expect(bytes.length > 2000, true);
-    final out = File('build/weekly_test.pdf');
-    await out.create(recursive: true);
-    await out.writeAsBytes(bytes);
-    ReportStyle.current = ReportStyle();
-  });
+  test(
+    'weekly PDF builds (header, signature) and can be written out',
+    () async {
+      ReportStyle.current = ReportStyle(
+        company: '테스트설비',
+        manager: '담당자',
+        signature: true,
+        sig1: '작성자',
+        sig2: '확인자',
+      );
+      final logs = [
+        proj(
+          reports: [
+            {
+              'date': '09/19',
+              'dateISO': DateTime.now().toIso8601String(),
+              'note': '전선관 3개소 설치',
+              'worker_count': 2,
+            },
+          ],
+          punches: [
+            {'content': '누수', 'location': '2층', 'is_completed': false},
+          ],
+        ),
+      ];
+      final doc = buildWeeklyPlanDoc(logs);
+      final bytes = await buildReportPdfBytes(doc);
+      expect(utf8.decode(bytes.sublist(0, 4)), '%PDF');
+      expect(bytes.length > 2000, true);
+      final out = File('build/weekly_test.pdf');
+      await out.create(recursive: true);
+      await out.writeAsBytes(bytes);
+      ReportStyle.current = ReportStyle();
+    },
+  );
 }
 
 void _logoTest() {

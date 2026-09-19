@@ -70,8 +70,11 @@ void main() {
 
   test('photos and before/after follow the chosen base date', () {
     final today = DateTime.now();
-    final old = DateTime(today.year, today.month, today.day)
-        .subtract(const Duration(days: 21));
+    final old = DateTime(
+      today.year,
+      today.month,
+      today.day,
+    ).subtract(const Duration(days: 21));
     Map<String, dynamic> rep(DateTime d, List<String> imgs, Map tags) => {
       'date': md(d),
       'dateISO': d.toIso8601String(),

@@ -37,7 +37,10 @@ Map<String, dynamic> done(String name, {String? type, int days = 3}) {
 }
 
 void main() {
-  Future<void> open(WidgetTester tester, List<Map<String, dynamic>> logs) async {
+  Future<void> open(
+    WidgetTester tester,
+    List<Map<String, dynamic>> logs,
+  ) async {
     tester.view.physicalSize = const Size(900, 3000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);

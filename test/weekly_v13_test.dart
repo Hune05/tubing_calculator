@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'helpers_text.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/project_phase.dart';
@@ -200,8 +201,8 @@ void main() {
       final calls = await pumpDetail(tester, log);
       await tester.tap(find.text('프로젝트 완료 처리'));
       await tester.pumpAndSettle();
-      expect(find.text('미해결 이슈가 남아 있습니다'), findsOneWidget);
-      expect(find.textContaining('이슈 1건'), findsOneWidget);
+      expect(findText('미해결 이슈가 남아 있습니다'), findsOneWidget);
+      expect(findTextContaining('이슈 1건'), findsOneWidget);
       await tester.tap(find.text('취소'));
       await tester.pumpAndSettle();
       expect(calls, isEmpty);
@@ -254,7 +255,7 @@ void main() {
       final calls = await pumpDetail(tester, log);
       await tester.tap(find.text('프로젝트 완료 처리'));
       await tester.pump();
-      expect(find.text('미해결 이슈가 남아 있습니다'), findsNothing);
+      expect(findText('미해결 이슈가 남아 있습니다'), findsNothing);
       expect(calls, ['toggle']);
     });
   });

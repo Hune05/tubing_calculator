@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'helpers_text.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/project_phase.dart';
@@ -172,7 +173,7 @@ void main() {
       );
       await tester.tap(btn);
       await tester.pumpAndSettle();
-      expect(find.text('남은 이슈를 모두 완료하시겠습니까?'), findsOneWidget);
+      expect(findText('남은 이슈를 모두 완료하시겠습니까?'), findsOneWidget);
       await tester.tap(find.text('취소'));
       await tester.pumpAndSettle();
       expect(openIssueCount(log), 1);

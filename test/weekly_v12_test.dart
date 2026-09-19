@@ -174,9 +174,6 @@ void main() {
     final d = buildWeeklyPlanDoc([
       proj('완료B', status: 'DONE', completedAt: now),
     ]);
-    expect(
-      d.sections.first.lines.any((l) => l.contains('금주 완료 · 완료B')),
-      true,
-    );
+    expect(d.sections.first.lines.any((l) => l.contains('금주 완료 · 완료B')), true);
   });
 }

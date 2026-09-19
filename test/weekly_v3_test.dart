@@ -5,14 +5,14 @@ import 'package:tubing_calculator/src/presentation/my_work_logs/models/weekly_pl
 void main() {
   test('issueOverdueDays counts only open issues past due', () {
     final now = DateTime(2026, 9, 19);
-    expect(
-      issueOverdueDays({'dueDate': DateTime(2026, 9, 16)}, now),
-      3,
-    );
+    expect(issueOverdueDays({'dueDate': DateTime(2026, 9, 16)}, now), 3);
     expect(issueOverdueDays({'dueDate': DateTime(2026, 9, 19)}, now), 0);
     expect(issueOverdueDays({'dueDate': DateTime(2026, 9, 25)}, now), 0);
     expect(
-      issueOverdueDays({'dueDate': DateTime(2026, 9, 1), 'is_completed': true}, now),
+      issueOverdueDays({
+        'dueDate': DateTime(2026, 9, 1),
+        'is_completed': true,
+      }, now),
       0,
     );
     expect(issueOverdueDays({}, now), 0);
@@ -43,10 +43,20 @@ void main() {
       'daily_reports': [
         {
           'date': md(today),
-          'dateISO': DateTime(today.year, today.month, today.day).toIso8601String(),
+          'dateISO': DateTime(
+            today.year,
+            today.month,
+            today.day,
+          ).toIso8601String(),
           'image_paths': tagged ? ['b1', 'a1', 'b2', 'a2', 'b3'] : [],
           'image_tags': tagged
-              ? {'b1': '작업 전', 'a1': '작업 후', 'b2': '작업 전', 'a2': '작업 후', 'b3': '작업 전'}
+              ? {
+                  'b1': '작업 전',
+                  'a1': '작업 후',
+                  'b2': '작업 전',
+                  'a2': '작업 후',
+                  'b3': '작업 전',
+                }
               : {},
         },
       ],
@@ -54,7 +64,9 @@ void main() {
   }
 
   test('before/after photos are paired in order (extra unpaired dropped)', () {
-    final d = buildWeeklyPlanDoc([proj('a', 'A현장', tagged: true)], includePhotos: true);
+    final d = buildWeeklyPlanDoc([
+      proj('a', 'A현장', tagged: true),
+    ], includePhotos: true);
     expect(d.compares.length, 2);
     expect(d.compares[0].before, 'b1');
     expect(d.compares[0].after, 'a1');

@@ -76,9 +76,7 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
-      MaterialApp(
-        home: WeeklyReportPage(logs: [proj('A현장'), proj('B현장')]),
-      ),
+      MaterialApp(home: WeeklyReportPage(logs: [proj('A현장'), proj('B현장')])),
     );
     expect(find.textContaining('A현장 작업'), findsWidgets);
     await tester.tap(find.text('모두 접기'));
