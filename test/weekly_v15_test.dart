@@ -278,7 +278,7 @@ void main() {
     test('mismatch messages', () {
       expect(reminderCountMismatch(2, 2), isNull);
       expect(reminderCountMismatch(0, 0), isNull);
-      expect(reminderCountMismatch(2, 0), contains('하나도 없어요'));
+      expect(reminderCountMismatch(2, 0), contains('하나도 없습니다'));
       expect(reminderCountMismatch(3, 1), contains('3개가 필요한데 1개만'));
       expect(reminderCountMismatch(1, 3), contains('3개 예약'));
     });

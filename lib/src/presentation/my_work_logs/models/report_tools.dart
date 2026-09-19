@@ -1378,11 +1378,31 @@ Future<int> scheduledDailyReminderCount() async {
 // 필요한 예약 수와 실제 예약 수가 다르면 안내 문구, 맞으면 null.
 String? reminderCountMismatch(int expected, int actual) {
   if (expected == actual) return null;
-  if (actual == 0) return '일보 알림 $expected개가 필요한데 예약이 하나도 없어요.';
+  if (actual == 0) return '일보 알림 $expected개가 필요한데 예약이 하나도 없습니다.';
   if (actual < expected) {
-    return '일보 알림 $expected개가 필요한데 $actual개만 예약돼 있어요.';
+    return '일보 알림 $expected개가 필요한데 $actual개만 예약돼 있습니다.';
   }
-  return '일보 알림이 필요한 $expected개보다 많은 $actual개 예약돼 있어요.';
+  return '일보 알림이 필요한 $expected개보다 많은 $actual개 예약돼 있습니다.';
+}
+
+// 알림을 다시 맞춘 직후에도 필요한 수만큼 예약되지 않았으면 그 이유 문구를, 정상이면 null을 돌려준다.
+// (권한이 꺼져 있거나 폰이 예약을 막는 경우를 앱을 열 때 바로 알아차리려는 용도)
+Future<String?> dailyReminderProblem(List<Map<String, dynamic>> logs) async {
+  try {
+    final pref = await loadReportReminder();
+    if (!pref.enabled) return null;
+    final active = logs.where((l) => l['status'] != 'DONE').toList();
+    if (active.isEmpty) return null;
+    final expected = planDailyReminders(
+      active,
+      pref.minutes,
+      DateTime.now(),
+    ).length;
+    final actual = await scheduledDailyReminderCount();
+    return reminderCountMismatch(expected, actual);
+  } catch (_) {
+    return null;
+  }
 }
 
 Future<({bool daily, bool weekly})> scheduledReminderStatus() async {

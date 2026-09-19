@@ -27,6 +27,21 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _revController = TextEditingController();
   String? _workType;
+  int? _remindMinutes; // null이면 기본 시각을 쓴다
+
+  Future<void> _pickRemindTime() async {
+    final t = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(
+        hour: (_remindMinutes ?? 18 * 60) ~/ 60,
+        minute: (_remindMinutes ?? 18 * 60) % 60,
+      ),
+    );
+    if (t != null) setState(() => _remindMinutes = t.hour * 60 + t.minute);
+  }
+
+  String _hm(int m) =>
+      "${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}";
 
   void _submit() {
     final name = _nameController.text.trim();
@@ -42,6 +57,7 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
           ? "기준 도면 미상"
           : _revController.text.trim(),
       if (_workType != null) "workType": _workType,
+      if (_remindMinutes != null) "reportReminderMinutes": _remindMinutes,
       "status": "ONGOING",
       "progress": 0.0,
       "isDeducted": false,
@@ -167,6 +183,30 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
                       showCheckmark: false,
                       onSelected: (v) =>
                           setState(() => _workType = v ? t : null),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "일보 알림 시각 (선택)",
+                style: TextStyle(color: tossSubText, fontSize: 13),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  ActionChip(
+                    avatar: const Icon(Icons.alarm_rounded, size: 16),
+                    label: Text(
+                      _remindMinutes == null
+                          ? "기본 시각 사용"
+                          : _hm(_remindMinutes!),
+                    ),
+                    onPressed: _pickRemindTime,
+                  ),
+                  if (_remindMinutes != null)
+                    TextButton(
+                      onPressed: () => setState(() => _remindMinutes = null),
+                      child: const Text("기본으로"),
                     ),
                 ],
               ),

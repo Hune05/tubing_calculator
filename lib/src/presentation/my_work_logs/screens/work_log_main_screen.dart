@@ -123,7 +123,12 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         _workLogs = projects;
         _isLoading = false;
       });
-      syncReportReminder(_workLogs);
+      // 알림을 다시 맞춘 뒤에도 예약이 어긋나 있으면 목록 위에 안내 카드를 띄운다.
+      syncReportReminder(_workLogs)
+          .then((_) => dailyReminderProblem(_workLogs))
+          .then((msg) {
+            if (mounted) setState(() => _reminderProblem = msg);
+          });
       cleanOldDrafts();
       _runAutoBackup();
       loadReportStyle();
@@ -1185,6 +1190,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   bool _showGuide = false;
 
   bool _showNotifHint = false;
+  String? _reminderProblem; // 알림 예약이 어긋났을 때의 안내 문구
 
   Future<void> _loadGuideFlag() async {
     try {
@@ -1209,6 +1215,58 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         WorkRoute(builder: (_) => NotificationCheckPage(logs: _workLogs)),
       );
     }
+  }
+
+  Widget _buildReminderProblemCard() {
+    final msg = _reminderProblem;
+    if (msg == null) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+      decoration: BoxDecoration(
+        color: pureWhite,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5484D).withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "일보 알림 예약에 문제가 있습니다",
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            "$msg 알림 점검에서 확인하십시오.",
+            style: const TextStyle(fontSize: 12, height: 1.4, color: tossSubText),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => Navigator.push(
+                context,
+                WorkRoute(
+                  builder: (_) => NotificationCheckPage(
+                    logs: _workLogs,
+                    onSaveProject: (log) async {
+                      await _repo.upsertProject(log);
+                      await syncReportReminder(_workLogs);
+                    },
+                  ),
+                ),
+              ).then((_) async {
+                final m = await dailyReminderProblem(_workLogs);
+                if (mounted) setState(() => _reminderProblem = m);
+              }),
+              child: const Text(
+                "알림 점검 열기",
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildNotifHintCard() {
@@ -1796,6 +1854,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                   children: [
                     _buildGuideCard(),
                     _buildNotifHintCard(),
+                    _buildReminderProblemCard(),
                     _buildSyncBanner(),
                     _buildBackupBanner(),
                     if (!_showCompleted) _buildWeeklyReportCard(),

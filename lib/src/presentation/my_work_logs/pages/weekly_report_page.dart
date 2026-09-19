@@ -101,6 +101,27 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
   void initState() {
     super.initState();
     _loadCollapsed();
+    _loadSort();
+  }
+
+  // 진행률 카드 정렬은 다음에 열어도 그대로 유지한다.
+  static const _kSortPref = 'weekly_overview_sort';
+
+  Future<void> _loadSort() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final v = p.getInt(_kSortPref);
+      if (v != null && v >= 0 && v < 3 && mounted) {
+        setState(() => _overviewSort = v);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveSort() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setInt(_kSortPref, _overviewSort);
+    } catch (_) {}
   }
 
   // 접힘 상태는 앱을 다시 열어도 유지한다. 키에서 날짜 범위를 빼서 주가 바뀌어도 이어진다.
@@ -427,8 +448,10 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
               ),
               if (list.length > 1)
                 TextButton.icon(
-                  onPressed: () =>
-                      setState(() => _overviewSort = (_overviewSort + 1) % 3),
+                  onPressed: () {
+                    setState(() => _overviewSort = (_overviewSort + 1) % 3);
+                    _saveSort();
+                  },
                   icon: const Icon(Icons.sort_rounded, size: 16),
                   label: Text(_overviewSortLabels[_overviewSort]),
                   style: TextButton.styleFrom(
