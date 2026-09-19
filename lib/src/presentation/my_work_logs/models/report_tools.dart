@@ -105,6 +105,7 @@ class ReportDoc {
   final List<ReportPin> pins;
   final List<ReportCompare> compares;
   final String heading; // 문서 종류 표시(예: 작업 보고 / 이슈 보고)
+  final String? logoB64; // 프로젝트별 로고(없으면 기본 양식 로고)
   final String? company; // 프로젝트별 머리말(없으면 기본 양식)
   final String? manager;
   ReportDoc(
@@ -118,6 +119,7 @@ class ReportDoc {
     this.heading = '작업 보고',
     this.company,
     this.manager,
+    this.logoB64,
   });
 
   String toText() {
@@ -209,7 +211,7 @@ ReportDoc buildReportDoc(
       if (r['is_overtime'] == true) '연장',
     ];
     dayLines.add(
-      '· ${r['date']}  $types / $workers명${extra.isEmpty ? '' : ' / ${extra.join(' ')}'}',
+      '· ${r['date']}${r['locked'] == true ? ' [확정]' : ''}  $types / $workers명${extra.isEmpty ? '' : ' / ${extra.join(' ')}'}',
     );
     final note = (r['note']?.toString() ?? '').trim();
     if (note.isNotEmpty && note != '특이사항 없음') {
@@ -328,6 +330,7 @@ ReportDoc buildReportDoc(
         ? '선택한 일보 ${only.length}건'
         : '기간 ${f.year}.${f.month}.${f.day} ~ ${t.year}.${t.month}.${t.day}',
     sections,
+    logoB64: headerOverride(log, 'logoB64'),
     company: headerOverride(log, 'company'),
     manager: headerOverride(log, 'manager'),
     photos: photos,
@@ -434,6 +437,7 @@ ReportDoc buildIssueReportDoc(
         lines.isEmpty ? ['해당하는 이슈가 없습니다.'] : lines,
       ),
     ],
+    logoB64: headerOverride(log, 'logoB64'),
     company: headerOverride(log, 'company'),
     manager: headerOverride(log, 'manager'),
     photos: photos,
@@ -626,10 +630,11 @@ Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
   final style = ReportStyle.current;
   final hdrCompany = doc.company ?? style.company;
   final hdrManager = doc.manager ?? style.manager;
+  final logoSrc = doc.logoB64 ?? style.logoB64;
   pw.MemoryImage? logoImg;
-  if (style.logoB64 != null) {
+  if (logoSrc != null) {
     try {
-      logoImg = pw.MemoryImage(base64Decode(style.logoB64!));
+      logoImg = pw.MemoryImage(base64Decode(logoSrc));
     } catch (_) {}
   }
   final fontData = await rootBundle.load(
@@ -1026,7 +1031,7 @@ Future<void> _syncWeeklyReminder(bool on) async {
   await flutterLocalNotificationsPlugin.zonedSchedule(
     id: _kWeeklyId,
     title: '주간 보고서',
-    body: '이번 주 작업 보고서 초안을 만들어 공유해보세요.',
+    body: '이번 주 작업 보고서 초안과 전체 현황 이미지를 공유해보세요.',
     scheduledDate: tz.TZDateTime.from(at, tz.local),
     notificationDetails: const NotificationDetails(
       android: AndroidNotificationDetails(

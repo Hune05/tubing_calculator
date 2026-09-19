@@ -17,6 +17,7 @@ import '../models/project_phase.dart';
 import '../models/report_tools.dart';
 import '../models/photo_store.dart';
 import '../widgets/voice_input_button.dart';
+import 'photo_annotate_page.dart';
 
 const Color tossBlue = Color(0xFF007580); // 마키타 틸로 통일(다른 화면과 동일)
 const Color tossText = Color(0xFF191F28);
@@ -1035,6 +1036,15 @@ class _DailyReportPageState extends State<DailyReportPage> {
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.pop(ctx, 'annotate'),
+                icon: const Icon(Icons.draw_rounded, size: 18),
+                label: const Text("사진에 화살표·동그라미 표시 (사본으로 추가)"),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(ctx, 'save'),
                 style: ElevatedButton.styleFrom(backgroundColor: makitaTeal),
@@ -1052,6 +1062,30 @@ class _DailyReportPageState extends State<DailyReportPage> {
       ),
     );
     if (action == null) return;
+    if (action == 'annotate') {
+      if (_attachedImages.length >= 10) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text("사진은 최대 10장까지예요.")));
+        }
+        return;
+      }
+      final np = await Navigator.push<String>(
+        context,
+        MaterialPageRoute(builder: (_) => PhotoAnnotatePage(path: path)),
+      );
+      if (np != null && mounted) {
+        setState(() {
+          _attachedImages.insert(index + 1, np);
+          final t = _imageTags[path];
+          if (t != null) _imageTags[np] = t;
+          final cap = ctrl.text.trim();
+          _imageCaptions[np] = cap.isEmpty ? '표시 사본' : '$cap (표시)';
+        });
+      }
+      return;
+    }
     setState(() {
       final c = ctrl.text.trim();
       if (c.isEmpty) {

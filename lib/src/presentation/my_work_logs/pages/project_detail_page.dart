@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -8,6 +9,8 @@ import '../models/photo_store.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/address_book.dart';
 import '../models/report_style.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import '../../../core/utils/image_picker_helper.dart' show ImagePickerHelper;
 import '../models/summary_image.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/phase_templates.dart';
@@ -1461,52 +1464,106 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     final manager = TextEditingController(
       text: cur['manager']?.toString() ?? '',
     );
+    String? logo = (cur['logoB64']?.toString() ?? '').isEmpty
+        ? null
+        : cur['logoB64'].toString();
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("이 프로젝트 보고서 머리말"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "발주처마다 다른 머리말이 필요할 때 적어요. 비워 두면 기본 보고서 양식을 써요.",
-              style: TextStyle(fontSize: 12, color: tossSubText),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: const Text("이 프로젝트 보고서 머리말"),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "발주처마다 다른 머리말·로고가 필요할 때 적어요. 비워 두면 기본 보고서 양식을 써요.",
+                  style: TextStyle(fontSize: 12, color: tossSubText),
+                ),
+                TextField(
+                  controller: company,
+                  decoration: InputDecoration(
+                    labelText: "회사명 / 현장명",
+                    hintText: ReportStyle.current.company,
+                  ),
+                ),
+                TextField(
+                  controller: manager,
+                  decoration: InputDecoration(
+                    labelText: "담당자",
+                    hintText: ReportStyle.current.manager,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    if (logo != null)
+                      Container(
+                        width: 48,
+                        height: 48,
+                        margin: const EdgeInsets.only(right: 10),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Image.memory(
+                          base64Decode(logo!),
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    OutlinedButton(
+                      onPressed: () async {
+                        final path = await ImagePickerHelper.pickImage(ctx);
+                        if (path == null) return;
+                        final bytes =
+                            await FlutterImageCompress.compressWithFile(
+                              path,
+                              minWidth: 300,
+                              minHeight: 300,
+                              quality: 80,
+                              format: path.toLowerCase().endsWith('.png')
+                                  ? CompressFormat.png
+                                  : CompressFormat.jpeg,
+                            );
+                        if (bytes != null)
+                          setD(() => logo = base64Encode(bytes));
+                      },
+                      child: Text(logo == null ? "이 프로젝트 로고" : "로고 변경"),
+                    ),
+                    if (logo != null)
+                      TextButton(
+                        onPressed: () => setD(() => logo = null),
+                        child: const Text("삭제"),
+                      ),
+                  ],
+                ),
+              ],
             ),
-            TextField(
-              controller: company,
-              decoration: InputDecoration(
-                labelText: "회사명 / 현장명",
-                hintText: ReportStyle.current.company,
-              ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("취소"),
             ),
-            TextField(
-              controller: manager,
-              decoration: InputDecoration(
-                labelText: "담당자",
-                hintText: ReportStyle.current.manager,
-              ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("저장"),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("취소"),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("저장"),
-          ),
-        ],
       ),
     );
     if (ok != true) return;
     final c = company.text.trim(), m = manager.text.trim();
-    if (c.isEmpty && m.isEmpty) {
+    if (c.isEmpty && m.isEmpty && logo == null) {
       log.remove('reportHeader');
     } else {
-      log['reportHeader'] = {'company': c, 'manager': m};
+      log['reportHeader'] = {
+        'company': c,
+        'manager': m,
+        if (logo != null) 'logoB64': logo,
+      };
     }
     _changed();
   }
@@ -2576,6 +2633,47 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
   bool _selectMode = false;
   final Set<Map> _sel = {};
 
+  // 일보 확정: 확정한 일보는 수정하려면 사유를 남기고 확정을 풀어야 한다.
+  Future<void> _lockReports(List<Map> reps) async {
+    final targets = reps.where((r) => r['locked'] != true).toList();
+    if (targets.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("확정할 일보가 없어요.")));
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("일보 확정"),
+        content: Text(
+          "일보 ${targets.length}건을 확정본으로 잠글까요?\n확정 후 수정하려면 사유를 남기고 확정을 풀어야 해요(이력이 남아요).",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("취소"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("확정"),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final now = DateTime.now();
+    for (final r in targets) {
+      r['locked'] = true;
+      r['lockedAt'] = now;
+    }
+    setState(() {
+      _selectMode = false;
+      _sel.clear();
+    });
+    _changed();
+  }
+
   Future<void> _exportSelected() async {
     if (_sel.isEmpty) return;
     final doc = buildReportDoc(
@@ -2746,6 +2844,15 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                       color: tossText,
                     ),
                   ),
+                  if (r['locked'] == true)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 4),
+                      child: Icon(
+                        Icons.lock_rounded,
+                        size: 14,
+                        color: tossSubText,
+                      ),
+                    ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -2932,6 +3039,12 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                         }),
                         child: const Text("전체 선택"),
                       ),
+                      TextButton(
+                        onPressed: _sel.isEmpty
+                            ? null
+                            : () => _lockReports(_sel.toList()),
+                        child: const Text("확정"),
+                      ),
                       const Spacer(),
                       ElevatedButton(
                         onPressed: _sel.isEmpty ? null : _exportSelected,
@@ -2945,11 +3058,26 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                       ),
                     ],
                   )
-                : TextButton.icon(
-                    onPressed: () => setState(() => _selectMode = true),
-                    icon: const Icon(Icons.checklist_rounded, size: 18),
-                    label: const Text("일보 골라서 내보내기"),
-                    style: TextButton.styleFrom(foregroundColor: tossSubText),
+                : Row(
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => setState(() => _selectMode = true),
+                        icon: const Icon(Icons.checklist_rounded, size: 18),
+                        label: const Text("골라서 내보내기/확정"),
+                        style: TextButton.styleFrom(
+                          foregroundColor: tossSubText,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () =>
+                            _lockReports(reports.whereType<Map>().toList()),
+                        icon: const Icon(Icons.lock_outline_rounded, size: 18),
+                        label: const Text("전부 확정"),
+                        style: TextButton.styleFrom(
+                          foregroundColor: tossSubText,
+                        ),
+                      ),
+                    ],
                   ),
           ),
         const SizedBox(height: 10),

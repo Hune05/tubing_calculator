@@ -330,6 +330,53 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     Map<String, dynamic> log,
     Map<String, dynamic> report,
   ) async {
+    // 확정된 일보는 사유를 남기고 확정을 풀어야 수정할 수 있다.
+    if (report['locked'] == true) {
+      final reasonCtrl = TextEditingController();
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text("확정된 일보예요"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("수정하려면 확정을 풀어야 하고, 사유가 이력으로 남아요."),
+              const SizedBox(height: 10),
+              TextField(
+                controller: reasonCtrl,
+                maxLines: 2,
+                decoration: const InputDecoration(hintText: "확정 해제 사유"),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("취소"),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("확정 풀고 수정"),
+            ),
+          ],
+        ),
+      );
+      if (ok != true) return;
+      final hist = List<dynamic>.from(report['unlockHistory'] as List? ?? [])
+        ..add({
+          'reason': reasonCtrl.text.trim().isEmpty
+              ? '사유 미입력'
+              : reasonCtrl.text.trim(),
+          'at': DateTime.now(),
+        });
+      setState(() {
+        report['locked'] = false;
+        report.remove('lockedAt');
+        report['unlockHistory'] = hist;
+      });
+      _saveProject(log);
+    }
     final updated = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
@@ -346,6 +393,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     if (updated != null) {
       setState(() {
         final idx = log['daily_reports'].indexOf(report);
+        if (report['unlockHistory'] != null) {
+          updated['unlockHistory'] = report['unlockHistory'];
+        }
         if (idx != -1) log['daily_reports'][idx] = updated;
         applyReportEffects(log, updated);
       });
@@ -936,7 +986,19 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             "프로젝트를 누르면 최근 7일 일보로 보고서를 만들어 공유할 수 있어요.",
             style: TextStyle(color: tossSubText, fontSize: 12),
           ),
-          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _shareOverviewImage,
+              icon: const Icon(Icons.image_outlined, size: 18),
+              label: const Text("전체 현황 이미지 공유"),
+              style: TextButton.styleFrom(
+                foregroundColor: tossBlue,
+                padding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
           Wrap(
             spacing: 8,
             runSpacing: 8,
