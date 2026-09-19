@@ -1,3 +1,5 @@
+import 'dart:async' show FutureOr;
+
 import 'package:flutter/material.dart';
 
 import '../../../data/repositories/work_project_repository.dart';
@@ -31,9 +33,10 @@ Future<void> openWeeklyReportFromNotification(
 class WeeklyReportPage extends StatefulWidget {
   final List<Map<String, dynamic>> logs;
   // 있으면 "■ 프로젝트" 줄을 눌러 그 프로젝트 화면으로 이동할 수 있다.
-  final void Function(Map<String, dynamic> log)? onOpenProject;
+  final FutureOr<void> Function(Map<String, dynamic> log)? onOpenProject;
   // 있으면 미해결 이슈 줄을 눌러 이슈 상세로 이동할 수 있다.
-  final void Function(Map<String, dynamic> log, Map punch)? onOpenIssue;
+  final FutureOr<void> Function(Map<String, dynamic> log, Map punch)?
+  onOpenIssue;
   const WeeklyReportPage({
     super.key,
     required this.logs,
@@ -383,10 +386,14 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                           if (widget.onOpenIssue != null &&
                               s.issueRefs?[i] != null)
                             InkWell(
-                              onTap: () => widget.onOpenIssue!(
-                                s.issueRefs![i]!.log,
-                                s.issueRefs![i]!.punch,
-                              ),
+                              onTap: () async {
+                                await widget.onOpenIssue!(
+                                  s.issueRefs![i]!.log,
+                                  s.issueRefs![i]!.punch,
+                                );
+                                // 이슈를 고치고 돌아왔을 수 있으니 다시 계산한다.
+                                if (mounted) setState(() {});
+                              },
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 4,
@@ -415,8 +422,10 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                             )
                           else if (_projectFor(l) != null)
                             InkWell(
-                              onTap: () =>
-                                  widget.onOpenProject!(_projectFor(l)!),
+                              onTap: () async {
+                                await widget.onOpenProject!(_projectFor(l)!);
+                                if (mounted) setState(() {});
+                              },
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 4,

@@ -75,7 +75,7 @@ List<String> _actualLines(Map<String, dynamic> log, WeekRange w) {
   if (done.isNotEmpty) lines.add('  ✓ 완료한 일정: ${done.toSet().join(', ')}');
 
   // 이슈: 그 주에 처리된 것 / 새로 등록된 것
-  final punches = (log['punch_lists'] as List? ?? []).whereType<Map>();
+  final punches = _weeklyIssues(log);
   final resolved = punches.where((p) {
     return p['is_completed'] == true &&
         p['resolved_at'] != null &&
@@ -145,13 +145,18 @@ List<String> _plannedLines(
   return lines;
 }
 
+// 주간 보고에서 뺀(weeklyExclude) 이슈를 걸러낸 이슈 목록.
+List<Map> _weeklyIssues(Map<String, dynamic> log) =>
+    (log['punch_lists'] as List? ?? [])
+        .whereType<Map>()
+        .where((p) => p['weeklyExclude'] != true)
+        .toList();
+
 String _openIssueText(Map<String, dynamic> log) {
-  final open = (log['punch_lists'] as List? ?? [])
-      .whereType<Map>()
-      .where((p) => p['is_completed'] != true)
-      .length;
+  final issues = _weeklyIssues(log).where((p) => p['is_completed'] != true);
+  final open = issues.length;
   if (open == 0) return '';
-  final od = overdueIssueCount(log);
+  final od = issues.where((p) => issueOverdueDays(p) > 0).length;
   return ' · 미해결 이슈 $open건${od > 0 ? '(기한 초과 $od)' : ''}';
 }
 
@@ -165,7 +170,7 @@ List<String> _summaryLines(List<Map<String, dynamic>> logs, WeekRange w) {
       manDays += (r['worker_count'] as num?)?.toInt() ?? 1;
       doneSchedules += reportIds(r, 'completedScheduleIds').length;
     }
-    for (final p in (log['punch_lists'] as List? ?? []).whereType<Map>()) {
+    for (final p in _weeklyIssues(log)) {
       if (p['created_at'] != null && w.contains(asDate(p['created_at']))) {
         created++;
       }
@@ -345,10 +350,9 @@ ReportDoc buildWeeklyPlanDoc(
   final issueLines = <String>[];
   final issueRefs = <int, ({Map<String, dynamic> log, Map punch})>{};
   for (final log in targets) {
-    final open = (log['punch_lists'] as List? ?? [])
-        .whereType<Map>()
-        .where((p) => p['is_completed'] != true)
-        .toList();
+    final open = _weeklyIssues(
+      log,
+    ).where((p) => p['is_completed'] != true).toList();
     if (open.isEmpty) continue;
     // 기한이 지난 이슈를 위로 올리고 "기한 초과"로 표시한다.
     int overdueDays(Map p) {
@@ -493,6 +497,7 @@ ReportDoc buildWeeklyPlanDoc(
     '${isCurrent ? '' : ' (지난 주 보기: 진행률·미해결 이슈는 현재 값)'}',
     sections,
     heading: '주간 업무 보고',
+    boxedHeadings: true,
     logoB64: one == null ? null : headerOverride(one, 'logoB64'),
     company: one == null ? null : headerOverride(one, 'company'),
     manager: one == null ? null : headerOverride(one, 'manager'),

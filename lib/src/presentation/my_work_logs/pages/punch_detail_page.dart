@@ -319,6 +319,8 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
 
               const SizedBox(height: 16),
               _buildDeadlineSection(),
+              const SizedBox(height: 16),
+              _buildWeeklyToggle(),
 
               if (imagePaths.isNotEmpty) ...[
                 const SizedBox(height: 16),
@@ -602,6 +604,36 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
               },
             );
           }).toList(),
+        ),
+      ],
+    );
+  }
+
+  // 이 이슈를 주간 업무 보고에 넣을지(기본: 넣음).
+  Widget _buildWeeklyToggle() {
+    final include = _punch['weeklyExclude'] != true;
+    return _sectionCard(
+      title: "주간 보고",
+      children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text(
+            "주간 업무 보고에 포함",
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+          ),
+          subtitle: const Text(
+            "끄면 주간 보고의 미해결 이슈 현황과 통계에서 빠져요.",
+            style: TextStyle(fontSize: 12, color: tossSubText),
+          ),
+          value: include,
+          onChanged: (v) => setState(() {
+            if (v) {
+              _punch.remove('weeklyExclude');
+            } else {
+              _punch['weeklyExclude'] = true;
+            }
+            _changed = true;
+          }),
         ),
       ],
     );

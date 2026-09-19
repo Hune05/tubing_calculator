@@ -23,6 +23,7 @@ Map<String, dynamic> proj({
 };
 
 void main() {
+  _logoTest();
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('asOf shows a past week: reports land in 금주, note in period', () {
@@ -120,6 +121,28 @@ void main() {
     final out = File('build/weekly_test.pdf');
     await out.create(recursive: true);
     await out.writeAsBytes(bytes);
+    ReportStyle.current = ReportStyle();
+  });
+}
+
+void _logoTest() {
+  test('weekly PDF with logo and signature images builds', () async {
+    final b64 = File('build/logo_test.b64').existsSync()
+        ? File('build/logo_test.b64').readAsStringSync()
+        : null;
+    if (b64 == null) return;
+    ReportStyle.current = ReportStyle(
+      company: '로고설비',
+      manager: '홍길동',
+      logoB64: b64,
+      signature: true,
+      sig1: '작성자',
+      sig2: '확인자',
+      sig1B64: b64,
+    );
+    final doc = buildWeeklyPlanDoc([proj()]);
+    final bytes = await buildReportPdfBytes(doc);
+    await File('build/weekly_logo_test.pdf').writeAsBytes(bytes);
     ReportStyle.current = ReportStyle();
   });
 }

@@ -117,6 +117,8 @@ class ReportDoc {
   final String? logoB64; // 프로젝트별 로고(없으면 기본 양식 로고)
   final String? company; // 프로젝트별 머리말(없으면 기본 양식)
   final String? manager;
+  // 텍스트 공유에서 섹션 제목을 【제목】으로 쓴다(본문에 이미 ■ 프로젝트 줄이 있는 문서용).
+  final bool boxedHeadings;
   ReportDoc(
     this.title,
     this.period,
@@ -129,6 +131,7 @@ class ReportDoc {
     this.company,
     this.manager,
     this.logoB64,
+    this.boxedHeadings = false,
   });
 
   String toText() {
@@ -142,7 +145,7 @@ class ReportDoc {
       );
     }
     for (final s in sections) {
-      b.writeln('\n■ ${s.heading}');
+      b.writeln(boxedHeadings ? '\n【${s.heading}】' : '\n■ ${s.heading}');
       for (final l in s.lines) {
         b.writeln(l);
       }
