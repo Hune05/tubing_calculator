@@ -2,7 +2,7 @@
 part of 'work_log_main_screen.dart';
 
 // 🚀 banners 부분(화면 클래스에서 옮겨 온 메서드들, 동작은 그대로).
-extension _WorkLogMainScreenState_banners on _WorkLogMainScreenState {
+extension _WorkLogMainBanners on _WorkLogMainScreenState {
   Widget _buildBackupBanner() {
     if (!_backupFailed) return const SizedBox.shrink();
     const c = Color(0xFFC77700);

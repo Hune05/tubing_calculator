@@ -115,9 +115,9 @@ class SteelCuttingProject {
     List<SteelCutItem>? items,
   }) : items = items ?? [];
 
-  int get totalPieces => items.fold(0, (sum, i) => sum + i.qty) * setMultiplier;
+  int get totalPieces => items.fold(0, (acc, i) => acc + i.qty) * setMultiplier;
   double get totalLength =>
-      items.fold(0.0, (sum, i) => sum + i.totalLength) * setMultiplier;
+      items.fold(0.0, (acc, i) => acc + i.totalLength) * setMultiplier;
 
   Map<String, dynamic> toMap() => {
     'name': name,

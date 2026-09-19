@@ -2448,7 +2448,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
               (last.position.dx + last.width) - first.position.dx;
           final double totalWidth = sorted.fold<double>(
             0,
-            (sum, i) => sum + i.width,
+            (acc, i) => acc + i.width,
           );
           final double gap = (totalSpan - totalWidth) / (sorted.length - 1);
           double cursor = first.position.dx + first.width + gap;
@@ -2467,7 +2467,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
               (lastV.position.dy + lastV.height) - firstV.position.dy;
           final double totalHeightV = sortedV.fold<double>(
             0,
-            (sum, i) => sum + i.height,
+            (acc, i) => acc + i.height,
           );
           final double gapV =
               (totalSpanV - totalHeightV) / (sortedV.length - 1);

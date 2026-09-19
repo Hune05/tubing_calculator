@@ -2,7 +2,7 @@
 part of 'project_detail_page.dart';
 
 // 🚀 issues 부분(화면 클래스에서 옮겨 온 메서드들, 동작은 그대로).
-extension _ProjectDetailPageState_issues on _ProjectDetailPageState {
+extension _ProjectDetailIssues on _ProjectDetailPageState {
   // ───────────────────────── 이슈 / 일지 탭 ─────────────────────────
   Widget _buildIssuesTab() {
     final punches = (log['punch_lists'] as List? ?? []);
@@ -283,7 +283,7 @@ extension _ProjectDetailPageState_issues on _ProjectDetailPageState {
       log['reportHeader'] = {
         'company': c,
         'manager': m,
-        if (logo != null) 'logoB64': logo,
+        'logoB64': ?logo,
       };
     }
     _changed();

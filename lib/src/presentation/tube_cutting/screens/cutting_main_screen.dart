@@ -1620,8 +1620,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         .sublist(0, _points.length - 1)
         .fold(
           0.0,
-          (sum, point) =>
-              sum + (point.calculatedCut > 0 ? point.calculatedCut : 0.0),
+          (acc, point) =>
+              acc + (point.calculatedCut > 0 ? point.calculatedCut : 0.0),
         );
 
     double finalTotal = totalOneSet * _setMultiplier;

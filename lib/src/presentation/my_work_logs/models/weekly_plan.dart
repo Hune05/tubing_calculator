@@ -217,7 +217,7 @@ List<String> _sectionLines(
               : ' (전주 대비 ${d > 0 ? '+' : ''}$d%p)'}';
     }
     final block = <String>[
-      if (prog != null) prog,
+      ?prog,
       if (actual) ..._actualLines(log, w),
       if (planned) ..._plannedLines(log, w, today),
     ];

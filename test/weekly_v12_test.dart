@@ -22,7 +22,7 @@ Map<String, dynamic> proj(
     'phases': [],
     'schedules': [],
     'punch_lists': [],
-    if (completedAt != null) 'completedAt': completedAt,
+    'completedAt': ?completedAt,
     'daily_reports': [
       {
         'date': md(t),

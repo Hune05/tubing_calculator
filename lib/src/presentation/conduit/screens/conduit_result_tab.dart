@@ -846,7 +846,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                         ],
                       ),
                     ],
-                    if (extraWidget != null) extraWidget,
+                    ?extraWidget,
                   ],
                 ),
               ),

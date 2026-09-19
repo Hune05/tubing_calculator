@@ -541,7 +541,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
             ),
             Text(
               keepWords(
-                "폰에 예약이 돼 있어도 절전 기능 때문에 제때 안 울릴 수 있습니다. 아래 4번을 확인하십시오.",
+                "이 앱의 알림은 정해진 시간부터 최대 1시간 안에 옵니다(폰이 배터리를 아끼려고 묶어서 보냅니다). 예약이 돼 있어도 절전 기능 때문에 안 울릴 수 있으니 아래 4번을 확인하십시오.",
               ),
               style: TextStyle(fontSize: 12, height: 1.4, color: _sub),
             ),

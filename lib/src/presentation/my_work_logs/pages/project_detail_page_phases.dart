@@ -2,7 +2,7 @@
 part of 'project_detail_page.dart';
 
 // 🚀 phases 부분(화면 클래스에서 옮겨 온 메서드들, 동작은 그대로).
-extension _ProjectDetailPageState_phases on _ProjectDetailPageState {
+extension _ProjectDetailPhases on _ProjectDetailPageState {
   Widget _buildPhasesTab() {
     final phases = phasesOf(log);
     final unassigned = schedulesInPhase(log, null);

@@ -2,7 +2,7 @@
 part of 'work_log_main_screen.dart';
 
 // 🚀 dashboard 부분(화면 클래스에서 옮겨 온 메서드들, 동작은 그대로).
-extension _WorkLogMainScreenState_dashboard on _WorkLogMainScreenState {
+extension _WorkLogMainDashboard on _WorkLogMainScreenState {
   Widget _buildWeeklyReportCard() {
     final active = _activeLogs;
     if (active.isEmpty) return const SizedBox.shrink();

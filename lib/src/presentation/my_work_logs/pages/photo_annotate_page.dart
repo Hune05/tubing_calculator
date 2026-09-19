@@ -240,7 +240,7 @@ class _AnnPainter extends CustomPainter {
       fit: BoxFit.fill,
     );
     final stroke = math.max(3.0, size.width * 0.007);
-    for (final s in [...shapes, if (cur != null) cur!]) {
+    for (final s in [...shapes, ?cur]) {
       final paint = Paint()
         ..color = s.color
         ..strokeWidth = stroke

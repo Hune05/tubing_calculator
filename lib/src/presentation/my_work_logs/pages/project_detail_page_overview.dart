@@ -2,7 +2,7 @@
 part of 'project_detail_page.dart';
 
 // 🚀 overview 부분(화면 클래스에서 옮겨 온 메서드들, 동작은 그대로).
-extension _ProjectDetailPageState_overview on _ProjectDetailPageState {
+extension _ProjectDetailOverview on _ProjectDetailPageState {
   // ───────────────────────── 개요 탭 ─────────────────────────
   Widget _buildOverviewTab() {
     final phases = phasesOf(log);

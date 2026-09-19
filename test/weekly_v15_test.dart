@@ -28,8 +28,8 @@ Map<String, dynamic> proj(
     'phases': phases,
     'schedules': [],
     'punch_lists': punches,
-    if (due != null) 'dueDate': due,
-    if (remind != null) 'reportReminderMinutes': remind,
+    'dueDate': ?due,
+    'reportReminderMinutes': ?remind,
     'daily_reports': reportToday
         ? [
             {

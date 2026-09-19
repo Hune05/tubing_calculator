@@ -976,7 +976,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                   ),
                 ),
               ),
-              if (trailing != null) trailing,
+              ?trailing,
             ],
           ),
           const SizedBox(height: 12),

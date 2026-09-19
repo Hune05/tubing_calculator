@@ -12,7 +12,7 @@ Map<String, dynamic> done(String name, {String? type, int days = 3}) {
     'id': name,
     'name': name,
     'status': 'DONE',
-    if (type != null) 'workType': type,
+    'workType': ?type,
     'completedAt': t,
     'phases': [
       {

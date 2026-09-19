@@ -2,7 +2,7 @@
 part of 'project_detail_page.dart';
 
 // 🚀 reports 부분(화면 클래스에서 옮겨 온 메서드들, 동작은 그대로).
-extension _ProjectDetailPageState_reports on _ProjectDetailPageState {
+extension _ProjectDetailReports on _ProjectDetailPageState {
   // ───────────────────────── 일지 타임라인 ─────────────────────────
   // 날짜는 "MM/dd" 문자열이라 월 단위로 묶어 헤더를 붙이고, 카드마다 요약 한 줄,
   // 사진 썸네일, 단계/이슈/일정완료 칩을 보여준다.

@@ -25,7 +25,7 @@ Map<String, dynamic> proj(
     'phases': [],
     'schedules': [],
     'punch_lists': punches,
-    if (retro != null) 'retro': retro,
+    'retro': ?retro,
     'daily_reports': [
       {
         'date': md(t),

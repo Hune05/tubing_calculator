@@ -412,7 +412,7 @@ Future<List<String>> loadSeenReminderRaw() async {
   return p.getStringList(_kPrefSeenReminders) ?? const <String>[];
 }
 
-// 오늘 이미 울렸어야 하는데(예약 시간 + 30분이 지남) 확인 기록이 없는 일보 알림.
+// 오늘 이미 울렸어야 하는데(예약 시간 + 1시간 10분이 지남; 알림은 정해진 시간부터 최대 1시간 안에 옴) 확인 기록이 없는 일보 알림.
 // 예약이 폰에 잡혀 있는 것만 본다. 밀어서 지운 알림도 여기 걸릴 수 있어 "확인 안 됨"으로만 알린다.
 List<ReminderSlot> unconfirmedToday(
   List<ReminderSlot> slots,
@@ -439,7 +439,7 @@ List<ReminderSlot> unconfirmedToday(
             now.day,
             s.plan.minutes ~/ 60,
             s.plan.minutes % 60,
-          ).add(const Duration(minutes: 30)),
+          ).add(const Duration(minutes: 70)),
         ))
           if (!seenSince(
             s.id,

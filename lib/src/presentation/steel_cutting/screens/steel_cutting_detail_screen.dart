@@ -269,7 +269,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
           .toList();
       final grandTotal = _items.fold(
         0.0,
-        (sum, i) => sum + i.totalLength * _setMultiplier,
+        (acc, i) => acc + i.totalLength * _setMultiplier,
       );
 
       // 🚀 [규격별 분리] 앵글/찬넬처럼 서로 다른 규격은 같은 원자재에서
@@ -286,15 +286,15 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       };
       final int totalBarCount = optResultsByShape.values.fold(
         0,
-        (sum, r) => sum + r.barCount,
+        (acc, r) => acc + r.barCount,
       );
       final double totalWasteAll = optResultsByShape.values.fold(
         0.0,
-        (sum, r) => sum + r.totalWaste,
+        (acc, r) => acc + r.totalWaste,
       );
       final int totalOversized = optResultsByShape.values.fold(
         0,
-        (sum, r) => sum + r.oversizedPieces.length,
+        (acc, r) => acc + r.oversizedPieces.length,
       );
 
       pdf.addPage(
@@ -743,9 +743,9 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   // 구성으로 맞췄다.
   Widget _buildResultPane() {
     final totalPieces =
-        _items.fold(0, (sum, i) => sum + i.qty) * _setMultiplier;
+        _items.fold(0, (acc, i) => acc + i.qty) * _setMultiplier;
     final totalLength =
-        _items.fold(0.0, (sum, i) => sum + i.totalLength) * _setMultiplier;
+        _items.fold(0.0, (acc, i) => acc + i.totalLength) * _setMultiplier;
 
     return Container(
       color: Colors.grey.shade50,

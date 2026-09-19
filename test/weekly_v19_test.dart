@@ -19,7 +19,7 @@ Map<String, dynamic> proj(
     'phases': [],
     'schedules': [],
     'punch_lists': [],
-    if (remind != null) 'reportReminderMinutes': remind,
+    'reportReminderMinutes': ?remind,
     'daily_reports': [],
   };
 }

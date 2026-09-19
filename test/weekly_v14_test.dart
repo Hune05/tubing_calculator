@@ -27,8 +27,8 @@ Map<String, dynamic> proj(
     'phases': [],
     'schedules': [],
     'punch_lists': punches,
-    if (remind != null) 'reportReminderMinutes': remind,
-    if (completedAt != null) 'completedAt': completedAt,
+    'reportReminderMinutes': ?remind,
+    'completedAt': ?completedAt,
     'daily_reports': reportToday
         ? [
             {
