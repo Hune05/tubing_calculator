@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/report_tools.dart';
+import '../widgets/korean_text.dart';
 
 const Color _teal = Color(0xFF007580);
 const Color _text = Color(0xFF191F28);
@@ -12,6 +13,9 @@ const String _pkg = 'com.example.tubing_calculator';
 
 // 🚀 [알림 점검] 예약 알림(일보/주간 보고)이 안 올 때 원인을 찾는 화면.
 // 알림 권한 확인, 즉시 테스트 알림, 배터리 제한 해제 안내를 한 곳에 모았다.
+// 이 화면에서 "안내 카드 미리 보기"를 누르면 이 값을 돌려주며 닫힌다.
+const String kPreviewProblem = 'preview_problem';
+
 class NotificationCheckPage extends StatefulWidget {
   // 프로젝트별 알림 시각을 보여 주려면 프로젝트 목록을 넘긴다(없으면 목록 없이 상태만).
   final List<Map<String, dynamic>> logs;
@@ -426,6 +430,20 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
                   ),
                 ),
               ),
+          ]),
+          _card([
+            _title("5. 안내 카드 미리 보기"),
+            Text(
+              keepWords(
+                "알림 예약이 어긋났을 때 내 프로젝트 화면 위에 뜨는 안내 카드가 어떻게 보이는지 확인합니다. 실제 문제가 있는 것은 아닙니다.",
+              ),
+              style: const TextStyle(fontSize: 13, height: 1.4, color: _sub),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton(
+              onPressed: () => Navigator.pop(context, kPreviewProblem),
+              child: const Text("안내 카드 미리 보기"),
+            ),
           ]),
           _card([
             _title("4. 예약 알림이 안 올 때 (배터리 제한)"),

@@ -1200,6 +1200,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
 
   bool _showNotifHint = false;
   String? _reminderProblem; // 알림 예약이 어긋났을 때의 안내 문구
+  bool _problemPreview = false; // 점검 화면에서 "미리 보기"로 띄운 카드인지
 
   Future<void> _loadGuideFlag() async {
     try {
@@ -1212,18 +1213,45 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     } catch (_) {}
   }
 
+  // 알림 점검 화면을 연다. "안내 카드 미리 보기"로 닫히면 예약 문제 카드를 미리 보기로 띄우고,
+  // 그 밖에는 돌아온 뒤 예약 상태를 다시 확인해 카드를 갱신한다.
+  Future<void> _openNotifCheck() async {
+    final res = await Navigator.push<String>(
+      context,
+      WorkRoute(
+        builder: (_) => NotificationCheckPage(
+          logs: _workLogs,
+          onSaveProject: (log) async {
+            await _repo.upsertProject(log);
+            await syncReportReminder(_workLogs);
+          },
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (res == kPreviewProblem) {
+      setState(() {
+        _problemPreview = true;
+        _reminderProblem = reminderCountMismatch(2, 0);
+      });
+      return;
+    }
+    final m = await dailyReminderProblem(_workLogs);
+    if (mounted) {
+      setState(() {
+        _problemPreview = false;
+        _reminderProblem = m;
+      });
+    }
+  }
+
   Future<void> _dismissNotifHint({bool open = false}) async {
     setState(() => _showNotifHint = false);
     try {
       final p = await SharedPreferences.getInstance();
       await p.setBool('notif_check_seen', true);
     } catch (_) {}
-    if (open && mounted) {
-      Navigator.push(
-        context,
-        WorkRoute(builder: (_) => NotificationCheckPage(logs: _workLogs)),
-      );
-    }
+    if (open && mounted) await _openNotifCheck();
   }
 
   Widget _buildReminderProblemCard() {
@@ -1248,7 +1276,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            "$msg 알림 점검에서 확인하십시오.",
+            _problemPreview
+                ? "$msg (점검 화면에서 띄운 미리 보기이며 실제 문제는 아닙니다.)"
+                : "$msg 알림 점검에서 확인하십시오.",
             style: const TextStyle(
               fontSize: 12,
               height: 1.4,
@@ -1258,22 +1288,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
-              onPressed: () =>
-                  Navigator.push(
-                    context,
-                    WorkRoute(
-                      builder: (_) => NotificationCheckPage(
-                        logs: _workLogs,
-                        onSaveProject: (log) async {
-                          await _repo.upsertProject(log);
-                          await syncReportReminder(_workLogs);
-                        },
-                      ),
-                    ),
-                  ).then((_) async {
-                    final m = await dailyReminderProblem(_workLogs);
-                    if (mounted) setState(() => _reminderProblem = m);
-                  }),
+              onPressed: _openNotifCheck,
               child: const Text(
                 "알림 점검 열기",
                 style: TextStyle(fontWeight: FontWeight.w800),
@@ -1803,20 +1818,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
               if (v == 'reminder') _showReminderSettings();
               if (v == 'weekly') _openWeeklyReport();
               if (v == 'guide') _showGuideSheet();
-              if (v == 'notif') {
-                Navigator.push(
-                  context,
-                  WorkRoute(
-                    builder: (_) => NotificationCheckPage(
-                      logs: _workLogs,
-                      onSaveProject: (log) async {
-                        await _repo.upsertProject(log);
-                        await syncReportReminder(_workLogs);
-                      },
-                    ),
-                  ),
-                );
-              }
+              if (v == 'notif') _openNotifCheck();
               if (v == 'overview') _shareOverviewImage();
               if (v == 'style') {
                 Navigator.push(

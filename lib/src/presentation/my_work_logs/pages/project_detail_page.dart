@@ -375,15 +375,22 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
               widget.actions.toggleStatus();
               setState(() {});
               if (!_isActive) {
+                // 1) 결과 정리(원인·다음에 참고할 점)를 아직 안 썼으면 바로 이어서 묻는다.
+                //    마무리 보고서에 들어가야 하므로 보고서보다 먼저 묻는다.
+                await _offerRetro();
+                if (!mounted) return;
+                // 2) 마무리 보고서(PDF)
                 await _offerFinalReport();
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: const Text("프로젝트를 완료 처리했습니다."),
-                    action: SnackBarAction(
-                      label: "결과 정리 작성",
-                      onPressed: _editRetro,
-                    ),
+                    action: _retroFilled
+                        ? null
+                        : SnackBarAction(
+                            label: "결과 정리 작성",
+                            onPressed: _editRetro,
+                          ),
                   ),
                 );
               }
@@ -2118,6 +2125,36 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
   // ───────────────────────── 완료 결과 정리 ─────────────────────────
   Map<String, dynamic> get _retro =>
       Map<String, dynamic>.from((log['retro'] as Map?) ?? {});
+
+  // 결과 정리(원인 또는 참고할 점)가 한 줄이라도 적혀 있는지.
+  bool get _retroFilled {
+    final r = _retro;
+    return (r['cause']?.toString() ?? '').trim().isNotEmpty ||
+        (r['lesson']?.toString() ?? '').trim().isNotEmpty;
+  }
+
+  // 완료 처리 직후: 결과 정리를 바로 쓰겠는지 묻고, 쓰겠다고 하면 입력 창을 연다.
+  Future<void> _offerRetro() async {
+    if (_retroFilled) return;
+    final write = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(keepWords("결과 정리를 작성하시겠습니까?")),
+        content: Text(keepWords("지연 원인과 다음에 참고할 점을 적어 두면 마무리 보고서에 함께 들어갑니다.")),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("나중에"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("작성"),
+          ),
+        ],
+      ),
+    );
+    if (write == true && mounted) await _editRetro();
+  }
 
   Future<void> _editRetro() async {
     final r = _retro;
