@@ -1,14 +1,14 @@
 import 'project_phase.dart';
 import 'report_tools.dart' show reportDateOf;
 
-// 🚀 통합 검색(일보·이슈 본문에서 단어 찾기).
+// 🚀 통합 검색(작업 일지·이슈 본문에서 단어 찾기).
 // ───────────────────────── 통합 검색 ─────────────────────────
 class SearchHit {
   final Map<String, dynamic> log;
-  final String kind; // 일보 | 이슈
+  final String kind; // 작업 일지 | 이슈
   final String title;
   final String snippet;
-  final Map item; // 원본 일보/이슈 Map(바로 열기용)
+  final Map item; // 원본 작업 일지/이슈 Map(바로 열기용)
   SearchHit(this.log, this.kind, this.title, this.snippet, this.item);
 }
 
@@ -23,7 +23,7 @@ String _snippet(String text, String q) {
 List<SearchHit> searchProjects(
   List<Map<String, dynamic>> logs,
   String query, {
-  String? kind, // '일보' | '이슈' | null(전체)
+  String? kind, // '작업 일지' | '이슈' | null(전체)
   String? projectId,
   DateTime? from,
 }) {
@@ -49,14 +49,14 @@ List<SearchHit> searchProjects(
       for (final f in fields) {
         if (f.toLowerCase().contains(q)) {
           hits.add(
-            SearchHit(log, '일보', '$name · ${r['date']}', _snippet(f, q), r),
+            SearchHit(log, '작업 일지', '$name · ${r['date']}', _snippet(f, q), r),
           );
           break;
         }
       }
     }
     for (final p in (log['punch_lists'] as List? ?? []).whereType<Map>()) {
-      if (kind == '일보') break;
+      if (kind == '작업 일지') break;
       if (from != null && p['created_at'] != null) {
         if (dayOnly(asDate(p['created_at'])).isBefore(from)) continue;
       }

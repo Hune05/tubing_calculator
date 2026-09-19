@@ -40,7 +40,7 @@ String _firstLine(String s) {
   return t.length > 60 ? '${t.substring(0, 60)}…' : t;
 }
 
-// 한 프로젝트의 한 주 실적(일보 기반). 금주는 오늘까지 쓴 것만 잡힌다.
+// 한 프로젝트의 한 주 실적(작업 일지 기반). 금주는 오늘까지 쓴 것만 잡힌다.
 List<String> _actualLines(Map<String, dynamic> log, WeekRange w) {
   final lines = <String>[];
   final reports = (log['daily_reports'] as List? ?? []).whereType<Map>().where((
@@ -182,7 +182,7 @@ List<String> _summaryLines(List<Map<String, dynamic>> logs, WeekRange w) {
     }
   }
   return [
-    '  · 작업 $days일(일보 기준) · 투입 $manDays인·일',
+    '  · 작업 $days일(작업 일지 기준) · 투입 $manDays인·일',
     '  · 완료한 일정 $doneSchedules건',
     '  · 이슈 신규 $created건 · 처리 $resolved건',
     // 프로젝트가 여러 개면 한 줄씩 현황(카톡 텍스트로 보낼 때 한눈에 보이게).
@@ -247,7 +247,7 @@ ReportDoc buildWeeklyPlanDoc(
       )
       .toList();
 
-  // 다음 계획 메모: 가장 최근 일보의 "내일 계획"(금주 것만)
+  // 다음 계획 메모: 가장 최근 작업 일지의 "내일 계획"(금주 것만)
   final memo = <String>[];
   for (final log in targets) {
     final rs = (log['daily_reports'] as List? ?? []).whereType<Map>().toList()
@@ -363,7 +363,7 @@ ReportDoc buildWeeklyPlanDoc(
     ], projectRefs: doneRefs.isEmpty ? null : doneRefs),
   );
   if (memo.isNotEmpty) {
-    sections.add(ReportSection('최근 일보의 다음 계획 메모', memo));
+    sections.add(ReportSection('최근 작업 일지의 다음 계획 메모', memo));
   }
 
   // 미해결 이슈 현황(전체)
@@ -418,7 +418,7 @@ ReportDoc buildWeeklyPlanDoc(
     sections.add(ReportSection('참고', ['· 주간 보고에서 제외한 미해결 이슈 $excludedOpen건']));
   }
 
-  // 사진: 전주·금주 일보에 붙은 사진 중 최근 12장.
+  // 사진: 전주·금주 작업 일지에 붙은 사진 중 최근 12장.
   final photos = <(int, DateTime, ReportPhoto)>[];
   if (includePhotos) {
     for (var ti = 0; ti < targets.length; ti++) {

@@ -14,7 +14,7 @@ const Color _sub = Color(0xFF8B95A1);
 const Color _bg = Color(0xFFF2F4F6);
 const Color _red = Color(0xFFF04438);
 
-// 🚀 [투입 통계] 일보에 쌓인 인원/연장/작업량을 프로젝트·단계·월별로 모아, 다음
+// 🚀 [투입 통계] 작업 일지에 쌓인 인원/연장/작업량을 프로젝트·단계·월별로 모아, 다음
 // 견적이나 일정 잡을 때 "이런 공사는 인원-일이 이만큼 들었다"를 참고하게 한다.
 // [logs]가 1개면 단계별, 여러 개면 프로젝트별 표를 보여준다. 기간 필터와
 // CSV/PDF 내보내기를 지원한다.
@@ -442,7 +442,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
               padding: EdgeInsets.only(top: 60),
               child: Center(
                 child: Text(
-                  "이 기간에 작성된 일보가 없습니다.",
+                  "이 기간에 작성된 작업 일지가 없습니다.",
                   style: TextStyle(color: _sub),
                 ),
               ),
@@ -533,7 +533,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
                 Padding(
                   padding: EdgeInsets.only(top: 4),
                   child: Text(
-                    keepWords("회색=계획 기간, 색=일보에 그 단계로 기록한 작업일"),
+                    keepWords("회색=계획 기간, 색=작업 일지에 그 단계로 기록한 작업일"),
                     style: TextStyle(color: _sub, fontSize: 11),
                   ),
                 ),
@@ -544,7 +544,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
                   bar(r.label, r.value, maxRow, r.right, r.sub),
                 if (_logs.length == 1 && s.rows.every((r) => r.value == 0))
                   Text(
-                    keepWords("일보에서 '작업한 단계'를 선택하면 단계별로 집계됩니다."),
+                    keepWords("작업 일지에서 '작업한 단계'를 선택하면 단계별로 집계됩니다."),
                     style: TextStyle(color: _sub, fontSize: 12),
                   ),
               ]),

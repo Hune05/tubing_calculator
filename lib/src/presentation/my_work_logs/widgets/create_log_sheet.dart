@@ -190,7 +190,7 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
               ),
               const SizedBox(height: 16),
               const Text(
-                "일보 알림 시간 (선택)",
+                "작업 일지 알림 시간 (선택)",
                 style: TextStyle(color: tossSubText, fontSize: 13),
               ),
               const SizedBox(height: 8),

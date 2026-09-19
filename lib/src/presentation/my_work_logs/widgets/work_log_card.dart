@@ -789,7 +789,7 @@ class DailyReportPagerState extends State<DailyReportPager> {
             itemData: report,
             icon: Icons.article_rounded,
             isWarning: false,
-            // 🚀 탭하면 그날 작업 일보 전체(작업유형/인원/포인트/메모/
+            // 🚀 탭하면 그날 작업 일지 전체(작업유형/인원/포인트/메모/
             // 사진)를 볼 수 있는 화면으로 들어간다.
             onTap: () => widget.onOpenReport(report),
           ),

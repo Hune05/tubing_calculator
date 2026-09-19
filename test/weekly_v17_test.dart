@@ -89,7 +89,7 @@ void main() {
     test(
       'preview message is the same text the real problem card would show',
       () {
-        expect(reminderCountMismatch(2, 0), '일보 알림 2개가 필요한데 예약이 하나도 없습니다.');
+        expect(reminderCountMismatch(2, 0), '작업 일지 알림 2개가 필요한데 예약이 하나도 없습니다.');
       },
     );
   });

@@ -59,7 +59,7 @@ void _handleNotificationPayload(String? payload) {
     final nav = appNavigatorKey.currentState;
     if (nav != null) {
       if (isDaily) {
-        // 오늘 일보를 안 쓴 프로젝트가 하나면 바로 작성 화면까지 간다.
+        // 오늘 작업 일지를 안 쓴 프로젝트가 하나면 바로 작성 화면까지 간다.
         nav.push(
           WorkRoute(
             builder: (_) => const WorkLogMainScreen(autoWriteReport: true),

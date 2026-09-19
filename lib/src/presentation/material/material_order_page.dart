@@ -219,7 +219,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
     await Clipboard.setData(ClipboardData(text: buffer.toString()));
     if (!mounted) return;
 
-    _showSnackBar("발주서 및 채팅 기록이 클립보드에 복사했습니다.\n(카카오톡 등에 붙여넣기 하십시오)");
+    _showSnackBar("발주서 및 채팅 기록을 클립보드에 복사했습니다.\n(카카오톡 등에 붙여넣기 하십시오)");
   }
 
   Future<void> _deleteOrderConfirm(OrderModel order) async {
@@ -261,7 +261,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
             .doc(order.id)
             .delete();
         if (!mounted) return;
-        _showSnackBar("발주 건이 삭제했습니다.");
+        _showSnackBar("발주 건을 삭제했습니다.");
       } catch (e) {
         if (!mounted) return;
         _showSnackBar("삭제 중 오류가 발생했습니다.", isError: true);

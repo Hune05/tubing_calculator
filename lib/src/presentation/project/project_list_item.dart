@@ -335,7 +335,7 @@ class ProjectListItem extends StatelessWidget {
                   ),
                   const Divider(height: 1),
 
-                  // 2. 작업 일보
+                  // 2. 작업 일지
                   Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -345,7 +345,7 @@ class ProjectListItem extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text(
-                              "📝 작업 일보 (터치하여 상세/사진)",
+                              "📝 작업 일지 (터치하여 상세/사진)",
                               style: TextStyle(
                                 color: slate900,
                                 fontWeight: FontWeight.bold,
@@ -366,7 +366,7 @@ class ProjectListItem extends StatelessWidget {
                         if (project['daily_reports'] == null ||
                             project['daily_reports'].isEmpty)
                           const Text(
-                            "등록된 작업 일보가 없습니다.",
+                            "등록된 작업 일지가 없습니다.",
                             style: TextStyle(color: slate600, fontSize: 13),
                           ),
                         if (project['daily_reports'] != null)

@@ -11,7 +11,7 @@ const Color _sub = Color(0xFF8B95A1);
 const Color _bg = Color(0xFFF2F4F6);
 const String _pkg = 'com.example.tubing_calculator';
 
-// 🚀 [알림 점검] 예약 알림(일보/주간 보고)이 안 올 때 원인을 찾는 화면.
+// 🚀 [알림 점검] 예약 알림(작업 일지/주간 보고)이 안 올 때 원인을 찾는 화면.
 // 알림 권한 확인, 즉시 테스트 알림, 배터리 제한 해제 안내를 한 곳에 모았다.
 // 이 화면에서 "안내 카드 미리 보기"를 누르면 이 값을 돌려주며 닫힌다.
 const String kPreviewProblem = 'preview_problem';
@@ -23,7 +23,7 @@ class NotificationCheckPage extends StatefulWidget {
   final Future<void> Function(Map<String, dynamic> log)? onSaveProject;
   // 폰에 예약된 알림 아이디를 읽는 함수(테스트에서 바꿔 끼운다). 기본은 실제 폰 조회.
   final Future<Set<int>> Function()? pendingIdsLoader;
-  // 어긋난 일보 알림 한 건 / 주간 알림만 다시 예약하는 함수(테스트에서 바꿔 끼운다).
+  // 어긋난 작업 일지 알림 한 건 / 주간 알림만 다시 예약하는 함수(테스트에서 바꿔 끼운다).
   final Future<void> Function(ReminderSlot slot)? rescheduleSlot;
   final Future<void> Function()? rescheduleWeekly;
   // 알림창에 떠 있는 알림을 기록하는 함수(테스트에서 바꿔 끼운다).
@@ -46,7 +46,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     with WidgetsBindingObserver {
   bool? _allowed;
   ({bool daily, bool weekly})? _sched;
-  int? _dailyCount; // 폰에 실제 예약된 일보 알림 수(모르면 null)
+  int? _dailyCount; // 폰에 실제 예약된 작업 일지 알림 수(모르면 null)
   List<String> _seen = const []; // 최근 확인된 알림 기록
   List<String> _seenRaw = const []; // 기록 원본(오늘 알림 확인 여부 판단용)
   String? _lastSync; // 알림을 마지막으로 예약한 기록
@@ -283,7 +283,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     await _refresh();
   }
 
-  // 일보 알림이 켜져 있으면, 어느 시간에 어느 프로젝트 알림이 가는지 보여 준다.
+  // 작업 일지 알림이 켜져 있으면, 어느 시간에 어느 프로젝트 알림이 가는지 보여 준다.
   List<Widget> _projectTimeRows() {
     final pref = _pref;
     if (pref == null || !pref.enabled || widget.logs.isEmpty) return const [];
@@ -509,7 +509,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
           _card([
             _title("2. 예약 상태"),
             _schedRow(
-              "일보 알림",
+              "작업 일지 알림",
               _pref?.enabled ?? true,
               _sched?.daily,
               "매일 ${_hm(_pref?.minutes ?? 1080)}",
@@ -596,7 +596,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
             _title("4. 예약 알림이 안 올 때 (배터리 제한)"),
             Text(
               keepWords(
-                "일보·주간 보고 알림은 정해진 시간에 폰이 앱을 깨워서 보냅니다. 삼성 등 일부 폰은 "
+                "작업 일지·주간 보고 알림은 정해진 시간에 폰이 앱을 깨워서 보냅니다. 삼성 등 일부 폰은 "
                 "절전 기능이 앱을 재워서 예약 알림이 오지 않을 수 있습니다.\n\n"
                 "• 설정 → 배터리 → 백그라운드 사용 제한에서 이 앱을 빼 주십시오.\n"
                 "• 앱 정보 → 배터리 → '제한 없음'(또는 최적화 안 함)으로 바꿔 주십시오.",

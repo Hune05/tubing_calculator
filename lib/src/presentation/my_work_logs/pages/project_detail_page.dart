@@ -941,7 +941,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         return <Widget>[
           const SizedBox(height: 10),
           const Text(
-            "일보에 적힌 사용 기록",
+            "작업 일지에 적힌 사용 기록",
             style: TextStyle(
               color: tossSubText,
               fontSize: 12,
@@ -1044,26 +1044,26 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     return "  ·  투입 ${st.days}일 (${st.manDays}인·일)";
   }
 
-  // ───────────────────────── 일보 선택 내보내기 ─────────────────────────
+  // ───────────────────────── 작업 일지 선택 내보내기 ─────────────────────────
   bool _selectMode = false;
   final Set<Map> _sel = {};
 
-  // 일보 확정: 확정한 일보는 수정하려면 사유를 남기고 확정을 풀어야 한다.
+  // 작업 일지 확정: 확정한 작업 일지는 수정하려면 사유를 남기고 확정을 풀어야 한다.
   Future<void> _lockReports(List<Map> reps) async {
     final targets = reps.where((r) => r['locked'] != true).toList();
     if (targets.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(keepWords("확정할 일보가 없습니다."))));
+      ).showSnackBar(SnackBar(content: Text(keepWords("확정할 작업 일지가 없습니다."))));
       return;
     }
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("일보 확정"),
+        title: const Text("작업 일지 확정"),
         content: Text(
           keepWords(
-            "일보 ${targets.length}건을 확정본으로 잠그시겠습니까?\n확정한 뒤 수정하려면 사유를 남기고 확정을 풀어야 합니다(기록이 남습니다).",
+            "작업 일지 ${targets.length}건을 확정본으로 잠그시겠습니까?\n확정한 뒤 수정하려면 사유를 남기고 확정을 풀어야 합니다(기록이 남습니다).",
           ),
         ),
         actions: [
@@ -1091,7 +1091,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     _changed();
   }
 
-  // 이 프로젝트만 다른 시간에 일보 알림을 받고 싶을 때(기본 시간은 ⋮ 메뉴의 알림 설정).
+  // 이 프로젝트만 다른 시간에 작업 일지 알림을 받고 싶을 때(기본 시간은 ⋮ 메뉴의 알림 설정).
   // 완료된 프로젝트에 남은 미해결 이슈를 한꺼번에 처리 완료로 정리한다.
   Future<void> _resolveAllOpenIssues() async {
     final n = openIssueCount(log);
@@ -1134,7 +1134,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     final pick = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(keepWords("이 프로젝트 일보 알림 시간")),
+        title: Text(keepWords("이 프로젝트 작업 일지 알림 시간")),
         content: Text(
           cur == null
               ? "지금은 기본 시간(${hm(base)})에 알림을 보냅니다."
@@ -1324,7 +1324,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'summary', child: Text("현황 요약 이미지 공유")),
               PopupMenuItem(value: 'header', child: Text("이 프로젝트 보고서 머리말")),
-              PopupMenuItem(value: 'reminder', child: Text("이 프로젝트 일보 알림 시간")),
+              PopupMenuItem(value: 'reminder', child: Text("이 프로젝트 작업 일지 알림 시간")),
               PopupMenuItem(value: 'optimize', child: Text("사진 용량 정리")),
             ],
           ),

@@ -66,7 +66,7 @@ class _PhotoAnnotatePageState extends State<PhotoAnnotatePage> {
     _AnnPainter(img, _shapes, null).paint(c, size);
     final out = await rec.endRecording().toImage(img.width, img.height);
     final data = await out.toByteData(format: ui.ImageByteFormat.png);
-    // 임시 폴더는 정리되므로, 일보에 연결될 파일은 앱 문서 폴더에 둔다.
+    // 임시 폴더는 정리되므로, 작업 일지에 연결될 파일은 앱 문서 폴더에 둔다.
     final dir = await getApplicationDocumentsDirectory();
     final file = File(
       '${dir.path}/annot_${DateTime.now().millisecondsSinceEpoch}.png',

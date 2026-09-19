@@ -77,7 +77,7 @@ extension _DailyReportDraft on _DailyReportPageState {
       final resume = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: Text(keepWords("작성 중이던 일보가 있습니다")),
+          title: Text(keepWords("작성 중이던 작업 일지가 있습니다")),
           content: Text(
             keepWords(
               "${saved.month}/${saved.day} ${saved.hour.toString().padLeft(2, '0')}:${saved.minute.toString().padLeft(2, '0')}에 저장된 임시 내용을 이어서 작성하시겠습니까?",

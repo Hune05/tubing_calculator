@@ -50,7 +50,7 @@ class WorkLogMainScreen extends StatefulWidget {
   final String? initialProjectId;
   // initialProjectId로 들어갈 때 처음 보여 줄 탭(0=개요, 1=단계·일정).
   final int initialTab;
-  // 일보 알림으로 들어왔을 때: 오늘 일보를 안 쓴 프로젝트가 딱 하나면 바로 작성 화면을 연다
+  // 작업 일지 알림으로 들어왔을 때: 오늘 작업 일지를 안 쓴 프로젝트가 딱 하나면 바로 작성 화면을 연다
   // (여럿이면 어느 프로젝트인지 고르도록 목록 화면에 그대로 둔다).
   final bool autoWriteReport;
 
@@ -176,11 +176,11 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   // 프로젝트 하나만" 저장하면 된다.
   void _saveProject(Map<String, dynamic> log) {
     _repo.upsertProject(log);
-    // 일보를 저장하면 오늘 알림을 내일로 미룬다.
+    // 작업 일지를 저장하면 오늘 알림을 내일로 미룬다.
     syncReportReminder(_workLogs);
   }
 
-  // 저장한 일보의 사진을 백그라운드로 클라우드에 올리고, 성공하면 문서를 URL로
+  // 저장한 작업 일지의 사진을 백그라운드로 클라우드에 올리고, 성공하면 문서를 URL로
   // 갱신한다(실패하면 로컬 경로가 그대로 남아 다음 실행 때 다시 시도).
   Future<void> _uploadReportPhotosFor(
     Map<String, dynamic> log,
@@ -259,15 +259,15 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) => AlertDialog(
-          title: const Text("작업일보 알림"),
+          title: const Text("작업 일지 알림"),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text("일보 작성 알림"),
+                title: const Text("작업 일지 작성 알림"),
                 subtitle: Text(
-                  keepWords("진행중 프로젝트가 있고 오늘 일보를 쓰지 않았으면 알려 줍니다."),
+                  keepWords("진행중 프로젝트가 있고 오늘 작업 일지를 쓰지 않았으면 알려 줍니다."),
                 ),
                 value: enabled,
                 onChanged: (v) => setS(() => enabled = v),
@@ -411,7 +411,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       final id = log['id']?.toString();
       setState(() => _workLogs.remove(log));
       if (id != null) _repo.deleteProject(id);
-      // 삭제한 프로젝트에 걸려 있던 일보 알림이 남지 않도록 바로 다시 맞춘다.
+      // 삭제한 프로젝트에 걸려 있던 작업 일지 알림이 남지 않도록 바로 다시 맞춘다.
       syncReportReminder(_workLogs);
     },
   );
@@ -420,13 +420,13 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     Map<String, dynamic> log,
     Map<String, dynamic> report,
   ) async {
-    // 확정된 일보는 사유를 남기고 확정을 풀어야 수정할 수 있다.
+    // 확정된 작업 일지는 사유를 남기고 확정을 풀어야 수정할 수 있다.
     if (report['locked'] == true) {
       final reasonCtrl = TextEditingController();
       final ok = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text("확정된 일보입니다"),
+          title: const Text("확정된 작업 일지입니다"),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -559,7 +559,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       case 'recent':
         break; // fetchAllProjects가 이미 최신순
       case 'stale':
-        // 마지막 일보가 오래된(또는 없는) 프로젝트를 위로 - 일보를 빠뜨린 곳 찾기.
+        // 마지막 작업 일지가 오래된(또는 없는) 프로젝트를 위로 - 작업 일지를 빠뜨린 곳 찾기.
         DateTime? lastOf(Map<String, dynamic> l) {
           DateTime? last;
           for (final r
@@ -880,8 +880,8 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
 
   // 🚀 [추가] 작업 일지 작성 화면 열기 - 대시보드의 "오늘 일지 미작성"
   // 칩에서 특정 프로젝트로 바로 들어갈 때도 재사용한다.
-  // 일보에서 "오늘 끝낸 일정"으로 고를 수 있는 일정: 미완료 + (수정 중인
-  // 일보에서 이미 체크한 것). 검사일정은 별도 흐름이라 제외.
+  // 작업 일지에서 "오늘 끝낸 일정"으로 고를 수 있는 일정: 미완료 + (수정 중인
+  // 작업 일지에서 이미 체크한 것). 검사일정은 별도 흐름이라 제외.
   List<Map<String, dynamic>> _pendingSchedulesFor(
     Map<String, dynamic> log,
     Map<String, dynamic>? report,
@@ -981,7 +981,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.edit_note_rounded),
-              title: const Text("오늘 일보 작성"),
+              title: const Text("오늘 작업 일지 작성"),
               onTap: () => Navigator.pop(ctx, 'report'),
             ),
             ListTile(
@@ -1010,6 +1010,10 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       WorkRoute(
         builder: (context) => DailyReportPage(
           previousReport: _previousReportFor(log),
+          previousReports: [
+            for (final r in (log['daily_reports'] as List<dynamic>? ?? []))
+              Map<String, dynamic>.from(r as Map),
+          ],
           relatedIssueCandidates: _issueCandidatesFor(log),
           floorPlanImagePath: log['floor_plan_image_path'],
           draftKey: 'report_draft_${log['id']}',
@@ -1195,7 +1199,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            keepWords("일보·주간 보고 알림이 제때 오는지 확인해 보십시오"),
+            keepWords("작업 일지·주간 보고 알림이 제때 오는지 확인해 보십시오"),
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
           ),
           const SizedBox(height: 4),
@@ -1358,7 +1362,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             ),
           ),
           IconButton(
-            tooltip: "일보·이슈 검색",
+            tooltip: "작업 일지·이슈 검색",
             icon: const Icon(Icons.search_rounded),
             onPressed: _openSearch,
           ),
@@ -1390,7 +1394,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'weekly', child: Text("주간 업무 보고")),
-              PopupMenuItem(value: 'reminder', child: Text("일보·주간 알림 설정")),
+              PopupMenuItem(value: 'reminder', child: Text("작업 일지·주간 알림 설정")),
               PopupMenuItem(value: 'overview', child: Text("전체 현황 이미지 공유")),
               PopupMenuItem(value: 'style', child: Text("보고서 양식 설정")),
               PopupMenuItem(value: 'storage', child: Text("저장 공간 관리")),
@@ -1413,7 +1417,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                   'due': '납기 빠른 순',
                   'progress': '진행률 낮은순',
                   'recent': '최근 등록순',
-                  'stale': '일보 오래된 순',
+                  'stale': '작업 일지 오래된 순',
                 };
                 // 요약 카드/필터는 목록과 같이 스크롤된다(예전엔 위에 고정돼서
                 // 오늘 할 일이 많으면 프로젝트 목록이 좁은 창에 갇혔다).

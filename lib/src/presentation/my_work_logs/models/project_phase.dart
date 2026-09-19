@@ -392,12 +392,12 @@ bool migrateProjectToPhases(Map<String, dynamic> log) {
   return true;
 }
 
-// ───────────────────── 작업일보 ↔ 단계/일정 연결 ─────────────────────
+// ───────────────────── 작업 일지 ↔ 단계/일정 연결 ─────────────────────
 
 List<String> reportIds(Map report, String key) =>
     (report[key] as List? ?? []).map((e) => e.toString()).toList();
 
-// 일보에서 "오늘 완료"로 체크한 세부 일정/단계를 프로젝트에 반영한다.
+// 작업 일지에서 "오늘 완료"로 체크한 세부 일정/단계를 프로젝트에 반영한다.
 // 이미 완료된 것은 그대로 두고, 체크 해제해도 되돌리지 않는다(멱등).
 // 바뀐 게 있으면 true.
 bool applyReportEffects(Map<String, dynamic> log, Map report) {
@@ -416,7 +416,7 @@ bool applyReportEffects(Map<String, dynamic> log, Map report) {
       }
     }
   }
-  // 일보에서 "처리 완료로 표시"를 고른 이슈를 해결 상태로 바꾼다.
+  // 작업 일지에서 "처리 완료로 표시"를 고른 이슈를 해결 상태로 바꾼다.
   final resolveIssues = reportIds(report, 'resolveIssueIds').toSet();
   if (resolveIssues.isNotEmpty && log['punch_lists'] is List) {
     for (final p in log['punch_lists'] as List) {
@@ -426,7 +426,7 @@ bool applyReportEffects(Map<String, dynamic> log, Map report) {
         p['is_completed'] = true;
         p['resolved_at'] = DateTime.now();
         if ((p['resolution_note']?.toString() ?? '').trim().isEmpty) {
-          p['resolution_note'] = '작업 일보(${report['date']})에서 처리 완료';
+          p['resolution_note'] = '작업 일지(${report['date']})에서 처리 완료';
         }
         changed = true;
       }
@@ -445,7 +445,7 @@ bool applyReportEffects(Map<String, dynamic> log, Map report) {
   return changed;
 }
 
-// 단계별 실제 투입: 일보 일수 / 투입 인원-일(명 x 일).
+// 단계별 실제 투입: 작업 일지 일수 / 투입 인원-일(명 x 일).
 ({int days, int manDays}) phaseWorkStats(
   Map<String, dynamic> log,
   String phaseId,
@@ -530,7 +530,7 @@ void shiftPhasesAfterDelay(
   setPhases(log, phases);
 }
 
-// 일보의 "사용한 자재"에서 이 자재 요청/입고 항목을 골라 둔 횟수.
+// 작업 일지의 "사용한 자재"에서 이 자재 요청/입고 항목을 골라 둔 횟수.
 int materialUsageCount(Map<String, dynamic> log, String scheduleId) {
   int n = 0;
   for (final r in (log['daily_reports'] as List? ?? [])) {
@@ -539,14 +539,14 @@ int materialUsageCount(Map<String, dynamic> log, String scheduleId) {
   return n;
 }
 
-// 마지막으로 이 자재를 쓴 것으로 기록한 일보 날짜(없으면 null). 날짜 계산에는
-// report_tools의 reportDateOf가 필요해 호출하는 쪽에서 일보 목록을 넘긴다.
+// 마지막으로 이 자재를 쓴 것으로 기록한 작업 일지 날짜(없으면 null). 날짜 계산에는
+// report_tools의 reportDateOf가 필요해 호출하는 쪽에서 작업 일지 목록을 넘긴다.
 List<Map> reportsUsingMaterial(Map<String, dynamic> log, String scheduleId) => [
   for (final r in (log['daily_reports'] as List? ?? []))
     if (r is Map && reportIds(r, 'usedMaterialIds').contains(scheduleId)) r,
 ];
 
-// 입고(완료)됐는데 일보에 사용 기록이 한 번도 없는 자재 항목.
+// 입고(완료)됐는데 작업 일지에 사용 기록이 한 번도 없는 자재 항목.
 List<Map<String, dynamic>> unusedReceivedMaterials(Map<String, dynamic> log) =>
     [
       for (final s in schedulesOf(log))

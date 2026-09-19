@@ -7,7 +7,7 @@ import '../widgets/photo_detail_modal.dart' show PhotoDetailModal;
 import 'daily_report_page.dart'
     show tossBlue, tossText, tossSubText, tossInputBg, pureWhite;
 
-// 🚀 [일보/이슈 통합 검색] 모든 프로젝트의 작업 내역·자재·계획·도면반영 사유·이슈
+// 🚀 [작업 일지/이슈 통합 검색] 모든 프로젝트의 작업 내역·자재·계획·도면반영 사유·이슈
 // 내용에서 단어를 찾는다. 결과를 누르면 그 프로젝트의 일지(또는 이슈) 탭이 열린다.
 class ReportSearchPage extends StatefulWidget {
   final List<Map<String, dynamic>> logs;
@@ -70,7 +70,7 @@ class _ReportSearchPageState extends State<ReportSearchPage> {
       padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
       child: Row(
         children: [
-          for (final k in <String?>[null, '일보', '이슈'])
+          for (final k in <String?>[null, '작업 일지', '이슈'])
             chip(k ?? '전체', _kind == k, () {
               _kind = k;
               _run();
@@ -140,7 +140,7 @@ class _ReportSearchPageState extends State<ReportSearchPage> {
           autofocus: true,
           textInputAction: TextInputAction.search,
           decoration: const InputDecoration(
-            hintText: "일보·이슈 검색 (예: 용접, 유니온)",
+            hintText: "작업 일지·이슈 검색 (예: 용접, 유니온)",
             border: InputBorder.none,
           ),
           onChanged: (_) => _run(),
@@ -243,7 +243,7 @@ class _ReportSearchPageState extends State<ReportSearchPage> {
   }
 }
 
-// 🚀 [사진 모아보기] 프로젝트 일보의 모든 사진을 태그(작업 전/중/후 …)별로 본다.
+// 🚀 [사진 모아보기] 프로젝트 작업 일지의 모든 사진을 태그(작업 전/중/후 …)별로 본다.
 class ProjectPhotosPage extends StatefulWidget {
   final Map<String, dynamic> log;
   const ProjectPhotosPage({super.key, required this.log});
@@ -308,7 +308,7 @@ class _ProjectPhotosPageState extends State<ProjectPhotosPage> {
       body: all.isEmpty
           ? const Center(
               child: Text(
-                "일보에 첨부된 사진이 없습니다.",
+                "작업 일지에 첨부된 사진이 없습니다.",
                 style: TextStyle(color: tossSubText),
               ),
             )

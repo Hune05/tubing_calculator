@@ -133,9 +133,9 @@ void main() {
     test('notification body names a single-project notification', () {
       expect(
         dailyReminderBody(1, name: '루마'),
-        '루마 오늘 작업 일보를 아직 작성하지 않았습니다. 눌러서 바로 남겨 두십시오.',
+        '루마 오늘 작업 일지를 아직 작성하지 않았습니다. 눌러서 바로 남겨 두십시오.',
       );
-      expect(dailyReminderBody(1), startsWith('오늘 작업 일보'));
+      expect(dailyReminderBody(1), startsWith('오늘 작업 일지'));
       expect(dailyReminderBody(3, name: '루마'), contains('3곳'));
     });
   });

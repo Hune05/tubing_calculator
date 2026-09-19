@@ -7,8 +7,8 @@ import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:tubing_calculator/main.dart'
     show flutterLocalNotificationsPlugin;
 
-// 🚀 일보·주간 보고 알림(예약, 상태 확인, 확인된 알림 기록).
-// ───────────────────────── 일보 알림 ─────────────────────────
+// 🚀 작업 일지·주간 보고 알림(예약, 상태 확인, 확인된 알림 기록).
+// ───────────────────────── 작업 일지 알림 ─────────────────────────
 const int _kReminderId = 918273;
 const String _kReminderChannel = 'daily_report_reminder';
 const String _kPrefEnabled = 'report_reminder_enabled';
@@ -18,19 +18,19 @@ const String _kPrefWeeklyMinutes = 'weekly_report_reminder_minutes';
 const int _kWeeklyId = 918274;
 // 금요일 알림을 누르면 주간 업무 보고를 바로 여는 데 쓰는 표식.
 const String kWeeklyReportPayload = 'work_weekly_report';
-// 일보 알림을 누르면 오늘 일보 작성으로 바로 가는 데 쓰는 표식.
+// 작업 일지 알림을 누르면 오늘 작업 일지 작성으로 바로 가는 데 쓰는 표식.
 const String kDailyReportPayload = 'work_daily_report';
 
-// 일보 알림 문구. 여러 프로젝트가 걸렸으면 몇 곳인지, 프로젝트 하나짜리 알림이면 이름을 알려 준다.
+// 작업 일지 알림 문구. 여러 프로젝트가 걸렸으면 몇 곳인지, 프로젝트 하나짜리 알림이면 이름을 알려 준다.
 String dailyReminderBody(int missingCount, {String? name}) {
   if (missingCount >= 2) {
-    return '오늘 일보를 아직 안 쓴 프로젝트가 $missingCount곳 있습니다. 눌러서 바로 남겨 두십시오.';
+    return '오늘 작업 일지를 아직 안 쓴 프로젝트가 $missingCount곳 있습니다. 눌러서 바로 남겨 두십시오.';
   }
   final who = (name == null || name.trim().isEmpty) ? '' : '${name.trim()} ';
-  return '$who오늘 작업 일보를 아직 작성하지 않았습니다. 눌러서 바로 남겨 두십시오.';
+  return '$who오늘 작업 일지를 아직 작성하지 않았습니다. 눌러서 바로 남겨 두십시오.';
 }
 
-// 일보 알림 예약 계획 한 건: 이 시간(분)에 울릴 알림 하나.
+// 작업 일지 알림 예약 계획 한 건: 이 시간(분)에 울릴 알림 하나.
 class DailyReminderPlan {
   final int minutes; // 하루 중 몇 분(0~1439)
   final int count; // 알림 문구에 쓸 미작성 프로젝트 수
@@ -46,7 +46,7 @@ class DailyReminderPlan {
   });
 }
 
-const int _kDailyBaseId = 918300; // 918300 ~ 918307을 일보 알림에 쓴다
+const int _kDailyBaseId = 918300; // 918300 ~ 918307을 작업 일지 알림에 쓴다
 const int _kMaxDailyGroups = 8;
 
 // 프로젝트별 알림 시간(reportReminderMinutes, 없으면 기본 시간)으로 묶어 예약 계획을 만든다.
@@ -78,7 +78,7 @@ List<DailyReminderPlan> planDailyReminders(
   final plans = <DailyReminderPlan>[];
   for (final m in keys) {
     final g = groups[m]!;
-    // 이 묶음에서 오늘 일보를 아직 안 쓴 곳. 전부 썼거나 시간이 지났으면 내일부터.
+    // 이 묶음에서 오늘 작업 일지를 아직 안 쓴 곳. 전부 썼거나 시간이 지났으면 내일부터.
     final missing = projectsMissingReport(g, todayStr);
     var at = DateTime(now.year, now.month, now.day, m ~/ 60, m % 60);
     final skipToday = missing.isEmpty || !at.isAfter(now);
@@ -171,7 +171,7 @@ Future<void> _cancelDailyReminders({Set<int> keep = const {}}) async {
   }
 }
 
-// 오늘 일보를 아직 안 쓴 진행중 프로젝트(오늘은 "MM/dd" 형식 문자열).
+// 오늘 작업 일지를 아직 안 쓴 진행중 프로젝트(오늘은 "MM/dd" 형식 문자열).
 List<Map<String, dynamic>> projectsMissingReport(
   List<Map<String, dynamic>> logs,
   String todayMmDd,
@@ -239,8 +239,8 @@ Future<void> _syncWeeklyReminder(
     notificationDetails: const NotificationDetails(
       android: AndroidNotificationDetails(
         _kReminderChannel,
-        '작업일보 알림',
-        channelDescription: '작업일보 작성 알림',
+        '작업 일지 알림',
+        channelDescription: '작업 일지 작성 알림',
         importance: Importance.high,
         priority: Priority.high,
       ),
@@ -250,8 +250,8 @@ Future<void> _syncWeeklyReminder(
   );
 }
 
-// 알림 점검용: 일보/주간 보고 알림이 실제로 예약돼 있는지(폰이 알고 있는지) 읽는다.
-// 폰에 예약된 일보 알림 개수(프로젝트별 시간 묶음 수와 비교하려는 값).
+// 알림 점검용: 작업 일지/주간 보고 알림이 실제로 예약돼 있는지(폰이 알고 있는지) 읽는다.
+// 폰에 예약된 작업 일지 알림 개수(프로젝트별 시간 묶음 수와 비교하려는 값).
 Future<int> scheduledDailyReminderCount() async {
   final pending = await flutterLocalNotificationsPlugin
       .pendingNotificationRequests();
@@ -267,11 +267,11 @@ Future<int> scheduledDailyReminderCount() async {
 // 필요한 예약 수와 실제 예약 수가 다르면 안내 문구, 맞으면 null.
 String? reminderCountMismatch(int expected, int actual) {
   if (expected == actual) return null;
-  if (actual == 0) return '일보 알림 $expected개가 필요한데 예약이 하나도 없습니다.';
+  if (actual == 0) return '작업 일지 알림 $expected개가 필요한데 예약이 하나도 없습니다.';
   if (actual < expected) {
-    return '일보 알림 $expected개가 필요한데 $actual개만 예약돼 있습니다.';
+    return '작업 일지 알림 $expected개가 필요한데 $actual개만 예약돼 있습니다.';
   }
-  return '일보 알림이 필요한 $expected개보다 많은 $actual개 예약돼 있습니다.';
+  return '작업 일지 알림이 필요한 $expected개보다 많은 $actual개 예약돼 있습니다.';
 }
 
 // 알림을 다시 예약하고, 그래도 어긋나 있는지 확인한 결과(문구, 정상이면 null)를 돌려준다.
@@ -324,8 +324,8 @@ Future<bool> areNotificationsAllowed() async {
 Future<void> showTestNotification() async {
   const channel = AndroidNotificationChannel(
     _kReminderChannel,
-    '작업일보 알림',
-    description: '작업일보 작성 알림',
+    '작업 일지 알림',
+    description: '작업 일지 작성 알림',
     importance: Importance.high,
   );
   await flutterLocalNotificationsPlugin
@@ -340,8 +340,8 @@ Future<void> showTestNotification() async {
     notificationDetails: const NotificationDetails(
       android: AndroidNotificationDetails(
         _kReminderChannel,
-        '작업일보 알림',
-        channelDescription: '작업일보 작성 알림',
+        '작업 일지 알림',
+        channelDescription: '작업 일지 작성 알림',
         importance: Importance.high,
         priority: Priority.high,
       ),
@@ -349,8 +349,8 @@ Future<void> showTestNotification() async {
   );
 }
 
-// 진행중 프로젝트가 있는데 오늘 일보가 아직 없으면 오늘 정해진 시간에, 이미
-// 썼으면 내일부터 매일 알린다. 앱을 열 때/일보 저장 후에 다시 맞춘다.
+// 진행중 프로젝트가 있는데 오늘 작업 일지가 아직 없으면 오늘 정해진 시간에, 이미
+// 썼으면 내일부터 매일 알린다. 앱을 열 때/작업 일지 저장 후에 다시 맞춘다.
 Future<void> syncReportReminder(
   List<Map<String, dynamic>> logs, {
   DateTime? nowForTest,
@@ -374,7 +374,7 @@ Future<void> syncReportReminder(
         ? <DailyReminderPlan>[]
         : planDailyReminders(active, pref.minutes, now);
     // 도착 창 안에서 이미 예약돼 있는 알림은 그대로 둔다(다시 예약하면 오늘 알림이 사라진다).
-    // 그 사이 오늘 일보를 다 써서 보낼 이유가 없어졌다면 지운다.
+    // 그 사이 오늘 작업 일지를 다 써서 보낼 이유가 없어졌다면 지운다.
     final todayStr =
         '${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
     bool stillMissing(DailyReminderPlan p) => projectsMissingReport(
@@ -403,8 +403,8 @@ Future<void> syncReportReminder(
 
     const channel = AndroidNotificationChannel(
       _kReminderChannel,
-      '작업일보 알림',
-      description: '작업일보 작성 알림',
+      '작업 일지 알림',
+      description: '작업 일지 작성 알림',
       importance: Importance.high,
     );
     await flutterLocalNotificationsPlugin
@@ -420,22 +420,22 @@ Future<void> syncReportReminder(
     }
     await _recordSync(now, scheduledCount, keep.length);
   } catch (e) {
-    debugPrint('일보 알림 설정 실패: $e');
+    debugPrint('작업 일지 알림 설정 실패: $e');
   }
 }
 
 Future<void> _scheduleDailyPlan(DailyReminderPlan plan, int index) async {
   await flutterLocalNotificationsPlugin.zonedSchedule(
     id: _kDailyBaseId + index,
-    title: '작업일보',
+    title: '작업 일지',
     body: dailyReminderBody(plan.count, name: plan.name),
     payload: kDailyReportPayload,
     scheduledDate: tz.TZDateTime.from(plan.at, tz.local),
     notificationDetails: const NotificationDetails(
       android: AndroidNotificationDetails(
         _kReminderChannel,
-        '작업일보 알림',
-        channelDescription: '작업일보 작성 알림',
+        '작업 일지 알림',
+        channelDescription: '작업 일지 작성 알림',
         importance: Importance.high,
         priority: Priority.high,
       ),
@@ -475,14 +475,14 @@ List<String> addSeenReminder(List<String> raw, int id, DateTime at) {
   return out.length > 10 ? out.sublist(out.length - 10) : out;
 }
 
-// "9/19 18:02  작업일보". 읽을 수 없는 줄은 null.
+// "9/19 18:02  작업 일지". 읽을 수 없는 줄은 null.
 String? seenReminderLabel(String entry) {
   final p = entry.split('|');
   if (p.length != 2) return null;
   final id = int.tryParse(p[0]);
   final t = DateTime.tryParse(p[1]);
   if (id == null || t == null) return null;
-  final kind = id == _kWeeklyId ? '주간 보고' : '작업일보';
+  final kind = id == _kWeeklyId ? '주간 보고' : '작업 일지';
   final hm =
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
   return '${t.month}/${t.day} $hm  $kind';
@@ -520,7 +520,7 @@ Future<List<String>> loadSeenReminderRaw() async {
   return p.getStringList(_kPrefSeenReminders) ?? const <String>[];
 }
 
-// 오늘 이미 울렸어야 하는데(예약 시간 + 1시간 10분이 지남; 알림은 정해진 시간부터 최대 1시간 안에 옴) 확인 기록이 없는 일보 알림.
+// 오늘 이미 울렸어야 하는데(예약 시간 + 1시간 10분이 지남; 알림은 정해진 시간부터 최대 1시간 안에 옴) 확인 기록이 없는 작업 일지 알림.
 // 예약이 폰에 잡혀 있는 것만 본다. 밀어서 지운 알림도 여기 걸릴 수 있어 "확인 안 됨"으로만 알린다.
 List<ReminderSlot> unconfirmedToday(
   List<ReminderSlot> slots,
@@ -575,7 +575,7 @@ Future<List<String>> loadSeenReminderLabels() async {
 
 // ── 예약 항목별 점검: 어긋난 것만 골라 다시 예약 ──
 
-// 일보 알림 한 건(같은 시간에 묶인 프로젝트들)과, 폰에 실제로 예약돼 있는지.
+// 작업 일지 알림 한 건(같은 시간에 묶인 프로젝트들)과, 폰에 실제로 예약돼 있는지.
 class ReminderSlot {
   final int id; // 알림 아이디(폰에 예약될 때 쓰는 값)
   final DailyReminderPlan plan;
@@ -583,7 +583,7 @@ class ReminderSlot {
   ReminderSlot(this.id, this.plan, this.scheduled);
 }
 
-// 필요한 일보 알림마다 예약 여부를 붙인다. [pendingIds]는 폰에 예약돼 있는 알림 아이디들.
+// 필요한 작업 일지 알림마다 예약 여부를 붙인다. [pendingIds]는 폰에 예약돼 있는 알림 아이디들.
 List<ReminderSlot> dailyReminderSlots(
   List<Map<String, dynamic>> logs,
   int defaultMinutes,
@@ -609,7 +609,7 @@ Future<Set<int>> pendingReminderIds() async {
   return pending.map((e) => e.id).toSet();
 }
 
-// 어긋난 일보 알림 한 건만 다시 예약한다(다른 알림은 건드리지 않는다).
+// 어긋난 작업 일지 알림 한 건만 다시 예약한다(다른 알림은 건드리지 않는다).
 Future<void> rescheduleDailySlot(ReminderSlot slot) async {
   _ensureTimezone();
   await _scheduleDailyPlan(slot.plan, slot.id - _kDailyBaseId);

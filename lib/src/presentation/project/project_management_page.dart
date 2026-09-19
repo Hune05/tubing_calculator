@@ -678,7 +678,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                 borderRadius: BorderRadius.circular(12),
               ),
               title: Text(
-                isEdit ? "작업 일보 수정" : "오늘의 작업 일보",
+                isEdit ? "작업 일지 수정" : "오늘의 작업 일지",
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 18,
@@ -1014,11 +1014,11 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
         backgroundColor: pureWhite,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: const Text(
-          "작업 일보 삭제",
+          "작업 일지 삭제",
           style: TextStyle(fontWeight: FontWeight.bold, color: slate900),
         ),
         content: const Text(
-          "이 작업 일보를 삭제하시겠습니까?",
+          "이 작업 일지를 삭제하시겠습니까?",
           style: TextStyle(color: slate600),
         ),
         actions: [
@@ -1580,7 +1580,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                             ? [report['image_path']]
                             : []);
                     _showDetailModal(
-                      "${report['date']} 작업 일보",
+                      "${report['date']} 작업 일지",
                       "벤딩 포인트: ${report['points']} pt\n작업 내용: ${report['note']}",
                       passImages,
                       isAsBuilt: report['is_as_built'] ?? false,

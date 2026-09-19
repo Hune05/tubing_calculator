@@ -24,7 +24,7 @@ Map<String, dynamic> proj(
   };
 }
 
-// 폰에 실제로 예약된 알림 아이디를 흉내 낸다(일보 알림 아이디는 918300부터).
+// 폰에 실제로 예약된 알림 아이디를 흉내 낸다(작업 일지 알림 아이디는 918300부터).
 const base = 918300;
 
 Future<void> pump(WidgetTester tester, Widget w) async {

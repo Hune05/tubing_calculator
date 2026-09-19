@@ -781,8 +781,8 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                     ),
                     subtitle: Text(
                       _photos
-                          ? "전주·금주 일보 사진 ${doc.photos.length}장(최근 12장까지)"
-                          : "전주·금주 일보에 붙인 사진",
+                          ? "전주·금주 작업 일지 사진 ${doc.photos.length}장(최근 12장까지)"
+                          : "전주·금주 작업 일지에 붙인 사진",
                       style: const TextStyle(fontSize: 12, color: _sub),
                     ),
                     value: _photos,

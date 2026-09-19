@@ -9,7 +9,7 @@ import 'report_style.dart';
 import 'report_tools.dart';
 
 // 🚀 [현황 요약 이미지] 카톡 대화창에 그대로 올리기 좋은 한 장짜리(1080x1350) 프로젝트
-// 현황 카드를 그린다: 진행률, 납기, 단계, 최근 일보, 이슈/자재 현황.
+// 현황 카드를 그린다: 진행률, 납기, 단계, 최근 작업 일지, 이슈/자재 현황.
 // 위젯 트리를 거치지 않고 캔버스에 직접 그려서 화면 밖에서도 만들 수 있다.
 const _text = Color(0xFF191F28);
 const _sub = Color(0xFF8B95A1);
@@ -18,7 +18,7 @@ const _green = Color(0xFF1D8A4E);
 
 Future<File> createSummaryImage(Map<String, dynamic> log) async {
   const w = 1080.0, pad = 64.0;
-  // 최근 일보의 가장 최근 사진 한 장을 대표 사진으로 쓴다.
+  // 최근 작업 일지의 가장 최근 사진 한 장을 대표 사진으로 쓴다.
   ui.Image? hero;
   final sorted = (log['daily_reports'] as List? ?? []).whereType<Map>().toList()
     ..sort((a, b) => reportDateOf(b).compareTo(reportDateOf(a)));
@@ -214,7 +214,7 @@ Future<File> createSummaryImage(Map<String, dynamic> log) async {
     y += 340 + 34;
   }
 
-  // ── 최근 일보 ──
+  // ── 최근 작업 일지 ──
   c.drawLine(
     Offset(pad, y),
     Offset(w - pad, y),
@@ -229,7 +229,7 @@ Future<File> createSummaryImage(Map<String, dynamic> log) async {
       (log['daily_reports'] as List? ?? []).whereType<Map>().toList()
         ..sort((a, b) => reportDateOf(b).compareTo(reportDateOf(a)));
   if (reports.isEmpty) {
-    tp('아직 작성된 일보가 없습니다.', 28, color: _sub).paint(c, Offset(pad, y));
+    tp('아직 작성된 작업 일지가 없습니다.', 28, color: _sub).paint(c, Offset(pad, y));
     y += 50;
   }
   for (final r in reports.take(3)) {

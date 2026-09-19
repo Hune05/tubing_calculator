@@ -323,7 +323,7 @@ class _RetroOverviewPageState extends State<RetroOverviewPage> {
                       ),
                     ] else
                       Text(
-                        keepWords("계획 기간(단계 설정)과 일보가 있는 프로젝트가 생기면 평균이 계산됩니다."),
+                        keepWords("계획 기간(단계 설정)과 작업 일지가 있는 프로젝트가 생기면 평균이 계산됩니다."),
                         style: TextStyle(color: _sub, fontSize: 13),
                       ),
                   ]),
@@ -395,7 +395,7 @@ class _RetroOverviewPageState extends State<RetroOverviewPage> {
                   ]),
                 if (byPhase.isNotEmpty)
                   card([
-                    h("단계별 평균 (일보 기준)"),
+                    h("단계별 평균 (작업 일지 기준)"),
                     for (final e in byPhase.entries)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4),

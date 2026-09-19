@@ -62,7 +62,7 @@ void main() {
     test('표시 문구', () {
       expect(
         seenReminderLabel('918300|${t.toIso8601String()}'),
-        '9/19 18:02  작업일보',
+        '9/19 18:02  작업 일지',
       );
       expect(
         seenReminderLabel('918274|${t.toIso8601String()}'),
@@ -76,7 +76,7 @@ void main() {
       await recordSeenReminders([918300], t);
       await recordSeenReminders([918274, 7], t.add(const Duration(days: 1)));
       final labels = await loadSeenReminderLabels();
-      expect(labels, ['9/20 18:02  주간 보고', '9/19 18:02  작업일보']);
+      expect(labels, ['9/20 18:02  주간 보고', '9/19 18:02  작업 일지']);
     });
 
     testWidgets('알림 점검 화면에 기록이 보인다', (tester) async {
@@ -94,7 +94,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(findTextContaining('최근 확인된 알림: 9/19 18:02  작업일보'), findsOneWidget);
+      expect(findTextContaining('최근 확인된 알림: 9/19 18:02  작업 일지'), findsOneWidget);
     });
 
     testWidgets('기록이 없으면 안내 문구가 보인다', (tester) async {

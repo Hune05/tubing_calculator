@@ -50,9 +50,9 @@ void main() {
 
   group('reminder problem message', () {
     test('messages now use the 습니다 style', () {
-      expect(reminderCountMismatch(2, 0), '일보 알림 2개가 필요한데 예약이 하나도 없습니다.');
-      expect(reminderCountMismatch(3, 1), '일보 알림 3개가 필요한데 1개만 예약돼 있습니다.');
-      expect(reminderCountMismatch(1, 3), '일보 알림이 필요한 1개보다 많은 3개 예약돼 있습니다.');
+      expect(reminderCountMismatch(2, 0), '작업 일지 알림 2개가 필요한데 예약이 하나도 없습니다.');
+      expect(reminderCountMismatch(3, 1), '작업 일지 알림 3개가 필요한데 1개만 예약돼 있습니다.');
+      expect(reminderCountMismatch(1, 3), '작업 일지 알림이 필요한 1개보다 많은 3개 예약돼 있습니다.');
       expect(reminderCountMismatch(2, 2), isNull);
     });
 

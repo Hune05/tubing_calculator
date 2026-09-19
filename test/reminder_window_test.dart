@@ -102,18 +102,18 @@ void main() {
     final at1820 = DateTime(2026, 9, 19, 18, 20); // 토요일 18:20(도착 창 안)
     final at2000 = DateTime(2026, 9, 19, 20, 0); // 창 밖
 
-    test('창 안·예약돼 있음·아직 일보 안 씀 → 그대로 둔다(취소도 재예약도 없음)', () async {
+    test('창 안·예약돼 있음·아직 작업 일지 안 씀 → 그대로 둔다(취소도 재예약도 없음)', () async {
       pending = [
-        {'id': 918300, 'title': '작업일보', 'body': 'x', 'payload': 'p'},
+        {'id': 918300, 'title': '작업 일지', 'body': 'x', 'payload': 'p'},
       ];
       await syncReportReminder([proj('A')], nowForTest: at1820);
       expect(calls.contains('cancel:918300'), false);
       expect(calls.contains('schedule:918300'), false);
     });
 
-    test('창 안이어도 그 사이 오늘 일보를 다 썼다면 지운다', () async {
+    test('창 안이어도 그 사이 오늘 작업 일지를 다 썼다면 지운다', () async {
       pending = [
-        {'id': 918300, 'title': '작업일보', 'body': 'x', 'payload': 'p'},
+        {'id': 918300, 'title': '작업 일지', 'body': 'x', 'payload': 'p'},
       ];
       await syncReportReminder([
         proj('A', reportDates: ['09/19']),
@@ -123,7 +123,7 @@ void main() {
 
     test('창 밖이면 예전처럼 다시 예약한다(내용 새로고침)', () async {
       pending = [
-        {'id': 918300, 'title': '작업일보', 'body': 'x', 'payload': 'p'},
+        {'id': 918300, 'title': '작업 일지', 'body': 'x', 'payload': 'p'},
       ];
       await syncReportReminder([proj('A')], nowForTest: at2000);
       expect(calls.contains('cancel:918300'), true);

@@ -37,18 +37,20 @@ class DailyReportPage extends StatefulWidget {
   // 🚀 [추가] 새로 작성할 때 참고할 가장 최근 일지 - "어제 값 불러오기"와
   // "어제 적어둔 내일 계획" 안내에 쓴다.
   final Map<String, dynamic>? previousReport;
+  // 이 프로젝트의 이전 작업 일지들(채우기에서 날짜를 골라 쓴다). 없으면 previousReport 하나만 쓴다.
+  final List<Map<String, dynamic>> previousReports;
   // 🚀 [추가] "오늘 처리한 이슈" 태그 후보 - 미해결이거나 오늘 처리
   // 완료된 이슈들.
   final List<Map<String, dynamic>> relatedIssueCandidates;
   // 🚀 [추가] 작업 위치를 텍스트 대신 도면 위에 핀으로 찍기 위한 이미지
   // (이슈 등록과 동일한 프로젝트 도면을 공유).
   final String? floorPlanImagePath;
-  // 🚀 [일보↔단계 연결] 오늘 작업한 단계를 고르고, 오늘 끝낸 세부 일정을 체크하면
+  // 🚀 [작업 일지↔단계 연결] 오늘 작업한 단계를 고르고, 오늘 끝낸 세부 일정을 체크하면
   // 저장 시 프로젝트에 자동 반영된다.
   final List<Map<String, dynamic>> phases;
   final List<Map<String, dynamic>> pendingSchedules;
   final String? defaultPhaseId;
-  // 새 일보 작성 중 임시 저장 키(전화가 오거나 앱이 꺼져도 내용을 이어 쓴다).
+  // 새 작업 일지 작성 중 임시 저장 키(전화가 오거나 앱이 꺼져도 내용을 이어 쓴다).
   final String? draftKey;
   // 프로젝트의 자재 요청/입고 항목들(사용한 자재를 골라 연결하는 용도).
   final List<Map<String, dynamic>> materialItems;
@@ -57,6 +59,7 @@ class DailyReportPage extends StatefulWidget {
     super.key,
     this.existingData,
     this.previousReport,
+    this.previousReports = const [],
     this.relatedIssueCandidates = const [],
     this.floorPlanImagePath,
     this.phases = const [],
@@ -106,7 +109,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
   final Map<String, String> _imageTags = {};
   // 사진 메모(캡션): 경로 → 텍스트
   final Map<String, String> _imageCaptions = {};
-  // 이 일보에서 사용했다고 고른 자재 요청/입고 항목 id
+  // 이 작업 일지에서 사용했다고 고른 자재 요청/입고 항목 id
   final Set<String> _usedMaterialIds = {};
   final Set<String> _workedPhaseIds = {};
   final Set<String> _completedScheduleIds = {};
@@ -281,24 +284,75 @@ class _DailyReportPageState extends State<DailyReportPage> {
     setState(() {});
   }
 
-  // 가져올 일보의 날짜("9월 18일"). 가장 최근 일보라서 어제가 아닐 수 있어 날짜로 알려 준다.
-  String _previousDateLabel() {
-    final prev = widget.previousReport;
-    if (prev == null) return '이전';
-    final iso = DateTime.tryParse(prev['dateISO']?.toString() ?? '');
-    if (iso != null) return '${iso.month}월 ${iso.day}일';
-    final p = (prev['date']?.toString() ?? '').split('/');
-    final m = p.length == 2 ? int.tryParse(p[0]) : null;
-    final d = p.length == 2 ? int.tryParse(p[1]) : null;
-    return (m != null && d != null) ? '$m월 $d일' : '이전';
+  // 채우기에 쓸 이전 작업 일지들(최근 것이 앞, 최대 30개).
+  List<Map<String, dynamic>> get _prevList {
+    final src = widget.previousReports.isNotEmpty
+        ? widget.previousReports
+        : [if (widget.previousReport != null) widget.previousReport!];
+    final l = [...src];
+    l.sort((x, y) => reportDateOf(y).compareTo(reportDateOf(x)));
+    return l.take(30).toList();
   }
 
-  // 이전 일보로 채우기. 기본 정보(단계·유형·인원·연장)는 지금 골라 둔 것을 바꾸고,
+  Map<String, dynamic>? get _latestPrev {
+    final l = _prevList;
+    return l.isEmpty ? null : l.first;
+  }
+
+  // "9월 18일 (금)"
+  String _dateLabelOf(Map<String, dynamic> r) {
+    final d = reportDateOf(r);
+    const wd = ['월', '화', '수', '목', '금', '토', '일'];
+    return '${d.month}월 ${d.day}일 (${wd[d.weekday - 1]})';
+  }
+
+  String _workTypesOf(Map<String, dynamic> r) {
+    final dynamic wt = r['work_type'];
+    if (wt is List) return wt.map((e) => e.toString()).join('·');
+    return wt?.toString() ?? '';
+  }
+
+  // 채우기 창에서 "무엇이 채워지는지" 미리 보여 주는 줄들.
+  List<String> _fillPreview(
+    Map<String, dynamic> r, {
+    required bool basic,
+    required bool memo,
+  }) {
+    final out = <String>[];
+    if (basic) {
+      final ids = reportIds(r, 'workedPhaseIds');
+      final names = [
+        for (final p in widget.phases)
+          if (ids.contains(p['id']?.toString())) p['name']?.toString() ?? '',
+      ].where((e) => e.isNotEmpty).toList();
+      out.add('단계: ${names.isEmpty ? '지정 안 함' : names.join(', ')}');
+      final t = _workTypesOf(r);
+      out.add('유형: ${t.isEmpty ? '신규 설치' : t}');
+      out.add(
+        '인원: ${r['worker_count'] ?? _workerCount}명${r['is_overtime'] == true ? ' · 연장/야간' : ''}',
+      );
+    }
+    if (memo) {
+      final n = (r['note']?.toString() ?? '').trim();
+      final m = (r['materials_used']?.toString() ?? '').trim();
+      final hasNote = n.isNotEmpty && n != '특이사항 없음';
+      out.add(
+        '작업 내용: ${hasNote ? (n.length > 60 ? '${n.substring(0, 60)}…' : n) : '없음'}',
+      );
+      out.add('자재: ${m.isEmpty ? '없음' : m}');
+    }
+    return out;
+  }
+
+  // 이전 작업 일지 하나로 채우기. 기본 정보(단계·유형·인원·연장)는 지금 골라 둔 것을 바꾸고,
   // 작업 내용·자재는 비어 있는 칸에만 채운다. 사진·벤딩/결선 숫자·이슈는 옮기지 않는다.
-  void _fillFromPrevious({required bool basic, required bool memo}) {
-    final prev = widget.previousReport;
-    if (prev == null || (!basic && !memo)) return;
-    if (basic) _applyPreviousBasic();
+  void _fillFromPrevious(
+    Map<String, dynamic> prev, {
+    required bool basic,
+    required bool memo,
+  }) {
+    if (!basic && !memo) return;
+    if (basic) _applyPreviousBasic(prev);
     if (memo) {
       setState(() {
         final n = (prev['note']?.toString() ?? '').trim();
@@ -312,61 +366,211 @@ class _DailyReportPageState extends State<DailyReportPage> {
       });
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(keepWords("${_previousDateLabel()} 일보로 채웠습니다."))),
+      SnackBar(content: Text(keepWords("${_dateLabelOf(prev)} 작업 일지로 채웠습니다."))),
     );
   }
 
   Future<void> _showFillDialog() async {
+    final list = _prevList;
+    if (list.isEmpty) return;
+    var picked = 0;
     var basic = true;
     var memo = false;
     final go = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setD) => AlertDialog(
-          title: Text(keepWords("${_previousDateLabel()} 일보로 채웁니다")),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                value: basic,
-                onChanged: (v) => setD(() => basic = v ?? false),
-                title: const Text("단계·유형·인원"),
-                subtitle: const Text("지금 골라 둔 것이 바뀝니다"),
-              ),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                value: memo,
-                onChanged: (v) => setD(() => memo = v ?? false),
-                title: const Text("작업 내용·자재"),
-                subtitle: const Text("비어 있는 칸에만 채웁니다"),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                keepWords("사진, 벤딩·결선 숫자, 이슈는 옮기지 않습니다."),
-                style: const TextStyle(color: tossSubText, fontSize: 12),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("취소"),
+        builder: (ctx, setD) {
+          final sel = list[picked];
+          final preview = _fillPreview(sel, basic: basic, memo: memo);
+          return Dialog(
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 24,
             ),
-            TextButton(
-              onPressed: (basic || memo)
-                  ? () => Navigator.pop(ctx, true)
-                  : null,
-              child: const Text("채우기"),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
             ),
-          ],
-        ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "이전 작업 일지에서 채우기",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    "채울 작업 일지를 선택하십시오",
+                    style: TextStyle(
+                      color: tossSubText,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 260),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: list.length,
+                      itemBuilder: (_, i) {
+                        final r = list[i];
+                        final on = i == picked;
+                        final t = _workTypesOf(r);
+                        final n = (r['note']?.toString() ?? '').trim();
+                        return InkWell(
+                          key: ValueKey('fill_pick_$i'),
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => setD(() => picked = i),
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: on
+                                  ? makitaTeal.withValues(alpha: 0.08)
+                                  : null,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: on
+                                    ? makitaTeal
+                                    : const Color(0xFFE5E8EB),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  on
+                                      ? Icons.radio_button_checked
+                                      : Icons.radio_button_unchecked,
+                                  color: on ? makitaTeal : tossSubText,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        keepWords(
+                                          "${_dateLabelOf(r)}  ·  ${t.isEmpty ? '유형 없음' : t}  ·  ${r['worker_count'] ?? 1}명",
+                                        ),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        n.isEmpty ? '작업 내용 없음' : n,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: tossSubText,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "채울 항목",
+                    style: TextStyle(
+                      color: tossSubText,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    value: basic,
+                    onChanged: (v) => setD(() => basic = v ?? false),
+                    title: const Text("단계·유형·인원"),
+                    subtitle: const Text("지금 골라 둔 것이 바뀝니다"),
+                  ),
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    value: memo,
+                    onChanged: (v) => setD(() => memo = v ?? false),
+                    title: const Text("작업 내용·자재"),
+                    subtitle: const Text("비어 있는 칸에만 채웁니다"),
+                  ),
+                  if (preview.isNotEmpty)
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(top: 6),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF2F4F6),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "${_dateLabelOf(sel)} 작업 일지에서 채워질 내용",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          for (final line in preview)
+                            Text(
+                              keepWords(line),
+                              style: const TextStyle(fontSize: 12, height: 1.5),
+                            ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  Text(
+                    keepWords("사진, 벤딩·결선 숫자, 이슈는 옮기지 않습니다."),
+                    style: const TextStyle(color: tossSubText, fontSize: 12),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text("취소"),
+                      ),
+                      TextButton(
+                        onPressed: (basic || memo)
+                            ? () => Navigator.pop(ctx, true)
+                            : null,
+                        child: const Text("채우기"),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
-    if (go == true && mounted) _fillFromPrevious(basic: basic, memo: memo);
+    if (go == true && mounted) {
+      _fillFromPrevious(list[picked], basic: basic, memo: memo);
+    }
   }
 
   // ───────────── 임시 저장 ─────────────
@@ -389,9 +593,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
 
   // 🚀 [추가] 어제(가장 최근) 일지의 작업유형/인원/연장여부를 그대로
   // 불러온다 - 반복되는 작업일 때 타이핑을 줄여준다.
-  void _applyPreviousBasic() {
-    final prev = widget.previousReport;
-    if (prev == null) return;
+  void _applyPreviousBasic(Map<String, dynamic> prev) {
     setState(() {
       final dynamic wt = prev['work_type'];
       _selectedWorkTypes.clear();
@@ -472,7 +674,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
 
   // 어제 적어둔 "내일 계획"을 오늘 작업 내역의 시작점으로 넣는다.
   void _usePlanAsNote() {
-    final plan = (widget.previousReport?['next_day_plan'] as String?)?.trim();
+    final plan = (_latestPrev?['next_day_plan'] as String?)?.trim();
     if (plan == null || plan.isEmpty) return;
     final t = _noteCtrl.text.trimRight();
     _noteCtrl.text = t.isEmpty ? plan : '$t\n$plan';
@@ -743,7 +945,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
   @override
   Widget build(BuildContext context) {
     final String prevPlan =
-        (widget.previousReport?['next_day_plan'] as String?)?.trim() ?? '';
+        (_latestPrev?['next_day_plan'] as String?)?.trim() ?? '';
     final String dateLabel = _isEdit
         ? "${widget.existingData!['date']}"
         : _todayDateStr();
@@ -764,7 +966,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
         title: Column(
           children: [
             Text(
-              _isEdit ? "작업 일보 수정" : "작업 일보",
+              _isEdit ? "작업 일지 수정" : "작업 일지",
               style: const TextStyle(
                 color: tossText,
                 fontSize: 17,
@@ -816,8 +1018,8 @@ class _DailyReportPageState extends State<DailyReportPage> {
                 ),
               ),
 
-            // ── 빠른 시작 (새 일보 + 어제 일보가 있을 때) ──
-            if (!_isEdit && widget.previousReport != null)
+            // ── 빠른 시작 (새 작업 일지 + 어제 작업 일지가 있을 때) ──
+            if (!_isEdit && _latestPrev != null)
               Container(
                 margin: const EdgeInsets.only(bottom: 14),
                 padding: const EdgeInsets.all(14),
@@ -842,7 +1044,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                keepWords("${_previousDateLabel()} 일보로 채우기"),
+                                keepWords("이전 작업 일지에서 채우기"),
                                 style: const TextStyle(
                                   color: makitaTeal,
                                   fontWeight: FontWeight.w800,
@@ -862,7 +1064,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                     if (prevPlan.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
-                        "${_previousDateLabel()} 일보의 계획: $prevPlan",
+                        "${_dateLabelOf(_latestPrev!)} 작업 일지의 계획: $prevPlan",
                         style: const TextStyle(
                           color: makitaTeal,
                           fontSize: 13,
@@ -1433,7 +1635,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
               ),
               onPressed: _submit,
               child: Text(
-                _isEdit ? "수정 완료" : "일보 저장",
+                _isEdit ? "수정 완료" : "작업 일지 저장",
                 style: const TextStyle(
                   color: pureWhite,
                   fontSize: 17,

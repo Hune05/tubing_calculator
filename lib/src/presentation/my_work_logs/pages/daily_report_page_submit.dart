@@ -20,7 +20,7 @@ extension _DailyReportSubmit on _DailyReportPageState {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              keepWords("지난 날짜의 작업 일보는 함부로 바꾸지 않도록, 수정할 때 사유를 남깁니다."),
+              keepWords("지난 날짜의 작업 일지는 함부로 바꾸지 않도록, 수정할 때 사유를 남깁니다."),
               style: TextStyle(color: tossSubText, fontSize: 13),
             ),
             const SizedBox(height: 12),

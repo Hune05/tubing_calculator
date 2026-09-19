@@ -75,7 +75,7 @@ extension _ProjectScheduleCalendar on _ProjectSchedulePageState {
     Clipboard.setData(ClipboardData(text: buffer.toString()));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(keepWords("이번 달 일정 요약이 클립보드에 복사했습니다.")),
+        content: Text(keepWords("이번 달 일정 요약을 클립보드에 복사했습니다.")),
         backgroundColor: tossBlue,
       ),
     );

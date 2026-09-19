@@ -11,7 +11,7 @@ const String kWorkProjectsCollection = 'my_projects';
 //
 // 기존 두 화면은 프로젝트를 전부 List<Map<String,dynamic>>로 다루고,
 // 뭔가 하나만 바뀌어도 전체 리스트를 통째로 jsonEncode해서 Hive에
-// 다시 쓰는 구조였다. 화면 쪽 로직(자재/일일보고/펀치리스트를 그
+// 다시 쓰는 구조였다. 화면 쪽 로직(자재/일작업 일지고/펀치리스트를 그
 // Map 안에서 직접 List.insert/remove하는 부분)을 전부 다시 짜면
 // 위험이 너무 커지므로, 저장 방식만 이 저장소를 거치도록 바꿨다:
 // 프로젝트 하나 = Firestore 문서 하나(문서 ID는 기존에 쓰던

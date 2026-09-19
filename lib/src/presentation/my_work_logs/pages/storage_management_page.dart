@@ -18,9 +18,9 @@ const Color _text = Color(0xFF191F28);
 const Color _sub = Color(0xFF8B95A1);
 const Color _bg = Color(0xFFF2F4F6);
 
-// 🚀 [저장 공간 관리] 앱이 만든 임시 파일(사진 압축본, 내보내기 PDF/CSV)과 일보 임시
+// 🚀 [저장 공간 관리] 앱이 만든 임시 파일(사진 압축본, 내보내기 PDF/CSV)과 작업 일지 임시
 // 저장을 확인하고 정리한다. 아직 클라우드에 안 올라간 원본 사진은 절대 지우지
-// 않는다(일보에 로컬 경로로 연결돼 있어서).
+// 않는다(작업 일지에 로컬 경로로 연결돼 있어서).
 // 앱이 만든 임시 파일 이름인지. PDF는 이름 형식(프로젝트_보고서_날짜.pdf)이 바뀌어도
 // 임시 파일로 센다(공유용으로 만든 것뿐이라 지워도 안전).
 bool isAppTempFileName(String name) =>
@@ -298,7 +298,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("임시 저장 삭제"),
-        content: Text(keepWords("저장하지 않은 일보 임시 저장본이 모두 삭제됩니다.")),
+        content: Text(keepWords("저장하지 않은 작업 일지 임시 저장본이 모두 삭제됩니다.")),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -406,9 +406,9 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
                   ),
                 ),
                 card(
-                  "일보 임시 저장",
+                  "작업 일지 임시 저장",
                   "$_drafts건",
-                  "작성 중 저장하지 않은 일보의 자동 저장본입니다. 2일이 지난 것은 앱을 열 때 자동으로 정리됩니다.",
+                  "작성 중 저장하지 않은 작업 일지의 자동 저장본입니다. 2일이 지난 것은 앱을 열 때 자동으로 정리됩니다.",
                   action: Align(
                     alignment: Alignment.centerRight,
                     child: OutlinedButton(

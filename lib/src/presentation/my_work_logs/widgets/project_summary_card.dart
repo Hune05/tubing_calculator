@@ -36,7 +36,7 @@ class ProjectSummaryCard extends StatelessWidget {
     final cur = currentPhase(log);
     final issues = unresolvedIssueCount(log);
     final today = dayOnly(DateTime.now());
-    // 마지막 일보가 며칠 전인지(진행중 프로젝트에서 일보가 끊기지 않게 눈에 띄게).
+    // 마지막 작업 일지가 며칠 전인지(진행중 프로젝트에서 작업 일지가 끊기지 않게 눈에 띄게).
     DateTime? lastReport;
     for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
       final d = reportDateOf(r);
@@ -206,10 +206,10 @@ class ProjectSummaryCard extends StatelessWidget {
                             _chip(
                               Icons.edit_note_rounded,
                               sinceReport == null
-                                  ? "일보 없음"
+                                  ? "작업 일지 없음"
                                   : (sinceReport <= 0
-                                        ? "오늘 일보"
-                                        : "일보 $sinceReport일 전"),
+                                        ? "오늘 작업 일지"
+                                        : "작업 일지 $sinceReport일 전"),
                               (sinceReport == null || sinceReport >= 3)
                                   ? _warnRed
                                   : (sinceReport <= 0 ? _tossBlue : _tossSub),

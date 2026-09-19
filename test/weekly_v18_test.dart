@@ -54,7 +54,7 @@ void main() {
       VoidCallback? onOpenCheck,
       bool preview = false,
     }) => ReminderProblemCard(
-      message: '일보 알림 2개가 필요한데 예약이 하나도 없습니다.',
+      message: '작업 일지 알림 2개가 필요한데 예약이 하나도 없습니다.',
       preview: preview,
       onOpenCheck: onOpenCheck ?? () {},
       onRetry: onRetry,
@@ -63,7 +63,7 @@ void main() {
 
     testWidgets('shows both actions and the message', (tester) async {
       await pump(tester, card(onRetry: () async => null));
-      expect(find.text('일보 알림 예약에 문제가 있습니다'), findsOneWidget);
+      expect(find.text('작업 일지 알림 예약에 문제가 있습니다'), findsOneWidget);
       expect(find.text('다시 예약'), findsOneWidget);
       expect(find.text('알림 점검 열기'), findsOneWidget);
       expect(findTextContaining('예약이 하나도 없습니다'), findsOneWidget);

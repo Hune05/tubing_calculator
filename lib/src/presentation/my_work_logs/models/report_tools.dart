@@ -10,11 +10,11 @@ export 'search_tools.dart';
 export 'reminder_tools.dart';
 export 'report_pdf.dart';
 
-// 🚀 작업일보 부가 기능 모음: 기간 보고서(텍스트/PDF), 통합 검색, 일보 알림.
+// 🚀 작업 일지 부가 기능 모음: 기간 보고서(텍스트/PDF), 통합 검색, 작업 일지 알림.
 
 const List<String> kPhotoTags = ['작업 전', '작업 중', '작업 후', '자재', '이슈', '기타'];
 
-// 일보 날짜는 "MM/dd" 문자열이라 연도가 없다. 올해로 보되, 오늘보다 한참 미래면
+// 작업 일지 날짜는 "MM/dd" 문자열이라 연도가 없다. 올해로 보되, 오늘보다 한참 미래면
 // 작년 것으로 본다(연말~연초 걸친 프로젝트 대비).
 DateTime reportDate(String mmdd) {
   final parts = mmdd.split('/');
@@ -28,7 +28,7 @@ DateTime reportDate(String mmdd) {
   return dt;
 }
 
-// 새 일보는 'dateISO'(yyyy-MM-dd)를 함께 저장한다. 없으면(예전 일보) 위 추정을 쓴다.
+// 새 작업 일지는 'dateISO'(yyyy-MM-dd)를 함께 저장한다. 없으면(예전 작업 일지) 위 추정을 쓴다.
 DateTime reportDateOf(Map r) {
   final iso = r['dateISO']?.toString();
   if (iso != null) {
@@ -186,7 +186,7 @@ ReportDoc buildReportDoc(
   Map<String, dynamic> log,
   DateTime from,
   DateTime to, {
-  List<Map>? only, // 지정하면 기간 대신 이 일보들만 포함
+  List<Map>? only, // 지정하면 기간 대신 이 작업 일지들만 포함
 }) {
   final f = dayOnly(from), t = dayOnly(to);
   final progress = (projectProgress(log) * 100).round();
@@ -279,7 +279,7 @@ ReportDoc buildReportDoc(
     ReportSection('진행 현황', overview),
     ReportSection(
       '작업 내역 (${reports.length}일, 투입 $manDays인·일)',
-      dayLines.isEmpty ? ['이 기간에 작성된 일보가 없습니다.'] : dayLines,
+      dayLines.isEmpty ? ['이 기간에 작성된 작업 일지가 없습니다.'] : dayLines,
     ),
   ];
   if (phaseDays.isNotEmpty) {
@@ -365,7 +365,7 @@ ReportDoc buildReportDoc(
   return ReportDoc(
     log['name']?.toString() ?? '프로젝트',
     only != null
-        ? '선택한 일보 ${only.length}건'
+        ? '선택한 작업 일지 ${only.length}건'
         : '기간 ${f.year}.${f.month}.${f.day} ~ ${t.year}.${t.month}.${t.day}',
     sections,
     logoB64: headerOverride(log, 'logoB64'),
@@ -504,7 +504,7 @@ ReportDoc mergeReportDocs(List<ReportDoc> docs) => ReportDoc(
   ],
 );
 
-// 2일이 지난 일보 임시 저장을 지운다(앱 시작 시 호출).
+// 2일이 지난 작업 일지 임시 저장을 지운다(앱 시작 시 호출).
 Future<void> cleanOldDrafts() async {
   try {
     final p = await SharedPreferences.getInstance();
