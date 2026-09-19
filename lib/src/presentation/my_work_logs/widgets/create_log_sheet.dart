@@ -30,6 +30,8 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
   int? _remindMinutes; // null이면 기본 시각을 쓴다
 
   Future<void> _pickRemindTime() async {
+    // 시각 창을 닫은 뒤 이름 입력칸으로 포커스가 돌아와 키보드가 다시 뜨지 않게 미리 내려 둔다.
+    FocusManager.instance.primaryFocus?.unfocus();
     final t = await showTimePicker(
       context: context,
       initialTime: TimeOfDay(
@@ -106,7 +108,7 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
               ),
               const SizedBox(height: 28),
               const Text(
-                "새로운 작업을\n시작할까요?",
+                "새로운 작업을\n시작하시겠습니까?",
                 style: TextStyle(
                   color: tossText,
                   fontSize: 24,

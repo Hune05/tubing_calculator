@@ -53,7 +53,8 @@ class _RetroOverviewPageState extends State<RetroOverviewPage> {
     final man = ls.map(_manDays).toList();
     String avg(List<num> v) => v.isEmpty
         ? '-'
-        : (v.reduce((a, b) => a + b) / v.length).round().toString();
+        // reduce는 List<int>를 List<num>으로 받을 때 실행 중 형식 오류가 나므로 fold<num>을 쓴다.
+        : (v.fold<num>(0, (a, b) => a + b) / v.length).round().toString();
     return "계획 ${avg(plans)}일 → 실제 ${avg(actuals)}일 · 투입 ${avg(man)}인·일";
   }
 

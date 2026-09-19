@@ -44,6 +44,7 @@ Future<void> pump(WidgetTester tester, Widget w) async {
 }
 
 void main() {
+  _focusTest();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   group('reminder problem message', () {
@@ -230,5 +231,42 @@ void main() {
       });
       expect(r!.containsKey('reportReminderMinutes'), false);
     });
+  });
+}
+
+void _focusTest() {
+  testWidgets('opening the time picker drops the keyboard focus first', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (ctx) => Scaffold(
+            body: TextButton(
+              onPressed: () => CreateLogSheet.show(ctx),
+              child: const Text('열기'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+    expect(find.text('새로운 작업을\n시작하시겠습니까?'), findsOneWidget);
+    await tester.tap(find.byType(TextField).first); // 이름 입력칸에 포커스
+    await tester.pump();
+    expect(FocusManager.instance.primaryFocus?.hasFocus, true);
+    await tester.tap(find.text('기본 시각 사용'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    // 창을 닫은 뒤에도 입력칸이 포커스를 되찾지 않는다(키보드가 다시 뜨지 않는다).
+    final editable = tester.state<EditableTextState>(
+      find.byType(EditableText).first,
+    );
+    expect(editable.widget.focusNode.hasFocus, false);
   });
 }
