@@ -149,7 +149,7 @@ List<String> _plannedLines(
 List<Map> _weeklyIssues(Map<String, dynamic> log) =>
     (log['punch_lists'] as List? ?? [])
         .whereType<Map>()
-        .where((p) => p['weeklyExclude'] != true)
+        .where((p) => !issueWeeklyExcluded(p))
         .toList();
 
 String _openIssueText(Map<String, dynamic> log) {
@@ -391,9 +391,7 @@ ReportDoc buildWeeklyPlanDoc(
         n +
         (l['punch_lists'] as List? ?? [])
             .whereType<Map>()
-            .where(
-              (p) => p['is_completed'] != true && p['weeklyExclude'] == true,
-            )
+            .where((p) => p['is_completed'] != true && issueWeeklyExcluded(p))
             .length,
   );
   if (excludedOpen > 0) {

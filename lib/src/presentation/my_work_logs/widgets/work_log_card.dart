@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'photo_detail_modal.dart';
-import '../models/project_phase.dart' show issueOverdueDays;
+import '../models/project_phase.dart'
+    show issueOverdueDays, issueWeeklyExcluded, setIssueWeeklyExcluded;
 
 const Color tossBlue = Color(0xFF007580); // 🚀 마키타 틸로 통일
 const Color tossText = Color(0xFF191F28);
@@ -553,7 +554,7 @@ class PunchListSectionState extends State<PunchListSection> {
         .toList();
     // 주간 보고에서 뺀 미해결 이슈만 모아 보기(3). 없어지면 미해결(0)로 돌아간다.
     final excludedList = openList
-        .where((p) => p is Map && p['weeklyExclude'] == true)
+        .where((p) => p is Map && issueWeeklyExcluded(p))
         .toList();
     if (_mode == 3 && excludedList.isEmpty) _mode = 0;
     final List<dynamic> visible = _mode == 0
@@ -604,11 +605,7 @@ class PunchListSectionState extends State<PunchListSection> {
                       // 미해결 이슈 전체를 주간 보고에서 빼거나 다시 넣는다.
                       for (final p in openList) {
                         if (p is! Map) continue;
-                        if (exclude) {
-                          p['weeklyExclude'] = true;
-                        } else {
-                          p.remove('weeklyExclude');
-                        }
+                        setIssueWeeklyExcluded(p, exclude);
                       }
                       setState(() {});
                       widget.onBulkChanged!();
@@ -696,7 +693,7 @@ class PunchListSectionState extends State<PunchListSection> {
               context: context,
               // 위치를 제목에 보여줘서 어느 곳 이슈인지 목록에서 바로 알 수 있게 한다.
               title:
-                  "${(punch['location']?.toString() ?? '').isEmpty || punch['location'] == '위치 미상' ? '' : '${punch['location']} · '}${isPunchDone ? '처리 완료' : (issueOverdueDays(punch) > 0 ? '기한 초과 ${issueOverdueDays(punch)}일' : '확인 요망')}${punch['weeklyExclude'] == true ? ' · 주간 제외' : ''}",
+                  "${(punch['location']?.toString() ?? '').isEmpty || punch['location'] == '위치 미상' ? '' : '${punch['location']} · '}${isPunchDone ? '처리 완료' : (issueOverdueDays(punch) > 0 ? '기한 초과 ${issueOverdueDays(punch)}일' : '확인 요망')}${issueWeeklyExcluded(punch) ? ' · 주간 제외' : ''}",
               content: punch['priority'] == '긴급'
                   ? "[긴급] ${punch['content'] ?? ''}"
                   : (punch['content'] ?? '').toString(),

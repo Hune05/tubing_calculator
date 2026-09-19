@@ -126,6 +126,18 @@ double projectProgress(Map<String, dynamic> log) {
   return sum / phases.length;
 }
 
+// 이슈를 주간 업무 보고에서 뺐는지. 이슈 상세 스위치, 주간 보고 밀어서 제외,
+// 이슈 목록 일괄 설정이 모두 이 두 함수만 거쳐 같은 값을 읽고 쓴다.
+bool issueWeeklyExcluded(Map p) => p['weeklyExclude'] == true;
+
+void setIssueWeeklyExcluded(Map p, bool excluded) {
+  if (excluded) {
+    p['weeklyExclude'] = true;
+  } else {
+    p.remove('weeklyExclude');
+  }
+}
+
 // 이슈의 처리 기한이 지난 일수(기한이 없거나 안 지났거나 이미 처리했으면 0).
 int issueOverdueDays(Map p, [DateTime? now]) {
   if (p['is_completed'] == true || p['dueDate'] == null) return 0;

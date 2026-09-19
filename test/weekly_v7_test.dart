@@ -86,7 +86,7 @@ void main() {
     expect(find.textContaining('A현장 작업'), findsNothing);
     expect(find.textContaining('B현장 작업'), findsNothing);
     // 프로젝트 제목 줄은 남아 있다.
-    expect(find.text('■ A현장'), findsWidgets);
+    expect(find.textContaining('■ A현장'), findsWidgets);
     await tester.tap(find.text('모두 펼치기'));
     await tester.pump();
     expect(find.textContaining('A현장 작업'), findsWidgets);

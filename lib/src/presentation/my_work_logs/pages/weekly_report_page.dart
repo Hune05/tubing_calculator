@@ -5,8 +5,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../data/repositories/work_project_repository.dart';
 import '../models/photo_store.dart';
+import '../models/project_phase.dart';
 import '../models/report_style.dart';
 import '../models/report_tools.dart';
+import '../screens/work_log_main_screen.dart';
 import '../widgets/work_theme.dart';
 import '../models/weekly_plan.dart';
 
@@ -30,6 +32,17 @@ Future<void> openWeeklyReportFromNotification(
           logs: logs,
           // 밀어서 제외/다시 포함한 결과를 저장한다.
           onIssueChanged: (log) => repo.upsertProject(log),
+          // 프로젝트 이름 옆 아이콘: 그 프로젝트 화면(개요 탭)을 연다.
+          onOpenProject: (log) => nav.push(
+            WorkRoute(
+              builder: (_) => WorkLogMainScreen(
+                initialProjectId: log['id']?.toString(),
+                initialTab: 0,
+              ),
+            ),
+          ),
+          // 다녀온 뒤 최신 상태로 다시 읽는다.
+          reload: () => repo.fetchAllProjects(),
         ),
       ),
     );
@@ -49,12 +62,16 @@ class WeeklyReportPage extends StatefulWidget {
   onOpenIssue;
   // 이슈 줄을 밀어서 "주간 제외"했을 때 저장하라고 알리는 콜백(없으면 밀기 비활성).
   final void Function(Map<String, dynamic> log)? onIssueChanged;
+  // 프로젝트/이슈 화면에 다녀온 뒤 최신 프로젝트 목록을 다시 읽어 오는 함수(선택).
+  // 알림으로 연 화면처럼 목록 사본을 직접 들고 있을 때 쓴다.
+  final Future<List<Map<String, dynamic>>> Function()? reload;
   const WeeklyReportPage({
     super.key,
     required this.logs,
     this.onOpenProject,
     this.onOpenIssue,
     this.onIssueChanged,
+    this.reload,
   });
 
   @override
@@ -68,6 +85,15 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
   DateTime? _asOf; // null = 오늘
   // 접어 둔 "섹션|프로젝트" 키(프로젝트가 많을 때 화면을 짧게 보려고).
   final Set<String> _collapsed = {};
+  late List<Map<String, dynamic>> _logs = widget.logs;
+
+  Future<void> _reloadLogs() async {
+    if (widget.reload == null) return;
+    try {
+      final fresh = await widget.reload!();
+      if (mounted) setState(() => _logs = fresh);
+    } catch (_) {}
+  }
 
   @override
   void initState() {
@@ -100,10 +126,10 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
   }
 
   List<Map<String, dynamic>> get _active =>
-      widget.logs.where((l) => l['status'] != 'DONE').toList();
+      _logs.where((l) => l['status'] != 'DONE').toList();
 
   ReportDoc get _doc => buildWeeklyPlanDoc(
-    widget.logs,
+    _logs,
     onlyIds: _projectId == null ? null : {_projectId!},
     includePhotos: _photos,
     perProject: _split && _projectId == null,
@@ -131,7 +157,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
   Map<String, dynamic>? _projectFor(String line) {
     if (widget.onOpenProject == null || !line.startsWith('■ ')) return null;
     final name = line.substring(2).split(' — ').first.split(' · ').first.trim();
-    for (final l in widget.logs) {
+    for (final l in _logs) {
       if (l['name']?.toString() == name) return l;
     }
     return null;
@@ -141,7 +167,22 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
   String? _projectName(String line) {
     if (!line.startsWith('■ ')) return null;
     final name = line.substring(2).split(' — ').first.split(' · ').first.trim();
-    return widget.logs.any((l) => l['name']?.toString() == name) ? name : null;
+    return _logs.any((l) => l['name']?.toString() == name) ? name : null;
+  }
+
+  // 접힌 프로젝트 줄 옆에 보여 줄 한 줄 요약: 진행률 줄이 있으면 그것, 없으면 줄 수.
+  String _collapsedSummary(ReportSection s, int i) {
+    var hidden = 0;
+    String? progress;
+    for (var j = i + 1; j < s.lines.length; j++) {
+      if (s.lines[j].startsWith('■ ')) break;
+      hidden++;
+      final t = s.lines[j].trim();
+      if (progress == null && t.startsWith('◐')) {
+        progress = t.substring(1).trim();
+      }
+    }
+    return progress ?? '$hidden줄';
   }
 
   // 접힌 프로젝트의 하위 줄은 건너뛰고, 보여 줄 줄 번호만 돌려준다.
@@ -178,6 +219,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                   s.issueRefs![i]!.punch,
                 );
                 // 이슈를 고치고 돌아왔을 수 있으니 다시 계산한다.
+                await _reloadLogs();
                 if (mounted) setState(() {});
               },
         child: Padding(
@@ -220,7 +262,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
           ),
         ),
         onDismissed: (_) {
-          ref.punch['weeklyExclude'] = true;
+          setIssueWeeklyExcluded(ref.punch, true);
           widget.onIssueChanged!(ref.log);
           setState(() {});
           ScaffoldMessenger.of(context)
@@ -231,7 +273,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                 action: SnackBarAction(
                   label: "되돌리기",
                   onPressed: () {
-                    ref.punch.remove('weeklyExclude');
+                    setIssueWeeklyExcluded(ref.punch, false);
                     widget.onIssueChanged!(ref.log);
                     if (mounted) setState(() {});
                   },
@@ -271,7 +313,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                     const SizedBox(width: 2),
                     Expanded(
                       child: Text(
-                        l,
+                        closed ? '$l  ·  ${_collapsedSummary(s, i)}' : l,
                         style: const TextStyle(
                           fontSize: 13,
                           height: 1.4,
@@ -293,6 +335,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
               icon: const Icon(Icons.open_in_new_rounded, color: _sub),
               onPressed: () async {
                 await widget.onOpenProject!(log);
+                await _reloadLogs();
                 if (mounted) setState(() {});
               },
             ),
@@ -325,7 +368,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
     for (final l in _active)
       if (_projectId == null || l['id']?.toString() == _projectId)
         for (final p in (l['punch_lists'] as List? ?? []).whereType<Map>())
-          if (p['is_completed'] != true && p['weeklyExclude'] == true)
+          if (p['is_completed'] != true && issueWeeklyExcluded(p))
             (log: l, punch: p),
   ];
 
@@ -373,7 +416,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                     ),
                     TextButton(
                       onPressed: () {
-                        e.punch.remove('weeklyExclude');
+                        setIssueWeeklyExcluded(e.punch, false);
                         widget.onIssueChanged!(e.log);
                         setState(() {});
                       },

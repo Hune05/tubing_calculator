@@ -89,7 +89,7 @@ void main() {
     await pump(tester, const SizedBox());
     await pump(tester, WeeklyReportPage(logs: logs));
     expect(find.textContaining('A현장 작업'), findsNothing);
-    expect(find.text('■ A현장'), findsWidgets);
+    expect(find.textContaining('■ A현장'), findsWidgets);
   });
 
   testWidgets('swiping an issue line excludes it and can be undone', (

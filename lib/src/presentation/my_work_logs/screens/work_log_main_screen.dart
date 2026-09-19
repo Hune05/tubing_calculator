@@ -43,8 +43,14 @@ class WorkLogMainScreen extends StatefulWidget {
   // 🚀 [3번 강화] "내 일정 관리"에서 프로젝트 유래 일정을 탭했을 때, 목록을
   // 거치지 않고 바로 그 프로젝트의 일정 관리 화면으로 들어가기 위한 값.
   final String? initialProjectId;
+  // initialProjectId로 들어갈 때 처음 보여 줄 탭(0=개요, 1=단계·일정).
+  final int initialTab;
 
-  const WorkLogMainScreen({super.key, this.initialProjectId});
+  const WorkLogMainScreen({
+    super.key,
+    this.initialProjectId,
+    this.initialTab = 1,
+  });
 
   @override
   State<WorkLogMainScreen> createState() => _WorkLogMainScreenState();
@@ -95,7 +101,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     _loadData();
     _loadGuideFlag();
     // 예전에 공유하려고 만들어 둔 PDF 임시 파일 정리(백그라운드).
-    getTemporaryDirectory().then((d) => cleanupOldPdfs(d)).catchError((_) => 0);
+    getTemporaryDirectory().then(runPdfCleanup).catchError((_) => 0);
   }
 
   Future<void> _loadData() async {
@@ -130,7 +136,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         );
         if (match.isNotEmpty && mounted) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _openDetail(match, tab: 1);
+            if (mounted) _openDetail(match, tab: widget.initialTab);
           });
         }
       }

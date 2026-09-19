@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import '../widgets/photo_detail_modal.dart';
 import '../models/photo_store.dart';
+import '../models/project_phase.dart'
+    show issueWeeklyExcluded, setIssueWeeklyExcluded;
 import '../../../core/utils/image_picker_helper.dart' show ImagePickerHelper;
 import 'floor_plan_pin_page.dart';
 
@@ -611,7 +613,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
 
   // 이 이슈를 주간 업무 보고에 넣을지(기본: 넣음).
   Widget _buildWeeklyToggle() {
-    final include = _punch['weeklyExclude'] != true;
+    final include = !issueWeeklyExcluded(_punch);
     return _sectionCard(
       title: "주간 보고",
       children: [
@@ -627,11 +629,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
           ),
           value: include,
           onChanged: (v) => setState(() {
-            if (v) {
-              _punch.remove('weeklyExclude');
-            } else {
-              _punch['weeklyExclude'] = true;
-            }
+            setIssueWeeklyExcluded(_punch, !v);
             _changed = true;
           }),
         ),

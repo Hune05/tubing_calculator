@@ -9,6 +9,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../models/backup_tools.dart';
+import '../models/report_tools.dart' show loadPdfCleanupRecord;
 import '../models/photo_store.dart';
 
 const Color _teal = Color(0xFF007580);
@@ -19,6 +20,14 @@ const Color _bg = Color(0xFFF2F4F6);
 // 🚀 [저장 공간 관리] 앱이 만든 임시 파일(사진 압축본, 내보내기 PDF/CSV)과 일보 임시
 // 저장을 확인하고 정리한다. 아직 클라우드에 안 올라간 원본 사진은 절대 지우지
 // 않는다(일보에 로컬 경로로 연결돼 있어서).
+// 앱이 만든 임시 파일 이름인지. PDF는 이름 형식(프로젝트_보고서_날짜.pdf)이 바뀌어도
+// 임시 파일로 센다(공유용으로 만든 것뿐이라 지워도 안전).
+bool isAppTempFileName(String name) =>
+    RegExp(
+      r'^(up_|dl_|report_|stats_)\d*.*\.(jpg|png|pdf|csv|json)$',
+    ).hasMatch(name) ||
+    name.toLowerCase().endsWith('.pdf');
+
 class StorageManagementPage extends StatefulWidget {
   final List<Map<String, dynamic>> logs;
   final VoidCallback? onRestored;
@@ -34,18 +43,14 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
   int _tempCount = 0;
   int _drafts = 0;
   int _pendingPhotos = 0;
-
-  static final _tempPattern = RegExp(
-    r'^(up_|dl_|report_|stats_)\d*.*\.(jpg|png|pdf|csv|json)$',
-  );
+  ({DateTime? lastRun, int lastRemoved, int total})? _cleanup;
 
   Future<List<File>> _tempFiles() async {
     final dir = await getTemporaryDirectory();
     final out = <File>[];
     if (!await dir.exists()) return out;
     await for (final e in dir.list()) {
-      if (e is File &&
-          _tempPattern.hasMatch(e.path.split(RegExp(r'[\\/]')).last)) {
+      if (e is File && isAppTempFileName(e.path.split(RegExp(r'[\\/]')).last)) {
         out.add(e);
       }
     }
@@ -63,8 +68,10 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
     }
     final p = await SharedPreferences.getInstance();
     final drafts = p.getKeys().where((k) => k.startsWith('report_draft_'));
+    final cleanup = await loadPdfCleanupRecord();
     if (!mounted) return;
     setState(() {
+      _cleanup = cleanup;
       _tempBytes = bytes;
       _tempCount = files.length;
       _drafts = drafts.length;
@@ -231,6 +238,15 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
     return m == null ? n : '${m[1]}.${m[2]}.${m[3]} ${m[4]}:${m[5]}';
   }
 
+  String _cleanupDesc() {
+    final c = _cleanup;
+    const base = "공유하려고 만든 PDF는 3일이 지나면 앱을 열 때 자동으로 지워요.";
+    if (c == null || c.lastRun == null) return "${base} 아직 정리한 적이 없어요.";
+    final t = c.lastRun!;
+    return "${base} 마지막 정리 ${t.month}/${t.day} ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}"
+        "(${c.lastRemoved}개 삭제)";
+  }
+
   Future<void> _clearDrafts() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -319,6 +335,11 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                card(
+                  "임시 PDF 자동 정리",
+                  "${_cleanup?.total ?? 0}개 정리됨",
+                  _cleanupDesc(),
+                ),
                 card(
                   "임시 파일",
                   "${_mb(_tempBytes)} ($_tempCount개)",

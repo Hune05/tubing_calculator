@@ -732,6 +732,38 @@ Future<int> cleanupOldPdfs(
   return removed;
 }
 
+// 정리를 실행하고 결과(마지막 실행 시각·지운 개수·누적 개수)를 기록한다.
+Future<int> runPdfCleanup(Directory dir, {DateTime? now}) async {
+  final n = await cleanupOldPdfs(dir, now: now);
+  try {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(
+      _kPrefPdfCleanupLast,
+      (now ?? DateTime.now()).toIso8601String(),
+    );
+    await p.setInt(_kPrefPdfCleanupLastRemoved, n);
+    await p.setInt(
+      _kPrefPdfCleanupTotal,
+      (p.getInt(_kPrefPdfCleanupTotal) ?? 0) + n,
+    );
+  } catch (_) {}
+  return n;
+}
+
+const String _kPrefPdfCleanupLast = 'pdf_cleanup_last';
+const String _kPrefPdfCleanupLastRemoved = 'pdf_cleanup_last_removed';
+const String _kPrefPdfCleanupTotal = 'pdf_cleanup_total';
+
+Future<({DateTime? lastRun, int lastRemoved, int total})>
+loadPdfCleanupRecord() async {
+  final p = await SharedPreferences.getInstance();
+  return (
+    lastRun: DateTime.tryParse(p.getString(_kPrefPdfCleanupLast) ?? ''),
+    lastRemoved: p.getInt(_kPrefPdfCleanupLastRemoved) ?? 0,
+    total: p.getInt(_kPrefPdfCleanupTotal) ?? 0,
+  );
+}
+
 // 같은 이름의 파일이 이미 있으면 이름 뒤에 (2), (3)…을 붙여 덮어쓰지 않는다.
 String uniquePdfName(String name, bool Function(String) exists) {
   if (!exists(name)) return name;
@@ -1152,7 +1184,9 @@ const String kWeeklyReportPdfPayload = 'work_weekly_report_pdf';
 const String _kPrefWeeklyAutoPdf = 'weekly_report_autopdf';
 bool _tzReady = false;
 
-Future<({bool enabled, int minutes, bool weekly, int weeklyMinutes, bool autoPdf})>
+Future<
+  ({bool enabled, int minutes, bool weekly, int weeklyMinutes, bool autoPdf})
+>
 loadReportReminder() async {
   final p = await SharedPreferences.getInstance();
   return (
