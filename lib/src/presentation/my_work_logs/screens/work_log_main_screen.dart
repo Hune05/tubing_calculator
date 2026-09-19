@@ -11,6 +11,7 @@ import '../models/report_tools.dart';
 import '../models/photo_store.dart';
 import '../pages/report_search_page.dart';
 import '../pages/project_stats_page.dart';
+import '../pages/retro_overview_page.dart';
 import 'dart:async';
 import '../pages/project_detail_page.dart';
 import '../pages/daily_report_page.dart'; // 다이얼로그 대신 Page 임포트
@@ -1090,6 +1091,34 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                     _buildSyncBanner(),
                     if (!_showCompleted) _buildWeeklyReportCard(),
                     if (!_showCompleted) _buildDashboard(),
+                    if (_showCompleted)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: ActionChip(
+                            avatar: const Icon(
+                              Icons.insights_rounded,
+                              size: 16,
+                              color: tossBlue,
+                            ),
+                            label: const Text('회고 모아보기'),
+                            backgroundColor: pureWhite,
+                            side: BorderSide.none,
+                            labelStyle: const TextStyle(
+                              color: tossBlue,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    RetroOverviewPage(logs: _workLogs),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 14, 8, 6),
                       child: Row(

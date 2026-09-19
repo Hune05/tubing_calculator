@@ -1,4 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../models/project_phase.dart';
 import '../models/report_tools.dart';
@@ -7,67 +11,168 @@ const Color _teal = Color(0xFF007580);
 const Color _text = Color(0xFF191F28);
 const Color _sub = Color(0xFF8B95A1);
 const Color _bg = Color(0xFFF2F4F6);
+const Color _red = Color(0xFFF04438);
 
 // 🚀 [투입 통계] 일보에 쌓인 인원/연장/작업량을 프로젝트·단계·월별로 모아, 다음
 // 견적이나 일정 잡을 때 "이런 공사는 인원-일이 이만큼 들었다"를 참고하게 한다.
-// [logs]가 1개면 단계별, 여러 개면 프로젝트별 표를 보여준다.
-class ProjectStatsPage extends StatelessWidget {
+// [logs]가 1개면 단계별, 여러 개면 프로젝트별 표를 보여준다. 기간 필터와
+// CSV/PDF 내보내기를 지원한다.
+class ProjectStatsPage extends StatefulWidget {
   final List<Map<String, dynamic>> logs;
   final String title;
 
   const ProjectStatsPage({super.key, required this.logs, required this.title});
 
+  @override
+  State<ProjectStatsPage> createState() => _ProjectStatsPageState();
+}
+
+class _Row {
+  final String label;
+  final double value;
+  final String right;
+  final String sub;
+  _Row(this.label, this.value, this.right, this.sub);
+}
+
+class _ProjectStatsPageState extends State<ProjectStatsPage> {
+  // 0=전체 1=이번 달 2=최근 3개월 3=올해
+  int _period = 0;
+  static const _periodLabels = ['전체', '이번 달', '최근 3개월', '올해'];
+
   static double _num(dynamic v) => (v as num?)?.toDouble() ?? 0;
 
-  @override
-  Widget build(BuildContext context) {
-    final reports = <(Map<String, dynamic>, Map)>[
-      for (final l in logs)
-        for (final r in (l['daily_reports'] as List? ?? []).whereType<Map>())
-          (l, r),
-    ];
+  DateTime? get _from {
+    final now = dayOnly(DateTime.now());
+    return switch (_period) {
+      1 => DateTime(now.year, now.month, 1),
+      2 => DateTime(now.year, now.month - 2, 1),
+      3 => DateTime(now.year, 1, 1),
+      _ => null,
+    };
+  }
 
-    int days = reports.length;
-    int manDays = 0;
-    double otHours = 0, pt = 0, wiring = 0;
-    final Map<String, int> monthMan = {};
+  bool _inPeriod(Map r) {
+    final f = _from;
+    return f == null || !reportDateOf(r).isBefore(f);
+  }
+
+  List<(Map<String, dynamic>, Map)> get _reports => [
+    for (final l in widget.logs)
+      for (final r in (l['daily_reports'] as List? ?? []).whereType<Map>())
+        if (_inPeriod(r)) (l, r),
+  ];
+
+  // ───────────── 내보내기 ─────────────
+  Future<void> _exportCsv() async {
+    final b = StringBuffer('﻿');
+    b.writeln('프로젝트,날짜,작업유형,인원,연장시간,벤딩pt,결선개소,작업단계,특이사항');
+    String q(String s) => '"${s.replaceAll('"', '""').replaceAll('\n', ' ')}"';
+    for (final (l, r) in _reports) {
+      final names = {
+        for (final p in phasesOf(l)) p['id'].toString(): p['name'].toString(),
+      };
+      final types = r['work_type'] is List
+          ? (r['work_type'] as List).join('/')
+          : (r['work_type']?.toString() ?? '');
+      final d = reportDateOf(r);
+      b.writeln(
+        [
+          q(l['name']?.toString() ?? ''),
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}',
+          q(types),
+          r['worker_count'] ?? 1,
+          r['overtime_hours'] ?? 0,
+          r['points'] ?? 0,
+          r['wiring_points'] ?? 0,
+          q(
+            reportIds(
+              r,
+              'workedPhaseIds',
+            ).map((id) => names[id] ?? '').where((e) => e.isNotEmpty).join('/'),
+          ),
+          q(r['note']?.toString() ?? ''),
+        ].join(','),
+      );
+    }
+    final dir = await getTemporaryDirectory();
+    final file = File(
+      '${dir.path}/stats_${DateTime.now().millisecondsSinceEpoch}.csv',
+    );
+    await file.writeAsString(b.toString());
+    // ignore: deprecated_member_use
+    await Share.shareXFiles([XFile(file.path)], text: '${widget.title} (CSV)');
+  }
+
+  Future<void> _exportPdf(_Summary s) async {
+    final sections = <ReportSection>[
+      ReportSection('요약 (${_periodLabels[_period]})', [
+        '작업일수 ${s.days}일 / 투입 ${s.manDays}인·일 / 하루 평균 ${s.days == 0 ? 0 : (s.manDays / s.days).toStringAsFixed(1)}명',
+        '연장/야간 ${s.otHours.toStringAsFixed(1)}시간 / 벤딩 ${s.pt.round()}pt / 결선 ${s.wiring.round()}개소',
+      ]),
+      ReportSection(widget.logs.length == 1 ? '단계별 투입' : '프로젝트별 투입', [
+        for (final r in s.rows) '· ${r.label}: ${r.right}  ${r.sub}',
+      ]),
+      ReportSection('월별 투입 인원-일', [
+        for (final m in s.months)
+          '· ${m.substring(0, 4)}년 ${int.parse(m.substring(5))}월: ${s.monthMan[m]}인·일',
+      ]),
+    ];
+    await shareReportPdf(
+      ReportDoc(widget.title, '기간: ${_periodLabels[_period]}', sections),
+    );
+  }
+
+  // ───────────── 집계 ─────────────
+  _Summary _summarize() {
+    final reports = _reports;
+    final s = _Summary();
+    s.days = reports.length;
     for (final (_, r) in reports) {
       final w = (r['worker_count'] as num?)?.toInt() ?? 1;
-      manDays += w;
-      otHours += _num(r['overtime_hours']);
-      pt += _num(r['points']);
-      wiring += _num(r['wiring_points']);
+      s.manDays += w;
+      s.otHours += _num(r['overtime_hours']);
+      s.pt += _num(r['points']);
+      s.wiring += _num(r['wiring_points']);
       final d = reportDateOf(r);
       final key = '${d.year}-${d.month.toString().padLeft(2, '0')}';
-      monthMan[key] = (monthMan[key] ?? 0) + w;
+      s.monthMan[key] = (s.monthMan[key] ?? 0) + w;
     }
-    final months = monthMan.keys.toList()..sort();
+    s.months = s.monthMan.keys.toList()..sort();
 
-    // 행: 단일 프로젝트면 단계별, 여러 개면 프로젝트별
-    final rows = <_Row>[];
-    if (logs.length == 1) {
-      final log = logs.first;
+    if (widget.logs.length == 1) {
+      final log = widget.logs.first;
       for (final p in phasesOf(log)) {
         final id = p['id'].toString();
-        final st = phaseWorkStats(log, id);
-        final s = phaseStart(p), e = phaseEnd(p);
-        rows.add(
+        int d = 0, m = 0;
+        for (final (_, r) in reports) {
+          if (reportIds(r, 'workedPhaseIds').contains(id)) {
+            d++;
+            m += (r['worker_count'] as num?)?.toInt() ?? 1;
+          }
+        }
+        final st = phaseStart(p), e = phaseEnd(p);
+        final planned = (st != null && e != null)
+            ? e.difference(st).inDays + 1
+            : 0;
+        s.rows.add(
           _Row(
             p['name'].toString(),
-            st.manDays.toDouble(),
-            "${st.days}일 · ${st.manDays}인·일",
-            (s != null && e != null) ? "계획 ${e.difference(s).inDays + 1}일" : "",
+            m.toDouble(),
+            "$d일 · $m인·일",
+            planned > 0 ? "계획 $planned일" : "",
           ),
         );
+        s.plan.add((p['name'].toString(), planned, d));
       }
     } else {
-      for (final log in logs) {
-        final rs = (log['daily_reports'] as List? ?? []).whereType<Map>();
+      for (final log in widget.logs) {
+        final rs = reports.where((e) => identical(e.$1, log)).map((e) => e.$2);
         final m = rs.fold<int>(
           0,
           (a, r) => a + ((r['worker_count'] as num?)?.toInt() ?? 1),
         );
-        rows.add(
+        s.rows.add(
           _Row(
             log['name']?.toString() ?? '이름 없음',
             m.toDouble(),
@@ -77,8 +182,18 @@ class ProjectStatsPage extends StatelessWidget {
         );
       }
     }
-    final maxRow = rows.fold<double>(0, (a, r) => r.value > a ? r.value : a);
-    final maxMonth = monthMan.values.fold<int>(0, (a, b) => b > a ? b : a);
+    return s;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = _summarize();
+    final maxRow = s.rows.fold<double>(0, (a, r) => r.value > a ? r.value : a);
+    final maxMonth = s.monthMan.values.fold<int>(0, (a, b) => b > a ? b : a);
+    final maxPlan = s.plan.fold<int>(
+      0,
+      (a, p) => [a, p.$2, p.$3].reduce((x, y) => x > y ? x : y),
+    );
 
     Widget tile(String label, String value) => Container(
       width: (MediaQuery.of(context).size.width - 32 - 10) / 2,
@@ -108,6 +223,16 @@ class ProjectStatsPage extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+
+    Widget barLine(double v, double max, Color c, {double h = 8}) => ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: LinearProgressIndicator(
+        value: max == 0 ? 0 : (v / max).clamp(0.0, 1.0),
+        minHeight: h,
+        backgroundColor: _bg,
+        color: c,
       ),
     );
 
@@ -141,15 +266,7 @@ class ProjectStatsPage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 4),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: max == 0 ? 0 : v / max,
-                  minHeight: 8,
-                  backgroundColor: _bg,
-                  color: _teal,
-                ),
-              ),
+              barLine(v, max, _teal),
               if (sub.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
@@ -194,82 +311,193 @@ class ProjectStatsPage extends StatelessWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
         title: Text(
-          title,
+          widget.title,
           style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
         ),
+        actions: [
+          PopupMenuButton<String>(
+            tooltip: "내보내기",
+            icon: const Icon(Icons.ios_share_rounded),
+            onSelected: (v) async {
+              try {
+                if (v == 'csv') await _exportCsv();
+                if (v == 'pdf') await _exportPdf(s);
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text("내보내기 실패: $e")));
+                }
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'csv', child: Text("CSV (엑셀)")),
+              PopupMenuItem(value: 'pdf', child: Text("PDF")),
+            ],
+          ),
+        ],
       ),
-      body: days == 0
-          ? const Center(
-              child: Text("아직 작성된 일보가 없어요.", style: TextStyle(color: _sub)),
-            )
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
               children: [
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    tile("작업일수", "$days일"),
-                    tile("투입 인원-일", "$manDays 인·일"),
-                    tile("하루 평균 인원", (manDays / days).toStringAsFixed(1)),
-                    tile("연장/야간", "${otHours.toStringAsFixed(1)}시간"),
-                    tile("벤딩 합계", "${pt.round()} pt"),
-                    tile("결선 합계", "${wiring.round()} 개소"),
-                  ],
-                ),
-                if (manDays > 0 && pt > 0)
-                  section("작업 효율 참고", [
-                    Text(
-                      "1인·일당 벤딩 ${(pt / manDays).toStringAsFixed(1)} pt"
-                      "${wiring > 0 ? ' · 결선 ${(wiring / manDays).toStringAsFixed(1)} 개소' : ''}",
-                      style: const TextStyle(
-                        color: _text,
-                        fontSize: 14,
+                for (int i = 0; i < _periodLabels.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(_periodLabels[i]),
+                      selected: _period == i,
+                      showCheckmark: false,
+                      selectedColor: _teal,
+                      backgroundColor: Colors.white,
+                      side: BorderSide.none,
+                      labelStyle: TextStyle(
+                        color: _period == i ? Colors.white : _sub,
                         fontWeight: FontWeight.w700,
                       ),
+                      onSelected: (_) => setState(() => _period = i),
                     ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      "다음 견적/일정에서 필요한 인원-일을 어림할 때 참고하세요.",
-                      style: TextStyle(color: _sub, fontSize: 12),
-                    ),
-                  ]),
-                if (rows.isNotEmpty)
-                  section(logs.length == 1 ? "단계별 투입" : "프로젝트별 투입", [
-                    for (final r in rows)
-                      bar(
-                        r.label,
-                        r.value,
-                        maxRow,
-                        r.right,
-                        r.sub.isEmpty ? "" : r.sub,
-                      ),
-                    if (logs.length == 1 && rows.every((r) => r.value == 0))
-                      const Text(
-                        "일보에서 '작업한 단계'를 선택하면 단계별로 집계돼요.",
-                        style: TextStyle(color: _sub, fontSize: 12),
-                      ),
-                  ]),
-                section("월별 투입 인원-일", [
-                  for (final m in months)
-                    bar(
-                      "${m.substring(0, 4)}년 ${int.parse(m.substring(5))}월",
-                      monthMan[m]!.toDouble(),
-                      maxMonth.toDouble(),
-                      "${monthMan[m]} 인·일",
-                      "",
-                    ),
-                ]),
+                  ),
               ],
             ),
+          ),
+          const SizedBox(height: 14),
+          if (s.days == 0)
+            const Padding(
+              padding: EdgeInsets.only(top: 60),
+              child: Center(
+                child: Text(
+                  "이 기간에 작성된 일보가 없어요.",
+                  style: TextStyle(color: _sub),
+                ),
+              ),
+            )
+          else ...[
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                tile("작업일수", "${s.days}일"),
+                tile("투입 인원-일", "${s.manDays} 인·일"),
+                tile("하루 평균 인원", (s.manDays / s.days).toStringAsFixed(1)),
+                tile("연장/야간", "${s.otHours.toStringAsFixed(1)}시간"),
+                tile("벤딩 합계", "${s.pt.round()} pt"),
+                tile("결선 합계", "${s.wiring.round()} 개소"),
+              ],
+            ),
+            if (s.manDays > 0 && s.pt > 0)
+              section("작업 효율 참고", [
+                Text(
+                  "1인·일당 벤딩 ${(s.pt / s.manDays).toStringAsFixed(1)} pt"
+                  "${s.wiring > 0 ? ' · 결선 ${(s.wiring / s.manDays).toStringAsFixed(1)} 개소' : ''}",
+                  style: const TextStyle(
+                    color: _text,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  "다음 견적/일정에서 필요한 인원-일을 어림할 때 참고하세요.",
+                  style: TextStyle(color: _sub, fontSize: 12),
+                ),
+              ]),
+            if (s.plan.any((p) => p.$2 > 0))
+              section("계획 대비 실제 (일)", [
+                for (final p in s.plan)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                p.$1,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: _text,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              p.$2 == 0
+                                  ? "실제 ${p.$3}일"
+                                  : (p.$3 > p.$2
+                                        ? "계획 ${p.$2} → 실제 ${p.$3} (+${p.$3 - p.$2})"
+                                        : "계획 ${p.$2} → 실제 ${p.$3}"),
+                              style: TextStyle(
+                                color: p.$3 > p.$2 && p.$2 > 0 ? _red : _teal,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        barLine(
+                          p.$2.toDouble(),
+                          maxPlan.toDouble(),
+                          const Color(0xFFB0B8C1),
+                          h: 6,
+                        ),
+                        const SizedBox(height: 3),
+                        barLine(
+                          p.$3.toDouble(),
+                          maxPlan.toDouble(),
+                          p.$3 > p.$2 && p.$2 > 0 ? _red : _teal,
+                          h: 6,
+                        ),
+                      ],
+                    ),
+                  ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 4),
+                  child: Text(
+                    "회색=계획 기간, 색=일보에 그 단계로 기록한 작업일",
+                    style: TextStyle(color: _sub, fontSize: 11),
+                  ),
+                ),
+              ]),
+            if (s.rows.isNotEmpty)
+              section(widget.logs.length == 1 ? "단계별 투입" : "프로젝트별 투입", [
+                for (final r in s.rows)
+                  bar(r.label, r.value, maxRow, r.right, r.sub),
+                if (widget.logs.length == 1 &&
+                    s.rows.every((r) => r.value == 0))
+                  const Text(
+                    "일보에서 '작업한 단계'를 선택하면 단계별로 집계돼요.",
+                    style: TextStyle(color: _sub, fontSize: 12),
+                  ),
+              ]),
+            section("월별 투입 인원-일", [
+              for (final m in s.months)
+                bar(
+                  "${m.substring(0, 4)}년 ${int.parse(m.substring(5))}월",
+                  s.monthMan[m]!.toDouble(),
+                  maxMonth.toDouble(),
+                  "${s.monthMan[m]} 인·일",
+                  "",
+                ),
+            ]),
+          ],
+        ],
+      ),
     );
   }
 }
 
-class _Row {
-  final String label;
-  final double value;
-  final String right;
-  final String sub;
-  _Row(this.label, this.value, this.right, this.sub);
+class _Summary {
+  int days = 0;
+  int manDays = 0;
+  double otHours = 0, pt = 0, wiring = 0;
+  final Map<String, int> monthMan = {};
+  List<String> months = [];
+  final List<_Row> rows = [];
+  final List<(String, int, int)> plan = []; // 이름, 계획일, 실제일
 }

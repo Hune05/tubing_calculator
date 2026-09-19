@@ -193,6 +193,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
       _attachedImages = List<String>.from(existingPaths);
     }
 
+    _loadFavs();
     if (!_isEdit && widget.draftKey != null) {
       _draftTimer = Timer.periodic(
         const Duration(seconds: 3),
@@ -200,6 +201,62 @@ class _DailyReportPageState extends State<DailyReportPage> {
       );
       WidgetsBinding.instance.addPostFrameCallback((_) => _offerDraft());
     }
+  }
+
+  // ───────────── 자재 즐겨찾기 ─────────────
+  static const _kFavKey = 'fav_materials_v1';
+  List<String> _favMaterials = [];
+
+  Future<void> _loadFavs() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final l = p.getStringList(_kFavKey) ?? [];
+      if (mounted) setState(() => _favMaterials = l);
+    } catch (_) {}
+  }
+
+  Future<void> _saveFavs() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setStringList(_kFavKey, _favMaterials);
+    } catch (_) {}
+  }
+
+  void _addFavFromInput() {
+    // 쉼표/줄바꿈으로 나눠 항목별로 즐겨찾기에 넣는다.
+    final items = _materialsUsedCtrl.text
+        .split(RegExp(r'[,\n]'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty);
+    setState(() {
+      for (final i in items) {
+        if (!_favMaterials.contains(i)) _favMaterials.add(i);
+      }
+    });
+    _saveFavs();
+  }
+
+  void _useFav(String item) {
+    final t = _materialsUsedCtrl.text.trim();
+    _materialsUsedCtrl.text = t.isEmpty ? item : '$t, $item';
+    setState(() {});
+  }
+
+  // 어제 일보를 통째로(사진 제외) 복사: 값 + 작업 내용 + 사용 자재.
+  void _copyPreviousAll() {
+    final prev = widget.previousReport;
+    if (prev == null) return;
+    _loadPreviousValues();
+    setState(() {
+      final n = (prev['note']?.toString() ?? '').trim();
+      if (_noteCtrl.text.trim().isEmpty && n.isNotEmpty && n != '특이사항 없음') {
+        _noteCtrl.text = n;
+      }
+      final m = (prev['materials_used']?.toString() ?? '').trim();
+      if (_materialsUsedCtrl.text.trim().isEmpty && m.isNotEmpty) {
+        _materialsUsedCtrl.text = m;
+      }
+    });
   }
 
   // ───────────── 임시 저장 ─────────────
@@ -1091,6 +1148,17 @@ class _DailyReportPageState extends State<DailyReportPage> {
                             style: TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ),
+                        TextButton(
+                          onPressed: _copyPreviousAll,
+                          style: TextButton.styleFrom(
+                            foregroundColor: makitaTeal,
+                            minimumSize: const Size(0, 32),
+                          ),
+                          child: const Text(
+                            "내용까지 복사",
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
                       ],
                     ),
                     if (prevPlan.isNotEmpty) ...[
@@ -1392,6 +1460,56 @@ class _DailyReportPageState extends State<DailyReportPage> {
                   onChanged: (_) => setState(() {}),
                   decoration: _dec(hint: "예: 1/2\" 튜빙 10m, 유니온 피팅 5개"),
                 ),
+                if (_favMaterials.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  const Text(
+                    "자주 쓰는 자재 (눌러서 추가, 길게 눌러 삭제)",
+                    style: TextStyle(color: tossSubText, fontSize: 11),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final f in _favMaterials)
+                        GestureDetector(
+                          onLongPress: () {
+                            setState(() => _favMaterials.remove(f));
+                            _saveFavs();
+                          },
+                          child: ActionChip(
+                            avatar: const Icon(
+                              Icons.star_rounded,
+                              size: 14,
+                              color: Color(0xFFF5B301),
+                            ),
+                            label: Text(
+                              f,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            backgroundColor: tossInputBg,
+                            side: BorderSide.none,
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => _useFav(f),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+                if (_materialsUsedCtrl.text.trim().isNotEmpty)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _addFavFromInput,
+                      icon: const Icon(Icons.star_border_rounded, size: 16),
+                      label: const Text("입력한 자재를 즐겨찾기에 추가"),
+                      style: TextButton.styleFrom(
+                        foregroundColor: makitaTeal,
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(0, 32),
+                      ),
+                    ),
+                  ),
               ],
             ),
             _more(
