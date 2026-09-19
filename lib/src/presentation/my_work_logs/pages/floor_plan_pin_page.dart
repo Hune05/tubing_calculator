@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+import '../models/photo_store.dart';
 
 // 🚀 [신규] 카카오톡 등으로 받은 실제 도면/배치도 사진 위에 이슈 발생
 // 위치를 탭 한 번으로 찍는 화면. 좌표는 이미지 표시 영역 기준 0~1
@@ -71,7 +71,7 @@ class _FloorPlanPinPageState extends State<FloorPlanPinPage> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.file(File(widget.imagePath), fit: BoxFit.contain),
+                  PhotoImage(widget.imagePath, fit: BoxFit.contain),
                   if (_fraction != null)
                     Align(
                       alignment: Alignment(
@@ -125,7 +125,7 @@ class FloorPlanThumbnail extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.file(File(imagePath), fit: BoxFit.contain),
+              PhotoImage(imagePath, fit: BoxFit.contain),
               if (dx != null && dy != null)
                 Align(
                   alignment: Alignment(dx! * 2 - 1, dy! * 2 - 1),

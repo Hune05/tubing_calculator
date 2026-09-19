@@ -349,7 +349,32 @@ String materialState(Map s) {
 }
 
 // 지연된 단계의 종료일을 오늘로 늘리고, 뒤 단계의 시작/종료일을 [days]만큼 민다.
-void shiftPhasesAfterDelay(Map<String, dynamic> log, int index, int days) {
+dynamic _shiftDateValue(dynamic v, int days) {
+  if (v == null) return null;
+  final d = asDate(v).add(Duration(days: days));
+  if (v is Timestamp) return Timestamp.fromDate(d);
+  if (v is String) return d.toIso8601String();
+  return d;
+}
+
+void shiftPhasesAfterDelay(
+  Map<String, dynamic> log,
+  int index,
+  int days, {
+  bool includeSchedules = false,
+}) {
+  if (includeSchedules && log['schedules'] is List) {
+    final laterIds = <String>{
+      for (final p in phasesOf(log).skip(index + 1)) p['id'].toString(),
+    };
+    for (final s in log['schedules'] as List) {
+      if (s is! Map || s['isCompleted'] == true) continue;
+      if (!laterIds.contains(s['phaseId']?.toString())) continue;
+      s['dateTime'] = _shiftDateValue(s['dateTime'], days);
+      if (s['endDate'] != null)
+        s['endDate'] = _shiftDateValue(s['endDate'], days);
+    }
+  }
   final phases = phasesOf(log);
   final today = dayOnly(DateTime.now());
   phases[index]['endDate'] = today;

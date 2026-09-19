@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'project_phase.dart';
@@ -41,9 +42,13 @@ class PhaseTemplate {
 }
 
 const _kKey = 'phase_templates_v1';
+const _kCloud = 'my_project_templates';
 
-Future<List<PhaseTemplate>> loadPhaseTemplates() async {
-  final list = <PhaseTemplate>[PhaseTemplate.standard];
+// 템플릿은 Firestore(my_project_templates)에 보관해 어느 기기에서든 같이 쓰고,
+// 이 기기의 SharedPreferences에도 사본을 둔다(오프라인 대비). 예전에 이 기기에만
+// 저장했던 템플릿은 처음 불러올 때 클라우드로 올라간다.
+Future<List<PhaseTemplate>> _loadLocal() async {
+  final list = <PhaseTemplate>[];
   try {
     final p = await SharedPreferences.getInstance();
     final raw = p.getString(_kKey);
@@ -56,7 +61,7 @@ Future<List<PhaseTemplate>> loadPhaseTemplates() async {
   return list;
 }
 
-Future<void> _saveAll(List<PhaseTemplate> all) async {
+Future<void> _saveLocal(List<PhaseTemplate> all) async {
   final p = await SharedPreferences.getInstance();
   await p.setString(
     _kKey,
@@ -64,18 +69,55 @@ Future<void> _saveAll(List<PhaseTemplate> all) async {
   );
 }
 
+Future<List<PhaseTemplate>> loadPhaseTemplates() async {
+  final byName = <String, PhaseTemplate>{};
+  final local = await _loadLocal();
+  for (final t in local) {
+    byName[t.name] = t;
+  }
+  try {
+    final col = FirebaseFirestore.instance.collection(_kCloud);
+    final snap = await col.get().timeout(const Duration(seconds: 6));
+    final cloudNames = <String>{};
+    for (final d in snap.docs) {
+      final t = PhaseTemplate.fromJson(d.data());
+      byName[t.name] = t;
+      cloudNames.add(t.name);
+    }
+    for (final t in local) {
+      if (!cloudNames.contains(t.name)) {
+        await col.doc(Uri.encodeComponent(t.name)).set(t.toJson());
+      }
+    }
+    await _saveLocal(byName.values.toList());
+  } catch (_) {}
+  return [PhaseTemplate.standard, ...byName.values];
+}
+
 // 같은 이름이 있으면 덮어쓴다.
 Future<void> savePhaseTemplate(PhaseTemplate t) async {
-  final all = await loadPhaseTemplates();
-  all.removeWhere((e) => e.name == t.name && !e.builtIn);
-  all.add(t);
-  await _saveAll(all);
+  final local = await _loadLocal();
+  local.removeWhere((e) => e.name == t.name);
+  local.add(t);
+  await _saveLocal(local);
+  try {
+    await FirebaseFirestore.instance
+        .collection(_kCloud)
+        .doc(Uri.encodeComponent(t.name))
+        .set(t.toJson());
+  } catch (_) {}
 }
 
 Future<void> deletePhaseTemplate(String name) async {
-  final all = await loadPhaseTemplates();
-  all.removeWhere((e) => e.name == name && !e.builtIn);
-  await _saveAll(all);
+  final local = await _loadLocal();
+  local.removeWhere((e) => e.name == name);
+  await _saveLocal(local);
+  try {
+    await FirebaseFirestore.instance
+        .collection(_kCloud)
+        .doc(Uri.encodeComponent(name))
+        .delete();
+  } catch (_) {}
 }
 
 // 현재 프로젝트의 단계 구성을 템플릿으로: 각 단계 기간(일)을 비중으로 쓴다.

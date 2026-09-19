@@ -110,19 +110,23 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     Map report,
   ) async {
     final pid = log['id']?.toString();
-    if (pid == null) return;
-    if (await uploadReportPhotos(pid, report)) {
-      if (mounted) setState(() {});
-      _repo.upsertProject(log);
+    if (pid == null || !_uploading.add(pid)) return;
+    try {
+      if (await uploadAllPhotos(log)) {
+        if (mounted) setState(() {});
+        _repo.upsertProject(log);
+      }
+    } finally {
+      _uploading.remove(pid);
     }
   }
+
+  final Set<String> _uploading = {};
 
   // 예전에 저장된 로컬 경로 사진들도 한 번씩 올린다.
   Future<void> _migrateLocalPhotos() async {
     for (final log in List<Map<String, dynamic>>.from(_workLogs)) {
-      for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
-        await _uploadReportPhotosFor(log, r);
-      }
+      await _uploadReportPhotosFor(log, const {});
     }
   }
 
@@ -339,6 +343,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       newPunch['linkedScheduleId'] = null;
       setState(() => log['punch_lists'].insert(0, newPunch));
       _saveProject(log);
+      _uploadReportPhotosFor(log, const {});
     }
   }
 
@@ -536,6 +541,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           previousReport: _previousReportFor(log),
           relatedIssueCandidates: _issueCandidatesFor(log),
           floorPlanImagePath: log['floor_plan_image_path'],
+          draftKey: 'report_draft_${log['id']}',
           phases: phasesOf(log),
           pendingSchedules: _pendingSchedulesFor(log, null),
           defaultPhaseId: currentPhase(log)?['id']?.toString(),

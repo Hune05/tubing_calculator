@@ -1,7 +1,7 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import '../widgets/photo_detail_modal.dart';
+import '../models/photo_store.dart';
 import 'floor_plan_pin_page.dart';
 
 const Color makitaTeal = Color(0xFF007580);
@@ -249,8 +249,8 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: Image.file(
-                              File(imagePaths[index]),
+                            child: PhotoImage(
+                              imagePaths[index].toString(),
                               width: 80,
                               height: 80,
                               fit: BoxFit.cover,

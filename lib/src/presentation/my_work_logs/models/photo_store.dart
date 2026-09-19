@@ -92,6 +92,47 @@ Future<String?> uploadPhoto(String projectId, String localPath) async {
   }
 }
 
+// 프로젝트 전체(일보 사진, 이슈 사진, 도면)의 로컬 사진을 올린다. 바뀐 게 있으면 true.
+Future<bool> uploadAllPhotos(Map<String, dynamic> log) async {
+  final pid = log['id']?.toString();
+  if (pid == null) return false;
+  bool changed = false;
+  for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
+    if (await uploadReportPhotos(pid, r)) changed = true;
+  }
+  for (final p in (log['punch_lists'] as List? ?? []).whereType<Map>()) {
+    final paths = <String>[
+      for (final e in (p['image_paths'] as List? ?? [])) e.toString(),
+    ];
+    if (paths.isEmpty || paths.every(isRemotePhoto)) continue;
+    final out = <String>[];
+    bool c = false;
+    for (final path in paths) {
+      if (isRemotePhoto(path)) {
+        out.add(path);
+        continue;
+      }
+      final url = await uploadPhoto(pid, path);
+      out.add(url ?? path);
+      if (url != null) c = true;
+    }
+    if (c) {
+      p['image_paths'] = out;
+      p['image_path'] = out.first;
+      changed = true;
+    }
+  }
+  final plan = log['floor_plan_image_path']?.toString();
+  if (plan != null && plan.isNotEmpty && !isRemotePhoto(plan)) {
+    final url = await uploadPhoto(pid, plan);
+    if (url != null) {
+      log['floor_plan_image_path'] = url;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 // 일보 하나의 사진(image_paths/image_path/image_tags)을 URL로 바꾼다.
 // 바뀐 게 있으면 true.
 Future<bool> uploadReportPhotos(String projectId, Map report) async {

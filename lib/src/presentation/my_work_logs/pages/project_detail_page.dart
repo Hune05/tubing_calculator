@@ -1348,27 +1348,44 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
   }
 
   Future<void> _confirmShift(int index, int days) async {
+    bool withSchedules = true;
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("뒤 단계 일정 밀기"),
-        content: Text(
-          "지연된 단계의 종료일을 오늘로 늘리고, 뒤 단계의 시작/종료일을 $days일씩 미룹니다.\n(세부 일정의 날짜는 바뀌지 않아요.)",
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: const Text("뒤 단계 일정 밀기"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("지연된 단계의 종료일을 오늘로 늘리고, 뒤 단계의 시작/종료일을 $days일씩 미룹니다."),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                value: withSchedules,
+                onChanged: (v) => setD(() => withSchedules = v == true),
+                title: const Text(
+                  "뒤 단계의 미완료 세부 일정도 함께 밀기",
+                  style: TextStyle(fontSize: 14),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("취소"),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("밀기"),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("취소"),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("밀기"),
-          ),
-        ],
       ),
     );
     if (ok == true) {
-      shiftPhasesAfterDelay(log, index, days);
+      shiftPhasesAfterDelay(log, index, days, includeSchedules: withSchedules);
       _changed();
     }
   }

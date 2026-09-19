@@ -1,4 +1,7 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart'; // 🚀 HapticFeedback을 위해 추가
 import '../../../core/utils/image_picker_helper.dart';
@@ -36,6 +39,8 @@ class DailyReportPage extends StatefulWidget {
   final List<Map<String, dynamic>> phases;
   final List<Map<String, dynamic>> pendingSchedules;
   final String? defaultPhaseId;
+  // 새 일보 작성 중 임시 저장 키(전화가 오거나 앱이 꺼져도 내용을 이어 쓴다).
+  final String? draftKey;
 
   const DailyReportPage({
     super.key,
@@ -46,6 +51,7 @@ class DailyReportPage extends StatefulWidget {
     this.phases = const [],
     this.pendingSchedules = const [],
     this.defaultPhaseId,
+    this.draftKey,
   });
 
   @override
@@ -186,10 +192,165 @@ class _DailyReportPageState extends State<DailyReportPage> {
               : []);
       _attachedImages = List<String>.from(existingPaths);
     }
+
+    if (!_isEdit && widget.draftKey != null) {
+      _draftTimer = Timer.periodic(
+        const Duration(seconds: 3),
+        (_) => _saveDraft(),
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) => _offerDraft());
+    }
+  }
+
+  // ───────────── 임시 저장 ─────────────
+  Timer? _draftTimer;
+  String _lastDraft = '';
+  bool _submitted = false;
+
+  String? _draftJson() {
+    final empty =
+        _pointCtrl.text.trim().isEmpty &&
+        _wiringPointCtrl.text.trim().isEmpty &&
+        _noteCtrl.text.trim().isEmpty &&
+        _materialsUsedCtrl.text.trim().isEmpty &&
+        _nextDayPlanCtrl.text.trim().isEmpty &&
+        _attachedImages.isEmpty;
+    if (empty) return null;
+    return jsonEncode({
+      'savedAt': DateTime.now().toIso8601String(),
+      'points': _pointCtrl.text,
+      'wiring': _wiringPointCtrl.text,
+      'note': _noteCtrl.text,
+      'materials': _materialsUsedCtrl.text,
+      'plan': _nextDayPlanCtrl.text,
+      'asBuiltReason': _asBuiltCtrl.text,
+      'isAsBuilt': _isAsBuilt,
+      'workTypes': _selectedWorkTypes.toList(),
+      'workers': _workerCount,
+      'overtime': _isOvertime,
+      'otStart': _overtimeStart == null
+          ? null
+          : _formatTimeOfDay(_overtimeStart!),
+      'otEnd': _overtimeEnd == null ? null : _formatTimeOfDay(_overtimeEnd!),
+      'images': _attachedImages,
+      'imageTags': _imageTags,
+      'phases': _workedPhaseIds.toList(),
+      'doneSchedules': _completedScheduleIds.toList(),
+      'issues': _selectedIssueIds.toList(),
+      'pinDx': _pinDx,
+      'pinDy': _pinDy,
+    });
+  }
+
+  Future<void> _saveDraft() async {
+    if (_submitted || widget.draftKey == null) return;
+    final json = _draftJson();
+    if (json == null) return;
+    // savedAt은 매번 달라지므로 그 값을 빼고 비교해 바뀐 게 있을 때만 쓴다.
+    final cmp = json.replaceFirst(RegExp(r'"savedAt":"[^"]*",'), '');
+    if (cmp == _lastDraft) return;
+    _lastDraft = cmp;
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setString(widget.draftKey!, json);
+    } catch (_) {}
+  }
+
+  Future<void> _clearDraft() async {
+    if (widget.draftKey == null) return;
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.remove(widget.draftKey!);
+    } catch (_) {}
+  }
+
+  Future<void> _offerDraft() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final raw = p.getString(widget.draftKey!);
+      if (raw == null || !mounted) return;
+      final m = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      final saved = DateTime.tryParse(m['savedAt']?.toString() ?? '');
+      if (saved == null ||
+          DateTime.now().difference(saved) > const Duration(days: 2)) {
+        await _clearDraft();
+        return;
+      }
+      final resume = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text("작성 중이던 일보가 있어요"),
+          content: Text(
+            "${saved.month}/${saved.day} ${saved.hour.toString().padLeft(2, '0')}:${saved.minute.toString().padLeft(2, '0')}에 저장된 임시 내용을 이어서 쓸까요?",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("새로 시작"),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("이어서 쓰기"),
+            ),
+          ],
+        ),
+      );
+      if (resume == true) {
+        _applyDraft(m);
+      } else {
+        await _clearDraft();
+      }
+    } catch (_) {}
+  }
+
+  List<String> _strList(dynamic v) =>
+      (v as List? ?? []).map((e) => e.toString()).toList();
+
+  void _applyDraft(Map<String, dynamic> m) {
+    setState(() {
+      _pointCtrl.text = m['points']?.toString() ?? '';
+      _wiringPointCtrl.text = m['wiring']?.toString() ?? '';
+      _noteCtrl.text = m['note']?.toString() ?? '';
+      _materialsUsedCtrl.text = m['materials']?.toString() ?? '';
+      _nextDayPlanCtrl.text = m['plan']?.toString() ?? '';
+      _asBuiltCtrl.text = m['asBuiltReason']?.toString() ?? '';
+      _isAsBuilt = m['isAsBuilt'] == true;
+      final wt = _strList(m['workTypes']);
+      if (wt.isNotEmpty) {
+        _selectedWorkTypes
+          ..clear()
+          ..addAll(wt);
+      }
+      _workerCount = (m['workers'] as num?)?.toInt() ?? _workerCount;
+      _isOvertime = m['overtime'] == true;
+      _overtimeStart = _parseTimeOfDay(m['otStart']);
+      _overtimeEnd = _parseTimeOfDay(m['otEnd']);
+      _attachedImages = _strList(m['images']);
+      _imageTags
+        ..clear()
+        ..addAll(
+          Map<String, dynamic>.from(
+            (m['imageTags'] as Map?) ?? {},
+          ).map((k, v) => MapEntry(k, v.toString())),
+        );
+      _workedPhaseIds
+        ..clear()
+        ..addAll(_strList(m['phases']));
+      _completedScheduleIds
+        ..clear()
+        ..addAll(_strList(m['doneSchedules']));
+      _selectedIssueIds
+        ..clear()
+        ..addAll(_strList(m['issues']));
+      _pinDx = (m['pinDx'] as num?)?.toDouble();
+      _pinDy = (m['pinDy'] as num?)?.toDouble();
+    });
   }
 
   @override
   void dispose() {
+    _draftTimer?.cancel();
+    _saveDraft(); // 컨트롤러가 정리되기 전에 마지막 내용을 한 번 더 저장
     _pointCtrl.dispose();
     _wiringPointCtrl.dispose();
     _noteCtrl.dispose();
@@ -505,6 +666,10 @@ class _DailyReportPageState extends State<DailyReportPage> {
       "completedPhaseIds": _completedPhaseIds.toList(),
     };
 
+    if (!mounted) return;
+    _submitted = true;
+    _draftTimer?.cancel();
+    await _clearDraft();
     if (!mounted) return;
     Navigator.pop(context, newReport);
   }
