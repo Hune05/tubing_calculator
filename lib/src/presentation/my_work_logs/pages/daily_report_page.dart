@@ -11,6 +11,7 @@ import 'tablet_layout_board_page.dart';
 import '../widgets/photo_detail_modal.dart';
 import 'floor_plan_pin_page.dart';
 import '../models/project_phase.dart';
+import '../models/report_tools.dart';
 
 const Color tossBlue = Color(0xFF3182F6);
 const Color tossText = Color(0xFF191F28);
@@ -83,6 +84,8 @@ class _DailyReportPageState extends State<DailyReportPage> {
   // 🚀 [추가] 오늘 처리한 이슈 태그
   final Set<String> _selectedIssueIds = {};
 
+  // 사진 태그(작업 전/중/후 등): 경로 → 태그
+  final Map<String, String> _imageTags = {};
   final Set<String> _workedPhaseIds = {};
   final Set<String> _completedScheduleIds = {};
   final Set<String> _completedPhaseIds = {};
@@ -144,6 +147,9 @@ class _DailyReportPageState extends State<DailyReportPage> {
     }
     if (_isEdit) {
       _workedPhaseIds.addAll(reportIds(widget.existingData!, 'workedPhaseIds'));
+      ((widget.existingData!['image_tags'] as Map?) ?? {}).forEach(
+        (k, v) => _imageTags[k.toString()] = v.toString(),
+      );
       _completedScheduleIds.addAll(
         reportIds(widget.existingData!, 'completedScheduleIds'),
       );
@@ -219,6 +225,55 @@ class _DailyReportPageState extends State<DailyReportPage> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text("어제 값을 불러왔습니다.")));
+  }
+
+  Future<void> _pickTag(String path) async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "사진 분류",
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final t in kPhotoTags)
+                    ActionChip(
+                      label: Text(t),
+                      onPressed: () => Navigator.pop(ctx, t),
+                    ),
+                  ActionChip(
+                    label: const Text("분류 해제"),
+                    onPressed: () => Navigator.pop(ctx, ''),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (picked == null) return;
+    setState(() {
+      if (picked.isEmpty) {
+        _imageTags.remove(path);
+      } else {
+        _imageTags[path] = picked;
+      }
+    });
   }
 
   void _addPhrase(String p) {
@@ -438,6 +493,10 @@ class _DailyReportPageState extends State<DailyReportPage> {
       // 🚀 [추가] 도면 위 작업 위치 핀.
       "locationPinDx": _pinDx,
       "locationPinDy": _pinDy,
+      "image_tags": {
+        for (final p in _attachedImages)
+          if (_imageTags[p] != null) p: _imageTags[p]!,
+      },
       "workedPhaseIds": _workedPhaseIds.toList(),
       "completedScheduleIds": _completedScheduleIds.toList(),
       "completedPhaseIds": _completedPhaseIds.toList(),
@@ -1426,6 +1485,33 @@ class _DailyReportPageState extends State<DailyReportPage> {
                                   Icons.close,
                                   color: Colors.white,
                                   size: 12,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              left: 4,
+                              bottom: 4,
+                              child: GestureDetector(
+                                onTap: () => _pickTag(entry.value),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _imageTags[entry.value] == null
+                                        ? Colors.black54
+                                        : makitaTeal,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    _imageTags[entry.value] ?? '+ 분류',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),

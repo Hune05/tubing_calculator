@@ -162,6 +162,12 @@ class ProjectSummaryCard extends StatelessWidget {
                         children: [
                           if (cur != null)
                             _chip(Icons.flag_rounded, "${cur['name']}", color),
+                          if (isActive && delayedPhase(log) != null)
+                            _chip(
+                              Icons.warning_amber_rounded,
+                              "${delayedPhase(log)!.phase['name']} ${delayedPhase(log)!.days}일 지연",
+                              _warnRed,
+                            ),
                           if (issues > 0)
                             _chip(
                               Icons.error_outline_rounded,

@@ -316,3 +316,34 @@ String materialState(Map s) {
   final d = dayOnly(asDate(s['dateTime']));
   return d.isBefore(dayOnly(DateTime.now())) ? 'late' : 'expected';
 }
+
+// ───────────────────── 지연 감지 / 뒤 단계 밀기 ─────────────────────
+
+// 진행중 프로젝트에서 종료일이 지났는데 아직 끝나지 않은 첫 단계와 지연 일수.
+({Map<String, dynamic> phase, int index, int days})? delayedPhase(
+  Map<String, dynamic> log,
+) {
+  if (log['status'] == 'DONE') return null;
+  final today = dayOnly(DateTime.now());
+  final phases = phasesOf(log);
+  for (int i = 0; i < phases.length; i++) {
+    final e = phaseEnd(phases[i]);
+    if (e != null && e.isBefore(today) && !phaseIsDone(log, phases[i])) {
+      return (phase: phases[i], index: i, days: today.difference(e).inDays);
+    }
+  }
+  return null;
+}
+
+// 지연된 단계의 종료일을 오늘로 늘리고, 뒤 단계의 시작/종료일을 [days]만큼 민다.
+void shiftPhasesAfterDelay(Map<String, dynamic> log, int index, int days) {
+  final phases = phasesOf(log);
+  final today = dayOnly(DateTime.now());
+  phases[index]['endDate'] = today;
+  for (int j = index + 1; j < phases.length; j++) {
+    final s = phaseStart(phases[j]), e = phaseEnd(phases[j]);
+    if (s != null) phases[j]['startDate'] = s.add(Duration(days: days));
+    if (e != null) phases[j]['endDate'] = e.add(Duration(days: days));
+  }
+  setPhases(log, phases);
+}

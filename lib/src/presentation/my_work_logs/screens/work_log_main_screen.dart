@@ -7,6 +7,8 @@ import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import '../widgets/create_log_sheet.dart';
 import '../widgets/project_summary_card.dart';
 import '../models/project_phase.dart';
+import '../models/report_tools.dart';
+import '../pages/report_search_page.dart';
 import '../pages/project_detail_page.dart';
 import '../pages/daily_report_page.dart'; // 다이얼로그 대신 Page 임포트
 import '../pages/punch_list_page.dart'; // 다이얼로그 대신 Page 임포트
@@ -71,6 +73,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         _workLogs = projects;
         _isLoading = false;
       });
+      syncReportReminder(_workLogs);
       if (widget.initialProjectId != null) {
         final match = _workLogs.firstWhere(
           (l) => l['id']?.toString() == widget.initialProjectId,
@@ -94,6 +97,87 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   // 프로젝트 하나만" 저장하면 된다.
   void _saveProject(Map<String, dynamic> log) {
     _repo.upsertProject(log);
+    // 일보를 저장하면 오늘 알림을 내일로 미룬다.
+    syncReportReminder(_workLogs);
+  }
+
+  Future<void> _openSearch() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => ReportSearchPage(
+          logs: _workLogs,
+          onOpen: (log, tab) {
+            Navigator.pop(ctx);
+            _openDetail(log, tab: tab);
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showReminderSettings() async {
+    final cur = await loadReportReminder();
+    if (!mounted) return;
+    bool enabled = cur.enabled;
+    int minutes = cur.minutes;
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: const Text("작업일보 알림"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text("일보 작성 알림"),
+                subtitle: const Text("진행중 프로젝트가 있고 오늘 일보를 안 썼으면 알려줘요."),
+                value: enabled,
+                onChanged: (v) => setS(() => enabled = v),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                enabled: enabled,
+                title: const Text("알림 시각"),
+                trailing: Text(
+                  "${(minutes ~/ 60).toString().padLeft(2, '0')}:${(minutes % 60).toString().padLeft(2, '0')}",
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                onTap: !enabled
+                    ? null
+                    : () async {
+                        final t = await showTimePicker(
+                          context: ctx,
+                          initialTime: TimeOfDay(
+                            hour: minutes ~/ 60,
+                            minute: minutes % 60,
+                          ),
+                        );
+                        if (t != null) {
+                          setS(() => minutes = t.hour * 60 + t.minute);
+                        }
+                      },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("취소"),
+            ),
+            TextButton(
+              onPressed: () async {
+                await saveReportReminder(enabled, minutes);
+                await syncReportReminder(_workLogs);
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text("저장"),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showCreateSheet() async {
@@ -756,6 +840,18 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
+        actions: [
+          IconButton(
+            tooltip: "일보·이슈 검색",
+            icon: const Icon(Icons.search_rounded),
+            onPressed: _openSearch,
+          ),
+          IconButton(
+            tooltip: "일보 알림 설정",
+            icon: const Icon(Icons.notifications_active_outlined),
+            onPressed: _showReminderSettings,
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: tossBlue))

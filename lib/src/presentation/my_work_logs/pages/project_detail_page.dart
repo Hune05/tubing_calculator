@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 
 import '../models/project_phase.dart';
 import '../widgets/work_log_card.dart';
+import '../models/report_tools.dart';
+import 'report_search_page.dart' show ProjectPhotosPage;
 
 // 🚀 [프로젝트 상세 - 신규] 예전엔 프로젝트 카드를 펼치면 일정/일지/이슈가 한 카드
 // 안에 길게 쌓였고, 프로젝트가 "지금 어떤 상태인지"는 한눈에 안 보였다. 프로젝트를
@@ -257,6 +259,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
           ],
         ),
         const SizedBox(height: 20),
+        ..._buildDelayBanner(),
         if (phases.isNotEmpty) ...[
           _sectionTitle("단계 진행"),
           const SizedBox(height: 10),
@@ -571,6 +574,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
       children: [
+        ..._buildDelayBanner(),
         ReorderableListView(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -1181,6 +1185,185 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     );
   }
 
+  // ───────────────────────── 지연 경고 ─────────────────────────
+  List<Widget> _buildDelayBanner() {
+    final d = delayedPhase(log);
+    if (d == null) return [];
+    final after = phasesOf(log).length - d.index - 1;
+    return [
+      Container(
+        margin: const EdgeInsets.only(bottom: 18),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: warningRed.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: warningRed.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: warningRed,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "'${d.phase['name']}' 단계가 ${d.days}일 지연되고 있어요",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: warningRed,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (after > 0) ...[
+              const SizedBox(height: 6),
+              Text(
+                "뒤 단계 $after개의 일정도 그만큼 밀릴 수 있습니다.",
+                style: const TextStyle(fontSize: 12, color: tossSubText),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => _confirmShift(d.index, d.days),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: warningRed,
+                    side: const BorderSide(color: warningRed),
+                  ),
+                  child: Text("지연 반영: 뒤 단계 ${d.days}일 밀기"),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    ];
+  }
+
+  Future<void> _confirmShift(int index, int days) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("뒤 단계 일정 밀기"),
+        content: Text(
+          "지연된 단계의 종료일을 오늘로 늘리고, 뒤 단계의 시작/종료일을 $days일씩 미룹니다.\n(세부 일정의 날짜는 바뀌지 않아요.)",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("취소"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("밀기"),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      shiftPhasesAfterDelay(log, index, days);
+      _changed();
+    }
+  }
+
+  // ───────────────────────── 기간 보고서 ─────────────────────────
+  void _showReportExport() {
+    int mode = 0; // 0=최근 7일 1=최근 14일 2=이번 달 3=전체
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) {
+          ReportDoc build() {
+            final now = dayOnly(DateTime.now());
+            final from = switch (mode) {
+              0 => now.subtract(const Duration(days: 6)),
+              1 => now.subtract(const Duration(days: 13)),
+              2 => DateTime(now.year, now.month, 1),
+              _ => DateTime(2000),
+            };
+            return buildReportDoc(log, from, now);
+          }
+
+          const labels = ['최근 7일', '최근 14일', '이번 달', '전체'];
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "작업 보고서 내보내기",
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      for (int i = 0; i < labels.length; i++)
+                        ChoiceChip(
+                          label: Text(labels[i]),
+                          selected: mode == i,
+                          onSelected: (_) => setS(() => mode = i),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            Navigator.pop(ctx);
+                            await shareReportText(build());
+                          },
+                          icon: const Icon(Icons.chat_outlined, size: 18),
+                          label: const Text("텍스트(카톡)"),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            Navigator.pop(ctx);
+                            try {
+                              await shareReportPdf(build());
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text("PDF 생성 실패: $e")),
+                                );
+                              }
+                            }
+                          },
+                          icon: const Icon(
+                            Icons.picture_as_pdf_outlined,
+                            size: 18,
+                          ),
+                          label: const Text("PDF"),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   // ───────────────────────── 자재 현황 ─────────────────────────
   List<Widget> _buildMaterialCard() {
     final mats = schedulesOf(log).where(isMaterialSchedule).toList();
@@ -1315,6 +1498,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       r,
       'workedPhaseIds',
     ).map((id) => phaseNames[id]).whereType<String>().toList();
+    final imgTags = Map<String, dynamic>.from((r['image_tags'] as Map?) ?? {});
     final imgs = (r['image_paths'] as List? ?? [])
         .map((e) => e.toString())
         .toList();
@@ -1417,21 +1601,46 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                     separatorBuilder: (_, _) => const SizedBox(width: 6),
                     itemBuilder: (_, i) => ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.file(
-                        File(imgs[i]),
-                        width: 56,
-                        height: 56,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Container(
-                          width: 56,
-                          height: 56,
-                          color: tossBg,
-                          child: const Icon(
-                            Icons.image_not_supported_outlined,
-                            size: 18,
-                            color: tossSubText,
+                      child: Stack(
+                        children: [
+                          Image.file(
+                            File(imgs[i]),
+                            width: 56,
+                            height: 56,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Container(
+                              width: 56,
+                              height: 56,
+                              color: tossBg,
+                              child: const Icon(
+                                Icons.image_not_supported_outlined,
+                                size: 18,
+                                color: tossSubText,
+                              ),
+                            ),
                           ),
-                        ),
+                          if (imgTags[imgs[i]] != null)
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: Container(
+                                color: Colors.black54,
+                                alignment: Alignment.center,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 1,
+                                ),
+                                child: Text(
+                                  imgTags[imgs[i]].toString(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
@@ -1483,6 +1692,33 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                   vertical: 14,
                   horizontal: 14,
                 ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _showReportExport,
+                icon: const Icon(Icons.ios_share_rounded, size: 18),
+                label: const Text("보고서 내보내기"),
+                style: OutlinedButton.styleFrom(foregroundColor: tossText),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ProjectPhotosPage(log: log),
+                  ),
+                ),
+                icon: const Icon(Icons.photo_library_outlined, size: 18),
+                label: const Text("사진 모아보기"),
+                style: OutlinedButton.styleFrom(foregroundColor: tossText),
               ),
             ),
           ],
