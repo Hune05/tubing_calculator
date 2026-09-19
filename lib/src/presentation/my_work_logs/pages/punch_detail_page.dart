@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import '../widgets/photo_detail_modal.dart';
 import '../models/photo_store.dart';
+import '../../../core/utils/image_picker_helper.dart' show ImagePickerHelper;
 import 'floor_plan_pin_page.dart';
 
 const Color makitaTeal = Color(0xFF007580);
@@ -39,6 +40,8 @@ class PunchDetailPage extends StatefulWidget {
 class _PunchDetailPageState extends State<PunchDetailPage> {
   late Map<String, dynamic> _punch;
   late TextEditingController _resolutionCtrl;
+  // 처리 후 사진(처리 전/후 비교용)
+  List<String> _afterImages = [];
   bool _changed = false;
 
   @override
@@ -48,6 +51,9 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
     _resolutionCtrl = TextEditingController(
       text: _punch['resolution_note'] ?? '',
     );
+    _afterImages = ((_punch['resolution_images'] as List?) ?? [])
+        .map((e) => e.toString())
+        .toList();
   }
 
   Map<String, dynamic>? get _linkedSchedule {
@@ -90,9 +96,95 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
     return "${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')} $ampm $h:$m";
   }
 
+  Future<void> _addAfterPhotos() async {
+    final paths = await ImagePickerHelper.pickImages(
+      context,
+      maxCount: 6 - _afterImages.length,
+    );
+    if (paths.isNotEmpty) setState(() => _afterImages.addAll(paths));
+  }
+
+  Widget _afterThumbs({required bool editable}) {
+    return SizedBox(
+      height: 84,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          if (editable)
+            InkWell(
+              onTap: _addAfterPhotos,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 84,
+                height: 84,
+                margin: const EdgeInsets.only(right: 10),
+                decoration: BoxDecoration(
+                  color: tossInputBg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_a_photo_rounded, color: tossSubText),
+                    SizedBox(height: 4),
+                    Text(
+                      "처리 후 사진",
+                      style: TextStyle(color: tossSubText, fontSize: 10),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          for (int i = 0; i < _afterImages.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Stack(
+                children: [
+                  GestureDetector(
+                    onTap: () => PhotoDetailModal.show(
+                      context: context,
+                      title: "처리 후 사진",
+                      content: "",
+                      imagePaths: _afterImages,
+                      initialIndex: i,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: PhotoImage(_afterImages[i], width: 84, height: 84),
+                    ),
+                  ),
+                  if (editable)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () => setState(() => _afterImages.removeAt(i)),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.black87,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   void _markResolved() {
     setState(() {
       _punch['is_completed'] = true;
+      _punch['resolution_images'] = List<String>.from(_afterImages);
       _punch['resolved_at'] = DateTime.now();
       _punch['resolution_note'] = _resolutionCtrl.text.trim().isEmpty
           ? "별도 메모 없음"
@@ -285,6 +377,10 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
                         height: 1.5,
                       ),
                     ),
+                    if (_afterImages.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      _afterThumbs(editable: false),
+                    ],
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
@@ -325,6 +421,8 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    _afterThumbs(editable: true),
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,

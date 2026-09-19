@@ -11,6 +11,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'photo_store.dart';
+import 'report_style.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -78,6 +79,14 @@ class ReportChart {
   ReportChart(this.heading, this.rows);
 }
 
+// 이슈 처리 전/후 사진 한 쌍.
+class ReportCompare {
+  final String before;
+  final String after;
+  final String label;
+  ReportCompare(this.before, this.after, this.label);
+}
+
 // 도면 위 핀 위치(0~1 비율)를 PDF에 그리기 위한 정보.
 class ReportPin {
   final String planPath;
@@ -94,6 +103,7 @@ class ReportDoc {
   final List<ReportPhoto> photos;
   final List<ReportChart> charts;
   final List<ReportPin> pins;
+  final List<ReportCompare> compares;
   final String heading; // 문서 종류 표시(예: 작업 보고 / 이슈 보고)
   ReportDoc(
     this.title,
@@ -102,11 +112,21 @@ class ReportDoc {
     this.photos = const [],
     this.charts = const [],
     this.pins = const [],
+    this.compares = const [],
     this.heading = '작업 보고',
   });
 
   String toText() {
     final b = StringBuffer('[$title] $heading\n$period\n');
+    final st = ReportStyle.current;
+    if (st.company.isNotEmpty || st.manager.isNotEmpty) {
+      b.writeln(
+        [
+          if (st.company.isNotEmpty) st.company,
+          if (st.manager.isNotEmpty) '담당 ${st.manager}',
+        ].join(' · '),
+      );
+    }
     for (final s in sections) {
       b.writeln('\n■ ${s.heading}');
       for (final l in s.lines) {
@@ -275,6 +295,10 @@ ReportDoc buildReportDoc(
     sections.add(ReportSection('다음 계획', [lastPlan]));
   }
 
+  sections.removeWhere(
+    (s) =>
+        ReportStyle.current.hiddenSections.any((h) => s.heading.startsWith(h)),
+  );
   final photos = <ReportPhoto>[];
   for (final r in reports) {
     final pTags = Map<String, dynamic>.from((r['image_tags'] as Map?) ?? {});
@@ -338,6 +362,7 @@ ReportDoc buildIssueReportDoc(
   final lines = <String>[];
   final photos = <ReportPhoto>[];
   final pins = <ReportPin>[];
+  final compares = <ReportCompare>[];
   final plan = log['floor_plan_image_path']?.toString() ?? '';
   for (final p in list) {
     final done = p['is_completed'] == true;
@@ -362,8 +387,22 @@ ReportDoc buildIssueReportDoc(
     final short = content.length > 18
         ? '${content.substring(0, 18)}…'
         : content;
-    for (final img in (p['image_paths'] as List? ?? [])) {
-      photos.add(ReportPhoto(img.toString(), '$loc · $short'));
+    final before = [
+      for (final i in (p['image_paths'] as List? ?? [])) i.toString(),
+    ];
+    final after = [
+      for (final i in (p['resolution_images'] as List? ?? [])) i.toString(),
+    ];
+    if (before.isNotEmpty && after.isNotEmpty) {
+      compares.add(ReportCompare(before.first, after.first, '$loc · $short'));
+      before.removeAt(0);
+      after.removeAt(0);
+    }
+    for (final i in before) {
+      photos.add(ReportPhoto(i, '$loc · $short'));
+    }
+    for (final i in after) {
+      photos.add(ReportPhoto(i, '$loc · $short (처리 후)'));
     }
     if (plan.isNotEmpty &&
         p['locationPinDx'] != null &&
@@ -392,6 +431,7 @@ ReportDoc buildIssueReportDoc(
     ],
     photos: photos,
     pins: pins,
+    compares: compares,
     heading: '이슈 보고',
   );
 }
@@ -565,6 +605,21 @@ Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
       pinBoxes.add((c.$1, c.$3 / c.$2, pin.dx, pin.dy, pin.label));
     }
   }
+  final cmp = <(Uint8List, Uint8List, String)>[];
+  if (withPhotos) {
+    for (final k in doc.compares.take(8)) {
+      final a = await _pdfPhotoBytes(k.before);
+      final b = await _pdfPhotoBytes(k.after);
+      if (a != null && b != null) cmp.add((a, b, k.label));
+    }
+  }
+  final style = ReportStyle.current;
+  pw.MemoryImage? logoImg;
+  if (style.logoB64 != null) {
+    try {
+      logoImg = pw.MemoryImage(base64Decode(style.logoB64!));
+    } catch (_) {}
+  }
   final fontData = await rootBundle.load(
     'assets/fonts/NotoSansKR-VariableFont_wght.ttf',
   );
@@ -575,6 +630,41 @@ Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
   pdf.addPage(
     pw.MultiPage(
       build: (ctx) => [
+        if (logoImg != null ||
+            style.company.isNotEmpty ||
+            style.manager.isNotEmpty)
+          pw.Padding(
+            padding: const pw.EdgeInsets.only(bottom: 10),
+            child: pw.Row(
+              children: [
+                if (logoImg != null)
+                  pw.Container(
+                    width: 44,
+                    height: 44,
+                    margin: const pw.EdgeInsets.only(right: 10),
+                    child: pw.Image(logoImg, fit: pw.BoxFit.contain),
+                  ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    if (style.company.isNotEmpty)
+                      pw.Text(
+                        style.company,
+                        style: pw.TextStyle(
+                          fontSize: 12,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    if (style.manager.isNotEmpty)
+                      pw.Text(
+                        '담당 ${style.manager}',
+                        style: const pw.TextStyle(fontSize: 10),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         pw.Text(
           '${doc.title} ${doc.heading}',
           style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
@@ -590,6 +680,66 @@ Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
           pw.Divider(height: 6),
           for (final l in s.lines)
             pw.Text(l, style: const pw.TextStyle(fontSize: 11, lineSpacing: 2)),
+        ],
+        if (cmp.isNotEmpty) ...[
+          pw.SizedBox(height: 14),
+          pw.Text(
+            '처리 전 / 후',
+            style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.Divider(height: 6),
+          for (final k in cmp)
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 10),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(k.$3, style: const pw.TextStyle(fontSize: 10)),
+                  pw.SizedBox(height: 3),
+                  pw.Row(
+                    children: [
+                      pw.Expanded(
+                        child: pw.Column(
+                          children: [
+                            pw.Container(
+                              height: 150,
+                              width: double.infinity,
+                              child: pw.Image(
+                                pw.MemoryImage(k.$1),
+                                fit: pw.BoxFit.contain,
+                              ),
+                            ),
+                            pw.Text(
+                              '처리 전',
+                              style: const pw.TextStyle(fontSize: 9),
+                            ),
+                          ],
+                        ),
+                      ),
+                      pw.SizedBox(width: 8),
+                      pw.Expanded(
+                        child: pw.Column(
+                          children: [
+                            pw.Container(
+                              height: 150,
+                              width: double.infinity,
+                              child: pw.Image(
+                                pw.MemoryImage(k.$2),
+                                fit: pw.BoxFit.contain,
+                              ),
+                            ),
+                            pw.Text(
+                              '처리 후',
+                              style: const pw.TextStyle(fontSize: 9),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
         ],
         for (final c in doc.charts) ..._chartWidgets(c),
         if (pinBoxes.isNotEmpty) ...[
@@ -696,6 +846,28 @@ Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
                 ],
               ),
             ),
+        ],
+        if (style.signature) ...[
+          pw.SizedBox(height: 30),
+          pw.Row(
+            children: [
+              for (final label in [style.sig1, style.sig2])
+                pw.Expanded(
+                  child: pw.Container(
+                    height: 64,
+                    margin: const pw.EdgeInsets.only(right: 12),
+                    padding: const pw.EdgeInsets.all(6),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: PdfColors.grey500),
+                    ),
+                    child: pw.Text(
+                      '$label (서명)',
+                      style: const pw.TextStyle(fontSize: 10),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ],
       ],
     ),

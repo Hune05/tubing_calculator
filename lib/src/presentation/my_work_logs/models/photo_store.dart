@@ -134,6 +134,7 @@ int countLocalPhotos(List<Map<String, dynamic>> logs) {
     }
     for (final p in (log['punch_lists'] as List? ?? []).whereType<Map>()) {
       n += (p['image_paths'] as List? ?? []).where(pending).length;
+      n += (p['resolution_images'] as List? ?? []).where(pending).length;
     }
     if (pending(log['floor_plan_image_path'])) n++;
   }
@@ -162,6 +163,9 @@ optimizeProjectPhotos(
   }
   for (final p in (log['punch_lists'] as List? ?? []).whereType<Map>()) {
     for (final x in (p['image_paths'] as List? ?? [])) {
+      collect(x);
+    }
+    for (final x in (p['resolution_images'] as List? ?? [])) {
       collect(x);
     }
   }
@@ -222,6 +226,11 @@ optimizeProjectPhotos(
     }
     for (final p in (log['punch_lists'] as List? ?? []).whereType<Map>()) {
       p['image_paths'] = (p['image_paths'] as List? ?? []).map(m).toList();
+      if (p['resolution_images'] != null) {
+        p['resolution_images'] = (p['resolution_images'] as List)
+            .map(m)
+            .toList();
+      }
       if (p['image_path'] != null) p['image_path'] = m(p['image_path']);
     }
     if (log['floor_plan_image_path'] != null) {
@@ -258,6 +267,28 @@ Future<bool> uploadAllPhotos(Map<String, dynamic> log) async {
     if (c) {
       p['image_paths'] = out;
       p['image_path'] = out.first;
+      changed = true;
+    }
+  }
+  // 이슈 처리 후 사진
+  for (final p in (log['punch_lists'] as List? ?? []).whereType<Map>()) {
+    final paths = <String>[
+      for (final e in (p['resolution_images'] as List? ?? [])) e.toString(),
+    ];
+    if (paths.isEmpty || paths.every(isRemotePhoto)) continue;
+    final out = <String>[];
+    bool c = false;
+    for (final path in paths) {
+      if (isRemotePhoto(path)) {
+        out.add(path);
+        continue;
+      }
+      final url = await uploadPhoto(pid, path);
+      out.add(url ?? path);
+      if (url != null) c = true;
+    }
+    if (c) {
+      p['resolution_images'] = out;
       changed = true;
     }
   }

@@ -10,6 +10,8 @@ import '../models/project_phase.dart';
 import '../models/report_tools.dart';
 import '../models/photo_store.dart';
 import '../models/backup_tools.dart';
+import '../models/report_style.dart';
+import '../pages/report_style_page.dart';
 import '../pages/report_search_page.dart';
 import '../pages/project_stats_page.dart';
 import '../pages/retro_overview_page.dart';
@@ -102,6 +104,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       syncReportReminder(_workLogs);
       cleanOldDrafts();
       _runAutoBackup();
+      loadReportStyle();
       _refreshPhotoCount();
       _retryTimer ??= Timer.periodic(const Duration(seconds: 90), (_) {
         if (_localPhotos > 0) _retryUploads();
@@ -1249,6 +1252,12 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             tooltip: "더보기",
             onSelected: (v) {
               if (v == 'reminder') _showReminderSettings();
+              if (v == 'style') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ReportStylePage()),
+                );
+              }
               if (v == 'storage') {
                 Navigator.push(
                   context,
@@ -1263,6 +1272,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'reminder', child: Text("일보·주간 알림 설정")),
+              PopupMenuItem(value: 'style', child: Text("보고서 양식 설정")),
               PopupMenuItem(value: 'storage', child: Text("저장 공간 관리")),
             ],
           ),

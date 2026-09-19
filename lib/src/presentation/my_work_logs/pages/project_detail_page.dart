@@ -7,6 +7,9 @@ import '../models/report_tools.dart';
 import '../models/photo_store.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/address_book.dart';
+import '../models/report_style.dart';
+import '../models/summary_image.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/phase_templates.dart';
 import '../../../data/repositories/work_project_repository.dart';
 import 'report_search_page.dart' show ProjectPhotosPage;
@@ -1450,6 +1453,22 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     }
   }
 
+  Future<void> _shareSummaryImage() async {
+    try {
+      final f = await createSummaryImage(log);
+      // ignore: deprecated_member_use
+      await Share.shareXFiles([
+        XFile(f.path),
+      ], text: "${log['name'] ?? '프로젝트'} 현황");
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("이미지 만들기 실패: $e")));
+      }
+    }
+  }
+
   // ───────────────────────── 사진 용량 정리 ─────────────────────────
   Future<void> _optimizePhotos() async {
     final go = await showDialog<bool>(
@@ -2216,7 +2235,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
   // ───────────────────────── 기간 보고서 ─────────────────────────
   void _showReportExport() {
     int mode = 0; // 0=최근 7일 1=최근 14일 2=이번 달 3=전체
-    bool withPhotos = false;
+    bool withPhotos = ReportStyle.current.defaultPhotos;
     showModalBottomSheet(
       context: context,
       backgroundColor: pureWhite,
@@ -2920,8 +2939,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             tooltip: "더보기",
             onSelected: (v) {
               if (v == 'optimize') _optimizePhotos();
+              if (v == 'summary') _shareSummaryImage();
             },
             itemBuilder: (_) => const [
+              PopupMenuItem(value: 'summary', child: Text("현황 요약 이미지 공유")),
               PopupMenuItem(value: 'optimize', child: Text("사진 용량 정리")),
             ],
           ),
