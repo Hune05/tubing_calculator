@@ -33,7 +33,11 @@ import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_on
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/responsive_layout_board_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/weekly_report_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/report_tools.dart'
-    show kWeeklyReportPayload, kWeeklyReportPdfPayload, kDailyReportPayload;
+    show
+        kWeeklyReportPayload,
+        kWeeklyReportPdfPayload,
+        kDailyReportPayload,
+        recordSeenReminders;
 import 'package:tubing_calculator/src/presentation/my_work_logs/screens/work_log_main_screen.dart'
     show WorkLogMainScreen;
 import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/work_theme.dart'
@@ -129,6 +133,7 @@ Future<void> setupFlutterNotifications() async {
     settings: initializationSettings,
     onDidReceiveNotificationResponse: (NotificationResponse response) {
       debugPrint("앱 실행 중 포그라운드 알림 터치됨: ${response.payload}");
+      if (response.id != null) recordSeenReminders([response.id!]);
       _handleNotificationPayload(response.payload);
     },
   );
@@ -137,6 +142,8 @@ Future<void> setupFlutterNotifications() async {
   final launch = await flutterLocalNotificationsPlugin
       .getNotificationAppLaunchDetails();
   if (launch?.didNotificationLaunchApp == true) {
+    final id = launch?.notificationResponse?.id;
+    if (id != null) recordSeenReminders([id]);
     _handleNotificationPayload(launch?.notificationResponse?.payload);
   }
 

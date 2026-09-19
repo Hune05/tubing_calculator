@@ -20,16 +20,51 @@ class RetroOverviewPage extends StatefulWidget {
   State<RetroOverviewPage> createState() => _RetroOverviewPageState();
 }
 
+// 완료한 프로젝트를 이름·원인·교훈으로 찾고 기간으로 좁히는 조건(테스트하기 쉽게 따로 둔다).
+enum RetroPeriod { all, last3Months, thisYear }
+
+bool retroMatches(
+  Map<String, dynamic> log,
+  String query,
+  RetroPeriod period,
+  DateTime now,
+) {
+  final q = query.trim().toLowerCase();
+  if (q.isNotEmpty) {
+    final retro = (log['retro'] as Map?) ?? const {};
+    final hay = [
+      log['name'],
+      retro['cause'],
+      retro['lesson'],
+    ].map((e) => e?.toString().toLowerCase() ?? '').join('\n');
+    if (!hay.contains(q)) return false;
+  }
+  if (period == RetroPeriod.all) return true;
+  final c = log['completedAt'];
+  if (c == null) return false; // 완료일을 모르면 기간 조건에서는 뺀다
+  final at = asDate(c);
+  return period == RetroPeriod.thisYear
+      ? at.year == now.year
+      : !at.isBefore(DateTime(now.year, now.month - 3, now.day));
+}
+
 class _RetroOverviewPageState extends State<RetroOverviewPage> {
   String? _type;
+  String _query = '';
+  RetroPeriod _period = RetroPeriod.all;
 
   static String _typeOf(Map<String, dynamic> l) =>
       (l['workType']?.toString() ?? '').isEmpty
       ? '미분류'
       : l['workType'].toString();
 
-  List<Map<String, dynamic>> get logs =>
-      widget.logs.where((l) => _type == null || _typeOf(l) == _type).toList();
+  List<Map<String, dynamic>> get logs => widget.logs
+      .where(
+        (l) =>
+            (_type == null || _typeOf(l) == _type) &&
+            retroMatches(l, _query, _period, DateTime.now()),
+      )
+      .toList();
 
   static int? _planned(Map<String, dynamic> log) {
     final s = projectStart(log), e = projectDue(log);
@@ -144,7 +179,7 @@ class _RetroOverviewPageState extends State<RetroOverviewPage> {
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
         ),
       ),
-      body: done.isEmpty
+      body: !widget.logs.any((l) => l['status'] == 'DONE')
           ? const Center(
               child: Text("완료한 프로젝트가 아직 없습니다.", style: TextStyle(color: _sub)),
             )
@@ -181,33 +216,85 @@ class _RetroOverviewPageState extends State<RetroOverviewPage> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 10),
+                TextField(
+                  decoration: InputDecoration(
+                    hintText: "이름·원인·참고에서 찾기",
+                    prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                    filled: true,
+                    fillColor: Colors.white,
+                    isDense: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  onChanged: (v) => setState(() => _query = v),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    for (final e in const {
+                      RetroPeriod.all: '전체 기간',
+                      RetroPeriod.last3Months: '최근 3개월',
+                      RetroPeriod.thisYear: '올해',
+                    }.entries)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(e.value),
+                          selected: _period == e.key,
+                          showCheckmark: false,
+                          selectedColor: _teal,
+                          backgroundColor: Colors.white,
+                          side: BorderSide.none,
+                          labelStyle: TextStyle(
+                            color: _period == e.key ? Colors.white : _sub,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          onSelected: (_) => setState(() => _period = e.key),
+                        ),
+                      ),
+                  ],
+                ),
                 const SizedBox(height: 12),
-                card([
-                  h("전체 요약 (완료 ${done.length}건)"),
-                  if (avgPlan != null && avgActual != null) ...[
-                    Text(
-                      keepWords(
-                        "평균 계획 ${avgPlan.round()}일 → 평균 실제 ${avgActual.round()}일",
-                      ),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: _text,
+                if (done.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 40),
+                    child: Center(
+                      child: Text(
+                        "조건에 맞는 프로젝트가 없습니다.",
+                        style: TextStyle(color: _sub),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      keepWords(
-                        "기간 내 완료 $onTime / ${withBoth.length}건 "
-                        "(${(onTime * 100 / withBoth.length).round()}%)",
+                  )
+                else
+                  card([
+                    h("전체 요약 (완료 ${done.length}건)"),
+                    if (avgPlan != null && avgActual != null) ...[
+                      Text(
+                        keepWords(
+                          "평균 계획 ${avgPlan.round()}일 → 평균 실제 ${avgActual.round()}일",
+                        ),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: _text,
+                        ),
                       ),
-                      style: const TextStyle(color: _sub, fontSize: 13),
-                    ),
-                  ] else
-                    Text(
-                      keepWords("계획 기간(단계 설정)과 일보가 있는 프로젝트가 생기면 평균이 계산됩니다."),
-                      style: TextStyle(color: _sub, fontSize: 13),
-                    ),
-                ]),
+                      const SizedBox(height: 4),
+                      Text(
+                        keepWords(
+                          "기간 내 완료 $onTime / ${withBoth.length}건 "
+                          "(${(onTime * 100 / withBoth.length).round()}%)",
+                        ),
+                        style: const TextStyle(color: _sub, fontSize: 13),
+                      ),
+                    ] else
+                      Text(
+                        keepWords("계획 기간(단계 설정)과 일보가 있는 프로젝트가 생기면 평균이 계산됩니다."),
+                        style: TextStyle(color: _sub, fontSize: 13),
+                      ),
+                  ]),
                 if (byType.isNotEmpty)
                   card([
                     h("공사 유형별 평균"),

@@ -26,6 +26,8 @@ class NotificationCheckPage extends StatefulWidget {
   // 어긋난 일보 알림 한 건 / 주간 알림만 다시 예약하는 함수(테스트에서 바꿔 끼운다).
   final Future<void> Function(ReminderSlot slot)? rescheduleSlot;
   final Future<void> Function()? rescheduleWeekly;
+  // 알림창에 떠 있는 알림을 기록하는 함수(테스트에서 바꿔 끼운다).
+  final Future<void> Function()? recordActive;
   const NotificationCheckPage({
     super.key,
     this.logs = const [],
@@ -33,6 +35,7 @@ class NotificationCheckPage extends StatefulWidget {
     this.pendingIdsLoader,
     this.rescheduleSlot,
     this.rescheduleWeekly,
+    this.recordActive,
   });
 
   @override
@@ -44,6 +47,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
   bool? _allowed;
   ({bool daily, bool weekly})? _sched;
   int? _dailyCount; // 폰에 실제 예약된 일보 알림 수(모르면 null)
+  List<String> _seen = const []; // 최근 확인된 알림 기록
   Set<int>? _pendingIds; // 폰에 예약된 알림 아이디들(모르면 null)
   ({bool enabled, int minutes, bool weekly, int weeklyMinutes, bool autoPdf})?
   _pref;
@@ -88,8 +92,14 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
       pendingIds = await (widget.pendingIdsLoader ?? pendingReminderIds)();
     } catch (_) {}
     final pref = await loadReportReminder();
+    List<String> seen = const [];
+    try {
+      await (widget.recordActive ?? recordActiveReminders)();
+      seen = await loadSeenReminderLabels();
+    } catch (_) {}
     if (mounted) {
       setState(() {
+        _seen = seen;
         _allowed = ok;
         _sched = sched;
         _dailyCount = count;
@@ -490,6 +500,17 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
                   ),
                 ),
               ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                keepWords(
+                  _seen.isEmpty
+                      ? "최근 확인된 알림: 아직 없습니다. 알림이 온 뒤 알림창에서 확인하거나 눌러야 기록됩니다."
+                      : "최근 확인된 알림: ${_seen.take(3).join(' / ')} (알림을 밀어서 지운 경우는 기록되지 않습니다.)",
+                ),
+                style: const TextStyle(fontSize: 12, height: 1.4, color: _text),
+              ),
+            ),
             Text(
               keepWords(
                 "폰에 예약이 돼 있어도 절전 기능 때문에 제때 안 울릴 수 있습니다. 아래 4번을 확인하십시오.",

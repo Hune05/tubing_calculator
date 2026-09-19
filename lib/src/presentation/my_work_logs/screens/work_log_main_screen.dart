@@ -106,6 +106,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     super.initState();
     _loadData();
     _loadGuideFlag();
+    recordActiveReminders();
     // 예전에 공유하려고 만들어 둔 PDF 임시 파일 정리(백그라운드).
     getTemporaryDirectory().then(runPdfCleanup).catchError((_) => 0);
   }

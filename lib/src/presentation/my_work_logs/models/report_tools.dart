@@ -1595,6 +1595,78 @@ void _ensureTimezone() {
   _tzReady = true;
 }
 
+// ── 알림이 실제로 확인된 기록 ──
+// 폰이 알림을 띄웠는지는 앱이 직접 알 수 없다. 그래서 (1) 알림창에 떠 있는 것을 앱이 볼 때,
+// (2) 알림을 눌러 앱이 열릴 때만 기록한다. 알림을 밀어서 지웠다면 기록되지 않는다.
+const String _kPrefSeenReminders = 'seen_reminders';
+
+bool isReminderNotificationId(int id) =>
+    id == _kReminderId ||
+    id == _kWeeklyId ||
+    (id >= _kDailyBaseId && id < _kDailyBaseId + 8);
+
+// 기록 한 줄은 "알림아이디|시각(ISO)". 같은 알림이 20시간 안에 또 보이면 새로 적지 않고,
+// 최근 10건만 남긴다.
+List<String> addSeenReminder(List<String> raw, int id, DateTime at) {
+  for (final e in raw) {
+    final p = e.split('|');
+    if (p.length != 2 || p[0] != id.toString()) continue;
+    final t = DateTime.tryParse(p[1]);
+    if (t != null && at.difference(t).inHours.abs() < 20) return raw;
+  }
+  final out = [...raw, '$id|${at.toIso8601String()}'];
+  return out.length > 10 ? out.sublist(out.length - 10) : out;
+}
+
+// "9/19 18:02  작업일보". 읽을 수 없는 줄은 null.
+String? seenReminderLabel(String entry) {
+  final p = entry.split('|');
+  if (p.length != 2) return null;
+  final id = int.tryParse(p[0]);
+  final t = DateTime.tryParse(p[1]);
+  if (id == null || t == null) return null;
+  final kind = id == _kWeeklyId ? '주간 보고' : '작업일보';
+  final hm =
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+  return '${t.month}/${t.day} $hm  $kind';
+}
+
+Future<void> recordSeenReminders(Iterable<int> ids, [DateTime? now]) async {
+  final mine = ids.where(isReminderNotificationId).toList();
+  if (mine.isEmpty) return;
+  final p = await SharedPreferences.getInstance();
+  var list = p.getStringList(_kPrefSeenReminders) ?? <String>[];
+  for (final id in mine) {
+    list = addSeenReminder(list, id, now ?? DateTime.now());
+  }
+  await p.setStringList(_kPrefSeenReminders, list);
+}
+
+// 지금 알림창에 떠 있는 우리 알림을 기록한다. 앱을 열 때 부른다.
+Future<void> recordActiveReminders() async {
+  try {
+    final active = await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.getActiveNotifications();
+    await recordSeenReminders([
+      for (final a in active ?? const <ActiveNotification>[])
+        if (a.id != null) a.id!,
+    ]);
+  } catch (_) {}
+}
+
+// 최근에 확인된 알림들(최신이 앞).
+Future<List<String>> loadSeenReminderLabels() async {
+  final p = await SharedPreferences.getInstance();
+  final raw = p.getStringList(_kPrefSeenReminders) ?? const <String>[];
+  return [
+    for (final e in raw.reversed)
+      if (seenReminderLabel(e) != null) seenReminderLabel(e)!,
+  ];
+}
+
 // ── 예약 항목별 점검: 어긋난 것만 골라 다시 예약 ──
 
 // 일보 알림 한 건(같은 시각에 묶인 프로젝트들)과, 폰에 실제로 예약돼 있는지.
