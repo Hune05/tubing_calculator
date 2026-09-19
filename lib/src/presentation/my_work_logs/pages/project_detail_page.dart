@@ -228,7 +228,9 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     final upcoming =
         schedulesOf(log).where((s) {
           if (s['isCompleted'] == true) return false;
-          if (s['dateTime'] == null) return true; // 입고일 미정 자재 요청
+          // 자재 요청/입고일은 위의 "자재 현황" 카드에서 보여주므로 여기선 뺀다(중복 방지).
+          if (isMaterialSchedule(s)) return false;
+          if (s['dateTime'] == null) return true;
           return !dayOnly(asDate(s['dateTime'])).isAfter(weekEnd);
         }).toList()..sort((a, b) {
           if (a['dateTime'] == null) return -1;
