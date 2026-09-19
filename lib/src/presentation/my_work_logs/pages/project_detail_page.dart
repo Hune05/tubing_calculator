@@ -1,3 +1,4 @@
+import '../widgets/work_theme.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -2955,36 +2956,17 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         Row(
           children: [
             Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () => _run(widget.actions.addReport),
-                icon: const Icon(Icons.edit_document, color: pureWhite),
-                label: const Text(
-                  "오늘 일지 작성",
-                  style: TextStyle(
-                    color: pureWhite,
-                    fontWeight: FontWeight.bold,
+              child: OutlinedButton.icon(
+                onPressed: () => _run(widget.actions.openReportCalendar),
+                icon: const Icon(Icons.calendar_month_rounded, size: 18),
+                label: const Text("달력/통계"),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: tossBlue,
+                  side: const BorderSide(color: tossBlue),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 14,
+                    horizontal: 14,
                   ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: tossBlue,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            OutlinedButton.icon(
-              onPressed: () => _run(widget.actions.openReportCalendar),
-              icon: const Icon(Icons.calendar_month_rounded, size: 18),
-              label: const Text("달력/통계"),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: tossBlue,
-                side: const BorderSide(color: tossBlue),
-                padding: const EdgeInsets.symmetric(
-                  vertical: 14,
-                  horizontal: 14,
                 ),
               ),
             ),
@@ -2997,7 +2979,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
               child: OutlinedButton.icon(
                 onPressed: _showReportExport,
                 icon: const Icon(Icons.ios_share_rounded, size: 18),
-                label: const Text("보고서 내보내기"),
+                label: const Text("내보내기"),
                 style: OutlinedButton.styleFrom(foregroundColor: tossText),
               ),
             ),
@@ -3006,9 +2988,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
               child: OutlinedButton.icon(
                 onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => ProjectPhotosPage(log: log),
-                  ),
+                  WorkRoute(builder: (_) => ProjectPhotosPage(log: log)),
                 ),
                 icon: const Icon(Icons.photo_library_outlined, size: 18),
                 label: const Text("사진 모아보기"),
@@ -3139,7 +3119,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             icon: const Icon(Icons.bar_chart_rounded),
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(
+              WorkRoute(
                 builder: (_) => ProjectStatsPage(
                   logs: [log],
                   title: "${log['name'] ?? '프로젝트'} 통계",
@@ -3193,7 +3173,11 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
               labelColor: tossBlue,
               unselectedLabelColor: tossSubText,
               indicatorColor: tossBlue,
-              labelStyle: const TextStyle(fontWeight: FontWeight.w800),
+              labelPadding: EdgeInsets.zero,
+              labelStyle: const TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
+              ),
               tabs: const [
                 Tab(text: "개요"),
                 Tab(text: "단계·일정"),

@@ -1,3 +1,4 @@
+import '../widgets/work_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'; // debugPrint 사용을 위해 추가
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
@@ -188,7 +189,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   Future<void> _openSearch() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
+      WorkRoute(
         builder: (ctx) => ReportSearchPage(
           logs: _workLogs,
           onOpen: (hit) async {
@@ -296,7 +297,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   }) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
+      WorkRoute(
         builder: (context) => ProjectDetailPage(
           log: log,
           actions: _actionsFor(log),
@@ -379,7 +380,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     }
     final updated = await Navigator.push<Map<String, dynamic>>(
       context,
-      MaterialPageRoute(
+      WorkRoute(
         builder: (context) => DailyReportPage(
           existingData: report,
           relatedIssueCandidates: _issueCandidatesFor(log),
@@ -407,7 +408,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   Future<void> _openReportCalendarFor(Map<String, dynamic> log) async {
     final updated = await Navigator.push<List<Map<String, dynamic>>>(
       context,
-      MaterialPageRoute(
+      WorkRoute(
         builder: (context) => DailyReportCalendarPage(
           projectName: log['name'] ?? '이름 없음',
           initialReports: List<Map<String, dynamic>>.from(
@@ -437,7 +438,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     }
     final newPunch = await Navigator.push<Map<String, dynamic>>(
       context,
-      MaterialPageRoute(
+      WorkRoute(
         builder: (context) => PunchListPage(
           recentLocations: recentLocations,
           floorPlanImagePath: log['floor_plan_image_path'],
@@ -594,7 +595,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   }) async {
     final updated = await Navigator.push<List<Map<String, dynamic>>>(
       context,
-      MaterialPageRoute(
+      WorkRoute(
         builder: (context) => ProjectSchedulePage(
           projectName: log['name'] ?? '이름 없음',
           phases: phasesOf(log),
@@ -698,7 +699,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         .toList();
     final updated = await Navigator.push<Map<String, dynamic>>(
       context,
-      MaterialPageRoute(
+      WorkRoute(
         builder: (context) => PunchDetailPage(
           punch: punch,
           inspectionSchedules: inspectionSchedules,
@@ -760,7 +761,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   Future<void> _addDailyReportFor(Map<String, dynamic> log) async {
     final newReport = await Navigator.push<Map<String, dynamic>>(
       context,
-      MaterialPageRoute(
+      WorkRoute(
         builder: (context) => DailyReportPage(
           previousReport: _previousReportFor(log),
           relatedIssueCandidates: _issueCandidatesFor(log),
@@ -1315,7 +1316,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             icon: const Icon(Icons.bar_chart_rounded),
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(
+              WorkRoute(
                 builder: (_) =>
                     ProjectStatsPage(logs: _workLogs, title: "전체 투입 통계"),
               ),
@@ -1334,13 +1335,13 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
               if (v == 'style') {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const ReportStylePage()),
+                  WorkRoute(builder: (_) => const ReportStylePage()),
                 );
               }
               if (v == 'storage') {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
+                  WorkRoute(
                     builder: (_) => StorageManagementPage(
                       logs: _workLogs,
                       onRestored: _loadData,
@@ -1402,7 +1403,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                             ),
                             onPressed: () => Navigator.push(
                               context,
-                              MaterialPageRoute(
+                              WorkRoute(
                                 builder: (_) =>
                                     RetroOverviewPage(logs: _workLogs),
                               ),

@@ -72,127 +72,130 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
           color: pureWhite,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 토스 스타일 상단 손잡이(Pill)
-            Center(
-              child: Container(
-                width: 40,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD1D6DB),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            ),
-            const SizedBox(height: 28),
-            const Text(
-              "새로운 작업을\n시작할까요?",
-              style: TextStyle(
-                color: tossText,
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                height: 1.3,
-                letterSpacing: -0.5,
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            // 토스 스타일 입력창 (테두리 없이 둥근 회색 배경)
-            TextField(
-              controller: _nameController,
-              autofocus: true,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 18,
-                color: tossText,
-              ),
-              decoration: InputDecoration(
-                labelText: "작업 명칭 (현장명)",
-                labelStyle: const TextStyle(color: tossSubText, fontSize: 15),
-                filled: true,
-                fillColor: tossInputBg,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 18,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _revController,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 18,
-                color: tossText,
-              ),
-              decoration: InputDecoration(
-                labelText: "기준 도면 / 리비전",
-                labelStyle: const TextStyle(color: tossSubText, fontSize: 15),
-                hintText: "예: Rev.0",
-                hintStyle: const TextStyle(color: Color(0xFFB0B8C1)),
-                filled: true,
-                fillColor: tossInputBg,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 18,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              "공사 유형 (선택)",
-              style: TextStyle(color: tossSubText, fontSize: 13),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final t in kProjectTypes)
-                  ChoiceChip(
-                    label: Text(t),
-                    selected: _workType == t,
-                    showCheckmark: false,
-                    onSelected: (v) => setState(() => _workType = v ? t : null),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 토스 스타일 상단 손잡이(Pill)
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD1D6DB),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-              ],
-            ),
-            const SizedBox(height: 32),
+                ),
+              ),
+              const SizedBox(height: 28),
+              const Text(
+                "새로운 작업을\n시작할까요?",
+                style: TextStyle(
+                  color: tossText,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  height: 1.3,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 32),
 
-            // 토스 스타일 꽉 차는 메인 버튼
-            SizedBox(
-              height: 56,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: tossBlue,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
+              // 토스 스타일 입력창 (테두리 없이 둥근 회색 배경)
+              TextField(
+                controller: _nameController,
+                autofocus: true,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 18,
+                  color: tossText,
+                ),
+                decoration: InputDecoration(
+                  labelText: "작업 명칭 (현장명)",
+                  labelStyle: const TextStyle(color: tossSubText, fontSize: 15),
+                  filled: true,
+                  fillColor: tossInputBg,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 18,
+                  ),
+                  border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                onPressed: _submit,
-                child: const Text(
-                  "만들기",
-                  style: TextStyle(
-                    color: pureWhite,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
+                    borderSide: BorderSide.none,
                   ),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              TextField(
+                controller: _revController,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 18,
+                  color: tossText,
+                ),
+                decoration: InputDecoration(
+                  labelText: "기준 도면 / 리비전",
+                  labelStyle: const TextStyle(color: tossSubText, fontSize: 15),
+                  hintText: "예: Rev.0",
+                  hintStyle: const TextStyle(color: Color(0xFFB0B8C1)),
+                  filled: true,
+                  fillColor: tossInputBg,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 18,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "공사 유형 (선택)",
+                style: TextStyle(color: tossSubText, fontSize: 13),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final t in kProjectTypes)
+                    ChoiceChip(
+                      label: Text(t),
+                      selected: _workType == t,
+                      showCheckmark: false,
+                      onSelected: (v) =>
+                          setState(() => _workType = v ? t : null),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 32),
+
+              // 토스 스타일 꽉 차는 메인 버튼
+              SizedBox(
+                height: 56,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: tossBlue,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  onPressed: _submit,
+                  child: const Text(
+                    "만들기",
+                    style: TextStyle(
+                      color: pureWhite,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

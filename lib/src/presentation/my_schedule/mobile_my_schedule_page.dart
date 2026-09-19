@@ -1,3 +1,4 @@
+import '../my_work_logs/widgets/work_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -439,7 +440,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     if (projectId == null) return;
     Navigator.push(
       context,
-      MaterialPageRoute(
+      WorkRoute(
         builder: (context) => WorkLogMainScreen(initialProjectId: projectId),
       ),
     ).then((_) => _loadProjects());

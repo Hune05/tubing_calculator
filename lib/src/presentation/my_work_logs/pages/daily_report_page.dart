@@ -1,3 +1,4 @@
+import '../widgets/work_theme.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -601,7 +602,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
     if (widget.floorPlanImagePath == null) return;
     final result = await Navigator.push<Offset>(
       context,
-      MaterialPageRoute(
+      WorkRoute(
         builder: (context) => FloorPlanPinPage(
           imagePath: widget.floorPlanImagePath!,
           initialDx: _pinDx,
@@ -1073,7 +1074,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
       }
       final np = await Navigator.push<String>(
         context,
-        MaterialPageRoute(builder: (_) => PhotoAnnotatePage(path: path)),
+        WorkRoute(builder: (_) => PhotoAnnotatePage(path: path)),
       );
       if (np != null && mounted) {
         setState(() {

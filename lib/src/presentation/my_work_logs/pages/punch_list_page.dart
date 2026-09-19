@@ -1,3 +1,4 @@
+import '../widgets/work_theme.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../widgets/voice_input_button.dart';
@@ -158,7 +159,7 @@ class _PunchListPageState extends State<PunchListPage> {
     if (_floorPlanImagePath == null) return;
     final result = await Navigator.push<Offset>(
       context,
-      MaterialPageRoute(
+      WorkRoute(
         builder: (context) => FloorPlanPinPage(
           imagePath: _floorPlanImagePath!,
           initialDx: _pinDx,

@@ -1,3 +1,4 @@
+import '../../my_work_logs/widgets/work_theme.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -329,7 +330,7 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
                     HapticFeedback.lightImpact();
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
+                      WorkRoute(
                         builder: (context) => const WorkLogMainScreen(),
                       ),
                     ).then((_) => _loadTodayScheduleCount());

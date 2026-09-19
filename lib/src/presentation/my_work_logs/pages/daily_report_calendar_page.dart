@@ -1,3 +1,4 @@
+import '../widgets/work_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'daily_report_page.dart';
@@ -183,9 +184,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
   Future<void> _openReport(Map<String, dynamic> report) async {
     final updated = await Navigator.push<Map<String, dynamic>>(
       context,
-      MaterialPageRoute(
-        builder: (context) => DailyReportPage(existingData: report),
-      ),
+      WorkRoute(builder: (context) => DailyReportPage(existingData: report)),
     );
     if (updated == null) return;
     setState(() {
