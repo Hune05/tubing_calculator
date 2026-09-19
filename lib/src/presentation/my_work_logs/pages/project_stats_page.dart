@@ -115,6 +115,31 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
   }
 
   Future<void> _exportPdf(_Summary s) async {
+    final charts = <ReportChart>[
+      if (s.rows.isNotEmpty)
+        ReportChart(_logs.length == 1 ? '단계별 투입 (인원-일)' : '프로젝트별 투입 (인원-일)', [
+          for (final r in s.rows) ReportChartRow(r.label, r.value, r.right),
+        ]),
+      if (s.plan.any((p) => p.$2 > 0))
+        ReportChart('계획 대비 실제 (일)', [
+          for (final p in s.plan)
+            ReportChartRow(
+              p.$1,
+              p.$3.toDouble(),
+              '계획 ${p.$2} → 실제 ${p.$3}',
+              plan: p.$2.toDouble(),
+            ),
+        ]),
+      if (s.months.isNotEmpty)
+        ReportChart('월별 투입 (인원-일)', [
+          for (final m in s.months)
+            ReportChartRow(
+              '${m.substring(0, 4)}년 ${int.parse(m.substring(5))}월',
+              s.monthMan[m]!.toDouble(),
+              '${s.monthMan[m]} 인·일',
+            ),
+        ]),
+    ];
     final sections = <ReportSection>[
       ReportSection('요약 (${_periodLabels[_period]})', [
         '작업일수 ${s.days}일 / 투입 ${s.manDays}인·일 / 하루 평균 ${s.days == 0 ? 0 : (s.manDays / s.days).toStringAsFixed(1)}명',
@@ -129,7 +154,13 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
       ]),
     ];
     await shareReportPdf(
-      ReportDoc(widget.title, '기간: ${_periodLabels[_period]}', sections),
+      ReportDoc(
+        widget.title,
+        '기간: ${_periodLabels[_period]}',
+        [sections.first],
+        charts: charts,
+        heading: '투입 통계',
+      ),
     );
   }
 

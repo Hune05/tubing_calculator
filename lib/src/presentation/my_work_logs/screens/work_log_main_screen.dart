@@ -101,10 +101,11 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       });
       syncReportReminder(_workLogs);
       cleanOldDrafts();
-      autoBackupIfDue(_workLogs);
+      _runAutoBackup();
       _refreshPhotoCount();
       _retryTimer ??= Timer.periodic(const Duration(seconds: 90), (_) {
         if (_localPhotos > 0) _retryUploads();
+        if (_backupFailed) _runAutoBackup();
       });
       _migrateLocalPhotos();
       if (widget.initialProjectId != null) {
@@ -763,6 +764,54 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   // 🚀 [신규] "오늘 일지 / 다가오는 일정 / 미해결 이슈"를 한 화면에
   // 모은 통합 대시보드. 프로젝트마다 따로 열어보지 않아도 오늘 뭘 해야
   // 하는지 여기서 다 보인다.
+  bool _backupFailed = false;
+
+  Future<void> _runAutoBackup() async {
+    final r = await autoBackupIfDue(_workLogs);
+    if (r != null && mounted) setState(() => _backupFailed = r == false);
+  }
+
+  Widget _buildBackupBanner() {
+    if (!_backupFailed) return const SizedBox.shrink();
+    const c = Color(0xFFC77700);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_off_rounded, size: 16, color: c),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              "주간 자동 백업에 실패했어요. 앱이 켜져 있는 동안 계속 다시 시도해요.",
+              style: TextStyle(
+                color: c,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: _runAutoBackup,
+            style: TextButton.styleFrom(
+              foregroundColor: c,
+              minimumSize: const Size(0, 32),
+            ),
+            child: const Text(
+              "지금 시도",
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSyncBanner() {
     return ValueListenableBuilder<int>(
       valueListenable: WorkProjectRepository.pendingWrites,
@@ -1239,6 +1288,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildSyncBanner(),
+                    _buildBackupBanner(),
                     if (!_showCompleted) _buildWeeklyReportCard(),
                     if (!_showCompleted) _buildDashboard(),
                     if (_showCompleted) _buildDoneTools(),

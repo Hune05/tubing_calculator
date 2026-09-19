@@ -1293,6 +1293,16 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             ),
           ),
         ),
+        if (punches.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: OutlinedButton.icon(
+              onPressed: _showIssueExport,
+              icon: const Icon(Icons.ios_share_rounded, size: 18),
+              label: const Text("이슈 보고서 내보내기"),
+              style: OutlinedButton.styleFrom(foregroundColor: tossText),
+            ),
+          ),
         const SizedBox(height: 16),
         if (punches.isEmpty)
           _emptyText("등록된 이슈가 없습니다.")
@@ -1302,6 +1312,103 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             onOpenPunchDetail: (p) => _run(() => widget.actions.openPunch(p)),
           ),
       ],
+    );
+  }
+
+  void _showIssueExport() {
+    bool onlyOpen = true;
+    bool withMedia = true;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "이슈 보고서 내보내기",
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text("미해결만"),
+                      selected: onlyOpen,
+                      onSelected: (_) => setS(() => onlyOpen = true),
+                    ),
+                    ChoiceChip(
+                      label: const Text("전체"),
+                      selected: !onlyOpen,
+                      onSelected: (_) => setS(() => onlyOpen = false),
+                    ),
+                  ],
+                ),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: withMedia,
+                  onChanged: (v) => setS(() => withMedia = v == true),
+                  title: const Text(
+                    "PDF에 사진·도면 위치 포함",
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          await shareReportText(
+                            buildIssueReportDoc(log, onlyOpen: onlyOpen),
+                          );
+                        },
+                        icon: const Icon(Icons.chat_outlined, size: 18),
+                        label: const Text("텍스트(카톡)"),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          try {
+                            await shareReportPdf(
+                              buildIssueReportDoc(log, onlyOpen: onlyOpen),
+                              withPhotos: withMedia,
+                            );
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text("PDF 생성 실패: $e")),
+                              );
+                            }
+                          }
+                        },
+                        icon: const Icon(
+                          Icons.picture_as_pdf_outlined,
+                          size: 18,
+                        ),
+                        label: const Text("PDF"),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

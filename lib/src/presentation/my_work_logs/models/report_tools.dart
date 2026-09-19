@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart' show PdfColor, PdfColors;
 import 'package:pdf/widgets.dart' as pw;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -61,15 +63,50 @@ class ReportPhoto {
   ReportPhoto(this.path, this.label);
 }
 
+// 그래프 한 줄(막대). plan이 있으면 계획 막대를 위에 회색으로 함께 그린다.
+class ReportChartRow {
+  final String label;
+  final double value;
+  final String valueText;
+  final double? plan;
+  ReportChartRow(this.label, this.value, this.valueText, {this.plan});
+}
+
+class ReportChart {
+  final String heading;
+  final List<ReportChartRow> rows;
+  ReportChart(this.heading, this.rows);
+}
+
+// 도면 위 핀 위치(0~1 비율)를 PDF에 그리기 위한 정보.
+class ReportPin {
+  final String planPath;
+  final double dx;
+  final double dy;
+  final String label;
+  ReportPin(this.planPath, this.dx, this.dy, this.label);
+}
+
 class ReportDoc {
   final String title;
   final String period;
   final List<ReportSection> sections;
   final List<ReportPhoto> photos;
-  ReportDoc(this.title, this.period, this.sections, {this.photos = const []});
+  final List<ReportChart> charts;
+  final List<ReportPin> pins;
+  final String heading; // 문서 종류 표시(예: 작업 보고 / 이슈 보고)
+  ReportDoc(
+    this.title,
+    this.period,
+    this.sections, {
+    this.photos = const [],
+    this.charts = const [],
+    this.pins = const [],
+    this.heading = '작업 보고',
+  });
 
   String toText() {
-    final b = StringBuffer('[$title] 작업 보고\n$period\n');
+    final b = StringBuffer('[$title] $heading\n$period\n');
     for (final s in sections) {
       b.writeln('\n■ ${s.heading}');
       for (final l in s.lines) {
@@ -265,6 +302,97 @@ ReportDoc buildReportDoc(
         : '기간 ${f.year}.${f.month}.${f.day} ~ ${t.year}.${t.month}.${t.day}',
     sections,
     photos: photos,
+    pins: [
+      if ((log['floor_plan_image_path']?.toString() ?? '').isNotEmpty)
+        for (final r in reports)
+          if (r['locationPinDx'] != null && r['locationPinDy'] != null)
+            ReportPin(
+              log['floor_plan_image_path'].toString(),
+              (r['locationPinDx'] as num).toDouble(),
+              (r['locationPinDy'] as num).toDouble(),
+              '${r['date']} 작업 위치',
+            ),
+    ],
+  );
+}
+
+// 이슈(펀치) 보고서: 미해결만 또는 전체.
+ReportDoc buildIssueReportDoc(
+  Map<String, dynamic> log, {
+  required bool onlyOpen,
+}) {
+  final all = (log['punch_lists'] as List? ?? []).whereType<Map>().toList();
+  final list = onlyOpen
+      ? all.where((p) => p['is_completed'] != true).toList()
+      : List<Map>.from(all);
+  const order = {'긴급': 0, '보통': 1, '여유': 2};
+  list.sort((a, b) {
+    final ca = a['is_completed'] == true ? 1 : 0;
+    final cb = b['is_completed'] == true ? 1 : 0;
+    if (ca != cb) return ca - cb;
+    return (order[a['priority']] ?? 1).compareTo(order[b['priority']] ?? 1);
+  });
+  final open = all.where((p) => p['is_completed'] != true).toList();
+  final urgent = open.where((p) => p['priority'] == '긴급').length;
+
+  final lines = <String>[];
+  final photos = <ReportPhoto>[];
+  final pins = <ReportPin>[];
+  final plan = log['floor_plan_image_path']?.toString() ?? '';
+  for (final p in list) {
+    final done = p['is_completed'] == true;
+    final loc = p['location']?.toString() ?? '';
+    final content = (p['content']?.toString() ?? '').trim();
+    lines.add(
+      '· [${done ? '완료' : '미해결'}/${p['priority'] ?? '보통'}] $loc — $content',
+    );
+    final meta = <String>[
+      if (p['created_at'] != null) '등록 ${_md(asDate(p['created_at']))}',
+      if ((p['defect_type']?.toString() ?? '').isNotEmpty)
+        '유형 ${p['defect_type']}',
+      if (p['dueDate'] != null) '기한 ${_md(asDate(p['dueDate']))}',
+    ];
+    if (meta.isNotEmpty) lines.add('   ${meta.join(' · ')}');
+    final note = (p['resolution_note']?.toString() ?? '').trim();
+    if (done && note.isNotEmpty) {
+      lines.add(
+        '   처리: $note${p['resolved_at'] != null ? ' (${_md(asDate(p['resolved_at']))})' : ''}',
+      );
+    }
+    final short = content.length > 18
+        ? '${content.substring(0, 18)}…'
+        : content;
+    for (final img in (p['image_paths'] as List? ?? [])) {
+      photos.add(ReportPhoto(img.toString(), '$loc · $short'));
+    }
+    if (plan.isNotEmpty &&
+        p['locationPinDx'] != null &&
+        p['locationPinDy'] != null) {
+      pins.add(
+        ReportPin(
+          plan,
+          (p['locationPinDx'] as num).toDouble(),
+          (p['locationPinDy'] as num).toDouble(),
+          '$loc · $short',
+        ),
+      );
+    }
+  }
+  return ReportDoc(
+    log['name']?.toString() ?? '프로젝트',
+    onlyOpen ? '미해결 이슈' : '전체 이슈',
+    [
+      ReportSection('요약', [
+        '전체 ${all.length}건 / 미해결 ${open.length}건 / 긴급 미해결 $urgent건',
+      ]),
+      ReportSection(
+        onlyOpen ? '미해결 이슈 (${list.length})' : '이슈 목록 (${list.length})',
+        lines.isEmpty ? ['해당하는 이슈가 없습니다.'] : lines,
+      ),
+    ],
+    photos: photos,
+    pins: pins,
+    heading: '이슈 보고',
   );
 }
 
@@ -280,6 +408,10 @@ ReportDoc mergeReportDocs(List<ReportDoc> docs) => ReportDoc(
   photos: [
     for (final d in docs)
       for (final p in d.photos) ReportPhoto(p.path, '[${d.title}] ${p.label}'),
+  ],
+  pins: [
+    for (final d in docs)
+      for (final p in d.pins) p,
   ],
 );
 
@@ -331,6 +463,78 @@ Future<Uint8List?> _pdfPhotoBytes(String path) async {
   }
 }
 
+// 가로 막대 그래프 한 묶음(PDF용). plan이 있으면 회색 계획 막대가 위에 붙는다.
+List<pw.Widget> _chartWidgets(ReportChart c) {
+  double mx = 0;
+  for (final r in c.rows) {
+    if (r.value > mx) mx = r.value;
+    if ((r.plan ?? 0) > mx) mx = r.plan!;
+  }
+  pw.Widget bar(double v, PdfColor color) {
+    final a = mx <= 0 ? 0 : ((v / mx).clamp(0.0, 1.0) * 1000).round();
+    return pw.Row(
+      children: [
+        if (a > 0)
+          pw.Expanded(
+            flex: a,
+            child: pw.Container(height: 6, color: color),
+          ),
+        if (a < 1000)
+          pw.Expanded(
+            flex: 1000 - a,
+            child: pw.Container(height: 6, color: PdfColors.grey200),
+          ),
+      ],
+    );
+  }
+
+  return [
+    pw.SizedBox(height: 14),
+    pw.Text(
+      c.heading,
+      style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+    ),
+    pw.Divider(height: 6),
+    for (final r in c.rows)
+      pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 3),
+        child: pw.Row(
+          children: [
+            pw.SizedBox(
+              width: 90,
+              child: pw.Text(r.label, style: const pw.TextStyle(fontSize: 10)),
+            ),
+            pw.Expanded(
+              child: pw.Column(
+                children: [
+                  if (r.plan != null) ...[
+                    bar(r.plan!, PdfColors.grey500),
+                    pw.SizedBox(height: 2),
+                  ],
+                  bar(
+                    r.value,
+                    (r.plan != null && r.plan! > 0 && r.value > r.plan!)
+                        ? PdfColors.red
+                        : const PdfColor.fromInt(0xFF007580),
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(width: 6),
+            pw.SizedBox(
+              width: 100,
+              child: pw.Text(
+                r.valueText,
+                style: const pw.TextStyle(fontSize: 9),
+                textAlign: pw.TextAlign.right,
+              ),
+            ),
+          ],
+        ),
+      ),
+  ];
+}
+
 Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
   // 사진은 최대 24장까지, 페이지 안에서 잘리지 않게 두 장씩 한 줄로 넣는다.
   final loaded = <(Uint8List, String)>[];
@@ -338,6 +542,27 @@ Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
     for (final p in doc.photos.take(24)) {
       final b = await _pdfPhotoBytes(p.path);
       if (b != null) loaded.add((b, p.label));
+    }
+  }
+  // 도면 핀: 도면 이미지를 한 번만 받아 크기를 읽고, 핀 위치에 빨간 점을 그린다.
+  final planCache = <String, (Uint8List, int, int)>{};
+  final pinBoxes = <(Uint8List, double, double, double, String)>[];
+  if (withPhotos) {
+    for (final pin in doc.pins.take(8)) {
+      var c = planCache[pin.planPath];
+      if (c == null) {
+        final b = await _pdfPhotoBytes(pin.planPath);
+        if (b == null) continue;
+        try {
+          final codec = await ui.instantiateImageCodec(b);
+          final fr = await codec.getNextFrame();
+          c = (b, fr.image.width, fr.image.height);
+          planCache[pin.planPath] = c;
+        } catch (_) {
+          continue;
+        }
+      }
+      pinBoxes.add((c.$1, c.$3 / c.$2, pin.dx, pin.dy, pin.label));
     }
   }
   final fontData = await rootBundle.load(
@@ -351,7 +576,7 @@ Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
     pw.MultiPage(
       build: (ctx) => [
         pw.Text(
-          '${doc.title} 작업 보고',
+          '${doc.title} ${doc.heading}',
           style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
         ),
         pw.SizedBox(height: 4),
@@ -365,6 +590,69 @@ Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
           pw.Divider(height: 6),
           for (final l in s.lines)
             pw.Text(l, style: const pw.TextStyle(fontSize: 11, lineSpacing: 2)),
+        ],
+        for (final c in doc.charts) ..._chartWidgets(c),
+        if (pinBoxes.isNotEmpty) ...[
+          pw.SizedBox(height: 14),
+          pw.Text(
+            '작업/이슈 위치 (도면)',
+            style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.Divider(height: 6),
+          for (int i = 0; i < pinBoxes.length; i += 2)
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 10),
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  for (int j = i; j < i + 2; j++)
+                    pw.Expanded(
+                      child: j < pinBoxes.length
+                          ? pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.SizedBox(
+                                  width: 230,
+                                  height: 230 * pinBoxes[j].$2,
+                                  child: pw.Stack(
+                                    children: [
+                                      pw.Image(
+                                        pw.MemoryImage(pinBoxes[j].$1),
+                                        width: 230,
+                                        height: 230 * pinBoxes[j].$2,
+                                        fit: pw.BoxFit.fill,
+                                      ),
+                                      pw.Positioned(
+                                        left: pinBoxes[j].$3 * 230 - 6,
+                                        top:
+                                            pinBoxes[j].$4 *
+                                                230 *
+                                                pinBoxes[j].$2 -
+                                            6,
+                                        child: pw.Container(
+                                          width: 12,
+                                          height: 12,
+                                          decoration: const pw.BoxDecoration(
+                                            color: PdfColors.red,
+                                            shape: pw.BoxShape.circle,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                pw.SizedBox(height: 3),
+                                pw.Text(
+                                  pinBoxes[j].$5,
+                                  style: const pw.TextStyle(fontSize: 9),
+                                ),
+                              ],
+                            )
+                          : pw.SizedBox(),
+                    ),
+                ],
+              ),
+            ),
         ],
         if (loaded.isNotEmpty) ...[
           pw.SizedBox(height: 14),
@@ -418,7 +706,9 @@ Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
   );
   await file.writeAsBytes(await pdf.save());
   // ignore: deprecated_member_use
-  await Share.shareXFiles([XFile(file.path)], text: '${doc.title} 작업 보고');
+  await Share.shareXFiles([
+    XFile(file.path),
+  ], text: '${doc.title} ${doc.heading}');
 }
 
 // ───────────────────────── 통합 검색 ─────────────────────────

@@ -172,14 +172,15 @@ Future<bool> uploadCloudBackup(List<Map<String, dynamic>> projects) async {
   }
 }
 
-Future<void> autoBackupIfDue(List<Map<String, dynamic>> projects) async {
-  if (projects.isEmpty || !await autoBackupEnabled()) return;
+// 백업이 필요 없거나 꺼져 있으면 null, 성공 true, 실패 false.
+Future<bool?> autoBackupIfDue(List<Map<String, dynamic>> projects) async {
+  if (projects.isEmpty || !await autoBackupEnabled()) return null;
   final last = await lastAutoBackup();
   if (last != null &&
       DateTime.now().difference(last) < const Duration(days: 7)) {
-    return;
+    return null;
   }
-  await uploadCloudBackup(projects);
+  return uploadCloudBackup(projects);
 }
 
 Future<List<Reference>> listCloudBackups() async {
