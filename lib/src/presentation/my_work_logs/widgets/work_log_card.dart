@@ -551,9 +551,16 @@ class PunchListSectionState extends State<PunchListSection> {
     final doneList = widget.punchLists
         .where((p) => p['is_completed'] == true)
         .toList();
+    // 주간 보고에서 뺀 미해결 이슈만 모아 보기(3). 없어지면 미해결(0)로 돌아간다.
+    final excludedList = openList
+        .where((p) => p is Map && p['weeklyExclude'] == true)
+        .toList();
+    if (_mode == 3 && excludedList.isEmpty) _mode = 0;
     final List<dynamic> visible = _mode == 0
         ? openList
-        : (_mode == 2 ? doneList : [...openList, ...doneList]);
+        : (_mode == 2
+              ? doneList
+              : (_mode == 3 ? excludedList : [...openList, ...doneList]));
 
     final int totalPages = (visible.length / _pageSize).ceil().clamp(
       1,
@@ -619,51 +626,59 @@ class PunchListSectionState extends State<PunchListSection> {
                   ),
               ],
             ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final e in [
-                  (0, "미해결 ${openList.length}"),
-                  (1, "전체"),
-                  (2, "완료 ${doneList.length}"),
-                ])
-                  Padding(
-                    padding: const EdgeInsets.only(left: 6),
-                    child: GestureDetector(
-                      onTap: () => setState(() {
-                        _mode = e.$1;
-                        _page = 0;
-                      }),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _mode == e.$1
-                              ? tossBlue.withValues(alpha: 0.15)
-                              : pureWhite,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Text(
-                          e.$2,
-                          style: TextStyle(
-                            color: _mode == e.$1 ? tossBlue : tossSubText,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
+            // 칩이 많아지면(주간 제외 칩 포함) 다음 줄로 넘어가도록 Wrap을 쓴다.
+            Expanded(
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                runSpacing: 6,
+                children: [
+                  for (final e in [
+                    (0, "미해결 ${openList.length}"),
+                    (1, "전체"),
+                    (2, "완료 ${doneList.length}"),
+                    if (excludedList.isNotEmpty)
+                      (3, "주간 제외 ${excludedList.length}"),
+                  ])
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: GestureDetector(
+                        onTap: () => setState(() {
+                          _mode = e.$1;
+                          _page = 0;
+                        }),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _mode == e.$1
+                                ? tossBlue.withValues(alpha: 0.15)
+                                : pureWhite,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Text(
+                            e.$2,
+                            style: TextStyle(
+                              color: _mode == e.$1 ? tossBlue : tossSubText,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
         const SizedBox(height: 12),
         if (visible.isEmpty)
           Text(
-            _mode == 2
+            _mode == 3
+                ? "주간 보고에서 제외한 미해결 이슈가 없습니다."
+                : _mode == 2
                 ? "처리 완료한 이슈가 없습니다."
                 : (_mode == 0 && doneList.isNotEmpty
                       ? "미해결 이슈가 없습니다. 처리 완료한 ${doneList.length}건은 '완료' 또는 '전체'에서 확인하세요."

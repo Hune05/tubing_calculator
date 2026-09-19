@@ -498,6 +498,14 @@ ReportDoc buildWeeklyPlanDoc(
     sections,
     heading: '주간 업무 보고',
     boxedHeadings: true,
+    fileStamp:
+        '${today.year}${today.month.toString().padLeft(2, '0')}${today.day.toString().padLeft(2, '0')}',
+    // 사진을 넣도록 골랐으면, 카톡 텍스트에는 사진이 안 가니 PDF를 안내한다.
+    textFooter: (includePhotos && (picked.isNotEmpty || compares.isNotEmpty))
+        ? '※ 사진 ${picked.length}장'
+              '${compares.isEmpty ? '' : ', 작업 전/후 비교 ${compares.length}쌍'}'
+              '은 PDF로 보내면 함께 볼 수 있어요.'
+        : null,
     logoB64: one == null ? null : headerOverride(one, 'logoB64'),
     company: one == null ? null : headerOverride(one, 'company'),
     manager: one == null ? null : headerOverride(one, 'manager'),

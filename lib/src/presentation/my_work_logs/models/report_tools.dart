@@ -119,6 +119,8 @@ class ReportDoc {
   final String? manager;
   // 텍스트 공유에서 섹션 제목을 【제목】으로 쓴다(본문에 이미 ■ 프로젝트 줄이 있는 문서용).
   final bool boxedHeadings;
+  final String? textFooter; // 텍스트 공유 맨 끝에 붙이는 안내 한 줄
+  final String? fileStamp; // PDF 파일 이름에 넣는 날짜(yyyyMMdd). 없으면 오늘
   ReportDoc(
     this.title,
     this.period,
@@ -132,6 +134,8 @@ class ReportDoc {
     this.manager,
     this.logoB64,
     this.boxedHeadings = false,
+    this.textFooter,
+    this.fileStamp,
   });
 
   String toText() {
@@ -149,6 +153,9 @@ class ReportDoc {
       for (final l in s.lines) {
         b.writeln(l);
       }
+    }
+    if (textFooter != null && textFooter!.isNotEmpty) {
+      b.writeln('\n$textFooter');
     }
     return b.toString().trimRight();
   }
@@ -687,6 +694,21 @@ ReportDoc buildFinalReportDoc(Map<String, dynamic> log) {
   return doc;
 }
 
+// PDF 파일 이름: 프로젝트_보고서종류_날짜.pdf (폴더/특수문자는 뺀다).
+String reportPdfFileName(ReportDoc doc, [DateTime? now]) {
+  String safe(String s) => s
+      .replaceAll(RegExp(r'[\\/:*?"<>|]'), '')
+      .trim()
+      .replaceAll(RegExp(r'\s+'), '_');
+  final d = now ?? DateTime.now();
+  final stamp =
+      doc.fileStamp ??
+      '${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';
+  final title = safe(doc.title);
+  final kind = safe(doc.heading);
+  return '${title.isEmpty ? '보고서' : title}_${kind}_$stamp.pdf';
+}
+
 Future<Uint8List> buildReportPdfBytes(
   ReportDoc doc, {
   bool withPhotos = false,
@@ -990,9 +1012,7 @@ Future<Uint8List> buildReportPdfBytes(
 Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
   final bytes = await buildReportPdfBytes(doc, withPhotos: withPhotos);
   final dir = await getTemporaryDirectory();
-  final file = File(
-    '${dir.path}/report_${DateTime.now().millisecondsSinceEpoch}.pdf',
-  );
+  final file = File('${dir.path}/${reportPdfFileName(doc)}');
   await file.writeAsBytes(bytes);
   // ignore: deprecated_member_use
   await Share.shareXFiles([

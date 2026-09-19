@@ -219,6 +219,13 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
     );
   }
 
+  // 접을 수 있는 "섹션|프로젝트" 키 전체.
+  Set<String> _allProjectKeys(ReportDoc doc) => {
+    for (final s in doc.sections)
+      for (final l in s.lines)
+        if (_projectName(l) != null) '${s.heading}|${_projectName(l)}',
+  };
+
   Future<void> _pdf(ReportDoc doc) async {
     try {
       await shareReportPdf(doc, withPhotos: _photos);
@@ -327,6 +334,29 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                     ),
                   ),
                 ),
+                if (_active.length > 1)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton.icon(
+                          onPressed: () => setState(
+                            () => _collapsed
+                              ..clear()
+                              ..addAll(_allProjectKeys(doc)),
+                          ),
+                          icon: const Icon(Icons.unfold_less_rounded, size: 18),
+                          label: const Text("모두 접기"),
+                        ),
+                        TextButton.icon(
+                          onPressed: () => setState(_collapsed.clear),
+                          icon: const Icon(Icons.unfold_more_rounded, size: 18),
+                          label: const Text("모두 펼치기"),
+                        ),
+                      ],
+                    ),
+                  ),
                 Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.symmetric(horizontal: 8),
