@@ -251,28 +251,27 @@ class _RetroOverviewPageState extends State<RetroOverviewPage> {
                   onChanged: (v) => setState(() => _query = v),
                 ),
                 const SizedBox(height: 8),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
                   children: [
                     for (final e in const {
                       RetroPeriod.all: '전체 기간',
                       RetroPeriod.last3Months: '최근 3개월',
                       RetroPeriod.thisYear: '올해',
                     }.entries)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(e.value),
-                          selected: _period == e.key,
-                          showCheckmark: false,
-                          selectedColor: _teal,
-                          backgroundColor: Colors.white,
-                          side: BorderSide.none,
-                          labelStyle: TextStyle(
-                            color: _period == e.key ? Colors.white : _sub,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          onSelected: (_) => setState(() => _period = e.key),
+                      ChoiceChip(
+                        label: Text(e.value),
+                        selected: _period == e.key,
+                        showCheckmark: false,
+                        selectedColor: _teal,
+                        backgroundColor: Colors.white,
+                        side: BorderSide.none,
+                        labelStyle: TextStyle(
+                          color: _period == e.key ? Colors.white : _sub,
+                          fontWeight: FontWeight.w700,
                         ),
+                        onSelected: (_) => setState(() => _period = e.key),
                       ),
                   ],
                 ),

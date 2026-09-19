@@ -316,7 +316,7 @@ extension _ProjectDetailReports on _ProjectDetailPageState {
                       ),
                     ],
                   )
-                : Row(
+                : Wrap(
                     children: [
                       TextButton.icon(
                         onPressed: () => setState(() => _selectMode = true),

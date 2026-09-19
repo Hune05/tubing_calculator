@@ -314,13 +314,14 @@ class _AppStatusPageState extends State<AppStatusPage> {
                         style: const TextStyle(fontSize: 12, color: _sub),
                       ),
                     const SizedBox(height: 10),
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         OutlinedButton(
                           onPressed: _copyErrors,
                           child: const Text("오류 기록 복사"),
                         ),
-                        const SizedBox(width: 8),
                         TextButton(
                           onPressed: _clearErrors,
                           child: const Text("기록 지우기"),

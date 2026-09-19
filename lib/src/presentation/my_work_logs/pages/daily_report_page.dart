@@ -392,176 +392,184 @@ class _DailyReportPageState extends State<DailyReportPage> {
             ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "이전 작업 일지에서 채우기",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    "채울 작업 일지를 선택하십시오",
-                    style: TextStyle(
-                      color: tossSubText,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "이전 작업 일지에서 채우기",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 260),
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: list.length,
-                      itemBuilder: (_, i) {
-                        final r = list[i];
-                        final on = i == picked;
-                        final t = _workTypesOf(r);
-                        final n = (r['note']?.toString() ?? '').trim();
-                        return InkWell(
-                          key: ValueKey('fill_pick_$i'),
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () => setD(() => picked = i),
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 4),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: on
-                                  ? makitaTeal.withValues(alpha: 0.08)
-                                  : null,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
+                    const SizedBox(height: 14),
+                    const Text(
+                      "채울 작업 일지를 선택하십시오",
+                      style: TextStyle(
+                        color: tossSubText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 260),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: list.length,
+                        itemBuilder: (_, i) {
+                          final r = list[i];
+                          final on = i == picked;
+                          final t = _workTypesOf(r);
+                          final n = (r['note']?.toString() ?? '').trim();
+                          return InkWell(
+                            key: ValueKey('fill_pick_$i'),
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => setD(() => picked = i),
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
                                 color: on
-                                    ? makitaTeal
-                                    : const Color(0xFFE5E8EB),
+                                    ? makitaTeal.withValues(alpha: 0.08)
+                                    : null,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: on
+                                      ? makitaTeal
+                                      : const Color(0xFFE5E8EB),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    on
+                                        ? Icons.radio_button_checked
+                                        : Icons.radio_button_unchecked,
+                                    color: on ? makitaTeal : tossSubText,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          keepWords(
+                                            "${_dateLabelOf(r)}  ·  ${t.isEmpty ? '유형 없음' : t}  ·  ${r['worker_count'] ?? 1}명",
+                                          ),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          n.isEmpty ? '작업 내용 없음' : n,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: tossSubText,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  on
-                                      ? Icons.radio_button_checked
-                                      : Icons.radio_button_unchecked,
-                                  color: on ? makitaTeal : tossSubText,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        keepWords(
-                                          "${_dateLabelOf(r)}  ·  ${t.isEmpty ? '유형 없음' : t}  ·  ${r['worker_count'] ?? 1}명",
-                                        ),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        n.isEmpty ? '작업 내용 없음' : n,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: tossSubText,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    "채울 항목",
-                    style: TextStyle(
-                      color: tossSubText,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  CheckboxListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    value: basic,
-                    onChanged: (v) => setD(() => basic = v ?? false),
-                    title: const Text("단계·유형·인원"),
-                    subtitle: const Text("지금 골라 둔 것이 바뀝니다"),
-                  ),
-                  CheckboxListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    value: memo,
-                    onChanged: (v) => setD(() => memo = v ?? false),
-                    title: const Text("작업 내용·자재"),
-                    subtitle: const Text("비어 있는 칸에만 채웁니다"),
-                  ),
-                  if (preview.isNotEmpty)
-                    Container(
-                      width: double.infinity,
-                      margin: const EdgeInsets.only(top: 6),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF2F4F6),
-                        borderRadius: BorderRadius.circular(12),
+                          );
+                        },
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "${_dateLabelOf(sel)} 작업 일지에서 채워질 내용",
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          for (final line in preview)
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      "채울 항목",
+                      style: TextStyle(
+                        color: tossSubText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      value: basic,
+                      onChanged: (v) => setD(() => basic = v ?? false),
+                      title: const Text("단계·유형·인원"),
+                      subtitle: const Text("지금 골라 둔 것이 바뀝니다"),
+                    ),
+                    CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      value: memo,
+                      onChanged: (v) => setD(() => memo = v ?? false),
+                      title: const Text("작업 내용·자재"),
+                      subtitle: const Text("비어 있는 칸에만 채웁니다"),
+                    ),
+                    if (preview.isNotEmpty)
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(top: 6),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF2F4F6),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Text(
-                              keepWords(line),
-                              style: const TextStyle(fontSize: 12, height: 1.5),
+                              "${_dateLabelOf(sel)} 작업 일지에서 채워질 내용",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                              ),
                             ),
-                        ],
+                            const SizedBox(height: 4),
+                            for (final line in preview)
+                              Text(
+                                keepWords(line),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  height: 1.5,
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
+                    const SizedBox(height: 8),
+                    Text(
+                      keepWords("사진, 벤딩·결선 숫자, 이슈는 옮기지 않습니다."),
+                      style: const TextStyle(color: tossSubText, fontSize: 12),
                     ),
-                  const SizedBox(height: 8),
-                  Text(
-                    keepWords("사진, 벤딩·결선 숫자, 이슈는 옮기지 않습니다."),
-                    style: const TextStyle(color: tossSubText, fontSize: 12),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text("취소"),
-                      ),
-                      TextButton(
-                        onPressed: (basic || memo)
-                            ? () => Navigator.pop(ctx, true)
-                            : null,
-                        child: const Text("채우기"),
-                      ),
-                    ],
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text("취소"),
+                        ),
+                        TextButton(
+                          onPressed: (basic || memo)
+                              ? () => Navigator.pop(ctx, true)
+                              : null,
+                          child: const Text("채우기"),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           );
