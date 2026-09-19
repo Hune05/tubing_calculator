@@ -305,9 +305,10 @@ ReportDoc buildWeeklyPlanDoc(
   }
 
   // 사진: 지난주·이번주 일보에 붙은 사진 중 최근 12장.
-  final photos = <(DateTime, ReportPhoto)>[];
+  final photos = <(int, DateTime, ReportPhoto)>[];
   if (includePhotos) {
-    for (final log in targets) {
+    for (var ti = 0; ti < targets.length; ti++) {
+      final log = targets[ti];
       for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
         final d = reportDateOf(r);
         if (!weeks[0].contains(d) && !weeks[1].contains(d)) continue;
@@ -318,11 +319,12 @@ ReportDoc buildWeeklyPlanDoc(
         for (final p in (r['image_paths'] as List? ?? [])) {
           final k = p.toString();
           photos.add((
+            ti,
             d,
             ReportPhoto(
               k,
+              group: targets.length > 1 ? log['name']?.toString() : null,
               [
-                if (targets.length > 1) log['name'],
                 _md(d),
                 if (tags[k] != null) tags[k],
                 if (caps[k] != null) caps[k],
@@ -332,11 +334,17 @@ ReportDoc buildWeeklyPlanDoc(
         }
       }
     }
-    photos.sort((a, b) => a.$1.compareTo(b.$1));
   }
-  final picked = photos.length > 12
-      ? photos.sublist(photos.length - 12)
-      : photos;
+  // 최근 12장만 남기고, 프로젝트 순서로 묶어 그 안에서는 날짜순으로 둔다.
+  photos.sort((a, b) => a.$2.compareTo(b.$2));
+  final picked =
+      (photos.length > 12
+            ? photos.sublist(photos.length - 12)
+            : photos.toList())
+        ..sort((a, b) {
+          final c = a.$1.compareTo(b.$1);
+          return c != 0 ? c : a.$2.compareTo(b.$2);
+        });
 
   return ReportDoc(
     targets.length == 1
@@ -345,6 +353,6 @@ ReportDoc buildWeeklyPlanDoc(
     '${today.year}.${today.month}.${today.day} 기준',
     sections,
     heading: '주간 업무 보고',
-    photos: [for (final e in picked) e.$2],
+    photos: [for (final e in picked) e.$3],
   );
 }

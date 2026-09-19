@@ -62,7 +62,8 @@ class ReportSection {
 class ReportPhoto {
   final String path;
   final String label;
-  ReportPhoto(this.path, this.label);
+  final String? group; // 있으면 PDF에서 이 이름(프로젝트) 소제목 아래로 묶는다
+  ReportPhoto(this.path, this.label, {this.group});
 }
 
 // 그래프 한 줄(막대). plan이 있으면 계획 막대를 위에 회색으로 함께 그린다.
@@ -590,13 +591,54 @@ List<pw.Widget> _chartWidgets(ReportChart c) {
   ];
 }
 
+// 사진을 두 장씩 한 줄로 배치한다(페이지 안에서 잘리지 않게 줄 단위 위젯).
+List<pw.Widget> _photoRows(List<(Uint8List, String)> items) {
+  return [
+    for (int i = 0; i < items.length; i += 2)
+      pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 10),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            for (int j = i; j < i + 2; j++)
+              pw.Expanded(
+                child: j < items.length
+                    ? pw.Padding(
+                        padding: const pw.EdgeInsets.only(right: 8),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Container(
+                              height: 170,
+                              width: double.infinity,
+                              child: pw.Image(
+                                pw.MemoryImage(items[j].$1),
+                                fit: pw.BoxFit.contain,
+                              ),
+                            ),
+                            pw.SizedBox(height: 3),
+                            pw.Text(
+                              items[j].$2,
+                              style: const pw.TextStyle(fontSize: 9),
+                            ),
+                          ],
+                        ),
+                      )
+                    : pw.SizedBox(),
+              ),
+          ],
+        ),
+      ),
+  ];
+}
+
 Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
   // 사진은 최대 24장까지, 페이지 안에서 잘리지 않게 두 장씩 한 줄로 넣는다.
-  final loaded = <(Uint8List, String)>[];
+  final loaded = <(Uint8List, String, String?)>[];
   if (withPhotos) {
     for (final p in doc.photos.take(24)) {
       final b = await _pdfPhotoBytes(p.path);
-      if (b != null) loaded.add((b, p.label));
+      if (b != null) loaded.add((b, p.label, p.group));
     }
   }
   // 도면 핀: 도면 이미지를 한 번만 받아 크기를 읽고, 핀 위치에 빨간 점을 그린다.
@@ -827,41 +869,23 @@ Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
             style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
           ),
           pw.Divider(height: 6),
-          for (int i = 0; i < loaded.length; i += 2)
-            pw.Padding(
-              padding: const pw.EdgeInsets.only(bottom: 10),
-              child: pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  for (int j = i; j < i + 2; j++)
-                    pw.Expanded(
-                      child: j < loaded.length
-                          ? pw.Padding(
-                              padding: const pw.EdgeInsets.only(right: 8),
-                              child: pw.Column(
-                                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                                children: [
-                                  pw.Container(
-                                    height: 170,
-                                    width: double.infinity,
-                                    child: pw.Image(
-                                      pw.MemoryImage(loaded[j].$1),
-                                      fit: pw.BoxFit.contain,
-                                    ),
-                                  ),
-                                  pw.SizedBox(height: 3),
-                                  pw.Text(
-                                    loaded[j].$2,
-                                    style: const pw.TextStyle(fontSize: 9),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : pw.SizedBox(),
-                    ),
-                ],
+          for (final g in <String?>{for (final e in loaded) e.$3}) ...[
+            if (g != null)
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(bottom: 6, top: 4),
+                child: pw.Text(
+                  '■ $g',
+                  style: pw.TextStyle(
+                    fontSize: 11,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
               ),
-            ),
+            ..._photoRows([
+              for (final e in loaded)
+                if (e.$3 == g) (e.$1, e.$2),
+            ]),
+          ],
         ],
         if (style.signature) ...[
           pw.SizedBox(height: 30),

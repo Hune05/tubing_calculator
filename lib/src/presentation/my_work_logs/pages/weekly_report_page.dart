@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../data/repositories/work_project_repository.dart';
+import '../models/photo_store.dart';
 import '../models/report_tools.dart';
 import '../widgets/work_theme.dart';
 import '../models/weekly_plan.dart';
@@ -172,6 +173,59 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                       ),
                       value: _split,
                       onChanged: (v) => setState(() => _split = v),
+                    ),
+                  ),
+                if (_photos && doc.photos.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "사진 미리보기",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: _teal,
+                          ),
+                        ),
+                        for (final g in <String?>{
+                          for (final p in doc.photos) p.group,
+                        }) ...[
+                          const SizedBox(height: 10),
+                          if (g != null)
+                            Text(
+                              "■ $g",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                                color: _text,
+                              ),
+                            ),
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              for (final p in doc.photos)
+                                if (p.group == g)
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: PhotoImage(
+                                      p.path,
+                                      width: 64,
+                                      height: 64,
+                                    ),
+                                  ),
+                            ],
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 for (final s in doc.sections)
