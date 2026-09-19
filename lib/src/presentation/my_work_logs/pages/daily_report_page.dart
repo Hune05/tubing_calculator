@@ -702,10 +702,14 @@ class _DailyReportPageState extends State<DailyReportPage> {
     if (ptText.isEmpty &&
         wpText.isEmpty &&
         ntText.isEmpty &&
-        _attachedImages.isEmpty) {
+        _attachedImages.isEmpty &&
+        // 이슈 처리/일정 완료/자재 사용만 골라도 기록으로 인정한다.
+        _selectedIssueIds.isEmpty &&
+        _completedScheduleIds.isEmpty &&
+        _usedMaterialIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("작업 포인트, 내용, 또는 사진을 입력해주세요."),
+          content: Text("작업 내용, 사진, 또는 처리한 이슈/일정을 하나 이상 입력해주세요."),
           backgroundColor: Colors.red,
         ),
       );
@@ -726,6 +730,61 @@ class _DailyReportPageState extends State<DailyReportPage> {
       final String? reason = await _askEditReason();
       if (reason == null) return;
       editHistory.add({'reason': reason, 'editedAt': DateTime.now()});
+    }
+
+    // 고른 이슈 중 아직 미해결인 것이 있으면, 처리 완료로 표시할지 묻는다.
+    final List<String> resolveIds = [];
+    final unresolvedPicked = widget.relatedIssueCandidates
+        .where(
+          (p) =>
+              _selectedIssueIds.contains(p['id']?.toString()) &&
+              p['is_completed'] != true,
+        )
+        .toList();
+    if (unresolvedPicked.isNotEmpty) {
+      final mark = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text("이슈를 처리 완료로 표시할까요?"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "'오늘 처리한 이슈'로 고른 미해결 이슈예요. 처리 완료로 바꾸면 이슈 목록에서도 완료로 정리돼요.",
+                style: TextStyle(fontSize: 13, height: 1.4),
+              ),
+              const SizedBox(height: 10),
+              for (final p in unresolvedPicked.take(4))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    "• ${(p['location']?.toString() ?? '').isEmpty ? '' : '${p['location']} · '}${p['content'] ?? ''}",
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              if (unresolvedPicked.length > 4)
+                Text("외 ${unresolvedPicked.length - 4}건"),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("기록만 남기기"),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("처리 완료로 표시"),
+            ),
+          ],
+        ),
+      );
+      if (mark == null || !mounted) return;
+      if (mark) {
+        resolveIds.addAll(unresolvedPicked.map((p) => p['id'].toString()));
+      }
     }
 
     final dateStr = _isEdit ? widget.existingData!['date'] : _todayDateStr();
@@ -772,6 +831,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
           if ((_imageCaptions[p] ?? '').isNotEmpty) p: _imageCaptions[p]!,
       },
       "usedMaterialIds": _usedMaterialIds.toList(),
+      "resolveIssueIds": resolveIds,
       "workedPhaseIds": _workedPhaseIds.toList(),
       "completedScheduleIds": _completedScheduleIds.toList(),
       "completedPhaseIds": _completedPhaseIds.toList(),
@@ -803,7 +863,8 @@ class _DailyReportPageState extends State<DailyReportPage> {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
-          issue['content'] ?? issue['location'] ?? '이슈',
+          // 위치가 있으면 함께 보여줘서 같은 내용의 이슈도 구분되게 한다.
+          "${(issue['location']?.toString() ?? '').isEmpty || issue['location'] == '위치 미상' ? '' : '${issue['location']} · '}${issue['content'] ?? '이슈'}",
           style: TextStyle(
             color: selected ? pureWhite : tossSubText,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w600,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/project_phase.dart';
+import '../models/report_tools.dart' show reportDateOf;
 
 const Color _tossBlue = Color(0xFF007580);
 const Color _tossText = Color(0xFF191F28);
@@ -32,6 +33,15 @@ class ProjectSummaryCard extends StatelessWidget {
     final cur = currentPhase(log);
     final issues = unresolvedIssueCount(log);
     final today = dayOnly(DateTime.now());
+    // 마지막 일보가 며칠 전인지(진행중 프로젝트에서 일보가 끊기지 않게 눈에 띄게).
+    DateTime? lastReport;
+    for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
+      final d = reportDateOf(r);
+      if (lastReport == null || d.isAfter(lastReport)) lastReport = d;
+    }
+    final int? sinceReport = lastReport == null
+        ? null
+        : today.difference(lastReport).inDays;
     final int? diff = due?.difference(today).inDays;
     final bool overdue = isActive && diff != null && diff < 0 && progress < 1;
 
@@ -173,6 +183,18 @@ class ProjectSummaryCard extends StatelessWidget {
                               Icons.warning_amber_rounded,
                               "${delayedPhase(log)!.phase['name']} ${delayedPhase(log)!.days}일 지연",
                               _warnRed,
+                            ),
+                          if (isActive)
+                            _chip(
+                              Icons.edit_note_rounded,
+                              sinceReport == null
+                                  ? "일보 없음"
+                                  : (sinceReport <= 0
+                                        ? "오늘 일보"
+                                        : "일보 $sinceReport일 전"),
+                              (sinceReport == null || sinceReport >= 3)
+                                  ? _warnRed
+                                  : (sinceReport <= 0 ? _tossBlue : _tossSub),
                             ),
                           if (issues > 0)
                             _chip(

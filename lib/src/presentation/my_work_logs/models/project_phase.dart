@@ -295,6 +295,22 @@ bool applyReportEffects(Map<String, dynamic> log, Map report) {
       }
     }
   }
+  // 일보에서 "처리 완료로 표시"를 고른 이슈를 해결 상태로 바꾼다.
+  final resolveIssues = reportIds(report, 'resolveIssueIds').toSet();
+  if (resolveIssues.isNotEmpty && log['punch_lists'] is List) {
+    for (final p in log['punch_lists'] as List) {
+      if (p is Map &&
+          resolveIssues.contains(p['id']?.toString()) &&
+          p['is_completed'] != true) {
+        p['is_completed'] = true;
+        p['resolved_at'] = DateTime.now();
+        if ((p['resolution_note']?.toString() ?? '').trim().isEmpty) {
+          p['resolution_note'] = '작업 일보(${report['date']})에서 처리 완료';
+        }
+        changed = true;
+      }
+    }
+  }
   if (donePhases.isNotEmpty && log['phases'] is List) {
     for (final p in log['phases'] as List) {
       if (p is Map &&

@@ -454,9 +454,30 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     ),
   );
 
-  Widget _emptyText(String t) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
-    child: Text(t, style: const TextStyle(color: tossSubText, fontSize: 13)),
+  // 빈 상태는 아이콘과 함께 옅은 상자로 보여줘서 "비어 있음"이 한눈에 보이게 한다.
+  Widget _emptyText(String t) => Container(
+    margin: const EdgeInsets.symmetric(vertical: 6),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    decoration: BoxDecoration(
+      color: tossSubText.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.info_outline_rounded, size: 16, color: tossSubText),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            t,
+            style: const TextStyle(
+              color: tossSubText,
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
+    ),
   );
 
   Widget _buildPhaseStrip(List<Map<String, dynamic>> phases) {
