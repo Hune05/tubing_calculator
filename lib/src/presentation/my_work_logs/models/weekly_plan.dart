@@ -143,6 +143,16 @@ List<String> _plannedLines(Map<String, dynamic> log, WeekRange w) {
   return lines;
 }
 
+String _openIssueText(Map<String, dynamic> log) {
+  final open = (log['punch_lists'] as List? ?? [])
+      .whereType<Map>()
+      .where((p) => p['is_completed'] != true)
+      .length;
+  if (open == 0) return '';
+  final od = overdueIssueCount(log);
+  return ' · 미해결 이슈 $open건${od > 0 ? '(기한 초과 $od)' : ''}';
+}
+
 // 이번주 한눈에 보는 요약: 작업일수·투입, 완료한 일정, 이슈 신규/처리.
 List<String> _summaryLines(List<Map<String, dynamic>> logs, WeekRange w) {
   int days = 0, manDays = 0, doneSchedules = 0, created = 0, resolved = 0;
@@ -168,6 +178,11 @@ List<String> _summaryLines(List<Map<String, dynamic>> logs, WeekRange w) {
     '  · 작업 ${days}일(일보 기준) · 투입 ${manDays}인·일',
     '  · 완료한 일정 ${doneSchedules}건',
     '  · 이슈 신규 ${created}건 · 처리 ${resolved}건',
+    // 프로젝트가 여러 개면 한 줄씩 현황(카톡 텍스트로 보낼 때 한눈에 보이게).
+    if (logs.length > 1)
+      for (final log in logs)
+        '  ■ ${log['name'] ?? '프로젝트'} · 진행률 ${(projectProgress(log) * 100).round()}%'
+            '${_openIssueText(log)}',
   ];
 }
 
@@ -372,6 +387,37 @@ ReportDoc buildWeeklyPlanDoc(
       }
     }
   }
+  // 작업 전/후 사진을 프로젝트별로 순서대로 짝지어 전후 비교로 만든다.
+  final compares = <ReportCompare>[];
+  if (includePhotos) {
+    for (final log in targets) {
+      final before = <String>[], after = <String>[];
+      final reps =
+          (log['daily_reports'] as List? ?? []).whereType<Map>().toList()
+            ..sort((a, b) => reportDateOf(a).compareTo(reportDateOf(b)));
+      for (final r in reps) {
+        final d = reportDateOf(r);
+        if (!weeks[0].contains(d) && !weeks[1].contains(d)) continue;
+        final tags = Map<String, dynamic>.from((r['image_tags'] as Map?) ?? {});
+        for (final p in (r['image_paths'] as List? ?? [])) {
+          final k = p.toString();
+          if (tags[k] == '작업 전') before.add(k);
+          if (tags[k] == '작업 후') after.add(k);
+        }
+      }
+      final n = before.length < after.length ? before.length : after.length;
+      for (var i = 0; i < n && compares.length < 6; i++) {
+        compares.add(
+          ReportCompare(
+            before[i],
+            after[i],
+            '${log['name'] ?? '프로젝트'} · 작업 전/후 ${i + 1}',
+          ),
+        );
+      }
+    }
+  }
+
   // 최근 12장만 남기고, 프로젝트 순서로 묶어 그 안에서는 날짜순으로 둔다.
   photos.sort((a, b) => a.$2.compareTo(b.$2));
   final picked =
@@ -391,5 +437,6 @@ ReportDoc buildWeeklyPlanDoc(
     sections,
     heading: '주간 업무 보고',
     photos: [for (final e in picked) e.$3],
+    compares: compares,
   );
 }

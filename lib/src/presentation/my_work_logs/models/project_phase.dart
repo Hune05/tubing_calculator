@@ -126,6 +126,21 @@ double projectProgress(Map<String, dynamic> log) {
   return sum / phases.length;
 }
 
+// 이슈의 처리 기한이 지난 일수(기한이 없거나 안 지났거나 이미 처리했으면 0).
+int issueOverdueDays(Map p, [DateTime? now]) {
+  if (p['is_completed'] == true || p['dueDate'] == null) return 0;
+  final d = dayOnly(
+    now ?? DateTime.now(),
+  ).difference(dayOnly(asDate(p['dueDate'])));
+  return d.inDays > 0 ? d.inDays : 0;
+}
+
+int overdueIssueCount(Map<String, dynamic> log) =>
+    (log['punch_lists'] as List? ?? [])
+        .whereType<Map>()
+        .where((p) => issueOverdueDays(p) > 0)
+        .length;
+
 String _dayKey(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 

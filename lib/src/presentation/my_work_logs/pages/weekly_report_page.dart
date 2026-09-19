@@ -175,6 +175,62 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                       onChanged: (v) => setState(() => _split = v),
                     ),
                   ),
+                if (_photos && doc.compares.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "작업 전 / 후",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: _teal,
+                          ),
+                        ),
+                        for (final c in doc.compares) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            c.label,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: _text,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              for (final (i, path) in [
+                                c.before,
+                                c.after,
+                              ].indexed)
+                                Expanded(
+                                  child: Padding(
+                                    padding: EdgeInsets.only(
+                                      left: i == 0 ? 0 : 6,
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: AspectRatio(
+                                        aspectRatio: 1.4,
+                                        child: PhotoImage(path),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 if (_photos && doc.photos.isNotEmpty)
                   Container(
                     margin: const EdgeInsets.only(bottom: 12),

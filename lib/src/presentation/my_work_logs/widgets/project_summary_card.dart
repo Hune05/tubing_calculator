@@ -217,6 +217,12 @@ class ProjectSummaryCard extends StatelessWidget {
                               "이슈 $issues",
                               _warnRed,
                             ),
+                          if (overdueIssueCount(log) > 0)
+                            _chip(
+                              Icons.event_busy_rounded,
+                              "기한 초과 ${overdueIssueCount(log)}",
+                              _warnRed,
+                            ),
                           if (cur == null && issues == 0)
                             _chip(
                               Icons.check_circle_outline_rounded,

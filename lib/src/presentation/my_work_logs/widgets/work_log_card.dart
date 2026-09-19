@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'photo_detail_modal.dart';
+import '../models/project_phase.dart' show issueOverdueDays;
 
 const Color tossBlue = Color(0xFF007580); // 🚀 마키타 틸로 통일
 const Color tossText = Color(0xFF191F28);
@@ -639,7 +640,7 @@ class PunchListSectionState extends State<PunchListSection> {
               context: context,
               // 위치를 제목에 보여줘서 어느 곳 이슈인지 목록에서 바로 알 수 있게 한다.
               title:
-                  "${(punch['location']?.toString() ?? '').isEmpty || punch['location'] == '위치 미상' ? '' : '${punch['location']} · '}${isPunchDone ? '처리 완료' : '확인 요망'}",
+                  "${(punch['location']?.toString() ?? '').isEmpty || punch['location'] == '위치 미상' ? '' : '${punch['location']} · '}${isPunchDone ? '처리 완료' : (issueOverdueDays(punch) > 0 ? '기한 초과 ${issueOverdueDays(punch)}일' : '확인 요망')}",
               content: punch['priority'] == '긴급'
                   ? "[긴급] ${punch['content'] ?? ''}"
                   : (punch['content'] ?? '').toString(),

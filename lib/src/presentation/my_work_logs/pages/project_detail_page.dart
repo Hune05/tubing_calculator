@@ -320,8 +320,13 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                     ),
                   ),
                   subtitle: Text(
-                    "${p['location'] ?? ''}  ·  ${p['priority'] ?? '보통'}",
-                    style: const TextStyle(fontSize: 12, color: tossSubText),
+                    "${p['location'] ?? ''}  ·  ${p['priority'] ?? '보통'}${issueOverdueDays(p) > 0 ? '  ·  기한 초과 ${issueOverdueDays(p)}일' : ''}",
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: issueOverdueDays(p) > 0
+                          ? const Color(0xFFE5484D)
+                          : tossSubText,
+                    ),
                   ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => _run(() => widget.actions.openPunch(p)),
@@ -330,10 +335,12 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         const SizedBox(height: 28),
         Center(
           child: TextButton.icon(
-            onPressed: () {
+            onPressed: () async {
               widget.actions.toggleStatus();
               setState(() {});
               if (!_isActive) {
+                await _offerFinalReport();
+                if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: const Text("프로젝트를 완료 처리했어요."),
@@ -2681,6 +2688,47 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       _sel.clear();
     });
     _changed();
+  }
+
+  // 프로젝트를 완료 처리하면 마무리 보고서(PDF, 사진 포함)를 바로 만들지 묻는다.
+  Future<void> _offerFinalReport() async {
+    final make = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("마무리 보고서를 만들까요?"),
+        content: const Text("착수부터 지금까지의 전체 기록을 사진 포함 PDF로 만들어 공유할 수 있어요."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("나중에"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("PDF 만들기"),
+          ),
+        ],
+      ),
+    );
+    if (make != true || !mounted) return;
+    try {
+      DateTime? first;
+      for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
+        final d = reportDateOf(r);
+        if (first == null || d.isBefore(first)) first = d;
+      }
+      final doc = buildReportDoc(
+        log,
+        first ?? DateTime.now().subtract(const Duration(days: 30)),
+        DateTime.now(),
+      );
+      await shareReportPdf(doc, withPhotos: true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("PDF 생성 실패: $e")));
+      }
+    }
   }
 
   Future<void> _exportSelected() async {
