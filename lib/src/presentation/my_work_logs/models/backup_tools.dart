@@ -83,6 +83,31 @@ BackupPreview parseBackup(String text) {
   );
 }
 
+// 복원하면 무엇이 어떻게 되는지: 새로 들어오는 것 / 덮어쓰는 것 / 그대로 두는 것(백업에 없는 지금 프로젝트).
+class RestorePlan {
+  final List<String> added;
+  final List<String> overwritten;
+  final int untouched;
+  RestorePlan(this.added, this.overwritten, this.untouched);
+}
+
+RestorePlan planRestore(BackupPreview b, List<Map<String, dynamic>> current) {
+  final have = {for (final c in current) c['id']?.toString(): c};
+  final added = <String>[], over = <String>[];
+  final inBackup = <String>{};
+  for (final raw in (b.raw['projects'] as List)) {
+    if (raw is! Map || raw['id'] == null) continue;
+    final id = raw['id'].toString();
+    inBackup.add(id);
+    final name = (raw['name']?.toString() ?? '').isEmpty
+        ? '이름 없음'
+        : raw['name'].toString();
+    (have.containsKey(id) ? over : added).add(name);
+  }
+  final untouched = have.keys.where((k) => k != null && !inBackup.contains(k));
+  return RestorePlan(added, over, untouched.length);
+}
+
 // 같은 id의 프로젝트는 백업 내용으로 덮어쓴다. 성공한 프로젝트 수를 돌려준다.
 Future<int> restoreBackup(BackupPreview b) async {
   final repo = WorkProjectRepository();

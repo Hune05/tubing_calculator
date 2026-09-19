@@ -48,7 +48,38 @@ bool retroMatches(
       : !at.isBefore(DateTime(now.year, now.month - 3, now.day));
 }
 
+// 원인 글을 쉼표·줄바꿈·슬래시로 나눠 같은 원인끼리 센다(띄어쓰기·대소문자는 같게 본다).
+// 많이 나온 순, 같으면 이름순. 처음 나온 표기를 보여 준다.
+List<(String, int)> retroCauseCounts(List<Map<String, dynamic>> logs) {
+  final label = <String, String>{};
+  final count = <String, int>{};
+  for (final l in logs) {
+    final cause = ((l['retro'] as Map?)?['cause'] ?? '').toString();
+    final seen = <String>{}; // 한 프로젝트에서 같은 원인이 두 번 적혀도 1건
+    for (final part in cause.split(RegExp(r'[,\n/]'))) {
+      final t = part.trim();
+      final key = t.replaceAll(RegExp(r'\s+'), '').toLowerCase();
+      if (key.isEmpty || !seen.add(key)) continue;
+      label.putIfAbsent(key, () => t);
+      count[key] = (count[key] ?? 0) + 1;
+    }
+  }
+  final out = [for (final e in count.entries) (label[e.key]!, e.value)];
+  out.sort(
+    (a, b) => b.$2 != a.$2 ? b.$2.compareTo(a.$2) : a.$1.compareTo(b.$1),
+  );
+  return out;
+}
+
 class _RetroOverviewPageState extends State<RetroOverviewPage> {
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
   String? _type;
   String _query = '';
   RetroPeriod _period = RetroPeriod.all;
@@ -218,6 +249,7 @@ class _RetroOverviewPageState extends State<RetroOverviewPage> {
                 ),
                 const SizedBox(height: 10),
                 TextField(
+                  controller: _searchCtrl,
                   decoration: InputDecoration(
                     hintText: "이름·원인·참고에서 찾기",
                     prefixIcon: const Icon(Icons.search_rounded, size: 20),
@@ -293,6 +325,42 @@ class _RetroOverviewPageState extends State<RetroOverviewPage> {
                       Text(
                         keepWords("계획 기간(단계 설정)과 일보가 있는 프로젝트가 생기면 평균이 계산됩니다."),
                         style: TextStyle(color: _sub, fontSize: 13),
+                      ),
+                  ]),
+                if (retroCauseCounts(done).isNotEmpty)
+                  card([
+                    h("원인별 건수 (누르면 검색)"),
+                    for (final c in retroCauseCounts(done).take(6))
+                      InkWell(
+                        onTap: () => setState(() {
+                          _query = c.$1;
+                          _searchCtrl.text = c.$1;
+                        }),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  keepWords(c.$1),
+                                  style: const TextStyle(
+                                    color: _text,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                "${c.$2}건",
+                                style: const TextStyle(
+                                  color: _teal,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                   ]),
                 if (byType.isNotEmpty)

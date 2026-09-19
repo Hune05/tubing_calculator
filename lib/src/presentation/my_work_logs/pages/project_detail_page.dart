@@ -387,6 +387,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(keepWords("프로젝트를 완료 처리했습니다.")),
+                    persist: false,
                     action: _retroFilled
                         ? null
                         : SnackBarAction(

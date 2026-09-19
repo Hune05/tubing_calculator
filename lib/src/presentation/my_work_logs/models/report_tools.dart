@@ -1657,6 +1657,55 @@ Future<void> recordActiveReminders() async {
   } catch (_) {}
 }
 
+// 기록 원본(알림아이디|시각 줄들).
+Future<List<String>> loadSeenReminderRaw() async {
+  final p = await SharedPreferences.getInstance();
+  return p.getStringList(_kPrefSeenReminders) ?? const <String>[];
+}
+
+// 오늘 이미 울렸어야 하는데(예약 시간 + 30분이 지남) 확인 기록이 없는 일보 알림.
+// 예약이 폰에 잡혀 있는 것만 본다. 밀어서 지운 알림도 여기 걸릴 수 있어 "확인 안 됨"으로만 알린다.
+List<ReminderSlot> unconfirmedToday(
+  List<ReminderSlot> slots,
+  List<String> rawSeen,
+  DateTime now,
+) {
+  bool seenSince(int id, DateTime since) {
+    for (final e in rawSeen) {
+      final p = e.split('|');
+      if (p.length != 2 || p[0] != id.toString()) continue;
+      final t = DateTime.tryParse(p[1]);
+      if (t != null && !t.isBefore(since)) return true;
+    }
+    return false;
+  }
+
+  return [
+    for (final s in slots)
+      if (s.scheduled)
+        if (!now.isBefore(
+          DateTime(
+            now.year,
+            now.month,
+            now.day,
+            s.plan.minutes ~/ 60,
+            s.plan.minutes % 60,
+          ).add(const Duration(minutes: 30)),
+        ))
+          if (!seenSince(
+            s.id,
+            DateTime(
+              now.year,
+              now.month,
+              now.day,
+              s.plan.minutes ~/ 60,
+              s.plan.minutes % 60,
+            ).subtract(const Duration(minutes: 5)),
+          ))
+            s,
+  ];
+}
+
 // 최근에 확인된 알림들(최신이 앞).
 Future<List<String>> loadSeenReminderLabels() async {
   final p = await SharedPreferences.getInstance();

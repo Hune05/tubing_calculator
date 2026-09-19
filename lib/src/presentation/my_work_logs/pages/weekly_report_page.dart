@@ -294,6 +294,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
             ..showSnackBar(
               SnackBar(
                 content: Text(keepWords("이 이슈를 주간 보고에서 뺐습니다.")),
+                persist: false,
                 action: SnackBarAction(
                   label: "되돌리기",
                   onPressed: () {

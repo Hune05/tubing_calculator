@@ -138,6 +138,10 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
   Future<void> _restoreText(String text) async {
     final prev = parseBackup(text);
     if (!mounted) return;
+    final plan = planRestore(prev, widget.logs);
+    String names(List<String> l) => l.length <= 3
+        ? l.join(', ')
+        : "${l.take(3).join(', ')} 외 ${l.length - 3}건";
     final when = prev.exportedAt == null
         ? ''
         : '\n(백업 시간: ${prev.exportedAt!.year}.${prev.exportedAt!.month}.${prev.exportedAt!.day})';
@@ -148,7 +152,10 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
         content: Text(
           keepWords(
             "프로젝트 ${prev.projects}건, 템플릿 ${prev.templates}개가 들어 있습니다.$when\n\n"
-            "같은 프로젝트가 이미 있으면 백업 내용으로 덮어씁니다. 계속하시겠습니까?",
+            "${plan.added.isEmpty ? '' : '새로 들어오는 프로젝트 ${plan.added.length}건 (${names(plan.added)})\n'}"
+            "${plan.overwritten.isEmpty ? '' : '덮어쓰는 프로젝트 ${plan.overwritten.length}건 (${names(plan.overwritten)})\n'}"
+            "${plan.untouched == 0 ? '' : '백업에 없는 지금 프로젝트 ${plan.untouched}건은 그대로 둡니다.\n'}"
+            "\n덮어쓰는 프로젝트는 지금 내용이 백업 내용으로 바뀝니다. 계속하시겠습니까?",
           ),
         ),
         actions: [

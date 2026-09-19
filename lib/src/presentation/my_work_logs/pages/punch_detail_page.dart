@@ -641,6 +641,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
               ..showSnackBar(
                 SnackBar(
                   content: Text(v ? "주간 보고에 포함했습니다." : "주간 보고에서 뺐습니다."),
+                  persist: false,
                   action: SnackBarAction(
                     label: "되돌리기",
                     onPressed: () {

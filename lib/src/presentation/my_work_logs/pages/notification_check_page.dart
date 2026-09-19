@@ -48,6 +48,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
   ({bool daily, bool weekly})? _sched;
   int? _dailyCount; // 폰에 실제 예약된 일보 알림 수(모르면 null)
   List<String> _seen = const []; // 최근 확인된 알림 기록
+  List<String> _seenRaw = const []; // 기록 원본(오늘 알림 확인 여부 판단용)
   Set<int>? _pendingIds; // 폰에 예약된 알림 아이디들(모르면 null)
   ({bool enabled, int minutes, bool weekly, int weeklyMinutes, bool autoPdf})?
   _pref;
@@ -93,13 +94,16 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     } catch (_) {}
     final pref = await loadReportReminder();
     List<String> seen = const [];
+    List<String> seenRaw = const [];
     try {
       await (widget.recordActive ?? recordActiveReminders)();
       seen = await loadSeenReminderLabels();
+      seenRaw = await loadSeenReminderRaw();
     } catch (_) {}
     if (mounted) {
       setState(() {
         _seen = seen;
+        _seenRaw = seenRaw;
         _allowed = ok;
         _sched = sched;
         _dailyCount = count;
@@ -192,6 +196,29 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     ];
   }
 
+  // 오늘 울렸어야 하는데 확인 기록이 없는 알림이 있으면 알려 준다(붉은 오류가 아니라 참고용).
+  List<Widget> _unconfirmedNotice(List<ReminderSlot> slots) {
+    final miss = unconfirmedToday(slots, _seenRaw, DateTime.now());
+    if (miss.isEmpty) return const [];
+    final times = miss.map((s) => _hm(s.plan.minutes)).join(', ');
+    return [
+      Padding(
+        padding: const EdgeInsets.only(left: 26, top: 2, bottom: 6),
+        child: Text(
+          keepWords(
+            "오늘 $times 알림이 아직 확인되지 않았습니다. 알림을 밀어서 지웠다면 정상입니다. "
+            "그렇지 않은데 알림이 안 왔다면 아래 4번(배터리 제한)을 확인하십시오.",
+          ),
+          style: const TextStyle(
+            fontSize: 12,
+            height: 1.4,
+            color: Color(0xFFB54708),
+          ),
+        ),
+      ),
+    ];
+  }
+
   // 알림 한 건의 상태 줄. 폰에 예약돼 있지 않으면 빨갛게 표시하고 그 건만 다시 예약할 수 있다.
   Widget _slotRow(ReminderSlot s) {
     final ok = s.scheduled;
@@ -263,9 +290,10 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
         : dailyReminderSlots(active, pref.minutes, DateTime.now(), pending);
     return [
       ..._countCheck(),
-      if (slots != null)
-        for (final s in slots) _slotRow(s)
-      else
+      if (slots != null) ...[
+        for (final s in slots) _slotRow(s),
+        ..._unconfirmedNotice(slots),
+      ] else
         for (final p in plans)
           Padding(
             padding: const EdgeInsets.only(left: 26, bottom: 4),
