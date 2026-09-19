@@ -29,6 +29,7 @@ class ProjectSummaryCard extends StatelessWidget {
     final id = log['id']?.toString() ?? log['name']?.toString() ?? '';
     final color = colorForProject(id);
     final progress = projectProgress(log);
+    final int? weekDelta = progressDeltaSince(log, 7);
     final due = projectDue(log);
     final cur = currentPhase(log);
     final issues = unresolvedIssueCount(log);
@@ -163,6 +164,20 @@ class ProjectSummaryCard extends StatelessWidget {
                               color: _tossText,
                             ),
                           ),
+                          if (isActive && weekDelta != null && weekDelta != 0)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 6),
+                              child: Text(
+                                "주간 ${weekDelta > 0 ? '+' : ''}$weekDelta%p",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 11,
+                                  color: weekDelta > 0
+                                      ? const Color(0xFF1B9E5A)
+                                      : const Color(0xFFE5484D),
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                       const SizedBox(height: 10),
