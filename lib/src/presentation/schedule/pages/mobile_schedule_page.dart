@@ -31,7 +31,7 @@ class MobileSchedulePage extends StatefulWidget {
 class _MobileSchedulePageState extends State<MobileSchedulePage> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
-  Map<DateTime, List<Map<String, dynamic>>> _events = {};
+  final Map<DateTime, List<Map<String, dynamic>>> _events = {};
 
   @override
   void initState() {

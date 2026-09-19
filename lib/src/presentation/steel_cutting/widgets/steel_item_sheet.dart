@@ -306,7 +306,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: picks.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (_, i) =>
                 _buildQuickPickChip(picks[i].key, picks[i].value),
           ),

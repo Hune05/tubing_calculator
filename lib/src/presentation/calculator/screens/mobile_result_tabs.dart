@@ -265,8 +265,9 @@ class _MobileResultTabState extends State<MobileResultTab>
 
           double appliedFit = 0.0;
           if (i == 0 && _includeStartFitting) appliedFit += fittingDepth;
-          if (i == bendList.length - 1 && _includeEndFitting)
+          if (i == bendList.length - 1 && _includeEndFitting) {
             appliedFit += fittingDepth;
+          }
 
           if (currentMark > lastMarkingPoint) {
             lastMarkingPoint = currentMark;
@@ -521,8 +522,9 @@ class _MobileResultTabState extends State<MobileResultTab>
                         itemCount: displayMarks.length,
                         itemBuilder: (context, index) {
                           final item = displayMarks[index];
-                          if (item['is_hidden'] == true)
+                          if (item['is_hidden'] == true) {
                             return const SizedBox.shrink();
+                          }
 
                           int cumulativeMark =
                               (item['marking_point'] as num?)?.round() ?? 0;

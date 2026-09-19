@@ -89,7 +89,7 @@ Future<File> createSummaryImage(Map<String, dynamic> log) async {
     weight: FontWeight.w800,
   ).paint(c, const Offset(pad, 34));
   tp(
-    '${today.year}.${today.month}.${today.day} 기준${manager.isEmpty ? '' : '  ·  담당 ${manager}'}',
+    '${today.year}.${today.month}.${today.day} 기준${manager.isEmpty ? '' : '  ·  담당 $manager'}',
     28,
     color: const Color(0xCCFFFFFF),
   ).paint(c, const Offset(pad, 92));

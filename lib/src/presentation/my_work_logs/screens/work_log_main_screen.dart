@@ -1,7 +1,7 @@
 import '../widgets/work_theme.dart';
 import '../widgets/korean_text.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart'; // debugPrint 사용을 위해 추가
+// debugPrint 사용을 위해 추가
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 
 // 🚀 [수정됨] Dialog가 아니라 새로 만든 Page를 임포트합니다.

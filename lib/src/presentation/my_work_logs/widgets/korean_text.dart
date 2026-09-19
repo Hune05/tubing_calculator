@@ -14,8 +14,9 @@ String keepWords(String text) {
     final next = String.fromCharCode(runes[i + 1]);
     final isSpace =
         c.trim().isEmpty || next.trim().isEmpty; // 공백·줄바꿈 자리는 그대로 둔다
-    if (!isSpace && c != kWordJoiner && next != kWordJoiner)
+    if (!isSpace && c != kWordJoiner && next != kWordJoiner) {
       b.write(kWordJoiner);
+    }
   }
   return b.toString();
 }

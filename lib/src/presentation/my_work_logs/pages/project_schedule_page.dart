@@ -971,7 +971,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: history.length,
-                separatorBuilder: (_, __) => const Divider(height: 20),
+                separatorBuilder: (_, _) => const Divider(height: 20),
                 itemBuilder: (context, index) {
                   final entry = Map<String, dynamic>.from(history[index]);
                   final DateTime from = _asDateTime(entry['from']);
@@ -1515,7 +1515,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                         : ListView.separated(
                             padding: const EdgeInsets.all(16),
                             itemCount: _visibleSchedules.length,
-                            separatorBuilder: (_, __) =>
+                            separatorBuilder: (_, _) =>
                                 const SizedBox(height: 10),
                             itemBuilder: (context, index) {
                               final item = _visibleSchedules[index];

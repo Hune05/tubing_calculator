@@ -20,8 +20,9 @@ const int _kBackupVersion = 1;
 dynamic _enc(dynamic v) {
   if (v is Timestamp) return {'__ts': v.toDate().toIso8601String()};
   if (v is DateTime) return {'__ts': v.toIso8601String()};
-  if (v is Map)
+  if (v is Map) {
     return {for (final e in v.entries) e.key.toString(): _enc(e.value)};
+  }
   if (v is List) return v.map(_enc).toList();
   return v;
 }

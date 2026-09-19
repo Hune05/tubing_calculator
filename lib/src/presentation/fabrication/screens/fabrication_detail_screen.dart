@@ -4,10 +4,8 @@ import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
-import 'dart:typed_data';
 
 import 'package:tubing_calculator/src/core/database/database_helper.dart';
-import 'package:tubing_calculator/src/data/bend_data_manager.dart';
 
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;

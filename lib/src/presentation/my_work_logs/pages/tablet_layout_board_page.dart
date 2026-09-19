@@ -1744,7 +1744,9 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
     _pushUndo();
     HapticFeedback.mediumImpact();
     setState(() {
-      for (var item in _placedItems) item.isSelected = false;
+      for (var item in _placedItems) {
+        item.isSelected = false;
+      }
 
       double clampedX = localPosition.dx.clamp(
         0.0,
@@ -1864,7 +1866,9 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
     // "선택 취소" 한 번으로 전부 되돌아가게(모바일 바텀시트와 동일 원칙).
     if (_selectedItem?.id != item.id) _pushUndo();
     setState(() {
-      for (var i in _placedItems) i.isSelected = false;
+      for (var i in _placedItems) {
+        i.isSelected = false;
+      }
       item.isSelected = true;
       _selectedItem = item;
     });
@@ -1888,7 +1892,9 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
       _handleDimensionPoint(nearestWall);
     } else {
       setState(() {
-        for (var i in _placedItems) i.isSelected = false;
+        for (var i in _placedItems) {
+          i.isSelected = false;
+        }
         _selectedItem = null;
         _multiSelectedIds = {};
       });
@@ -2684,7 +2690,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                   child: ListView.separated(
                     shrinkWrap: true,
                     itemCount: entries.length,
-                    separatorBuilder: (_, __) =>
+                    separatorBuilder: (_, _) =>
                         const Divider(height: 1, color: tossBg),
                     itemBuilder: (context, index) {
                       final e = entries[index];
@@ -3970,15 +3976,17 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                     backgroundColor: WidgetStateProperty.resolveWith<Color>((
                       Set<WidgetState> states,
                     ) {
-                      if (states.contains(WidgetState.selected))
+                      if (states.contains(WidgetState.selected)) {
                         return tossText;
+                      }
                       return pureWhite;
                     }),
                     foregroundColor: WidgetStateProperty.resolveWith<Color>((
                       Set<WidgetState> states,
                     ) {
-                      if (states.contains(WidgetState.selected))
+                      if (states.contains(WidgetState.selected)) {
                         return pureWhite;
+                      }
                       return tossText;
                     }),
                   ),
@@ -3986,7 +3994,9 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                     setState(() {
                       _mode = newSelection.first;
                       _dimensionStartPoint = null;
-                      for (var i in _placedItems) i.isSelected = false;
+                      for (var i in _placedItems) {
+                        i.isSelected = false;
+                      }
                       _selectedItem = null;
                     });
                   },
@@ -5078,8 +5088,9 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                                 );
                                 _placedItems.remove(_selectedItem);
                                 if (_dimensionStartPoint?.id ==
-                                    _selectedItem!.id)
+                                    _selectedItem!.id) {
                                   _dimensionStartPoint = null;
+                                }
                                 _selectedItem = null;
                               });
                             },
@@ -5462,10 +5473,12 @@ class SmartGuidePainter extends CustomPainter {
       bool hitVerticalRay = (cx >= oLeft) && (cx <= oRight);
       if (hitVerticalRay) {
         if (currentType == DimensionType.center) {
-          if (other.center.dy <= cy && other.center.dy > bT)
+          if (other.center.dy <= cy && other.center.dy > bT) {
             bT = other.center.dy;
-          if (other.center.dy >= cy && other.center.dy < bB)
+          }
+          if (other.center.dy >= cy && other.center.dy < bB) {
             bB = other.center.dy;
+          }
         } else {
           if (oBottom <= top && oBottom > bT) bT = oBottom;
           if (oTop >= bottom && oTop < bB) bB = oTop;
@@ -5475,10 +5488,12 @@ class SmartGuidePainter extends CustomPainter {
       bool hitHorizontalRay = (cy >= oTop) && (cy <= oBottom);
       if (hitHorizontalRay) {
         if (currentType == DimensionType.center) {
-          if (other.center.dx <= cx && other.center.dx > bL)
+          if (other.center.dx <= cx && other.center.dx > bL) {
             bL = other.center.dx;
-          if (other.center.dx >= cx && other.center.dx < bR)
+          }
+          if (other.center.dx >= cx && other.center.dx < bR) {
             bR = other.center.dx;
+          }
         } else {
           if (oRight <= left && oRight > bL) bL = oRight;
           if (oLeft >= right && oLeft < bR) bR = oLeft;

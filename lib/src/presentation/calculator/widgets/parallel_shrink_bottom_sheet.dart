@@ -85,11 +85,12 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
 
     if (_isParallelMode) {
       if (angle > 0 && spacing > 0) {
-        if (angle == 90.0)
+        if (angle == 90.0) {
           finalResult = spacing * _pipeIndex * 1.5708;
-        else
+        } else {
           finalResult =
               spacing * _pipeIndex * math.tan((angle / 2) * (math.pi / 180));
+        }
       }
     } else {
       if (angle > 0 && angle < 90.0 && trueRise > 0) {

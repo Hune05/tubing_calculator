@@ -79,8 +79,9 @@ class _MobileVehicleManagementPageState
       final docId = doc.id;
       final number = data['number'] ?? '차량';
 
-      if (data['startTimeStamp'] == null || data['returnTimeStamp'] == null)
+      if (data['startTimeStamp'] == null || data['returnTimeStamp'] == null) {
         continue;
+      }
 
       final DateTime startTime = (data['startTimeStamp'] as Timestamp).toDate();
       final DateTime returnTime = (data['returnTimeStamp'] as Timestamp)
@@ -389,19 +390,21 @@ class _MobileVehicleManagementPageState
                 .collection('vehicles')
                 .snapshots(),
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting)
+              if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(
                   child: CircularProgressIndicator(color: tossBlue),
                 );
+              }
               if (snapshot.hasError ||
                   !snapshot.hasData ||
-                  snapshot.data!.docs.isEmpty)
+                  snapshot.data!.docs.isEmpty) {
                 return const Center(
                   child: Text(
                     "등록된 차량이 없습니다.",
                     style: TextStyle(color: slate600),
                   ),
                 );
+              }
 
               var vehicles = snapshot.data!.docs.map((doc) {
                 var data = doc.data() as Map<String, dynamic>;
@@ -416,10 +419,12 @@ class _MobileVehicleManagementPageState
                     v['currentUser'] == widget.currentUser;
                 if (_selectedFilter == '내 차량') return amIUsing;
                 if (_selectedFilter == '사용 가능') return v['status'] == '사용 가능';
-                if (_selectedFilter == '트럭')
+                if (_selectedFilter == '트럭') {
                   return (v['type'] ?? '').contains('트럭');
-                if (_selectedFilter == '지게차')
+                }
+                if (_selectedFilter == '지게차') {
                   return (v['type'] ?? '').contains('지게차');
+                }
                 if (_selectedFilter == '전기차') return v['fuelType'] == '전기';
                 return true;
               }).toList();
@@ -433,13 +438,14 @@ class _MobileVehicleManagementPageState
                 return 0;
               });
 
-              if (vehicles.isEmpty)
+              if (vehicles.isEmpty) {
                 return const Center(
                   child: Text(
                     "조건에 맞는 차량이 없습니다.",
                     style: TextStyle(color: slate600),
                   ),
                 );
+              }
 
               return ListView.builder(
                 physics: const BouncingScrollPhysics(),
@@ -751,16 +757,18 @@ class _MobileVehicleManagementPageState
           .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting)
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
             child: CircularProgressIndicator(color: tossBlue),
           );
+        }
         if (snapshot.hasError ||
             !snapshot.hasData ||
-            snapshot.data!.docs.isEmpty)
+            snapshot.data!.docs.isEmpty) {
           return const Center(
             child: Text("운행 내역이 없습니다.", style: TextStyle(color: slate600)),
           );
+        }
 
         final myLogs = snapshot.data!.docs;
 

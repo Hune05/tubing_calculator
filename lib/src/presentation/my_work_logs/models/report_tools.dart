@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -897,7 +896,7 @@ Future<Uint8List> buildReportPdfBytes(
                       ),
                     if (hdrManager.isNotEmpty)
                       pw.Text(
-                        '담당 ${hdrManager}',
+                        '담당 $hdrManager',
                         style: const pw.TextStyle(fontSize: 10),
                       ),
                   ],
@@ -1154,11 +1153,11 @@ String? finalReportShareLabel(Map<String, dynamic> log) {
       : '${at.month}/${at.day} ${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')} ';
   switch (r['status']?.toString()) {
     case 'success':
-      return '${when}공유함';
+      return '$when공유함';
     case 'dismissed':
-      return '${when}만들었지만 공유하지 않음';
+      return '$when만들었지만 공유하지 않음';
     case 'unavailable':
-      return '${when}만들어 공유창을 열었음(공유 여부는 확인할 수 없음)';
+      return '$when만들어 공유창을 열었음(공유 여부는 확인할 수 없음)';
   }
   return null;
 }
@@ -1275,10 +1274,10 @@ const String kDailyReportPayload = 'work_daily_report';
 // 일보 알림 문구. 여러 프로젝트가 걸렸으면 몇 곳인지, 프로젝트 하나짜리 알림이면 이름을 알려 준다.
 String dailyReminderBody(int missingCount, {String? name}) {
   if (missingCount >= 2) {
-    return '오늘 일보를 아직 안 쓴 프로젝트가 ${missingCount}곳 있습니다. 눌러서 바로 남겨 두십시오.';
+    return '오늘 일보를 아직 안 쓴 프로젝트가 $missingCount곳 있습니다. 눌러서 바로 남겨 두십시오.';
   }
   final who = (name == null || name.trim().isEmpty) ? '' : '${name.trim()} ';
-  return '${who}오늘 작업 일보 아직 작성하지 않았습니다. 눌러서 바로 남겨 두십시오.';
+  return '$who오늘 작업 일보 아직 작성하지 않았습니다. 눌러서 바로 남겨 두십시오.';
 }
 
 // 일보 알림 예약 계획 한 건: 이 시간(분)에 울릴 알림 하나.

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:math' as math;
 import 'package:shared_preferences/shared_preferences.dart';
 

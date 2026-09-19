@@ -436,7 +436,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           _lengthUnit = stateData['lengthUnit'] ?? "mm";
 
           if (stateData['points'] != null) {
-            for (var p in _points) p.dispose();
+            for (var p in _points) {
+              p.dispose();
+            }
 
             _points = (stateData['points'] as List).map((pData) {
               CutPoint p = CutPoint(fitting: SmartFittingDB.getById("none"));
@@ -1001,7 +1003,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                       controller: scrollController,
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
                       itemCount: sets.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
                       itemBuilder: (context, i) {
                         final set = sets[i];
                         return Container(
@@ -1179,7 +1181,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                       controller: scrollController,
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                       itemCount: docs.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
                       itemBuilder: (context, i) {
                         final doc = docs[i];
                         final data = doc.data() as Map<String, dynamic>;
@@ -1448,7 +1450,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: recents.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          separatorBuilder: (_, _) => const SizedBox(width: 8),
                           itemBuilder: (_, i) {
                             final r = recents[i];
                             final label = r.spec.isEmpty
@@ -1735,7 +1737,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         : "";
     showCuttingSnack(
       context,
-      "튜브 총 ${finalTotal.toStringAsFixed(1)}mm$kerfNote 및 피팅 ${totalFittingCount}개 작업 완료!",
+      "튜브 총 ${finalTotal.toStringAsFixed(1)}mm$kerfNote 및 피팅 $totalFittingCount개 작업 완료!",
     );
   }
 

@@ -761,8 +761,9 @@ class _MobileInputTabState extends State<MobileInputTab>
                                           ) ??
                                           0.0)
                                       .clamp(0.0, 180.0);
-                              if (_selectedAngle == 0.0)
+                              if (_selectedAngle == 0.0) {
                                 _selectedRotation = null;
+                              }
                             });
                           },
                           child: AbsorbPointer(

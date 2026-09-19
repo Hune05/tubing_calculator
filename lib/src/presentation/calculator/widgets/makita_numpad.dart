@@ -88,7 +88,7 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
         final text = widget.controller.text;
         if (value == '.') {
           if (!text.contains('.')) {
-            widget.controller.text = text.isEmpty ? '0.' : text + '.';
+            widget.controller.text = text.isEmpty ? '0.' : '$text.';
           }
         } else {
           if (text == '0' && value != '00') {

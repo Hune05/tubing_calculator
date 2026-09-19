@@ -287,9 +287,9 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
   String _cleanupDesc() {
     final c = _cleanup;
     const base = "공유하려고 만든 PDF는 3일이 지나면 앱을 열 때 자동으로 삭제합니다.";
-    if (c == null || c.lastRun == null) return "${base} 아직 정리한 적이 없습니다.";
+    if (c == null || c.lastRun == null) return "$base 아직 정리한 적이 없습니다.";
     final t = c.lastRun!;
-    return "${base} 마지막 정리 ${t.month}/${t.day} ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}"
+    return "$base 마지막 정리 ${t.month}/${t.day} ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}"
         "(${c.lastRemoved}개 삭제)";
   }
 

@@ -3,7 +3,6 @@ import 'package:tubing_calculator/src/data/bend_data_manager.dart';
 import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
@@ -168,8 +167,9 @@ class _MarkingPageState extends State<MarkingPage> {
               double currentMark = steps[i].markingPoint;
               double currentLength = bendList[i]['length']!.toDouble();
 
-              if (currentMark > lastMarkingPoint)
+              if (currentMark > lastMarkingPoint) {
                 lastMarkingPoint = currentMark;
+              }
 
               // 🛑 1. 길이도 없고 각도도 없는 진짜 '깡통(더미) 직관'
               if (currentLength <= 0.01 && isStraight) {

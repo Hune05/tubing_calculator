@@ -1124,8 +1124,9 @@ class _ConduitIsoVisualizerState extends State<ConduitIsoVisualizer> {
                   setState(() => _startDir = val);
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.setString('conduit_saved_start_dir', val);
-                  if (widget.onStartDirChanged != null)
+                  if (widget.onStartDirChanged != null) {
                     widget.onStartDirChanged!(val);
+                  }
                 }
               },
             ),
@@ -1568,18 +1569,20 @@ class ConduitIsoPainter extends CustomPainter {
       ..color = isLightMode ? Colors.grey.shade300 : const Color(0xFF2C3948)
       ..strokeWidth = 1.5 * sf;
     double step = 30.0 * sf;
-    for (double i = 0; i < size.width; i += step)
+    for (double i = 0; i < size.width; i += step) {
       canvas.drawLine(
         Offset(i, 0),
         Offset(i, size.height),
         i % (step * 5) == 0 ? majorPaint : minorPaint,
       );
-    for (double i = 0; i < size.height; i += step)
+    }
+    for (double i = 0; i < size.height; i += step) {
       canvas.drawLine(
         Offset(0, i),
         Offset(size.width, i),
         i % (step * 5) == 0 ? majorPaint : minorPaint,
       );
+    }
   }
 
   @override
@@ -1629,8 +1632,9 @@ class ConduitIsoPainter extends CustomPainter {
         } else {
           if (currentDir.dot(targetDir) < -0.9) {
             vmath.Vector3 fallback = vmath.Vector3(0, 0, 1);
-            if (currentDir.cross(fallback).length2 < 0.001)
+            if (currentDir.cross(fallback).length2 < 0.001) {
               fallback = vmath.Vector3(0, 1, 0);
+            }
             bendAxis = currentDir.cross(fallback)..normalize();
             vmath.Quaternion bendQuat = vmath.Quaternion.axisAngle(
               bendAxis,
@@ -1833,10 +1837,12 @@ class ConduitIsoPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round;
 
     _drawAxisGuide(canvas, cameraMatrix, to2D, scale, sf);
-    for (var item in renderQueue)
+    for (var item in renderQueue) {
       item.draw(canvas, pipePaint, highlightPaint, outlinePaint);
-    for (var label in labelQueue)
+    }
+    for (var label in labelQueue) {
       label.draw(canvas, pipePaint, highlightPaint, outlinePaint);
+    }
   }
 
   vmath.Vector3 _calculateCenter(List<vmath.Vector3> pts) {

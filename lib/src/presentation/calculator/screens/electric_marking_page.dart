@@ -128,8 +128,9 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
                 if (key == 'C') {
                   tempValue = "";
                 } else if (key == '⌫') {
-                  if (tempValue.isNotEmpty)
+                  if (tempValue.isNotEmpty) {
                     tempValue = tempValue.substring(0, tempValue.length - 1);
+                  }
                 } else {
                   tempValue = tempValue == "0" ? key : tempValue + key;
                 }
@@ -371,8 +372,9 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
     for (int i = 0; i < widget.bendList.length; i++) {
       double l = widget.bendList[i]['length']!.toDouble();
       if (i == 0 && _includeStartFitting) l += fittingDepth;
-      if (i == widget.bendList.length - 1 && _includeEndFitting)
+      if (i == widget.bendList.length - 1 && _includeEndFitting) {
         l += fittingDepth;
+      }
       instructions.add(
         BendInstruction(
           length: l,
@@ -766,11 +768,13 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
                         int originalLength = item['length']!.round();
 
                         List<String> fittingTexts = [];
-                        if (index == 0 && _includeStartFitting)
+                        if (index == 0 && _includeStartFitting) {
                           fittingTexts.add("시작+${fittingDepth.round()}");
+                        }
                         if (index == displayMarks.length - 1 &&
-                            _includeEndFitting)
+                            _includeEndFitting) {
                           fittingTexts.add("종료+${fittingDepth.round()}");
+                        }
                         String fittingNotice = fittingTexts.isNotEmpty
                             ? " (${fittingTexts.join(', ')})"
                             : "";

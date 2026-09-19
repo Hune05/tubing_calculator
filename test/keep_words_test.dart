@@ -50,8 +50,9 @@ void main() {
         final k = linesOf(keepWords(sample), w);
         final keptOk = k.take(k.length - 1).every((l) => l.endsWith(' '));
         expect(keptOk, true, reason: '폭 $w → $k');
-        if (w == 230.0)
+        if (w == 230.0) {
           expect(plainBroken, true, reason: '기본은 단어 중간이 끊겨야 비교가 의미 있다');
+        }
       }
     },
   );

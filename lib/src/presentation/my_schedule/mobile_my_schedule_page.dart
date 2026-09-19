@@ -1238,7 +1238,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                       controller: scrollController,
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                       itemCount: docs.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
                       itemBuilder: (context, i) {
                         final doc = docs[i];
                         final data = doc.data() as Map<String, dynamic>;

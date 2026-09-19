@@ -718,8 +718,9 @@ class IsoPipePainter extends CustomPainter {
         } else {
           if (currentDir.dot(targetDir) < -0.9) {
             vmath.Vector3 fallback = vmath.Vector3(0, 0, 1);
-            if (currentDir.cross(fallback).length2 < 0.001)
+            if (currentDir.cross(fallback).length2 < 0.001) {
               fallback = vmath.Vector3(0, 1, 0);
+            }
             bendAxis = currentDir.cross(fallback)..normalize();
             vmath.Quaternion bendQuat = vmath.Quaternion.axisAngle(
               bendAxis,

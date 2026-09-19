@@ -182,9 +182,9 @@ List<String> _summaryLines(List<Map<String, dynamic>> logs, WeekRange w) {
     }
   }
   return [
-    '  · 작업 ${days}일(일보 기준) · 투입 ${manDays}인·일',
-    '  · 완료한 일정 ${doneSchedules}건',
-    '  · 이슈 신규 ${created}건 · 처리 ${resolved}건',
+    '  · 작업 $days일(일보 기준) · 투입 $manDays인·일',
+    '  · 완료한 일정 $doneSchedules건',
+    '  · 이슈 신규 $created건 · 처리 $resolved건',
     // 프로젝트가 여러 개면 한 줄씩 현황(카톡 텍스트로 보낼 때 한눈에 보이게).
     if (logs.length > 1)
       for (final log in logs)

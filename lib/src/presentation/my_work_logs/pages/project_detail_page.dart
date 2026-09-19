@@ -1613,8 +1613,9 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                                   ? CompressFormat.png
                                   : CompressFormat.jpeg,
                             );
-                        if (bytes != null)
+                        if (bytes != null) {
                           setD(() => logo = base64Encode(bytes));
+                        }
                       },
                       child: Text(logo == null ? "이 프로젝트 로고" : "로고 변경"),
                     ),
@@ -2280,7 +2281,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       phaseLines.add(
         line(
           p['name'].toString(),
-          "계획 ${plannedDays}일 → 작업 ${st.days}일 (${st.manDays}인·일)",
+          "계획 $plannedDays일 → 작업 ${st.days}일 (${st.manDays}인·일)",
         ),
       );
     }

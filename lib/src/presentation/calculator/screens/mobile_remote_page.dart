@@ -986,10 +986,12 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                           bool isCompleted = log['status'] == 'completed';
 
                           String subtitleText = "H/L: ${log['val1']}";
-                          if (log['val2'] != "")
+                          if (log['val2'] != "") {
                             subtitleText += " / W/D/Roll: ${log['val2']}";
-                          if (log['angle'] != "")
+                          }
+                          if (log['angle'] != "") {
                             subtitleText += " / 각도: ${log['angle']}°";
+                          }
 
                           return ListTile(
                             contentPadding: const EdgeInsets.symmetric(

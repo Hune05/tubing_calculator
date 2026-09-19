@@ -72,11 +72,11 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
         serverClientId:
             '289974993415-lhibiid49ncmb5hev53hnasj7vhkvki3.apps.googleusercontent.com',
       );
-      final GoogleSignInAccount? account = await _googleSignIn.authenticate();
+      final GoogleSignInAccount account = await _googleSignIn.authenticate();
 
       if (account != null) {
         final GoogleSignInAuthentication googleAuth =
-            await account.authentication;
+            account.authentication;
         final OAuthCredential credential = GoogleAuthProvider.credential(
           idToken: googleAuth.idToken,
         );

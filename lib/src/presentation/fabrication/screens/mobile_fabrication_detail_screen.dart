@@ -1032,7 +1032,7 @@ class _MobileFabricationDetailScreenState
   }
 
   Widget _buildIsoPage() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
       child: RepaintBoundary(
         key: _isoBoundaryKey,

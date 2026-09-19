@@ -1990,7 +1990,9 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
     HapticFeedback.mediumImpact();
     _pushUndo();
     setState(() {
-      for (var item in _placedItems) item.isSelected = false;
+      for (var item in _placedItems) {
+        item.isSelected = false;
+      }
 
       double clampedX = localPosition.dx.clamp(
         0.0,
@@ -2040,9 +2042,9 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
     if (minDist > _wallTapTolerance) return null;
 
     Offset wallPos;
-    if (minDist == distLeft)
+    if (minDist == distLeft) {
       wallPos = Offset(0, touchPosition.dy);
-    else if (minDist == distRight)
+    } else if (minDist == distRight)
       wallPos = Offset(_panelWidth, touchPosition.dy);
     else if (minDist == distTop)
       wallPos = Offset(touchPosition.dx, 0);
@@ -2113,7 +2115,9 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
       return;
     }
     setState(() {
-      for (var i in _placedItems) i.isSelected = false;
+      for (var i in _placedItems) {
+        i.isSelected = false;
+      }
       item.isSelected = true;
       _activeItem = item;
     });
@@ -2139,7 +2143,9 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
       _handleDimensionPoint(nearestWall);
     } else {
       setState(() {
-        for (var i in _placedItems) i.isSelected = false;
+        for (var i in _placedItems) {
+          i.isSelected = false;
+        }
         _activeItem = null;
         _multiSelectedIds = {};
       });
@@ -3498,8 +3504,9 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                   dim.p1.id == item.id || dim.p2.id == item.id,
                             );
                             _placedItems.remove(item);
-                            if (_dimensionStartPoint?.id == item.id)
+                            if (_dimensionStartPoint?.id == item.id) {
                               _dimensionStartPoint = null;
+                            }
                             _activeItem = null;
                           });
                           Navigator.pop(context);
@@ -3875,7 +3882,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                     child: ListView.separated(
                       shrinkWrap: true,
                       itemCount: entries.length,
-                      separatorBuilder: (_, __) =>
+                      separatorBuilder: (_, _) =>
                           const Divider(height: 1, color: tossBg),
                       itemBuilder: (context, index) {
                         final e = entries[index];
@@ -5439,7 +5446,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: kDuctPresets.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
                 final preset = kDuctPresets[index];
                 return Draggable<ModulePreset>(
@@ -5535,7 +5542,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: filtered.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    separatorBuilder: (_, _) => const SizedBox(width: 8),
                     itemBuilder: (context, index) {
                       final preset = filtered[index];
                       return GestureDetector(
@@ -6153,10 +6160,12 @@ class SmartGuidePainter extends CustomPainter {
       bool hitVerticalRay = (cx >= oLeft) && (cx <= oRight);
       if (hitVerticalRay) {
         if (currentType == DimensionType.center) {
-          if (other.center.dy <= cy && other.center.dy > bT)
+          if (other.center.dy <= cy && other.center.dy > bT) {
             bT = other.center.dy;
-          if (other.center.dy >= cy && other.center.dy < bB)
+          }
+          if (other.center.dy >= cy && other.center.dy < bB) {
             bB = other.center.dy;
+          }
         } else {
           if (oBottom <= top && oBottom > bT) bT = oBottom;
           if (oTop >= bottom && oTop < bB) bB = oTop;
@@ -6166,10 +6175,12 @@ class SmartGuidePainter extends CustomPainter {
       bool hitHorizontalRay = (cy >= oTop) && (cy <= oBottom);
       if (hitHorizontalRay) {
         if (currentType == DimensionType.center) {
-          if (other.center.dx <= cx && other.center.dx > bL)
+          if (other.center.dx <= cx && other.center.dx > bL) {
             bL = other.center.dx;
-          if (other.center.dx >= cx && other.center.dx < bR)
+          }
+          if (other.center.dx >= cx && other.center.dx < bR) {
             bR = other.center.dx;
+          }
         } else {
           if (oRight <= left && oRight > bL) bL = oRight;
           if (oLeft >= right && oLeft < bR) bR = oLeft;
