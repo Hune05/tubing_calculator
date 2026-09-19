@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/report_tools.dart';
+import '../../my_schedule/schedule_reminders.dart';
 import '../widgets/korean_text.dart';
 
 const Color _teal = Color(0xFF007580);
@@ -32,6 +33,10 @@ class NotificationCheckPage extends StatefulWidget {
   final Future<bool> Function()? exactChecker;
   final Future<bool> Function()? exactRequester;
   final Future<DateTime> Function()? scheduleTest;
+  // 개인 일정 알림 상태 조회·다시 예약(테스트에서 바꿔 끼운다).
+  final Future<({int expected, int scheduled})?> Function()?
+  personalStatusLoader;
+  final Future<int> Function()? personalRescheduler;
   const NotificationCheckPage({
     super.key,
     this.logs = const [],
@@ -43,6 +48,8 @@ class NotificationCheckPage extends StatefulWidget {
     this.exactChecker,
     this.exactRequester,
     this.scheduleTest,
+    this.personalStatusLoader,
+    this.personalRescheduler,
   });
 
   @override
@@ -53,6 +60,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     with WidgetsBindingObserver {
   bool? _allowed;
   bool _exact = false; // 정확한 시간 알림(정확한 알람) 허용 여부
+  ({int expected, int scheduled})? _personal; // 개인 일정 알림 예약 상태(모르면 null)
   ({bool daily, bool weekly})? _sched;
   int? _dailyCount; // 폰에 실제 예약된 작업 일지 알림 수(모르면 null)
   List<String> _seen = const []; // 최근 확인된 알림 기록
@@ -103,6 +111,11 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     } catch (_) {}
     final pref = await loadReportReminder();
     final exact = await (widget.exactChecker ?? canScheduleExactAlarms)();
+    ({int expected, int scheduled})? personal;
+    try {
+      personal =
+          await (widget.personalStatusLoader ?? personalReminderStatus)();
+    } catch (_) {}
     List<String> seen = const [];
     List<String> seenRaw = const [];
     String? lastSync;
@@ -117,6 +130,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     if (mounted) {
       setState(() {
         _exact = exact;
+        _personal = personal;
         _seen = seen;
         _seenRaw = seenRaw;
         _lastSync = lastSync;
@@ -223,7 +237,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
         child: Text(
           keepWords(
             "오늘 $times 알림이 아직 확인되지 않았습니다. 알림을 밀어서 지웠다면 정상입니다. "
-            "그렇지 않은데 알림이 안 왔다면 아래 4번(배터리 제한)을 확인하십시오.",
+            "그렇지 않은데 알림이 안 왔다면 아래 5번(배터리 제한)을 확인하십시오.",
           ),
           style: const TextStyle(
             fontSize: 12,
@@ -453,6 +467,68 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     }
   }
 
+  Future<void> _reschedulePersonal() async {
+    try {
+      final n =
+          await (widget.personalRescheduler ??
+              rescheduleAllPersonalReminders)();
+      if (mounted) setState(() => _msg = "개인 일정 알림 $n개를 다시 예약했습니다.");
+    } catch (e) {
+      if (mounted) setState(() => _msg = "개인 일정 알림을 다시 예약하지 못했습니다: $e");
+    }
+    await _refresh();
+  }
+
+  // 개인 일정(내 일정 관리) 알림 예약 상태 줄.
+  List<Widget> _personalRows() {
+    final p = _personal;
+    if (p == null) return const [];
+    final ok = p.expected == p.scheduled;
+    final color = ok ? const Color(0xFF1B9E5A) : const Color(0xFFE5484D);
+    return [
+      Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 4),
+        child: Row(
+          children: [
+            Icon(
+              ok ? Icons.check_circle_rounded : Icons.error_rounded,
+              size: 18,
+              color: color,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                keepWords(
+                  ok
+                      ? (p.expected == 0
+                            ? "개인 일정 알림: 알림을 켜 둔 일정이 없습니다."
+                            : "개인 일정 알림: 예약됨 (${p.scheduled}개)")
+                      : "개인 일정 알림: 필요한 ${p.expected}개 중 ${p.scheduled}개만 예약돼 있습니다.",
+                ),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      if (!ok)
+        Padding(
+          padding: const EdgeInsets.only(left: 26, bottom: 4),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton(
+              onPressed: _reschedulePersonal,
+              child: const Text("개인 일정 알림 다시 예약"),
+            ),
+          ),
+        ),
+    ];
+  }
+
   Future<void> _allowExact() async {
     try {
       await (widget.exactRequester ?? requestExactAlarmPermission)();
@@ -467,7 +543,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
         setState(
           () => _msg =
               "${_hm(at.hour * 60 + at.minute)}에 예약 알림이 옵니다. 1~2분 안에 상단바에 보이는지 확인하십시오. "
-              "안 보이면 아래 4번(배터리 제한)을 확인하십시오.",
+              "안 보이면 아래 5번(배터리 제한)을 확인하십시오.",
         );
       }
     } catch (e) {
@@ -570,68 +646,19 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
             ),
           ]),
           _card([
-            _title("2. 예약 상태"),
-            _schedRow(
-              "작업 일지 알림",
-              _pref?.enabled ?? true,
-              _sched?.daily,
-              "매일 ${_hm(_pref?.minutes ?? 1080)}",
-            ),
-            ..._projectTimeRows(),
-            _schedRow(
-              "주간 보고 알림",
-              _pref?.weekly ?? true,
-              _sched?.weekly,
-              "금요일 ${_hm(_pref?.weeklyMinutes ?? 1020)}",
-            ),
-            if ((_pref?.weekly ?? false) &&
-                _sched?.weekly == false &&
-                _activeLogs.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(left: 18, bottom: 4),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: OutlinedButton(
-                    onPressed: _rescheduleWeeklyOne,
-                    child: const Text("주간 보고 알림만 다시 예약"),
-                  ),
-                ),
-              ),
-            if (_lastSync != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Text(
-                  keepWords("마지막 알림 예약: $_lastSync"),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    height: 1.4,
-                    color: _text,
-                  ),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Text(
-                keepWords(
-                  _seen.isEmpty
-                      ? "최근 확인된 알림: 아직 없습니다. 알림이 온 뒤 알림창에서 확인하거나 눌러야 기록됩니다."
-                      : "최근 확인된 알림: ${_seen.take(3).join(' / ')} (알림을 밀어서 지운 경우는 기록되지 않습니다.)",
-                ),
-                style: const TextStyle(fontSize: 12, height: 1.4, color: _text),
-              ),
-            ),
+            _title("2. 정확한 시간 알림"),
             _exactRow(),
             Text(
               keepWords(
                 _exact
-                    ? "정해진 시간에 맞춰 알림이 옵니다. 예약이 돼 있어도 절전 기능 때문에 안 울릴 수 있으니 아래 4번을 확인하십시오."
-                    : "지금은 정해진 시간부터 최대 1시간 안에 알림이 옵니다(폰이 배터리를 아끼려고 묶어서 보냅니다). 예약이 돼 있어도 절전 기능 때문에 안 울릴 수 있으니 아래 4번을 확인하십시오.",
+                    ? "정해진 시간에 맞춰 알림이 옵니다. 예약이 돼 있어도 절전 기능 때문에 안 울릴 수 있으니 아래 5번을 확인하십시오."
+                    : "지금은 정해진 시간부터 최대 1시간 안에 알림이 옵니다(폰이 배터리를 아끼려고 묶어서 보냅니다). 예약이 돼 있어도 절전 기능 때문에 안 울릴 수 있으니 아래 5번을 확인하십시오.",
               ),
               style: TextStyle(fontSize: 12, height: 1.4, color: _sub),
             ),
           ]),
           _card([
-            _title("3. 테스트 알림"),
+            _title("3. 알림이 오는지 테스트"),
             Text(
               keepWords("지금 바로 알림 한 개를 보낼 수 있습니다. 보이면 알림 자체는 정상입니다."),
               style: TextStyle(fontSize: 13, height: 1.4, color: _sub),
@@ -669,7 +696,64 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
               ),
           ]),
           _card([
-            _title("4. 예약 알림이 안 올 때 (배터리 제한)"),
+            _title("4. 알림 예약 상태"),
+            _schedRow(
+              "작업 일지 알림",
+              _pref?.enabled ?? true,
+              _sched?.daily,
+              "매일 ${_hm(_pref?.minutes ?? 1080)}",
+            ),
+            ..._projectTimeRows(),
+            _schedRow(
+              "주간 보고 알림",
+              _pref?.weekly ?? true,
+              _sched?.weekly,
+              "금요일 ${_hm(_pref?.weeklyMinutes ?? 1020)}",
+            ),
+            if ((_pref?.weekly ?? false) &&
+                _sched?.weekly == false &&
+                _activeLogs.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(left: 18, bottom: 4),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton(
+                    onPressed: _rescheduleWeeklyOne,
+                    child: const Text("주간 보고 알림만 다시 예약"),
+                  ),
+                ),
+              ),
+            ..._personalRows(),
+            if (_lastSync != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  keepWords("마지막 알림 예약: $_lastSync"),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    height: 1.4,
+                    color: _text,
+                  ),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                keepWords(
+                  _seen.isEmpty
+                      ? "최근 확인된 알림: 아직 없습니다. 알림이 온 뒤 알림창에서 확인하거나 눌러야 기록됩니다."
+                      : "최근 확인된 알림: ${_seen.take(3).join(' / ')} (알림을 밀어서 지운 경우는 기록되지 않습니다.)",
+                ),
+                style: const TextStyle(fontSize: 12, height: 1.4, color: _text),
+              ),
+            ),
+            Text(
+              keepWords("예약이 돼 있어도 절전 기능 때문에 안 울릴 수 있으니 아래 5번을 확인하십시오."),
+              style: TextStyle(fontSize: 12, height: 1.4, color: _sub),
+            ),
+          ]),
+          _card([
+            _title("5. 예약 알림이 안 올 때 (배터리 제한)"),
             Text(
               keepWords(
                 "작업 일지·주간 보고 알림은 정해진 시간에 폰이 앱을 깨워서 보냅니다. 삼성 등 일부 폰은 "
@@ -696,7 +780,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
             ),
           ]),
           _card([
-            _title("5. 안내 카드 미리 보기"),
+            _title("6. 안내 카드 미리 보기"),
             Text(
               keepWords(
                 "알림 예약이 안 맞을 때 내 프로젝트 화면 위에 뜨는 안내 카드가 어떻게 보이는지 확인합니다. 실제 문제가 있는 것은 아닙니다.",

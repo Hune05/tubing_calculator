@@ -75,7 +75,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.tap(find.text('열기'));
       await tester.pumpAndSettle();
-      expect(find.text('5. 안내 카드 미리 보기'), findsOneWidget);
+      expect(find.text('6. 안내 카드 미리 보기'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text('안내 카드 미리 보기'),
         300,

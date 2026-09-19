@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tzdata;
 
@@ -14,8 +13,8 @@ import '../../data/repositories/work_project_repository.dart';
 import '../../core/common_widgets/makita_time_picker.dart';
 import '../my_work_logs/screens/work_log_main_screen.dart';
 import '../my_work_logs/models/project_phase.dart' show colorForProject;
-import '../my_work_logs/models/report_tools.dart' show reminderScheduleMode;
 import 'schedule_logic.dart';
+import 'schedule_reminders.dart';
 
 // 🚀 [신규] "내 일정 관리" - 마키타 틸 팔레트로 앱 전체와 통일.
 const Color scheduleTeal = Color(0xFF007580);
@@ -185,7 +184,6 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   bool _loadingProjects = true;
 
   static bool _tzReady = false;
-  bool _channelReady = false;
 
   // 🚀 [2번 강화] 카테고리는 다중 선택(빈 집합 = 전체 표시), 프로젝트는
   // 단일 선택(null = 전체 프로젝트)으로 좁혀본다.
@@ -473,73 +471,11 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     }
   }
 
-  Future<void> _ensureScheduleChannel() async {
-    if (_channelReady) return;
-    const channel = AndroidNotificationChannel(
-      kScheduleChannelId,
-      '내 일정 알림',
-      description: '개인 일정 알림',
-      importance: Importance.high,
-    );
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(channel);
-    _channelReady = true;
-  }
-
-  int _notifIdFor(String docId) => docId.hashCode & 0x7fffffff;
-
-  // 🚀 [오늘 일정 알림] 저장할 때마다 예전 예약은 취소하고 다시 잡는다
-  // (수정/반복설정 변경 시 중복 알림이 남지 않게). 반복 일정은
-  // matchDateTimeComponents로 "매주 이 요일 이 시간"/"매월 이 날짜 이
-  // 시간"에 계속 울리도록 한다.
+  // 개인 일정 알림 예약은 schedule_reminders.dart 의 함수가 한다(알림 점검에서도 같이 쓴다).
   Future<void> _scheduleOrCancelReminder(
     String docId,
     Map<String, dynamic> data,
-  ) async {
-    final int notifId = _notifIdFor(docId);
-    await flutterLocalNotificationsPlugin.cancel(id: notifId);
-
-    final String recurrence = (data['recurrence'] as String?) ?? 'none';
-    DateTimeComponents? matchComponents;
-    if (recurrence == 'weekly') {
-      matchComponents = DateTimeComponents.dayOfWeekAndTime;
-    } else if (recurrence == 'monthly') {
-      matchComponents = DateTimeComponents.dayOfMonthAndTime;
-    }
-    // 알림 시각 계산은 schedule_logic.dart 의 reminderTime 이 한다(테스트로 지킴).
-    final DateTime? remindAt = reminderTime(
-      base: DateTime.parse(data['dateTime'] as String),
-      minutesBefore: (data['reminderMinutesBefore'] as int?) ?? 0,
-      recurrence: recurrence,
-      hasTime: data['hasTime'] != false,
-      now: DateTime.now(),
-    );
-    if (remindAt == null) return;
-
-    await _ensureScheduleChannel();
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      id: notifId,
-      title: '일정 알림',
-      body: (data['title'] as String?)?.trim().isNotEmpty == true
-          ? data['title'] as String
-          : '등록된 일정',
-      scheduledDate: tz.TZDateTime.from(remindAt, tz.local),
-      notificationDetails: const NotificationDetails(
-        android: AndroidNotificationDetails(
-          kScheduleChannelId,
-          '내 일정 알림',
-          channelDescription: '개인 일정 알림',
-          importance: Importance.high,
-          priority: Priority.high,
-        ),
-      ),
-      androidScheduleMode: await reminderScheduleMode(),
-      matchDateTimeComponents: matchComponents,
-    );
-  }
+  ) => schedulePersonalReminder(docId, data);
 
   Future<void> _deletePersonalItem(String docId) async {
     final confirmed = await showDialog<bool>(
@@ -574,7 +510,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       ),
     );
     if (confirmed != true) return;
-    await flutterLocalNotificationsPlugin.cancel(id: _notifIdFor(docId));
+    await flutterLocalNotificationsPlugin.cancel(id: personalNotifId(docId));
     await FirebaseFirestore.instance
         .collection(kPersonalSchedulesCollection)
         .doc(docId)
@@ -684,7 +620,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                             ),
                             const SizedBox(height: 16),
                             const Text(
-                              "카테고리",
+                              "종류",
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
@@ -1039,6 +975,29 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                           baseDate.month,
                                           baseDate.day,
                                         );
+                                  // 반복이 없는 시간 일정은 저장 전에 같은 시간대 일정이 있는지 알려 준다.
+                                  if (hasTime && recurrence == 'none') {
+                                    final conflicts = conflictsWith(
+                                      LiteAgenda(
+                                        key: 'new',
+                                        date: combined,
+                                        hasTime: true,
+                                        title: titleCtrl.text.trim(),
+                                        isCompleted: false,
+                                      ),
+                                      _lastLite,
+                                      excludeKeyPrefix: docId == null
+                                          ? null
+                                          : 'personal_$docId',
+                                    );
+                                    if (conflicts.isNotEmpty) {
+                                      final go = await _confirmConflicts(
+                                        ctx,
+                                        conflicts,
+                                      );
+                                      if (!go) return;
+                                    }
+                                  }
                                   final data = <String, dynamic>{
                                     'title': titleCtrl.text.trim(),
                                     'category': category,
@@ -1280,7 +1239,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                     side: const BorderSide(color: scheduleTeal),
                                   ),
                                   child: const Text(
-                                    "기준일 골라 적용하기",
+                                    "기준일을 선택해서 적용하기",
                                     style: TextStyle(color: scheduleTeal),
                                   ),
                                 ),
@@ -2608,6 +2567,40 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
 
   // 시작 시간이 1시간 안쪽으로 겹치는 일정들의 key(화면을 그릴 때마다 다시 계산).
   Set<String> _overlapKeys = {};
+  // 지금 화면에 있는 모든 일정(새 일정을 저장하기 전에 겹치는지 볼 때 쓴다).
+  List<LiteAgenda> _lastLite = const [];
+
+  // 저장하려는 일정과 시간이 겹치는 기존 일정이 있으면 물어본다. 계속 저장하면 true.
+  Future<bool> _confirmConflicts(
+    BuildContext ctx,
+    List<LiteAgenda> conflicts,
+  ) async {
+    String hm(DateTime d) =>
+        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    final list = conflicts
+        .take(3)
+        .map((e) => '• ${hm(e.date)} ${e.title}')
+        .join('\n');
+    final more = conflicts.length > 3 ? '\n외 ${conflicts.length - 3}건' : '';
+    final go = await showDialog<bool>(
+      context: ctx,
+      builder: (d) => AlertDialog(
+        title: const Text("같은 시간대에 다른 일정이 있습니다"),
+        content: Text("앞뒤 1시간 안에 있는 일정입니다.\n\n$list$more\n\n그래도 저장하시겠습니까?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(d, false),
+            child: const Text("시간 바꾸기"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(d, true),
+            child: const Text("그대로 저장"),
+          ),
+        ],
+      ),
+    );
+    return go == true;
+  }
 
   Widget _buildAgendaCard(_AgendaItem item) {
     final Color c = item.color;
@@ -2877,6 +2870,16 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                 }
 
                 final selectedItems = byDay[_normalize(_selectedDay)] ?? [];
+                _lastLite = [
+                  for (final it in allItems)
+                    LiteAgenda(
+                      key: it.key,
+                      date: it.date,
+                      hasTime: it.hasTime,
+                      title: it.title,
+                      isCompleted: it.isCompleted,
+                    ),
+                ];
                 _overlapKeys = overlappingKeys([
                   for (final it in allItems)
                     LiteAgenda(

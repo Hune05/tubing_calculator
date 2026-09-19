@@ -116,6 +116,27 @@ Set<String> overlappingKeys(List<LiteAgenda> items, {int windowMinutes = 60}) {
   return out;
 }
 
+/// 새로 넣을 일정 [candidate]와 같은 날 시작 시간이 [windowMinutes]분 안쪽으로 가까운 기존 일정들
+/// (시간순). 종일·완료한 일정은 뺀다. [excludeKeyPrefix]로 시작하는 key(지금 고치는 일정 자신)도 뺀다.
+List<LiteAgenda> conflictsWith(
+  LiteAgenda candidate,
+  List<LiteAgenda> others, {
+  int windowMinutes = 60,
+  String? excludeKeyPrefix,
+}) {
+  if (!candidate.hasTime) return [];
+  final c = candidate.date;
+  final day = DateTime(c.year, c.month, c.day);
+  return others.where((o) {
+    if (!o.hasTime || o.isCompleted) return false;
+    if (excludeKeyPrefix != null && o.key.startsWith(excludeKeyPrefix)) {
+      return false;
+    }
+    if (DateTime(o.date.year, o.date.month, o.date.day) != day) return false;
+    return o.date.difference(c).inMinutes.abs() < windowMinutes;
+  }).toList()..sort((a, b) => a.date.compareTo(b.date));
+}
+
 String _hm(DateTime d) =>
     '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 

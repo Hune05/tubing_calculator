@@ -282,4 +282,69 @@ void main() {
       expect(s, '오늘 일정 2건을 모두 마쳤습니다.');
     });
   });
+  group('저장 전 겹침 확인', () {
+    final d = DateTime(2026, 9, 19);
+    final existing = [
+      item('personal_x_1', d.add(const Duration(hours: 10)), title: '검사'),
+      item(
+        'personal_y',
+        d.add(const Duration(hours: 10, minutes: 40)),
+        title: '입고',
+      ),
+      item('proj_1', d.add(const Duration(hours: 14)), title: '점심'),
+      item('종일', d.add(const Duration(hours: 10)), hasTime: false),
+      item('끝난', d.add(const Duration(hours: 10, minutes: 10)), done: true),
+    ];
+    LiteAgenda cand(DateTime t, {bool hasTime = true}) =>
+        item('new', t, hasTime: hasTime, title: '새 일정');
+
+    test('앞뒤 1시간 안쪽 일정만 골라 시간순으로 돌려준다', () {
+      final r = conflictsWith(
+        cand(d.add(const Duration(hours: 10, minutes: 20))),
+        existing,
+      );
+      expect(r.map((e) => e.key).toList(), ['personal_x_1', 'personal_y']);
+    });
+
+    test('딱 1시간 떨어진 일정은 겹치지 않는다', () {
+      expect(
+        conflictsWith(
+          cand(d.add(const Duration(hours: 11, minutes: 40))),
+          existing,
+        ),
+        isEmpty,
+      );
+    });
+
+    test('종일 일정으로 저장하는 경우는 확인하지 않는다', () {
+      expect(
+        conflictsWith(
+          cand(d.add(const Duration(hours: 10)), hasTime: false),
+          existing,
+        ),
+        isEmpty,
+      );
+    });
+
+    test('종일·완료한 일정은 겹침으로 세지 않는다', () {
+      final r = conflictsWith(cand(d.add(const Duration(hours: 10))), existing);
+      expect(r.any((e) => e.key == '종일' || e.key == '끝난'), false);
+    });
+
+    test('지금 고치는 일정 자신은 뺀다', () {
+      final r = conflictsWith(
+        cand(d.add(const Duration(hours: 10, minutes: 20))),
+        existing,
+        excludeKeyPrefix: 'personal_x',
+      );
+      expect(r.map((e) => e.key).toList(), ['personal_y']);
+    });
+
+    test('다른 날짜 일정은 자정 근처여도 세지 않는다', () {
+      final r = conflictsWith(item('new', DateTime(2026, 9, 20, 0, 10)), [
+        item('a', DateTime(2026, 9, 19, 23, 50)),
+      ]);
+      expect(r, isEmpty);
+    });
+  });
 }
