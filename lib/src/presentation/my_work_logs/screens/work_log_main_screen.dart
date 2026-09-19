@@ -20,6 +20,7 @@ import '../pages/report_search_page.dart';
 import '../pages/project_stats_page.dart';
 import '../pages/weekly_report_page.dart';
 import '../pages/notification_check_page.dart';
+import '../widgets/reminder_problem_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import '../pages/retro_overview_page.dart';
@@ -924,7 +925,15 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     );
     if (pick != 'final' || !mounted) return;
     try {
-      await shareReportPdf(buildFinalReportDoc(log), withPhotos: true);
+      final r = await shareReportPdf(
+        buildFinalReportDoc(log),
+        withPhotos: true,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(pdfShareNotice(r.status, '마무리 보고서'))),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -1257,46 +1266,18 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   Widget _buildReminderProblemCard() {
     final msg = _reminderProblem;
     if (msg == null) return const SizedBox.shrink();
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
-      decoration: BoxDecoration(
-        color: pureWhite,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFE5484D).withValues(alpha: 0.4),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "일보 알림 예약에 문제가 있습니다",
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _problemPreview
-                ? "$msg (점검 화면에서 띄운 미리 보기이며 실제 문제는 아닙니다.)"
-                : "$msg 알림 점검에서 확인하십시오.",
-            style: const TextStyle(
-              fontSize: 12,
-              height: 1.4,
-              color: tossSubText,
-            ),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: _openNotifCheck,
-              child: const Text(
-                "알림 점검 열기",
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-            ),
-          ),
-        ],
-      ),
+    return ReminderProblemCard(
+      message: msg,
+      preview: _problemPreview,
+      onOpenCheck: _openNotifCheck,
+      onRetry: () => resyncRemindersAndCheck(_workLogs),
+      onRetried: (still) {
+        if (!mounted) return;
+        setState(() {
+          _problemPreview = false;
+          _reminderProblem = still;
+        });
+      },
     );
   }
 

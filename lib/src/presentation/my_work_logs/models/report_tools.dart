@@ -1100,7 +1100,23 @@ Future<Uint8List> buildReportPdfBytes(
   return pdf.save();
 }
 
-Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
+// 공유창이 닫힌 뒤 화면 아래에 띄울 안내 문구. 안드로이드는 공유 결과를 항상 알 수 있는 게 아니라
+// (unavailable) 그때는 "만들었습니다"까지만 말하고 보냈는지는 단정하지 않는다.
+String pdfShareNotice(ShareResultStatus status, String what) {
+  switch (status) {
+    case ShareResultStatus.success:
+      return '$what를 공유했습니다.';
+    case ShareResultStatus.dismissed:
+      return '$what를 만들었지만 공유하지 않고 닫았습니다. 다시 공유하려면 다시 만드십시오.';
+    case ShareResultStatus.unavailable:
+      return '$what를 만들어 공유창을 열었습니다. 공유 여부는 확인할 수 없습니다.';
+  }
+}
+
+Future<ShareResult> shareReportPdf(
+  ReportDoc doc, {
+  bool withPhotos = false,
+}) async {
   final bytes = await buildReportPdfBytes(doc, withPhotos: withPhotos);
   final dir = await getTemporaryDirectory();
   final name = uniquePdfName(
@@ -1110,7 +1126,7 @@ Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
   final file = File('${dir.path}/$name');
   await file.writeAsBytes(bytes);
   // ignore: deprecated_member_use
-  await Share.shareXFiles([
+  return Share.shareXFiles([
     XFile(file.path),
   ], text: '${doc.title} ${doc.heading}');
 }
@@ -1383,6 +1399,12 @@ String? reminderCountMismatch(int expected, int actual) {
     return '일보 알림 $expected개가 필요한데 $actual개만 예약돼 있습니다.';
   }
   return '일보 알림이 필요한 $expected개보다 많은 $actual개 예약돼 있습니다.';
+}
+
+// 알림을 다시 예약하고, 그래도 어긋나 있는지 확인한 결과(문구, 정상이면 null)를 돌려준다.
+Future<String?> resyncRemindersAndCheck(List<Map<String, dynamic>> logs) async {
+  await syncReportReminder(logs);
+  return dailyReminderProblem(logs);
 }
 
 // 알림을 다시 맞춘 직후에도 필요한 수만큼 예약되지 않았으면 그 이유 문구를, 정상이면 null을 돌려준다.

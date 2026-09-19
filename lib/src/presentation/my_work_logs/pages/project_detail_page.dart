@@ -2901,7 +2901,15 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     );
     if (make != true || !mounted) return;
     try {
-      await shareReportPdf(buildFinalReportDoc(log), withPhotos: true);
+      final r = await shareReportPdf(
+        buildFinalReportDoc(log),
+        withPhotos: true,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(pdfShareNotice(r.status, '마무리 보고서'))),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
