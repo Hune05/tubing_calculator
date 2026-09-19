@@ -96,9 +96,25 @@ List<DailyReminderPlan> planDailyReminders(
   return plans;
 }
 
-Future<void> _cancelDailyReminders() async {
+// 알림은 정해진 시간 "정각"이 아니라 그 시간부터 최대 1시간 안에 온다(폰이 배터리를 아끼려고 묶어서 보냄).
+// 이 도착 창(정해진 시간 ~ +70분) 안에 앱을 열어 알림을 다시 예약하면, 오늘 시간이 지났다고 내일로 미루면서
+// 아직 안 온 오늘 알림이 사라진다. 그래서 도착 창 안에서 폰에 예약돼 있는 알림은 건드리지 않는다.
+bool inDeliveryWindow(DateTime now, int minutes, {bool onlyFriday = false}) {
+  if (onlyFriday && now.weekday != DateTime.friday) return false;
+  final at = DateTime(
+    now.year,
+    now.month,
+    now.day,
+    minutes ~/ 60,
+    minutes % 60,
+  );
+  return !now.isBefore(at) && now.isBefore(at.add(const Duration(minutes: 70)));
+}
+
+Future<void> _cancelDailyReminders({Set<int> keep = const {}}) async {
   await flutterLocalNotificationsPlugin.cancel(id: _kReminderId); // 예전 버전 알림
   for (var i = 0; i < _kMaxDailyGroups; i++) {
+    if (keep.contains(_kDailyBaseId + i)) continue;
     await flutterLocalNotificationsPlugin.cancel(id: _kDailyBaseId + i);
   }
 }
@@ -148,7 +164,13 @@ Future<void> saveReportReminder(
 }
 
 // 매주 금요일(기본 17:00)에 주간 업무 보고 알림(진행중 프로젝트가 있을 때).
-Future<void> _syncWeeklyReminder(bool on, int minutes, bool autoPdf) async {
+Future<void> _syncWeeklyReminder(
+  bool on,
+  int minutes,
+  bool autoPdf, {
+  bool keepIfInWindow = false,
+}) async {
+  if (on && keepIfInWindow) return; // 도착 창 안이고 이미 예약돼 있으면 그대로 둔다
   await flutterLocalNotificationsPlugin.cancel(id: _kWeeklyId);
   if (!on) return;
   final now = DateTime.now();
@@ -277,25 +299,55 @@ Future<void> showTestNotification() async {
 
 // 진행중 프로젝트가 있는데 오늘 일보가 아직 없으면 오늘 정해진 시간에, 이미
 // 썼으면 내일부터 매일 알린다. 앱을 열 때/일보 저장 후에 다시 맞춘다.
-Future<void> syncReportReminder(List<Map<String, dynamic>> logs) async {
+Future<void> syncReportReminder(
+  List<Map<String, dynamic>> logs, {
+  DateTime? nowForTest,
+}) async {
   try {
     final pref = await loadReportReminder();
-    await _cancelDailyReminders();
     final active = logs.where((l) => l['status'] != 'DONE').toList();
     if (!_tzReady) {
       tzdata.initializeTimeZones();
       tz.setLocalLocation(tz.getLocation('Asia/Seoul'));
       _tzReady = true;
     }
+    final now = nowForTest ?? DateTime.now();
+    Set<int> pending = {};
+    try {
+      pending = await pendingReminderIds();
+    } catch (_) {}
+
+    // 프로젝트마다 알림 시간이 다를 수 있어, 같은 시간끼리 묶어 알림을 한 개씩 예약한다.
+    final plans = (!pref.enabled || active.isEmpty)
+        ? <DailyReminderPlan>[]
+        : planDailyReminders(active, pref.minutes, now);
+    // 도착 창 안에서 이미 예약돼 있는 알림은 그대로 둔다(다시 예약하면 오늘 알림이 사라진다).
+    // 그 사이 오늘 일보를 다 써서 보낼 이유가 없어졌다면 지운다.
+    final todayStr =
+        '${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
+    bool stillMissing(DailyReminderPlan p) => projectsMissingReport(
+      active
+          .where((l) => p.names.contains(l['name']?.toString() ?? '프로젝트'))
+          .toList(),
+      todayStr,
+    ).isNotEmpty;
+    final keep = <int>{
+      for (var i = 0; i < plans.length; i++)
+        if (pending.contains(_kDailyBaseId + i) &&
+            inDeliveryWindow(now, plans[i].minutes) &&
+            stillMissing(plans[i]))
+          _kDailyBaseId + i,
+    };
+    await _cancelDailyReminders(keep: keep);
     await _syncWeeklyReminder(
       pref.weekly && active.isNotEmpty,
       pref.weeklyMinutes,
       pref.autoPdf,
+      keepIfInWindow:
+          pending.contains(_kWeeklyId) &&
+          inDeliveryWindow(now, pref.weeklyMinutes, onlyFriday: true),
     );
-    if (!pref.enabled || active.isEmpty) return;
-
-    // 프로젝트마다 알림 시간이 다를 수 있어, 같은 시간끼리 묶어 알림을 한 개씩 예약한다.
-    final plans = planDailyReminders(active, pref.minutes, DateTime.now());
+    if (plans.isEmpty) return;
 
     const channel = AndroidNotificationChannel(
       _kReminderChannel,
@@ -309,6 +361,7 @@ Future<void> syncReportReminder(List<Map<String, dynamic>> logs) async {
         >()
         ?.createNotificationChannel(channel);
     for (var i = 0; i < plans.length; i++) {
+      if (keep.contains(_kDailyBaseId + i)) continue;
       await _scheduleDailyPlan(plans[i], i);
     }
   } catch (e) {
