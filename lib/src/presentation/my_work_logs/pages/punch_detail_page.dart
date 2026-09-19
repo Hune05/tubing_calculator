@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/korean_text.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import '../widgets/photo_detail_modal.dart';
 import '../models/photo_store.dart';
@@ -405,8 +406,8 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
                       ),
                     ),
                   ] else ...[
-                    const Text(
-                      "어떻게 처리했는지 남겨 두면, 나중에 확인할 때 편합니다.",
+                    Text(
+                      keepWords("어떻게 처리했는지 남겨 두면, 나중에 확인할 때 편합니다."),
                       style: TextStyle(color: tossSubText, fontSize: 13),
                     ),
                     const SizedBox(height: 10),
@@ -564,9 +565,11 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
     if (widget.inspectionSchedules.isEmpty) {
       return _sectionCard(
         title: "처리 기한",
-        children: const [
+        children: [
           Text(
-            "등록된 검사일정이 없습니다. \"일정 관리\"에서 검사일정을 등록하면 이 이슈와 연결해 기한을 관리할 수 있습니다.",
+            keepWords(
+              "등록된 검사일정이 없습니다. \"일정 관리\"에서 검사일정을 등록하면 이 이슈와 연결해 기한을 관리할 수 있습니다.",
+            ),
             style: TextStyle(color: tossSubText, fontSize: 13, height: 1.4),
           ),
         ],
@@ -576,8 +579,8 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
     return _sectionCard(
       title: "처리 기한",
       children: [
-        const Text(
-          "이 이슈를 검사일정에 연결하면, 그 날짜까지가 처리 기한이 됩니다.",
+        Text(
+          keepWords("이 이슈를 검사일정에 연결하면, 그 날짜까지가 처리 기한이 됩니다."),
           style: TextStyle(color: tossSubText, fontSize: 13),
         ),
         const SizedBox(height: 10),
@@ -623,8 +626,8 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
             "주간 업무 보고에 포함",
             style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
           ),
-          subtitle: const Text(
-            "끄면 주간 보고의 미해결 이슈 현황과 통계에서 빠집니다.",
+          subtitle: Text(
+            keepWords("끄면 주간 보고의 미해결 이슈 현황과 통계에서 빠집니다."),
             style: TextStyle(fontSize: 12, color: tossSubText),
           ),
           value: include,

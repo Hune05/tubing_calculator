@@ -131,11 +131,11 @@ void main() {
       );
       await pumpDetail(tester, log);
       await tester.scrollUntilVisible(
-        find.text('남은 이슈 2건 모두 처리 완료'),
+        findText('남은 이슈 2건 모두 처리 완료'),
         300,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.text('남은 이슈 2건 모두 처리 완료'), findsOneWidget);
+      expect(findText('남은 이슈 2건 모두 처리 완료'), findsOneWidget);
     });
 
     testWidgets('not shown for an active project', (tester) async {
@@ -165,7 +165,7 @@ void main() {
         ],
       );
       final calls = await pumpDetail(tester, log);
-      final btn = find.text('남은 이슈 1건 모두 처리 완료');
+      final btn = findText('남은 이슈 1건 모두 처리 완료');
       await tester.scrollUntilVisible(
         btn,
         300,
@@ -185,9 +185,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(openIssueCount(log), 0);
       expect(calls, ['save']);
-      expect(find.text('이슈 1건을 처리 완료로 바꿨습니다.'), findsOneWidget);
+      expect(findText('이슈 1건을 처리 완료로 바꿨습니다.'), findsOneWidget);
       // 남은 이슈가 없으니 버튼이 사라진다.
-      expect(find.text('남은 이슈 1건 모두 처리 완료'), findsNothing);
+      expect(findText('남은 이슈 1건 모두 처리 완료'), findsNothing);
     });
   });
 
@@ -318,7 +318,7 @@ void main() {
         NotificationCheckPage(logs: [proj('A현장', reportToday: false)]),
       );
       expect(find.text('프로젝트별 시각 바꾸기'), findsNothing);
-      expect(find.textContaining('프로젝트 화면 ⋮ 메뉴'), findsOneWidget);
+      expect(findTextContaining('프로젝트 화면 ⋮ 메뉴'), findsOneWidget);
     });
   });
 }

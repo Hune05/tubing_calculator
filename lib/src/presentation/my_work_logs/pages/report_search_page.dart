@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/korean_text.dart';
 
 import '../models/report_tools.dart';
 import '../models/photo_store.dart';
@@ -300,7 +301,7 @@ class _ProjectPhotosPageState extends State<ProjectPhotosPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         title: Text(
-          "사진 모아보기 (${all.length})",
+          keepWords("사진 모아보기 (${all.length})"),
           style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
         ),
       ),

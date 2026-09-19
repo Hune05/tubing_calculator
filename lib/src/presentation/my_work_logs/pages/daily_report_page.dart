@@ -711,8 +711,8 @@ class _DailyReportPageState extends State<DailyReportPage> {
         _completedScheduleIds.isEmpty &&
         _usedMaterialIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("작업 내용, 사진, 또는 처리한 이슈/일정을 하나 이상 입력해야 합니다."),
+        SnackBar(
+          content: Text(keepWords("작업 내용, 사진, 또는 처리한 이슈/일정을 하나 이상 입력해야 합니다.")),
           backgroundColor: Colors.red,
         ),
       );
@@ -1189,7 +1189,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
       if (_attachedImages.length >= 10) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("사진은 최대 10장까지 첨부할 수 있습니다.")),
+            SnackBar(content: Text(keepWords("사진은 최대 10장까지 첨부할 수 있습니다."))),
           );
         }
         return;
@@ -1408,7 +1408,9 @@ class _DailyReportPageState extends State<DailyReportPage> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        "${widget.existingData!['date']}의 지난 일지입니다. 저장하려면 수정 사유를 입력해야 합니다.",
+                        keepWords(
+                          "${widget.existingData!['date']}의 지난 일지입니다. 저장하려면 수정 사유를 입력해야 합니다.",
+                        ),
                         style: TextStyle(
                           color: Colors.orange.shade800,
                           fontSize: 13,
@@ -1757,7 +1759,9 @@ class _DailyReportPageState extends State<DailyReportPage> {
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
-                        "연장/야간 근무 시간: ${_overtimeHours!.toStringAsFixed(1)}시간",
+                        keepWords(
+                          "연장/야간 근무 시간: ${_overtimeHours!.toStringAsFixed(1)}시간",
+                        ),
                         style: const TextStyle(
                           color: makitaTeal,
                           fontSize: 12,
@@ -1831,8 +1835,8 @@ class _DailyReportPageState extends State<DailyReportPage> {
                 ),
                 if (_favMaterials.isNotEmpty) ...[
                   const SizedBox(height: 10),
-                  const Text(
-                    "자주 쓰는 자재 (눌러서 추가, 길게 눌러 삭제)",
+                  Text(
+                    keepWords("자주 쓰는 자재 (눌러서 추가, 길게 눌러 삭제)"),
                     style: TextStyle(color: tossSubText, fontSize: 11),
                   ),
                   const SizedBox(height: 6),
@@ -1911,8 +1915,8 @@ class _DailyReportPageState extends State<DailyReportPage> {
                     : "${_completedScheduleIds.length}건 완료 처리",
                 filled: _completedScheduleIds.isNotEmpty,
                 children: [
-                  const Text(
-                    "체크하면 저장할 때 프로젝트 일정이 완료로 바뀝니다.",
+                  Text(
+                    keepWords("체크하면 저장할 때 프로젝트 일정이 완료로 바뀝니다."),
                     style: TextStyle(color: tossSubText, fontSize: 12),
                   ),
                   ...widget.pendingSchedules.map((sc) {
@@ -1997,9 +2001,9 @@ class _DailyReportPageState extends State<DailyReportPage> {
               children: [
                 Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        "실제 시공이 도면과 달라 반영이 필요합니다",
+                        keepWords("실제 시공이 도면과 달라 반영이 필요합니다"),
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,

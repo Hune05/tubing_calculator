@@ -250,18 +250,18 @@ class _ReportStylePageState extends State<ReportStylePage> {
             if (_s.signature) ...[
               _sigRow("서명 1", _s.sig1B64, true),
               _sigRow("서명 2", _s.sig2B64, false),
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(top: 6),
                 child: Text(
-                  "손서명을 저장해 두면 PDF 서명란에 자동으로 들어갑니다.",
+                  keepWords("손서명을 저장해 두면 PDF 서명란에 자동으로 들어갑니다."),
                   style: TextStyle(color: _sub, fontSize: 11),
                 ),
               ),
             ],
           ]),
           _card("작업 보고서에 넣을 항목", [
-            const Text(
-              "꺼 둔 항목은 작업 보고서(텍스트/PDF)에서 빠집니다.",
+            Text(
+              keepWords("꺼 둔 항목은 작업 보고서(텍스트/PDF)에서 빠집니다."),
               style: TextStyle(color: _sub, fontSize: 12),
             ),
             for (final k in ReportStyle.optionalSections)
@@ -281,14 +281,14 @@ class _ReportStylePageState extends State<ReportStylePage> {
           _card("기본값", [
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text("PDF 내보낼 때 사진 포함을 기본으로"),
+              title: Text(keepWords("PDF 내보낼 때 사진 포함을 기본으로")),
               value: _s.defaultPhotos,
               onChanged: (v) => setState(() => _s.defaultPhotos = v),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text("주간 보고 PDF에 작성일·작성자 줄 넣기"),
-              subtitle: const Text("제목 아래에 '작성일 · 작성 담당자' 한 줄이 들어갑니다."),
+              title: Text(keepWords("주간 보고 PDF에 작성일·작성자 줄 넣기")),
+              subtitle: Text(keepWords("제목 아래에 '작성일 · 작성 담당자' 한 줄이 들어갑니다.")),
               value: _s.weeklyAuthorLine,
               onChanged: (v) => setState(() => _s.weeklyAuthorLine = v),
             ),

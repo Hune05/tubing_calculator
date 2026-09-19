@@ -321,7 +321,9 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                     ),
                   ),
                   subtitle: Text(
-                    "${p['location'] ?? ''}  ·  ${p['priority'] ?? '보통'}${issueOverdueDays(p) > 0 ? '  ·  기한 초과 ${issueOverdueDays(p)}일' : ''}",
+                    keepWords(
+                      "${p['location'] ?? ''}  ·  ${p['priority'] ?? '보통'}${issueOverdueDays(p) > 0 ? '  ·  기한 초과 ${issueOverdueDays(p)}일' : ''}",
+                    ),
                     style: TextStyle(
                       fontSize: 12,
                       color: issueOverdueDays(p) > 0
@@ -412,7 +414,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             child: TextButton.icon(
               onPressed: _resolveAllOpenIssues,
               icon: const Icon(Icons.task_alt_rounded, size: 18),
-              label: Text("남은 이슈 ${openIssueCount(log)}건 모두 처리 완료"),
+              label: Text(keepWords("남은 이슈 ${openIssueCount(log)}건 모두 처리 완료")),
               style: TextButton.styleFrom(foregroundColor: tossSubText),
             ),
           ),
@@ -663,8 +665,8 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         children: [
           const Icon(Icons.account_tree_outlined, size: 52, color: tossSubText),
           const SizedBox(height: 16),
-          const Text(
-            "프로젝트를 단계로 나눠 관리해 보십시오",
+          Text(
+            keepWords("프로젝트를 단계로 나눠 관리해 보십시오"),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontWeight: FontWeight.w800,
@@ -673,8 +675,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            "설계 → 자재 입고 → 제작 → 설치 → 시운전·검사 → 납품\n표준 단계를 시작일/납기일에 맞춰 자동으로 나눠 드립니다.",
+          Text(
+            keepWords(
+              "설계 → 자재 입고 → 제작 → 설치 → 시운전·검사 → 납품\n표준 단계를 시작일/납기일에 맞춰 자동으로 나눠 드립니다.",
+            ),
             textAlign: TextAlign.center,
             style: TextStyle(color: tossSubText, height: 1.5),
           ),
@@ -903,10 +907,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                 children: [
                   const Divider(height: 1),
                   if (items.isEmpty)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.symmetric(vertical: 14),
                       child: Text(
-                        "이 단계에 등록된 세부 일정이 없습니다.",
+                        keepWords("이 단계에 등록된 세부 일정이 없습니다."),
                         style: TextStyle(color: tossSubText, fontSize: 13),
                       ),
                     )
@@ -968,7 +972,9 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         ),
       ),
       subtitle: Text(
-        "${s['type'] ?? ''}${dt != null ? '  ·  ${_md(dt)}' : '  ·  날짜 미정'}",
+        keepWords(
+          "${s['type'] ?? ''}${dt != null ? '  ·  ${_md(dt)}' : '  ·  날짜 미정'}",
+        ),
         style: const TextStyle(fontSize: 12, color: tossSubText),
       ),
       onTap: () => _run(
@@ -1188,8 +1194,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    "시작일과 납기일만 정하면 각 단계 기간이 자동으로 나뉩니다. 나중에 단계별로 수정할 수 있습니다.",
+                  Text(
+                    keepWords(
+                      "시작일과 납기일만 정하면 각 단계 기간이 자동으로 나뉩니다. 나중에 단계별로 수정할 수 있습니다.",
+                    ),
                     style: TextStyle(
                       color: tossSubText,
                       fontSize: 13,
@@ -1241,10 +1249,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                     ),
                   ),
                   if (templates.length > 1)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(top: 4),
                       child: Text(
-                        "저장한 템플릿은 길게 누르면 삭제됩니다.",
+                        keepWords("저장한 템플릿은 길게 누르면 삭제됩니다."),
                         style: TextStyle(color: tossSubText, fontSize: 11),
                       ),
                     ),
@@ -1523,7 +1531,9 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("'$name' 템플릿을 저장했습니다. 단계 만들기에서 불러올 수 있습니다.")),
+        SnackBar(
+          content: Text(keepWords("'$name' 템플릿을 저장했습니다. 단계 만들기에서 불러올 수 있습니다.")),
+        ),
       );
     }
   }
@@ -1889,10 +1899,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
               maxHeight: MediaQuery.of(ctx).size.height * 0.6,
             ),
             child: book.isEmpty
-                ? const Padding(
+                ? Padding(
                     padding: EdgeInsets.all(30),
                     child: Text(
-                      "주소록이 비어 있습니다. 연락처를 저장할 때 '주소록에도 저장'을 체크하십시오.",
+                      keepWords("주소록이 비어 있습니다. 연락처를 저장할 때 '주소록에도 저장'을 체크하십시오."),
                       style: TextStyle(color: tossSubText),
                     ),
                   )
@@ -1959,10 +1969,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             ],
           ),
           if (list.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(bottom: 6, right: 8),
               child: Text(
-                "현장 담당자, 협력사, 자재 업체 연락처를 적어 두면 바로 전화·문자할 수 있습니다.",
+                keepWords("현장 담당자, 협력사, 자재 업체 연락처를 적어 두면 바로 전화·문자할 수 있습니다."),
                 style: TextStyle(color: tossSubText, fontSize: 12, height: 1.4),
               ),
             ),
@@ -2376,7 +2386,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    "'${d.phase['name']}' 단계가 ${d.days}일 지연되고 있습니다",
+                    keepWords("'${d.phase['name']}' 단계가 ${d.days}일 지연되고 있습니다"),
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       color: warningRed,
@@ -2388,7 +2398,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             if (after > 0) ...[
               const SizedBox(height: 6),
               Text(
-                "뒤 단계 $after개의 일정도 그만큼 밀릴 수 있습니다.",
+                keepWords("뒤 단계 $after개의 일정도 그만큼 밀릴 수 있습니다."),
                 style: const TextStyle(fontSize: 12, color: tossSubText),
               ),
               const SizedBox(height: 10),
@@ -2400,7 +2410,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                     foregroundColor: warningRed,
                     side: const BorderSide(color: warningRed),
                   ),
-                  child: Text("지연 반영: 뒤 단계 ${d.days}일 밀기"),
+                  child: Text(keepWords("지연 반영: 뒤 단계 ${d.days}일 밀기")),
                 ),
               ),
             ],
@@ -2507,8 +2517,8 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                     controlAffinity: ListTileControlAffinity.leading,
                     value: withPhotos,
                     onChanged: (v) => setS(() => withPhotos = v == true),
-                    title: const Text(
-                      "PDF에 사진 포함 (최대 24장, 만드는 데 시간이 걸립니다)",
+                    title: Text(
+                      keepWords("PDF에 사진 포함 (최대 24장, 만드는 데 시간이 걸립니다)"),
                       style: TextStyle(fontSize: 13),
                     ),
                   ),
@@ -2647,7 +2657,9 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                "• ${m['title'] ?? m['type']} · ${materialUsageCount(log, m['id'].toString())}일 사용",
+                keepWords(
+                  "• ${m['title'] ?? m['type']} · ${materialUsageCount(log, m['id'].toString())}일 사용",
+                ),
                 style: const TextStyle(color: tossText, fontSize: 13),
               ),
             ),
@@ -2724,7 +2736,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
           alignment: Alignment.centerRight,
           child: TextButton(
             onPressed: () => _tab.animateTo(1),
-            child: Text("나머지 ${open.length - 5}건 더 보기"),
+            child: Text(keepWords("나머지 ${open.length - 5}건 더 보기")),
           ),
         ),
       const SizedBox(height: 22),
@@ -2813,9 +2825,9 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     final done = resolveOpenIssues(log);
     widget.actions.save();
     setState(() {});
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text("이슈 $done건을 처리 완료로 바꿨습니다.")));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(keepWords("이슈 $done건을 처리 완료로 바꿨습니다."))),
+    );
   }
 
   Future<void> _editProjectReminder() async {
@@ -3276,7 +3288,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                           backgroundColor: tossBlue,
                         ),
                         child: Text(
-                          "${_sel.length}건 내보내기",
+                          keepWords("${_sel.length}건 내보내기"),
                           style: const TextStyle(color: pureWhite),
                         ),
                       ),

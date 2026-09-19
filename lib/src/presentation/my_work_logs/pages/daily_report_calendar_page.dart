@@ -1,4 +1,5 @@
 import '../widgets/work_theme.dart';
+import '../widgets/korean_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'daily_report_page.dart';
@@ -245,8 +246,8 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
 
     Clipboard.setData(ClipboardData(text: buffer.toString()));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("이번 달 작업 일지 요약이 클립보드에 복사되었습니다."),
+      SnackBar(
+        content: Text(keepWords("이번 달 작업 일지 요약이 클립보드에 복사되었습니다.")),
         backgroundColor: tossBlue,
       ),
     );

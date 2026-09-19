@@ -1,4 +1,5 @@
 import '../widgets/work_theme.dart';
+import '../widgets/korean_text.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../widgets/voice_input_button.dart';
@@ -192,8 +193,8 @@ class _PunchListPageState extends State<PunchListPage> {
 
     if (textValue.isEmpty && _attachedImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("결함 내용이나 사진을 최소 1장 첨부해야 합니다."),
+        SnackBar(
+          content: Text(keepWords("결함 내용이나 사진을 최소 1장 첨부해야 합니다.")),
           backgroundColor: warningRed,
         ),
       );

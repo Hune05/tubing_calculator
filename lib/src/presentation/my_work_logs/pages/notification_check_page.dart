@@ -133,7 +133,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
         Padding(
           padding: const EdgeInsets.only(left: 26, bottom: 6),
           child: Text(
-            "프로젝트 ${active.length}곳 → 알림 $expected개, 예약과 일치합니다.",
+            keepWords("프로젝트 ${active.length}곳 → 알림 $expected개, 예약과 일치합니다."),
             style: const TextStyle(
               fontSize: 12,
               height: 1.4,
@@ -222,10 +222,10 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
           ),
         )
       else
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(left: 26, bottom: 6),
           child: Text(
-            "프로젝트 화면 ⋮ 메뉴에서 프로젝트별 시각을 바꿀 수 있습니다.",
+            keepWords("프로젝트 화면 ⋮ 메뉴에서 프로젝트별 시각을 바꿀 수 있습니다."),
             style: TextStyle(fontSize: 11, height: 1.4, color: _sub),
           ),
         ),
@@ -398,15 +398,17 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
               _sched?.weekly,
               "금요일 ${_hm(_pref?.weeklyMinutes ?? 1020)}",
             ),
-            const Text(
-              "폰에 예약이 돼 있어도 절전 기능 때문에 제때 안 울릴 수 있습니다. 아래 4번을 확인하십시오.",
+            Text(
+              keepWords(
+                "폰에 예약이 돼 있어도 절전 기능 때문에 제때 안 울릴 수 있습니다. 아래 4번을 확인하십시오.",
+              ),
               style: TextStyle(fontSize: 12, height: 1.4, color: _sub),
             ),
           ]),
           _card([
             _title("3. 테스트 알림"),
-            const Text(
-              "지금 바로 알림 한 개를 보낼 수 있습니다. 보이면 알림 자체는 정상입니다.",
+            Text(
+              keepWords("지금 바로 알림 한 개를 보낼 수 있습니다. 보이면 알림 자체는 정상입니다."),
               style: TextStyle(fontSize: 13, height: 1.4, color: _sub),
             ),
             const SizedBox(height: 10),
@@ -433,11 +435,13 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
           ]),
           _card([
             _title("4. 예약 알림이 안 올 때 (배터리 제한)"),
-            const Text(
-              "일보·주간 보고 알림은 정해진 시각에 폰이 앱을 깨워서 보냅니다. 삼성 등 일부 폰은 "
-              "절전 기능이 앱을 재워서 예약 알림이 오지 않을 수 있습니다.\n\n"
-              "• 설정 → 배터리 → 백그라운드 사용 제한에서 이 앱을 빼 주십시오.\n"
-              "• 앱 정보 → 배터리 → '제한 없음'(또는 최적화 안 함)으로 바꿔 주십시오.",
+            Text(
+              keepWords(
+                "일보·주간 보고 알림은 정해진 시각에 폰이 앱을 깨워서 보냅니다. 삼성 등 일부 폰은 "
+                "절전 기능이 앱을 재워서 예약 알림이 오지 않을 수 있습니다.\n\n"
+                "• 설정 → 배터리 → 백그라운드 사용 제한에서 이 앱을 빼 주십시오.\n"
+                "• 앱 정보 → 배터리 → '제한 없음'(또는 최적화 안 함)으로 바꿔 주십시오.",
+              ),
               style: TextStyle(fontSize: 13, height: 1.5, color: _sub),
             ),
             const SizedBox(height: 10),

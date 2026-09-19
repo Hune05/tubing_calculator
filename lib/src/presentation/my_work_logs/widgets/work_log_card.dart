@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'korean_text.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'photo_detail_modal.dart';
 import '../models/project_phase.dart'
@@ -610,10 +611,10 @@ class PunchListSectionState extends State<PunchListSection> {
                       setState(() {});
                       widget.onBulkChanged!();
                     },
-                    itemBuilder: (_) => const [
+                    itemBuilder: (_) => [
                       PopupMenuItem(
                         value: true,
-                        child: Text("미해결 이슈 모두 주간 보고에서 제외"),
+                        child: Text(keepWords("미해결 이슈 모두 주간 보고에서 제외")),
                       ),
                       PopupMenuItem(
                         value: false,

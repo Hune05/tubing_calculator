@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'helpers_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/project_phase.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/report_tools.dart';
@@ -86,7 +87,7 @@ void main() {
     expect(find.textContaining('· 18:00  기본A, 기본B'), findsOneWidget);
     expect(find.textContaining('· 21:00  밤에'), findsOneWidget);
     expect(find.textContaining('끝난곳'), findsNothing); // 완료 프로젝트는 알림 대상이 아니다
-    expect(find.textContaining('프로젝트 화면 ⋮ 메뉴'), findsOneWidget);
+    expect(findTextContaining('프로젝트 화면 ⋮ 메뉴'), findsOneWidget);
   });
 
   testWidgets('notification check without logs shows no per-project list', (

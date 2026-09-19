@@ -1441,7 +1441,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
     HapticFeedback.mediumImpact();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("모듈 ${items.length}개를 가져왔습니다."),
+        content: Text(keepWords("모듈 ${items.length}개를 가져왔습니다.")),
         backgroundColor: tossBlue,
       ),
     );
@@ -3325,7 +3325,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          "${_multiSelectedIds.length}개 선택",
+                          keepWords("${_multiSelectedIds.length}개 선택"),
                           style: const TextStyle(
                             color: pureWhite,
                             fontWeight: FontWeight.w800,
@@ -3580,8 +3580,10 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                     child: _buildPaletteItem("신규 박스 모듈"),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    "위 박스를 우측 도면으로 드래그하여 배치하십시오.\n배치 후 터치하면 우측 패널에서 명칭과 크기를 수정할 수 있습니다.",
+                  Text(
+                    keepWords(
+                      "위 박스를 우측 도면으로 드래그하여 배치하십시오.\n배치 후 터치하면 우측 패널에서 명칭과 크기를 수정할 수 있습니다.",
+                    ),
                     style: TextStyle(
                       color: tossSubText,
                       fontSize: 13,
@@ -4559,7 +4561,9 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                                               ),
                                               const SizedBox(height: 12),
                                               Text(
-                                                "왼쪽에서 모듈을 끌어다\n놓아 배치를 시작하십시오",
+                                                keepWords(
+                                                  "왼쪽에서 모듈을 끌어다\n놓아 배치를 시작하십시오",
+                                                ),
                                                 textAlign: TextAlign.center,
                                                 style: TextStyle(
                                                   color: tossSubText.withValues(
@@ -4721,11 +4725,11 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
               child: _mode == BoardMode.measureDimension
                   ? _buildDimensionInspector()
                   : _selectedItem == null
-                  ? const Center(
+                  ? Center(
                       child: Padding(
                         padding: EdgeInsets.only(top: 40),
                         child: Text(
-                          "도면에서 모듈을 선택하면\n상세 수치를 조절할 수 있습니다.",
+                          keepWords("도면에서 모듈을 선택하면\n상세 수치를 조절할 수 있습니다."),
                           textAlign: TextAlign.center,
                           style: TextStyle(color: tossSubText, height: 1.5),
                         ),

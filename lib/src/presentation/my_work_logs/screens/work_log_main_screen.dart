@@ -632,7 +632,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
               padding: const EdgeInsets.only(bottom: 4),
               child: FilterChip(
                 label: Text(
-                  "이슈 남은 프로젝트만 (${withOpenIssues(_doneLogs).length})",
+                  keepWords(
+                    "이슈 남은 프로젝트만 (${withOpenIssues(_doneLogs).length})",
+                  ),
                 ),
                 selected: _issueFilterOn,
                 showCheckmark: false,
@@ -671,7 +673,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                       : _exportSelectedProjects,
                   style: ElevatedButton.styleFrom(backgroundColor: tossBlue),
                   child: Text(
-                    "${_selProjects.length}건 내보내기",
+                    keepWords("${_selProjects.length}건 내보내기"),
                     style: const TextStyle(color: pureWhite),
                   ),
                 ),
@@ -1090,9 +1092,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         children: [
           const Icon(Icons.cloud_off_rounded, size: 16, color: c),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Text(
-              "주간 자동 백업에 실패했습니다. 앱이 켜져 있는 동안 계속 다시 시도합니다.",
+              keepWords("주간 자동 백업에 실패했습니다. 앱이 켜져 있는 동안 계속 다시 시도합니다."),
               style: TextStyle(
                 color: c,
                 fontSize: 12,
@@ -1294,13 +1296,13 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "일보·주간 보고 알림이 제때 오는지 확인해 보십시오",
+          Text(
+            keepWords("일보·주간 보고 알림이 제때 오는지 확인해 보십시오"),
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
           ),
           const SizedBox(height: 4),
-          const Text(
-            "폰 절전 기능 때문에 예약 알림이 안 올 수 있습니다. '알림 점검'에서 상태를 볼 수 있습니다.",
+          Text(
+            keepWords("폰 절전 기능 때문에 예약 알림이 안 올 수 있습니다. '알림 점검'에서 상태를 볼 수 있습니다."),
             style: TextStyle(fontSize: 12, height: 1.4, color: tossSubText),
           ),
           Row(
@@ -1538,7 +1540,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  "오늘 일지 미작성 ${missingReports.length}건",
+                  keepWords("오늘 일지 미작성 ${missingReports.length}건"),
                   style: const TextStyle(
                     color: tossSubText,
                     fontSize: 12,
@@ -1575,7 +1577,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                 const Icon(Icons.event_note_rounded, size: 14, color: tossBlue),
                 const SizedBox(width: 4),
                 Text(
-                  "다가오는 일정 (미완료 ${schedules.length}건)",
+                  keepWords("다가오는 일정 (미완료 ${schedules.length}건)"),
                   style: const TextStyle(
                     color: tossSubText,
                     fontSize: 12,
@@ -1587,7 +1589,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             ...displayedSchedules.map(_buildUpcomingRow),
             if (schedules.length > displayedSchedules.length)
               Text(
-                "외 ${schedules.length - displayedSchedules.length}건 더",
+                keepWords(
+                  "외 ${schedules.length - displayedSchedules.length}건 더",
+                ),
                 style: const TextStyle(color: tossSubText, fontSize: 12),
               ),
           ],
@@ -1602,7 +1606,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  "미해결 이슈 (${issues.length}건)",
+                  keepWords("미해결 이슈 (${issues.length}건)"),
                   style: const TextStyle(
                     color: tossSubText,
                     fontSize: 12,
@@ -1614,7 +1618,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             ...displayedIssues.map(_buildIssueRow),
             if (issues.length > displayedIssues.length)
               Text(
-                "외 ${issues.length - displayedIssues.length}건 더",
+                keepWords("외 ${issues.length - displayedIssues.length}건 더"),
                 style: const TextStyle(color: tossSubText, fontSize: 12),
               ),
           ],

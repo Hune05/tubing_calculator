@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/korean_text.dart';
 
 import '../models/project_phase.dart';
 import '../models/report_tools.dart';
@@ -185,7 +186,9 @@ class _RetroOverviewPageState extends State<RetroOverviewPage> {
                   h("전체 요약 (완료 ${done.length}건)"),
                   if (avgPlan != null && avgActual != null) ...[
                     Text(
-                      "평균 계획 ${avgPlan.round()}일 → 평균 실제 ${avgActual.round()}일",
+                      keepWords(
+                        "평균 계획 ${avgPlan.round()}일 → 평균 실제 ${avgActual.round()}일",
+                      ),
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         color: _text,
@@ -193,13 +196,15 @@ class _RetroOverviewPageState extends State<RetroOverviewPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      "기간 내 완료 $onTime / ${withBoth.length}건 "
-                      "(${(onTime * 100 / withBoth.length).round()}%)",
+                      keepWords(
+                        "기간 내 완료 $onTime / ${withBoth.length}건 "
+                        "(${(onTime * 100 / withBoth.length).round()}%)",
+                      ),
                       style: const TextStyle(color: _sub, fontSize: 13),
                     ),
                   ] else
-                    const Text(
-                      "계획 기간(단계 설정)과 일보가 있는 프로젝트가 생기면 평균이 계산됩니다.",
+                    Text(
+                      keepWords("계획 기간(단계 설정)과 일보가 있는 프로젝트가 생기면 평균이 계산됩니다."),
                       style: TextStyle(color: _sub, fontSize: 13),
                     ),
                 ]),

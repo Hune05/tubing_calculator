@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../widgets/korean_text.dart';
 
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -462,8 +463,10 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
             if (s.manDays > 0 && s.pt > 0)
               section("작업 효율 참고", [
                 Text(
-                  "1인·일당 벤딩 ${(s.pt / s.manDays).toStringAsFixed(1)} pt"
-                  "${s.wiring > 0 ? ' · 결선 ${(s.wiring / s.manDays).toStringAsFixed(1)} 개소' : ''}",
+                  keepWords(
+                    "1인·일당 벤딩 ${(s.pt / s.manDays).toStringAsFixed(1)} pt"
+                    "${s.wiring > 0 ? ' · 결선 ${(s.wiring / s.manDays).toStringAsFixed(1)} 개소' : ''}",
+                  ),
                   style: const TextStyle(
                     color: _text,
                     fontSize: 14,
@@ -471,8 +474,8 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  "다음 견적/일정에서 필요한 인원-일을 어림할 때 참고하십시오.",
+                Text(
+                  keepWords("다음 견적/일정에서 필요한 인원-일을 어림할 때 참고하십시오."),
                   style: TextStyle(color: _sub, fontSize: 12),
                 ),
               ]),
@@ -527,10 +530,10 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
                       ],
                     ),
                   ),
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 4),
                   child: Text(
-                    "회색=계획 기간, 색=일보에 그 단계로 기록한 작업일",
+                    keepWords("회색=계획 기간, 색=일보에 그 단계로 기록한 작업일"),
                     style: TextStyle(color: _sub, fontSize: 11),
                   ),
                 ),
@@ -540,8 +543,8 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
                 for (final r in s.rows)
                   bar(r.label, r.value, maxRow, r.right, r.sub),
                 if (_logs.length == 1 && s.rows.every((r) => r.value == 0))
-                  const Text(
-                    "일보에서 '작업한 단계'를 선택하면 단계별로 집계됩니다.",
+                  Text(
+                    keepWords("일보에서 '작업한 단계'를 선택하면 단계별로 집계됩니다."),
                     style: TextStyle(color: _sub, fontSize: 12),
                   ),
               ]),

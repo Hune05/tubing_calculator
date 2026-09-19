@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'helpers_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/report_tools.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/weekly_report_page.dart';
@@ -112,10 +113,10 @@ void main() {
         onIssueChanged: changed.add,
       ),
     );
-    expect(find.text('제외한 이슈 1건 보기'), findsOneWidget);
+    expect(findText('제외한 이슈 1건 보기'), findsOneWidget);
     // 접혀 있어서 내용은 아직 안 보이고, 리포트 본문에도 없다.
     expect(find.textContaining('뺀이슈'), findsNothing);
-    await tester.tap(find.text('제외한 이슈 1건 보기'));
+    await tester.tap(findText('제외한 이슈 1건 보기'));
     await tester.pumpAndSettle();
     expect(find.textContaining('뺀이슈'), findsOneWidget);
 
@@ -149,7 +150,7 @@ void main() {
         ],
       ),
     );
-    expect(find.text('제외한 이슈 1건 보기'), findsNothing);
+    expect(findText('제외한 이슈 1건 보기'), findsNothing);
   });
 }
 

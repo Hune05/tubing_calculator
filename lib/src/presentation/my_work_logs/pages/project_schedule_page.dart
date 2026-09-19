@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/korean_text.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:tubing_calculator/src/core/common_widgets/makita_time_picker.dart';
@@ -955,7 +956,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "${item['title'] ?? item['type'] ?? ''} · 변경 이력",
+              keepWords("${item['title'] ?? item['type'] ?? ''} · 변경 이력"),
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
@@ -994,7 +995,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        "${_formatDateTime(changedAt)}에 변경",
+                        keepWords("${_formatDateTime(changedAt)}에 변경"),
                         style: const TextStyle(
                           color: tossSubText,
                           fontSize: 11,
@@ -1082,8 +1083,8 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
 
     Clipboard.setData(ClipboardData(text: buffer.toString()));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("이번 달 일정 요약이 클립보드에 복사되었습니다."),
+      SnackBar(
+        content: Text(keepWords("이번 달 일정 요약이 클립보드에 복사되었습니다.")),
         backgroundColor: tossBlue,
       ),
     );
@@ -1662,7 +1663,9 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                                                 ),
                                                 const SizedBox(width: 4),
                                                 Text(
-                                                  "연결된 미해결 이슈 ${_unresolvedIssueCount(item)}건",
+                                                  keepWords(
+                                                    "연결된 미해결 이슈 ${_unresolvedIssueCount(item)}건",
+                                                  ),
                                                   style: const TextStyle(
                                                     color: warningRed,
                                                     fontSize: 11,

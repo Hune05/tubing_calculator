@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'helpers_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/project_phase.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/report_style.dart';
@@ -82,7 +83,7 @@ void main() {
       await tester.pumpAndSettle();
       // 본문에서는 빠지고, 아래 "제외한 이슈" 카드로 옮겨 가 있어야 한다.
       expect(find.textContaining('참고'), findsOneWidget);
-      expect(find.text('제외한 이슈 1건 보기'), findsOneWidget);
+      expect(findText('제외한 이슈 1건 보기'), findsOneWidget);
       expect(find.textContaining('미해결 이슈 현황'), findsNothing);
     },
   );

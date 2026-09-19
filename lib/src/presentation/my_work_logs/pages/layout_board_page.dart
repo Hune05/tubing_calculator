@@ -684,7 +684,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
                   child: Text(
-                    "실행 취소 히스토리 (${_undoStack.length}단계)",
+                    keepWords("실행 취소 히스토리 (${_undoStack.length}단계)"),
                     style: const TextStyle(
                       color: tossText,
                       fontWeight: FontWeight.w800,
@@ -1322,7 +1322,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Text(
-                    "치수 목록표 (Dimension Schedule)",
+                    keepWords("치수 목록표 (Dimension Schedule)"),
                     style: pw.TextStyle(
                       fontSize: 18,
                       fontWeight: pw.FontWeight.bold,
@@ -1573,10 +1573,12 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                       }
                       final docs = snapshot.data?.docs ?? [];
                       if (docs.isEmpty) {
-                        return const Padding(
+                        return Padding(
                           padding: EdgeInsets.all(24),
                           child: Text(
-                            "저장된 템플릿이 없습니다.\n'더보기 > 템플릿으로 저장'으로 먼저 만들어 보십시오.",
+                            keepWords(
+                              "저장된 템플릿이 없습니다.\n'더보기 > 템플릿으로 저장'으로 먼저 만들어 보십시오.",
+                            ),
                             style: TextStyle(color: tossSubText),
                           ),
                         );
@@ -1754,10 +1756,10 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                           .where((d) => d.id != _currentProjectId)
                           .toList();
                       if (docs.isEmpty) {
-                        return const Padding(
+                        return Padding(
                           padding: EdgeInsets.all(24),
                           child: Text(
-                            "가져올 수 있는 다른 도면이 없습니다.",
+                            keepWords("가져올 수 있는 다른 도면이 없습니다."),
                             style: TextStyle(color: tossSubText),
                           ),
                         );
@@ -1838,7 +1840,9 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
                       child: Text(
-                        "가져올 모듈 선택 (${sourceData['projectName'] ?? ''})",
+                        keepWords(
+                          "가져올 모듈 선택 (${sourceData['projectName'] ?? ''})",
+                        ),
                         style: const TextStyle(
                           color: tossText,
                           fontWeight: FontWeight.w800,
@@ -1906,7 +1910,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                             ),
                           ),
                           child: Text(
-                            "선택한 모듈 ${selectedIds.length}개 가져오기",
+                            keepWords("선택한 모듈 ${selectedIds.length}개 가져오기"),
                             style: const TextStyle(
                               color: pureWhite,
                               fontWeight: FontWeight.bold,
@@ -1964,7 +1968,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
     HapticFeedback.mediumImpact();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("모듈 ${items.length}개를 가져왔습니다."),
+        content: Text(keepWords("모듈 ${items.length}개를 가져왔습니다.")),
         backgroundColor: tossBlue,
       ),
     );
@@ -2280,8 +2284,8 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                       },
                     ),
                     const SizedBox(height: 20),
-                    const Text(
-                      "최소 유지 간격 (mm) - 이보다 좁아지면 경고 표시",
+                    Text(
+                      keepWords("최소 유지 간격 (mm) - 이보다 좁아지면 경고 표시"),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -2407,8 +2411,8 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                           color: tossText,
                         ),
                       ),
-                      subtitle: const Text(
-                        "축에 맞추지 않고 실제 직선거리+각도로 표시",
+                      subtitle: Text(
+                        keepWords("축에 맞추지 않고 실제 직선거리+각도로 표시"),
                         style: TextStyle(fontSize: 11, color: tossSubText),
                       ),
                     ),
@@ -2433,8 +2437,8 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                           color: tossText,
                         ),
                       ),
-                      subtitle: const Text(
-                        "굵은 선 + 🛡 표시로 다른 치수와 구분",
+                      subtitle: Text(
+                        keepWords("굵은 선 + 🛡 표시로 다른 치수와 구분"),
                         style: TextStyle(fontSize: 11, color: tossSubText),
                       ),
                     ),
@@ -3156,7 +3160,9 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
 
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text("'${item.name}' 모듈이 복사되었습니다."),
+                                  content: Text(
+                                    keepWords("'${item.name}' 모듈이 복사되었습니다."),
+                                  ),
                                   backgroundColor: tossText,
                                   behavior: SnackBarBehavior.floating,
                                   duration: const Duration(seconds: 1),
@@ -3564,8 +3570,10 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      "카톡으로 받은 실제 도면 사진을 배경에 깔고 그 위에 모듈을\n배치할 수 있습니다.",
+                    Text(
+                      keepWords(
+                        "카톡으로 받은 실제 도면 사진을 배경에 깔고 그 위에 모듈을\n배치할 수 있습니다.",
+                      ),
                       style: TextStyle(
                         fontSize: 13,
                         color: tossSubText,
@@ -3835,8 +3843,8 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  "배치된 모듈을 이름별로 모아 세었습니다.",
+                Text(
+                  keepWords("배치된 모듈을 이름별로 모아 세었습니다."),
                   style: TextStyle(fontSize: 13, color: tossSubText),
                 ),
                 const SizedBox(height: 16),
@@ -4035,8 +4043,8 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                   ],
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  "실제 중판(캐비닛)의 사이즈를 mm 단위로 입력하십시오.",
+                Text(
+                  keepWords("실제 중판(캐비닛)의 사이즈를 mm 단위로 입력하십시오."),
                   style: TextStyle(color: tossSubText, fontSize: 14),
                 ),
                 const SizedBox(height: 28),
@@ -4883,7 +4891,9 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                                   ),
                                                   const SizedBox(height: 12),
                                                   Text(
-                                                    "아래에서 모듈을 끌어다\n놓아 배치를 시작하십시오",
+                                                    keepWords(
+                                                      "아래에서 모듈을 끌어다\n놓아 배치를 시작하십시오",
+                                                    ),
                                                     textAlign: TextAlign.center,
                                                     style: TextStyle(
                                                       color: tossSubText
@@ -5060,7 +5070,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                     child: Row(
                       children: [
                         Text(
-                          "${_multiSelectedIds.length}개 선택",
+                          keepWords("${_multiSelectedIds.length}개 선택"),
                           style: const TextStyle(
                             color: pureWhite,
                             fontWeight: FontWeight.w800,

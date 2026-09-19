@@ -1,4 +1,5 @@
 import 'dart:async' show FutureOr;
+import '../widgets/korean_text.dart';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -580,7 +581,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
           tilePadding: const EdgeInsets.symmetric(horizontal: 16),
           childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           title: Text(
-            "제외한 이슈 ${list.length}건 보기",
+            keepWords("제외한 이슈 ${list.length}건 보기"),
             style: const TextStyle(
               fontWeight: FontWeight.w800,
               fontSize: 14,
@@ -708,8 +709,8 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                         fontSize: 14,
                       ),
                     ),
-                    subtitle: const Text(
-                      "눌러서 다른 주의 보고서를 볼 수 있습니다",
+                    subtitle: Text(
+                      keepWords("눌러서 다른 주의 보고서를 볼 수 있습니다"),
                       style: TextStyle(fontSize: 12, color: _sub),
                     ),
                     trailing: _asOf == null
@@ -805,8 +806,8 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                           fontSize: 14,
                         ),
                       ),
-                      subtitle: const Text(
-                        "PDF에서는 프로젝트마다 새 페이지로 시작합니다",
+                      subtitle: Text(
+                        keepWords("PDF에서는 프로젝트마다 새 페이지로 시작합니다"),
                         style: TextStyle(fontSize: 12, color: _sub),
                       ),
                       value: _split,

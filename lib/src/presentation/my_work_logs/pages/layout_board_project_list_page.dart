@@ -207,7 +207,7 @@ class LayoutBoardProjectListPage extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  "목록을 불러오지 못했습니다.\n${snapshot.error}",
+                  keepWords("목록을 불러오지 못했습니다.\n${snapshot.error}"),
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: tossSubText),
                 ),
@@ -250,8 +250,8 @@ class LayoutBoardProjectListPage extends StatelessWidget {
                       style: TextStyle(color: tossSubText, fontSize: 15),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      "아래 + 버튼으로 새 배치도를 시작해 보십시오.",
+                    Text(
+                      keepWords("아래 + 버튼으로 새 배치도를 시작해 보십시오."),
                       style: TextStyle(color: tossSubText, fontSize: 13),
                     ),
                   ],
@@ -329,7 +329,9 @@ class LayoutBoardProjectListPage extends StatelessWidget {
                               if (updatedAt != null) ...[
                                 const SizedBox(height: 2),
                                 Text(
-                                  "마지막 수정 ${updatedAt.month}/${updatedAt.day}",
+                                  keepWords(
+                                    "마지막 수정 ${updatedAt.month}/${updatedAt.day}",
+                                  ),
                                   style: TextStyle(
                                     color: Colors.grey.shade400,
                                     fontSize: 11,

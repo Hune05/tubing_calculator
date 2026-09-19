@@ -1,4 +1,5 @@
 import '../models/photo_store.dart';
+import 'korean_text.dart';
 import 'package:flutter/material.dart';
 
 const Color makitaTeal = Color(0xFF007580);
@@ -166,7 +167,9 @@ class PhotoDetailModal extends StatelessWidget {
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
-                              "👈 좌우로 스와이프 (${imagePaths!.length}장) 👉",
+                              keepWords(
+                                "👈 좌우로 스와이프 (${imagePaths!.length}장) 👉",
+                              ),
                               style: const TextStyle(
                                 color: pureWhite,
                                 fontSize: 14,
