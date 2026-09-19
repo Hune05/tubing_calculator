@@ -1,5 +1,6 @@
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/report_tools.dart';
 
@@ -21,6 +22,9 @@ class NotificationCheckPage extends StatefulWidget {
 class _NotificationCheckPageState extends State<NotificationCheckPage>
     with WidgetsBindingObserver {
   bool? _allowed;
+  ({bool daily, bool weekly})? _sched;
+  ({bool enabled, int minutes, bool weekly, int weeklyMinutes, bool autoPdf})?
+  _pref;
   String? _msg;
 
   @override
@@ -28,6 +32,10 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _refresh();
+    // 이 화면을 한 번 열어 봤으면 메인 화면의 안내 카드는 더 안 띄운다.
+    SharedPreferences.getInstance().then(
+      (p) => p.setBool('notif_check_seen', true),
+    );
   }
 
   @override
@@ -47,7 +55,64 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     try {
       ok = await areNotificationsAllowed();
     } catch (_) {}
-    if (mounted) setState(() => _allowed = ok);
+    ({bool daily, bool weekly})? sched;
+    try {
+      sched = await scheduledReminderStatus();
+    } catch (_) {}
+    final pref = await loadReportReminder();
+    if (mounted) {
+      setState(() {
+        _allowed = ok;
+        _sched = sched;
+        _pref = pref;
+      });
+    }
+  }
+
+  String _hm(int m) =>
+      "${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}";
+
+  // 설정이 켜져 있는데 예약이 안 돼 있으면 빨간 경고, 꺼 뒀으면 회색 "꺼짐".
+  Widget _schedRow(String name, bool on, bool? scheduled, String when) {
+    final Color c;
+    final String t;
+    if (!on) {
+      c = _sub;
+      t = "꺼 둠";
+    } else if (scheduled == null) {
+      c = _sub;
+      t = "확인 못 함";
+    } else if (scheduled) {
+      c = const Color(0xFF1B9E5A);
+      t = "예약됨 ($when)";
+    } else {
+      c = const Color(0xFFE5484D);
+      t = "예약 안 됨 (진행중 프로젝트가 없거나 아직 앱에서 설정이 반영되지 않았어요)";
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            on && scheduled == true
+                ? Icons.check_circle_rounded
+                : (on && scheduled == false
+                      ? Icons.error_rounded
+                      : Icons.remove_circle_outline_rounded),
+            color: c,
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              "$name: $t",
+              style: TextStyle(fontSize: 13, height: 1.4, color: c),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _test() async {
@@ -154,7 +219,26 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
             ),
           ]),
           _card([
-            _title("2. 테스트 알림"),
+            _title("2. 예약 상태"),
+            _schedRow(
+              "일보 알림",
+              _pref?.enabled ?? true,
+              _sched?.daily,
+              "매일 ${_hm(_pref?.minutes ?? 1080)}",
+            ),
+            _schedRow(
+              "주간 보고 알림",
+              _pref?.weekly ?? true,
+              _sched?.weekly,
+              "금요일 ${_hm(_pref?.weeklyMinutes ?? 1020)}",
+            ),
+            const Text(
+              "폰에 예약이 돼 있어도 절전 기능 때문에 제때 안 울릴 수 있어요. 아래 4번을 확인하세요.",
+              style: TextStyle(fontSize: 12, height: 1.4, color: _sub),
+            ),
+          ]),
+          _card([
+            _title("3. 테스트 알림"),
             const Text(
               "지금 바로 알림 한 개를 보내 봐요. 보이면 알림 자체는 정상이에요.",
               style: TextStyle(fontSize: 13, height: 1.4, color: _sub),
@@ -182,7 +266,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
               ),
           ]),
           _card([
-            _title("3. 예약 알림이 안 올 때 (배터리 제한)"),
+            _title("4. 예약 알림이 안 올 때 (배터리 제한)"),
             const Text(
               "일보·주간 보고 알림은 정해진 시각에 폰이 앱을 깨워서 보내요. 삼성 등 일부 폰은 "
               "절전 기능이 앱을 재워서 예약 알림이 오지 않을 수 있어요.\n\n"

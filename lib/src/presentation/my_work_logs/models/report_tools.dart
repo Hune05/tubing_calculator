@@ -55,7 +55,14 @@ class ReportSection {
   final String heading;
   final List<String> lines;
   final bool newPage; // true면 PDF에서 이 섹션부터 새 페이지
-  ReportSection(this.heading, this.lines, {this.newPage = false});
+  // 줄 번호 -> 그 줄이 가리키는 이슈(화면에서 눌러 상세로 갈 때 쓴다).
+  final Map<int, ({Map<String, dynamic> log, Map punch})>? issueRefs;
+  ReportSection(
+    this.heading,
+    this.lines, {
+    this.newPage = false,
+    this.issueRefs,
+  });
 }
 
 // PDF에 넣을 사진 한 장(경로 또는 URL)과 설명(날짜 · 분류 · 메모).
@@ -677,7 +684,10 @@ ReportDoc buildFinalReportDoc(Map<String, dynamic> log) {
   return doc;
 }
 
-Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
+Future<Uint8List> buildReportPdfBytes(
+  ReportDoc doc, {
+  bool withPhotos = false,
+}) async {
   // 사진은 최대 24장까지, 페이지 안에서 잘리지 않게 두 장씩 한 줄로 넣는다.
   final loaded = <(Uint8List, String, String?)>[];
   if (withPhotos) {
@@ -971,11 +981,16 @@ Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
       ],
     ),
   );
+  return pdf.save();
+}
+
+Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
+  final bytes = await buildReportPdfBytes(doc, withPhotos: withPhotos);
   final dir = await getTemporaryDirectory();
   final file = File(
     '${dir.path}/report_${DateTime.now().millisecondsSinceEpoch}.pdf',
   );
-  await file.writeAsBytes(await pdf.save());
+  await file.writeAsBytes(bytes);
   // ignore: deprecated_member_use
   await Share.shareXFiles([
     XFile(file.path),
@@ -1129,6 +1144,14 @@ Future<void> _syncWeeklyReminder(bool on, int minutes, bool autoPdf) async {
     androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
   );
+}
+
+// 알림 점검용: 일보/주간 보고 알림이 실제로 예약돼 있는지(폰이 알고 있는지) 읽는다.
+Future<({bool daily, bool weekly})> scheduledReminderStatus() async {
+  final pending = await flutterLocalNotificationsPlugin
+      .pendingNotificationRequests();
+  final ids = pending.map((e) => e.id).toSet();
+  return (daily: ids.contains(_kReminderId), weekly: ids.contains(_kWeeklyId));
 }
 
 // 알림 점검용: 지금 바로 테스트 알림을 보내고, 알림 권한이 켜져 있는지 돌려준다.

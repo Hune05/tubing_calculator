@@ -21,6 +21,6 @@ void main() {
     expect(s.lines[0].contains('기한 초과 1건'), true);
     expect(s.lines[1].contains('지연건'), true);
     expect(s.lines[1].contains('초과 3일'), true);
-    expect(s.lines[2].contains('기한'), false);
+    expect(s.lines[2].contains('기한 미정'), true);
   });
 }

@@ -1,4 +1,5 @@
 import 'project_phase.dart';
+import 'report_style.dart';
 import 'report_tools.dart';
 
 // 🚀 [주간 업무 보고] 전주 실적 / 금주 진행·예정 / 차주 계획을 프로젝트별로 묶어
@@ -94,9 +95,12 @@ List<String> _actualLines(Map<String, dynamic> log, WeekRange w) {
 }
 
 // 한 프로젝트의 한 주 예정(일정/자재/단계).
-List<String> _plannedLines(Map<String, dynamic> log, WeekRange w) {
+List<String> _plannedLines(
+  Map<String, dynamic> log,
+  WeekRange w,
+  DateTime today,
+) {
   final lines = <String>[];
-  final today = dayOnly(DateTime.now());
 
   final items = <(DateTime, String)>[];
   int undatedMaterial = 0;
@@ -125,9 +129,7 @@ List<String> _plannedLines(Map<String, dynamic> log, WeekRange w) {
   items.sort((a, b) => a.$1.compareTo(b.$1));
   lines.addAll(items.map((e) => e.$2));
   if (undatedMaterial > 0 &&
-      !w.start.isBefore(
-        dayOnly(DateTime.now()).subtract(const Duration(days: 7)),
-      )) {
+      !w.start.isBefore(today.subtract(const Duration(days: 7)))) {
     lines.add('  · 입고일 미정 자재 $undatedMaterial건 확인 필요');
   }
 
@@ -192,6 +194,7 @@ List<String> _sectionLines(
   WeekRange w, {
   required bool actual,
   required bool planned,
+  required DateTime today,
   bool showProgress = false,
 }) {
   final out = <String>[];
@@ -211,7 +214,7 @@ List<String> _sectionLines(
     final block = <String>[
       if (prog != null) prog,
       if (actual) ..._actualLines(log, w),
-      if (planned) ..._plannedLines(log, w),
+      if (planned) ..._plannedLines(log, w, today),
     ];
     if (block.isEmpty) continue;
     out.add('■ ${log['name'] ?? '프로젝트'}');
@@ -225,8 +228,11 @@ ReportDoc buildWeeklyPlanDoc(
   Set<String>? onlyIds,
   bool includePhotos = false,
   bool perProject = false,
+  DateTime? asOf, // 기준일(없으면 오늘). 과거 주를 다시 볼 때 쓴다.
 }) {
-  final today = dayOnly(DateTime.now());
+  final now0 = dayOnly(DateTime.now());
+  final today = dayOnly(asOf ?? now0);
+  final isCurrent = today == now0;
   final weeks = weekRanges(today);
   final targets = logs
       .where(
@@ -258,7 +264,13 @@ ReportDoc buildWeeklyPlanDoc(
     sec(
       weeks[0],
       '— 실적',
-      _sectionLines(targets, weeks[0], actual: true, planned: false),
+      _sectionLines(
+        targets,
+        weeks[0],
+        actual: true,
+        planned: false,
+        today: today,
+      ),
     ),
     sec(
       weeks[1],
@@ -268,13 +280,20 @@ ReportDoc buildWeeklyPlanDoc(
         weeks[1],
         actual: true,
         planned: true,
-        showProgress: true,
+        today: today,
+        showProgress: isCurrent,
       ),
     ),
     sec(
       weeks[2],
       '— 계획',
-      _sectionLines(targets, weeks[2], actual: false, planned: true),
+      _sectionLines(
+        targets,
+        weeks[2],
+        actual: false,
+        planned: true,
+        today: today,
+      ),
     ),
   ];
 
@@ -296,7 +315,8 @@ ReportDoc buildWeeklyPlanDoc(
           w,
           actual: actual,
           planned: planned,
-          showProgress: wi == 1,
+          today: today,
+          showProgress: wi == 1 && isCurrent,
         ).skip(1).toList();
         sections.add(
           ReportSection(
@@ -323,6 +343,7 @@ ReportDoc buildWeeklyPlanDoc(
 
   // 미해결 이슈 현황(전체)
   final issueLines = <String>[];
+  final issueRefs = <int, ({Map<String, dynamic> log, Map punch})>{};
   for (final log in targets) {
     final open = (log['punch_lists'] as List? ?? [])
         .whereType<Map>()
@@ -349,13 +370,14 @@ ReportDoc buildWeeklyPlanDoc(
       final due = p['dueDate'] == null
           ? ' · 기한 미정'
           : ' · 기한 ${_md(asDate(p['dueDate']))}${od > 0 ? ' 초과 $od일' : ''}';
+      issueRefs[issueLines.length] = (log: log, punch: p);
       issueLines.add(
         '  · [${p['priority'] ?? '보통'}] ${p['location'] ?? ''} ${p['content'] ?? ''}$due',
       );
     }
   }
   if (issueLines.isNotEmpty) {
-    sections.add(ReportSection('미해결 이슈 현황', issueLines));
+    sections.add(ReportSection('미해결 이슈 현황', issueLines, issueRefs: issueRefs));
   }
 
   // 사진: 전주·금주 일보에 붙은 사진 중 최근 12장.
@@ -455,13 +477,25 @@ ReportDoc buildWeeklyPlanDoc(
           return c != 0 ? c : a.$2.compareTo(b.$2);
         });
 
+  // 보고서 양식 설정에서 숨긴 항목은 주간 보고에서도 뺀다.
+  sections.removeWhere(
+    (s) =>
+        ReportStyle.current.hiddenSections.any((h) => s.heading.startsWith(h)),
+  );
+
+  // 프로젝트가 하나면 그 프로젝트의 머리말(회사·담당자·로고)을 쓴다.
+  final one = targets.length == 1 ? targets.first : null;
   return ReportDoc(
     targets.length == 1
         ? (targets.first['name']?.toString() ?? '프로젝트')
         : '진행중 프로젝트 ${targets.length}건',
-    '${today.year}.${today.month}.${today.day} 기준',
+    '${today.year}.${today.month}.${today.day} 기준'
+    '${isCurrent ? '' : ' (지난 주 보기: 진행률·미해결 이슈는 현재 값)'}',
     sections,
     heading: '주간 업무 보고',
+    logoB64: one == null ? null : headerOverride(one, 'logoB64'),
+    company: one == null ? null : headerOverride(one, 'company'),
+    manager: one == null ? null : headerOverride(one, 'manager'),
     photos: [for (final e in picked) e.$3],
     compares: compares,
   );

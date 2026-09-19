@@ -1124,6 +1124,8 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         builder: (_) => WeeklyReportPage(
           logs: _workLogs,
           onOpenProject: (log) => _openDetail(log),
+          onOpenIssue: (log, p) =>
+              _openPunchDetail(log, p as Map<String, dynamic>),
         ),
       ),
     );
@@ -1132,13 +1134,74 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   // 처음 쓰는 사람을 위한 안내 카드(한 번 확인하면 다시 안 뜬다). 메뉴의 "사용 안내"로
   // 언제든 다시 볼 수 있다.
   bool _showGuide = false;
+  bool _showNotifHint = false;
 
   Future<void> _loadGuideFlag() async {
     try {
       final p = await SharedPreferences.getInstance();
       final seen = p.getBool('work_guide_seen_v1') ?? false;
       if (!seen && mounted) setState(() => _showGuide = true);
+      // 사용 안내를 이미 본 사람에게는, 알림 점검을 한 번도 안 열어 봤다면 알려 준다.
+      final checked = p.getBool('notif_check_seen') ?? false;
+      if (seen && !checked && mounted) setState(() => _showNotifHint = true);
     } catch (_) {}
+  }
+
+  Future<void> _dismissNotifHint({bool open = false}) async {
+    setState(() => _showNotifHint = false);
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setBool('notif_check_seen', true);
+    } catch (_) {}
+    if (open && mounted) {
+      Navigator.push(
+        context,
+        WorkRoute(builder: (_) => const NotificationCheckPage()),
+      );
+    }
+  }
+
+  Widget _buildNotifHintCard() {
+    if (!_showNotifHint) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+      decoration: BoxDecoration(
+        color: pureWhite,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: tossBlue.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "일보·주간 보고 알림이 제때 오는지 확인해 보세요",
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            "폰 절전 기능 때문에 예약 알림이 안 올 수 있어요. '알림 점검'에서 상태를 볼 수 있어요.",
+            style: TextStyle(fontSize: 12, height: 1.4, color: tossSubText),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => _dismissNotifHint(),
+                child: const Text("나중에"),
+              ),
+              TextButton(
+                onPressed: () => _dismissNotifHint(open: true),
+                child: const Text(
+                  "알림 점검 열기",
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _dismissGuide() async {
@@ -1670,6 +1733,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildGuideCard(),
+                    _buildNotifHintCard(),
                     _buildSyncBanner(),
                     _buildBackupBanner(),
                     if (!_showCompleted) _buildWeeklyReportCard(),

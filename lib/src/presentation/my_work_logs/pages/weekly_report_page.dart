@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../data/repositories/work_project_repository.dart';
 import '../models/photo_store.dart';
+import '../models/report_style.dart';
 import '../models/report_tools.dart';
 import '../widgets/work_theme.dart';
 import '../models/weekly_plan.dart';
@@ -17,6 +18,7 @@ Future<void> openWeeklyReportFromNotification(
   bool autoPdf = false,
 }) async {
   try {
+    await loadReportStyle(); // 알림으로 바로 열면 양식(로고·담당자)이 아직 안 읽혔을 수 있다.
     final logs = await WorkProjectRepository().fetchAllProjects();
     nav.push(WorkRoute(builder: (_) => WeeklyReportPage(logs: logs)));
     // 설정에서 켠 경우: 화면을 열자마자 PDF를 만들어 공유창까지 연다.
@@ -30,7 +32,14 @@ class WeeklyReportPage extends StatefulWidget {
   final List<Map<String, dynamic>> logs;
   // 있으면 "■ 프로젝트" 줄을 눌러 그 프로젝트 화면으로 이동할 수 있다.
   final void Function(Map<String, dynamic> log)? onOpenProject;
-  const WeeklyReportPage({super.key, required this.logs, this.onOpenProject});
+  // 있으면 미해결 이슈 줄을 눌러 이슈 상세로 이동할 수 있다.
+  final void Function(Map<String, dynamic> log, Map punch)? onOpenIssue;
+  const WeeklyReportPage({
+    super.key,
+    required this.logs,
+    this.onOpenProject,
+    this.onOpenIssue,
+  });
 
   @override
   State<WeeklyReportPage> createState() => _WeeklyReportPageState();
@@ -40,6 +49,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
   String? _projectId; // null = 진행중 전체
   bool _photos = false;
   bool _split = false;
+  DateTime? _asOf; // null = 오늘
 
   List<Map<String, dynamic>> get _active =>
       widget.logs.where((l) => l['status'] != 'DONE').toList();
@@ -49,7 +59,25 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
     onlyIds: _projectId == null ? null : {_projectId!},
     includePhotos: _photos,
     perProject: _split && _projectId == null,
+    asOf: _asOf,
   );
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _asOf ?? now,
+      firstDate: DateTime(now.year - 2),
+      lastDate: DateTime(now.year + 1, 12, 31),
+      helpText: "기준일을 고르면 그 날이 속한 주가 '금주'가 돼요",
+    );
+    if (picked != null) {
+      setState(() {
+        final d = DateTime(picked.year, picked.month, picked.day);
+        _asOf = d == DateTime(now.year, now.month, now.day) ? null : d;
+      });
+    }
+  }
 
   // "■ 프로젝트 이름 — ..." 줄이면 해당 프로젝트를 찾는다(이동 기능이 켜졌을 때만).
   Map<String, dynamic>? _projectFor(String line) {
@@ -128,6 +156,36 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               children: [
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: ListTile(
+                    onTap: _pickDate,
+                    leading: const Icon(Icons.event_rounded, color: _teal),
+                    title: Text(
+                      _asOf == null
+                          ? "기준일: 오늘"
+                          : "기준일: ${_asOf!.year}.${_asOf!.month}.${_asOf!.day}",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      "눌러서 다른 주의 보고서를 볼 수 있어요",
+                      style: TextStyle(fontSize: 12, color: _sub),
+                    ),
+                    trailing: _asOf == null
+                        ? const Icon(Icons.chevron_right_rounded)
+                        : TextButton(
+                            onPressed: () => setState(() => _asOf = null),
+                            child: const Text("오늘로"),
+                          ),
+                  ),
+                ),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10, left: 2),
                   child: Text(
@@ -321,8 +379,41 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        for (final l in s.lines)
-                          if (_projectFor(l) != null)
+                        for (final (i, l) in s.lines.indexed)
+                          if (widget.onOpenIssue != null &&
+                              s.issueRefs?[i] != null)
+                            InkWell(
+                              onTap: () => widget.onOpenIssue!(
+                                s.issueRefs![i]!.log,
+                                s.issueRefs![i]!.punch,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        l,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          height: 1.4,
+                                          color: _sub,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    const Icon(
+                                      Icons.chevron_right_rounded,
+                                      size: 18,
+                                      color: _sub,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          else if (_projectFor(l) != null)
                             InkWell(
                               onTap: () =>
                                   widget.onOpenProject!(_projectFor(l)!),
