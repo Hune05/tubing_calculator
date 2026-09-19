@@ -15,7 +15,10 @@ import '../../../data/models/smart_fitting_db.dart';
 import '../widgets/smart_fitting_selector_sheet.dart';
 import 'cutting_history_page.dart';
 import '../widgets/cutting_optimization_sheet.dart';
+import '../cutting_leftovers.dart' show loadLeftovers;
 import '../cutting_math.dart' show cutLengthMm;
+import '../cutting_optimizer.dart';
+import '../cutting_plan_rows.dart';
 import '../cutting_theme.dart';
 import '../../inventory/pages/mobile_inventory_ocr.dart';
 import '../cutting_fitting_favorites.dart';
@@ -300,6 +303,54 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         }).toList();
       }
 
+      // 원자재 배치: 재단 최적화 화면과 같은 방식(저장해 둔 남은 토막 먼저 사용)으로 계산해서
+      // 어느 원자재에서 어떤 길이를 자를지까지 지시서에 넣는다.
+      final leftovers = await loadLeftovers();
+      final groups = _collectRequiredPiecesByTubeSize();
+      final List<pw.Widget> planWidgets = [];
+      for (final e in groups.entries) {
+        final r = optimizeCutting(
+          pieces: e.value,
+          stockLength: _stockLength,
+          kerf: _bladeKerf,
+          leftovers: [
+            for (final l in leftovers)
+              if (l.label == e.key) l.length,
+          ],
+        );
+        planWidgets.addAll([
+          pw.SizedBox(height: 20),
+          pw.Text(
+            groups.length > 1 || e.key.isNotEmpty
+                ? "원자재 배치 - ${e.key.isEmpty ? '규격 미지정' : e.key}"
+                : "원자재 배치",
+            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 4),
+          pw.Text(planSummary(r)),
+          pw.SizedBox(height: 6),
+          if (r.bars.isNotEmpty || r.leftoverBars.isNotEmpty)
+            pw.TableHelper.fromTextArray(
+              headers: kPlanHeaders,
+              data: planRows(r),
+              headerStyle: pw.TextStyle(
+                fontWeight: pw.FontWeight.bold,
+                font: koreanFont,
+              ),
+              cellStyle: pw.TextStyle(font: koreanFont),
+              headerDecoration: const pw.BoxDecoration(
+                color: PdfColors.grey300,
+              ),
+              cellAlignment: pw.Alignment.centerLeft,
+              border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+            ),
+          if (r.oversizedPieces.isNotEmpty)
+            pw.Text(
+              "원자재(${_stockLength.toStringAsFixed(0)}mm)보다 길어 배치하지 못한 구간이 ${r.oversizedPieces.length}개 있습니다.",
+            ),
+        ]);
+      }
+
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
@@ -341,6 +392,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                 ),
               ),
             ),
+            ...planWidgets,
           ],
         ),
       );

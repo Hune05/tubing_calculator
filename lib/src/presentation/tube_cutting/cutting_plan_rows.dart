@@ -1,0 +1,57 @@
+import 'cutting_optimizer.dart';
+
+// 절단 지시서(PDF)에 넣는 "원자재 배치" 표의 글자를 만든다. 화면과 따로 두어서
+// 표에 나오는 숫자가 계산 결과와 어긋나지 않는지 테스트로 지킨다.
+
+String _mm(double v) => v.toStringAsFixed(0);
+
+// 같은 길이는 묶어서 "2600×2 + 1400" 처럼 쓴다. 긴 것부터 나열한다.
+String piecesText(List<double> pieces) {
+  final sorted = [...pieces]..sort((a, b) => b.compareTo(a));
+  final parts = <String>[];
+  var i = 0;
+  while (i < sorted.length) {
+    var j = i;
+    while (j < sorted.length && sorted[j] == sorted[i]) {
+      j++;
+    }
+    final n = j - i;
+    parts.add(n == 1 ? _mm(sorted[i]) : '${_mm(sorted[i])}×$n');
+    i = j;
+  }
+  return parts.join(' + ');
+}
+
+const List<String> kPlanHeaders = ['원자재', '자를 길이(mm)', '사용(mm)', '남는 길이(mm)'];
+
+// 남은 토막이 먼저, 새 원자재가 그다음. 남는 길이는 톱날 손실을 뺀 값이다.
+List<List<String>> planRows(CuttingOptimizationResult r) {
+  final rows = <List<String>>[];
+  for (final b in r.leftoverBars) {
+    rows.add([
+      '남은 토막 ${_mm(b.stockLength)}',
+      piecesText(b.pieces),
+      _mm(b.usedLength),
+      _mm(b.remainderWithKerf(r.kerf)),
+    ]);
+  }
+  for (var i = 0; i < r.bars.length; i++) {
+    final b = r.bars[i];
+    rows.add([
+      '${i + 1}번 (${_mm(b.stockLength)})',
+      piecesText(b.pieces),
+      _mm(b.usedLength),
+      _mm(b.remainderWithKerf(r.kerf)),
+    ]);
+  }
+  return rows;
+}
+
+// 표 위에 붙이는 한 줄 요약.
+String planSummary(CuttingOptimizationResult r) {
+  final head = '새 원자재 ${r.barCount}본(${_mm(r.stockLength)}mm)';
+  final left = r.leftoverBars.isEmpty
+      ? ''
+      : ', 남은 토막 ${r.leftoverBars.length}개 사용';
+  return '$head$left';
+}
