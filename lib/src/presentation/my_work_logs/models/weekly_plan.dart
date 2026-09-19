@@ -512,6 +512,7 @@ ReportDoc buildWeeklyPlanDoc(
     sections,
     heading: '주간 업무 보고',
     boxedHeadings: true,
+    showAuthorLine: true,
     fileStamp:
         '${today.year}${today.month.toString().padLeft(2, '0')}${today.day.toString().padLeft(2, '0')}',
     // 사진을 넣도록 골랐으면, 카톡 텍스트에는 사진이 안 가니 PDF를 안내한다.

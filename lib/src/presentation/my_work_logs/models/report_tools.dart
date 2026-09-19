@@ -119,6 +119,7 @@ class ReportDoc {
   final String? manager;
   // 텍스트 공유에서 섹션 제목을 【제목】으로 쓴다(본문에 이미 ■ 프로젝트 줄이 있는 문서용).
   final bool boxedHeadings;
+  final bool showAuthorLine; // PDF 제목 아래에 "작성일 · 작성자" 한 줄
   final String? textFooter; // 텍스트 공유 맨 끝에 붙이는 안내 한 줄
   final String? fileStamp; // PDF 파일 이름에 넣는 날짜(yyyyMMdd). 없으면 오늘
   ReportDoc(
@@ -134,9 +135,17 @@ class ReportDoc {
     this.manager,
     this.logoB64,
     this.boxedHeadings = false,
+    this.showAuthorLine = false,
     this.textFooter,
     this.fileStamp,
   });
+
+  // "작성일 2026.9.19 · 작성 홍길동"(작성자는 양식 설정의 담당자, 없으면 생략).
+  String authorLine([DateTime? now]) {
+    final d = now ?? DateTime.now();
+    final mg = (manager ?? ReportStyle.current.manager).trim();
+    return '작성일 ${d.year}.${d.month}.${d.day}${mg.isEmpty ? '' : ' · 작성 $mg'}';
+  }
 
   String toText() {
     final b = StringBuffer('[$title] $heading\n$period\n');
@@ -733,8 +742,12 @@ Future<int> cleanupOldPdfs(
 }
 
 // 정리를 실행하고 결과(마지막 실행 시각·지운 개수·누적 개수)를 기록한다.
-Future<int> runPdfCleanup(Directory dir, {DateTime? now}) async {
-  final n = await cleanupOldPdfs(dir, now: now);
+Future<int> runPdfCleanup(
+  Directory dir, {
+  DateTime? now,
+  Duration maxAge = const Duration(days: 3),
+}) async {
+  final n = await cleanupOldPdfs(dir, now: now, maxAge: maxAge);
   try {
     final p = await SharedPreferences.getInstance();
     await p.setString(
@@ -876,6 +889,14 @@ Future<Uint8List> buildReportPdfBytes(
         ),
         pw.SizedBox(height: 4),
         pw.Text(doc.period, style: const pw.TextStyle(fontSize: 11)),
+        if (doc.showAuthorLine)
+          pw.Padding(
+            padding: const pw.EdgeInsets.only(top: 2),
+            child: pw.Text(
+              doc.authorLine(),
+              style: const pw.TextStyle(fontSize: 10),
+            ),
+          ),
         for (final s in doc.sections) ...[
           if (s.newPage) pw.NewPage() else pw.SizedBox(height: 14),
           pw.Text(
@@ -1179,6 +1200,19 @@ const String _kPrefWeeklyMinutes = 'weekly_report_reminder_minutes';
 const int _kWeeklyId = 918274;
 // 금요일 알림을 누르면 주간 업무 보고를 바로 여는 데 쓰는 표식.
 const String kWeeklyReportPayload = 'work_weekly_report';
+// 일보 알림을 누르면 오늘 일보 작성으로 바로 가는 데 쓰는 표식.
+const String kDailyReportPayload = 'work_daily_report';
+
+// 오늘 일보를 아직 안 쓴 진행중 프로젝트(오늘은 "MM/dd" 형식 문자열).
+List<Map<String, dynamic>> projectsMissingReport(
+  List<Map<String, dynamic>> logs,
+  String todayMmDd,
+) => logs.where((l) {
+  if (l['status'] == 'DONE' || l['archived'] == true) return false;
+  return !(l['daily_reports'] as List? ?? []).any(
+    (r) => r is Map && r['date'] == todayMmDd,
+  );
+}).toList();
 // 알림을 누르면 PDF까지 바로 만들어 공유창을 여는 설정일 때 쓰는 표식.
 const String kWeeklyReportPdfPayload = 'work_weekly_report_pdf';
 const String _kPrefWeeklyAutoPdf = 'weekly_report_autopdf';
@@ -1225,7 +1259,7 @@ Future<void> _syncWeeklyReminder(bool on, int minutes, bool autoPdf) async {
   await flutterLocalNotificationsPlugin.zonedSchedule(
     id: _kWeeklyId,
     title: '주간 보고서',
-    body: '전주·금주·차주 업무를 정리해 공유해보세요. 눌러서 바로 열 수 있어요.',
+    body: '이번 주 업무를 정리해 공유해보세요. 눌러서 바로 열 수 있어요.',
     payload: autoPdf ? kWeeklyReportPdfPayload : kWeeklyReportPayload,
     scheduledDate: tz.TZDateTime.from(at, tz.local),
     notificationDetails: const NotificationDetails(
@@ -1337,7 +1371,8 @@ Future<void> syncReportReminder(List<Map<String, dynamic>> logs) async {
     await flutterLocalNotificationsPlugin.zonedSchedule(
       id: _kReminderId,
       title: '작업일보',
-      body: '오늘 작업 일보 아직 안 썼어요. 기억날 때 간단히 남겨두세요.',
+      body: '오늘 작업 일보 아직 안 썼어요. 눌러서 바로 남겨두세요.',
+      payload: kDailyReportPayload,
       scheduledDate: tz.TZDateTime.from(at, tz.local),
       notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(

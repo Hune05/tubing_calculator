@@ -45,11 +45,15 @@ class WorkLogMainScreen extends StatefulWidget {
   final String? initialProjectId;
   // initialProjectId로 들어갈 때 처음 보여 줄 탭(0=개요, 1=단계·일정).
   final int initialTab;
+  // 일보 알림으로 들어왔을 때: 오늘 일보를 안 쓴 프로젝트가 딱 하나면 바로 작성 화면을 연다
+  // (여럿이면 어느 프로젝트인지 고르도록 목록 화면에 그대로 둔다).
+  final bool autoWriteReport;
 
   const WorkLogMainScreen({
     super.key,
     this.initialProjectId,
     this.initialTab = 1,
+    this.autoWriteReport = false,
   });
 
   @override
@@ -129,6 +133,15 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         if (_backupFailed) _runAutoBackup();
       });
       _migrateLocalPhotos();
+      if (widget.autoWriteReport) {
+        final missing = _projectsMissingTodayReport;
+        if (missing.length == 1) {
+          final target = missing.first;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _addDailyReportFor(target);
+          });
+        }
+      }
       if (widget.initialProjectId != null) {
         final match = _workLogs.firstWhere(
           (l) => l['id']?.toString() == widget.initialProjectId,
@@ -722,13 +735,8 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   }
 
   // 🚀 [추가] 오늘 일지를 아직 안 쓴 진행중 프로젝트들.
-  List<Map<String, dynamic>> get _projectsMissingTodayReport {
-    final today = _todayMmDd();
-    return _activeLogs.where((log) {
-      final reports = (log['daily_reports'] as List<dynamic>? ?? []);
-      return !reports.any((r) => r is Map && r['date'] == today);
-    }).toList();
-  }
+  List<Map<String, dynamic>> get _projectsMissingTodayReport =>
+      projectsMissingReport(_activeLogs, _todayMmDd());
 
   // 🚀 [추가] 전체 진행중 프로젝트의 미해결 이슈를 우선순위(긴급→보통→
   // 여유)순, 같은 우선순위면 오래된 순으로 모은다.
@@ -1144,6 +1152,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   // 처음 쓰는 사람을 위한 안내 카드(한 번 확인하면 다시 안 뜬다). 메뉴의 "사용 안내"로
   // 언제든 다시 볼 수 있다.
   bool _showGuide = false;
+
   bool _showNotifHint = false;
 
   Future<void> _loadGuideFlag() async {
@@ -1226,7 +1235,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     "프로젝트를 만들고 '단계·일정' 탭에서 표준 단계로 시작하세요. 기간에 맞춰 자동으로 나눠 줘요.",
     "매일 '일지 작성'에 작업 내용·사진·처리한 이슈를 남기면 진행률과 통계에 쌓여요.",
     "자재는 입고일이 미정이어도 먼저 등록하고, 날짜가 정해지면 채우세요. 지연되면 알려줘요.",
-    "금요일엔 '주간 보고'로 전주·금주·차주 업무를 한 번에 공유하세요.",
+    "금요일엔 '주간 보고'로 이번 주 업무를 한 번에 공유하세요.",
     "⋮ 메뉴에서 보고서 양식, 백업, 저장 공간 관리를 할 수 있어요.",
   ];
 
@@ -1329,28 +1338,32 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.summarize_rounded, color: tossBlue, size: 18),
-          const SizedBox(width: 8),
-          const Expanded(
-            child: Text(
-              "주간 보고",
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 14,
-                color: tossBlue,
+          Expanded(
+            child: InkWell(
+              onTap: _openWeeklyReport,
+              borderRadius: BorderRadius.circular(10),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.summarize_rounded, color: tossBlue, size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      "주간 보고",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        color: tossBlue,
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: tossBlue,
+                      size: 18,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ),
-          TextButton(
-            onPressed: _openWeeklyReport,
-            style: TextButton.styleFrom(
-              foregroundColor: tossBlue,
-              minimumSize: const Size(0, 36),
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-            ),
-            child: const Text(
-              "전주·금주·차주",
-              style: TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
           TextButton(

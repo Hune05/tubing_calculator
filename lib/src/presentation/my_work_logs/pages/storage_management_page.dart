@@ -9,7 +9,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../models/backup_tools.dart';
-import '../models/report_tools.dart' show loadPdfCleanupRecord;
+import '../models/report_tools.dart' show loadPdfCleanupRecord, runPdfCleanup;
 import '../models/photo_store.dart';
 
 const Color _teal = Color(0xFF007580);
@@ -238,6 +238,40 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
     return m == null ? n : '${m[1]}.${m[2]}.${m[3]} ${m[4]}:${m[5]}';
   }
 
+  // 3일을 기다리지 않고, 공유하려고 만든 PDF를 지금 전부 지운다(보고서 데이터는 그대로).
+  Future<void> _cleanPdfsNow() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("임시 PDF를 지금 정리할까요?"),
+        content: const Text(
+          "공유하려고 만들어 둔 PDF 파일만 지워요. 보고서 데이터와 사진은 그대로예요. "
+          "이미 보낸 PDF는 상대방에게 그대로 남아 있어요.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("취소"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("정리"),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final dir = await getTemporaryDirectory();
+    // 방금 만든 파일까지 지우려고 기준 시각을 1초 뒤로 잡는다.
+    final n = await runPdfCleanup(
+      dir,
+      maxAge: Duration.zero,
+      now: DateTime.now().add(const Duration(seconds: 1)),
+    );
+    _toast(n == 0 ? "정리할 PDF가 없어요." : "PDF $n개를 정리했어요.");
+    await _load();
+  }
+
   String _cleanupDesc() {
     final c = _cleanup;
     const base = "공유하려고 만든 PDF는 3일이 지나면 앱을 열 때 자동으로 지워요.";
@@ -339,6 +373,13 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
                   "임시 PDF 자동 정리",
                   "${_cleanup?.total ?? 0}개 정리됨",
                   _cleanupDesc(),
+                  action: Align(
+                    alignment: Alignment.centerRight,
+                    child: OutlinedButton(
+                      onPressed: _cleanPdfsNow,
+                      child: const Text("지금 PDF 모두 정리"),
+                    ),
+                  ),
                 ),
                 card(
                   "임시 파일",

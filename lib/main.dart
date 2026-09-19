@@ -33,13 +33,20 @@ import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_on
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/responsive_layout_board_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/weekly_report_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/report_tools.dart'
-    show kWeeklyReportPayload, kWeeklyReportPdfPayload;
+    show kWeeklyReportPayload, kWeeklyReportPdfPayload, kDailyReportPayload;
+import 'package:tubing_calculator/src/presentation/my_work_logs/screens/work_log_main_screen.dart'
+    show WorkLogMainScreen;
+import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/work_theme.dart'
+    show WorkRoute;
 
 // 알림을 눌렀을 때 화면을 열기 위한 전역 내비게이터.
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
 void _handleNotificationPayload(String? payload) {
-  if (payload != kWeeklyReportPayload && payload != kWeeklyReportPdfPayload) {
+  final isDaily = payload == kDailyReportPayload;
+  if (!isDaily &&
+      payload != kWeeklyReportPayload &&
+      payload != kWeeklyReportPdfPayload) {
     return;
   }
   final autoPdf = payload == kWeeklyReportPdfPayload;
@@ -47,7 +54,16 @@ void _handleNotificationPayload(String? payload) {
   Future<void> tryOpen(int left) async {
     final nav = appNavigatorKey.currentState;
     if (nav != null) {
-      await openWeeklyReportFromNotification(nav, autoPdf: autoPdf);
+      if (isDaily) {
+        // 오늘 일보를 안 쓴 프로젝트가 하나면 바로 작성 화면까지 간다.
+        nav.push(
+          WorkRoute(
+            builder: (_) => const WorkLogMainScreen(autoWriteReport: true),
+          ),
+        );
+      } else {
+        await openWeeklyReportFromNotification(nav, autoPdf: autoPdf);
+      }
     } else if (left > 0) {
       await Future.delayed(const Duration(milliseconds: 500));
       await tryOpen(left - 1);
