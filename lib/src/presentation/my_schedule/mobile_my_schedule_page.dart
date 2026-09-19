@@ -14,6 +14,7 @@ import '../../data/repositories/work_project_repository.dart';
 import '../../core/common_widgets/makita_time_picker.dart';
 import '../my_work_logs/screens/work_log_main_screen.dart';
 import '../my_work_logs/models/project_phase.dart' show colorForProject;
+import '../my_work_logs/models/report_tools.dart' show reminderScheduleMode;
 
 // 🚀 [신규] "내 일정 관리" - 마키타 틸 팔레트로 앱 전체와 통일.
 const Color scheduleTeal = Color(0xFF007580);
@@ -560,7 +561,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           priority: Priority.high,
         ),
       ),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      androidScheduleMode: await reminderScheduleMode(),
       matchDateTimeComponents: matchComponents,
     );
   }

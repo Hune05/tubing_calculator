@@ -245,7 +245,7 @@ Future<void> _syncWeeklyReminder(
         priority: Priority.high,
       ),
     ),
-    androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+    androidScheduleMode: await reminderScheduleMode(),
     matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
   );
 }
@@ -319,6 +319,76 @@ Future<bool> areNotificationsAllowed() async {
         AndroidFlutterLocalNotificationsPlugin
       >();
   return (await android?.areNotificationsEnabled()) ?? true;
+}
+
+// 정확한 시간 알림(정확한 알람)을 폰이 허용했는지. 허용돼 있으면 정해진 시간에 맞춰 울리고,
+// 아니면 폰이 배터리를 아끼려고 묶어서 보내서 최대 1시간까지 늦을 수 있다.
+Future<bool> canScheduleExactAlarms() async {
+  try {
+    return await flutterLocalNotificationsPlugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >()
+            ?.canScheduleExactNotifications() ??
+        false;
+  } catch (_) {
+    return false;
+  }
+}
+
+// 정확한 알람 허용 화면을 연다(폰 설정). 허용했으면 true.
+Future<bool> requestExactAlarmPermission() async {
+  try {
+    return await flutterLocalNotificationsPlugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >()
+            ?.requestExactAlarmsPermission() ??
+        false;
+  } catch (_) {
+    return false;
+  }
+}
+
+// 알림을 예약할 때 쓸 방식: 허용돼 있으면 정확한 시간, 아니면 묶어서 보내는 방식.
+Future<AndroidScheduleMode> reminderScheduleMode() async =>
+    await canScheduleExactAlarms()
+    ? AndroidScheduleMode.exactAllowWhileIdle
+    : AndroidScheduleMode.inexactAllowWhileIdle;
+
+// 예약 알림이 실제로 오는지 확인하는 테스트: 1분 뒤에 알림 한 개를 예약한다.
+// (바로 보이는 테스트 알림과 달리, 예약된 알림을 폰이 시간이 되어 띄우는 길 전체를 시험한다.)
+Future<DateTime> scheduleTestReminder() async {
+  _ensureTimezone();
+  const channel = AndroidNotificationChannel(
+    _kReminderChannel,
+    '작업 일지 알림',
+    description: '작업 일지 작성 알림',
+    importance: Importance.high,
+  );
+  await flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >()
+      ?.createNotificationChannel(channel);
+  final at = DateTime.now().add(const Duration(minutes: 1));
+  await flutterLocalNotificationsPlugin.zonedSchedule(
+    id: 918298,
+    title: '예약 알림 점검',
+    body: '이 알림이 보이면 예약 알림은 정상입니다.',
+    scheduledDate: tz.TZDateTime.from(at, tz.local),
+    notificationDetails: const NotificationDetails(
+      android: AndroidNotificationDetails(
+        _kReminderChannel,
+        '작업 일지 알림',
+        channelDescription: '작업 일지 작성 알림',
+        importance: Importance.high,
+        priority: Priority.high,
+      ),
+    ),
+    androidScheduleMode: await reminderScheduleMode(),
+  );
+  return at;
 }
 
 Future<void> showTestNotification() async {
@@ -440,7 +510,7 @@ Future<void> _scheduleDailyPlan(DailyReminderPlan plan, int index) async {
         priority: Priority.high,
       ),
     ),
-    androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+    androidScheduleMode: await reminderScheduleMode(),
     matchDateTimeComponents: DateTimeComponents.time,
   );
 }

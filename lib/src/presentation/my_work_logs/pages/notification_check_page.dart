@@ -28,6 +28,10 @@ class NotificationCheckPage extends StatefulWidget {
   final Future<void> Function()? rescheduleWeekly;
   // 알림창에 떠 있는 알림을 기록하는 함수(테스트에서 바꿔 끼운다).
   final Future<void> Function()? recordActive;
+  // 정확한 알람 허용 여부 조회·요청, 1분 뒤 예약 테스트(테스트에서 바꿔 끼운다).
+  final Future<bool> Function()? exactChecker;
+  final Future<bool> Function()? exactRequester;
+  final Future<DateTime> Function()? scheduleTest;
   const NotificationCheckPage({
     super.key,
     this.logs = const [],
@@ -36,6 +40,9 @@ class NotificationCheckPage extends StatefulWidget {
     this.rescheduleSlot,
     this.rescheduleWeekly,
     this.recordActive,
+    this.exactChecker,
+    this.exactRequester,
+    this.scheduleTest,
   });
 
   @override
@@ -45,6 +52,7 @@ class NotificationCheckPage extends StatefulWidget {
 class _NotificationCheckPageState extends State<NotificationCheckPage>
     with WidgetsBindingObserver {
   bool? _allowed;
+  bool _exact = false; // 정확한 시간 알림(정확한 알람) 허용 여부
   ({bool daily, bool weekly})? _sched;
   int? _dailyCount; // 폰에 실제 예약된 작업 일지 알림 수(모르면 null)
   List<String> _seen = const []; // 최근 확인된 알림 기록
@@ -94,6 +102,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
       pendingIds = await (widget.pendingIdsLoader ?? pendingReminderIds)();
     } catch (_) {}
     final pref = await loadReportReminder();
+    final exact = await (widget.exactChecker ?? canScheduleExactAlarms)();
     List<String> seen = const [];
     List<String> seenRaw = const [];
     String? lastSync;
@@ -107,6 +116,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     } catch (_) {}
     if (mounted) {
       setState(() {
+        _exact = exact;
         _seen = seen;
         _seenRaw = seenRaw;
         _lastSync = lastSync;
@@ -398,6 +408,37 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     );
   }
 
+  // 정확한 시간 알림 허용 상태와 허용하기 버튼.
+  Widget _exactRow() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(
+            _exact ? Icons.check_circle : Icons.info_outline,
+            size: 18,
+            color: _exact ? const Color(0xFF1B9E5A) : const Color(0xFFB54708),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _exact ? "정확한 시간 알림: 허용됨" : "정확한 시간 알림: 허용 안 됨",
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: _exact
+                    ? const Color(0xFF1B9E5A)
+                    : const Color(0xFFB54708),
+              ),
+            ),
+          ),
+          if (!_exact)
+            TextButton(onPressed: _allowExact, child: const Text("허용하기")),
+        ],
+      ),
+    );
+  }
+
   Future<void> _test() async {
     try {
       await showTestNotification();
@@ -409,6 +450,28 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
       }
     } catch (e) {
       if (mounted) setState(() => _msg = "테스트 알림 실패: $e");
+    }
+  }
+
+  Future<void> _allowExact() async {
+    try {
+      await (widget.exactRequester ?? requestExactAlarmPermission)();
+    } catch (_) {}
+    await _refresh();
+  }
+
+  Future<void> _scheduleTest() async {
+    try {
+      final at = await (widget.scheduleTest ?? scheduleTestReminder)();
+      if (mounted) {
+        setState(
+          () => _msg =
+              "${_hm(at.hour * 60 + at.minute)}에 예약 알림이 옵니다. 1~2분 안에 상단바에 보이는지 확인하십시오. "
+              "안 보이면 아래 4번(배터리 제한)을 확인하십시오.",
+        );
+      }
+    } catch (e) {
+      if (mounted) setState(() => _msg = "예약 알림 테스트 실패: $e");
     }
   }
 
@@ -557,9 +620,12 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
                 style: const TextStyle(fontSize: 12, height: 1.4, color: _text),
               ),
             ),
+            _exactRow(),
             Text(
               keepWords(
-                "이 앱의 알림은 정해진 시간부터 최대 1시간 안에 옵니다(폰이 배터리를 아끼려고 묶어서 보냅니다). 예약이 돼 있어도 절전 기능 때문에 안 울릴 수 있으니 아래 4번을 확인하십시오.",
+                _exact
+                    ? "정해진 시간에 맞춰 알림이 옵니다. 예약이 돼 있어도 절전 기능 때문에 안 울릴 수 있으니 아래 4번을 확인하십시오."
+                    : "지금은 정해진 시간부터 최대 1시간 안에 알림이 옵니다(폰이 배터리를 아끼려고 묶어서 보냅니다). 예약이 돼 있어도 절전 기능 때문에 안 울릴 수 있으니 아래 4번을 확인하십시오.",
               ),
               style: TextStyle(fontSize: 12, height: 1.4, color: _sub),
             ),
@@ -578,6 +644,16 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
                 foregroundColor: Colors.white,
               ),
               child: const Text("테스트 알림 보내기"),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              keepWords("예약된 알림이 시간이 되면 실제로 오는지도 확인할 수 있습니다(1분 뒤에 알림이 옵니다)."),
+              style: TextStyle(fontSize: 13, height: 1.4, color: _sub),
+            ),
+            const SizedBox(height: 6),
+            OutlinedButton(
+              onPressed: _scheduleTest,
+              child: const Text("1분 뒤 예약 알림 테스트"),
             ),
             if (_msg != null)
               Padding(
