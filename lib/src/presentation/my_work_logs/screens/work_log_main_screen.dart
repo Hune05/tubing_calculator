@@ -12,6 +12,7 @@ import '../models/photo_store.dart';
 import '../pages/report_search_page.dart';
 import '../pages/project_stats_page.dart';
 import '../pages/retro_overview_page.dart';
+import '../pages/storage_management_page.dart';
 import 'dart:async';
 import '../pages/project_detail_page.dart';
 import '../pages/daily_report_page.dart'; // 다이얼로그 대신 Page 임포트
@@ -98,6 +99,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         _isLoading = false;
       });
       syncReportReminder(_workLogs);
+      cleanOldDrafts();
       _refreshPhotoCount();
       _retryTimer ??= Timer.periodic(const Duration(seconds: 90), (_) {
         if (_localPhotos > 0) _retryUploads();
@@ -416,7 +418,113 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           return da.compareTo(db);
         });
     }
+    if (_showCompleted && _nameFilter.trim().isNotEmpty) {
+      final q = _nameFilter.trim().toLowerCase();
+      return out
+          .where((l) => (l['name']?.toString() ?? '').toLowerCase().contains(q))
+          .toList();
+    }
     return out;
+  }
+
+  // ── 완료/보관 프로젝트: 이름 검색 + 여러 개 골라 통합 보고서 ──
+  String _nameFilter = '';
+  bool _selectProjects = false;
+  final Set<Map<String, dynamic>> _selProjects = {};
+
+  Widget _buildDoneTools() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            onChanged: (v) => setState(() => _nameFilter = v),
+            decoration: InputDecoration(
+              hintText: "프로젝트 이름 검색",
+              prefixIcon: const Icon(Icons.search_rounded, size: 20),
+              isDense: true,
+              filled: true,
+              fillColor: pureWhite,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              if (!_selectProjects)
+                TextButton.icon(
+                  onPressed: () => setState(() => _selectProjects = true),
+                  icon: const Icon(Icons.checklist_rounded, size: 18),
+                  label: const Text("골라서 통합 보고서"),
+                  style: TextButton.styleFrom(foregroundColor: tossSubText),
+                )
+              else ...[
+                TextButton(
+                  onPressed: () => setState(() {
+                    _selectProjects = false;
+                    _selProjects.clear();
+                  }),
+                  child: const Text("취소"),
+                ),
+                const Spacer(),
+                ElevatedButton(
+                  onPressed: _selProjects.isEmpty
+                      ? null
+                      : _exportSelectedProjects,
+                  style: ElevatedButton.styleFrom(backgroundColor: tossBlue),
+                  child: Text(
+                    "${_selProjects.length}건 내보내기",
+                    style: const TextStyle(color: pureWhite),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _exportSelectedProjects() async {
+    final now = DateTime.now().add(const Duration(days: 1));
+    final doc = mergeReportDocs([
+      for (final l in _selProjects) buildReportDoc(l, DateTime(2000), now),
+    ]);
+    final fmt = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: pureWhite,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.chat_outlined),
+              title: const Text("텍스트로 공유"),
+              onTap: () => Navigator.pop(ctx, 'text'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf_outlined),
+              title: const Text("PDF로 공유"),
+              onTap: () => Navigator.pop(ctx, 'pdf'),
+            ),
+          ],
+        ),
+      ),
+    );
+    try {
+      if (fmt == 'text') await shareReportText(doc);
+      if (fmt == 'pdf') await shareReportPdf(doc);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("내보내기 실패: $e")));
+      }
+    }
   }
 
   // 🚀 [추가] "일정 관리" 진입 로직을 하나로 모아서, 프로젝트 카드
@@ -1086,10 +1194,23 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             icon: const Icon(Icons.search_rounded),
             onPressed: _openSearch,
           ),
-          IconButton(
-            tooltip: "일보 알림 설정",
-            icon: const Icon(Icons.notifications_active_outlined),
-            onPressed: _showReminderSettings,
+          PopupMenuButton<String>(
+            tooltip: "더보기",
+            onSelected: (v) {
+              if (v == 'reminder') _showReminderSettings();
+              if (v == 'storage') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => StorageManagementPage(logs: _workLogs),
+                  ),
+                );
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'reminder', child: Text("일보·주간 알림 설정")),
+              PopupMenuItem(value: 'storage', child: Text("저장 공간 관리")),
+            ],
           ),
         ],
       ),
@@ -1115,6 +1236,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                     _buildSyncBanner(),
                     if (!_showCompleted) _buildWeeklyReportCard(),
                     if (!_showCompleted) _buildDashboard(),
+                    if (_showCompleted) _buildDoneTools(),
                     if (_showCompleted)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -1268,11 +1390,36 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                     final log = visibleLogs[index - 1];
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: ProjectSummaryCard(
-                        log: log,
-                        isActive: _isActive(log),
-                        onTap: () => _openDetail(log),
-                      ),
+                      child: _selectProjects
+                          ? Row(
+                              children: [
+                                Checkbox(
+                                  value: _selProjects.contains(log),
+                                  activeColor: tossBlue,
+                                  onChanged: (_) => setState(() {
+                                    _selProjects.contains(log)
+                                        ? _selProjects.remove(log)
+                                        : _selProjects.add(log);
+                                  }),
+                                ),
+                                Expanded(
+                                  child: ProjectSummaryCard(
+                                    log: log,
+                                    isActive: _isActive(log),
+                                    onTap: () => setState(() {
+                                      _selProjects.contains(log)
+                                          ? _selProjects.remove(log)
+                                          : _selProjects.add(log);
+                                    }),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : ProjectSummaryCard(
+                              log: log,
+                              isActive: _isActive(log),
+                              onTap: () => _openDetail(log),
+                            ),
                     );
                   },
                 );

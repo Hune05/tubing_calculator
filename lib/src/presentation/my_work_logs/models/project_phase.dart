@@ -398,3 +398,20 @@ int materialUsageCount(Map<String, dynamic> log, String scheduleId) {
   }
   return n;
 }
+
+// 마지막으로 이 자재를 쓴 것으로 기록한 일보 날짜(없으면 null). 날짜 계산에는
+// report_tools의 reportDateOf가 필요해 호출하는 쪽에서 일보 목록을 넘긴다.
+List<Map> reportsUsingMaterial(Map<String, dynamic> log, String scheduleId) => [
+  for (final r in (log['daily_reports'] as List? ?? []))
+    if (r is Map && reportIds(r, 'usedMaterialIds').contains(scheduleId)) r,
+];
+
+// 입고(완료)됐는데 일보에 사용 기록이 한 번도 없는 자재 항목.
+List<Map<String, dynamic>> unusedReceivedMaterials(Map<String, dynamic> log) =>
+    [
+      for (final s in schedulesOf(log))
+        if (isMaterialSchedule(s) &&
+            materialState(s) == 'done' &&
+            materialUsageCount(log, s['id']?.toString() ?? '') == 0)
+          s,
+    ];

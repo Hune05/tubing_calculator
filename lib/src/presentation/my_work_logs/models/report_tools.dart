@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -232,6 +233,34 @@ ReportDoc buildReportDoc(
         : '기간 ${f.year}.${f.month}.${f.day} ~ ${t.year}.${t.month}.${t.day}',
     sections,
   );
+}
+
+// 여러 프로젝트의 보고서를 하나로 묶는다(제목 앞에 프로젝트명을 붙인다).
+ReportDoc mergeReportDocs(List<ReportDoc> docs) =>
+    ReportDoc('프로젝트 ${docs.length}건', '통합 보고', [
+      for (final d in docs)
+        for (final s in d.sections)
+          ReportSection('[${d.title}] ${s.heading}', s.lines),
+    ]);
+
+// 2일이 지난 일보 임시 저장을 지운다(앱 시작 시 호출).
+Future<void> cleanOldDrafts() async {
+  try {
+    final p = await SharedPreferences.getInstance();
+    for (final k in p.getKeys().where((k) => k.startsWith('report_draft_'))) {
+      final raw = p.getString(k);
+      DateTime? saved;
+      try {
+        saved = DateTime.tryParse(
+          (jsonDecode(raw ?? '{}') as Map)['savedAt']?.toString() ?? '',
+        );
+      } catch (_) {}
+      if (saved == null ||
+          DateTime.now().difference(saved) > const Duration(days: 2)) {
+        await p.remove(k);
+      }
+    }
+  } catch (_) {}
 }
 
 Future<void> shareReportText(ReportDoc doc) async {

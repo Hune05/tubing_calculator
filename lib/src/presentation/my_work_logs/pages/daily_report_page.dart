@@ -618,8 +618,11 @@ class _DailyReportPageState extends State<DailyReportPage> {
   void _handleAddImage() async {
     if (_attachedImages.length >= 10) return;
     FocusScope.of(context).unfocus();
-    final path = await ImagePickerHelper.pickImage(context);
-    if (path != null) setState(() => _attachedImages.add(path));
+    final paths = await ImagePickerHelper.pickImages(
+      context,
+      maxCount: 10 - _attachedImages.length,
+    );
+    if (paths.isNotEmpty) setState(() => _attachedImages.addAll(paths));
   }
 
   // 🚀 지난 날짜 일지 수정 시 사유를 받는 팝업. 취소하면 null.

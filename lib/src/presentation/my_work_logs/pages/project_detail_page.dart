@@ -2007,6 +2007,45 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
           const SizedBox(height: 6),
         ];
       })(),
+      ...(() {
+        final unused = unusedReceivedMaterials(log);
+        if (unused.isEmpty) return <Widget>[];
+        return <Widget>[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFC77700).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "입고됐지만 사용 기록이 없어요",
+                  style: TextStyle(
+                    color: Color(0xFFC77700),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                for (final m in unused.take(4))
+                  Text(
+                    "• ${m['title'] ?? m['type']}",
+                    style: const TextStyle(color: tossText, fontSize: 13),
+                  ),
+                if (unused.length > 4)
+                  Text(
+                    "외 ${unused.length - 4}건",
+                    style: const TextStyle(color: tossSubText, fontSize: 12),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+        ];
+      })(),
       ...open.take(5).map(_scheduleRow),
       if (open.length > 5)
         Align(

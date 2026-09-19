@@ -514,6 +514,56 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
                     style: TextStyle(color: _sub, fontSize: 12),
                   ),
               ]),
+            if (_logs.length == 1 &&
+                schedulesOf(_logs.first).any(isMaterialSchedule))
+              section("자재 사용 현황", [
+                for (final m in schedulesOf(
+                  _logs.first,
+                ).where(isMaterialSchedule))
+                  Builder(
+                    builder: (_) {
+                      final id = m['id']?.toString() ?? '';
+                      final used = reportsUsingMaterial(_logs.first, id);
+                      final st = materialState(m);
+                      DateTime? last;
+                      for (final r in used) {
+                        final d = reportDateOf(r);
+                        if (last == null || d.isAfter(last)) last = d;
+                      }
+                      final unused = st == 'done' && used.isEmpty;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                (m['title'] ?? m['type']).toString(),
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: _text,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              unused
+                                  ? "입고됨 · 미사용"
+                                  : used.isEmpty
+                                  ? (st == 'done' ? "-" : "입고 전")
+                                  : "${used.length}일 사용 · 마지막 ${last!.month}/${last.day}",
+                              style: TextStyle(
+                                color: unused ? const Color(0xFFC77700) : _teal,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+              ]),
             section("월별 투입 인원-일", [
               for (final m in s.months)
                 bar(
