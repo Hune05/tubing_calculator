@@ -1,10 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'photo_store.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -50,11 +54,19 @@ class ReportSection {
   ReportSection(this.heading, this.lines);
 }
 
+// PDF에 넣을 사진 한 장(경로 또는 URL)과 설명(날짜 · 분류 · 메모).
+class ReportPhoto {
+  final String path;
+  final String label;
+  ReportPhoto(this.path, this.label);
+}
+
 class ReportDoc {
   final String title;
   final String period;
   final List<ReportSection> sections;
-  ReportDoc(this.title, this.period, this.sections);
+  final List<ReportPhoto> photos;
+  ReportDoc(this.title, this.period, this.sections, {this.photos = const []});
 
   String toText() {
     final b = StringBuffer('[$title] 작업 보고\n$period\n');
@@ -226,22 +238,50 @@ ReportDoc buildReportDoc(
     sections.add(ReportSection('다음 계획', [lastPlan]));
   }
 
+  final photos = <ReportPhoto>[];
+  for (final r in reports) {
+    final pTags = Map<String, dynamic>.from((r['image_tags'] as Map?) ?? {});
+    final pCaps = Map<String, dynamic>.from(
+      (r['image_captions'] as Map?) ?? {},
+    );
+    for (final p in (r['image_paths'] as List? ?? [])) {
+      final k = p.toString();
+      photos.add(
+        ReportPhoto(
+          k,
+          [
+            r['date'],
+            if (pTags[k] != null) pTags[k],
+            if (pCaps[k] != null) pCaps[k],
+          ].join(' · '),
+        ),
+      );
+    }
+  }
   return ReportDoc(
     log['name']?.toString() ?? '프로젝트',
     only != null
         ? '선택한 일보 ${only.length}건'
         : '기간 ${f.year}.${f.month}.${f.day} ~ ${t.year}.${t.month}.${t.day}',
     sections,
+    photos: photos,
   );
 }
 
 // 여러 프로젝트의 보고서를 하나로 묶는다(제목 앞에 프로젝트명을 붙인다).
-ReportDoc mergeReportDocs(List<ReportDoc> docs) =>
-    ReportDoc('프로젝트 ${docs.length}건', '통합 보고', [
-      for (final d in docs)
-        for (final s in d.sections)
-          ReportSection('[${d.title}] ${s.heading}', s.lines),
-    ]);
+ReportDoc mergeReportDocs(List<ReportDoc> docs) => ReportDoc(
+  '프로젝트 ${docs.length}건',
+  '통합 보고',
+  [
+    for (final d in docs)
+      for (final s in d.sections)
+        ReportSection('[${d.title}] ${s.heading}', s.lines),
+  ],
+  photos: [
+    for (final d in docs)
+      for (final p in d.photos) ReportPhoto(p.path, '[${d.title}] ${p.label}'),
+  ],
+);
 
 // 2일이 지난 일보 임시 저장을 지운다(앱 시작 시 호출).
 Future<void> cleanOldDrafts() async {
@@ -268,7 +308,38 @@ Future<void> shareReportText(ReportDoc doc) async {
   await Share.share(doc.toText());
 }
 
-Future<void> shareReportPdf(ReportDoc doc) async {
+Future<Uint8List?> _pdfPhotoBytes(String path) async {
+  try {
+    Uint8List? bytes;
+    if (isRemotePhoto(path)) {
+      bytes = await FirebaseStorage.instance
+          .refFromURL(path)
+          .getData(15 * 1024 * 1024);
+    } else {
+      final f = File(path);
+      if (await f.exists()) bytes = await f.readAsBytes();
+    }
+    if (bytes == null) return null;
+    return await FlutterImageCompress.compressWithList(
+      bytes,
+      minWidth: 1000,
+      minHeight: 1000,
+      quality: 70,
+    );
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<void> shareReportPdf(ReportDoc doc, {bool withPhotos = false}) async {
+  // 사진은 최대 24장까지, 페이지 안에서 잘리지 않게 두 장씩 한 줄로 넣는다.
+  final loaded = <(Uint8List, String)>[];
+  if (withPhotos) {
+    for (final p in doc.photos.take(24)) {
+      final b = await _pdfPhotoBytes(p.path);
+      if (b != null) loaded.add((b, p.label));
+    }
+  }
   final fontData = await rootBundle.load(
     'assets/fonts/NotoSansKR-VariableFont_wght.ttf',
   );
@@ -294,6 +365,49 @@ Future<void> shareReportPdf(ReportDoc doc) async {
           pw.Divider(height: 6),
           for (final l in s.lines)
             pw.Text(l, style: const pw.TextStyle(fontSize: 11, lineSpacing: 2)),
+        ],
+        if (loaded.isNotEmpty) ...[
+          pw.SizedBox(height: 14),
+          pw.Text(
+            '사진 (${loaded.length}장)',
+            style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.Divider(height: 6),
+          for (int i = 0; i < loaded.length; i += 2)
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 10),
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  for (int j = i; j < i + 2; j++)
+                    pw.Expanded(
+                      child: j < loaded.length
+                          ? pw.Padding(
+                              padding: const pw.EdgeInsets.only(right: 8),
+                              child: pw.Column(
+                                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                children: [
+                                  pw.Container(
+                                    height: 170,
+                                    width: double.infinity,
+                                    child: pw.Image(
+                                      pw.MemoryImage(loaded[j].$1),
+                                      fit: pw.BoxFit.contain,
+                                    ),
+                                  ),
+                                  pw.SizedBox(height: 3),
+                                  pw.Text(
+                                    loaded[j].$2,
+                                    style: const pw.TextStyle(fontSize: 9),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : pw.SizedBox(),
+                    ),
+                ],
+              ),
+            ),
         ],
       ],
     ),

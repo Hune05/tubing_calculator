@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -121,4 +122,73 @@ Future<int> restoreBackup(BackupPreview b) async {
     } catch (_) {}
   }
   return ok;
+}
+
+// ───────────────────────── 클라우드 자동 백업 ─────────────────────────
+// 일주일에 한 번(앱을 열 때) 백업 파일을 Firebase Storage에 올리고 최근 5개만 남긴다.
+const _kAutoOn = 'auto_backup_on';
+const _kAutoLast = 'auto_backup_last';
+const _kCloudDir = 'app_backups/my_projects';
+
+Future<bool> autoBackupEnabled() async =>
+    (await SharedPreferences.getInstance()).getBool(_kAutoOn) ?? true;
+
+Future<void> setAutoBackupEnabled(bool v) async =>
+    (await SharedPreferences.getInstance()).setBool(_kAutoOn, v);
+
+Future<DateTime?> lastAutoBackup() async {
+  final s = (await SharedPreferences.getInstance()).getString(_kAutoLast);
+  return s == null ? null : DateTime.tryParse(s);
+}
+
+// 올리기에 성공하면 true.
+Future<bool> uploadCloudBackup(List<Map<String, dynamic>> projects) async {
+  try {
+    final file = await createBackupFile(projects);
+    final d = DateTime.now();
+    String two(int n) => n.toString().padLeft(2, '0');
+    final name =
+        '${d.year}${two(d.month)}${two(d.day)}_${two(d.hour)}${two(d.minute)}.json';
+    final dir = FirebaseStorage.instance.ref().child(_kCloudDir);
+    await dir.child(name).putFile(file);
+    await (await SharedPreferences.getInstance()).setString(
+      _kAutoLast,
+      d.toIso8601String(),
+    );
+    final all = (await dir.listAll()).items
+      ..sort((a, b) => b.name.compareTo(a.name));
+    for (final old in all.skip(5)) {
+      try {
+        await old.delete();
+      } catch (_) {}
+    }
+    try {
+      await file.delete();
+    } catch (_) {}
+    return true;
+  } catch (e) {
+    debugPrint('클라우드 백업 실패: $e');
+    return false;
+  }
+}
+
+Future<void> autoBackupIfDue(List<Map<String, dynamic>> projects) async {
+  if (projects.isEmpty || !await autoBackupEnabled()) return;
+  final last = await lastAutoBackup();
+  if (last != null &&
+      DateTime.now().difference(last) < const Duration(days: 7)) {
+    return;
+  }
+  await uploadCloudBackup(projects);
+}
+
+Future<List<Reference>> listCloudBackups() async {
+  final r = await FirebaseStorage.instance.ref().child(_kCloudDir).listAll();
+  return r.items..sort((a, b) => b.name.compareTo(a.name));
+}
+
+Future<String> downloadBackupText(Reference ref) async {
+  final bytes = await ref.getData(50 * 1024 * 1024);
+  if (bytes == null) throw const FormatException('백업 파일을 받지 못했어요.');
+  return utf8.decode(bytes);
 }

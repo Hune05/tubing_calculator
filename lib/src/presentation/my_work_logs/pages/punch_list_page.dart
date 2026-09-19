@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../widgets/voice_input_button.dart';
 import '../../../core/utils/image_picker_helper.dart'; // 🚀 경로 확인 필수!
 import '../widgets/photo_detail_modal.dart';
 import 'floor_plan_pin_page.dart';
@@ -537,6 +538,13 @@ class _PunchListPageState extends State<PunchListPage> {
                 ),
               ),
               const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: VoiceInputButton(
+                  controller: _punchCtrl,
+                  label: "음성으로 이슈 내용 입력",
+                ),
+              ),
               TextField(
                 controller: _punchCtrl,
                 maxLines: 4,

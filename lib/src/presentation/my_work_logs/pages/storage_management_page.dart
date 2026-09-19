@@ -77,6 +77,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
   void initState() {
     super.initState();
     _load();
+    _loadAuto();
   }
 
   String _mb(int b) => b < 1024 * 1024
@@ -118,38 +119,116 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
       final text = pf.bytes != null
           ? utf8.decode(pf.bytes!)
           : await File(pf.path!).readAsString();
-      final prev = parseBackup(text);
-      if (!mounted) return;
-      final go = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text("백업에서 복원"),
-          content: Text(
-            "프로젝트 ${prev.projects}건, 템플릿 ${prev.templates}개가 들어 있어요"
-            "${prev.exportedAt == null ? '' : '\n(백업 시각: ${prev.exportedAt!.year}.${prev.exportedAt!.month}.${prev.exportedAt!.day})'}.\n\n"
-            "같은 프로젝트가 이미 있으면 백업 내용으로 덮어써요. 계속할까요?",
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("취소"),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text("복원"),
-            ),
-          ],
-        ),
-      );
-      if (go != true) return;
-      final n = await restoreBackup(prev);
-      _toast("프로젝트 $n건을 복원했어요.");
-      widget.onRestored?.call();
+      await _restoreText(text);
     } on FormatException catch (e) {
       _toast(e.message);
     } catch (e) {
       _toast("복원 실패: $e");
     }
+  }
+
+  Future<void> _restoreText(String text) async {
+    final prev = parseBackup(text);
+    if (!mounted) return;
+    final when = prev.exportedAt == null
+        ? ''
+        : '\n(백업 시각: ${prev.exportedAt!.year}.${prev.exportedAt!.month}.${prev.exportedAt!.day})';
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("백업에서 복원"),
+        content: Text(
+          "프로젝트 ${prev.projects}건, 템플릿 ${prev.templates}개가 들어 있어요.$when\n\n"
+          "같은 프로젝트가 이미 있으면 백업 내용으로 덮어써요. 계속할까요?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("취소"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("복원"),
+          ),
+        ],
+      ),
+    );
+    if (go != true) return;
+    final n = await restoreBackup(prev);
+    _toast("프로젝트 $n건을 복원했어요.");
+    widget.onRestored?.call();
+  }
+
+  bool _autoOn = true;
+  DateTime? _lastAuto;
+  bool _cloudBusy = false;
+
+  Future<void> _loadAuto() async {
+    final on = await autoBackupEnabled();
+    final last = await lastAutoBackup();
+    if (mounted) {
+      setState(() {
+        _autoOn = on;
+        _lastAuto = last;
+      });
+    }
+  }
+
+  Future<void> _backupNow() async {
+    setState(() => _cloudBusy = true);
+    final ok = await uploadCloudBackup(widget.logs);
+    await _loadAuto();
+    if (mounted) setState(() => _cloudBusy = false);
+    _toast(ok ? "클라우드에 백업했어요." : "백업에 실패했어요. 네트워크를 확인해 주세요.");
+  }
+
+  Future<void> _restoreFromCloud() async {
+    try {
+      setState(() => _cloudBusy = true);
+      final list = await listCloudBackups();
+      if (!mounted) return;
+      setState(() => _cloudBusy = false);
+      if (list.isEmpty) {
+        _toast("클라우드에 저장된 백업이 없어요.");
+        return;
+      }
+      final pick = await showModalBottomSheet<int>(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  "복원할 백업 선택",
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                ),
+              ),
+              for (int i = 0; i < list.length; i++)
+                ListTile(
+                  leading: const Icon(Icons.cloud_download_outlined),
+                  title: Text(_fmtBackupName(list[i].name)),
+                  onTap: () => Navigator.pop(ctx, i),
+                ),
+            ],
+          ),
+        ),
+      );
+      if (pick == null) return;
+      final text = await downloadBackupText(list[pick]);
+      await _restoreText(text);
+    } on FormatException catch (e) {
+      _toast(e.message);
+    } catch (e) {
+      if (mounted) setState(() => _cloudBusy = false);
+      _toast("불러오기 실패: $e");
+    }
+  }
+
+  String _fmtBackupName(String n) {
+    final m = RegExp(r'^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})').firstMatch(n);
+    return m == null ? n : '${m[1]}.${m[2]}.${m[3]} ${m[4]}:${m[5]}';
   }
 
   Future<void> _clearDrafts() async {
@@ -262,6 +341,55 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
                       onPressed: _drafts == 0 ? null : _clearDrafts,
                       child: const Text("모두 삭제"),
                     ),
+                  ),
+                ),
+                card(
+                  "클라우드 자동 백업",
+                  _lastAuto == null
+                      ? "아직 없음"
+                      : "${_lastAuto!.month}/${_lastAuto!.day} ${_lastAuto!.hour.toString().padLeft(2, '0')}:${_lastAuto!.minute.toString().padLeft(2, '0')}",
+                  "앱을 열 때 마지막 백업이 7일 이상 지났으면 자동으로 클라우드에 백업하고 최근 5개만 보관해요.",
+                  action: Column(
+                    children: [
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text("주간 자동 백업"),
+                        value: _autoOn,
+                        onChanged: (v) async {
+                          await setAutoBackupEnabled(v);
+                          setState(() => _autoOn = v);
+                        },
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          OutlinedButton(
+                            onPressed: _cloudBusy ? null : _restoreFromCloud,
+                            child: const Text("클라우드에서 복원"),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: _cloudBusy ? null : _backupNow,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _teal,
+                            ),
+                            child: _cloudBusy
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text(
+                                    "지금 백업",
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
                 card(

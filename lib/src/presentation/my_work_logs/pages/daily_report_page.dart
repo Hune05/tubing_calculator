@@ -1659,6 +1659,13 @@ class _DailyReportPageState extends State<DailyReportPage> {
                   ),
                   const SizedBox(height: 12),
                 ],
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: VoiceInputButton(
+                    controller: _materialsUsedCtrl,
+                    onChanged: () => setState(() {}),
+                  ),
+                ),
                 TextField(
                   controller: _materialsUsedCtrl,
                   maxLines: 2,

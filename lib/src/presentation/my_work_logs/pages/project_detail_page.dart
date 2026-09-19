@@ -6,6 +6,7 @@ import '../widgets/work_log_card.dart';
 import '../models/report_tools.dart';
 import '../models/photo_store.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../models/address_book.dart';
 import '../models/phase_templates.dart';
 import '../../../data/repositories/work_project_repository.dart';
 import 'report_search_page.dart' show ProjectPhotosPage;
@@ -1456,6 +1457,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     final name = TextEditingController(text: cur['name']?.toString() ?? '');
     final phone = TextEditingController(text: cur['phone']?.toString() ?? '');
     String role = cur['role']?.toString() ?? _contactRoles.first;
+    bool saveToBook = index == null;
     final action = await showDialog<String>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -1466,6 +1468,21 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                TextButton.icon(
+                  onPressed: () async {
+                    final picked = await _pickFromBook();
+                    if (picked != null) {
+                      setD(() {
+                        name.text = picked['name']?.toString() ?? '';
+                        phone.text = picked['phone']?.toString() ?? '';
+                        role = picked['role']?.toString() ?? role;
+                        saveToBook = false;
+                      });
+                    }
+                  },
+                  icon: const Icon(Icons.menu_book_outlined, size: 18),
+                  label: const Text("주소록에서 선택"),
+                ),
                 TextField(
                   controller: name,
                   decoration: const InputDecoration(labelText: "이름 / 업체명"),
@@ -1486,6 +1503,16 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                         onSelected: (_) => setD(() => role = r),
                       ),
                   ],
+                ),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: saveToBook,
+                  onChanged: (v) => setD(() => saveToBook = v == true),
+                  title: const Text(
+                    "주소록에도 저장 (다른 프로젝트에서 재사용)",
+                    style: TextStyle(fontSize: 13),
+                  ),
                 ),
               ],
             ),
@@ -1518,6 +1545,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         'phone': phone.text.trim(),
         'role': role,
       };
+      if (saveToBook) saveAddress(item);
       if (index == null) {
         list.add(item);
       } else {
@@ -1526,6 +1554,58 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     }
     log['contacts'] = list;
     _changed();
+  }
+
+  Future<Map<String, dynamic>?> _pickFromBook() async {
+    var book = await loadAddressBook();
+    if (!mounted) return null;
+    return showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setB) => SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.6,
+            ),
+            child: book.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.all(30),
+                    child: Text(
+                      "주소록이 비어 있어요. 연락처를 저장할 때 '주소록에도 저장'을 체크하세요.",
+                      style: TextStyle(color: tossSubText),
+                    ),
+                  )
+                : ListView(
+                    shrinkWrap: true,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
+                        child: Text(
+                          "주소록 (길게 누르면 삭제)",
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                      for (final e in book)
+                        ListTile(
+                          title: Text("${e['name']}  ·  ${e['role']}"),
+                          subtitle: Text(e['phone']?.toString() ?? ''),
+                          onTap: () => Navigator.pop(ctx, e),
+                          onLongPress: () async {
+                            await removeAddress(e);
+                            final nb = await loadAddressBook();
+                            setB(() => book = nb);
+                          },
+                        ),
+                    ],
+                  ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildContactsSection() {
@@ -2029,6 +2109,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
   // ───────────────────────── 기간 보고서 ─────────────────────────
   void _showReportExport() {
     int mode = 0; // 0=최근 7일 1=최근 14일 2=이번 달 3=전체
+    bool withPhotos = false;
     showModalBottomSheet(
       context: context,
       backgroundColor: pureWhite,
@@ -2072,6 +2153,16 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                         ),
                     ],
                   ),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    value: withPhotos,
+                    onChanged: (v) => setS(() => withPhotos = v == true),
+                    title: const Text(
+                      "PDF에 사진 포함 (최대 24장, 만드는 데 시간이 걸려요)",
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -2091,7 +2182,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                           onPressed: () async {
                             Navigator.pop(ctx);
                             try {
-                              await shareReportPdf(build());
+                              await shareReportPdf(
+                                build(),
+                                withPhotos: withPhotos,
+                              );
                             } catch (e) {
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -2326,6 +2420,11 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
               title: const Text("PDF로 공유"),
               onTap: () => Navigator.pop(ctx, 'pdf'),
             ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text("PDF로 공유 (사진 포함)"),
+              onTap: () => Navigator.pop(ctx, 'pdfp'),
+            ),
           ],
         ),
       ),
@@ -2333,6 +2432,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     try {
       if (fmt == 'text') await shareReportText(doc);
       if (fmt == 'pdf') await shareReportPdf(doc);
+      if (fmt == 'pdfp') await shareReportPdf(doc, withPhotos: true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

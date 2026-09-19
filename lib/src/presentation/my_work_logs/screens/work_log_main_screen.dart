@@ -9,6 +9,7 @@ import '../widgets/project_summary_card.dart';
 import '../models/project_phase.dart';
 import '../models/report_tools.dart';
 import '../models/photo_store.dart';
+import '../models/backup_tools.dart';
 import '../pages/report_search_page.dart';
 import '../pages/project_stats_page.dart';
 import '../pages/retro_overview_page.dart';
@@ -100,6 +101,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       });
       syncReportReminder(_workLogs);
       cleanOldDrafts();
+      autoBackupIfDue(_workLogs);
       _refreshPhotoCount();
       _retryTimer ??= Timer.periodic(const Duration(seconds: 90), (_) {
         if (_localPhotos > 0) _retryUploads();
