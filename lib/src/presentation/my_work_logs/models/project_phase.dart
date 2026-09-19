@@ -375,6 +375,8 @@ void shiftPhasesAfterDelay(
       if (s is! Map || s['isCompleted'] == true) continue;
       if (!laterIds.contains(s['phaseId']?.toString())) continue;
       s['dateTime'] = _shiftDateValue(s['dateTime'], days);
+      // 서버가 새 날짜 기준으로 알림을 다시 보내도록 발송 표시를 되돌린다.
+      s['reminderSent'] = false;
       if (s['endDate'] != null)
         s['endDate'] = _shiftDateValue(s['endDate'], days);
     }

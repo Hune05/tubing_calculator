@@ -1,9 +1,14 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:file_picker/file_picker.dart';
+import 'package:share_plus/share_plus.dart';
+
+import '../models/backup_tools.dart';
 import '../models/photo_store.dart';
 
 const Color _teal = Color(0xFF007580);
@@ -16,7 +21,8 @@ const Color _bg = Color(0xFFF2F4F6);
 // 않는다(일보에 로컬 경로로 연결돼 있어서).
 class StorageManagementPage extends StatefulWidget {
   final List<Map<String, dynamic>> logs;
-  const StorageManagementPage({super.key, required this.logs});
+  final VoidCallback? onRestored;
+  const StorageManagementPage({super.key, required this.logs, this.onRestored});
 
   @override
   State<StorageManagementPage> createState() => _StorageManagementPageState();
@@ -30,7 +36,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
   int _pendingPhotos = 0;
 
   static final _tempPattern = RegExp(
-    r'^(up_|dl_|report_|stats_)\d*.*\.(jpg|png|pdf|csv)$',
+    r'^(up_|dl_|report_|stats_)\d*.*\.(jpg|png|pdf|csv|json)$',
   );
 
   Future<List<File>> _tempFiles() async {
@@ -84,6 +90,66 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
       } catch (_) {}
     }
     await _load();
+  }
+
+  void _toast(String m) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+  }
+
+  Future<void> _backup() async {
+    try {
+      final f = await createBackupFile(widget.logs);
+      // ignore: deprecated_member_use
+      await Share.shareXFiles([XFile(f.path)], text: '내 프로젝트 백업');
+    } catch (e) {
+      _toast("백업 실패: $e");
+    }
+  }
+
+  Future<void> _restore() async {
+    try {
+      final res = await FilePicker.pickFiles(
+        type: FileType.any,
+        withData: true,
+      );
+      if (res == null || res.files.isEmpty) return;
+      final pf = res.files.first;
+      final text = pf.bytes != null
+          ? utf8.decode(pf.bytes!)
+          : await File(pf.path!).readAsString();
+      final prev = parseBackup(text);
+      if (!mounted) return;
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text("백업에서 복원"),
+          content: Text(
+            "프로젝트 ${prev.projects}건, 템플릿 ${prev.templates}개가 들어 있어요"
+            "${prev.exportedAt == null ? '' : '\n(백업 시각: ${prev.exportedAt!.year}.${prev.exportedAt!.month}.${prev.exportedAt!.day})'}.\n\n"
+            "같은 프로젝트가 이미 있으면 백업 내용으로 덮어써요. 계속할까요?",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("취소"),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("복원"),
+            ),
+          ],
+        ),
+      );
+      if (go != true) return;
+      final n = await restoreBackup(prev);
+      _toast("프로젝트 $n건을 복원했어요.");
+      widget.onRestored?.call();
+    } on FormatException catch (e) {
+      _toast(e.message);
+    } catch (e) {
+      _toast("복원 실패: $e");
+    }
   }
 
   Future<void> _clearDrafts() async {
@@ -196,6 +262,29 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
                       onPressed: _drafts == 0 ? null : _clearDrafts,
                       child: const Text("모두 삭제"),
                     ),
+                  ),
+                ),
+                card(
+                  "데이터 백업 / 복원",
+                  "${widget.logs.length}건",
+                  "내 프로젝트 전체와 단계 템플릿, 자재 즐겨찾기를 파일 하나로 내보내고 다시 불러와요. 사진은 클라우드에 올라간 것만 복원 후에도 보여요.",
+                  action: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton(
+                        onPressed: _restore,
+                        child: const Text("복원"),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: _backup,
+                        style: ElevatedButton.styleFrom(backgroundColor: _teal),
+                        child: const Text(
+                          "백업 내보내기",
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 card(

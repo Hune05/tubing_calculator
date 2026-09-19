@@ -1202,7 +1202,10 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => StorageManagementPage(logs: _workLogs),
+                    builder: (_) => StorageManagementPage(
+                      logs: _workLogs,
+                      onRestored: _loadData,
+                    ),
                   ),
                 );
               }

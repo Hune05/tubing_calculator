@@ -5,6 +5,7 @@ import '../models/project_phase.dart';
 import '../widgets/work_log_card.dart';
 import '../models/report_tools.dart';
 import '../models/photo_store.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/phase_templates.dart';
 import '../../../data/repositories/work_project_repository.dart';
 import 'report_search_page.dart' show ProjectPhotosPage;
@@ -243,6 +244,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
       children: [
         _buildTypeRow(),
+        _buildContactsSection(),
         Row(
           children: [
             Expanded(
@@ -1429,6 +1431,208 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     }
   }
 
+  // ───────────────────────── 연락처 ─────────────────────────
+  static const _contactRoles = ['현장 담당', '협력사', '자재 업체', '발주처', '기타'];
+
+  List<Map<String, dynamic>> get _contacts => (log['contacts'] as List? ?? [])
+      .whereType<Map>()
+      .map((e) => Map<String, dynamic>.from(e))
+      .toList();
+
+  Future<void> _call(String phone, {bool sms = false}) async {
+    final n = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (n.isEmpty) return;
+    final ok = await launchUrl(Uri(scheme: sms ? 'sms' : 'tel', path: n));
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(sms ? "문자 앱을 열 수 없어요." : "전화 앱을 열 수 없어요.")),
+      );
+    }
+  }
+
+  Future<void> _editContact({int? index}) async {
+    final list = _contacts;
+    final cur = index == null ? <String, dynamic>{} : list[index];
+    final name = TextEditingController(text: cur['name']?.toString() ?? '');
+    final phone = TextEditingController(text: cur['phone']?.toString() ?? '');
+    String role = cur['role']?.toString() ?? _contactRoles.first;
+    final action = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text(index == null ? "연락처 추가" : "연락처 수정"),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: name,
+                  decoration: const InputDecoration(labelText: "이름 / 업체명"),
+                ),
+                TextField(
+                  controller: phone,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(labelText: "전화번호"),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    for (final r in _contactRoles)
+                      ChoiceChip(
+                        label: Text(r),
+                        selected: role == r,
+                        onSelected: (_) => setD(() => role = r),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            if (index != null)
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, 'delete'),
+                child: const Text("삭제", style: TextStyle(color: warningRed)),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("취소"),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'save'),
+              child: const Text("저장"),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (action == null) return;
+    if (action == 'delete' && index != null) {
+      list.removeAt(index);
+    } else if (action == 'save') {
+      if (name.text.trim().isEmpty && phone.text.trim().isEmpty) return;
+      final item = {
+        'name': name.text.trim(),
+        'phone': phone.text.trim(),
+        'role': role,
+      };
+      if (index == null) {
+        list.add(item);
+      } else {
+        list[index] = item;
+      }
+    }
+    log['contacts'] = list;
+    _changed();
+  }
+
+  Widget _buildContactsSection() {
+    final list = _contacts;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: pureWhite,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.contacts_outlined, size: 18, color: tossBlue),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  "연락처",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    color: tossText,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => _editContact(),
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text("추가"),
+              ),
+            ],
+          ),
+          if (list.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 6, right: 8),
+              child: Text(
+                "현장 담당자, 협력사, 자재 업체 연락처를 적어 두면 바로 전화·문자할 수 있어요.",
+                style: TextStyle(color: tossSubText, fontSize: 12, height: 1.4),
+              ),
+            ),
+          for (int i = 0; i < list.length; i++)
+            InkWell(
+              onLongPress: () => _editContact(index: i),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "${list[i]['name']}  ·  ${list[i]['role']}",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: tossText,
+                              fontSize: 14,
+                            ),
+                          ),
+                          if ((list[i]['phone']?.toString() ?? '').isNotEmpty)
+                            Text(
+                              list[i]['phone'].toString(),
+                              style: const TextStyle(
+                                color: tossSubText,
+                                fontSize: 12,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if ((list[i]['phone']?.toString() ?? '').isNotEmpty) ...[
+                      IconButton(
+                        tooltip: "전화",
+                        icon: const Icon(
+                          Icons.call_rounded,
+                          color: Colors.green,
+                        ),
+                        onPressed: () => _call(list[i]['phone'].toString()),
+                      ),
+                      IconButton(
+                        tooltip: "문자",
+                        icon: const Icon(Icons.sms_outlined, color: tossBlue),
+                        onPressed: () =>
+                            _call(list[i]['phone'].toString(), sms: true),
+                      ),
+                    ],
+                    IconButton(
+                      tooltip: "수정",
+                      icon: const Icon(
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: tossSubText,
+                      ),
+                      onPressed: () => _editContact(index: i),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   // ───────────────────────── 공사 유형 ─────────────────────────
   Widget _buildTypeRow() {
     final t = log['workType']?.toString() ?? '';
@@ -1797,7 +2001,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                 value: withSchedules,
                 onChanged: (v) => setD(() => withSchedules = v == true),
                 title: const Text(
-                  "뒤 단계의 미완료 세부 일정도 함께 밀기",
+                  "뒤 단계의 미완료 세부 일정도 함께 밀기 (알림도 새 날짜로 다시 보내요)",
                   style: TextStyle(fontSize: 14),
                 ),
               ),
@@ -2044,6 +2248,31 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             ),
           ),
           const SizedBox(height: 6),
+        ];
+      })(),
+      ...(() {
+        final vs = _contacts
+            .where(
+              (c) =>
+                  c['role'] == '자재 업체' &&
+                  (c['phone']?.toString() ?? '').isNotEmpty,
+            )
+            .toList();
+        if (vs.isEmpty) return <Widget>[];
+        return <Widget>[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final v in vs)
+                ActionChip(
+                  avatar: const Icon(Icons.call_rounded, size: 14),
+                  label: Text("${v['name']}에 전화"),
+                  backgroundColor: pureWhite,
+                  onPressed: () => _call(v['phone'].toString()),
+                ),
+            ],
+          ),
         ];
       })(),
       ...open.take(5).map(_scheduleRow),

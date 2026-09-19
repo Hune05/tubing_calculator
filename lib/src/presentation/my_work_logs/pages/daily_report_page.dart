@@ -16,6 +16,7 @@ import 'floor_plan_pin_page.dart';
 import '../models/project_phase.dart';
 import '../models/report_tools.dart';
 import '../models/photo_store.dart';
+import '../widgets/voice_input_button.dart';
 
 const Color tossBlue = Color(0xFF007580); // 마키타 틸로 통일(다른 화면과 동일)
 const Color tossText = Color(0xFF191F28);
@@ -1003,6 +1004,10 @@ class _DailyReportPageState extends State<DailyReportPage> {
               maxLines: 2,
               decoration: _dec(hint: "예: B동 3층 배관 취부 후 (치수 확인용)"),
             ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: VoiceInputButton(controller: ctrl),
+            ),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -1475,7 +1480,14 @@ class _DailyReportPageState extends State<DailyReportPage> {
                       hint: "오늘 작업 내용·특이사항\n(예: 센서 3개소 결선 완료, 튜브 라인 연결)",
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: VoiceInputButton(
+                      controller: _noteCtrl,
+                      onChanged: () => setState(() {}),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
@@ -1716,6 +1728,13 @@ class _DailyReportPageState extends State<DailyReportPage> {
                   maxLines: 2,
                   onChanged: (_) => setState(() {}),
                   decoration: _dec(hint: "예: 내일은 B동 결선 마무리 예정"),
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: VoiceInputButton(
+                    controller: _nextDayPlanCtrl,
+                    onChanged: () => setState(() {}),
+                  ),
                 ),
               ],
             ),
