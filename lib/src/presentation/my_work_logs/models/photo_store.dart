@@ -92,6 +92,26 @@ Future<String?> uploadPhoto(String projectId, String localPath) async {
   }
 }
 
+// 아직 클라우드에 못 올라간(파일이 남아 있는) 로컬 사진 수.
+int countLocalPhotos(List<Map<String, dynamic>> logs) {
+  bool pending(dynamic p) {
+    final s = p?.toString() ?? '';
+    return s.isNotEmpty && !isRemotePhoto(s) && File(s).existsSync();
+  }
+
+  int n = 0;
+  for (final log in logs) {
+    for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
+      n += (r['image_paths'] as List? ?? []).where(pending).length;
+    }
+    for (final p in (log['punch_lists'] as List? ?? []).whereType<Map>()) {
+      n += (p['image_paths'] as List? ?? []).where(pending).length;
+    }
+    if (pending(log['floor_plan_image_path'])) n++;
+  }
+  return n;
+}
+
 // 프로젝트 전체(일보 사진, 이슈 사진, 도면)의 로컬 사진을 올린다. 바뀐 게 있으면 true.
 Future<bool> uploadAllPhotos(Map<String, dynamic> log) async {
   final pid = log['id']?.toString();

@@ -21,6 +21,11 @@ const String kWorkProjectsCollection = 'my_projects';
 class WorkProjectRepository {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  // 서버에 아직 반영되지 않은 저장 개수. Firestore는 오프라인에서도 로컬에 먼저
+  // 쓰고 연결되면 자동으로 올리는데, 서버 확인이 올 때까지 이 값이 1 이상이라
+  // 화면에서 "동기화 대기 중"을 보여줄 수 있다.
+  static final ValueNotifier<int> pendingWrites = ValueNotifier<int>(0);
+
   CollectionReference<Map<String, dynamic>> get _col =>
       _db.collection(kWorkProjectsCollection);
 
@@ -49,7 +54,12 @@ class WorkProjectRepository {
         DateTime.now().millisecondsSinceEpoch.toString();
     final data = Map<String, dynamic>.from(project);
     data['id'] = id;
-    await _col.doc(id).set(data);
+    pendingWrites.value++;
+    try {
+      await _col.doc(id).set(data);
+    } finally {
+      pendingWrites.value--;
+    }
   }
 
   Future<void> deleteProject(String id) async {

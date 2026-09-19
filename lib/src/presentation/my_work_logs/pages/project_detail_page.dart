@@ -7,6 +7,7 @@ import '../models/report_tools.dart';
 import '../models/photo_store.dart';
 import '../models/phase_templates.dart';
 import 'report_search_page.dart' show ProjectPhotosPage;
+import 'project_stats_page.dart';
 
 // 🚀 [프로젝트 상세 - 신규] 예전엔 프로젝트 카드를 펼치면 일정/일지/이슈가 한 카드
 // 안에 길게 쌓였고, 프로젝트가 "지금 어떤 상태인지"는 한눈에 안 보였다. 프로젝트를
@@ -266,6 +267,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
           ],
         ),
         const SizedBox(height: 20),
+        ..._buildRetroSection(),
         ..._buildDelayBanner(),
         if (phases.isNotEmpty) ...[
           _sectionTitle("단계 진행"),
@@ -315,6 +317,17 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             onPressed: () {
               widget.actions.toggleStatus();
               setState(() {});
+              if (!_isActive) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text("프로젝트를 완료 처리했어요."),
+                    action: SnackBarAction(
+                      label: "회고 작성",
+                      onPressed: _editRetro,
+                    ),
+                  ),
+                );
+              }
             },
             icon: Icon(
               _isActive
@@ -1286,6 +1299,203 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     }
   }
 
+  // ───────────────────────── 완료 회고 ─────────────────────────
+  Map<String, dynamic> get _retro =>
+      Map<String, dynamic>.from((log['retro'] as Map?) ?? {});
+
+  Future<void> _editRetro() async {
+    final r = _retro;
+    final cause = TextEditingController(text: r['cause']?.toString() ?? '');
+    final lesson = TextEditingController(text: r['lesson']?.toString() ?? '');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("프로젝트 회고"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: cause,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: "지연/문제 원인",
+                  hintText: "예: 자재 입고가 2주 늦어짐",
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: lesson,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: "다음에 참고할 점",
+                  hintText: "예: 자재는 착수 전에 미리 발주",
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("취소"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("저장"),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      log['retro'] = {
+        'cause': cause.text.trim(),
+        'lesson': lesson.text.trim(),
+        'updatedAt': DateTime.now(),
+      };
+      _changed();
+    }
+  }
+
+  List<Widget> _buildRetroSection() {
+    if (_isActive) return [];
+    final ps = projectStart(log), pd = projectDue(log);
+    final dates = [
+      for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>())
+        reportDateOf(r),
+    ]..sort();
+    final actualStart = dates.isNotEmpty ? dates.first : null;
+    final actualEnd = log['completedAt'] != null
+        ? dayOnly(asDate(log['completedAt']))
+        : (dates.isNotEmpty ? dates.last : null);
+    final planned = (ps != null && pd != null)
+        ? pd.difference(ps).inDays + 1
+        : null;
+    final actual = (actualStart != null && actualEnd != null)
+        ? actualEnd.difference(actualStart).inDays + 1
+        : null;
+    final r = _retro;
+    final cause = r['cause']?.toString() ?? '';
+    final lesson = r['lesson']?.toString() ?? '';
+
+    Widget line(String label, String value, {Color? color}) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 92,
+            child: Text(
+              label,
+              style: const TextStyle(color: tossSubText, fontSize: 13),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                color: color ?? tossText,
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final diff = (planned != null && actual != null) ? actual - planned : null;
+    final phaseLines = <Widget>[];
+    for (final p in phasesOf(log)) {
+      final s = phaseStart(p), e = phaseEnd(p);
+      final st = phaseWorkStats(log, p['id'].toString());
+      if (s == null || e == null) continue;
+      final plannedDays = e.difference(s).inDays + 1;
+      phaseLines.add(
+        line(
+          p['name'].toString(),
+          "계획 ${plannedDays}일 → 작업 ${st.days}일 (${st.manDays}인·일)",
+        ),
+      );
+    }
+
+    return [
+      Container(
+        margin: const EdgeInsets.only(bottom: 20),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: pureWhite,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.flag_circle_outlined,
+                  color: tossBlue,
+                  size: 20,
+                ),
+                const SizedBox(width: 6),
+                const Expanded(
+                  child: Text(
+                    "프로젝트 회고",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      color: tossText,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _editRetro,
+                  child: Text(cause.isEmpty && lesson.isEmpty ? "작성" : "수정"),
+                ),
+              ],
+            ),
+            if (planned != null) line("계획 기간", "$planned일"),
+            if (actual != null) line("실제 기간", "$actual일"),
+            if (diff != null)
+              line(
+                "차이",
+                diff == 0
+                    ? "계획대로 완료"
+                    : diff > 0
+                    ? "$diff일 지연"
+                    : "${-diff}일 단축",
+                color: diff > 0 ? warningRed : Colors.green.shade700,
+              ),
+            if (phaseLines.isNotEmpty) ...[
+              const Divider(height: 20),
+              ...phaseLines,
+            ],
+            if (cause.isNotEmpty) ...[
+              const Divider(height: 20),
+              const Text(
+                "지연/문제 원인",
+                style: TextStyle(color: tossSubText, fontSize: 12),
+              ),
+              const SizedBox(height: 2),
+              Text(cause, style: const TextStyle(color: tossText, height: 1.4)),
+            ],
+            if (lesson.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              const Text(
+                "다음에 참고할 점",
+                style: TextStyle(color: tossSubText, fontSize: 12),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                lesson,
+                style: const TextStyle(color: tossText, height: 1.4),
+              ),
+            ],
+          ],
+        ),
+      ),
+    ];
+  }
+
   // ───────────────────────── 지연 경고 ─────────────────────────
   List<Widget> _buildDelayBanner() {
     final d = delayedPhase(log);
@@ -1867,6 +2077,21 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             ],
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: "투입 통계",
+            icon: const Icon(Icons.bar_chart_rounded),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ProjectStatsPage(
+                  logs: [log],
+                  title: "${log['name'] ?? '프로젝트'} 통계",
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: AnimatedBuilder(
         animation: _tab.animation!,

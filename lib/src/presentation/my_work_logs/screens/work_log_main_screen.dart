@@ -10,6 +10,8 @@ import '../models/project_phase.dart';
 import '../models/report_tools.dart';
 import '../models/photo_store.dart';
 import '../pages/report_search_page.dart';
+import '../pages/project_stats_page.dart';
+import 'dart:async';
 import '../pages/project_detail_page.dart';
 import '../pages/daily_report_page.dart'; // 다이얼로그 대신 Page 임포트
 import '../pages/punch_list_page.dart'; // 다이얼로그 대신 Page 임포트
@@ -56,6 +58,12 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       _workLogs.where((l) => !_isActive(l)).toList();
 
   @override
+  void dispose() {
+    _retryTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
     _loadData();
@@ -75,6 +83,10 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         _isLoading = false;
       });
       syncReportReminder(_workLogs);
+      _refreshPhotoCount();
+      _retryTimer ??= Timer.periodic(const Duration(seconds: 90), (_) {
+        if (_localPhotos > 0) _retryUploads();
+      });
       _migrateLocalPhotos();
       if (widget.initialProjectId != null) {
         final match = _workLogs.firstWhere(
@@ -111,17 +123,35 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   ) async {
     final pid = log['id']?.toString();
     if (pid == null || !_uploading.add(pid)) return;
+    if (mounted) setState(() {});
     try {
       if (await uploadAllPhotos(log)) {
-        if (mounted) setState(() {});
         _repo.upsertProject(log);
       }
     } finally {
       _uploading.remove(pid);
+      _refreshPhotoCount();
+      if (mounted) setState(() {});
     }
   }
 
   final Set<String> _uploading = {};
+  int _localPhotos = 0;
+  Timer? _retryTimer;
+
+  void _refreshPhotoCount() {
+    final n = countLocalPhotos(_workLogs);
+    if (mounted && n != _localPhotos) setState(() => _localPhotos = n);
+  }
+
+  // 네트워크가 없어서 못 올라간 사진을 1분 반 간격으로 다시 시도한다.
+  Future<void> _retryUploads() async {
+    if (_uploading.isNotEmpty) return;
+    for (final log in List<Map<String, dynamic>>.from(_workLogs)) {
+      await _uploadReportPhotosFor(log, const {});
+    }
+    _refreshPhotoCount();
+  }
 
   // 예전에 저장된 로컬 경로 사진들도 한 번씩 올린다.
   Future<void> _migrateLocalPhotos() async {
@@ -410,7 +440,13 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   // 건너뛰도록 돼 있었다)도 자연히 멈추고, 목록/대시보드에서도 빠진다.
   void _toggleProjectStatus(Map<String, dynamic> log) {
     setState(() {
-      log['status'] = _isActive(log) ? 'DONE' : 'ONGOING';
+      final done = _isActive(log);
+      log['status'] = done ? 'DONE' : 'ONGOING';
+      if (done) {
+        log['completedAt'] = DateTime.now();
+      } else {
+        log.remove('completedAt');
+      }
     });
     _saveProject(log);
   }
@@ -594,6 +630,76 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   // 🚀 [신규] "오늘 일지 / 다가오는 일정 / 미해결 이슈"를 한 화면에
   // 모은 통합 대시보드. 프로젝트마다 따로 열어보지 않아도 오늘 뭘 해야
   // 하는지 여기서 다 보인다.
+  Widget _buildSyncBanner() {
+    return ValueListenableBuilder<int>(
+      valueListenable: WorkProjectRepository.pendingWrites,
+      builder: (context, pending, _) {
+        final uploading = _uploading.isNotEmpty;
+        if (pending == 0 && _localPhotos == 0 && !uploading) {
+          return const SizedBox.shrink();
+        }
+        String text;
+        bool warn = false;
+        if (uploading) {
+          text = "사진 올리는 중… (남은 사진 $_localPhotos장)";
+        } else if (_localPhotos > 0) {
+          text = "사진 $_localPhotos장이 아직 올라가지 않았어요. 네트워크를 확인해 주세요.";
+          warn = true;
+        } else {
+          text = "변경사항을 서버에 동기화하는 중이에요. 오프라인이면 연결될 때 자동으로 올라갑니다.";
+        }
+        final color = warn ? const Color(0xFFC77700) : tossBlue;
+        return Container(
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              if (uploading || (pending > 0 && _localPhotos == 0))
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: color,
+                  ),
+                )
+              else
+                Icon(Icons.cloud_off_rounded, size: 16, color: color),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  text,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+              if (!uploading && _localPhotos > 0)
+                TextButton(
+                  onPressed: _retryUploads,
+                  style: TextButton.styleFrom(
+                    foregroundColor: color,
+                    minimumSize: const Size(0, 32),
+                  ),
+                  child: const Text(
+                    "다시 시도",
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   // 금~일에는 주간 보고서 초안을 바로 만들 수 있는 카드를 보여준다.
   Widget _buildWeeklyReportCard() {
     if (DateTime.now().weekday < DateTime.friday)
@@ -942,6 +1048,17 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         centerTitle: false,
         actions: [
           IconButton(
+            tooltip: "투입 통계",
+            icon: const Icon(Icons.bar_chart_rounded),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    ProjectStatsPage(logs: _workLogs, title: "전체 투입 통계"),
+              ),
+            ),
+          ),
+          IconButton(
             tooltip: "일보·이슈 검색",
             icon: const Icon(Icons.search_rounded),
             onPressed: _openSearch,
@@ -970,6 +1087,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                 final header = Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _buildSyncBanner(),
                     if (!_showCompleted) _buildWeeklyReportCard(),
                     if (!_showCompleted) _buildDashboard(),
                     Padding(
