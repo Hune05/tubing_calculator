@@ -9,7 +9,7 @@ const Color _sub = Color(0xFF8B95A1);
 const Color _bg = Color(0xFFF2F4F6);
 const Color _red = Color(0xFFF04438);
 
-// 🚀 [회고 모아보기] 완료한 프로젝트들의 계획 대비 실제 기간, 인원-일, 원인·교훈을
+// 🚀 [결과 정리 모아보기] 완료한 프로젝트들의 계획 대비 실제 기간, 인원-일, 원인·교훈을
 // 한곳에 모아 "이런 공사는 대략 이 정도 걸린다"를 파악하게 한다.
 class RetroOverviewPage extends StatefulWidget {
   final List<Map<String, dynamic>> logs;
@@ -139,13 +139,13 @@ class _RetroOverviewPageState extends State<RetroOverviewPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         title: const Text(
-          "회고 모아보기",
+          "결과 정리 모아보기",
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
         ),
       ),
       body: done.isEmpty
           ? const Center(
-              child: Text("완료한 프로젝트가 아직 없어요.", style: TextStyle(color: _sub)),
+              child: Text("완료한 프로젝트가 아직 없습니다.", style: TextStyle(color: _sub)),
             )
           : ListView(
               padding: const EdgeInsets.all(16),
@@ -199,7 +199,7 @@ class _RetroOverviewPageState extends State<RetroOverviewPage> {
                     ),
                   ] else
                     const Text(
-                      "계획 기간(단계 설정)과 일보가 있는 프로젝트가 생기면 평균이 계산돼요.",
+                      "계획 기간(단계 설정)과 일보가 있는 프로젝트가 생기면 평균이 계산됩니다.",
                       style: TextStyle(color: _sub, fontSize: 13),
                     ),
                 ]),

@@ -1076,7 +1076,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           const SizedBox(width: 10),
           const Expanded(
             child: Text(
-              "주간 자동 백업에 실패했어요. 앱이 켜져 있는 동안 계속 다시 시도해요.",
+              "주간 자동 백업에 실패했습니다. 앱이 켜져 있는 동안 계속 다시 시도합니다.",
               style: TextStyle(
                 color: c,
                 fontSize: 12,
@@ -1114,10 +1114,10 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         if (uploading) {
           text = "사진 올리는 중… (남은 사진 $_localPhotos장)";
         } else if (_localPhotos > 0) {
-          text = "사진 $_localPhotos장이 아직 올라가지 않았어요. 네트워크를 확인해 주세요.";
+          text = "사진 $_localPhotos장이 아직 올라가지 않았습니다. 네트워크를 확인해 주십시오.";
           warn = true;
         } else {
-          text = "변경사항을 서버에 동기화하는 중이에요. 오프라인이면 연결될 때 자동으로 올라갑니다.";
+          text = "변경사항을 서버에 동기화하는 중입니다. 오프라인이면 연결될 때 자동으로 올라갑니다.";
         }
         final color = warn ? const Color(0xFFC77700) : tossBlue;
         return Container(
@@ -1292,12 +1292,12 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            "일보·주간 보고 알림이 제때 오는지 확인해 보세요",
+            "일보·주간 보고 알림이 제때 오는지 확인해 보십시오",
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
           ),
           const SizedBox(height: 4),
           const Text(
-            "폰 절전 기능 때문에 예약 알림이 안 올 수 있어요. '알림 점검'에서 상태를 볼 수 있어요.",
+            "폰 절전 기능 때문에 예약 알림이 안 올 수 있습니다. '알림 점검'에서 상태를 볼 수 있습니다.",
             style: TextStyle(fontSize: 12, height: 1.4, color: tossSubText),
           ),
           Row(
@@ -1330,11 +1330,11 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   }
 
   static const List<String> _guideTips = [
-    "프로젝트를 만들고 '단계·일정' 탭에서 표준 단계로 시작하세요. 기간에 맞춰 자동으로 나눠 줘요.",
-    "매일 '일지 작성'에 작업 내용·사진·처리한 이슈를 남기면 진행률과 통계에 쌓여요.",
-    "자재는 입고일이 미정이어도 먼저 등록하고, 날짜가 정해지면 채우세요. 지연되면 알려줘요.",
-    "금요일엔 '주간 보고'로 이번 주 업무를 한 번에 공유하세요.",
-    "⋮ 메뉴에서 보고서 양식, 백업, 저장 공간 관리를 할 수 있어요.",
+    "프로젝트를 만들고 '단계·일정' 탭에서 표준 단계로 시작하십시오. 기간에 맞춰 자동으로 나눠 줍니다.",
+    "매일 '일지 작성'에 작업 내용·사진·처리한 이슈를 남기면 진행률과 통계에 쌓입니다.",
+    "자재는 입고일이 미정이어도 먼저 등록하고, 날짜가 정해지면 채우십시오. 지연되면 알려 줍니다.",
+    "금요일엔 '주간 보고'로 이번 주 업무를 한 번에 공유하십시오.",
+    "⋮ 메뉴에서 보고서 양식, 백업, 저장 공간 관리를 할 수 있습니다.",
   ];
 
   Widget _buildGuideCard() {
@@ -1355,7 +1355,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
               Icon(Icons.lightbulb_outline_rounded, color: tossBlue, size: 18),
               SizedBox(width: 6),
               Text(
-                "이렇게 쓰면 편해요",
+                "이렇게 쓰면 편합니다",
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 15,
@@ -1382,7 +1382,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             child: TextButton(
               onPressed: _dismissGuide,
               child: const Text(
-                "확인했어요",
+                "확인했습니다",
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
@@ -1880,7 +1880,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                               size: 16,
                               color: tossBlue,
                             ),
-                            label: const Text('회고 모아보기'),
+                            label: const Text('결과 정리 모아보기'),
                             backgroundColor: pureWhite,
                             side: BorderSide.none,
                             labelStyle: const TextStyle(
@@ -2008,7 +2008,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                         child: Text(
                           _showCompleted
                               ? "완료된 프로젝트가 없습니다."
-                              : "아직 등록된 작업 기록이 없어요.\n아래 버튼을 눌러 새로 시작해 보세요.",
+                              : "아직 등록된 작업 기록이 없습니다.\n아래 버튼을 눌러 새로 시작해 보십시오.",
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: tossSubText,

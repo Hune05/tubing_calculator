@@ -1400,7 +1400,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        "${widget.existingData!['date']}의 지난 일지입니다. 저장하려면 수정 사유를 입력해야 해요.",
+                        "${widget.existingData!['date']}의 지난 일지입니다. 저장하려면 수정 사유를 입력해야 합니다.",
                         style: TextStyle(
                           color: Colors.orange.shade800,
                           fontSize: 13,
@@ -1991,7 +1991,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                   children: [
                     const Expanded(
                       child: Text(
-                        "실제 시공이 도면과 달라 반영이 필요해요",
+                        "실제 시공이 도면과 달라 반영이 필요합니다",
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -2011,7 +2011,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                   TextField(
                     controller: _asBuiltCtrl,
                     onChanged: (_) => setState(() {}),
-                    decoration: _dec(hint: "변경 사유 및 실제 시공 치수를 입력하세요."),
+                    decoration: _dec(hint: "변경 사유 및 실제 시공 치수를 입력하십시오."),
                   ),
                 ],
               ],

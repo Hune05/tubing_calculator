@@ -229,7 +229,7 @@ Future<File> createSummaryImage(Map<String, dynamic> log) async {
       (log['daily_reports'] as List? ?? []).whereType<Map>().toList()
         ..sort((a, b) => reportDateOf(b).compareTo(reportDateOf(a)));
   if (reports.isEmpty) {
-    tp('아직 작성된 일보가 없어요.', 28, color: _sub).paint(c, Offset(pad, y));
+    tp('아직 작성된 일보가 없습니다.', 28, color: _sub).paint(c, Offset(pad, y));
     y += 50;
   }
   for (final r in reports.take(3)) {
@@ -375,7 +375,7 @@ Future<File> createOverviewImage(List<Map<String, dynamic>> logs) async {
 
   double y = 210;
   if (active.isEmpty) {
-    tp('진행중인 프로젝트가 없어요.', 30, color: _sub).paint(c, Offset(pad, y));
+    tp('진행중인 프로젝트가 없습니다.', 30, color: _sub).paint(c, Offset(pad, y));
   }
   for (final l in active) {
     final color = colorForProject(

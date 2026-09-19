@@ -129,7 +129,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
         Padding(
           padding: const EdgeInsets.only(left: 26, bottom: 6),
           child: Text(
-            "프로젝트 ${active.length}곳 → 알림 $expected개, 예약과 일치해요.",
+            "프로젝트 ${active.length}곳 → 알림 $expected개, 예약과 일치합니다.",
             style: const TextStyle(
               fontSize: 12,
               height: 1.4,
@@ -221,7 +221,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
         const Padding(
           padding: EdgeInsets.only(left: 26, bottom: 6),
           child: Text(
-            "프로젝트 화면 ⋮ 메뉴에서 프로젝트별 시각을 바꿀 수 있어요.",
+            "프로젝트 화면 ⋮ 메뉴에서 프로젝트별 시각을 바꿀 수 있습니다.",
             style: TextStyle(fontSize: 11, height: 1.4, color: _sub),
           ),
         ),
@@ -243,7 +243,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
       t = "예약됨 ($when)";
     } else {
       c = const Color(0xFFE5484D);
-      t = "예약 안 됨 (진행중 프로젝트가 없거나 아직 앱에서 설정이 반영되지 않았어요)";
+      t = "예약 안 됨 (진행중 프로젝트가 없거나 아직 앱에서 설정이 반영되지 않았습니다)";
     }
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -275,7 +275,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     try {
       await showTestNotification();
       if (mounted) {
-        setState(() => _msg = "테스트 알림을 보냈어요. 상단바에 보이나요? 안 보이면 위 알림 설정을 확인하세요.");
+        setState(() => _msg = "테스트 알림을 보냈습니다. 상단바에 보이는지 확인하십시오. 보이지 않으면 위 알림 설정을 확인하십시오.");
       }
     } catch (e) {
       if (mounted) setState(() => _msg = "테스트 알림 실패: $e");
@@ -291,7 +291,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
       await AndroidIntent(action: action, arguments: args, data: data).launch();
     } catch (_) {
       if (mounted) {
-        setState(() => _msg = "설정 화면을 열지 못했어요. 폰 설정에서 직접 찾아 주세요.");
+        setState(() => _msg = "설정 화면을 열지 못했습니다. 폰 설정에서 직접 찾아 주십시오.");
       }
     }
   }
@@ -359,7 +359,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
                   child: Text(
                     ok == null
                         ? "확인 중…"
-                        : (ok ? "알림이 허용돼 있어요." : "알림이 꺼져 있어요. 아래 버튼으로 켜 주세요."),
+                        : (ok ? "알림이 허용돼 있습니다." : "알림이 꺼져 있습니다. 아래 버튼으로 켜 주십시오."),
                     style: const TextStyle(fontSize: 13, color: _text),
                   ),
                 ),
@@ -390,14 +390,14 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
               "금요일 ${_hm(_pref?.weeklyMinutes ?? 1020)}",
             ),
             const Text(
-              "폰에 예약이 돼 있어도 절전 기능 때문에 제때 안 울릴 수 있어요. 아래 4번을 확인하세요.",
+              "폰에 예약이 돼 있어도 절전 기능 때문에 제때 안 울릴 수 있습니다. 아래 4번을 확인하십시오.",
               style: TextStyle(fontSize: 12, height: 1.4, color: _sub),
             ),
           ]),
           _card([
             _title("3. 테스트 알림"),
             const Text(
-              "지금 바로 알림 한 개를 보내 봐요. 보이면 알림 자체는 정상이에요.",
+              "지금 바로 알림 한 개를 보낼 수 있습니다. 보이면 알림 자체는 정상입니다.",
               style: TextStyle(fontSize: 13, height: 1.4, color: _sub),
             ),
             const SizedBox(height: 10),
@@ -426,9 +426,9 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
             _title("4. 예약 알림이 안 올 때 (배터리 제한)"),
             const Text(
               "일보·주간 보고 알림은 정해진 시각에 폰이 앱을 깨워서 보내요. 삼성 등 일부 폰은 "
-              "절전 기능이 앱을 재워서 예약 알림이 오지 않을 수 있어요.\n\n"
-              "• 설정 → 배터리 → 백그라운드 사용 제한에서 이 앱을 빼 주세요.\n"
-              "• 앱 정보 → 배터리 → '제한 없음'(또는 최적화 안 함)으로 바꿔 주세요.",
+              "절전 기능이 앱을 재워서 예약 알림이 오지 않을 수 있습니다.\n\n"
+              "• 설정 → 배터리 → 백그라운드 사용 제한에서 이 앱을 빼 주십시오.\n"
+              "• 앱 정보 → 배터리 → '제한 없음'(또는 최적화 안 함)으로 바꿔 주십시오.",
               style: TextStyle(fontSize: 13, height: 1.5, color: _sub),
             ),
             const SizedBox(height: 10),

@@ -166,7 +166,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
       initialDate: _asOf ?? now,
       firstDate: DateTime(now.year - 2),
       lastDate: DateTime(now.year + 1, 12, 31),
-      helpText: "기준일을 고르면 그 날이 속한 주가 '금주'가 돼요",
+      helpText: "기준일을 고르면 그 날이 속한 주가 '금주'가 됩니다",
     );
     if (picked != null) {
       setState(() {
@@ -709,7 +709,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                       ),
                     ),
                     subtitle: const Text(
-                      "눌러서 다른 주의 보고서를 볼 수 있어요",
+                      "눌러서 다른 주의 보고서를 볼 수 있습니다",
                       style: TextStyle(fontSize: 12, color: _sub),
                     ),
                     trailing: _asOf == null
@@ -806,7 +806,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                         ),
                       ),
                       subtitle: const Text(
-                        "PDF에서는 프로젝트마다 새 페이지로 시작해요",
+                        "PDF에서는 프로젝트마다 새 페이지로 시작합니다",
                         style: TextStyle(fontSize: 12, color: _sub),
                       ),
                       value: _split,

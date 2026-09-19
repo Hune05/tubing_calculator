@@ -39,7 +39,7 @@ class _FloorPlanPinPageState extends State<FloorPlanPinPage> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: const Text("도면을 탭해서 위치를 찍으세요"),
+        title: const Text("도면을 탭해서 위치를 찍으십시오"),
         actions: [
           TextButton(
             onPressed: _fraction == null

@@ -406,7 +406,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
                     ),
                   ] else ...[
                     const Text(
-                      "어떻게 처리했는지 남겨두면, 나중에 확인할 때 편해요.",
+                      "어떻게 처리했는지 남겨 두면, 나중에 확인할 때 편합니다.",
                       style: TextStyle(color: tossSubText, fontSize: 13),
                     ),
                     const SizedBox(height: 10),
@@ -566,7 +566,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
         title: "처리 기한",
         children: const [
           Text(
-            "등록된 검사일정이 없습니다. \"일정 관리\"에서 검사일정을 등록하면 이 이슈와 연결해 기한을 관리할 수 있어요.",
+            "등록된 검사일정이 없습니다. \"일정 관리\"에서 검사일정을 등록하면 이 이슈와 연결해 기한을 관리할 수 있습니다.",
             style: TextStyle(color: tossSubText, fontSize: 13, height: 1.4),
           ),
         ],
@@ -624,7 +624,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
             style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
           ),
           subtitle: const Text(
-            "끄면 주간 보고의 미해결 이슈 현황과 통계에서 빠져요.",
+            "끄면 주간 보고의 미해결 이슈 현황과 통계에서 빠집니다.",
             style: TextStyle(fontSize: 12, color: tossSubText),
           ),
           value: include,

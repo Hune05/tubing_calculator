@@ -58,7 +58,7 @@ void main() {
     expect(stats.lines.join('\n').contains('총 투입 4인·일'), true);
     expect(stats.lines.join('\n').contains('벤딩 총 20 pt'), true);
     expect(stats.lines.join('\n').contains('2건 중 1건 처리'), true);
-    expect(d.sections.last.heading, '회고');
+    expect(d.sections.last.heading, '결과 정리');
     expect(d.sections.last.lines.join().contains('발주 먼저'), true);
   });
 }

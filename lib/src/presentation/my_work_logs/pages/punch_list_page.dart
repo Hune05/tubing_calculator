@@ -564,7 +564,7 @@ class _PunchListPageState extends State<PunchListPage> {
                 ),
                 decoration: InputDecoration(
                   hintText:
-                      "어떤 부분을 어떻게 수정해야 하는지 상세히 적어주세요.\n(예: 센서 극성 오결선, 트레이싱 단선 등)",
+                      "어떤 부분을 어떻게 수정해야 하는지 상세히 적어 주십시오.\n(예: 센서 극성 오결선, 트레이싱 단선 등)",
                   hintStyle: const TextStyle(color: Color(0xFFB0B8C1)),
                   filled: true,
                   fillColor: tossInputBg,

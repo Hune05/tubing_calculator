@@ -152,7 +152,7 @@ class _ReportSearchPageState extends State<ReportSearchPage> {
             child: _ctrl.text.trim().isEmpty
                 ? const Center(
                     child: Text(
-                      "찾고 싶은 단어를 입력하세요.",
+                      "찾고 싶은 단어를 입력하십시오.",
                       style: TextStyle(color: tossSubText),
                     ),
                   )

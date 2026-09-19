@@ -274,8 +274,8 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
 
   String _cleanupDesc() {
     final c = _cleanup;
-    const base = "공유하려고 만든 PDF는 3일이 지나면 앱을 열 때 자동으로 지워요.";
-    if (c == null || c.lastRun == null) return "${base} 아직 정리한 적이 없어요.";
+    const base = "공유하려고 만든 PDF는 3일이 지나면 앱을 열 때 자동으로 삭제합니다.";
+    if (c == null || c.lastRun == null) return "${base} 아직 정리한 적이 없습니다.";
     final t = c.lastRun!;
     return "${base} 마지막 정리 ${t.month}/${t.day} ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}"
         "(${c.lastRemoved}개 삭제)";
@@ -384,7 +384,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
                 card(
                   "임시 파일",
                   "${_mb(_tempBytes)} ($_tempCount개)",
-                  "사진 압축본, 내보낸 PDF/CSV처럼 앱이 만든 임시 파일이에요. 지워도 데이터에는 영향이 없어요.",
+                  "사진 압축본, 내보낸 PDF/CSV처럼 앱이 만든 임시 파일입니다. 지워도 데이터에는 영향이 없습니다.",
                   action: Align(
                     alignment: Alignment.centerRight,
                     child: OutlinedButton(
@@ -396,7 +396,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
                 card(
                   "일보 임시 저장",
                   "$_drafts건",
-                  "작성 중 저장하지 않은 일보의 자동 저장본이에요. 2일이 지난 것은 앱을 열 때 자동으로 정리돼요.",
+                  "작성 중 저장하지 않은 일보의 자동 저장본입니다. 2일이 지난 것은 앱을 열 때 자동으로 정리됩니다.",
                   action: Align(
                     alignment: Alignment.centerRight,
                     child: OutlinedButton(
@@ -410,7 +410,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
                   _lastAuto == null
                       ? "아직 없음"
                       : "${_lastAuto!.month}/${_lastAuto!.day} ${_lastAuto!.hour.toString().padLeft(2, '0')}:${_lastAuto!.minute.toString().padLeft(2, '0')}",
-                  "앱을 열 때 마지막 백업이 7일 이상 지났으면 자동으로 클라우드에 백업하고 최근 5개만 보관해요.",
+                  "앱을 열 때 마지막 백업이 7일 이상 지났으면 자동으로 클라우드에 백업하고 최근 5개만 보관합니다.",
                   action: Column(
                     children: [
                       SwitchListTile(
@@ -457,7 +457,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
                 card(
                   "데이터 백업 / 복원",
                   "${widget.logs.length}건",
-                  "내 프로젝트 전체와 단계 템플릿, 자재 즐겨찾기를 파일 하나로 내보내고 다시 불러와요. 사진은 클라우드에 올라간 것만 복원 후에도 보여요.",
+                  "내 프로젝트 전체와 단계 템플릿, 자재 즐겨찾기를 파일 하나로 내보내고 다시 불러옵니다. 사진은 클라우드에 올라간 것만 복원 후에도 보입니다.",
                   action: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
@@ -481,8 +481,8 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
                   "업로드 대기 사진",
                   "$_pendingPhotos장",
                   _pendingPhotos == 0
-                      ? "모든 사진이 클라우드에 올라가 있어요."
-                      : "아직 클라우드에 올라가지 않은 사진이에요. 이 사진의 원본은 지우지 않아요. 프로젝트 목록의 '다시 시도'로 올릴 수 있어요.",
+                      ? "모든 사진이 클라우드에 올라가 있습니다."
+                      : "아직 클라우드에 올라가지 않은 사진입니다. 이 사진의 원본은 지우지 않습니다. 프로젝트 목록의 '다시 시도'로 올릴 수 있습니다.",
                 ),
               ],
             ),

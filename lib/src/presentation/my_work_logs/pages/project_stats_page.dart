@@ -441,7 +441,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
               padding: EdgeInsets.only(top: 60),
               child: Center(
                 child: Text(
-                  "이 기간에 작성된 일보가 없어요.",
+                  "이 기간에 작성된 일보가 없습니다.",
                   style: TextStyle(color: _sub),
                 ),
               ),
@@ -472,7 +472,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  "다음 견적/일정에서 필요한 인원-일을 어림할 때 참고하세요.",
+                  "다음 견적/일정에서 필요한 인원-일을 어림할 때 참고하십시오.",
                   style: TextStyle(color: _sub, fontSize: 12),
                 ),
               ]),
@@ -541,7 +541,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
                   bar(r.label, r.value, maxRow, r.right, r.sub),
                 if (_logs.length == 1 && s.rows.every((r) => r.value == 0))
                   const Text(
-                    "일보에서 '작업한 단계'를 선택하면 단계별로 집계돼요.",
+                    "일보에서 '작업한 단계'를 선택하면 단계별로 집계됩니다.",
                     style: TextStyle(color: _sub, fontSize: 12),
                   ),
               ]),

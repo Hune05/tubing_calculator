@@ -146,7 +146,7 @@ class LayoutBoardProjectListPage extends StatelessWidget {
           style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
         ),
         content: const Text(
-          "이 저장된 도면을 삭제할까요? 되돌릴 수 없습니다.",
+          "이 저장된 도면을 삭제하시겠습니까? 되돌릴 수 없습니다.",
           style: TextStyle(color: tossSubText),
         ),
         actions: [
@@ -250,7 +250,7 @@ class LayoutBoardProjectListPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      "아래 + 버튼으로 새 배치도를 시작해보세요.",
+                      "아래 + 버튼으로 새 배치도를 시작해 보십시오.",
                       style: TextStyle(color: tossSubText, fontSize: 13),
                     ),
                   ],

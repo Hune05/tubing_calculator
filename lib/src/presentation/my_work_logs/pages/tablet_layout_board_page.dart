@@ -959,7 +959,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                 if (docs.isEmpty) {
                   return const Center(
                     child: Text(
-                      "저장된 템플릿이 없습니다.\n'더보기 > 템플릿으로 저장'으로 먼저 만들어보세요.",
+                      "저장된 템플릿이 없습니다.\n'더보기 > 템플릿으로 저장'으로 먼저 만들어 보십시오.",
                       textAlign: TextAlign.center,
                       style: TextStyle(color: tossSubText),
                     ),
@@ -3572,7 +3572,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    "위 박스를 우측 도면으로 드래그하여 배치하세요.\n배치 후 터치하면 우측 패널에서 명칭과 크기를 수정할 수 있습니다.",
+                    "위 박스를 우측 도면으로 드래그하여 배치하십시오.\n배치 후 터치하면 우측 패널에서 명칭과 크기를 수정할 수 있습니다.",
                     style: TextStyle(
                       color: tossSubText,
                       fontSize: 13,
@@ -4550,7 +4550,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
                                               ),
                                               const SizedBox(height: 12),
                                               Text(
-                                                "왼쪽에서 모듈을 끌어다\n놓아 배치를 시작하세요",
+                                                "왼쪽에서 모듈을 끌어다\n놓아 배치를 시작하십시오",
                                                 textAlign: TextAlign.center,
                                                 style: TextStyle(
                                                   color: tossSubText.withValues(
@@ -5185,7 +5185,7 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
               ? "💡 체인 모드: 지점을 계속 탭하면 이어서 측정됩니다."
               : _dimensions.isNotEmpty
               ? "💡 치수선을 탭하면 삭제/기준 전환/메모/최소 간격을 설정할 수 있습니다."
-              : "💡 측정할 두 지점(모듈 or 벽면)을 순서대로 도면에서 탭하세요.",
+              : "💡 측정할 두 지점(모듈 or 벽면)을 순서대로 도면에서 탭하십시오.",
           style: TextStyle(
             color: _dimensionStartPoint == null
                 ? tossSubText

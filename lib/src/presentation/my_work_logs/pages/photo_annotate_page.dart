@@ -108,7 +108,7 @@ class _PhotoAnnotatePageState extends State<PhotoAnnotatePage> {
       body: _failed
           ? const Center(
               child: Text(
-                "사진을 불러오지 못했어요.",
+                "사진을 불러오지 못했습니다.",
                 style: TextStyle(color: Colors.white70),
               ),
             )

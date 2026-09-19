@@ -678,7 +678,7 @@ class PunchListSectionState extends State<PunchListSection> {
                 : _mode == 2
                 ? "처리 완료한 이슈가 없습니다."
                 : (_mode == 0 && doneList.isNotEmpty
-                      ? "미해결 이슈가 없습니다. 처리 완료한 ${doneList.length}건은 '완료' 또는 '전체'에서 확인하세요."
+                      ? "미해결 이슈가 없습니다. 처리 완료한 ${doneList.length}건은 '완료' 또는 '전체'에서 확인하십시오."
                       : "미해결 이슈가 없습니다."),
             style: const TextStyle(
               color: tossSubText,

@@ -71,6 +71,6 @@ void main() {
   testWidgets('no completed projects shows the empty message', (tester) async {
     await open(tester, []);
     expect(tester.takeException(), isNull);
-    expect(find.textContaining('완료한 프로젝트가 아직 없어요'), findsOneWidget);
+    expect(find.textContaining('완료한 프로젝트가 아직 없습니다'), findsOneWidget);
   });
 }

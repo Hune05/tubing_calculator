@@ -378,7 +378,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                   SnackBar(
                     content: const Text("프로젝트를 완료 처리했습니다."),
                     action: SnackBarAction(
-                      label: "회고 작성",
+                      label: "결과 정리 작성",
                       onPressed: _editRetro,
                     ),
                   ),
@@ -654,7 +654,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
           const Icon(Icons.account_tree_outlined, size: 52, color: tossSubText),
           const SizedBox(height: 16),
           const Text(
-            "프로젝트를 단계로 나눠 관리해보세요",
+            "프로젝트를 단계로 나눠 관리해 보십시오",
             textAlign: TextAlign.center,
             style: TextStyle(
               fontWeight: FontWeight.w800,
@@ -664,7 +664,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
           ),
           const SizedBox(height: 8),
           const Text(
-            "설계 → 자재 입고 → 제작 → 설치 → 시운전·검사 → 납품\n표준 단계를 시작일/납기일에 맞춰 자동으로 나눠드려요.",
+            "설계 → 자재 입고 → 제작 → 설치 → 시운전·검사 → 납품\n표준 단계를 시작일/납기일에 맞춰 자동으로 나눠 드립니다.",
             textAlign: TextAlign.center,
             style: TextStyle(color: tossSubText, height: 1.5),
           ),
@@ -1179,7 +1179,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    "시작일과 납기일만 정하면 각 단계 기간이 자동으로 나뉘어요. 나중에 단계별로 수정할 수 있습니다.",
+                    "시작일과 납기일만 정하면 각 단계 기간이 자동으로 나뉩니다. 나중에 단계별로 수정할 수 있습니다.",
                     style: TextStyle(
                       color: tossSubText,
                       fontSize: 13,
@@ -1234,7 +1234,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                     const Padding(
                       padding: EdgeInsets.only(top: 4),
                       child: Text(
-                        "저장한 템플릿은 길게 누르면 삭제돼요.",
+                        "저장한 템플릿은 길게 누르면 삭제됩니다.",
                         style: TextStyle(color: tossSubText, fontSize: 11),
                       ),
                     ),
@@ -1513,7 +1513,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("'$name' 템플릿을 저장했어요. 단계 만들기에서 불러올 수 있습니다.")),
+        SnackBar(content: Text("'$name' 템플릿을 저장했습니다. 단계 만들기에서 불러올 수 있습니다.")),
       );
     }
   }
@@ -1654,7 +1654,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         title: const Text("사진 용량 정리"),
         content: const Text(
           "이 프로젝트에 올라간 큰 사진(400KB 이상)을 줄여서 다시 올립니다. "
-          "새 사진으로 저장이 끝난 뒤에 옛 파일은 삭제돼요. 사진 수에 따라 시간이 걸릴 수 있습니다.",
+          "새 사진으로 저장이 끝난 뒤에 옛 파일은 삭제됩니다. 사진 수에 따라 시간이 걸릴 수 있습니다.",
         ),
         actions: [
           TextButton(
@@ -1878,7 +1878,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                 ? const Padding(
                     padding: EdgeInsets.all(30),
                     child: Text(
-                      "주소록이 비어 있어요. 연락처를 저장할 때 '주소록에도 저장'을 체크하세요.",
+                      "주소록이 비어 있습니다. 연락처를 저장할 때 '주소록에도 저장'을 체크하십시오.",
                       style: TextStyle(color: tossSubText),
                     ),
                   )
@@ -1948,7 +1948,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             const Padding(
               padding: EdgeInsets.only(bottom: 6, right: 8),
               child: Text(
-                "현장 담당자, 협력사, 자재 업체 연락처를 적어 두면 바로 전화·문자할 수 있어요.",
+                "현장 담당자, 협력사, 자재 업체 연락처를 적어 두면 바로 전화·문자할 수 있습니다.",
                 style: TextStyle(color: tossSubText, fontSize: 12, height: 1.4),
               ),
             ),
@@ -2108,7 +2108,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     _changed();
   }
 
-  // ───────────────────────── 완료 회고 ─────────────────────────
+  // ───────────────────────── 완료 결과 정리 ─────────────────────────
   Map<String, dynamic> get _retro =>
       Map<String, dynamic>.from((log['retro'] as Map?) ?? {});
 
@@ -2119,7 +2119,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("프로젝트 회고"),
+        title: const Text("프로젝트 결과 정리"),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -2248,7 +2248,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                 const SizedBox(width: 6),
                 const Expanded(
                   child: Text(
-                    "프로젝트 회고",
+                    "프로젝트 결과 정리",
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 15,
@@ -2332,7 +2332,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    "'${d.phase['name']}' 단계가 ${d.days}일 지연되고 있어요",
+                    "'${d.phase['name']}' 단계가 ${d.days}일 지연되고 있습니다",
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       color: warningRed,
@@ -2384,7 +2384,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                 value: withSchedules,
                 onChanged: (v) => setD(() => withSchedules = v == true),
                 title: const Text(
-                  "뒤 단계의 미완료 세부 일정도 함께 밀기 (알림도 새 날짜로 다시 보내요)",
+                  "뒤 단계의 미완료 세부 일정도 함께 밀기 (알림도 새 날짜로 다시 보냅니다)",
                   style: TextStyle(fontSize: 14),
                 ),
               ),
@@ -2462,7 +2462,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                     value: withPhotos,
                     onChanged: (v) => setS(() => withPhotos = v == true),
                     title: const Text(
-                      "PDF에 사진 포함 (최대 24장, 만드는 데 시간이 걸려요)",
+                      "PDF에 사진 포함 (최대 24장, 만드는 데 시간이 걸립니다)",
                       style: TextStyle(fontSize: 13),
                     ),
                   ),
@@ -2623,7 +2623,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  "입고됐지만 사용 기록이 없어요",
+                  "입고됐지만 사용 기록이 없습니다",
                   style: TextStyle(
                     color: Color(0xFFC77700),
                     fontWeight: FontWeight.w800,
@@ -2709,7 +2709,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       builder: (ctx) => AlertDialog(
         title: const Text("일보 확정"),
         content: Text(
-          "일보 ${targets.length}건을 확정본으로 잠글까요?\n확정 후 수정하려면 사유를 남기고 확정을 풀어야 해요(이력이 남아요).",
+          "일보 ${targets.length}건을 확정본으로 잠그시겠습니까?\n확정 후 수정하려면 사유를 남기고 확정을 풀어야 해요(이력이 남습니다).",
         ),
         actions: [
           TextButton(

@@ -1575,7 +1575,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                         return const Padding(
                           padding: EdgeInsets.all(24),
                           child: Text(
-                            "저장된 템플릿이 없습니다.\n'더보기 > 템플릿으로 저장'으로 먼저 만들어보세요.",
+                            "저장된 템플릿이 없습니다.\n'더보기 > 템플릿으로 저장'으로 먼저 만들어 보십시오.",
                             style: TextStyle(color: tossSubText),
                           ),
                         );
@@ -4880,7 +4880,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
                                                   ),
                                                   const SizedBox(height: 12),
                                                   Text(
-                                                    "아래에서 모듈을 끌어다\n놓아 배치를 시작하세요",
+                                                    "아래에서 모듈을 끌어다\n놓아 배치를 시작하십시오",
                                                     textAlign: TextAlign.center,
                                                     style: TextStyle(
                                                       color: tossSubText
@@ -5878,7 +5878,7 @@ class _MobileLayoutBoardPageState extends State<MobileLayoutBoardPage>
             _dimensionStartPoint == null
                 ? (_dimensionChainMode
                       ? "체인 모드: 지점을 계속 탭하면 이어서 측정됩니다"
-                      : "측정할 두 지점을 순서대로 터치하세요 (치수선을 탭하면 편집)")
+                      : "측정할 두 지점을 순서대로 터치하십시오 (치수선을 탭하면 편집)")
                 : "다음 지점을 터치하면 연결됩니다",
             style: const TextStyle(
               color: tossSubText,

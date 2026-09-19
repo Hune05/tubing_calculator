@@ -42,7 +42,7 @@ void main() {
     expect(dailyReminderBody(1).contains('곳'), false);
     expect(dailyReminderBody(2), contains('2곳'));
     expect(dailyReminderBody(5), contains('5곳'));
-    expect(dailyReminderBody(3), contains('눌러서 바로 남겨두세요'));
+    expect(dailyReminderBody(3), contains('눌러서 바로 남겨 두십시오'));
   });
 
   testWidgets(

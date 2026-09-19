@@ -539,7 +539,7 @@ ReportDoc buildWeeklyPlanDoc(
     textFooter: (includePhotos && (picked.isNotEmpty || compares.isNotEmpty))
         ? '※ 사진 ${picked.length}장'
               '${compares.isEmpty ? '' : ', 작업 전/후 비교 ${compares.length}쌍'}'
-              '은 PDF로 보내면 함께 볼 수 있어요.'
+              '은 PDF로 보내면 함께 볼 수 있습니다.'
         : null,
     logoB64: one == null ? null : headerOverride(one, 'logoB64'),
     company: one == null ? null : headerOverride(one, 'company'),

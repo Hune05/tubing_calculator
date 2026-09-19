@@ -1500,10 +1500,10 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                         ? Center(
                             child: Text(
                               _schedules.isNotEmpty && _hideCompleted
-                                  ? "미완료 일정이 없습니다.\n(완료된 일정은 '완료 숨김'을 꺼서 볼 수 있어요)"
+                                  ? "미완료 일정이 없습니다.\n(완료된 일정은 '완료 숨김'을 꺼서 볼 수 있습니다)"
                                   : _filter == "자재"
                                   ? "등록된 자재 요청/입고일이 없습니다."
-                                  : "등록된 일정이 없습니다.\n자재 요청/입고일/납기일/검사일정을 등록해두면\n시간에 맞춰 알림을 받을 수 있어요.",
+                                  : "등록된 일정이 없습니다.\n자재 요청/입고일/납기일/검사일정을 등록해 두면\n시간에 맞춰 알림을 받을 수 있습니다.",
                               textAlign: TextAlign.center,
                               style: const TextStyle(
                                 color: tossSubText,

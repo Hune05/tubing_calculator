@@ -661,7 +661,7 @@ List<pw.Widget> _photoRows(List<(Uint8List, String)> items) {
   ];
 }
 
-// 프로젝트 완료 시 마무리 보고서: 전체 기간 보고서에 총 통계와 회고를 더한다.
+// 프로젝트 완료 시 마무리 보고서: 전체 기간 보고서에 총 통계와 결과 정리를 더한다.
 ReportDoc buildFinalReportDoc(Map<String, dynamic> log) {
   DateTime? first;
   int days = 0, manDays = 0, points = 0, wiring = 0;
@@ -697,7 +697,7 @@ ReportDoc buildFinalReportDoc(Map<String, dynamic> log) {
   final lesson = (retro['lesson']?.toString() ?? '').trim();
   if (cause.isNotEmpty || lesson.isNotEmpty) {
     doc.sections.add(
-      ReportSection('회고', [
+      ReportSection('결과 정리', [
         if (cause.isNotEmpty) '· 지연/문제 원인: $cause',
         if (lesson.isNotEmpty) '· 다음에 적용할 점: $lesson',
       ]),
@@ -1209,10 +1209,10 @@ const String kDailyReportPayload = 'work_daily_report';
 // 일보 알림 문구. 여러 프로젝트가 걸렸으면 몇 곳인지, 프로젝트 하나짜리 알림이면 이름을 알려 준다.
 String dailyReminderBody(int missingCount, {String? name}) {
   if (missingCount >= 2) {
-    return '오늘 일보를 아직 안 쓴 프로젝트가 ${missingCount}곳 있어요. 눌러서 바로 남겨두세요.';
+    return '오늘 일보를 아직 안 쓴 프로젝트가 ${missingCount}곳 있습니다. 눌러서 바로 남겨 두십시오.';
   }
   final who = (name == null || name.trim().isEmpty) ? '' : '${name.trim()} ';
-  return '${who}오늘 작업 일보 아직 안 썼어요. 눌러서 바로 남겨두세요.';
+  return '${who}오늘 작업 일보 아직 작성하지 않았습니다. 눌러서 바로 남겨 두십시오.';
 }
 
 // 일보 알림 예약 계획 한 건: 이 시각(분)에 울릴 알림 하나.
@@ -1344,7 +1344,7 @@ Future<void> _syncWeeklyReminder(bool on, int minutes, bool autoPdf) async {
   await flutterLocalNotificationsPlugin.zonedSchedule(
     id: _kWeeklyId,
     title: '주간 보고서',
-    body: '이번 주 업무를 정리해 공유해보세요. 눌러서 바로 열 수 있어요.',
+    body: '이번 주 업무를 정리해 공유해 보십시오. 눌러서 바로 열 수 있습니다.',
     payload: autoPdf ? kWeeklyReportPdfPayload : kWeeklyReportPayload,
     scheduledDate: tz.TZDateTime.from(at, tz.local),
     notificationDetails: const NotificationDetails(
@@ -1441,7 +1441,7 @@ Future<void> showTestNotification() async {
   await flutterLocalNotificationsPlugin.show(
     id: 918299,
     title: '알림 점검',
-    body: '이 알림이 보이면 알림 권한과 채널은 정상이에요.',
+    body: '이 알림이 보이면 알림 권한과 채널은 정상입니다.',
     notificationDetails: const NotificationDetails(
       android: AndroidNotificationDetails(
         _kReminderChannel,
