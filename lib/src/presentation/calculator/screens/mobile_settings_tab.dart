@@ -1189,7 +1189,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 _buildNumpadInputWithHelp(
                   "기준선 오프셋 [mm]",
                   "기준선 오프셋",
-                  "기계의 0점 마크와 파이프에 그은 선이 완벽히 일치하지 않는 기계적/물리적 오차를 교정하는 값입니다.",
+                  "기계의 0점 마크와 파이프에 그은 선이 정확히 일치하지 않는 기계적/물리적 오차를 교정하는 값입니다.",
                   _benderOffsetController,
                   key: 'offset',
                   helperText: "※ 다이 0점과 실제 시작점",

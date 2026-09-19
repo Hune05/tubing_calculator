@@ -741,7 +741,7 @@ extension _InventoryDialogsExt on _InventoryPageState {
             const SizedBox(height: 16),
             _buildLogDeleteOption(ctx, "1주일 이전 삭제", 7),
             _buildLogDeleteOption(ctx, "1개월 이전 삭제", 30),
-            _buildLogDeleteOption(ctx, "전체 일괄 삭제", 0, isAll: true),
+            _buildLogDeleteOption(ctx, "전체 삭제", 0, isAll: true),
           ],
         ),
         actions: [

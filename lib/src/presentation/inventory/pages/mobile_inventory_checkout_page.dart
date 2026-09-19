@@ -189,7 +189,7 @@ class _MobileInventoryCheckoutPageState
       if (!mounted) return;
       HapticFeedback.mediumImpact();
       _showSnackBar(
-        widget.isCheckout ? "성공적으로 불출되었습니다" : "성공적으로 반납되었습니다",
+        widget.isCheckout ? "불출했습니다" : "반납했습니다",
         makitaTeal,
       );
       Navigator.pop(context);

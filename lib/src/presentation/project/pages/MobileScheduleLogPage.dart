@@ -81,7 +81,7 @@ class _MobileScheduleLogPageState extends State<MobileScheduleLogPage> {
                       .toList();
 
                   if (filteredLogs.isEmpty) {
-                    return _buildEmptyState("검색 조건에 맞는 이력이 없습니다.");
+                    return _buildEmptyState("검색 조건에 맞는 기록이 없습니다.");
                   }
 
                   return ListView.separated(

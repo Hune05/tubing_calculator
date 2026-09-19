@@ -117,6 +117,7 @@ extension _DailyReportSubmit on _DailyReportPageState {
         )
         .toList();
     if (newlyDone.isNotEmpty) {
+      if (!mounted) return;
       final mark = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -170,6 +171,7 @@ extension _DailyReportSubmit on _DailyReportPageState {
         )
         .toList();
     if (unresolvedPicked.isNotEmpty) {
+      if (!mounted) return;
       final mark = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(

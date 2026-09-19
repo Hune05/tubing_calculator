@@ -52,7 +52,7 @@ class _MobileVehicleAdminPageState extends State<MobileVehicleAdminPage> {
               ),
             ),
             Text(
-              "관리자 전용 (마스터 권한)",
+              "관리자 전용",
               style: TextStyle(
                 color: warningRed,
                 fontWeight: FontWeight.bold,

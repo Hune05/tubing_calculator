@@ -21,7 +21,7 @@ class TubeReferencePage extends StatelessWidget {
         backgroundColor: bgColor,
         appBar: AppBar(
           title: const Text(
-            "벤딩 실무 마스터",
+            "벤딩 실무 가이드",
             style: TextStyle(
               color: textMain,
               fontSize: 20,
@@ -89,7 +89,7 @@ class TubeReferencePage extends StatelessWidget {
         ],
       },
       {
-        "category": "2. 새들 (Saddle) 완벽 마스터",
+        "category": "2. 새들 (Saddle) 사용법",
         "icon": LucideIcons.rainbow,
         "color": makitaTeal,
         "tips": [

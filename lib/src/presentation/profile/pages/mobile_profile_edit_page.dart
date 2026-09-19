@@ -432,10 +432,10 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('user_real_name', userName);
 
-          if (context.mounted) {
+          if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('프로필이 성공적으로 업데이트 되었습니다.'),
+                content: Text('프로필을 수정했습니다.'),
                 behavior: SnackBarBehavior.floating,
               ),
             );

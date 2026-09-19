@@ -444,28 +444,28 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
                       if (await canLaunchUrl(url)) {
                         await launchUrl(url);
                       } else {
-                        if (mounted) {
+                        if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('전화 앱을 실행할 수 없습니다.')),
                           );
                         }
                       }
                     } else {
-                      if (mounted) {
+                      if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('등록된 전화번호가 없습니다.')),
                         );
                       }
                     }
                   } else {
-                    if (mounted) {
+                    if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('등록된 전화번호가 없습니다.')),
                       );
                     }
                   }
                 } catch (e) {
-                  if (mounted) {
+                  if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('전화번호를 불러오는데 실패했습니다.')),
                     );

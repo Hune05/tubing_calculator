@@ -618,7 +618,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                 : (filteredItems.isEmpty
                       ? Center(
                           child: Text(
-                            "'$_categoryFilter'에 해당하는 항목이 없습니다.",
+                            "'$_categoryFilter'에 맞는 항목이 없습니다.",
                             style: const TextStyle(
                               color: CuttingColors.textSecondary,
                             ),

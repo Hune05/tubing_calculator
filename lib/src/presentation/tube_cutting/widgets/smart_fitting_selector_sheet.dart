@@ -702,7 +702,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                                 Text(
                                   _searchQuery.isNotEmpty
                                       ? "'$_searchQuery' 검색 결과가 없습니다."
-                                      : "선택한 분류에 해당하는 부속이 없습니다.",
+                                      : "선택한 분류에 맞는 부속이 없습니다.",
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: 15,

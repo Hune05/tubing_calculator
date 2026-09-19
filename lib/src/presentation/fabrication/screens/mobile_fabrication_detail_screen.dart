@@ -101,7 +101,7 @@ class _MobileFabricationDetailScreenState
 
       _pipeSize = widget.itemData['pipe_size']?.toString() ?? 'Unknown';
       _projectName = _pToP['project']?.toString() ?? '미지정 프로젝트';
-      _fromTo = "${_pToP['from'] ?? '미상'} ➔ ${_pToP['to'] ?? '미상'}";
+      _fromTo = "${_pToP['from'] ?? '모름'} ➔ ${_pToP['to'] ?? '모름'}";
       _tailLength = double.tryParse(_pToP['tail']?.toString() ?? '0') ?? 0.0;
       _startDir = _pToP['start_dir']?.toString() ?? 'RIGHT';
       _memoText = _pToP['memo']?.toString() ?? "";
@@ -519,7 +519,7 @@ class _MobileFabricationDetailScreenState
                   border: pw.Border.all(color: PdfColors.black, width: 0.5),
                 ),
                 child: pw.Text(
-                  _memoText.isNotEmpty ? _memoText : "(기재된 특이사항이 없습니다.)",
+                  _memoText.isNotEmpty ? _memoText : "(적어 둔 특이사항이 없습니다.)",
                   style: pw.TextStyle(
                     fontSize: 10,
                     color: _memoText.isNotEmpty
@@ -766,7 +766,7 @@ class _MobileFabricationDetailScreenState
                                   messenger.showSnackBar(
                                     SnackBar(
                                       content: const Text(
-                                        "도면 정보가 성공적으로 수정되었습니다.",
+                                        "도면 정보를 수정했습니다.",
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                         ),

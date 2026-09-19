@@ -261,7 +261,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
             .doc(order.id)
             .delete();
         if (!mounted) return;
-        _showSnackBar("발주 건이 성공적으로 삭제되었습니다.");
+        _showSnackBar("발주 건이 삭제했습니다.");
       } catch (e) {
         if (!mounted) return;
         _showSnackBar("삭제 중 오류가 발생했습니다.", isError: true);
@@ -479,7 +479,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
           const SizedBox(height: 16),
           _buildManagerSelector(),
           _buildDateSelector(),
-          _buildSimpleInput("전체 요청사항 (선택)", "예: A동 3층 현장 도착 요망", _noteCtrl),
+          _buildSimpleInput("전체 요청사항 (선택)", "예: A동 3층 현장으로 와 주십시오", _noteCtrl),
 
           const SizedBox(height: 24),
           SizedBox(

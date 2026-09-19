@@ -865,7 +865,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                         children: [
                           CheckboxListTile(
                             title: Text(
-                              "도면과 다름 (As-Built 반영 요망)",
+                              "도면과 다름 (도면 수정 필요)",
                               style: TextStyle(
                                 color: isAsBuilt
                                     ? Colors.orange.shade800
@@ -1060,7 +1060,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
         backgroundColor: pureWhite,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: const Text(
-          "재고 일괄 차감",
+          "재고 한꺼번에 차감",
           style: TextStyle(fontWeight: FontWeight.bold, color: slate900),
         ),
         content: const Text("이 프로젝트에 사용된 자재들을 창고 재고에서 차감하시겠습니까?"),

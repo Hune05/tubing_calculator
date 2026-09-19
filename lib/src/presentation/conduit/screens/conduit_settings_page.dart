@@ -248,7 +248,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
         }
       }
     } catch (e) {
-      debugPrint("해당 제원 데이터 없음: $e");
+      debugPrint("제원 데이터 없음: $e");
     }
   }
 
@@ -356,7 +356,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
         backgroundColor: slate100,
         appBar: AppBar(
           title: const Text(
-            '장비 세팅 마스터',
+            '장비 세팅 가이드',
             style: TextStyle(
               color: slate900,
               fontWeight: FontWeight.w800,

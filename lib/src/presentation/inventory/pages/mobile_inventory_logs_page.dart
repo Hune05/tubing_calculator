@@ -79,7 +79,7 @@ class MobileInventoryLogsPage extends StatelessWidget {
                   data['name'] ??
                   "이름 없음";
               String workerName =
-                  data['worker_name'] ?? data['workerName'] ?? "작업자 미상";
+                  data['worker_name'] ?? data['workerName'] ?? "작업자 모름";
               String reason = data['project_name'] ?? data['reason'] ?? "";
 
               // 🚀 [버그 해결 핵심] action과 type을 모두 읽어서 정확한 행동을 판별합니다.

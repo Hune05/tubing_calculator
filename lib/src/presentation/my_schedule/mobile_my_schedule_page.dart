@@ -487,7 +487,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     const channel = AndroidNotificationChannel(
       kScheduleChannelId,
       '내 일정 알림',
-      description: '개인 일정 리마인더 알림',
+      description: '개인 일정 알림',
       importance: Importance.high,
     );
     await flutterLocalNotificationsPlugin
@@ -555,7 +555,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         android: AndroidNotificationDetails(
           kScheduleChannelId,
           '내 일정 알림',
-          channelDescription: '개인 일정 리마인더 알림',
+          channelDescription: '개인 일정 알림',
           importance: Importance.high,
           priority: Priority.high,
         ),

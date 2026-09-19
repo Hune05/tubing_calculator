@@ -100,6 +100,7 @@ extension _DailyReportPhotos on _DailyReportPageState {
         }
         return;
       }
+      if (!mounted) return;
       final np = await Navigator.push<String>(
         context,
         WorkRoute(builder: (_) => PhotoAnnotatePage(path: path)),

@@ -133,7 +133,7 @@ Future<void> reconcileProjectAfterRecordDelete({
   });
 }
 
-/// 데스크톱(ProjectManagementPage)의 "재고 일괄 차감"과 동일한 로직을
+/// 데스크톱(ProjectManagementPage)의 "재고 한꺼번에 차감"과 동일한 로직을
 /// 모바일/데스크톱 컷팅 작업 목록에서도 쓸 수 있게 뺀 공용 함수. 프로젝트
 /// 문서에 누적된 materials(아직 차감 안 한 사용량)를 인벤토리에서 빼고,
 /// 성공하면 materials를 비워서 다음 차감 때 중복으로 빠지지 않게 한다.

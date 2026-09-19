@@ -89,7 +89,7 @@ class MobileVehicleDetailPage extends StatelessWidget {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          "위치: ${vehicle['parkingLocation'] ?? '미기재'}",
+                          "위치: ${vehicle['parkingLocation'] ?? '적지 않음'}",
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
@@ -110,7 +110,7 @@ class MobileVehicleDetailPage extends StatelessWidget {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          "차키: ${vehicle['keyLocation'] ?? '미기재'}",
+                          "차키: ${vehicle['keyLocation'] ?? '적지 않음'}",
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,

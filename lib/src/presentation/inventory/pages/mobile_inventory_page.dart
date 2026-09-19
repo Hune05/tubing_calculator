@@ -403,7 +403,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                                             context,
                                           ).showSnackBar(
                                             const SnackBar(
-                                              content: Text("성공적으로 삭제되었습니다"),
+                                              content: Text("삭제했습니다"),
                                               behavior:
                                                   SnackBarBehavior.floating,
                                             ),

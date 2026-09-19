@@ -499,7 +499,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                   border: pw.Border.all(color: PdfColors.black, width: 0.5),
                 ),
                 child: pw.Text(
-                  memoText.isNotEmpty ? memoText : "(기재된 특이사항이 없습니다.)",
+                  memoText.isNotEmpty ? memoText : "(적어 둔 특이사항이 없습니다.)",
                   style: pw.TextStyle(
                     fontSize: 10,
                     color: memoText.isNotEmpty

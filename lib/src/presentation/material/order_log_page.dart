@@ -49,7 +49,7 @@ class _OrderLogPageState extends State<OrderLogPage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          "발주 히스토리 (로그)",
+          "발주 기록",
           style: TextStyle(
             color: slate900,
             fontWeight: FontWeight.w800,
@@ -594,7 +594,7 @@ class _OrderLogPageState extends State<OrderLogPage> {
     }
     await Clipboard.setData(ClipboardData(text: csv.toString()));
     if (!mounted) return;
-    _showSnackBar("✅ 목록이 복사되었습니다! 엑셀에 붙여넣기 하십시오.");
+    _showSnackBar("✅ 목록을 복사했습니다. 엑셀에 붙여넣으십시오.");
   }
 
   Future<void> _exportOrderData(OrderModel order) async {

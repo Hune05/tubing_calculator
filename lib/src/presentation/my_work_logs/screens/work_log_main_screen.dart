@@ -467,6 +467,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       });
       _saveProject(log);
     }
+    if (!mounted) return;
     final updated = await Navigator.push<Map<String, dynamic>>(
       context,
       WorkRoute(
