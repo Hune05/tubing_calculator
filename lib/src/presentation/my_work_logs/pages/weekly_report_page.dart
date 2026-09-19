@@ -23,7 +23,16 @@ Future<void> openWeeklyReportFromNotification(
   try {
     await loadReportStyle(); // 알림으로 바로 열면 양식(로고·담당자)이 아직 안 읽혔을 수 있다.
     final logs = await WorkProjectRepository().fetchAllProjects();
-    nav.push(WorkRoute(builder: (_) => WeeklyReportPage(logs: logs)));
+    final repo = WorkProjectRepository();
+    nav.push(
+      WorkRoute(
+        builder: (_) => WeeklyReportPage(
+          logs: logs,
+          // 밀어서 제외/다시 포함한 결과를 저장한다.
+          onIssueChanged: (log) => repo.upsertProject(log),
+        ),
+      ),
+    );
     // 설정에서 켠 경우: 화면을 열자마자 PDF를 만들어 공유창까지 연다.
     if (autoPdf) await shareReportPdf(buildWeeklyPlanDoc(logs));
   } catch (_) {}
@@ -69,14 +78,17 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
   // 접힘 상태는 앱을 다시 열어도 유지한다. 키에서 날짜 범위를 빼서 주가 바뀌어도 이어진다.
   static const _kCollapsedPref = 'weekly_report_collapsed';
 
-  String _ck(String heading, String name) =>
-      '${heading.replaceAll(RegExp(r'\s*\([^)]*\)'), '')}|$name';
+  // 접힘은 프로젝트 이름 기준(어느 섹션에서 접든 같은 프로젝트는 함께 접힌다).
+  String _ck(String heading, String name) => name;
 
   Future<void> _loadCollapsed() async {
     try {
       final p = await SharedPreferences.getInstance();
       final saved = p.getStringList(_kCollapsedPref);
-      if (saved != null && mounted) setState(() => _collapsed.addAll(saved));
+      // 예전 형식("섹션|프로젝트")으로 저장된 값은 프로젝트 이름만 뽑아 이어 쓴다.
+      if (saved != null && mounted) {
+        setState(() => _collapsed.addAll(saved.map((k) => k.split('|').last)));
+      }
     } catch (_) {}
   }
 
@@ -300,6 +312,74 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
       for (final l in s.lines)
         if (_projectName(l) != null) _ck(s.heading, _projectName(l)!),
   };
+
+  // 현재 보이는 프로젝트들에서 주간 보고에서 뺀 미해결 이슈(원본 참조).
+  List<({Map<String, dynamic> log, Map punch})> get _excludedIssues => [
+    for (final l in _active)
+      if (_projectId == null || l['id']?.toString() == _projectId)
+        for (final p in (l['punch_lists'] as List? ?? []).whereType<Map>())
+          if (p['is_completed'] != true && p['weeklyExclude'] == true)
+            (log: l, punch: p),
+  ];
+
+  Widget _excludedCard() {
+    final list = _excludedIssues;
+    if (widget.onIssueChanged == null || list.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          title: Text(
+            "제외한 이슈 ${list.length}건 보기",
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 14,
+              color: _teal,
+            ),
+          ),
+          children: [
+            for (final e in list)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        "${e.log['name'] ?? ''} · ${e.punch['location'] ?? ''} ${e.punch['content'] ?? ''}",
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          height: 1.4,
+                          color: _sub,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        e.punch.remove('weeklyExclude');
+                        widget.onIssueChanged!(e.log);
+                        setState(() {});
+                      },
+                      child: const Text("다시 포함"),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Future<void> _pdf(ReportDoc doc) async {
     try {
@@ -624,6 +704,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                       ],
                     ),
                   ),
+                _excludedCard(),
               ],
             ),
           ),

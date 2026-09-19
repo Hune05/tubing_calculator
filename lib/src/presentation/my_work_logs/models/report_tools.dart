@@ -709,6 +709,29 @@ String reportPdfFileName(ReportDoc doc, [DateTime? now]) {
   return '${title.isEmpty ? '보고서' : title}_${kind}_$stamp.pdf';
 }
 
+// 공유하려고 임시 폴더에 만든 PDF는 쌓이기만 하므로, 오래된 것(기본 3일)을 지운다.
+// 폴더 바로 아래의 .pdf 파일만 대상이고, 지운 개수를 돌려준다.
+Future<int> cleanupOldPdfs(
+  Directory dir, {
+  Duration maxAge = const Duration(days: 3),
+  DateTime? now,
+}) async {
+  var removed = 0;
+  final limit = (now ?? DateTime.now()).subtract(maxAge);
+  try {
+    await for (final e in dir.list(followLinks: false)) {
+      if (e is! File || !e.path.toLowerCase().endsWith('.pdf')) continue;
+      try {
+        if ((await e.lastModified()).isBefore(limit)) {
+          await e.delete();
+          removed++;
+        }
+      } catch (_) {}
+    }
+  } catch (_) {}
+  return removed;
+}
+
 // 같은 이름의 파일이 이미 있으면 이름 뒤에 (2), (3)…을 붙여 덮어쓰지 않는다.
 String uniquePdfName(String name, bool Function(String) exists) {
   if (!exists(name)) return name;

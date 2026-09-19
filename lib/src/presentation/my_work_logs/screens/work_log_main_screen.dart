@@ -20,6 +20,7 @@ import '../pages/project_stats_page.dart';
 import '../pages/weekly_report_page.dart';
 import '../pages/notification_check_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 import '../pages/retro_overview_page.dart';
 import '../pages/storage_management_page.dart';
 import 'dart:async';
@@ -93,6 +94,8 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     super.initState();
     _loadData();
     _loadGuideFlag();
+    // 예전에 공유하려고 만들어 둔 PDF 임시 파일 정리(백그라운드).
+    getTemporaryDirectory().then((d) => cleanupOldPdfs(d)).catchError((_) => 0);
   }
 
   Future<void> _loadData() async {
