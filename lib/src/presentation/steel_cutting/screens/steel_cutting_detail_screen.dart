@@ -3,7 +3,8 @@ import 'dart:io';
 import '../../../core/utils/pdf_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:flutter/services.dart'
+    show Clipboard, ClipboardData, HapticFeedback;
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -11,9 +12,19 @@ import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../data/models/steel_cutting_project_model.dart';
+import '../../../data/models/steel_shape_db.dart';
+import '../../tube_cutting/cutting_action_bar.dart';
+import '../../tube_cutting/cutting_diagram_pdf.dart' show keepTogether;
+import '../../tube_cutting/cutting_leftovers.dart';
+import '../../tube_cutting/cutting_math.dart' show fmtMm;
 import '../../tube_cutting/cutting_optimizer.dart';
+import '../../tube_cutting/cutting_plan_rows.dart';
+import '../../tube_cutting/cutting_result_logic.dart';
+import '../../tube_cutting/cutting_result_view.dart';
 import '../../tube_cutting/cutting_theme.dart';
 import '../../tube_cutting/widgets/cutting_optimization_sheet.dart';
+import '../steel_result_logic.dart';
+import '../steel_shape_icons.dart';
 import '../widgets/steel_item_sheet.dart';
 import 'steel_cutting_history_page.dart';
 
@@ -40,6 +51,12 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   late int _setMultiplier;
   double _bladeKerf = 0.0;
   String _categoryFilter = '전체';
+  // 결과 탭에서 "잘랐음"으로 표시한 줄(프로젝트마다 이 폰에 저장한다).
+  final Set<String> _doneKeys = {};
+  // 아이콘 이름: 처음 쓰기 전에는 보이고, 써 본 뒤에는 "?"로 다시 볼 수 있다(튜브 컷팅과 같은 설정을 함께 쓴다).
+  static const String _kIconsUsedKey = 'cutting_result_icons_used';
+  bool _iconsUsed = true;
+  bool _labelsPinned = false;
 
   // 🚀 [튜브 컷팅에 준한 페이지 구성] 튜브 컷팅 계산기와 같은 방식으로
   // 넓은 화면(태블릿/폴더블 펼침)에서는 입력/결과를 좌우 2단으로 동시에
@@ -53,7 +70,23 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   // 그대로 공유한다 - 톱을 바꾸지 않는 한 두 화면에서 각각 새로 입력할
   // 필요가 없다.
   static const String _kerfPrefsKey = 'cutting_blade_kerf';
-  static const List<String> _categories = ['전체', '앵글', '찬넬', '커스텀'];
+  // 칩: 전체 + 지금 항목에 있는 종류만(없는 종류 칩은 두지 않는다).
+  List<String> get _categories {
+    final present = <String>{};
+    for (final i in _items) {
+      present.add(SteelShapeDB.categoryLabel(i.category));
+    }
+    final ordered = <String>[
+      for (final c in SteelShapeDB.categories)
+        if (present.contains(c.label)) c.label,
+      if (present.contains(SteelShapeDB.customCategory.label))
+        SteelShapeDB.customCategory.label,
+      if (present.contains('기타')) '기타',
+    ];
+    return ['전체', ...ordered];
+  }
+
+  String get _doneKey => 'steel_done_${widget.project.id}';
 
   @override
   void initState() {
@@ -63,6 +96,65 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     _stockLength = widget.project.stockLength;
     _setMultiplier = widget.project.setMultiplier;
     _loadBladeKerf();
+    _loadDone();
+    _loadIconsUsed();
+  }
+
+  Future<void> _loadDone() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final saved = p.getStringList(_doneKey) ?? const <String>[];
+      if (!mounted) return;
+      setState(() => _doneKeys.addAll(saved));
+      _pruneDone();
+    } catch (_) {}
+  }
+
+  Future<void> _saveDone() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setStringList(_doneKey, _doneKeys.toList());
+    } catch (_) {}
+  }
+
+  // 항목을 고치거나 세트 수를 바꿔서 없어진 줄의 "잘랐음" 표시는 버린다.
+  void _pruneDone() {
+    final live = {for (final l in _resultLines()) l.key};
+    final before = _doneKeys.length;
+    _doneKeys.removeWhere((k) => !live.contains(k));
+    if (_doneKeys.length != before) {
+      setState(() {});
+      _saveDone();
+    }
+  }
+
+  Future<void> _loadIconsUsed() async {
+    try {
+      final used =
+          (await SharedPreferences.getInstance()).getBool(_kIconsUsedKey) ??
+          false;
+      if (mounted && !used) setState(() => _iconsUsed = false);
+    } catch (_) {}
+  }
+
+  void _markIconsUsed() {
+    if (_labelsPinned) setState(() => _labelsPinned = false);
+    if (_iconsUsed) return;
+    setState(() => _iconsUsed = true);
+    SharedPreferences.getInstance()
+        .then((p) => p.setBool(_kIconsUsedKey, true))
+        .catchError((_) => false);
+  }
+
+  List<ResultLine> _resultLines() =>
+      buildSteelResultLines(_items, _setMultiplier);
+
+  void _toggleDone(String key) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (!_doneKeys.remove(key)) _doneKeys.add(key);
+    });
+    _saveDone();
   }
 
   @override
@@ -72,16 +164,10 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   }
 
   List<SteelCutItem> get _filteredItems {
-    switch (_categoryFilter) {
-      case '앵글':
-        return _items.where((i) => i.category == 'ANGLE').toList();
-      case '찬넬':
-        return _items.where((i) => i.category == 'CHANNEL').toList();
-      case '커스텀':
-        return _items.where((i) => i.category == 'CUSTOM').toList();
-      default:
-        return _items;
-    }
+    if (_categoryFilter == '전체') return _items;
+    return _items
+        .where((i) => SteelShapeDB.categoryLabel(i.category) == _categoryFilter)
+        .toList();
   }
 
   Future<void> _loadBladeKerf() async {
@@ -105,6 +191,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       .doc(widget.project.id);
 
   Future<void> _persistItems() async {
+    _pruneDone();
     await _docRef.update({'items': _items.map((e) => e.toMap()).toList()});
   }
 
@@ -113,6 +200,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   }
 
   Future<void> _persistSetMultiplier(int v) async {
+    _pruneDone();
     await _docRef.update({'setMultiplier': v});
   }
 
@@ -221,6 +309,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       groupedPieces: _collectPiecesByShape(),
       initialStockLength: _stockLength,
       kerf: _bladeKerf,
+      mixPrefsKey: kSteelMixPrefsKey,
       title: "재단 최적화 (원자재 소요 계산)",
       onStockLengthChanged: (v) {
         setState(() => _stockLength = v);
@@ -229,12 +318,11 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     );
   }
 
-  // 🚀 [지시서 고도화] 그냥 절단 목록만 나열하면 현장에서 "그럼 원자재
-  // 몇 본을 어떻게 잘라야 하는지"는 결국 다시 계산해야 한다. 재단
-  // 최적화 결과(원자재별 배치)까지 같은 PDF에 담아서, 지시서 한 장으로
-  // 바로 작업이 가능하게 했다.
+  // 지시서 PDF: 자를 길이 표(1개 길이 × 개수 = 합계) + 규격별 원자재 배치. 남은 토막과 여러 길이 섞어 쓰기
+  // 설정도 재단 최적화 화면과 같게 반영한다.
   Future<void> _exportInstructionSheet() async {
-    if (_items.isEmpty) {
+    final lines = _resultLines();
+    if (lines.isEmpty) {
       showCuttingSnack(
         context,
         "내보낼 항목이 없습니다. 먼저 절단 항목을 추가하십시오.",
@@ -254,46 +342,105 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
           "${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')} "
           "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
 
-      final itemRows = _items
-          .map(
-            (i) => [
-              i.shapeLabel,
-              i.length.toStringAsFixed(0),
-              "${i.qty * _setMultiplier}",
-              (i.totalLength * _setMultiplier).toStringAsFixed(0),
-              i.note,
-            ],
-          )
-          .toList();
-      final grandTotal = _items.fold(
-        0.0,
-        (acc, i) => acc + i.totalLength * _setMultiplier,
-      );
+      pw.Widget table(List<String> headers, List<List<String>> data) =>
+          pw.TableHelper.fromTextArray(
+            headers: headers,
+            data: data,
+            headerStyle: pw.TextStyle(
+              fontWeight: pw.FontWeight.bold,
+              font: koreanBold,
+            ),
+            cellStyle: pw.TextStyle(font: koreanFont),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+            cellAlignment: pw.Alignment.centerLeft,
+            border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+          );
 
-      // 🚀 [규격별 분리] 앵글/찬넬처럼 서로 다른 규격은 같은 원자재에서
-      // 나올 수 없으니, 규격별로 각각 최적화해서 규격마다 별도 표로
-      // 보여준다 - 한 표에 섞으면 실제로는 불가능한 배치가 나온다.
+      // 1) 자를 길이 표 — 규격마다 소계 줄을 넣는다.
+      final bool showHow = _setMultiplier > 1;
+      final subs = shapeSubtotals(lines);
+      final headers = [
+        "규격",
+        "1개 길이(mm)",
+        "개수",
+        if (showHow) "개수 구성",
+        "합계 길이(mm)",
+        "비고",
+      ];
+      final rows = <List<String>>[];
+      for (final sub in subs) {
+        for (final l in lines.where((x) => x.spec == sub.shape)) {
+          rows.add([
+            l.spec,
+            fmtMm(l.cutMm),
+            "${l.count}",
+            if (showHow) "${l.baseCount}개 × ${l.sets}세트",
+            fmtMm(l.totalMm),
+            l.detail,
+          ]);
+        }
+      }
+      final grandTotal = lines.fold(0.0, (a, l) => a + l.totalMm);
+
+      // 2) 규격별 원자재 배치(남은 토막·섞어 쓰기 반영).
+      final leftovers = await loadLeftovers();
+      final mixLengths = await loadMixLengths(kSteelMixPrefsKey);
       final piecesByShape = _collectPiecesByShape();
-      final optResultsByShape = {
-        for (final e in piecesByShape.entries)
-          e.key: optimizeCutting(
-            pieces: e.value,
-            stockLength: _stockLength,
-            kerf: _bladeKerf,
-          ),
-      };
-      final int totalBarCount = optResultsByShape.values.fold(
-        0,
-        (acc, r) => acc + r.barCount,
-      );
-      final double totalWasteAll = optResultsByShape.values.fold(
-        0.0,
-        (acc, r) => acc + r.totalWaste,
-      );
-      final int totalOversized = optResultsByShape.values.fold(
-        0,
-        (acc, r) => acc + r.oversizedPieces.length,
-      );
+      final planWidgets = <pw.Widget>[];
+      var totalBars = 0;
+      var totalWaste = 0.0;
+      var totalOversized = 0;
+      for (final e in piecesByShape.entries) {
+        final groupLeftovers = [
+          for (final l in leftovers)
+            if (l.label == e.key) l.length,
+        ];
+        final r = mixLengths.isNotEmpty
+            ? optimizeCuttingMixed(
+                pieces: e.value,
+                stockLengths: mixLengths,
+                kerf: _bladeKerf,
+                leftovers: groupLeftovers,
+              )
+            : optimizeCutting(
+                pieces: e.value,
+                stockLength: _stockLength,
+                kerf: _bladeKerf,
+                leftovers: groupLeftovers,
+              );
+        totalBars += r.barCount;
+        totalWaste += r.totalWaste;
+        totalOversized += r.oversizedPieces.length;
+        final usage = r.totalStock > 0
+            ? (r.totalUsed / r.totalStock * 100).toStringAsFixed(1)
+            : '0.0';
+        // 제목·요약·표를 한 덩어리로 묶어 쪽 경계에서 표 머리만 따로 남지 않게 한다.
+        planWidgets.addAll(
+          keepTogether([
+            pw.SizedBox(height: 12),
+            pw.Text(
+              e.key,
+              style: pw.TextStyle(
+                fontSize: 12,
+                fontWeight: pw.FontWeight.bold,
+                font: koreanBold,
+              ),
+            ),
+            pw.SizedBox(height: 2),
+            pw.Text(
+              "${planSummary(r)} · 로스 ${r.totalWaste.toStringAsFixed(0)}mm · 사용률 $usage%",
+            ),
+            pw.SizedBox(height: 6),
+            if (r.bars.isNotEmpty || r.leftoverBars.isNotEmpty)
+              table(kPlanHeaders, planRows(r)),
+            if (r.oversizedPieces.isNotEmpty)
+              pw.Text(
+                "원자재(${r.stockLength.toStringAsFixed(0)}mm)보다 길어 배치하지 못한 항목 ${r.oversizedPieces.length}건",
+                style: const pw.TextStyle(fontSize: 9, color: PdfColors.red),
+              ),
+          ], rows: r.bars.length + r.leftoverBars.length),
+        );
+      }
 
       pdf.addPage(
         pw.MultiPage(
@@ -312,29 +459,18 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             ),
             pw.SizedBox(height: 16),
             pw.Text(
-              "1. 절단 목록",
+              "1. 자를 길이",
               style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
             ),
             pw.SizedBox(height: 8),
-            pw.TableHelper.fromTextArray(
-              headers: ["규격", "길이(mm)", "수량", "합계 길이(mm)", "비고"],
-              data: itemRows,
-              headerStyle: pw.TextStyle(
-                fontWeight: pw.FontWeight.bold,
-                font: koreanBold,
-              ),
-              cellStyle: pw.TextStyle(font: koreanFont),
-              headerDecoration: const pw.BoxDecoration(
-                color: PdfColors.grey300,
-              ),
-              cellAlignment: pw.Alignment.centerLeft,
-              border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
-            ),
+            table(headers, rows),
             pw.SizedBox(height: 8),
             pw.Align(
               alignment: pw.Alignment.centerRight,
               child: pw.Text(
-                "총 소요 길이: ${grandTotal.toStringAsFixed(0)} mm",
+                _setMultiplier > 1
+                    ? "총 소요 길이: 1세트 ${fmtMm(grandTotal / _setMultiplier)} mm × $_setMultiplier세트 = ${fmtMm(grandTotal)} mm"
+                    : "총 소요 길이: ${fmtMm(grandTotal)} mm",
                 style: pw.TextStyle(
                   fontSize: 14,
                   fontWeight: pw.FontWeight.bold,
@@ -343,61 +479,14 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             ),
             pw.SizedBox(height: 20),
             pw.Text(
-              "2. 원자재별 배치 (재단 최적화, 총 $totalBarCount본 - 규격별로 각각 계산됨)",
+              "2. 원자재별 배치 (재단 최적화, 총 $totalBars본 - 규격별로 각각 계산됨)",
               style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
             ),
-            for (final entry in optResultsByShape.entries) ...[
-              pw.SizedBox(height: 12),
-              pw.Text(
-                "${entry.key} (${entry.value.barCount}본, 로스 ${entry.value.totalWaste.toStringAsFixed(0)}mm, "
-                "사용률 ${entry.value.totalStock > 0 ? (entry.value.totalUsed / entry.value.totalStock * 100).toStringAsFixed(1) : '0.0'}%)",
-                style: pw.TextStyle(
-                  fontSize: 12,
-                  fontWeight: pw.FontWeight.bold,
-                  font: koreanBold,
-                ),
-              ),
-              pw.SizedBox(height: 6),
-              pw.TableHelper.fromTextArray(
-                headers: ["원자재 #", "배치 구성", "사용(mm)", "잔여(mm)"],
-                data: entry.value.bars
-                    .asMap()
-                    .entries
-                    .map(
-                      (e) => [
-                        "${e.key + 1}",
-                        e.value.pieces
-                            .map((p) => "${p.toStringAsFixed(0)}mm")
-                            .join(" + "),
-                        e.value.usedLength.toStringAsFixed(0),
-                        e.value.wasteLength.toStringAsFixed(0),
-                      ],
-                    )
-                    .toList(),
-                headerStyle: pw.TextStyle(
-                  fontWeight: pw.FontWeight.bold,
-                  font: koreanBold,
-                ),
-                cellStyle: pw.TextStyle(font: koreanFont),
-                headerDecoration: const pw.BoxDecoration(
-                  color: PdfColors.grey300,
-                ),
-                cellAlignment: pw.Alignment.centerLeft,
-                border: pw.TableBorder.all(
-                  color: PdfColors.grey400,
-                  width: 0.5,
-                ),
-              ),
-              if (entry.value.oversizedPieces.isNotEmpty)
-                pw.Text(
-                  "⚠ 원자재보다 긴 항목 ${entry.value.oversizedPieces.length}건은 배치에서 제외됨",
-                  style: const pw.TextStyle(fontSize: 9, color: PdfColors.red),
-                ),
-            ],
+            ...planWidgets,
             if (totalOversized > 0) ...[
               pw.SizedBox(height: 8),
               pw.Text(
-                "⚠ 원자재보다 긴 항목 총 $totalOversized건은 배치에서 제외됨 - 원자재 기준 길이를 확인하십시오.",
+                "원자재보다 긴 항목 총 $totalOversized건은 배치에서 제외됨 - 원자재 기준 길이를 확인하십시오.",
                 style: const pw.TextStyle(fontSize: 10, color: PdfColors.red),
               ),
             ],
@@ -405,7 +494,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             pw.Align(
               alignment: pw.Alignment.centerRight,
               child: pw.Text(
-                "총 로스: ${totalWasteAll.toStringAsFixed(0)} mm",
+                "총 로스: ${totalWaste.toStringAsFixed(0)} mm",
                 style: pw.TextStyle(
                   fontSize: 14,
                   fontWeight: pw.FontWeight.bold,
@@ -519,20 +608,30 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     );
   }
 
-  // 🚀 "1. 절단 항목 입력" - 항목 추가 버튼 + 카테고리 필터 + 목록.
-  // 튜브 컷팅의 "포인트 추가" 전체 폭 버튼 자리를 그대로 가져왔다 - 예전엔
-  // 이 자리 대신 floatingActionButton("+")을 썼는데, 화면 우측 하단에서
-  // 결과 버튼과 겹쳐 보이는 문제가 있었다. 인라인 버튼으로 바꾸면서 그
-  // 문제 자체가 없어졌다.
+  // 입력 창: 항목 추가 버튼 + 종류 칩 + 규격별로 묶은 목록(머리글에 건수·길이 소계).
   Widget _buildInputPane() {
     final filteredItems = _filteredItems;
+    // 규격이 처음 나온 순서대로 묶는다(같은 규격의 항목은 붙어 보인다).
+    final shapeOrder = <String>[];
+    final byShape = <String, List<SteelCutItem>>{};
+    for (final it in filteredItems) {
+      if (!byShape.containsKey(it.shapeLabel)) shapeOrder.add(it.shapeLabel);
+      byShape.putIfAbsent(it.shapeLabel, () => []).add(it);
+    }
+    final rows = <Widget>[
+      for (final shape in shapeOrder) ...[
+        _buildShapeHeader(shape, byShape[shape]!),
+        for (final it in byShape[shape]!) _buildItemCard(it),
+      ],
+    ];
+
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            "1. 절단 항목 입력",
+            "절단 항목",
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w900,
@@ -548,6 +647,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
+              key: const Key('steel_add_item'),
               onPressed: _addItem,
               style: ElevatedButton.styleFrom(
                 backgroundColor: CuttingColors.primary,
@@ -567,24 +667,27 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
               ),
             ),
           ),
-          if (_items.isNotEmpty) ...[
+          if (_items.isNotEmpty && _categories.length > 2) ...[
             const SizedBox(height: 12),
-            Row(
-              children: _categories
-                  .map(
-                    (c) => Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _buildCategoryFilterChip(c),
-                    ),
-                  )
-                  .toList(),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _categories
+                    .map(
+                      (c) => Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: _buildCategoryFilterChip(c),
+                      ),
+                    )
+                    .toList(),
+              ),
             ),
           ],
           const SizedBox(height: 12),
           Expanded(
             child: _items.isEmpty
                 ? Center(
-                    child: Padding(
+                    child: SingleChildScrollView(
                       padding: const EdgeInsets.all(24),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -622,271 +725,377 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                             ),
                           ),
                         )
-                      : ListView.builder(
-                          padding: EdgeInsets.zero,
-                          itemCount: filteredItems.length,
-                          itemBuilder: (context, index) {
-                            final item = filteredItems[index];
-                            return Dismissible(
-                              key: ValueKey(item.id),
-                              direction: DismissDirection.endToStart,
-                              background: Container(
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.only(right: 20),
-                                margin: const EdgeInsets.only(bottom: 10),
-                                decoration: BoxDecoration(
-                                  color: CuttingColors.danger,
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: const Icon(
-                                  Icons.delete_outline,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              onDismissed: (_) => _deleteItem(item),
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 10),
-                                decoration: BoxDecoration(
-                                  color: CuttingColors.surface,
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(14),
-                                  onTap: () => _editItem(item),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(14),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: BoxDecoration(
-                                            color: CuttingColors.primary
-                                                .withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
-                                          ),
-                                          child: Icon(
-                                            item.category == 'ANGLE'
-                                                ? Icons.change_history_rounded
-                                                : Icons.view_week_rounded,
-                                            color: CuttingColors.primary,
-                                            size: 20,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                item.shapeLabel,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  color:
-                                                      CuttingColors.textPrimary,
-                                                  fontSize: 15,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                "${item.length.toStringAsFixed(0)}mm × ${item.qty}개  =  ${item.totalLength.toStringAsFixed(0)}mm"
-                                                "${item.note.isNotEmpty ? '  ·  ${item.note}' : ''}",
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  color: CuttingColors
-                                                      .textSecondary,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        InkWell(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          onTap: () => _duplicateItem(item),
-                                          child: const Padding(
-                                            padding: EdgeInsets.all(6),
-                                            child: Icon(
-                                              Icons.copy_rounded,
-                                              size: 18,
-                                              color:
-                                                  CuttingColors.textSecondary,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        )),
+                      : ListView(padding: EdgeInsets.zero, children: rows)),
           ),
         ],
       ),
     );
   }
 
-  // 🚀 "2. 재단 결과" - 세트 수 조절 + 요약 통계 + 재단 최적화/지시서
-  // 버튼. 튜브 컷팅의 "2. 컷팅 지시서" 결과 패널(회색 배경, SET 스테퍼를
-  // 우측에 두는 spaceBetween 레이아웃, 아웃라인 버튼 2개 나란히)과 같은
-  // 구성으로 맞췄다.
-  Widget _buildResultPane() {
-    final totalPieces =
-        _items.fold(0, (acc, i) => acc + i.qty) * _setMultiplier;
-    final totalLength =
-        _items.fold(0.0, (acc, i) => acc + i.totalLength) * _setMultiplier;
+  // 규격 머리글: 종류 아이콘 + 규격 이름 + "3건 · 1250mm".
+  Widget _buildShapeHeader(String shape, List<SteelCutItem> items) {
+    final mm = items.fold(0.0, (a, i) => a + i.totalLength);
+    return Padding(
+      key: Key('steel_group_$shape'),
+      padding: const EdgeInsets.only(top: 6, bottom: 6, left: 2),
+      child: Row(
+        children: [
+          Icon(
+            iconForSteel(items.first.category),
+            size: 18,
+            color: CuttingColors.primary,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              shape,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+                color: CuttingColors.textPrimary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            "${items.length}건 · ${fmtMm(mm)}mm",
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: CuttingColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
+  Widget _buildItemCard(SteelCutItem item) {
+    return Dismissible(
+      key: ValueKey(item.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: CuttingColors.danger,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Icon(Icons.delete_outline, color: Colors.white),
+      ),
+      onDismissed: (_) => _deleteItem(item),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: CuttingColors.surface,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: InkWell(
+          key: Key('steel_item_${item.id}'),
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => _editItem(item),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+            child: Row(
+              children: [
+                // 큰 글씨는 1개 길이, 개수와 합계는 오른쪽 작은 글씨(튜브 컷팅과 같은 구조).
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "${fmtMm(item.length)} mm",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: CuttingColors.textPrimary,
+                          fontSize: 18,
+                        ),
+                      ),
+                      if (item.note.isNotEmpty)
+                        Text(
+                          item.note,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: CuttingColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      "× ${item.qty}개",
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: CuttingColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      "= ${fmtMm(item.totalLength)} mm",
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: CuttingColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => _duplicateItem(item),
+                  child: const Padding(
+                    padding: EdgeInsets.all(10),
+                    child: Icon(
+                      Icons.copy_rounded,
+                      size: 20,
+                      color: CuttingColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 지시서 글(복사·카카오톡이 함께 쓴다). 항목이 없으면 null.
+  String? _instructionText() {
+    final lines = _resultLines();
+    if (lines.isEmpty) return null;
+    return buildSteelInstructionText(
+      projectName: widget.project.name,
+      date: DateTime.now(),
+      sets: _setMultiplier,
+      lines: lines,
+      stockLength: _stockLength,
+      kerfMm: _bladeKerf,
+    );
+  }
+
+  Future<void> _copyInstruction() async {
+    final text = _instructionText();
+    if (text == null) {
+      showCuttingSnack(
+        context,
+        "복사할 항목이 없습니다. 먼저 절단 항목을 추가하십시오.",
+        isError: true,
+      );
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    showCuttingSnack(context, "지시서를 글로 복사했습니다. 메신저에 붙여넣으십시오.");
+  }
+
+  Future<void> _sendToKakao() async {
+    final text = _instructionText();
+    if (text == null) {
+      showCuttingSnack(
+        context,
+        "보낼 항목이 없습니다. 먼저 절단 항목을 추가하십시오.",
+        isError: true,
+      );
+      return;
+    }
+    if (await kakaoSender(text)) return;
+    if (!mounted) return;
+    try {
+      await textSharer(text);
+      if (!mounted) return;
+      showCuttingSnack(context, "카카오톡을 찾지 못해 공유창으로 보냈습니다.");
+    } catch (e) {
+      if (!mounted) return;
+      showCuttingSnack(context, "보내기 실패: $e", isError: true);
+    }
+  }
+
+  // 결과 창: 제목줄 아이콘(재단 최적화·PDF·카톡·글 복사) + 세트 수 + 규격별로 묶은 자를 길이 목록.
+  Widget _buildResultPane() {
+    final lines = _resultLines();
     return Container(
       color: Colors.grey.shade50,
       padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "2. 재단 결과",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              color: CuttingColors.textPrimary,
-            ),
+          Row(
+            children: [
+              const Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    "재단 결과",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: CuttingColors.textPrimary,
+                    ),
+                  ),
+                ),
+              ),
+              CutActionBar(
+                showLabels: !_iconsUsed || _labelsPinned,
+                onToggleLabels: _iconsUsed
+                    ? () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _labelsPinned = !_labelsPinned);
+                      }
+                    : null,
+                actions: [
+                  CutActionSpec(
+                    key: const Key('steel_btn_optimize'),
+                    label: "재단 최적화",
+                    icon: const CutBarIcon(size: 26),
+                    onPressed: () {
+                      _markIconsUsed();
+                      if (_items.isEmpty) {
+                        showCuttingSnack(
+                          context,
+                          "절단 항목을 먼저 추가하십시오.",
+                          isError: true,
+                        );
+                        return;
+                      }
+                      _showOptimization();
+                    },
+                  ),
+                  CutActionSpec(
+                    key: const Key('steel_btn_export'),
+                    label: "PDF 공유",
+                    icon: const Icon(
+                      Icons.picture_as_pdf_rounded,
+                      size: 24,
+                      color: CuttingColors.primary,
+                    ),
+                    onPressed: () {
+                      _markIconsUsed();
+                      _exportInstructionSheet();
+                    },
+                  ),
+                  CutActionSpec(
+                    key: const Key('steel_btn_kakao'),
+                    label: "카톡 보내기",
+                    background: const Color(0xFFFEE500),
+                    icon: const Icon(
+                      Icons.chat_bubble_rounded,
+                      size: 24,
+                      color: Color(0xFF3A1D1D),
+                    ),
+                    onPressed: () {
+                      _markIconsUsed();
+                      _sendToKakao();
+                    },
+                  ),
+                  CutActionSpec(
+                    key: const Key('steel_btn_copy'),
+                    label: "글 복사",
+                    icon: const Icon(
+                      Icons.copy_rounded,
+                      size: 24,
+                      color: CuttingColors.primary,
+                    ),
+                    onPressed: () {
+                      _markIconsUsed();
+                      _copyInstruction();
+                    },
+                  ),
+                ],
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                "세트 수 (전체 수량 배수)",
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey.shade700,
+              Expanded(
+                child: Text(
+                  "세트 수 (전체 수량 배수)",
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade700,
+                  ),
                 ),
               ),
-              Container(
-                decoration: BoxDecoration(
-                  color: CuttingColors.surface,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: CuttingColors.primary),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(
-                        Icons.remove,
-                        color: CuttingColors.primary,
-                      ),
-                      onPressed: () {
-                        if (_setMultiplier <= 1) return;
-                        HapticFeedback.selectionClick();
-                        setState(() => _setMultiplier--);
-                        _persistSetMultiplier(_setMultiplier);
-                      },
-                    ),
-                    Text(
-                      "$_setMultiplier SET",
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: CuttingColors.textPrimary,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.add, color: CuttingColors.primary),
-                      onPressed: () {
-                        HapticFeedback.selectionClick();
-                        setState(() => _setMultiplier++);
-                        _persistSetMultiplier(_setMultiplier);
-                      },
-                    ),
-                  ],
-                ),
-              ),
+              const SizedBox(width: 8),
+              _buildSetStepper(),
             ],
           ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: CuttingColors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: CuttingColors.border),
-            ),
-            child: Row(
-              children: [
-                _buildSummaryStat("항목 수", "${_items.length}건"),
-                _buildSummaryStat("총 수량", "$totalPieces개"),
-                _buildSummaryStat(
-                  "총 길이",
-                  "${(totalLength / 1000).toStringAsFixed(1)}m",
-                ),
-              ],
+          const SizedBox(height: 12),
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: CuttingColors.surface,
+                border: Border.all(color: CuttingColors.border),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: CuttingResultView(
+                lines: lines,
+                summary: summarizeResult(lines, _doneKeys),
+                orders: const [],
+                done: _doneKeys,
+                onToggle: _toggleDone,
+                setMultiplier: _setMultiplier,
+                specHeaders: true,
+                emptyMessage: "절단 항목을 먼저 추가하십시오.",
+              ),
             ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _items.isEmpty ? null : _showOptimization,
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: CuttingColors.primary),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  icon: const Icon(
-                    Icons.view_column_outlined,
-                    size: 18,
-                    color: CuttingColors.primary,
-                  ),
-                  label: const Text(
-                    "재단 최적화",
-                    style: TextStyle(
-                      color: CuttingColors.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _items.isEmpty ? null : _exportInstructionSheet,
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: CuttingColors.primary),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  icon: const Icon(
-                    Icons.picture_as_pdf_outlined,
-                    size: 18,
-                    color: CuttingColors.primary,
-                  ),
-                  label: const Text(
-                    "지시서 PDF",
-                    style: TextStyle(
-                      color: CuttingColors.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSetStepper() {
+    return Container(
+      decoration: BoxDecoration(
+        color: CuttingColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: CuttingColors.primary),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            key: const Key('steel_set_minus'),
+            icon: const Icon(Icons.remove, color: CuttingColors.primary),
+            onPressed: () {
+              if (_setMultiplier <= 1) return;
+              HapticFeedback.selectionClick();
+              setState(() => _setMultiplier--);
+              _persistSetMultiplier(_setMultiplier);
+            },
           ),
-          if (_items.isEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              "절단 항목을 먼저 추가하면 재단 최적화와 지시서를 만들 수 있습니다.",
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+          Text(
+            "$_setMultiplier SET",
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: CuttingColors.textPrimary,
             ),
-          ],
+          ),
+          IconButton(
+            key: const Key('steel_set_plus'),
+            icon: const Icon(Icons.add, color: CuttingColors.primary),
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              setState(() => _setMultiplier++);
+              _persistSetMultiplier(_setMultiplier);
+            },
+          ),
         ],
       ),
     );
@@ -911,28 +1120,6 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSummaryStat(String label, String value) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-              color: CuttingColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-          ),
-        ],
       ),
     );
   }

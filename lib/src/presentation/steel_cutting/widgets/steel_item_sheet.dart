@@ -3,8 +3,10 @@ import 'package:flutter/services.dart' show HapticFeedback;
 
 import '../../../data/models/steel_cutting_project_model.dart';
 import '../../../data/models/steel_shape_db.dart';
+import '../../tube_cutting/cutting_math.dart' show parseLengthInput, fmtMm;
 import '../../tube_cutting/cutting_theme.dart';
 import '../steel_cutting_favorites.dart';
+import '../steel_shape_icons.dart';
 import 'steel_shape_picker_sheet.dart';
 
 /// 새 항목을 추가하거나([existing]이 null) 기존 항목을 수정한다([existing]이
@@ -67,6 +69,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
     _noteCtrl = TextEditingController(text: e?.note ?? '');
     // 즐겨찾기 별 아이콘이 길이 입력에 맞춰 즉시 켜지고/꺼지게.
     _lengthCtrl.addListener(() => setState(() {}));
+    _qtyCtrl.addListener(() => setState(() {}));
     if (!_isEditing) _loadQuickPicks();
   }
 
@@ -167,11 +170,20 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
 
   void _submit({required bool keepOpen}) {
     final shape = _shape;
-    final length = double.tryParse(_lengthCtrl.text.trim());
+    final parsed = parseLengthInput(_lengthCtrl.text);
+    final length = parsed.value;
     final qty = int.tryParse(_qtyCtrl.text.trim());
 
     if (shape == null) {
       showCuttingSnack(context, "규격을 선택해 주십시오.", isError: true);
+      return;
+    }
+    if (parsed.unreadable) {
+      showCuttingSnack(
+        context,
+        "길이를 숫자로 읽을 수 없습니다. 예: 1200 또는 1200.5",
+        isError: true,
+      );
       return;
     }
     if (length == null || length <= 0) {
@@ -220,9 +232,64 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
     );
   }
 
+  // 길이 칸의 값을 [delta]만큼 바꾼다(비어 있으면 0에서 시작, 0 아래로는 내려가지 않는다).
+  void _bumpLength(double delta) {
+    HapticFeedback.selectionClick();
+    final cur = parseLengthInput(_lengthCtrl.text).value ?? 0;
+    final next = (cur + delta).clamp(0, 1e9).toDouble();
+    _lengthCtrl.text = next == 0 ? '' : fmtMm(next);
+    _lengthCtrl.selection = TextSelection.collapsed(
+      offset: _lengthCtrl.text.length,
+    );
+  }
+
+  void _bumpQty(int delta) {
+    HapticFeedback.selectionClick();
+    final cur = int.tryParse(_qtyCtrl.text.trim()) ?? 1;
+    final next = (cur + delta).clamp(1, 9999);
+    _qtyCtrl.text = '$next';
+    _qtyCtrl.selection = TextSelection.collapsed(offset: _qtyCtrl.text.length);
+  }
+
+  Widget _stepChip({
+    required Key key,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: CuttingColors.primarySoft,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        key: key,
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          height: 40,
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              color: CuttingColors.primaryDark,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // "1250mm × 3개 = 3750mm" — 길이와 수량이 둘 다 유효할 때만.
+  String? get _previewText {
+    final len = parseLengthInput(_lengthCtrl.text).value;
+    final qty = int.tryParse(_qtyCtrl.text.trim());
+    if (len == null || len <= 0 || qty == null || qty <= 0) return null;
+    return '${fmtMm(len)}mm × $qty개 = ${fmtMm(len * qty)}mm';
+  }
+
   SteelQuickPick? get _currentQuickPick {
     final shape = _shape;
-    final length = double.tryParse(_lengthCtrl.text.trim());
+    final length = parseLengthInput(_lengthCtrl.text).value;
     if (shape == null || length == null || length <= 0) return null;
     return SteelQuickPick(
       category: shape.category,
@@ -402,9 +469,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
                           Icon(
                             _shape == null
                                 ? Icons.search
-                                : (_shape!.category == 'ANGLE'
-                                      ? Icons.change_history_rounded
-                                      : Icons.view_week_rounded),
+                                : iconForSteel(_shape!.category),
                             color: CuttingColors.primary,
                             size: 20,
                           ),
@@ -442,6 +507,10 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
                         controller: _lengthCtrl,
                         isNumber: true,
                         suffix: "mm",
+                        fieldKey: const Key('steel_length_field'),
+                        errorText: parseLengthInput(_lengthCtrl.text).unreadable
+                            ? "숫자로 읽을 수 없습니다"
+                            : null,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -453,10 +522,72 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
                         controller: _qtyCtrl,
                         isNumber: true,
                         suffix: "개",
+                        fieldKey: const Key('steel_qty_field'),
                       ),
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+                // 길이와 수량을 손가락으로 바로 고치는 버튼(장갑 낀 손도 누를 수 있게 넉넉한 크기).
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Row(
+                        children: [
+                          for (final d in const [-100, -10, 10, 100]) ...[
+                            if (d != -100) const SizedBox(width: 4),
+                            Expanded(
+                              child: _stepChip(
+                                key: Key('len_step_$d'),
+                                label: d > 0 ? '+$d' : '$d',
+                                onTap: () => _bumpLength(d.toDouble()),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _stepChip(
+                              key: const Key('qty_minus'),
+                              label: '−',
+                              onTap: () => _bumpQty(-1),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: _stepChip(
+                              key: const Key('qty_plus'),
+                              label: '+',
+                              onTap: () => _bumpQty(1),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                // 입력한 값으로 나오는 합계를 미리 보여 준다(길이 × 수량 = 합계).
+                if (_previewText != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text(
+                      _previewText!,
+                      key: const Key('steel_item_preview'),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: CuttingColors.primary,
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 16),
                 _buildField(
                   label: "비고 (선택)",
@@ -528,6 +659,8 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
     required TextEditingController controller,
     bool isNumber = false,
     String? suffix,
+    Key? fieldKey,
+    String? errorText,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -542,6 +675,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
         ),
         const SizedBox(height: 8),
         TextField(
+          key: fieldKey,
           controller: controller,
           keyboardType: isNumber
               ? const TextInputType.numberWithOptions(decimal: true)
@@ -554,6 +688,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
           cursorColor: CuttingColors.primary,
           decoration: InputDecoration(
             hintText: hint,
+            errorText: errorText,
             hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 15),
             suffixText: suffix,
             suffixStyle: const TextStyle(

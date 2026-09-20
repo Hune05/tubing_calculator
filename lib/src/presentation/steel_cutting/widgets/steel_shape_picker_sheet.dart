@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../data/models/steel_shape_db.dart';
 import '../../tube_cutting/cutting_theme.dart';
+import '../steel_shape_icons.dart';
 
 // 🚀 [형강 컷팅 신규] 부속 검색 팝업(SmartFittingSelectorSheet)과 같은
 // 형식(흰 배경 + 원형 아이콘 헤더 + 검색 + 카테고리 칩 + 목록 + 커스텀
@@ -29,7 +30,11 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
   String _categoryFilter = '전체';
   final TextEditingController _searchController = TextEditingController();
 
-  static const List<String> _categories = ['전체', '앵글', '찬넬'];
+  // 칩: 전체 + DB의 종류 전부(칩이 많아 옆으로 밀어서 본다).
+  static final List<String> _categories = [
+    '전체',
+    ...SteelShapeDB.categories.map((c) => c.label),
+  ];
 
   @override
   void dispose() {
@@ -39,14 +44,26 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
 
   List<SteelShapeItem> get _filtered {
     Iterable<SteelShapeItem> list = SteelShapeDB.all;
-    if (_categoryFilter == '앵글') {
-      list = list.where((s) => s.category == 'ANGLE');
-    } else if (_categoryFilter == '찬넬') {
-      list = list.where((s) => s.category == 'CHANNEL');
+    if (_categoryFilter != '전체') {
+      final id = SteelShapeDB.categories
+          .firstWhere((c) => c.label == _categoryFilter)
+          .id;
+      list = list.where((s) => s.category == id);
     }
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
-      list = list.where((s) => s.label.toLowerCase().contains(q));
+      // 공백·"x"·"*"·"×"는 같은 것으로 본다("40 40 3", "40*40*3", "40×40×3" 모두 40x40x3).
+      String norm(String v) => v
+          .toLowerCase()
+          .replaceAll(RegExp(r'[\s*×·,]+'), 'x')
+          .replaceAll(RegExp(r'x+'), 'x');
+      final nq = norm(q);
+      list = list.where(
+        (s) =>
+            s.label.toLowerCase().contains(q) ||
+            norm(s.label).contains(nq) ||
+            SteelShapeDB.categoryLabel(s.category).contains(q),
+      );
     }
     return list.toList();
   }
@@ -161,7 +178,7 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
                     onChanged: (v) => setState(() => _searchQuery = v.trim()),
                     style: const TextStyle(color: CuttingColors.textPrimary),
                     decoration: InputDecoration(
-                      hintText: "규격으로 검색 (예: 40x40, 앵글, 찬넬)",
+                      hintText: "규격으로 검색 (예: 40x40, 스트럿, 25A)",
                       hintStyle: TextStyle(color: Colors.grey.shade500),
                       prefixIcon: const Icon(
                         Icons.search,
@@ -188,17 +205,26 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ..._categories.map(
-                        (c) => Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: _buildCategoryChip(c),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: _categories
+                              .map(
+                                (c) => Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: _buildCategoryChip(c),
+                                ),
+                              )
+                              .toList(),
                         ),
                       ),
-                      const Spacer(),
+                      const SizedBox(height: 6),
                       Text(
                         "${results.length}개",
+                        key: const Key('steel_pick_count'),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -236,10 +262,15 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
                             final item = results[i];
                             return ListTile(
                               leading: Icon(
-                                item.category == 'ANGLE'
-                                    ? Icons.change_history_rounded
-                                    : Icons.view_week_rounded,
+                                iconForSteel(item.category),
                                 color: CuttingColors.primary,
+                              ),
+                              subtitle: Text(
+                                SteelShapeDB.categoryLabel(item.category),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade500,
+                                ),
                               ),
                               title: Text(
                                 item.label,

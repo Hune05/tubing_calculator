@@ -43,6 +43,7 @@ class ResultLine {
   final int baseCount;
   final int sets;
   final bool grouped; // 같은 길이끼리 묶은 줄인지
+  final String formulaPrefix; // 개수 식 앞에 붙는 말(튜브는 "구간", 형강은 없음)
 
   const ResultLine({
     required this.key,
@@ -55,13 +56,15 @@ class ResultLine {
     this.baseCount = 1,
     this.sets = 1,
     this.grouped = false,
+    this.formulaPrefix = '구간 ',
   });
 
   double get totalMm => cutMm * count;
 
   // "구간 2개 × 3세트 = 6개" 처럼 개수가 어디서 나왔는지. 세트가 1이면 빈 글자.
-  String get countFormula =>
-      sets > 1 ? '${grouped ? '구간 ' : ''}$baseCount개 × $sets세트 = $count개' : '';
+  String get countFormula => sets > 1
+      ? '${grouped ? formulaPrefix : ''}$baseCount개 × $sets세트 = $count개'
+      : '';
 }
 
 // [cuts]는 구간별 절단 길이이고, 계산할 수 없는 구간(비었음·못 읽음·간섭)은 null 또는 0 이하.

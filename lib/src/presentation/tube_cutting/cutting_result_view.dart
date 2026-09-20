@@ -20,6 +20,8 @@ class CuttingResultView extends StatelessWidget {
   // 튜브 규격: 사용자가 지정한 값(없으면 빈 글자 = 부속 기준 자동)과 고르는 창을 여는 동작.
   final String tubeSpec;
   final VoidCallback? onPickSpec;
+  // 규격이 바뀔 때마다 규격 이름과 소계를 머리글로 보여 준다(형강처럼 규격이 많을 때). 켜면 줄마다 규격 칩은 뺀다.
+  final bool specHeaders;
 
   const CuttingResultView({
     super.key,
@@ -34,6 +36,7 @@ class CuttingResultView extends StatelessWidget {
     this.emptyIsError = false,
     this.tubeSpec = '',
     this.onPickSpec,
+    this.specHeaders = false,
   });
 
   @override
@@ -62,12 +65,20 @@ class CuttingResultView extends StatelessWidget {
           unknownSpecLines: unknownSpecLineCount(lines),
         ),
         const SizedBox(height: 10),
-        for (final l in lines) ...[
+        for (var i = 0; i < lines.length; i++) ...[
+          if (specHeaders && (i == 0 || lines[i].spec != lines[i - 1].spec))
+            _SpecHeader(
+              spec: lines[i].spec,
+              lines: lines.where((e) => e.spec == lines[i].spec).toList(),
+              done: done,
+            ),
           _Row(
-            line: l,
-            isDone: done.contains(l.key),
-            showUnknownSpec: lines.any((e) => e.spec.isNotEmpty),
-            onTap: () => onToggle(l.key),
+            line: lines[i],
+            isDone: done.contains(lines[i].key),
+            showUnknownSpec:
+                !specHeaders && lines.any((e) => e.spec.isNotEmpty),
+            hideSpecChip: specHeaders,
+            onTap: () => onToggle(lines[i].key),
           ),
           const SizedBox(height: 6),
         ],
@@ -339,6 +350,7 @@ class _Row extends StatelessWidget {
   final ResultLine line;
   final bool isDone;
   final bool showUnknownSpec; // 다른 줄은 규격이 있는데 이 줄만 모를 때 "규격 미지정"을 보여 준다
+  final bool hideSpecChip; // 규격 머리글이 있어서 줄마다 규격 칩을 빼야 할 때
   final VoidCallback onTap;
 
   const _Row({
@@ -346,6 +358,7 @@ class _Row extends StatelessWidget {
     required this.isDone,
     required this.onTap,
     this.showUnknownSpec = false,
+    this.hideSpecChip = false,
   });
 
   @override
@@ -404,7 +417,8 @@ class _Row extends StatelessWidget {
                     // 규격 칩은 제목 아래 줄에 둔다(제목이 잘리지 않게).
                     Row(
                       children: [
-                        if (line.spec.isNotEmpty || showUnknownSpec)
+                        if (!hideSpecChip &&
+                            (line.spec.isNotEmpty || showUnknownSpec))
                           Flexible(
                             flex: 2,
                             child: Container(
@@ -436,15 +450,17 @@ class _Row extends StatelessWidget {
                               ),
                             ),
                           ),
-                        Flexible(
-                          flex: 3,
-                          child: Text(
-                            line.grouped ? line.detail : line.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 12, color: grey),
+                        if ((line.grouped ? line.detail : line.title)
+                            .isNotEmpty)
+                          Flexible(
+                            flex: 3,
+                            child: Text(
+                              line.grouped ? line.detail : line.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 12, color: grey),
+                            ),
                           ),
-                        ),
                       ],
                     ),
                     // 개수가 어디서 나왔는지("구간 2개 × 3세트 = 6개").
@@ -499,6 +515,67 @@ class _Row extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// 규격 머리글: 규격 이름과 그 규격의 줄 수·개수·길이 합계·자른 진행.
+class _SpecHeader extends StatelessWidget {
+  final String spec;
+  final List<ResultLine> lines;
+  final Set<String> done;
+
+  const _SpecHeader({
+    required this.spec,
+    required this.lines,
+    required this.done,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    var pieces = 0;
+    var donePieces = 0;
+    var mm = 0.0;
+    for (final l in lines) {
+      pieces += l.count;
+      mm += l.totalMm;
+      if (done.contains(l.key)) donePieces += l.count;
+    }
+    final allDone = pieces > 0 && donePieces == pieces;
+    return Padding(
+      padding: const EdgeInsets.only(top: 10, bottom: 6, left: 2),
+      child: Row(
+        key: Key('spec_header_$spec'),
+        children: [
+          Expanded(
+            child: Text(
+              spec.isEmpty ? '규격 미지정' : spec,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+                color: CuttingColors.textPrimary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            allDone
+                ? '완료 · $pieces개'
+                : donePieces > 0
+                ? '$donePieces/$pieces개 · ${mm.toStringAsFixed(0)}mm'
+                : '$pieces개 · ${mm.toStringAsFixed(0)}mm',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: allDone
+                  ? CuttingColors.success
+                  : CuttingColors.textSecondary,
+            ),
+          ),
+        ],
       ),
     );
   }
