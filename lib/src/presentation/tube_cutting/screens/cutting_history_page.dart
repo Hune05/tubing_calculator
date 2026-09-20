@@ -34,6 +34,8 @@ class CuttingHistoryPage extends StatefulWidget {
 class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  // 규격 하나만 보기(null이면 전부). 화면에 보이는 기록만 내보낸다.
+  String? _specFilter;
   // 화면에 불러온 기록(내보내기에 그대로 쓴다).
   List<CutRecord> _records = [];
 
@@ -118,6 +120,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
             pw.SizedBox(height: 8),
             pw.Text("프로젝트: ${widget.project.name}"),
             pw.Text("기간: ${recordPeriodText(data)}    작성일: $dateStr"),
+            if (_specFilter != null) pw.Text("규격: $_specFilter (이 규격의 기록만)"),
             pw.SizedBox(height: 14),
             table(kRecordHeaders, data.rows),
             pw.SizedBox(height: 14),
@@ -265,9 +268,19 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
               )
               .toList();
 
-          _records = records;
+          // 칩 순서는 오래된 기록부터 처음 나온 규격 순서로 한다(목록은 최신순이라 그대로 쓰면 거꾸로 나온다).
+          final specs = recordSpecs(
+            [...records]..sort((a, b) => a.timestamp.compareTo(b.timestamp)),
+          );
+          // 고른 규격의 기록이 더는 없으면(지웠으면) 전체로 돌아간다.
+          final String? activeFilter = specs.contains(_specFilter)
+              ? _specFilter
+              : null;
+          final shown = filterBySpec(records, activeFilter);
+          _specFilter = activeFilter;
+          _records = shown;
           final Map<DateTime, List<CutRecord>> grouped = {};
-          for (final r in records) {
+          for (final r in shown) {
             final day = DateTime(
               r.timestamp.year,
               r.timestamp.month,
@@ -284,6 +297,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
 
           return Column(
             children: [
+              if (specs.length > 1) _buildSpecFilter(specs, activeFilter),
               _buildDayNavigator(days),
               Expanded(
                 child: PageView.builder(
@@ -300,6 +314,46 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
             ],
           );
         },
+      ),
+    );
+  }
+
+  // 규격이 둘 이상이면 위쪽에 "전체 · 1/2" · 3/4" …" 칩을 둔다(하나 누르면 그 규격만 보인다).
+  Widget _buildSpecFilter(List<String> specs, String? active) {
+    Widget chip(String label, String? value) {
+      final selected = active == value;
+      return Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: ChoiceChip(
+          key: Key('history_spec_${value ?? 'all'}'),
+          label: Text(label),
+          selected: selected,
+          onSelected: (_) => setState(() {
+            _specFilter = value;
+            _currentPage = 0;
+          }),
+          selectedColor: CuttingColors.primary,
+          backgroundColor: CuttingColors.surface,
+          side: BorderSide(
+            color: selected ? CuttingColors.primary : CuttingColors.border,
+          ),
+          labelStyle: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: selected ? Colors.white : CuttingColors.textPrimary,
+          ),
+          showCheckmark: false,
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [chip('전체', null), for (final s in specs) chip(s, s)],
+        ),
       ),
     );
   }
@@ -418,6 +472,28 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
             ],
           ),
         ),
+        // 그 날 규격이 둘 이상이면 규격별 합계를 보여 준다.
+        if (recordSpecTotals(sorted).length > 1)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                recordSpecTotals(sorted)
+                    .map(
+                      (e) =>
+                          '${e.spec} ${e.mm.toStringAsFixed(1)}mm (${e.count}개)',
+                    )
+                    .join('  ·  '),
+                key: const Key('history_day_specs'),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: CuttingColors.textPrimary,
+                ),
+              ),
+            ),
+          ),
         Expanded(
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -475,7 +551,9 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
               ],
               Expanded(
                 child: Text(
-                  r.tubeSize.isEmpty ? '규격 미지정' : "규격 ${r.tubeSize}",
+                  normalizeSpec(r.tubeSize) == kUnknownSpecLabel
+                      ? kUnknownSpecLabel
+                      : "규격 ${normalizeSpec(r.tubeSize)}",
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 12,

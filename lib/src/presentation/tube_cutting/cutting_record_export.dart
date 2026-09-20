@@ -32,6 +32,52 @@ class RecordExport {
 
 String _one(double v) => v.toStringAsFixed(1);
 
+// 규격을 모르는 기록의 표시 글자. 예전 기록은 규격이 "ALL"·"미지정"·빈 값으로 남아 있다.
+const String kUnknownSpecLabel = '규격 미지정';
+
+String normalizeSpec(String raw) {
+  final t = raw.trim();
+  return (t.isEmpty || t == 'ALL' || t == '미지정') ? kUnknownSpecLabel : t;
+}
+
+// 기록에 나오는 규격들(처음 나온 순서, 규격 미지정도 하나로).
+List<String> recordSpecs(List<CutRecord> records) {
+  final out = <String>[];
+  for (final r in records) {
+    final s = normalizeSpec(r.tubeSize);
+    if (!out.contains(s)) out.add(s);
+  }
+  return out;
+}
+
+// 규격 하나만 남긴다([spec]이 null이면 전부).
+List<CutRecord> filterBySpec(List<CutRecord> records, String? spec) =>
+    spec == null
+    ? records
+    : records.where((r) => normalizeSpec(r.tubeSize) == spec).toList();
+
+class RecordSpecTotal {
+  final String spec;
+  final int count;
+  final double mm;
+  const RecordSpecTotal(this.spec, this.count, this.mm);
+}
+
+// 규격별 개수·길이(수량을 곱한 값, 처음 나온 순서).
+List<RecordSpecTotal> recordSpecTotals(List<CutRecord> records) {
+  final order = <String>[];
+  final count = <String, int>{};
+  final mm = <String, double>{};
+  for (final r in records) {
+    final s = normalizeSpec(r.tubeSize);
+    final m = r.multiplier < 1 ? 1 : r.multiplier;
+    if (!count.containsKey(s)) order.add(s);
+    count[s] = (count[s] ?? 0) + m;
+    mm[s] = (mm[s] ?? 0) + r.cutLength * m;
+  }
+  return [for (final s in order) RecordSpecTotal(s, count[s]!, mm[s]!)];
+}
+
 String _md(DateTime d) => '${d.month}/${d.day}';
 
 RecordExport buildRecordExport(List<CutRecord> records) {
@@ -44,9 +90,7 @@ RecordExport buildRecordExport(List<CutRecord> records) {
   for (final r in sorted) {
     final m = r.multiplier < 1 ? 1 : r.multiplier;
     final total = r.cutLength * m;
-    final size = (r.tubeSize.isEmpty || r.tubeSize == 'ALL')
-        ? '규격 미지정'
-        : r.tubeSize;
+    final size = normalizeSpec(r.tubeSize);
     rows.add([
       _md(r.timestamp),
       size,

@@ -131,6 +131,10 @@ class SpecTotal {
   const SpecTotal(this.spec, this.pieces, this.mm);
 }
 
+// 튜브 규격을 모르는 줄 수(규격을 지정하지 않은 채 저장하는 실수를 막는 데 쓴다).
+int unknownSpecLineCount(List<ResultLine> lines) =>
+    lines.where((l) => l.spec.isEmpty).length;
+
 List<SpecTotal> specTotals(List<ResultLine> lines) {
   final order = <String>[];
   final pieces = <String, int>{};
@@ -305,6 +309,7 @@ String buildSaveConfirmMessage({
   required bool recordsToProject, // 프로젝트 자재 사용량·기록에 올라가는지
   required bool canUndo,
   List<SpecTotal> specs = const [], // 규격별 합계(규격을 아는 것이 하나라도 있을 때 보여 준다)
+  int unknownSpecLines = 0, // 튜브 규격을 모르는 줄 수
 }) {
   final set = setMultiplier < 1 ? 1 : setMultiplier;
   final b = StringBuffer();
@@ -319,6 +324,9 @@ String buildSaveConfirmMessage({
         .map((e) => '${e.spec.isEmpty ? '규격 미지정' : e.spec} ${_one(e.mm)}mm')
         .join(' · ');
     b.writeln('튜브 규격별: $t.');
+  }
+  if (unknownSpecLines > 0) {
+    b.writeln('튜브 규격이 지정되지 않은 줄이 $unknownSpecLines개 있습니다.');
   }
   if (orders.isNotEmpty) {
     final shown = orders.take(3).map((o) => '${o.label} ×${o.qty}').join(' · ');

@@ -375,4 +375,132 @@ void main() {
       expect(find.text('잘랐음 0/1개'), findsOneWidget);
     });
   });
+
+  group('규격이 없을 때 경고', () {
+    test('규격을 모르는 줄 수', () {
+      final l = buildResultLines(
+        [600.0, 900.0, 300.0],
+        1,
+        grouped: false,
+        specs: ['1/2"', '', ''],
+      );
+      expect(unknownSpecLineCount(l), 2);
+      expect(
+        unknownSpecLineCount(buildResultLines([600.0], 1, grouped: true)),
+        1,
+      );
+      expect(unknownSpecLineCount(const []), 0);
+    });
+
+    test('저장 확인 글에 규격 없는 줄 수가 나온다', () {
+      String m(int n) => buildSaveConfirmMessage(
+        baseMm: 1500,
+        cutCount: 2,
+        setMultiplier: 1,
+        kerfLossMm: 0,
+        orders: const [],
+        notDoneLines: 0,
+        anyDone: false,
+        recordsToProject: false,
+        canUndo: true,
+        unknownSpecLines: n,
+      );
+      expect(m(2).contains('튜브 규격이 지정되지 않은 줄이 2개 있습니다.'), true);
+      expect(m(0).contains('튜브 규격이 지정되지 않은'), false);
+    });
+  });
+
+  group('규격 경고·입력 탭 규격', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    Finder lengthField(int i) => find
+        .byWidgetPredicate(
+          (w) =>
+              w is TextField &&
+              (w.decoration?.labelText ?? '').startsWith('전체 길이'),
+        )
+        .at(i);
+
+    Future<void> open(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 6000);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CuttingMainScreen(
+              project: CuttingProject(
+                id: 'p1',
+                name: '루마',
+                createdAt: DateTime(2026, 9, 20),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('입력 탭에도 규격 버튼이 있고 결과 탭과 같은 값을 쓴다', (tester) async {
+      await open(tester);
+      expect(
+        tester.widget<Text>(find.byKey(const Key('input_spec_label'))).data,
+        '튜브 규격: 부속 기준(자동)',
+      );
+      await tester.tap(find.byKey(const Key('input_spec_picker')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('spec_option_3/4"')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Text>(find.byKey(const Key('input_spec_label'))).data,
+        '튜브 규격: 3/4"',
+      );
+      // 결과 탭에도 그대로 나온다(따로 지정할 필요가 없다).
+      await tester.enterText(lengthField(0), '600');
+      await tester.pump();
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+      expect(find.text('튜브 규격: 3/4"'), findsOneWidget);
+      expect(find.byKey(const Key('result_spec_warning')).evaluate(), isEmpty);
+      // 결과 탭에서 바꾸면 입력 탭에도 반영된다.
+      await tester.tap(find.byKey(const Key('result_spec_picker')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('spec_option_1"')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('입력'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Text>(find.byKey(const Key('input_spec_label'))).data,
+        '튜브 규격: 1"',
+      );
+    });
+
+    testWidgets('규격이 없으면 결과 탭 위에 경고가 뜨고, 지정하면 사라진다', (tester) async {
+      await open(tester);
+      await tester.enterText(lengthField(0), '600');
+      await tester.pump();
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('result_spec_warning')), findsOneWidget);
+      expect(find.textContaining('규격이 없는 줄이 1개'), findsOneWidget);
+      // 경고를 누르면 규격 고르는 창이 열린다.
+      await tester.tap(find.byKey(const Key('result_spec_warning')));
+      await tester.pumpAndSettle();
+      expect(find.text('자를 튜브 규격'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('spec_option_1/2"')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('result_spec_warning')).evaluate(), isEmpty);
+    });
+
+    testWidgets('규격 없이 저장하려 하면 확인 창에 알려 준다', (tester) async {
+      await open(tester);
+      await tester.enterText(lengthField(0), '600');
+      await tester.pump();
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('저장하기'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('튜브 규격이 지정되지 않은 줄이 1개'), findsOneWidget);
+    });
+  });
 }

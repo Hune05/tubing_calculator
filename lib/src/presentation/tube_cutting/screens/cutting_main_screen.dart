@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/utils/pdf_fonts.dart';
 import 'package:flutter/services.dart'
     show Clipboard, ClipboardData, HapticFeedback;
+import 'dart:async' show Timer;
 import 'dart:convert';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -122,6 +123,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   String _tubeSpec = '';
   // 저장 직후 띄운 "실행 취소" 스낵바를 화면을 떠날 때 함께 없애기 위해 잡아 둔다.
   ScaffoldMessengerState? _undoMessenger;
+  // 지금 떠 있는 실행 취소가 어느 저장의 것인지(다른 저장·화면 이동 뒤에는 자동으로 걷지 않게 구분한다).
+  Object? _undoToken;
+  Timer? _undoTimer;
 
   // 🚀 [4번 강화] 현장에 따라 인치로 측정하는 경우가 있어서 mm/in 단위를
   // 고를 수 있게 한다. 저장/계산은 항상 mm 기준이고, 사용자가 지금 고른
@@ -522,6 +526,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   @override
   void dispose() {
     // 화면을 떠나면 실행 취소를 더는 할 수 없으니 스낵바도 걷는다.
+    _undoToken = null;
+    _undoTimer?.cancel();
     _undoMessenger?.clearSnackBars();
     WidgetsBinding.instance.removeObserver(this);
     _saveDraftState();
@@ -1918,6 +1924,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         recordsToProject: widget.onSaveCallback != null,
         canUndo: canUndo,
         specs: specTotals(lines),
+        unknownSpecLines: unknownSpecLineCount(lines),
       ),
       confirmLabel: "저장",
       icon: Icons.save_outlined,
@@ -1966,13 +1973,22 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     final msg =
         "튜브 총 ${plan.finalTotalMm.toStringAsFixed(1)}mm$kerfNote 및 피팅 ${plan.fittingCount}개 작업 완료!";
     if (canUndo) {
-      _undoMessenger = ScaffoldMessenger.of(context);
+      final messenger = ScaffoldMessenger.of(context);
+      _undoMessenger = messenger;
+      final token = Object();
+      _undoToken = token;
       showCuttingUndoSnack(
         context,
         msg,
         duration: const Duration(seconds: 10),
         onUndo: () => _undoSave(snapshot),
       );
+      // 일부 폰(접근성 기능을 켠 경우)은 버튼이 달린 알림을 자동으로 걷지 않는다. 그러면 저장하기 버튼을
+      // 계속 가리므로, 안내한 대로 10초 뒤에 직접 걷는다.
+      _undoTimer?.cancel();
+      _undoTimer = Timer(const Duration(seconds: 10), () {
+        if (_undoToken == token) messenger.hideCurrentSnackBar();
+      });
     } else {
       showCuttingSnack(context, msg);
     }
@@ -1981,6 +1997,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 저장 직후 "실행 취소": 저장한 사용량·기록을 되돌리고 입력을 원래대로 채운다.
   Future<void> _undoSave(_SavedSnapshot s) async {
     if (!mounted) return;
+    _undoToken = null;
     // 그 사이에 새로 입력한 값이 있으면 덮어쓰기 전에 한 번 더 묻는다.
     if (_points.any((p) => p.c2cController.text.trim().isNotEmpty)) {
       final ok = await showCuttingConfirmDialog(
@@ -2438,6 +2455,48 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          // 자를 튜브 규격. 결과 탭의 규격 버튼과 같은 값(같은 고르는 창)을 함께 쓴다.
+          InkWell(
+            key: const Key('input_spec_picker'),
+            borderRadius: BorderRadius.circular(10),
+            onTap: _pickTubeSpec,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                color: whiteCard,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.straighten_rounded,
+                    size: 18,
+                    color: makitaTeal,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _tubeSpec.isEmpty
+                          ? "튜브 규격: 부속 기준(자동)"
+                          : "튜브 규격: $_tubeSpec",
+                      key: const Key('input_spec_label'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: textPrimary,
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.arrow_drop_down_rounded, color: makitaTeal),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           Expanded(

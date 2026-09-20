@@ -30,6 +30,7 @@ CutRecord rec(
 );
 
 void main() {
+  specGroups();
   group('컷팅 기록 표', () {
     test('날짜 오름차순으로 나오고 합계는 수량을 곱한다', () {
       final e = buildRecordExport([
@@ -164,6 +165,55 @@ void main() {
       final sw = tester.widget<Switch>(find.byType(Switch).first);
       expect(sw.value, true);
       expect(find.textContaining('3000mm 원자재'), findsOneWidget);
+    });
+  });
+}
+
+// ── 규격별 보기(기록 화면) ──
+void specGroups() {
+  group('기록의 규격', () {
+    test('ALL·미지정·빈 값은 규격 미지정으로 본다', () {
+      expect(normalizeSpec('ALL'), kUnknownSpecLabel);
+      expect(normalizeSpec('미지정'), kUnknownSpecLabel);
+      expect(normalizeSpec('  '), kUnknownSpecLabel);
+      expect(normalizeSpec('1/2"'), '1/2"');
+    });
+
+    final recs = [
+      rec('1', DateTime(2026, 9, 13), size: '1/2"', cut: 100, mult: 2),
+      rec('2', DateTime(2026, 9, 13), size: 'ALL', cut: 50),
+      rec('3', DateTime(2026, 9, 14), size: '3/4"', cut: 200),
+      rec('4', DateTime(2026, 9, 14), size: '1/2"', cut: 30),
+      rec('5', DateTime(2026, 9, 14), size: '', cut: 10),
+    ];
+
+    test('나오는 규격 목록(처음 나온 순서, 미지정은 하나로)', () {
+      expect(recordSpecs(recs), ['1/2"', kUnknownSpecLabel, '3/4"']);
+    });
+
+    test('규격 하나만 남기기', () {
+      expect(filterBySpec(recs, null).length, 5);
+      expect(filterBySpec(recs, '1/2"').map((r) => r.id), ['1', '4']);
+      expect(filterBySpec(recs, kUnknownSpecLabel).map((r) => r.id), [
+        '2',
+        '5',
+      ]);
+      expect(filterBySpec(recs, '1"'), isEmpty);
+    });
+
+    test('규격별 합계는 수량을 곱한다', () {
+      final t = recordSpecTotals(recs);
+      expect(t.map((e) => e.spec), ['1/2"', kUnknownSpecLabel, '3/4"']);
+      expect(t[0].count, 3);
+      expect(t[0].mm, 230);
+      expect(t[1].count, 2);
+      expect(t[1].mm, 60);
+      expect(t.fold(0.0, (s, e) => s + e.mm), buildRecordExport(recs).totalMm);
+    });
+
+    test('내보내는 표에도 같은 이름으로 나온다', () {
+      final e = buildRecordExport(filterBySpec(recs, kUnknownSpecLabel));
+      expect(e.rows.map((r) => r[1]).toSet(), {kUnknownSpecLabel});
     });
   });
 }

@@ -59,6 +59,7 @@ class CuttingResultView extends StatelessWidget {
           specs: specTotals(lines),
           tubeSpec: tubeSpec,
           onPickSpec: onPickSpec,
+          unknownSpecLines: unknownSpecLineCount(lines),
         ),
         const SizedBox(height: 10),
         for (final l in lines) ...[
@@ -86,6 +87,7 @@ class _Header extends StatelessWidget {
   final List<SpecTotal> specs;
   final String tubeSpec;
   final VoidCallback? onPickSpec;
+  final int unknownSpecLines;
 
   const _Header({
     required this.summary,
@@ -94,6 +96,7 @@ class _Header extends StatelessWidget {
     this.specs = const [],
     this.tubeSpec = '',
     this.onPickSpec,
+    this.unknownSpecLines = 0,
   });
 
   @override
@@ -157,6 +160,50 @@ class _Header extends StatelessWidget {
                       const Icon(
                         Icons.arrow_drop_down_rounded,
                         color: CuttingColors.primary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          // 규격을 모르는 줄이 있으면 저장하기 전에 눈에 띄게 알려 준다(누르면 규격 고르는 창).
+          if (unknownSpecLines > 0)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: InkWell(
+                key: const Key('result_spec_warning'),
+                borderRadius: BorderRadius.circular(8),
+                onTap: onPickSpec,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: CuttingColors.warningSoft,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: CuttingColors.warning.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        size: 18,
+                        color: CuttingColors.warning,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '튜브 규격이 없는 줄이 $unknownSpecLines개 있습니다. 규격을 지정하십시오.',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: CuttingColors.warning,
+                          ),
+                        ),
                       ),
                     ],
                   ),

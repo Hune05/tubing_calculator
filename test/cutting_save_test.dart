@@ -279,5 +279,18 @@ void main() {
       expect(p.totalTubeUsed, 1500); // 취소하면 저장은 그대로
       expect(tester.widget<TextField>(lengthField(0)).controller!.text, '111');
     });
+
+    testWidgets('실행 취소 알림은 10초 뒤에 사라진다(저장하기 버튼을 계속 가리지 않게)', (tester) async {
+      final p = proj();
+      await open(tester, p);
+      await tester.tap(find.text('저장하기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('저장'));
+      await tester.pump();
+      expect(find.text('실행 취소'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 11));
+      await tester.pumpAndSettle();
+      expect(find.text('실행 취소'), findsNothing);
+    });
   });
 }
