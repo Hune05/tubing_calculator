@@ -152,7 +152,7 @@ class CutActionSpec {
 class CutActionBar extends StatelessWidget {
   final List<CutActionSpec> actions;
   final bool showLabels;
-  // 아이콘 이름을 다시 보고 싶을 때 누르는 작은 "?" 버튼의 동작. 없으면 "?" 버튼을 두지 않는다.
+  // 아이콘 이름을 다시 보고 싶을 때 누르는 작은 "?" 버튼(아이콘들 오른쪽 끝)의 동작. 없으면 "?" 버튼을 두지 않는다.
   final VoidCallback? onToggleLabels;
 
   const CutActionBar({
@@ -169,31 +169,6 @@ class CutActionBar extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (onToggleLabels != null)
-          Padding(
-            padding: EdgeInsets.zero,
-            child: Tooltip(
-              message: showLabels ? '이름 숨기기' : '아이콘 이름 보기',
-              child: InkWell(
-                key: const Key('action_help'),
-                customBorder: const CircleBorder(),
-                onTap: onToggleLabels,
-                child: SizedBox(
-                  width: 22,
-                  height: target,
-                  child: Center(
-                    child: Icon(
-                      showLabels
-                          ? Icons.close_rounded
-                          : Icons.help_outline_rounded,
-                      size: 16,
-                      color: CuttingColors.textSecondary,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
         for (final a in actions)
           Padding(
             padding: const EdgeInsets.only(left: 3),
@@ -235,6 +210,31 @@ class CutActionBar extends StatelessWidget {
                     ),
                   ),
               ],
+            ),
+          ),
+        if (onToggleLabels != null)
+          Padding(
+            padding: EdgeInsets.zero,
+            child: Tooltip(
+              message: showLabels ? '이름 숨기기' : '아이콘 이름 보기',
+              child: InkWell(
+                key: const Key('action_help'),
+                customBorder: const CircleBorder(),
+                onTap: onToggleLabels,
+                child: SizedBox(
+                  width: 22,
+                  height: target,
+                  child: Center(
+                    child: Icon(
+                      showLabels
+                          ? Icons.close_rounded
+                          : Icons.help_outline_rounded,
+                      size: 16,
+                      color: CuttingColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
       ],

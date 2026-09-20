@@ -5,6 +5,8 @@ import 'package:tubing_calculator/src/data/models/steel_cutting_project_model.da
 import 'package:tubing_calculator/src/data/models/steel_shape_db.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_cutting_detail_screen.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_cutting_history_page.dart';
+import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_pdf_preview_page.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_leftovers.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/steel_custom_shapes.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/steel_result_logic.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/steel_weight.dart';
@@ -592,14 +594,86 @@ void main() {
       expect(find.text('잘랐습니다 (남는 토막 저장)'), findsOneWidget);
     });
 
-    test('립C형강 규격이 늘었고 모두 무게가 계산된다', () {
+    test('립C형강 6종은 모두 무게가 계산된다(직접 입력한 립C도)', () {
       final lip = SteelShapeDB.byCategory('LIPC');
-      expect(lip.length, 10);
-      expect(lip.any((s) => s.label == '립C형강 100x50x20x2.0'), true);
-      // 2.0×(100+2×50+2×20−4×2)=464mm² → 3.64kg/m
-      expect(steelKgPerM('립C형강 100x50x20x2.0')!, closeTo(3.64, 0.01));
+      expect(lip.length, 6);
       for (final s in lip) {
         expect(steelKgPerM(s.label), isNotNull, reason: s.label);
+      }
+      // 직접 입력: 2.0×(100+2×50+2×20−4×2)=464mm² → 3.64kg/m
+      expect(steelKgPerM('립C형강 100x50x20x2.0')!, closeTo(3.64, 0.01));
+    });
+
+    testWidgets('되돌리기: 방금 저장한 토막과 잘랐음 표시를 저장 전으로', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await open(tester);
+      await tester.tap(find.byKey(const Key('steel_btn_optimize')));
+      await tester.pumpAndSettle();
+      final save = find.text('잘랐습니다 (남는 토막 저장)');
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect((await loadLeftovers()).isNotEmpty, true);
+      final undo = find.byKey(const Key('leftover_undo'));
+      await tester.ensureVisible(undo);
+      await tester.tap(undo);
+      await tester.pumpAndSettle();
+      expect(await loadLeftovers(), isEmpty);
+      // 저장 버튼이 다시 나온다
+      expect(find.text('잘랐습니다 (남는 토막 저장)'), findsOneWidget);
+      await tester.tapAt(const Offset(180, 20));
+      await tester.pumpAndSettle();
+      final progress = tester
+          .widget<Text>(find.byKey(const Key('result_progress')))
+          .data;
+      expect(progress, '잘랐음 0/2개');
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('steel_leftover_saved_sp4'), isNull);
+    });
+
+    testWidgets('이미 저장한 결과를 다시 열면 되돌리기는 없다', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'steel_done_sp4': ['steel:앵글 40x40x3:500.0:2'],
+        'steel_leftover_saved_sp4': 'steel:앵글 40x40x3:500.0:2',
+      });
+      await open(tester);
+      await tester.tap(find.byKey(const Key('steel_btn_optimize')));
+      await tester.pumpAndSettle();
+      expect(find.text('저장했습니다'), findsOneWidget);
+      expect(find.byKey(const Key('leftover_undo')), findsNothing);
+    });
+
+    testWidgets('PDF는 바로 공유하지 않고 미리보기가 먼저 열린다', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final old = pdfPreviewBuilder;
+      addTearDown(() => pdfPreviewBuilder = old);
+      pdfPreviewBuilder = (bytes, name) =>
+          Text('미리보기 ${bytes.length > 1000} $name');
+      await open(tester);
+      await tester.tap(find.byKey(const Key('steel_btn_export')));
+      await tester.pumpAndSettle();
+      expect(find.text('지시서 미리보기'), findsOneWidget);
+      expect(findTextContaining('미리보기 true 루마_형강컷팅지시서.pdf'), findsOneWidget);
+      expect(find.byKey(const Key('pdf_preview_share')), findsOneWidget);
+    });
+
+    testWidgets('물음표 버튼은 아이콘들의 오른쪽 끝에 있다', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'cutting_result_icons_used': true,
+      });
+      await open(tester);
+      final help = tester.getCenter(find.byKey(const Key('action_help')));
+      for (final k in [
+        'steel_btn_optimize',
+        'steel_btn_export',
+        'steel_btn_kakao',
+        'steel_btn_copy',
+      ]) {
+        expect(
+          tester.getCenter(find.byKey(Key(k))).dx < help.dx,
+          true,
+          reason: k,
+        );
       }
     });
   });

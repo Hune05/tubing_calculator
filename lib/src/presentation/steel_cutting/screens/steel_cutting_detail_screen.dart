@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import '../../../core/utils/pdf_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -28,6 +29,7 @@ import '../steel_weight.dart';
 import '../steel_shape_icons.dart';
 import '../widgets/steel_item_sheet.dart';
 import 'steel_cutting_history_page.dart';
+import 'steel_pdf_preview_page.dart';
 
 // 🚀 [형강 컷팅 신규] 찬넬/앵글처럼 피팅 없이 그냥 "규격 - 길이 - 수량"만
 // 있는 단순 절단 작업 전용 화면. 튜브 컷팅 계산기와 달리 라인(구간)을
@@ -317,15 +319,36 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
 
   // 재단 최적화에서 "잘랐습니다"를 눌러 남는 토막을 저장했을 때: 결과의 모든 줄을 "잘랐음"으로 맞추고, 이 결과의
   // 토막은 저장했다고 적어 둔다(항목이나 세트를 바꾸면 저절로 "아직 저장 안 함"으로 돌아간다).
+  // 저장 직전의 "잘랐음" 표시(되돌리기용).
+  Set<String>? _doneBeforeSave;
+
   void _onLeftoversSaved() {
     if (!mounted) return;
     setState(() {
+      _doneBeforeSave = {..._doneKeys};
       _doneKeys.addAll(_resultLines().map((l) => l.key));
       _leftoverSavedSig = _linesSig;
     });
     _saveDone();
     SharedPreferences.getInstance()
         .then((p) => p.setString(_leftoverKey, _leftoverSavedSig))
+        .catchError((_) => false);
+  }
+
+  // 재단 최적화 창에서 저장을 되돌렸을 때: 잘랐음 표시와 "저장함" 기록을 저장 전으로 돌린다.
+  void _onLeftoversSaveUndone() {
+    if (!mounted) return;
+    setState(() {
+      _doneKeys
+        ..clear()
+        ..addAll(_doneBeforeSave ?? const <String>{});
+      _leftoverSavedSig = '';
+      _doneBeforeSave = null;
+    });
+    _pruneDone();
+    _saveDone();
+    SharedPreferences.getInstance()
+        .then((p) => p.remove(_leftoverKey))
         .catchError((_) => false);
   }
 
@@ -337,6 +360,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       kerf: _bladeKerf,
       mixPrefsKey: kSteelMixPrefsKey,
       onLeftoversSaved: _onLeftoversSaved,
+      onLeftoversSaveUndone: _onLeftoversSaveUndone,
       leftoversAlreadySaved: _leftoversSaved,
       title: "재단 최적화 (원자재 소요 계산)",
       onStockLengthChanged: (v) {
@@ -344,6 +368,21 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         _persistStockLength(v);
       },
     );
+  }
+
+  Future<void> _sharePdf(Uint8List bytes, String fileName) async {
+    try {
+      final output = await getTemporaryDirectory();
+      final file = File("${output.path}/$fileName");
+      await file.writeAsBytes(bytes);
+      // ignore: deprecated_member_use
+      await Share.shareXFiles([
+        XFile(file.path),
+      ], text: "${widget.project.name} 형강 컷팅 지시서입니다.");
+    } catch (e) {
+      if (!mounted) return;
+      showCuttingSnack(context, "내보내기 실패: $e", isError: true);
+    }
   }
 
   // 지시서 PDF: 자를 길이 표(1개 길이 × 개수 = 합계) + 규격별 원자재 배치. 남은 토막과 여러 길이 섞어 쓰기
@@ -550,15 +589,19 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         ),
       );
 
-      final output = await getTemporaryDirectory();
-      final file = File("${output.path}/${widget.project.name}_형강컷팅지시서.pdf");
-      await file.writeAsBytes(await pdf.save());
-
+      final bytes = await pdf.save();
       if (!mounted) return;
-      // ignore: deprecated_member_use
-      await Share.shareXFiles([
-        XFile(file.path),
-      ], text: "${widget.project.name} 형강 컷팅 지시서입니다.");
+      final fileName = "${widget.project.name}_형강컷팅지시서.pdf";
+      // 바로 공유하지 않고 미리보기를 먼저 보여 준다. 공유는 미리보기의 버튼으로.
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SteelPdfPreviewPage(
+            bytes: bytes,
+            fileName: fileName,
+            onShare: () => _sharePdf(bytes, fileName),
+          ),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       showCuttingSnack(context, "내보내기 실패: $e", isError: true);

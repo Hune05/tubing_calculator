@@ -35,6 +35,8 @@ Future<void> showCuttingOptimizationSheet(
   String? mixPrefsKey,
   // "잘랐습니다(남은 토막 저장)"를 눌러 저장이 끝난 뒤 부른다(호출한 화면이 결과의 "잘랐음" 표시를 맞추는 데 쓴다).
   VoidCallback? onLeftoversSaved,
+  // 같은 창에서 방금 한 저장을 "되돌리기"로 취소했을 때 부른다(호출한 화면이 잘랐음 표시를 원래대로 돌리는 데 쓴다).
+  VoidCallback? onLeftoversSaveUndone,
   // 이 결과의 남는 토막을 이미 저장했으면 true — 저장 버튼 자리에 "저장했습니다"를 보여 같은 컷팅을 두 번 저장하지 않게 한다.
   // (기준 길이·토막 사용 설정을 바꿔 다시 계산하면 다른 컷팅이 되므로 다시 저장할 수 있다.)
   bool leftoversAlreadySaved = false,
@@ -58,6 +60,8 @@ Future<void> showCuttingOptimizationSheet(
   if (!context.mounted) return;
   bool useLeftovers = true;
   bool leftoversSaved = leftoversAlreadySaved;
+  // 이 창에서 저장하기 직전의 토막 목록(되돌리기용). 저장하지 않았거나 되돌린 뒤에는 null.
+  List<Leftover>? savedFrom;
   double stockNow = initialStockLength;
 
   // 여러 길이 섞어 쓰기: 켜면 고른 길이들만 섞어서 계산한다(위 기준 길이는 쓰지 않는다).
@@ -369,6 +373,7 @@ Future<void> showCuttingOptimizationSheet(
                   for (final len in e.value.keepableScraps())
                     Leftover(e.key, len),
               ];
+              savedFrom = [...leftovers];
               leftovers = applyLeftoverChange(
                 leftovers,
                 used: used,
@@ -384,6 +389,21 @@ Future<void> showCuttingOptimizationSheet(
                 );
               }
             },
+            onUndo: savedFrom == null
+                ? null
+                : () async {
+                    leftovers = savedFrom!;
+                    savedFrom = null;
+                    await saveLeftovers(leftovers);
+                    onLeftoversSaveUndone?.call();
+                    setSheetState(() {
+                      leftoversSaved = false;
+                      results = compute(stockNow);
+                    });
+                    if (ctx.mounted) {
+                      showCuttingSnack(ctx, "저장을 되돌렸습니다.");
+                    }
+                  },
             onManage: () async {
               final changed = await _manageLeftovers(
                 ctx,
@@ -781,6 +801,7 @@ Widget _buildLeftoverCard({
   required ValueChanged<bool> onToggle,
   required VoidCallback onSave,
   required VoidCallback onManage,
+  VoidCallback? onUndo,
 }) {
   return Builder(
     builder: (context) => _tealTheme(
@@ -832,7 +853,7 @@ Widget _buildLeftoverCard({
               spacing: 8,
               runSpacing: 4,
               children: [
-                if (saved)
+                if (saved) ...[
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                     child: Text(
@@ -842,8 +863,14 @@ Widget _buildLeftoverCard({
                         color: CuttingColors.success,
                       ),
                     ),
-                  )
-                else
+                  ),
+                  if (onUndo != null)
+                    TextButton(
+                      key: const Key('leftover_undo'),
+                      onPressed: onUndo,
+                      child: const Text("되돌리기"),
+                    ),
+                ] else
                   OutlinedButton(
                     onPressed: onSave,
                     child: const Text("잘랐습니다 (남는 토막 저장)"),
