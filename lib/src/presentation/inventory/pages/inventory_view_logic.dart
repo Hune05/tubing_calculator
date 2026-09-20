@@ -28,3 +28,25 @@ bool isSameWorker(String mine, String? theirs) {
   if (a.isEmpty || b.isEmpty) return true;
   return a == b || a.contains(b) || b.contains(a);
 }
+
+/// 재고가 최소 수량 아래로 내려갔는지. 최소 수량을 안 적어 둔 자재는 따지지 않는다.
+/// (최소 수량은 "이만큼은 늘 있어야 한다"는 뜻이라, 그 수량까지 내려오면 모자란 것으로 본다.)
+bool isShortStock(Map<String, dynamic> data) {
+  final min = (data['minQty'] as num?)?.toInt() ?? 0;
+  if (min <= 0) return false;
+  final qty = (data['qty'] as num?)?.toInt() ?? 0;
+  return qty <= min;
+}
+
+/// 잔재를 규격별로 묶어 보여 줄 때 쓰는 정렬 순서.
+/// 규격 이름순, 같은 규격 안에서는 긴 것부터(긴 잔재를 먼저 쓰게 된다).
+int compareLeftoverRow(
+  String labelA,
+  double lengthA,
+  String labelB,
+  double lengthB,
+) {
+  final c = labelA.compareTo(labelB);
+  if (c != 0) return c;
+  return lengthB.compareTo(lengthA);
+}

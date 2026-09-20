@@ -54,4 +54,30 @@ void main() {
       expect(isSameWorker('', '홍길동'), isTrue);
     });
   });
+
+  group('모자란 자재', () {
+    test('최소 수량까지 내려오면 모자란 것으로 본다', () {
+      expect(isShortStock({'qty': 1, 'minQty': 1}), isTrue);
+      expect(isShortStock({'qty': 0, 'minQty': 5}), isTrue);
+    });
+
+    test('최소 수량보다 많으면 아니다', () {
+      expect(isShortStock({'qty': 6, 'minQty': 5}), isFalse);
+    });
+
+    test('최소 수량을 안 적어 뒀으면 따지지 않는다', () {
+      expect(isShortStock({'qty': 0}), isFalse);
+      expect(isShortStock({'qty': 0, 'minQty': 0}), isFalse);
+    });
+  });
+
+  group('잔재 줄 순서', () {
+    test('규격 이름순으로 묶는다', () {
+      expect(compareLeftoverRow('앵글', 100, '찬넬', 100) < 0, isTrue);
+    });
+
+    test('같은 규격은 긴 것이 먼저다', () {
+      expect(compareLeftoverRow('찬넬', 2000, '찬넬', 500) < 0, isTrue);
+    });
+  });
 }

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../../tube_cutting/cutting_leftovers.dart';
+import '../../tube_cutting/cutting_theme.dart'
+    show showCuttingConfirmDialog, showCuttingSnack;
+import '../../tube_cutting/widgets/leftover_log_page.dart';
 import '../material_catalog.dart';
 import 'inventory_item_page.dart';
 import 'inventory_view_logic.dart';
@@ -14,6 +18,12 @@ const Color slate900 = Color(0xFF191F28);
 const Color slate600 = Color(0xFF8B95A1);
 const Color slate100 = Color(0xFFF2F4F6);
 const Color pureWhite = Color(0xFFFFFFFF);
+const Color warnColor = Color(0xFFC77700); // 모자란 자재 알림
+const Color warnSoft = Color(0xFFFFF3DF);
+
+// 칩에서 잔재를 고르면 재고가 아니라 잔재 목록을 보여 준다.
+// (재고와 달리 잔재는 규격과 길이만 있어서 목록 생김새가 다르다.)
+const String kLeftoverCategory = 'LEFTOVER';
 
 class MobileInventoryStatusPage extends StatefulWidget {
   final String workerName;
@@ -28,6 +38,11 @@ class MobileInventoryStatusPage extends StatefulWidget {
 class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
   String _searchQuery = "";
   String _selectedCategory = "ALL";
+  // 켜면 최소 수량 아래로 내려간 자재만 본다.
+  bool _shortOnly = false;
+  // 잔재 칸을 보고 있을 때 서버에서 읽어 둔 잔재.
+  List<Leftover>? _leftovers;
+  bool _leftoversLoading = false;
   final TextEditingController _searchController = TextEditingController();
 
   final CollectionReference _inventoryDb = FirebaseFirestore.instance
@@ -39,6 +54,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
   // (material_catalog.dart에 둘을 짝지어 뒀다).
   final List<String> _categories = [
     "ALL",
+    kLeftoverCategory,
     "CONDUIT",
     "FLEX",
     "ACC",
@@ -189,7 +205,13 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: ChoiceChip(
-                  label: Text(cat == "ALL" ? "전체" : materialCategoryLabel(cat)),
+                  label: Text(
+                    cat == "ALL"
+                        ? "전체"
+                        : (cat == kLeftoverCategory
+                              ? "잔재"
+                              : materialCategoryLabel(cat)),
+                  ),
                   labelStyle: TextStyle(
                     color: isSelected ? pureWhite : slate600,
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
@@ -207,8 +229,10 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                     horizontal: 12,
                     vertical: 8,
                   ),
-                  onSelected: (selected) =>
-                      setState(() => _selectedCategory = cat),
+                  onSelected: (selected) {
+                    setState(() => _selectedCategory = cat);
+                    if (cat == kLeftoverCategory) _loadLeftovers();
+                  },
                 ),
               );
             },
@@ -220,195 +244,423 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
 
         // 🌟 리스트 뷰
         Expanded(
-          child: StreamBuilder<QuerySnapshot>(
-            stream: _inventoryDb.snapshots(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Center(
-                  child: CircularProgressIndicator(color: slate300),
-                );
-              }
+          child: _selectedCategory == kLeftoverCategory
+              ? _buildLeftoverList()
+              : StreamBuilder<QuerySnapshot>(
+                  stream: _inventoryDb.snapshots(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: slate300),
+                      );
+                    }
 
-              List<DocumentSnapshot> filteredDocs = snapshot.data!.docs.where((
-                doc,
-              ) {
-                final data = doc.data() as Map<String, dynamic>;
-                bool categoryMatch =
-                    _selectedCategory == "ALL" ||
-                    data['category'] == _selectedCategory;
-                String target =
-                    "${data['name']} ${inventorySpecOf(data)} ${data['location']}"
-                        .toLowerCase();
-                return categoryMatch && target.contains(_searchQuery);
-              }).toList();
+                    // 최소 수량 아래로 내려간 자재가 몇 개인지(칸을 가리지 않고 센다).
+                    final shortCount = snapshot.data!.docs
+                        .where(
+                          (d) => isShortStock(d.data() as Map<String, dynamic>),
+                        )
+                        .length;
 
-              if (filteredDocs.isEmpty) {
-                return const Center(
+                    List<DocumentSnapshot>
+                    filteredDocs = snapshot.data!.docs.where((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      bool categoryMatch =
+                          _selectedCategory == "ALL" ||
+                          data['category'] == _selectedCategory;
+                      String target =
+                          "${data['name']} ${inventorySpecOf(data)} ${data['location']}"
+                              .toLowerCase();
+                      if (_shortOnly && !isShortStock(data)) return false;
+                      return categoryMatch && target.contains(_searchQuery);
+                    }).toList();
+
+                    if (filteredDocs.isEmpty) {
+                      return Column(
+                        children: [
+                          if (shortCount > 0) _shortBar(shortCount),
+                          const Expanded(
+                            child: Center(
+                              child: Text(
+                                "찾는 자재가 없습니다.",
+                                style: TextStyle(
+                                  color: slate600,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+
+                    return Column(
+                      children: [
+                        if (shortCount > 0) _shortBar(shortCount),
+                        Expanded(child: _inventoryList(filteredDocs)),
+                      ],
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  // 최소 수량 아래로 내려간 자재가 있으면 알려 주고, 그것만 보게 해 준다.
+  Widget _shortBar(int count) {
+    return InkWell(
+      onTap: () => setState(() => _shortOnly = !_shortOnly),
+      child: Container(
+        width: double.infinity,
+        color: _shortOnly ? warnSoft : pureWhite,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        child: Row(
+          children: [
+            Icon(
+              _shortOnly ? LucideIcons.checkSquare : LucideIcons.alertTriangle,
+              size: 18,
+              color: warnColor,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _shortOnly ? "모자란 자재만 보고 있습니다" : "모자란 자재 $count개",
+                style: const TextStyle(
+                  color: warnColor,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Text(
+              _shortOnly ? "모두 보기" : "이것만 보기",
+              style: const TextStyle(
+                color: slate600,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _inventoryList(List<DocumentSnapshot> filteredDocs) {
+    return ListView.separated(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.only(bottom: 80),
+      itemCount: filteredDocs.length,
+      separatorBuilder: (context, index) =>
+          Divider(height: 1, color: slate100, indent: 24, endIndent: 24),
+      itemBuilder: (context, index) {
+        final doc = filteredDocs[index];
+        final data = doc.data() as Map<String, dynamic>;
+
+        int qty = data['qty'] ?? 0;
+        String itemName = data['name'] ?? "이름 없음";
+        String unit = data['unit'] ?? "EA";
+        bool canCheckout = qty > 0;
+
+        // 🌟 카드 박스 제거, 여백 위주 디자인
+        // 줄을 누르면 그 자재만 보는 한 장 화면으로 간다.
+        return InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => InventoryItemPage(
+                  docId: doc.id,
+                  workerName: widget.workerName,
+                ),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // 1. 자재 정보
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        itemName,
+                        style: const TextStyle(
+                          color: slate900,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800, // 타이틀 볼드 강조
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: canCheckout
+                                  ? makitaTeal.withValues(alpha: 0.1)
+                                  : Colors.red.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              "재고 $qty$unit",
+                              style: TextStyle(
+                                color: canCheckout
+                                    ? makitaTeal
+                                    : Colors.redAccent,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              inventorySpecAndPlace(data),
+                              style: const TextStyle(
+                                color: slate600,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+
+                // 2. 조용하지만 명확한 액션 버튼
+                ElevatedButton(
+                  onPressed: canCheckout
+                      ? () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => MobileInventoryCheckoutPage(
+                                docId: doc.id,
+                                itemName: itemName,
+                                currentQty: qty,
+                                unit: unit,
+                                isCheckout: true,
+                                workerName: widget.workerName,
+                              ),
+                            ),
+                          );
+                        }
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: slate100, // 튀지 않는 배경색
+                    foregroundColor: slate900,
+                    disabledBackgroundColor: slate100.withValues(alpha: 0.5),
+                    disabledForegroundColor: slate600.withValues(alpha: 0.5),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    minimumSize: Size.zero,
+                  ),
+                  child: const Text(
+                    "불출",
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ==========================================
+  // 잔재 칸 (형강·튜브 컷팅에서 저장한 잔재. 서버에 있다)
+  // ==========================================
+  Future<void> _loadLeftovers() async {
+    if (_leftoversLoading) return;
+    setState(() => _leftoversLoading = true);
+    try {
+      final list = await loadLeftovers();
+      list.sort(
+        (a, b) => compareLeftoverRow(a.label, a.length, b.label, b.length),
+      );
+      if (!mounted) return;
+      setState(() {
+        _leftovers = list;
+        _leftoversLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _leftovers = const [];
+        _leftoversLoading = false;
+      });
+      showCuttingSnack(context, "잔재를 불러오지 못했습니다.", isError: true);
+    }
+  }
+
+  Future<void> _removeLeftover(Leftover l) async {
+    final ok = await showCuttingConfirmDialog(
+      context,
+      title: "이 잔재를 지웁니까?",
+      message: "${_leftoverTitle(l)}를 잔재 목록에서 지웁니다.",
+      confirmLabel: "지웁니다",
+      danger: true,
+    );
+    if (!ok) return;
+    final all = [...(_leftovers ?? const <Leftover>[])];
+    final i = all.indexWhere((x) => x.label == l.label && x.length == l.length);
+    if (i < 0) return;
+    all.removeAt(i);
+    try {
+      await saveLeftovers(all);
+      if (!mounted) return;
+      setState(() => _leftovers = all);
+      showCuttingSnack(context, "지웠습니다.");
+    } catch (_) {
+      if (!mounted) return;
+      showCuttingSnack(context, "지우지 못했습니다.", isError: true);
+    }
+  }
+
+  String _leftoverTitle(Leftover l) =>
+      l.label.trim().isEmpty ? "규격 없음" : l.label;
+
+  Widget _buildLeftoverList() {
+    if (_leftovers == null || _leftoversLoading) {
+      return const Center(child: CircularProgressIndicator(color: slate300));
+    }
+    final list = [
+      for (final l in _leftovers!)
+        if (_searchQuery.isEmpty ||
+            "${l.label} ${l.length.toStringAsFixed(0)}".toLowerCase().contains(
+              _searchQuery,
+            ))
+          l,
+    ];
+
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          color: pureWhite,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  "자르고 남은 잔재입니다. 재단 최적화에서 이 잔재부터 씁니다.",
+                  style: TextStyle(
+                    color: slate600,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const LeftoverLogPage(),
+                  ),
+                ),
+                child: const Text(
+                  "기록",
+                  style: TextStyle(
+                    color: makitaTeal,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Divider(height: 1, color: slate100),
+        Expanded(
+          child: list.isEmpty
+              ? const Center(
                   child: Text(
-                    "검색 결과가 없습니다.",
+                    "남은 잔재가 없습니다.",
                     style: TextStyle(
                       color: slate600,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                );
-              }
-
-              return ListView.separated(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.only(bottom: 80),
-                itemCount: filteredDocs.length,
-                separatorBuilder: (context, index) => Divider(
-                  height: 1,
-                  color: slate100,
-                  indent: 24,
-                  endIndent: 24,
-                ),
-                itemBuilder: (context, index) {
-                  final doc = filteredDocs[index];
-                  final data = doc.data() as Map<String, dynamic>;
-
-                  int qty = data['qty'] ?? 0;
-                  String itemName = data['name'] ?? "이름 없음";
-                  String unit = data['unit'] ?? "EA";
-                  bool canCheckout = qty > 0;
-
-                  // 🌟 카드 박스 제거, 여백 위주 디자인
-                  // 줄을 누르면 그 자재만 보는 한 장 화면으로 간다.
-                  return InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => InventoryItemPage(
-                            docId: doc.id,
-                            workerName: widget.workerName,
-                          ),
-                        ),
-                      );
-                    },
-                    child: Padding(
+                )
+              : ListView.separated(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.only(top: 8, bottom: 80),
+                  itemCount: list.length,
+                  separatorBuilder: (context, index) => Divider(
+                    height: 1,
+                    color: slate100,
+                    indent: 24,
+                    endIndent: 24,
+                  ),
+                  itemBuilder: (context, i) {
+                    final l = list[i];
+                    return Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
-                        vertical: 20,
+                        vertical: 18,
                       ),
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // 1. 자재 정보
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  itemName,
+                                  _leftoverTitle(l),
                                   style: const TextStyle(
                                     color: slate900,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800, // 타이틀 볼드 강조
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
                                     letterSpacing: -0.5,
                                   ),
                                 ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: canCheckout
-                                            ? makitaTeal.withValues(alpha: 0.1)
-                                            : Colors.red.withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        "재고 $qty$unit",
-                                        style: TextStyle(
-                                          color: canCheckout
-                                              ? makitaTeal
-                                              : Colors.redAccent,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        inventorySpecAndPlace(data),
-                                        style: const TextStyle(
-                                          color: slate600,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
+                                const SizedBox(height: 6),
+                                Text(
+                                  "${l.length.toStringAsFixed(0)}mm",
+                                  style: const TextStyle(
+                                    color: makitaTeal,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(width: 16),
-
-                          // 2. 조용하지만 명확한 액션 버튼
-                          ElevatedButton(
-                            onPressed: canCheckout
-                                ? () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            MobileInventoryCheckoutPage(
-                                              docId: doc.id,
-                                              itemName: itemName,
-                                              currentQty: qty,
-                                              unit: unit,
-                                              isCheckout: true,
-                                              workerName: widget.workerName,
-                                            ),
-                                      ),
-                                    );
-                                  }
-                                : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: slate100, // 튀지 않는 배경색
-                              foregroundColor: slate900,
-                              disabledBackgroundColor: slate100.withValues(
-                                alpha: 0.5,
-                              ),
-                              disabledForegroundColor: slate600.withValues(
-                                alpha: 0.5,
-                              ),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 12,
-                              ),
-                              minimumSize: Size.zero,
+                          IconButton(
+                            tooltip: '잔재 지우기',
+                            icon: const Icon(
+                              LucideIcons.trash2,
+                              size: 20,
+                              color: slate600,
                             ),
-                            child: const Text(
-                              "불출",
-                              style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 14,
-                              ),
-                            ),
+                            onPressed: () => _removeLeftover(l),
                           ),
                         ],
                       ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
+                    );
+                  },
+                ),
         ),
       ],
     );
