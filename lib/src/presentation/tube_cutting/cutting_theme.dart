@@ -376,6 +376,5 @@ class CuttingTheme extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      Theme(data: of(context), child: child);
+  Widget build(BuildContext context) => Theme(data: of(context), child: child);
 }

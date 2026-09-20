@@ -380,206 +380,212 @@ class MobileCuttingProjectListPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: CuttingColors.surface,
-      appBar: AppBar(
+    return CuttingTheme(
+      child: Scaffold(
         backgroundColor: CuttingColors.surface,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: false,
-        title: const Text(
-          "튜브 컷팅 계산기",
-          style: TextStyle(
-            color: CuttingColors.textPrimary,
-            fontWeight: FontWeight.w800,
-            fontSize: 20,
-            letterSpacing: -0.5,
-          ),
-        ),
-        iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
-        actions: [
-          IconButton(
-            tooltip: "부속 DB 새로고침 (개발자용)",
-            icon: Icon(
-              Icons.cloud_sync_outlined,
-              color: CuttingColors.textSecondary,
+        appBar: AppBar(
+          backgroundColor: CuttingColors.surface,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          centerTitle: false,
+          title: const Text(
+            "튜브 컷팅 계산기",
+            style: TextStyle(
+              color: CuttingColors.textPrimary,
+              fontWeight: FontWeight.w800,
+              fontSize: 20,
+              letterSpacing: -0.5,
             ),
-            onPressed: () => _reseedFittingCatalog(context),
           ),
-        ],
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection(kCuttingProjectsCollection)
-            .orderBy('createdAt', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  "작업 목록을 불러오지 못했습니다.\n${snapshot.error}",
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: CuttingColors.textSecondary),
-                ),
+          iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
+          actions: [
+            IconButton(
+              tooltip: "부속 DB 새로고침 (개발자용)",
+              icon: Icon(
+                Icons.cloud_sync_outlined,
+                color: CuttingColors.textSecondary,
               ),
-            );
-          }
-
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: CuttingColors.primary),
-            );
-          }
-
-          final docs = snapshot.data?.docs ?? [];
-
-          if (docs.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.content_cut_rounded,
-                      size: 48,
-                      color: Colors.grey.shade300,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      "등록된 컷팅 작업이 없습니다.",
-                      style: TextStyle(
-                        color: CuttingColors.textSecondary,
-                        fontSize: 15,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      "우측 하단 + 버튼으로 새 작업을 만들어 보십시오.",
-                      style: TextStyle(
-                        color: CuttingColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          return ListView.builder(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final doc = docs[index];
-              final data = doc.data() as Map<String, dynamic>;
-              final project = CuttingProject.fromMap(doc.id, data);
-              final lastCutAt = data['lastCutAt'] is String
-                  ? DateTime.tryParse(data['lastCutAt'] as String)
-                  : null;
-              final pendingMaterials =
-                  (data['materials'] as List?)?.length ?? 0;
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: InkWell(
-                  onTap: () => _openProject(context, doc.id, project),
-                  onLongPress: () => _showItemActions(context, doc.id, project),
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: CuttingColors.background,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: CuttingColors.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.content_cut_rounded,
-                            color: CuttingColors.primary,
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                project.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: CuttingColors.textPrimary,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                "총 절단 ${project.cutCount}회 · 소모량 ${project.estimatedMeters}m",
-                                style: const TextStyle(
-                                  color: CuttingColors.textSecondary,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              if (lastCutAt != null ||
-                                  pendingMaterials > 0) ...[
-                                const SizedBox(height: 6),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 4,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  children: [
-                                    if (lastCutAt != null)
-                                      Text(
-                                        "마지막 작업 ${lastCutAt.month}/${lastCutAt.day}",
-                                        style: TextStyle(
-                                          color: Colors.grey.shade400,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    PendingDeductionBadge(
-                                      materialCount: pendingMaterials,
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        const Icon(
-                          Icons.chevron_right_rounded,
-                          color: CuttingColors.textSecondary,
-                        ),
-                      ],
-                    ),
+              onPressed: () => _reseedFittingCatalog(context),
+            ),
+          ],
+        ),
+        body: StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection(kCuttingProjectsCollection)
+              .orderBy('createdAt', descending: true)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    "작업 목록을 불러오지 못했습니다.\n${snapshot.error}",
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: CuttingColors.textSecondary),
                   ),
                 ),
               );
-            },
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _createProject(context),
-        backgroundColor: CuttingColors.primary,
-        icon: const Icon(Icons.add, color: CuttingColors.surface),
-        label: const Text(
-          "새 작업 생성",
-          style: TextStyle(
-            color: CuttingColors.surface,
-            fontWeight: FontWeight.bold,
+            }
+
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: CuttingColors.primary),
+              );
+            }
+
+            final docs = snapshot.data?.docs ?? [];
+
+            if (docs.isEmpty) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.content_cut_rounded,
+                        size: 48,
+                        color: Colors.grey.shade300,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        "등록된 컷팅 작업이 없습니다.",
+                        style: TextStyle(
+                          color: CuttingColors.textSecondary,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        "우측 하단 + 버튼으로 새 작업을 만들어 보십시오.",
+                        style: TextStyle(
+                          color: CuttingColors.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            return ListView.builder(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+              itemCount: docs.length,
+              itemBuilder: (context, index) {
+                final doc = docs[index];
+                final data = doc.data() as Map<String, dynamic>;
+                final project = CuttingProject.fromMap(doc.id, data);
+                final lastCutAt = data['lastCutAt'] is String
+                    ? DateTime.tryParse(data['lastCutAt'] as String)
+                    : null;
+                final pendingMaterials =
+                    (data['materials'] as List?)?.length ?? 0;
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: InkWell(
+                    onTap: () => _openProject(context, doc.id, project),
+                    onLongPress: () =>
+                        _showItemActions(context, doc.id, project),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: CuttingColors.background,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: CuttingColors.primary.withValues(
+                                alpha: 0.1,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.content_cut_rounded,
+                              color: CuttingColors.primary,
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  project.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: CuttingColors.textPrimary,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  "총 절단 ${project.cutCount}회 · 소모량 ${project.estimatedMeters}m",
+                                  style: const TextStyle(
+                                    color: CuttingColors.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                if (lastCutAt != null ||
+                                    pendingMaterials > 0) ...[
+                                  const SizedBox(height: 6),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    children: [
+                                      if (lastCutAt != null)
+                                        Text(
+                                          "마지막 작업 ${lastCutAt.month}/${lastCutAt.day}",
+                                          style: TextStyle(
+                                            color: Colors.grey.shade400,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      PendingDeductionBadge(
+                                        materialCount: pendingMaterials,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            color: CuttingColors.textSecondary,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => _createProject(context),
+          backgroundColor: CuttingColors.primary,
+          icon: const Icon(Icons.add, color: CuttingColors.surface),
+          label: const Text(
+            "새 작업 생성",
+            style: TextStyle(
+              color: CuttingColors.surface,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ),

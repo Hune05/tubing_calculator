@@ -1765,7 +1765,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('steel_result_summary')), findsOneWidget);
       // 앵글 2300mm(1본) + 스트럿 3000mm(1본) = 최소 2본, 남은 6개 · 5300mm
-      expect(findTextContaining('최소 2본'), findsOneWidget);
+      expect(findTextContaining('원자재 최소 2본'), findsOneWidget);
       expect(findTextContaining('남은 7개'), findsOneWidget);
       expect(find.byKey(const Key('steel_clear_done')), findsNothing);
       await tester.tap(find.text('800.0 mm'));
@@ -1777,6 +1777,35 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('steel_clear_done')), findsNothing);
       expect(findTextContaining('남은 7개'), findsOneWidget);
+    });
+
+    testWidgets('아이콘을 써 본 뒤에는 칩이 아이콘만 남고, ?를 누르면 이름이 다시 보인다', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'cutting_result_icons_used': true,
+      });
+      await open(tester, proj());
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+      // 칩은 그대로 있지만 이름은 감춘다(툴팁·길게 누르면 이름).
+      expect(find.byKey(const Key('steel_hide_done')), findsOneWidget);
+      expect(find.text('자른 줄 감추기'), findsNothing);
+      await tester.tap(find.byKey(const Key('action_help')));
+      await tester.pumpAndSettle();
+      expect(find.text('자른 줄 감추기'), findsOneWidget);
+    });
+
+    testWidgets('요약 줄은 목록 위에 있다', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await open(tester, proj());
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+      final summaryY = tester
+          .getTopLeft(find.byKey(const Key('steel_result_summary')))
+          .dy;
+      final headerY = tester
+          .getTopLeft(find.byKey(const Key('result_header')))
+          .dy;
+      expect(summaryY < headerY, true);
     });
 
     testWidgets('자른 줄 감추기 칩', (tester) async {

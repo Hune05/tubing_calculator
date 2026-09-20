@@ -183,137 +183,139 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: CuttingColors.surface,
-      appBar: AppBar(
+    return CuttingTheme(
+      child: Scaffold(
         backgroundColor: CuttingColors.surface,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
-        title: Text(
-          "컷팅 기록 · ${widget.project.name}",
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: CuttingColors.textPrimary,
-            fontWeight: FontWeight.w800,
-            fontSize: 17,
+        appBar: AppBar(
+          backgroundColor: CuttingColors.surface,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
+          title: Text(
+            "컷팅 기록 · ${widget.project.name}",
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: CuttingColors.textPrimary,
+              fontWeight: FontWeight.w800,
+              fontSize: 17,
+            ),
           ),
+          actions: [
+            IconButton(
+              tooltip: "기록 내보내기",
+              icon: const Icon(Icons.ios_share_rounded),
+              onPressed: _exportRecords,
+            ),
+          ],
         ),
-        actions: [
-          IconButton(
-            tooltip: "기록 내보내기",
-            icon: const Icon(Icons.ios_share_rounded),
-            onPressed: _exportRecords,
-          ),
-        ],
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection(kCuttingProjectsCollection)
-            .doc(widget.project.id)
-            .collection(kCutRecordsSubcollection)
-            .orderBy('timestamp', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                "기록을 불러오지 못했습니다.\n${snapshot.error}",
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: CuttingColors.textSecondary),
-              ),
-            );
-          }
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: CuttingColors.primary),
-            );
-          }
-
-          final docs = snapshot.data?.docs ?? [];
-          if (docs.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.history_rounded, size: 48, color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text(
-                      "아직 컷팅 기록이 없습니다.",
-                      style: TextStyle(
-                        color: CuttingColors.textSecondary,
-                        fontSize: 15,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      "계산기에서 '완료'를 누르면 여기에 남습니다.",
-                      style: TextStyle(
-                        color: CuttingColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
+        body: StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection(kCuttingProjectsCollection)
+              .doc(widget.project.id)
+              .collection(kCutRecordsSubcollection)
+              .orderBy('timestamp', descending: true)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(
+                child: Text(
+                  "기록을 불러오지 못했습니다.\n${snapshot.error}",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: CuttingColors.textSecondary),
                 ),
-              ),
-            );
-          }
+              );
+            }
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: CuttingColors.primary),
+              );
+            }
 
-          final records = docs
-              .map(
-                (d) =>
-                    CutRecord.fromMap(d.id, d.data() as Map<String, dynamic>),
-              )
-              .toList();
-
-          // 칩 순서는 오래된 기록부터 처음 나온 규격 순서로 한다(목록은 최신순이라 그대로 쓰면 거꾸로 나온다).
-          final specs = recordSpecs(
-            [...records]..sort((a, b) => a.timestamp.compareTo(b.timestamp)),
-          );
-          // 고른 규격의 기록이 더는 없으면(지웠으면) 전체로 돌아간다.
-          final String? activeFilter = specs.contains(_specFilter)
-              ? _specFilter
-              : null;
-          final shown = filterBySpec(records, activeFilter);
-          _specFilter = activeFilter;
-          _records = shown;
-          final Map<DateTime, List<CutRecord>> grouped = {};
-          for (final r in shown) {
-            final day = DateTime(
-              r.timestamp.year,
-              r.timestamp.month,
-              r.timestamp.day,
-            );
-            grouped.putIfAbsent(day, () => []).add(r);
-          }
-          final days = grouped.keys.toList()
-            ..sort((a, b) => b.compareTo(a)); // 최신 날짜가 먼저
-
-          if (_currentPage >= days.length) {
-            _currentPage = 0;
-          }
-
-          return Column(
-            children: [
-              if (specs.length > 1) _buildSpecFilter(specs, activeFilter),
-              _buildDayNavigator(days),
-              Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: days.length,
-                  onPageChanged: (i) => setState(() => _currentPage = i),
-                  itemBuilder: (context, i) {
-                    final day = days[i];
-                    final dayRecords = grouped[day]!;
-                    return _buildDayList(day, dayRecords);
-                  },
+            final docs = snapshot.data?.docs ?? [];
+            if (docs.isEmpty) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.history_rounded, size: 48, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text(
+                        "아직 컷팅 기록이 없습니다.",
+                        style: TextStyle(
+                          color: CuttingColors.textSecondary,
+                          fontSize: 15,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        "계산기에서 '완료'를 누르면 여기에 남습니다.",
+                        style: TextStyle(
+                          color: CuttingColors.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          );
-        },
+              );
+            }
+
+            final records = docs
+                .map(
+                  (d) =>
+                      CutRecord.fromMap(d.id, d.data() as Map<String, dynamic>),
+                )
+                .toList();
+
+            // 칩 순서는 오래된 기록부터 처음 나온 규격 순서로 한다(목록은 최신순이라 그대로 쓰면 거꾸로 나온다).
+            final specs = recordSpecs(
+              [...records]..sort((a, b) => a.timestamp.compareTo(b.timestamp)),
+            );
+            // 고른 규격의 기록이 더는 없으면(지웠으면) 전체로 돌아간다.
+            final String? activeFilter = specs.contains(_specFilter)
+                ? _specFilter
+                : null;
+            final shown = filterBySpec(records, activeFilter);
+            _specFilter = activeFilter;
+            _records = shown;
+            final Map<DateTime, List<CutRecord>> grouped = {};
+            for (final r in shown) {
+              final day = DateTime(
+                r.timestamp.year,
+                r.timestamp.month,
+                r.timestamp.day,
+              );
+              grouped.putIfAbsent(day, () => []).add(r);
+            }
+            final days = grouped.keys.toList()
+              ..sort((a, b) => b.compareTo(a)); // 최신 날짜가 먼저
+
+            if (_currentPage >= days.length) {
+              _currentPage = 0;
+            }
+
+            return Column(
+              children: [
+                if (specs.length > 1) _buildSpecFilter(specs, activeFilter),
+                _buildDayNavigator(days),
+                Expanded(
+                  child: PageView.builder(
+                    controller: _pageController,
+                    itemCount: days.length,
+                    onPageChanged: (i) => setState(() => _currentPage = i),
+                    itemBuilder: (context, i) {
+                      final day = days[i];
+                      final dayRecords = grouped[day]!;
+                      return _buildDayList(day, dayRecords);
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

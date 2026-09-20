@@ -2199,60 +2199,62 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   Widget build(BuildContext context) {
     super.build(context);
 
-    return Scaffold(
-      backgroundColor: lightBg,
-      appBar: AppBar(
-        backgroundColor: makitaTeal,
-        foregroundColor: whiteCard,
-        elevation: 0,
-        title: Text(
-          "프로젝트: ${widget.project.name}",
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+    return CuttingTheme(
+      child: Scaffold(
+        backgroundColor: lightBg,
+        appBar: AppBar(
+          backgroundColor: makitaTeal,
+          foregroundColor: whiteCard,
+          elevation: 0,
+          title: Text(
+            "프로젝트: ${widget.project.name}",
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+          ),
+          actions: [
+            IconButton(
+              tooltip: "톱날 손실(커프) 설정",
+              icon: const Icon(Icons.content_cut_rounded),
+              onPressed: _showBladeKerfDialog,
+            ),
+            IconButton(
+              tooltip: "컷팅 기록",
+              icon: const Icon(Icons.history_rounded),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CuttingHistoryPage(project: widget.project),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
-        actions: [
-          IconButton(
-            tooltip: "톱날 손실(커프) 설정",
-            icon: const Icon(Icons.content_cut_rounded),
-            onPressed: _showBladeKerfDialog,
-          ),
-          IconButton(
-            tooltip: "컷팅 기록",
-            icon: const Icon(Icons.history_rounded),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => CuttingHistoryPage(project: widget.project),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Builder(
-            builder: (context) {
-              final bool isWide =
-                  MediaQuery.of(context).size.shortestSide >= 600;
-              return _buildMakerHeader(isWide);
-            },
-          ),
+        body: Column(
+          children: [
+            Builder(
+              builder: (context) {
+                final bool isWide =
+                    MediaQuery.of(context).size.shortestSide >= 600;
+                return _buildMakerHeader(isWide);
+              },
+            ),
 
-          // 🚀 [수정] 이 화면은 원래 데스크톱 프로젝트 관리 화면 안에서만
-          // 쓰던 고정 좌우 2단(Row flex:4/5) 레이아웃이라, 좁은 폰 화면에서는
-          // 각 칸이 짓눌려 못 쓸 정도였다. 폴더블 대응을 하면서 화면
-          // 크기(shortestSide)를 실시간으로 봐서, 넓을 땐 기존 좌우 2단
-          // 레이아웃을 그대로 쓰고 좁을 땐 탭으로 나눠 1칼럼으로 보여준다.
-          Builder(
-            builder: (context) {
-              final bool isWide =
-                  MediaQuery.of(context).size.shortestSide >= 600;
-              return isWide ? _buildWideBody() : _buildNarrowBody();
-            },
-          ),
-        ],
+            // 🚀 [수정] 이 화면은 원래 데스크톱 프로젝트 관리 화면 안에서만
+            // 쓰던 고정 좌우 2단(Row flex:4/5) 레이아웃이라, 좁은 폰 화면에서는
+            // 각 칸이 짓눌려 못 쓸 정도였다. 폴더블 대응을 하면서 화면
+            // 크기(shortestSide)를 실시간으로 봐서, 넓을 땐 기존 좌우 2단
+            // 레이아웃을 그대로 쓰고 좁을 땐 탭으로 나눠 1칼럼으로 보여준다.
+            Builder(
+              builder: (context) {
+                final bool isWide =
+                    MediaQuery.of(context).size.shortestSide >= 600;
+                return isWide ? _buildWideBody() : _buildNarrowBody();
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -29,36 +29,38 @@ class LeftoverLogPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: CuttingColors.surface,
-      appBar: AppBar(
+    return CuttingTheme(
+      child: Scaffold(
         backgroundColor: CuttingColors.surface,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
-        title: const Text(
-          "잔재 기록",
-          style: TextStyle(
-            color: CuttingColors.textPrimary,
-            fontWeight: FontWeight.w800,
-            fontSize: 17,
+        appBar: AppBar(
+          backgroundColor: CuttingColors.surface,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
+          title: const Text(
+            "잔재 기록",
+            style: TextStyle(
+              color: CuttingColors.textPrimary,
+              fontWeight: FontWeight.w800,
+              fontSize: 17,
+            ),
           ),
         ),
-      ),
-      body: FutureBuilder<(List<LeftoverLogEntry>, List<Leftover>)>(
-        future: _load(),
-        builder: (context, snap) {
-          if (!snap.hasData) {
-            return const Center(
-              child: CircularProgressIndicator(color: CuttingColors.primary),
+        body: FutureBuilder<(List<LeftoverLogEntry>, List<Leftover>)>(
+          future: _load(),
+          builder: (context, snap) {
+            if (!snap.hasData) {
+              return const Center(
+                child: CircularProgressIndicator(color: CuttingColors.primary),
+              );
+            }
+            return _LogList(
+              entries: snap.data!.$1,
+              current: snap.data!.$2,
+              now: now,
             );
-          }
-          return _LogList(
-            entries: snap.data!.$1,
-            current: snap.data!.$2,
-            now: now,
-          );
-        },
+          },
+        ),
       ),
     );
   }

@@ -2332,10 +2332,10 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
           ),
           if (lines.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.only(top: 6),
               child: Wrap(
                 alignment: WrapAlignment.end,
-                spacing: 8,
+                spacing: 6,
                 runSpacing: 6,
                 children: [
                   if (shapeSubtotals(lines).length > 1)
@@ -2364,6 +2364,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                 ],
               ),
             ),
+          if (lines.isNotEmpty) _buildResultSummary(lines),
           const SizedBox(height: 12),
           Expanded(
             child: Container(
@@ -2394,13 +2395,13 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
               ),
             ),
           ),
-          if (lines.isNotEmpty) _buildResultSummary(lines),
         ],
       ),
     );
   }
 
-  // 결과 탭 맨 아래 고정 줄: 원자재 최소 본수, 남은 개수·길이, 잘랐음 지우기(입력 탭 요약 줄과 짝).
+  // 결과 목록 바로 위 고정 줄: 원자재 최소 본수, 남은 개수·길이, 잘랐음 지우기.
+  // 아래에 두면 오래 남는 스낵바(폰 설정에 따라 몇 분씩 남는다)에 가려서 위로 올렸다.
   Widget _buildResultSummary(List<ResultLine> lines) {
     final bars = minBarsNeeded(lines, _stockLength);
     final rest = remainingToCut(lines, _doneKeys);
@@ -2409,7 +2410,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     return Container(
       key: const Key('steel_result_summary'),
       width: double.infinity,
-      margin: const EdgeInsets.only(top: 10),
+      margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: CuttingColors.primarySoft,
@@ -2421,10 +2422,10 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
           Expanded(
             child: Text(
               [
-                if (bars > 0) "원자재(${fmtMm(_stockLength)}mm) 최소 $bars본",
+                if (bars > 0) "원자재 최소 $bars본",
                 rest.pieces == 0
                     ? "모두 잘랐습니다"
-                    : "남은 ${rest.pieces}개 · ${fmtMm(rest.mm)}mm",
+                    : "남은 ${rest.pieces}개 ${fmtMm(rest.mm)}mm",
               ].join("  ·  "),
               maxLines: 2,
               style: TextStyle(
@@ -2469,34 +2470,43 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     required VoidCallback onTap,
   }) {
     final fg = on ? Colors.white : Colors.grey.shade700;
-    return InkWell(
-      key: key,
-      borderRadius: BorderRadius.circular(8),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: on ? CuttingColors.primary : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: fg),
-            const SizedBox(width: 4),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: fg,
+    // 아이콘 줄과 같은 규칙: 처음 쓰는 동안은 이름을 붙여 주고, 써 본 뒤에는 아이콘만 둔다("?"로 다시 본다).
+    final showLabel = !_iconsUsed || _labelsPinned;
+    return Tooltip(
+      message: label,
+      child: InkWell(
+        key: key,
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Container(
+          padding: showLabel
+              ? const EdgeInsets.symmetric(horizontal: 10, vertical: 6)
+              : const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: on ? CuttingColors.primary : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: showLabel ? 16 : 20, color: fg),
+              if (showLabel) ...[
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: fg,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ],
+              ],
+            ],
+          ),
         ),
       ),
     );
