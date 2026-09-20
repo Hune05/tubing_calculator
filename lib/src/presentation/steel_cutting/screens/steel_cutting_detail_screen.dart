@@ -1233,15 +1233,136 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: CuttingColors.danger.withValues(alpha: 0.4)),
       ),
-      child: Text(
-        "원자재(${fmtMm(_maxStock)}mm)보다 긴 항목이 $count건 있습니다. 재단 최적화 배치에서 빠집니다. 길이나 원자재 기준 길이를 확인하십시오.",
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w800,
-          color: CuttingColors.danger,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "원자재(${fmtMm(_maxStock)}mm)보다 긴 항목이 $count건 있습니다. 재단 최적화 배치에서 빠집니다. 항목 길이를 고치거나 원자재 길이를 바꾸십시오.",
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: CuttingColors.danger,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              key: const Key('steel_edit_stock'),
+              onPressed: _showStockDialog,
+              style: TextButton.styleFrom(
+                foregroundColor: CuttingColors.danger,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                minimumSize: const Size(0, 34),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              icon: const Icon(Icons.straighten_rounded, size: 16),
+              label: const Text(
+                "원자재 길이 바꾸기",
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+              ),
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  // 원자재 기준 길이를 입력 탭에서 바로 고친다(재단 최적화 창까지 들어가지 않아도 된다).
+  Future<void> _showStockDialog() async {
+    final ctrl = TextEditingController(text: _stockLength.toStringAsFixed(0));
+    final v = await showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: CuttingColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            cuttingDialogIcon(Icons.straighten_rounded),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Text(
+                "원자재 기준 길이",
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: CuttingColors.textPrimary,
+                  fontSize: 17,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "자재 한 본의 길이입니다. 재단 최적화 배치와 긴 항목 경고가 이 길이를 씁니다.",
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('steel_stock_field'),
+              controller: ctrl,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: CuttingColors.textPrimary,
+              ),
+              decoration: InputDecoration(
+                suffixText: 'mm',
+                filled: true,
+                fillColor: Colors.grey.shade100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              onSubmitted: (v) => Navigator.pop(ctx, double.tryParse(v.trim())),
+            ),
+          ],
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("취소", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            key: const Key('steel_stock_save'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: CuttingColors.primary,
+            ),
+            onPressed: () =>
+                Navigator.pop(ctx, double.tryParse(ctrl.text.trim())),
+            child: const Text(
+              "저장",
+              style: TextStyle(color: CuttingColors.surface),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (v == null || v <= 0) {
+      if (v != null) {
+        showCuttingSnack(context, "길이를 숫자로 적으십시오.", isError: true);
+      }
+      return;
+    }
+    setState(() => _stockLength = v);
+    try {
+      await _persistStockLength(v);
+    } catch (e) {
+      if (mounted) showCuttingSnack(context, "저장하지 못했습니다: $e", isError: true);
+      return;
+    }
+    if (!mounted) return;
+    showCuttingSnack(context, "원자재 기준 길이를 ${fmtMm(v)}mm로 바꿨습니다.");
   }
 
   // 같은 규격·같은 길이가 여러 건으로 나뉘어 있을 때 합치기를 권한다(결과는 어차피 합쳐 계산되지만 목록이 깔끔해진다).

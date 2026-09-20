@@ -86,7 +86,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
   }
 
   Future<void> _loadTopLengths() async {
-    final top = await loadTopSteelLengths();
+    final top = await loadTopSteelLengths(shapeLabel: _shape?.label ?? '');
     if (!mounted) return;
     setState(() => _topLengths = top);
   }
@@ -129,7 +129,11 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
       );
     }
     HapticFeedback.lightImpact();
-    bumpSteelLengthUse(p.entries.map((e) => e.length));
+    await bumpSteelLengthUse(
+      p.entries.map((e) => e.length),
+      shapeLabel: shape.label,
+    );
+    if (!mounted) return;
     setState(() => _multiCtrl.clear());
     showCuttingSnack(
       context,
@@ -174,6 +178,8 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
     } else {
       setState(() => _shape = picked);
     }
+    // 규격이 바뀌면 그 규격에서 자주 쓰는 길이로 칩을 다시 읽는다.
+    _loadTopLengths();
   }
 
   Future<String?> _promptCustomShapeLabel() =>
@@ -218,7 +224,10 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
     );
     widget.onSave(item);
     HapticFeedback.lightImpact();
-    bumpSteelLengthUse([length]);
+    // 길이를 센 뒤에 칩을 다시 읽는다(방금 넣은 길이가 바로 반영된다).
+    bumpSteelLengthUse([length], shapeLabel: shape.label).then((_) {
+      if (mounted) _loadTopLengths();
+    });
     // 직접 입력한 규격은 다음에 "내 규격"에서 고를 수 있게 적어 둔다.
     if (shape.category == 'CUSTOM') addCustomSteelShape(shape.label);
     saveRecentSteelItem(
@@ -339,6 +348,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
             );
             _lengthCtrl.text = pick.length.toStringAsFixed(0);
           });
+          _loadTopLengths();
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),

@@ -75,33 +75,100 @@ Future<Map<String, int>> _loadFreq() async {
   }
 }
 
-// 길이 [lengths]를 한 번씩 센다(여러 개를 한 번에 넣어도 한 번씩).
-Future<void> bumpSteelLengthUse(Iterable<double> lengths) async {
+// 규격별로도 따로 센다(앵글에 쓰는 길이와 찬넬에 쓰는 길이가 다르다). 규격 이름 → {길이: 횟수}.
+const String kSteelLengthFreqByShapePrefsKey = 'steel_length_freq_by_shape_v1';
+const int kMaxSteelShapesInFreq = 30;
+
+Future<Map<String, Map<String, int>>> _loadFreqByShape() async {
+  try {
+    final p = await SharedPreferences.getInstance();
+    final s = p.getString(kSteelLengthFreqByShapePrefsKey);
+    if (s == null) return {};
+    final m = jsonDecode(s) as Map<String, dynamic>;
+    return {
+      for (final e in m.entries)
+        e.key: {
+          for (final f in (e.value as Map<String, dynamic>).entries)
+            f.key: (f.value as num).toInt(),
+        },
+    };
+  } catch (_) {
+    return {};
+  }
+}
+
+// 길이 [lengths]를 한 번씩 센다(여러 개를 한 번에 넣어도 한 번씩). 규격 이름을 주면 그 규격에서도 센다.
+Future<void> bumpSteelLengthUse(
+  Iterable<double> lengths, {
+  String shapeLabel = '',
+}) async {
   final freq = await _loadFreq();
   for (final v in lengths) {
     if (v <= 0) continue;
     freq.update(_lenKey(v), (c) => c + 1, ifAbsent: () => 1);
   }
-  if (freq.length > kMaxSteelLengthFreq) {
-    final keep = freq.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    freq
-      ..clear()
-      ..addEntries(keep.take(kMaxSteelLengthFreq));
-  }
+  _trim(freq, kMaxSteelLengthFreq);
   try {
     final p = await SharedPreferences.getInstance();
     await p.setString(kSteelLengthFreqPrefsKey, jsonEncode(freq));
   } catch (_) {}
+  if (shapeLabel.trim().isEmpty) return;
+  final byShape = await _loadFreqByShape();
+  final mine = byShape.putIfAbsent(shapeLabel, () => {});
+  for (final v in lengths) {
+    if (v <= 0) continue;
+    mine.update(_lenKey(v), (c) => c + 1, ifAbsent: () => 1);
+  }
+  _trim(mine, kMaxSteelLengthFreq);
+  // 규격이 너무 많이 쌓이면 적게 쓴 규격부터 버린다.
+  if (byShape.length > kMaxSteelShapesInFreq) {
+    final keep = byShape.entries.toList()
+      ..sort((a, b) => _sum(b.value).compareTo(_sum(a.value)));
+    byShape
+      ..clear()
+      ..addEntries(keep.take(kMaxSteelShapesInFreq));
+  }
+  try {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(kSteelLengthFreqByShapePrefsKey, jsonEncode(byShape));
+  } catch (_) {}
 }
 
-// 많이 쓴 순서(같으면 짧은 길이 먼저)로 [n]개. 두 번 이상 쓴 길이만 보여 준다(한 번 쓴 길이는 우연일 수 있어서).
-Future<List<double>> loadTopSteelLengths({int n = 5}) async {
-  final freq = await _loadFreq();
+int _sum(Map<String, int> m) => m.values.fold(0, (a, b) => a + b);
+
+void _trim(Map<String, int> freq, int max) {
+  if (freq.length <= max) return;
+  final keep = freq.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+  freq
+    ..clear()
+    ..addEntries(keep.take(max));
+}
+
+// 많이 쓴 순서(같으면 짧은 길이 먼저). 두 번 이상 쓴 길이만 보여 준다(한 번 쓴 길이는 우연일 수 있어서).
+List<double> _top(Map<String, int> freq, int n) {
   final list = [
     for (final e in freq.entries)
       if (e.value >= 2 && double.tryParse(e.key) != null)
         (double.parse(e.key), e.value),
   ]..sort((a, b) => b.$2 != a.$2 ? b.$2.compareTo(a.$2) : a.$1.compareTo(b.$1));
   return [for (final e in list.take(n)) e.$1];
+}
+
+// 자주 쓰는 길이 [n]개. 규격을 주면 그 규격에서 많이 쓴 길이를 먼저 주고, 모자라면 규격을 가리지 않고 많이
+// 쓴 길이로 채운다(규격별로 세기 시작하기 전에 쌓아 둔 것도 계속 쓸 수 있다).
+Future<List<double>> loadTopSteelLengths({
+  int n = 5,
+  String shapeLabel = '',
+}) async {
+  final out = <double>[];
+  if (shapeLabel.trim().isNotEmpty) {
+    final byShape = await _loadFreqByShape();
+    out.addAll(_top(byShape[shapeLabel] ?? const {}, n));
+  }
+  for (final v in _top(await _loadFreq(), n)) {
+    if (out.length >= n) break;
+    if (!out.contains(v)) out.add(v);
+  }
+  return out;
 }

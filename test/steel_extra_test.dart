@@ -1270,6 +1270,36 @@ void main() {
       expect(await loadTopSteelLengths(n: 1), [800]);
     });
 
+    test('자주 쓰는 길이: 규격을 주면 그 규격 것이 먼저, 모자라면 전체에서 채운다', () async {
+      // 전체로만 쌓인 옛 기록(규격 없이 센 것).
+      await bumpSteelLengthUse([300]);
+      await bumpSteelLengthUse([300]);
+      // 앵글에서는 500을, 찬넬에서는 200을 자주 쓴다.
+      await bumpSteelLengthUse([500], shapeLabel: '앵글 50x50x5');
+      await bumpSteelLengthUse([500], shapeLabel: '앵글 50x50x5');
+      await bumpSteelLengthUse([200], shapeLabel: '찬넬 75x40x5');
+      await bumpSteelLengthUse([200], shapeLabel: '찬넬 75x40x5');
+      expect(await loadTopSteelLengths(shapeLabel: '앵글 50x50x5'), [
+        500,
+        200,
+        300,
+      ]);
+      expect(await loadTopSteelLengths(shapeLabel: '찬넬 75x40x5'), [
+        200,
+        300,
+        500,
+      ]);
+      // 규격을 주지 않으면 예전처럼 전체에서 많이 쓴 순서.
+      expect(await loadTopSteelLengths(), [200, 300, 500]);
+      // 처음 쓰는 규격은 전체 목록으로 채운다.
+      expect(await loadTopSteelLengths(shapeLabel: '스트럿 41x41x2.5'), [
+        200,
+        300,
+        500,
+      ]);
+      expect(await loadTopSteelLengths(shapeLabel: '앵글 50x50x5', n: 1), [500]);
+    });
+
     test('자주 쓰는 길이는 최대 개수를 넘으면 적게 쓴 것부터 버린다', () async {
       for (var i = 1; i <= kMaxSteelLengthFreq + 5; i++) {
         await bumpSteelLengthUse([i * 10.0]);
@@ -1653,6 +1683,33 @@ void main() {
       expect(findTextContaining('6000mm)보다 긴 항목이 1건'), findsOneWidget);
       expect(find.byKey(const Key('steel_over_a')), findsOneWidget);
       expect(find.byKey(const Key('steel_over_b')), findsNothing);
+    });
+
+    testWidgets('긴 항목 경고에서 원자재 길이를 바로 바꾼다', (tester) async {
+      await open(tester, proj(items: [item('앵글 40x40x3', 6500, 1, id: 'a')]));
+      expect(find.byKey(const Key('steel_over_banner')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('steel_edit_stock')));
+      await tester.pumpAndSettle();
+      expect(find.text('원자재 기준 길이'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const Key('steel_stock_field')),
+        '7000',
+      );
+      await tester.tap(find.byKey(const Key('steel_stock_save')));
+      await tester.pumpAndSettle();
+      // 7000mm가 되면 6500mm 항목은 더 이상 길지 않다 → 경고가 사라진다.
+      expect(find.byKey(const Key('steel_over_banner')), findsNothing);
+      expect(find.byKey(const Key('steel_over_a')), findsNothing);
+    });
+
+    testWidgets('원자재 길이 창에서 취소하면 그대로다', (tester) async {
+      await open(tester, proj(items: [item('앵글 40x40x3', 6500, 1, id: 'a')]));
+      await tester.tap(find.byKey(const Key('steel_edit_stock')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('취소'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('steel_over_banner')), findsOneWidget);
+      expect(findTextContaining('6000mm)보다 긴 항목이 1건'), findsOneWidget);
     });
 
     testWidgets('긴 항목이 없으면 경고가 없다', (tester) async {
