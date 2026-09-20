@@ -47,7 +47,8 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
 
-    final now = DateTime(2026, 9, 19, 12);
+    // 알림 플러그인은 실제 시계로 "미래인지"를 확인하므로, 오늘이 지나도 깨지지 않게 먼 미래 날짜를 쓴다.
+    final now = DateTime(2040, 9, 19, 12);
     Map<String, dynamic> data({
       int minutes = 30,
       String recurrence = 'none',
@@ -55,7 +56,7 @@ void main() {
       bool hasTime = true,
     }) => {
       'title': '검사',
-      'dateTime': (at ?? DateTime(2026, 9, 20, 10)).toIso8601String(),
+      'dateTime': (at ?? DateTime(2040, 9, 20, 10)).toIso8601String(),
       'hasTime': hasTime,
       'recurrence': recurrence,
       'reminderMinutesBefore': minutes,
@@ -88,7 +89,7 @@ void main() {
       );
       await schedulePersonalReminder(
         'doc2',
-        data(at: DateTime(2026, 9, 19, 12, 10)),
+        data(at: DateTime(2040, 9, 19, 12, 10)),
         nowForTest: now,
       );
       expect(calls.where((c) => c.startsWith('schedule')), isEmpty);

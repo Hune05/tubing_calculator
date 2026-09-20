@@ -68,3 +68,45 @@ String cutBreakdownText({
   }
   return parts.length == 1 ? head : '$head = ${parts.join(' ')}';
 }
+
+// ── 배치도 계산 ──
+
+// 배치도에서 구간 선의 세로 길이. 가장 긴 구간이 [max], 짧을수록 [min]에 가깝게 그려서
+// 길이 차이가 눈에 보이게 한다. 치수가 없거나 0 이하면 [min].
+double segmentHeight(
+  double? cutMm,
+  double maxCutMm, {
+  double min = 56,
+  double max = 128,
+}) {
+  if (cutMm == null || cutMm <= 0 || maxCutMm <= 0) return min;
+  final ratio = (cutMm / maxCutMm).clamp(0.0, 1.0);
+  return min + (max - min) * ratio;
+}
+
+// 각 지점이 라인 시작에서 얼마나 떨어져 있는지(중심 간 거리를 이어 더한 값).
+// [c2cMm]은 구간별 중심 간 거리이고, 없으면 null. 결과 길이는 구간 수 + 1이고
+// 첫 지점은 0이다. 앞쪽 구간 하나라도 값이 없으면 그 뒤 지점은 알 수 없어 null.
+List<double?> cumulativePositions(List<double?> c2cMm) {
+  final out = <double?>[0.0];
+  for (final v in c2cMm) {
+    final prev = out.last;
+    out.add(prev == null || v == null ? null : prev + v);
+  }
+  return out;
+}
+
+// "유니온 ×2 · 엘보 ×1" — 같은 이름을 세고 많은 것부터 나열한다(같으면 이름순).
+String fittingCountsText(List<String> names) {
+  final counts = <String, int>{};
+  for (final n in names) {
+    if (n.trim().isEmpty) continue;
+    counts[n] = (counts[n] ?? 0) + 1;
+  }
+  final keys = counts.keys.toList()
+    ..sort((a, b) {
+      final c = counts[b]!.compareTo(counts[a]!);
+      return c != 0 ? c : a.compareTo(b);
+    });
+  return keys.map((k) => '$k ×${counts[k]}').join(' · ');
+}

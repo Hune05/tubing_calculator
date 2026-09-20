@@ -15,6 +15,7 @@ import '../../../data/models/smart_fitting_db.dart';
 import '../widgets/smart_fitting_selector_sheet.dart';
 import 'cutting_history_page.dart';
 import '../widgets/cutting_optimization_sheet.dart';
+import '../cutting_diagram_view.dart';
 import '../cutting_leftovers.dart'
     show loadLeftovers, loadMixLengths, kTubeMixPrefsKey;
 import '../cutting_math.dart'
@@ -110,6 +111,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 찾을 필요가 없게 한다.
   int? _focusedPointIndex;
   final ScrollController _diagramScrollController = ScrollController();
+  // 입력 탭 목록. 배치도에서 지점을 눌러 넘어올 때 그 지점 쪽으로 스크롤하는 데 쓴다.
+  final ScrollController _inputScrollController = ScrollController();
   late final TabController _tabController;
 
   // 🚀 [추가] 톱날 손실(커프) - 원자재를 여러 구간으로 자를 때마다
@@ -148,11 +151,15 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   void _scrollDiagramToFocused() {
     final idx = _focusedPointIndex;
     if (idx == null || !_diagramScrollController.hasClients) return;
-    const approxItemHeight = 132.0;
-    final target = (idx * approxItemHeight).clamp(
-      0.0,
-      _diagramScrollController.position.maxScrollExtent,
+    final scale = (MediaQuery.textScalerOf(context).scale(14) / 14).clamp(
+      1.0,
+      1.8,
     );
+    final target = CuttingDiagramView.offsetOf(
+      idx,
+      _diagramData().$2,
+      scale: scale,
+    ).clamp(0.0, _diagramScrollController.position.maxScrollExtent);
     _diagramScrollController.animateTo(
       target,
       duration: const Duration(milliseconds: 350),
@@ -443,6 +450,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     }
     _tabController.dispose();
     _diagramScrollController.dispose();
+    _inputScrollController.dispose();
     super.dispose();
   }
 
@@ -2224,6 +2232,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           const SizedBox(height: 12),
           Expanded(
             child: ReorderableListView.builder(
+              scrollController: _inputScrollController,
               itemCount: _points.length,
               proxyDecorator:
                   (Widget child, int index, Animation<double> animation) {
@@ -2326,7 +2335,66 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 쌓는 형태로 바꿨다. 한 화면에 순서대로 쭉 보이고, 카드 안에 다음
   // 구간까지의 길이도 같이 표시돼서 가로 스크롤 없이 전체 라인을
   // 한눈에 파악할 수 있다.
+  // 화면의 지점·구간 값을 배치도 그림에 넘길 목록으로 옮긴다.
+  (List<DiagramPoint>, List<DiagramSegment>) _diagramData() {
+    final pts = [for (final p in _points) DiagramPoint.fromFitting(p.fitting)];
+    final segs = <DiagramSegment>[];
+    for (int i = 0; i < _points.length - 1; i++) {
+      final p = _points[i];
+      final text = p.c2cController.text.trim();
+      final SegmentState state = text.isEmpty
+          ? SegmentState.empty
+          : p.unreadable
+          ? SegmentState.unreadable
+          : (p.calculatedCut < 0 ? SegmentState.interference : SegmentState.ok);
+      segs.add(
+        DiagramSegment(
+          state: state,
+          c2cMm: p.c2cMm,
+          cutMm: p.calculatedCut,
+          startDeduction: p.fitting.deduction,
+          endDeduction: _points[i + 1].fitting.deduction,
+        ),
+      );
+    }
+    return (pts, segs);
+  }
+
+  // 배치도에서 지점을 누르면 입력 탭으로 넘어가서 그 지점의 길이 칸에 커서를 둔다(마지막 지점은
+  // 뒤에 이어지는 구간이 없어서 목록 끝으로만 넘어간다). 목록이 아직 그려지지 않았으면 위치를
+  // 어림해서 스크롤한 뒤 몇 번 다시 시도한다.
+  Future<void> _jumpToInputPoint(int index) async {
+    HapticFeedback.selectionClick();
+    setState(() => _focusedPointIndex = index);
+    _tabController.animateTo(0);
+    final bool hasField = index < _points.length - 1;
+    final node = _points[index].c2cFocusNode;
+    for (int attempt = 0; attempt < 8; attempt++) {
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      if (!mounted) return;
+      final ctx = hasField ? node.context : null;
+      if (ctx != null && ctx.mounted) {
+        await Scrollable.ensureVisible(
+          ctx,
+          alignment: 0.25,
+          duration: const Duration(milliseconds: 250),
+        );
+        if (!mounted) return;
+        FocusScope.of(context).requestFocus(node);
+        return;
+      }
+      if (_inputScrollController.hasClients) {
+        final pos = _inputScrollController.position;
+        final n = _points.length - 1;
+        final target = n <= 0 ? 0.0 : pos.maxScrollExtent * (index / n);
+        _inputScrollController.jumpTo(target.clamp(0.0, pos.maxScrollExtent));
+        if (!hasField) return;
+      }
+    }
+  }
+
   Widget _buildDiagramPane() {
+    final data = _diagramData();
     return Container(
       color: whiteCard,
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
@@ -2341,192 +2409,23 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               color: textPrimary,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
+          Text(
+            "지점을 누르면 입력 화면에서 바로 고칠 수 있습니다",
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 10),
           Expanded(
-            child: ListView.separated(
+            child: CuttingDiagramView(
+              points: data.$1,
+              segments: data.$2,
+              focusedIndex: _focusedPointIndex,
               controller: _diagramScrollController,
-              padding: const EdgeInsets.only(bottom: 12),
-              itemCount: _points.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 8),
-              itemBuilder: (context, index) => _buildDiagramStepCard(index),
+              setMultiplier: _setMultiplier,
+              onTapPoint: _jumpToInputPoint,
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildDiagramStepCard(int index) {
-    final item = _points[index].fitting;
-    final isNone = item.id == "none";
-    final isLast = index == _points.length - 1;
-    final hasNext = !isLast;
-    final cutLength = hasNext ? _points[index].calculatedCut : 0.0;
-    final hasInput = hasNext && _points[index].c2cController.text.isNotEmpty;
-    final isInterference = hasInput && cutLength < 0;
-    // 🚀 [3번 강화] 입력 탭에서 지금 만지고 있던 구간이면 테두리를 굵은
-    // 틸 색으로 강조해서, 탭을 넘어와도 "아까 그 구간"을 바로 찾을 수
-    // 있게 한다(간섭 경고가 있으면 그쪽이 더 급하니 빨간색이 우선).
-    final bool isFocused = index == _focusedPointIndex;
-
-    // 🚀 [UI 고도화, 가시성] 간섭이 생긴 구간은 카드 테두리와 왼쪽 번호
-    // 배지를 빨간색으로 바꿔서, 전체 배치도를 쭉 훑어볼 때 어느 구간이
-    // 문제인지 숫자를 하나하나 읽지 않고도 색으로 바로 짚어낼 수 있게 한다.
-    final Color badgeColor = isInterference
-        ? CuttingColors.danger
-        : (isNone ? Colors.grey.shade200 : makitaDark);
-    final Color cardBorderColor = isInterference
-        ? CuttingColors.danger
-        : (isFocused
-              ? makitaTeal
-              : (isNone
-                    ? Colors.grey.shade300
-                    : makitaTeal.withValues(alpha: 0.4)));
-    final double cardBorderWidth = isInterference ? 1.5 : (isFocused ? 2.5 : 1);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isFocused && !isInterference
-            ? CuttingColors.primarySoft.withValues(alpha: 0.3)
-            : whiteCard,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cardBorderColor, width: cardBorderWidth),
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              width: 52,
-              decoration: BoxDecoration(
-                color: badgeColor,
-                borderRadius: const BorderRadius.horizontal(
-                  left: Radius.circular(11),
-                ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    "PT",
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      color: isNone
-                          ? Colors.grey.shade500
-                          : whiteCard.withValues(alpha: 0.7),
-                    ),
-                  ),
-                  Text(
-                    "${index + 1}",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      color: isNone ? Colors.grey.shade600 : whiteCard,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        _buildFittingBadge(item, isNone),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (!isNone)
-                                Text(
-                                  "${item.tubeOD} 규격",
-                                  style: const TextStyle(
-                                    color: Colors.redAccent,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              Text(
-                                isNone ? "직관 (부속 없음)" : item.name,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: isNone ? Colors.grey : textPrimary,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (hasNext) ...[
-                      const SizedBox(height: 10),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isInterference
-                              ? Colors.red.shade50
-                              : Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.arrow_downward_rounded,
-                              size: 14,
-                              color: isInterference
-                                  ? Colors.red
-                                  : Colors.grey.shade500,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                isInterference
-                                    ? "간섭 발생! 치수를 확인하십시오"
-                                    : "다음 지점까지",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: isInterference
-                                      ? Colors.red.shade700
-                                      : Colors.grey.shade600,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              hasInput
-                                  ? "${cutLength.toStringAsFixed(1)} mm"
-                                  : "치수 미입력",
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w900,
-                                color: isInterference
-                                    ? Colors.red
-                                    : (hasInput
-                                          ? Colors.redAccent
-                                          : Colors.grey.shade600),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -3509,7 +3408,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w900,
-                      color: Colors.redAccent,
+                      color: makitaTeal,
                     ),
                   ),
                 ),
