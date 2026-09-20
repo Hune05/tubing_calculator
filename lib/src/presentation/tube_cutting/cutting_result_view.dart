@@ -32,6 +32,10 @@ class CuttingResultView extends StatelessWidget {
   // 모두 잘랐을 때 진행 줄 아래에 누를 수 있는 버튼(이름과 동작). 둘 다 있을 때만 보인다.
   final String? allDoneActionLabel;
   final VoidCallback? onAllDoneAction;
+  // 접어 둔 규격 이름. 그 규격의 줄은 감추고 머리글만 남긴다(규격 머리글을 쓸 때만).
+  final Set<String> collapsedSpecs;
+  // 규격 머리글을 눌렀을 때 부를 동작. 이것을 넘겨야 접기가 켜진다(넘기지 않으면 지금처럼 늘 펴 둔다).
+  final ValueChanged<String>? onToggleSpec;
 
   const CuttingResultView({
     super.key,
@@ -52,7 +56,13 @@ class CuttingResultView extends StatelessWidget {
     this.allDoneText,
     this.allDoneActionLabel,
     this.onAllDoneAction,
+    this.collapsedSpecs = const {},
+    this.onToggleSpec,
   });
+
+  // 그 규격을 지금 접어 두었는지(규격 머리글을 쓰고, 접기를 켰을 때만).
+  bool _folded(String spec) =>
+      specHeaders && onToggleSpec != null && collapsedSpecs.contains(spec);
 
   @override
   Widget build(BuildContext context) {
@@ -94,16 +104,22 @@ class CuttingResultView extends StatelessWidget {
               lines: lines.where((e) => e.spec == lines[i].spec).toList(),
               done: done,
               weightKg: specWeights[lines[i].spec],
+              folded: _folded(lines[i].spec),
+              onTap: onToggleSpec == null
+                  ? null
+                  : () => onToggleSpec!(lines[i].spec),
             ),
-          _Row(
-            line: lines[i],
-            isDone: done.contains(lines[i].key),
-            showUnknownSpec:
-                !specHeaders && lines.any((e) => e.spec.isNotEmpty),
-            hideSpecChip: specHeaders,
-            onTap: () => onToggle(lines[i].key),
-          ),
-          const SizedBox(height: 6),
+          if (!_folded(lines[i].spec)) ...[
+            _Row(
+              line: lines[i],
+              isDone: done.contains(lines[i].key),
+              showUnknownSpec:
+                  !specHeaders && lines.any((e) => e.spec.isNotEmpty),
+              hideSpecChip: specHeaders,
+              onTap: () => onToggle(lines[i].key),
+            ),
+            const SizedBox(height: 6),
+          ],
         ],
         if (orders.isNotEmpty) ...[
           const SizedBox(height: 10),
@@ -592,12 +608,17 @@ class _SpecHeader extends StatelessWidget {
   final List<ResultLine> lines;
   final Set<String> done;
   final double? weightKg;
+  // 접어 둔 상태와 눌렀을 때 동작(동작이 없으면 접기 없이 그냥 머리글만 보인다).
+  final bool folded;
+  final VoidCallback? onTap;
 
   const _SpecHeader({
     required this.spec,
     required this.lines,
     required this.done,
     this.weightKg,
+    this.folded = false,
+    this.onTap,
   });
 
   @override
@@ -612,53 +633,75 @@ class _SpecHeader extends StatelessWidget {
     }
     final allDone = pieces > 0 && donePieces == pieces;
     final weightText = weightKg == null ? '' : '약 ${fmtKg(weightKg!)}kg';
-    return Padding(
-      padding: const EdgeInsets.only(top: 10, bottom: 6, left: 2),
-      child: Row(
-        key: Key('spec_header_$spec'),
-        children: [
-          Expanded(
-            // 이름 뒤에 작은 글씨로 무게를 붙인다(좁으면 뒤가 잘려도 오른쪽 개수·길이는 그대로 보인다).
-            child: Text.rich(
-              TextSpan(
-                text: spec.isEmpty ? '규격 미지정' : spec,
-                children: [
-                  if (weightText.isNotEmpty)
-                    TextSpan(
-                      text: '  $weightText',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: CuttingColors.primaryDark,
-                      ),
+    final row = Row(
+      key: Key('spec_header_$spec'),
+      children: [
+        if (onTap != null)
+          Icon(
+            folded ? Icons.chevron_right_rounded : Icons.expand_more_rounded,
+            size: 20,
+            color: CuttingColors.textSecondary,
+          ),
+        Expanded(
+          // 이름 뒤에 작은 글씨로 무게를 붙인다(좁으면 뒤가 잘려도 오른쪽 개수·길이는 그대로 보인다).
+          child: Text.rich(
+            TextSpan(
+              text: spec.isEmpty ? '규격 미지정' : spec,
+              children: [
+                if (weightText.isNotEmpty)
+                  TextSpan(
+                    text: '  $weightText',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: CuttingColors.primaryDark,
                     ),
-                ],
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w900,
-                color: CuttingColors.textPrimary,
-              ),
+                  ),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              color: CuttingColors.textPrimary,
             ),
           ),
-          const SizedBox(width: 8),
-          Text(
-            allDone
-                ? '완료 · $pieces개'
-                : donePieces > 0
-                ? '$donePieces/$pieces개 · ${mm.toStringAsFixed(0)}mm'
-                : '$pieces개 · ${mm.toStringAsFixed(0)}mm',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              color: allDone
-                  ? CuttingColors.success
-                  : CuttingColors.textSecondary,
-            ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          allDone
+              ? '완료 · $pieces개'
+              : donePieces > 0
+              ? '$donePieces/$pieces개 · ${mm.toStringAsFixed(0)}mm'
+              : '$pieces개 · ${mm.toStringAsFixed(0)}mm',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: allDone
+                ? CuttingColors.success
+                : CuttingColors.textSecondary,
           ),
-        ],
+        ),
+      ],
+    );
+    if (onTap == null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 10, bottom: 6, left: 2),
+        child: row,
+      );
+    }
+    // 눌러서 그 규격의 줄을 접고 편다(규격이 여러 개일 때 지금 자를 규격만 보고 쓴다).
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 2),
+      child: InkWell(
+        key: Key('spec_fold_$spec'),
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+          child: row,
+        ),
       ),
     );
   }

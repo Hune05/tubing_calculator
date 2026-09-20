@@ -65,6 +65,9 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   // 접어 둔 규격 묶음(프로젝트마다 이 폰에 기억한다).
   final Set<String> _collapsed = {};
   String get _collapsedKey => 'steel_collapsed_${widget.project.id}';
+  // 결과 탭에서 접어 둔 규격(입력 탭 접기와 따로 기억한다 — 입력은 고치는 중, 결과는 자르는 중이다).
+  final Set<String> _resultFolded = {};
+  String get _resultFoldedKey => 'steel_result_folded_${widget.project.id}';
   // 재단 최적화에서 "여러 길이 섞어 쓰기"로 고른 가장 긴 원자재(0이면 안 씀). 긴 항목 경고 기준에 쓴다.
   double _mixMax = 0;
   // 카드에서 개수를 바꾸면 화면은 바로 고치고, 저장(과 변경 기록)은 손을 뗀 뒤 한 번만 한다.
@@ -126,8 +129,25 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     try {
       final p = await SharedPreferences.getInstance();
       final saved = p.getStringList(_collapsedKey) ?? const <String>[];
-      if (mounted && saved.isNotEmpty) setState(() => _collapsed.addAll(saved));
+      final savedResult = p.getStringList(_resultFoldedKey) ?? const <String>[];
+      if (mounted && (saved.isNotEmpty || savedResult.isNotEmpty)) {
+        setState(() {
+          _collapsed.addAll(saved);
+          _resultFolded.addAll(savedResult);
+        });
+      }
     } catch (_) {}
+  }
+
+  // 결과 탭의 규격 머리글을 눌렀을 때: 그 규격 줄을 접고 편다.
+  void _toggleResultFold(String spec) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (!_resultFolded.remove(spec)) _resultFolded.add(spec);
+    });
+    SharedPreferences.getInstance()
+        .then((p) => p.setStringList(_resultFoldedKey, _resultFolded.toList()))
+        .catchError((_) => false);
   }
 
   void _toggleCollapse(String shape) {
@@ -1609,6 +1629,8 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                 specWeights: weights.bySpec,
                 unknownWeightSpecs: weights.unknownSpecs,
                 emptyMessage: "절단 항목을 먼저 추가하십시오.",
+                collapsedSpecs: _resultFolded,
+                onToggleSpec: _toggleResultFold,
               ),
             ),
           ),

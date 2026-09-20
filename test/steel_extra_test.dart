@@ -1723,4 +1723,61 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+
+  group('결과 탭 규격 접기', () {
+    SteelCuttingProject proj() => SteelCuttingProject(
+      id: 'sp10',
+      name: '루마',
+      createdAt: DateTime(2026, 9, 20),
+      items: [
+        item('앵글 40x40x3', 500, 3, id: 'a'),
+        item('앵글 40x40x3', 800, 1, id: 'b'),
+        item('스트럿 41x41x2.5', 1000, 3, cat: 'STRUT', id: 'c'),
+      ],
+    );
+
+    Future<void> openResult(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 4000);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(home: SteelCuttingDetailScreen(project: proj())),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('머리글을 누르면 그 규격 줄이 접히고 기억한다', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await openResult(tester);
+      expect(find.text('800.0 mm'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('spec_fold_앵글 40x40x3')));
+      await tester.pumpAndSettle();
+      // 접은 규격은 머리글만 남고, 다른 규격 줄은 그대로다.
+      expect(find.text('800.0 mm'), findsNothing);
+      expect(find.text('500.0 mm'), findsNothing);
+      expect(find.text('1000.0 mm'), findsOneWidget);
+      expect(find.byKey(const Key('spec_header_앵글 40x40x3')), findsOneWidget);
+      expect(findTextContaining('4개 · 2300mm'), findsOneWidget);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getStringList('steel_result_folded_sp10'), ['앵글 40x40x3']);
+      await tester.tap(find.byKey(const Key('spec_fold_앵글 40x40x3')));
+      await tester.pumpAndSettle();
+      expect(find.text('800.0 mm'), findsOneWidget);
+    });
+
+    testWidgets('접어 둔 규격은 다시 열어도 접혀 있고, 입력 탭은 그대로다', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'steel_result_folded_sp10': ['앵글 40x40x3'],
+      });
+      await openResult(tester);
+      expect(find.text('800.0 mm'), findsNothing);
+      expect(find.text('1000.0 mm'), findsOneWidget);
+      await tester.tap(find.text('입력'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('steel_item_a')), findsOneWidget);
+      expect(find.byKey(const Key('steel_item_b')), findsOneWidget);
+    });
+  });
 }
