@@ -294,14 +294,22 @@ String buildInstructionText({
         : '${l.title.replaceAll(' mm', '')}mm';
     final len = l.title.contains('→') ? ' ${_one(l.cutMm)}mm' : '';
     final sp = l.spec.isEmpty ? '' : '${l.spec} ';
-    b.writeln('${i + 1}) $sp$what$len × ${l.count}개');
+    // 묶은 줄은 개수가 어디서 나왔는지도 덧붙인다("구간 2개 × 3세트").
+    final how = (l.grouped && l.sets > 1)
+        ? ' (구간 ${l.baseCount}개 × ${l.sets}세트)'
+        : '';
+    b.writeln('${i + 1}) $sp$what$len × ${l.count}개$how');
     pieces += l.count;
     mm += l.totalMm;
   }
   if (lines.isEmpty) {
     b.writeln('(계산된 구간이 없습니다)');
   } else {
-    b.writeln('합계 ${_one(mm)}mm (총 $pieces개)');
+    b.writeln(
+      set > 1
+          ? '합계 1세트 ${_one(mm / set)}mm × $set세트 = ${_one(mm)}mm (총 $pieces개)'
+          : '합계 ${_one(mm)}mm (총 $pieces개)',
+    );
   }
   if (orders.isNotEmpty) {
     b.writeln();

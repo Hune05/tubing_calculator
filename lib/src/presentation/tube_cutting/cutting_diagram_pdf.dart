@@ -190,7 +190,8 @@ List<pw.Widget> buildDiagramPdfWidgets({
   final m = setMultiplier < 1 ? 1 : setMultiplier;
   final lines = <String>[
     '총 절단 길이 (${s.cutCount}구간): ${s.oneSetCutMm.toStringAsFixed(1)}mm',
-    if (m > 1) '$m세트: ${s.totalCutMm.toStringAsFixed(1)}mm',
+    if (m > 1)
+      '1세트 ${s.oneSetCutMm.toStringAsFixed(1)}mm × $m세트 = ${s.totalCutMm.toStringAsFixed(1)}mm',
     if (s.lineLengthMm != null) '라인 전체 길이: ${fmtMm(s.lineLengthMm!)}mm',
     if (s.fittingText.isNotEmpty) '부속: ${s.fittingText}',
     if (s.emptyCount > 0) '치수 미입력 ${s.emptyCount}곳',
@@ -199,12 +200,9 @@ List<pw.Widget> buildDiagramPdfWidgets({
   ];
   out.add(pw.SizedBox(height: 12));
   out.add(
+    // 테두리 없이 글만 둔다(표와 그림 사이에서 상자가 튀지 않게).
     pw.Container(
-      padding: const pw.EdgeInsets.all(10),
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: _teal, width: 0.8),
-        borderRadius: pw.BorderRadius.circular(6),
-      ),
+      padding: const pw.EdgeInsets.symmetric(vertical: 4),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [

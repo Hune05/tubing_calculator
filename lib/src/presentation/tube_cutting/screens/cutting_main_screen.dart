@@ -311,19 +311,35 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       String specCell(ResultLine l) => l.spec.isEmpty ? "-" : l.spec;
       final List<String> headers;
       final List<List<String>> rows;
+      // 세트가 여럿이면 개수가 어디서 나왔는지("구간 2개 × 3세트") 열을 넣는다.
+      final bool showHow = _setMultiplier > 1;
       if (_groupSameLengths) {
-        headers = [if (showSpec) "규격", "길이(mm)", "개수", "합계 길이(mm)"];
+        headers = [
+          if (showSpec) "규격",
+          "1개 길이(mm)",
+          "개수",
+          if (showHow) "개수 구성",
+          "합계 길이(mm)",
+        ];
         rows = [
           for (final l in resultLines)
             [
               if (showSpec) specCell(l),
               l.cutMm.toStringAsFixed(1),
               "${l.count}",
+              if (showHow) l.countFormula.split(' = ').first,
               l.totalMm.toStringAsFixed(1),
             ],
         ];
       } else {
-        headers = ["구간", if (showSpec) "규격", "구간 길이(mm)", "수량", "합계 길이(mm)"];
+        headers = [
+          "구간",
+          if (showSpec) "규격",
+          "1개 길이(mm)",
+          "수량",
+          if (showHow) "개수 구성",
+          "합계 길이(mm)",
+        ];
         rows = [
           for (final l in resultLines)
             [
@@ -331,10 +347,49 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               if (showSpec) specCell(l),
               l.cutMm.toStringAsFixed(1),
               "${l.count}",
+              if (showHow) l.countFormula.split(' = ').first,
               l.totalMm.toStringAsFixed(1),
             ],
         ];
       }
+
+      // 필요한 부속 표(부속을 쓴 경우만).
+      final fittingOrders = _fittingOrders();
+      final List<pw.Widget> fittingWidgets = fittingOrders.isEmpty
+          ? const []
+          : [
+              pw.SizedBox(height: 20),
+              pw.Text(
+                "필요한 부속",
+                style: pw.TextStyle(
+                  fontSize: 14,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 6),
+              pw.TableHelper.fromTextArray(
+                headers: kFittingHeaders,
+                data: fittingTableRows(fittingOrders),
+                headerStyle: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold,
+                  font: koreanBold,
+                ),
+                cellStyle: pw.TextStyle(font: koreanFont),
+                headerDecoration: const pw.BoxDecoration(
+                  color: PdfColors.grey300,
+                ),
+                cellAlignment: pw.Alignment.centerLeft,
+                border: pw.TableBorder.all(
+                  color: PdfColors.grey400,
+                  width: 0.5,
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Align(
+                alignment: pw.Alignment.centerRight,
+                child: pw.Text(fittingTableTotal(fittingOrders)),
+              ),
+            ];
 
       // 원자재 배치: 재단 최적화 화면과 같은 방식(저장해 둔 남은 토막 먼저 사용)으로 계산해서
       // 어느 원자재에서 어떤 길이를 자를지까지 지시서에 넣는다.
@@ -442,13 +497,16 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             pw.Align(
               alignment: pw.Alignment.centerRight,
               child: pw.Text(
-                "총 소요 길이: ${grandTotal.toStringAsFixed(1)} mm",
+                _setMultiplier > 1
+                    ? "총 소요 길이: 1세트 ${(grandTotal / _setMultiplier).toStringAsFixed(1)} mm × $_setMultiplier세트 = ${grandTotal.toStringAsFixed(1)} mm"
+                    : "총 소요 길이: ${grandTotal.toStringAsFixed(1)} mm",
                 style: pw.TextStyle(
                   fontSize: 16,
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
             ),
+            ...fittingWidgets,
             ...diagramWidgets,
             ...planWidgets,
           ],
