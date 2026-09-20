@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
+import 'package:tubing_calculator/src/data/bend_data_manager.dart';
 
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 // 🚀 [수정] Mobile 접두사가 붙은 최신 파일 경로로 수정
@@ -611,6 +613,10 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                   // 🚀 [수정] MobilePipeVisualizer로 이름 교체됨
                   MobilePipeVisualizer(
                     bendList: widget.bendList,
+                    bendRadius: BendDataManager().radius,
+                    outerDiameter: AppSettingsController().isInch
+                        ? AppSettingsController().tubeOD * 25.4
+                        : AppSettingsController().tubeOD,
                     initialStartDir: _localStartDir,
                     onStartDirChanged: (newDir) =>
                         setState(() => _localStartDir = newDir),

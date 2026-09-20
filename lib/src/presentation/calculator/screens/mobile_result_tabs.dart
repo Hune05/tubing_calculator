@@ -29,6 +29,12 @@ const Color pureWhite = Color(0xFFFFFFFF);
 // 있었다(사용자가 "결과 값을 안 가져오는 것 같다"고 확인). 다른 위젯의
 // 빌드 시점에 기대지 않도록, "현장" 탭이 자기 build() 안에서 이 함수를
 // 직접 호출해서 그 자리에서 항상 최신값을 스스로 계산하게 바꿨다.
+/// 관 바깥지름을 mm로. 설정이 인치면 바꿔 준다.
+double _odMm() {
+  final s = AppSettingsController();
+  return s.isInch ? s.tubeOD * 25.4 : s.tubeOD;
+}
+
 ({double totalCutLength, List<Map<String, dynamic>> markings, String? error})
 computeLandscapeMarkingData() {
   final dataManager = MobileBendDataManager();
@@ -262,7 +268,6 @@ class _MobileResultTabState extends State<MobileResultTab>
 
         final double pureCutLength = result['totalCutLength'];
         final List<StepResult> steps = result['steps'];
-
 
         // 관이 저희끼리 닿는지, 얼마나 굴려 물려야 하는지 같이 본다.
         final settings = AppSettingsController();
@@ -922,6 +927,9 @@ class _MobileViewerTabState extends State<MobileViewerTab>
                         startFit: dataManager.startFit,
                         endFit: dataManager.endFit,
                         isLightMode: false,
+                        // 실제 비율로 그릴 때 쓸 제원.
+                        bendRadius: dataManager.radius,
+                        outerDiameter: _odMm(),
                       ),
               ),
             ],

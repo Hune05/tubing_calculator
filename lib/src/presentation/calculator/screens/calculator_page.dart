@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/data/bend_data_manager.dart';
 
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 
@@ -462,6 +463,10 @@ class _CalculatorPageState extends State<CalculatorPage>
                     // 🚀 [수정] MobilePipeVisualizer로 변경
                     MobilePipeVisualizer(
                       bendList: widget.bendList,
+                      bendRadius: BendDataManager().radius,
+                      outerDiameter: AppSettingsController().isInch
+                          ? AppSettingsController().tubeOD * 25.4
+                          : AppSettingsController().tubeOD,
                       initialStartDir: _localStartDir,
                       onStartDirChanged: (newDir) async {
                         setState(() {

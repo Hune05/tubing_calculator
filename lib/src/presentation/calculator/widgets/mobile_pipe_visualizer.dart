@@ -20,6 +20,12 @@ class MobilePipeVisualizer extends StatefulWidget {
   // 🚀 앞서 추가했던 총 컷팅 기장 변수
   final double totalCutLength;
 
+  /// 벤드 반경. 실제 형상으로 그릴 때 모서리를 이만큼 둥글게 그린다.
+  final double bendRadius;
+
+  /// 관 바깥지름. 실제 형상으로 그릴 때 관 굵기를 이만큼 그린다.
+  final double outerDiameter;
+
   const MobilePipeVisualizer({
     super.key,
     required this.bendList,
@@ -31,6 +37,8 @@ class MobilePipeVisualizer extends StatefulWidget {
     this.startFit = false,
     this.endFit = false,
     this.totalCutLength = 0.0,
+    this.bendRadius = 0.0,
+    this.outerDiameter = 0.0,
   });
 
   @override
@@ -48,6 +56,11 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
 
   double _panX = 0.0;
   double _panY = 0.0;
+
+  /// 실제 비율로 그릴지. 켜면 길이를 있는 그대로, 모서리는 반경만큼 둥글게,
+  /// 관 굵기도 바깥지름대로 그린다. 끄면 예전처럼 짧은 구간도 보이게 줄여
+  /// 그린다(긴 배관에서 짧은 마디가 안 보이는 것을 막으려고 남겨 둔다).
+  bool _realScale = false;
 
   bool _isFlippedX = false;
   bool _isFlippedY = false;
@@ -151,6 +164,9 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
                 isLightMode: widget.isLightMode,
                 startFit: widget.startFit,
                 endFit: widget.endFit,
+                realScale: _realScale,
+                bendRadius: widget.bendRadius,
+                outerDiameter: widget.outerDiameter,
               ),
             ),
           ),
@@ -172,7 +188,7 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
             child: Center(
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
+                  horizontal: 10,
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
@@ -205,6 +221,13 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
                       Icons.rotate_90_degrees_cw,
                       Colors.white,
                       _rotateCamera,
+                    ),
+                    _buildDivider(),
+                    // 실제 비율로 그리기(모서리를 둥글게, 관 굵기도 그대로).
+                    _buildIconBtn(
+                      Icons.straighten,
+                      _realScale ? makitaTeal : Colors.white,
+                      () => setState(() => _realScale = !_realScale),
                     ),
                     _buildDivider(),
                     _buildIconBtn(
@@ -353,8 +376,8 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-        child: Icon(icon, color: color, size: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 4.0),
+        child: Icon(icon, color: color, size: 22),
       ),
     );
   }
@@ -363,7 +386,7 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
     return Container(
       height: 20,
       width: 1,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 2),
       color: Colors.white24,
     );
   }
@@ -423,12 +446,16 @@ class MobileSegmentRenderable implements MobileRenderable {
   final bool isSelected;
   final bool isLightMode;
 
+  /// 호를 잘게 나눠 그릴 때는 토막마다 화살표를 찍지 않는다.
+  final bool showArrow;
+
   MobileSegmentRenderable(
     this.p1,
     this.p2,
     this.z, {
     this.isSelected = false,
     this.isLightMode = false,
+    this.showArrow = true,
   });
 
   @override
@@ -446,7 +473,7 @@ class MobileSegmentRenderable implements MobileRenderable {
     double dy = p2.dy - p1.dy;
     double length = math.sqrt(dx * dx + dy * dy);
 
-    if (length > 15 * sf) {
+    if (showArrow && length > 15 * sf) {
       double arrowSize = 6.0 * sf;
       double lineAngle = math.atan2(dy, dx);
       Offset mid = Offset(p1.dx + dx * 0.55, p1.dy + dy * 0.55);
@@ -682,6 +709,11 @@ class MobileIsoPipePainter extends CustomPainter {
   final bool startFit;
   final bool endFit;
 
+  /// 실제 비율로 그릴지.
+  final bool realScale;
+  final double bendRadius;
+  final double outerDiameter;
+
   MobileIsoPipePainter({
     required this.bendList,
     this.tailLength = 0.0,
@@ -697,6 +729,9 @@ class MobileIsoPipePainter extends CustomPainter {
     required this.isLightMode,
     required this.startFit,
     required this.endFit,
+    this.realScale = false,
+    this.bendRadius = 0.0,
+    this.outerDiameter = 0.0,
   });
 
   double _getVisualLength(double realLength) {
@@ -738,12 +773,17 @@ class MobileIsoPipePainter extends CustomPainter {
     // 같은 계산(pipePathPoints)을 쓰도록 바꿨다. 꺾을 수 없는 방향
     // (진행 방향과 나란하거나 정반대)일 때 아무 평면이나 골라 꺾어서,
     // 만들 수 없는 형상을 만들 수 있는 것처럼 그려 주던 것도 없앴다.
-    final List<vmath.Vector3> pts3D = pipePathPoints(
+    // 🚀 [고침] "실제 비율"을 켜면 길이를 있는 그대로 쓰고 모서리를 반경만큼
+    // 둥근 호로 그린다. 끄면 예전처럼 짧은 구간도 보이게 줄여 그린다.
+    final drawPath = pipeDrawPath(
       bendList,
       startDir: startDirection,
-      visualLength: _getVisualLength,
+      radius: realScale ? bendRadius : 0.0,
       tail: tailLength,
+      visualLength: realScale ? null : _getVisualLength,
     );
+    final List<vmath.Vector3> pts3D = drawPath.points;
+    final List<int> segOwner = drawPath.owner;
 
     List<int> internalMarkNums = [];
     int currentMarkNum = 1;
@@ -787,7 +827,10 @@ class MobileIsoPipePainter extends CustomPainter {
 
     for (int i = 0; i < pipeEndIndex; i++) {
       double zAvg = (projectedPts[i].z + projectedPts[i + 1].z) / 2;
-      bool isSelected = selectedSegmentIndex == i;
+      // 이 토막이 몇 번째 배관 줄인지(-1이면 벤드가 휘는 호).
+      final int owner = i < segOwner.length ? segOwner[i] : -1;
+      final bool isArc = owner < 0;
+      bool isSelected = !isArc && selectedSegmentIndex == owner;
 
       Offset p1_2d = to2D(projectedPts[i]);
       Offset p2_2d = to2D(projectedPts[i + 1]);
@@ -799,51 +842,59 @@ class MobileIsoPipePainter extends CustomPainter {
           zAvg,
           isSelected: isSelected,
           isLightMode: isLightMode,
+          // 호는 잘게 나눠 그리므로 토막마다 화살표를 찍으면 지저분하다.
+          showArrow: !isArc,
         ),
       );
+    }
 
-      if (i < bendList.length) {
-        double realL = (bendList[i]['length'] as num?)?.toDouble() ?? 0.0;
-        double angle = (bendList[i]['angle'] as num?)?.toDouble() ?? 0.0;
-        int mNum = internalMarkNums[i];
+    // 🚀 [고침] 예전에는 꼭짓점 사이마다 글자를 달아서, 호를 잘게 나누면
+    // 글자가 겹쳤다. 곧은 토막마다 한 번씩만 단다.
+    for (final run in drawPath.straightRuns) {
+      final idx = run.bendIndex;
+      if (idx < 0 || idx >= bendList.length) continue;
+      final double realL = (bendList[idx]['length'] as num?)?.toDouble() ?? 0.0;
+      if (realL <= 0) continue;
+      final double angle = (bendList[idx]['angle'] as num?)?.toDouble() ?? 0.0;
+      final int mNum = internalMarkNums[idx];
+      final bool isSelected = selectedSegmentIndex == idx;
 
-        if (realL > 0) {
-          Offset mid = (p1_2d + p2_2d) / 2;
-          double dx = p2_2d.dx - p1_2d.dx;
-          double dy = p2_2d.dy - p1_2d.dy;
-          double len = math.sqrt(dx * dx + dy * dy);
+      final a2 = to2D(cameraMatrix.transformed3(run.a - center3D));
+      final b2 = to2D(cameraMatrix.transformed3(run.b - center3D));
+      final zAvg =
+          (cameraMatrix.transformed3(run.a - center3D).z +
+              cameraMatrix.transformed3(run.b - center3D).z) /
+          2;
 
-          Offset normal = len > 0
-              ? Offset(-dy / len, dx / len)
-              : const Offset(0, -1);
-          if (normal.dy > 0) normal = Offset(-normal.dx, -normal.dy);
-          Offset labelPos = mid + normal * (18.0 * sf);
-
-          if (angle == 0.0) {
-            labelQueue.add(
-              MobileLabelRenderable(
-                labelPos,
-                zAvg,
-                "L:${realL.toInt()}",
-                isStraightPipe: true,
-                isSelected: isSelected,
-                isLightMode: isLightMode,
-              ),
-            );
-          } else {
-            labelQueue.add(
-              MobileLabelRenderable(
-                labelPos,
-                zAvg,
-                "$mNum",
-                isStraightPipe: false,
-                isSelected: isSelected,
-                isLightMode: isLightMode,
-              ),
-            );
-          }
-        }
+      final mid = (a2 + b2) / 2;
+      final dx = b2.dx - a2.dx;
+      final dy = b2.dy - a2.dy;
+      final len = math.sqrt(dx * dx + dy * dy);
+      Offset normal = len > 0
+          ? Offset(-dy / len, dx / len)
+          : const Offset(0, -1);
+      if (normal.dy > 0) normal = Offset(-normal.dx, -normal.dy);
+      // 🚀 [고침] 실제 비율로 그리면 짧은 구간의 글자가 서로 겹쳐 못 읽었다.
+      // 이미 놓은 글자와 가까우면 바깥쪽으로 더 밀어낸다.
+      var labelPos = mid + normal * (18.0 * sf);
+      for (var push = 0; push < 6; push++) {
+        final tooClose = labelQueue.any(
+          (l) => (l.centerPos - labelPos).distance < 34.0 * sf,
+        );
+        if (!tooClose) break;
+        labelPos = labelPos + normal * (20.0 * sf);
       }
+
+      labelQueue.add(
+        MobileLabelRenderable(
+          labelPos,
+          zAvg,
+          angle == 0.0 ? "L:${realL.toInt()}" : "$mNum",
+          isStraightPipe: angle == 0.0,
+          isSelected: isSelected,
+          isLightMode: isLightMode,
+        ),
+      );
     }
 
     double fitVisualLen = 20.0;
@@ -930,21 +981,28 @@ class MobileIsoPipePainter extends CustomPainter {
     renderQueue.sort((a, b) => b.z.compareTo(a.z));
     labelQueue.sort((a, b) => b.z.compareTo(a.z));
 
+    // 🚀 [고침] 관 굵기를 늘 6픽셀로 그려서, 3/8"든 1"든 같은 굵기로 보였다.
+    // "실제 비율"을 켜면 바깥지름대로 그린다(화면에서 너무 가늘거나 굵어지지
+    // 않게 3~40픽셀 안으로 둔다).
+    final double pipeWidth = (realScale && outerDiameter > 0)
+        ? (outerDiameter * scale).clamp(3.0, 40.0)
+        : 6.0 * sf;
+
     final pipePaint = Paint()
       ..color = isLightMode ? const Color(0xFF455A64) : const Color(0xFF607D8B)
-      ..strokeWidth = 6.0 * sf
+      ..strokeWidth = pipeWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     final highlightPaint = Paint()
       ..color = Colors.orange.shade500
-      ..strokeWidth = 8.0 * sf
+      ..strokeWidth = pipeWidth + 2.0 * sf
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     final outlinePaint = Paint()
       ..color = isLightMode ? Colors.black87 : Colors.black45
-      ..strokeWidth = 8.0 * sf
+      ..strokeWidth = pipeWidth + 2.0 * sf
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;

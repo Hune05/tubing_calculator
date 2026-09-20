@@ -457,11 +457,8 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
       radius: radius,
       startDir: widget.startDir,
       tail: _tailLength,
-      outerDiameter: settings.isInch
-          ? settings.tubeOD * 25.4
-          : settings.tubeOD,
-      engineWarnings:
-          (result['warnings'] as List?)?.cast<String>() ?? const [],
+      outerDiameter: settings.isInch ? settings.tubeOD * 25.4 : settings.tubeOD,
+      engineWarnings: (result['warnings'] as List?)?.cast<String>() ?? const [],
     );
 
     List<Map<String, dynamic>> displayMarks = [];
