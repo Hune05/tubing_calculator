@@ -163,6 +163,9 @@ Future<void> undoCuttingSession({
       totalTubeLength,
       fittingsList,
     ),
+    // 되돌린 뒤 누적이 0이면 "마지막 작업" 날짜도 지운다(저장한 적이 없는 것으로 돌아간다).
+    if (project.cutCount <= 0 && project.totalTubeUsed <= 1e-6)
+      'lastCutAt': FieldValue.delete(),
   });
 
   if (cutRecords.isNotEmpty) {

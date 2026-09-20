@@ -17,6 +17,9 @@ class CuttingResultView extends StatelessWidget {
   // 표시할 줄이 없을 때 보여 줄 글과 오류 여부.
   final String emptyMessage;
   final bool emptyIsError;
+  // 튜브 규격: 사용자가 지정한 값(없으면 빈 글자 = 부속 기준 자동)과 고르는 창을 여는 동작.
+  final String tubeSpec;
+  final VoidCallback? onPickSpec;
 
   const CuttingResultView({
     super.key,
@@ -29,6 +32,8 @@ class CuttingResultView extends StatelessWidget {
     this.warning = '',
     this.emptyMessage = '치수를 입력하십시오.',
     this.emptyIsError = false,
+    this.tubeSpec = '',
+    this.onPickSpec,
   });
 
   @override
@@ -51,12 +56,16 @@ class CuttingResultView extends StatelessWidget {
           summary: summary,
           setMultiplier: setMultiplier,
           warning: warning,
+          specs: specTotals(lines),
+          tubeSpec: tubeSpec,
+          onPickSpec: onPickSpec,
         ),
         const SizedBox(height: 10),
         for (final l in lines) ...[
           _Row(
             line: l,
             isDone: done.contains(l.key),
+            showUnknownSpec: lines.any((e) => e.spec.isNotEmpty),
             onTap: () => onToggle(l.key),
           ),
           const SizedBox(height: 6),
@@ -74,11 +83,17 @@ class _Header extends StatelessWidget {
   final ResultSummary summary;
   final int setMultiplier;
   final String warning;
+  final List<SpecTotal> specs;
+  final String tubeSpec;
+  final VoidCallback? onPickSpec;
 
   const _Header({
     required this.summary,
     required this.setMultiplier,
     required this.warning,
+    this.specs = const [],
+    this.tubeSpec = '',
+    this.onPickSpec,
   });
 
   @override
@@ -95,6 +110,59 @@ class _Header extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 자를 튜브의 규격(제원). 부속에서 알 수 있으면 자동으로 채우고, 모르면 여기서 지정한다.
+          if (onPickSpec != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: InkWell(
+                key: const Key('result_spec_picker'),
+                borderRadius: BorderRadius.circular(8),
+                onTap: onPickSpec,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: CuttingColors.primary.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.straighten_rounded,
+                        size: 16,
+                        color: CuttingColors.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          tubeSpec.isEmpty
+                              ? '튜브 규격: 부속 기준(자동)'
+                              : '튜브 규격: $tubeSpec',
+                          key: const Key('result_spec_label'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: CuttingColors.primary,
+                          ),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.arrow_drop_down_rounded,
+                        color: CuttingColors.primary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           const Text(
             '총 절단 길이',
             style: TextStyle(
@@ -126,6 +194,26 @@ class _Header extends StatelessWidget {
               color: CuttingColors.textPrimary,
             ),
           ),
+          // 규격이 둘 이상이면 규격별 합계를 보여 준다(자를 튜브가 달라서 따로 준비해야 한다).
+          if (specs.length > 1 ||
+              (specs.length == 1 && specs.first.spec.isNotEmpty))
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                specs
+                    .map(
+                      (e) =>
+                          '${e.spec.isEmpty ? '규격 미지정' : e.spec} ${e.mm.toStringAsFixed(1)}mm (${e.pieces}개)',
+                    )
+                    .join('  ·  '),
+                key: const Key('result_spec_totals'),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: CuttingColors.textPrimary,
+                ),
+              ),
+            ),
           // 진행 줄은 처음부터 자리를 잡아 둔다 — 줄을 눌러 표시할 때 목록이 아래로 밀려
           // 다음 줄을 잘못 누르는 일이 없게 한다.
           ...[
@@ -179,9 +267,15 @@ class _Header extends StatelessWidget {
 class _Row extends StatelessWidget {
   final ResultLine line;
   final bool isDone;
+  final bool showUnknownSpec; // 다른 줄은 규격이 있는데 이 줄만 모를 때 "규격 미지정"을 보여 준다
   final VoidCallback onTap;
 
-  const _Row({required this.line, required this.isDone, required this.onTap});
+  const _Row({
+    required this.line,
+    required this.isDone,
+    required this.onTap,
+    this.showUnknownSpec = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -231,11 +325,51 @@ class _Row extends StatelessWidget {
                         decoration: isDone ? TextDecoration.lineThrough : null,
                       ),
                     ),
-                    Text(
-                      line.detail,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 12, color: grey),
+                    // 규격 칩은 제목 아래 줄에 둔다(제목이 잘리지 않게).
+                    Row(
+                      children: [
+                        if (line.spec.isNotEmpty || showUnknownSpec)
+                          Flexible(
+                            flex: 2,
+                            child: Container(
+                              key: Key('result_spec_${line.key}'),
+                              margin: const EdgeInsets.only(right: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: line.spec.isEmpty
+                                    ? Colors.grey.shade200
+                                    : CuttingColors.primary.withValues(
+                                        alpha: isDone ? 0.06 : 0.12,
+                                      ),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                line.spec.isEmpty ? '규격 미지정' : line.spec,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  color: line.spec.isEmpty || isDone
+                                      ? grey
+                                      : CuttingColors.primary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        Flexible(
+                          flex: 3,
+                          child: Text(
+                            line.detail,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 12, color: grey),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

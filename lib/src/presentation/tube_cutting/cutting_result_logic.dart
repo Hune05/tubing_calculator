@@ -8,6 +8,27 @@ import 'cutting_math.dart';
 
 String _one(double v) => v.toStringAsFixed(1);
 
+// ── 튜브 규격(제원) ──
+// 자를 튜브가 어떤 규격인지는 양쪽 부속의 튜브 외경에서 알 수 있다. 시작 쪽 부속이 있으면 그
+// 규격, 없으면(직관) 끝 쪽 부속의 규격을 따른다. 둘 다 모르면(부속을 안 골랐거나 규격이
+// "ALL"/"미지정") [fallback](사용자가 직접 지정한 규격)을 쓴다. 그것도 없으면 빈 글자.
+bool _validOd(String od) {
+  final t = od.trim();
+  return t.isNotEmpty && t != 'ALL' && t != '미지정';
+}
+
+String tubeSpecFor({
+  required bool startIsFitting,
+  required String startOD,
+  required bool endIsFitting,
+  required String endOD,
+  String fallback = '',
+}) {
+  if (startIsFitting && _validOd(startOD)) return startOD.trim();
+  if (endIsFitting && _validOd(endOD)) return endOD.trim();
+  return fallback.trim();
+}
+
 class ResultLine {
   // 잘랐음 표시를 기억하는 열쇠. 길이·개수가 바뀌면 열쇠도 바뀌어서 이전 표시가 저절로 사라진다.
   final String key;
@@ -16,6 +37,7 @@ class ResultLine {
   final double cutMm; // 하나의 절단 길이
   final int count; // 세트 수를 곱한 개수
   final List<int> segments; // 이 줄에 들어간 구간 번호(0부터)
+  final String spec; // 튜브 규격(모르면 빈 글자)
 
   const ResultLine({
     required this.key,
@@ -24,66 +46,101 @@ class ResultLine {
     required this.cutMm,
     required this.count,
     required this.segments,
+    this.spec = '',
   });
 
   double get totalMm => cutMm * count;
 }
 
 // [cuts]는 구간별 절단 길이이고, 계산할 수 없는 구간(비었음·못 읽음·간섭)은 null 또는 0 이하.
+// [specs]는 구간별 튜브 규격(모르면 빈 글자, 목록이 없으면 모두 모르는 것으로). 규격이 다른 튜브는
+// 길이가 같아도 하나로 묶지 않는다 — 서로 다른 튜브에서 잘라야 하기 때문이다.
 List<ResultLine> buildResultLines(
   List<double?> cuts,
   int setMultiplier, {
   required bool grouped,
+  List<String>? specs,
 }) {
   final set = setMultiplier < 1 ? 1 : setMultiplier;
+  String specOf(int i) => (specs != null && i < specs.length) ? specs[i] : '';
   final out = <ResultLine>[];
   if (!grouped) {
     for (var i = 0; i < cuts.length; i++) {
       final c = cuts[i];
       if (c == null || c <= 0) continue;
+      final sp = specOf(i);
       out.add(
         ResultLine(
-          key: 'seg:$i:${_one(c)}:$set',
+          key: sp.isEmpty
+              ? 'seg:$i:${_one(c)}:$set'
+              : 'seg:$i:$sp:${_one(c)}:$set',
           title: 'PT${i + 1} → PT${i + 2}',
           detail: '구간 길이 ${_one(c)} mm',
           cutMm: c,
           count: set,
           segments: [i],
+          spec: sp,
         ),
       );
     }
     return out;
   }
-  // 같은 길이(소수 첫째 자리까지 같으면 같은 것으로)끼리 묶고, 처음 나온 순서를 지킨다.
+  // 같은 규격·같은 길이(소수 첫째 자리까지 같으면 같은 것으로)끼리 묶고, 처음 나온 순서를 지킨다.
   final order = <String>[];
   final members = <String, List<int>>{};
   final values = <String, double>{};
+  final groupSpec = <String, String>{};
   for (var i = 0; i < cuts.length; i++) {
     final c = cuts[i];
     if (c == null || c <= 0) continue;
-    final k = _one(c);
+    final sp = specOf(i);
+    final k = '$sp\u0001${_one(c)}';
     if (!members.containsKey(k)) {
       order.add(k);
       members[k] = [];
       values[k] = c;
+      groupSpec[k] = sp;
     }
     members[k]!.add(i);
   }
   for (final k in order) {
     final segs = members[k]!;
     final count = segs.length * set;
+    final sp = groupSpec[k]!;
+    final len = _one(values[k]!);
     out.add(
       ResultLine(
-        key: 'len:$k:$count',
-        title: '$k mm',
+        key: sp.isEmpty ? 'len:$len:$count' : 'len:$sp:$len:$count',
+        title: '$len mm',
         detail: segs.map((i) => 'PT${i + 1}→${i + 2}').join(' · '),
         cutMm: values[k]!,
         count: count,
         segments: segs,
+        spec: sp,
       ),
     );
   }
   return out;
+}
+
+// 규격별 개수·길이 합계(처음 나온 순서). 규격을 모르는 줄은 빈 글자 규격으로 모인다.
+class SpecTotal {
+  final String spec;
+  final int pieces;
+  final double mm;
+  const SpecTotal(this.spec, this.pieces, this.mm);
+}
+
+List<SpecTotal> specTotals(List<ResultLine> lines) {
+  final order = <String>[];
+  final pieces = <String, int>{};
+  final mm = <String, double>{};
+  for (final l in lines) {
+    if (!pieces.containsKey(l.spec)) order.add(l.spec);
+    pieces[l.spec] = (pieces[l.spec] ?? 0) + l.count;
+    mm[l.spec] = (mm[l.spec] ?? 0) + l.totalMm;
+  }
+  return [for (final k in order) SpecTotal(k, pieces[k]!, mm[k]!)];
 }
 
 class ResultSummary {
@@ -214,7 +271,8 @@ String buildInstructionText({
         ? l.title
         : '${l.title.replaceAll(' mm', '')}mm';
     final len = l.title.contains('→') ? ' ${_one(l.cutMm)}mm' : '';
-    b.writeln('${i + 1}) $what$len × ${l.count}개');
+    final sp = l.spec.isEmpty ? '' : '${l.spec} ';
+    b.writeln('${i + 1}) $sp$what$len × ${l.count}개');
     pieces += l.count;
     mm += l.totalMm;
   }
@@ -246,6 +304,7 @@ String buildSaveConfirmMessage({
   required bool anyDone, // 표시를 한 줄이 하나라도 있는지
   required bool recordsToProject, // 프로젝트 자재 사용량·기록에 올라가는지
   required bool canUndo,
+  List<SpecTotal> specs = const [], // 규격별 합계(규격을 아는 것이 하나라도 있을 때 보여 준다)
 }) {
   final set = setMultiplier < 1 ? 1 : setMultiplier;
   final b = StringBuffer();
@@ -254,6 +313,12 @@ String buildSaveConfirmMessage({
     b.writeln(
       '톱날 손실 ${_one(kerfLossMm)}mm가 더해져 ${_one(baseMm + kerfLossMm)}mm로 기록됩니다.',
     );
+  }
+  if (specs.any((e) => e.spec.isNotEmpty)) {
+    final t = specs
+        .map((e) => '${e.spec.isEmpty ? '규격 미지정' : e.spec} ${_one(e.mm)}mm')
+        .join(' · ');
+    b.writeln('튜브 규격별: $t.');
   }
   if (orders.isNotEmpty) {
     final shown = orders.take(3).map((o) => '${o.label} ×${o.qty}').join(' · ');

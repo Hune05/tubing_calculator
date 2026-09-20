@@ -118,6 +118,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   bool _groupSameLengths = true;
   // 결과 탭에서 "잘랐음"으로 표시한 줄(열쇠는 cutting_result_logic.dart 참고). 임시 저장에 함께 남긴다.
   final Set<String> _doneKeys = {};
+  // 사용자가 직접 지정한 튜브 규격(제원). 부속에서 규격을 알 수 없는 구간에만 쓴다. 빈 글자 = 지정 안 함.
+  String _tubeSpec = '';
   // 저장 직후 띄운 "실행 취소" 스낵바를 화면을 떠날 때 함께 없애기 위해 잡아 둔다.
   ScaffoldMessengerState? _undoMessenger;
 
@@ -237,14 +239,11 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 그 규격, 없으면(직관) 끝 쪽 피팅 규격)을 그대로 따른다.
   Map<String, List<double>> _collectRequiredPiecesByTubeSize() {
     final Map<String, List<double>> byTubeSize = {};
+    final specs = _segmentSpecs();
     for (int i = 0; i < _points.length - 1; i++) {
       final p = _points[i];
       if (p.c2cController.text.isEmpty || p.calculatedCut <= 0) continue;
-      final nextFitting = _points[i + 1].fitting;
-      final rawOd = p.fitting.id != "none"
-          ? p.fitting.tubeOD
-          : nextFitting.tubeOD;
-      final key = rawOd == "ALL" || rawOd.isEmpty ? "" : "튜브 $rawOd";
+      final key = specs[i].isEmpty ? "" : "튜브 ${specs[i]}";
       final list = byTubeSize.putIfAbsent(key, () => []);
       for (int k = 0; k < _setMultiplier; k++) {
         list.add(p.calculatedCut);
@@ -301,40 +300,36 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           "${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')} "
           "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
 
-      List<String> headers;
-      List<List<String>> rows;
-      double grandTotal = 0;
-
+      // 결과 탭과 같은 줄(같은 규격·같은 길이끼리 묶음)로 표를 만든다. 규격을 아는 줄이 있으면 규격 칸을 넣는다.
+      final resultLines = _resultLines();
+      final bool showSpec = resultLines.any((l) => l.spec.isNotEmpty);
+      final double grandTotal = resultLines.fold(0.0, (a, l) => a + l.totalMm);
+      String specCell(ResultLine l) => l.spec.isEmpty ? "-" : l.spec;
+      final List<String> headers;
+      final List<List<String>> rows;
       if (_groupSameLengths) {
-        headers = ["길이(mm)", "개수", "합계 길이(mm)"];
-        final Map<double, int> grouped = {};
-        for (final i in visibleIndices) {
-          grouped[_points[i].calculatedCut] =
-              (grouped[_points[i].calculatedCut] ?? 0) + 1;
-        }
-        rows = grouped.entries.map((e) {
-          final totalCount = e.value * _setMultiplier;
-          final total = e.key * totalCount;
-          grandTotal += total;
-          return [
-            e.key.toStringAsFixed(1),
-            "$totalCount",
-            total.toStringAsFixed(1),
-          ];
-        }).toList();
+        headers = [if (showSpec) "규격", "길이(mm)", "개수", "합계 길이(mm)"];
+        rows = [
+          for (final l in resultLines)
+            [
+              if (showSpec) specCell(l),
+              l.cutMm.toStringAsFixed(1),
+              "${l.count}",
+              l.totalMm.toStringAsFixed(1),
+            ],
+        ];
       } else {
-        headers = ["구간", "구간 길이(mm)", "수량", "합계 길이(mm)"];
-        rows = visibleIndices.map((i) {
-          final cutLen = _points[i].calculatedCut;
-          final total = cutLen * _setMultiplier;
-          grandTotal += total;
-          return [
-            "PT${i + 1} -> PT${i + 2}",
-            cutLen.toStringAsFixed(1),
-            "$_setMultiplier",
-            total.toStringAsFixed(1),
-          ];
-        }).toList();
+        headers = ["구간", if (showSpec) "규격", "구간 길이(mm)", "수량", "합계 길이(mm)"];
+        rows = [
+          for (final l in resultLines)
+            [
+              "PT${l.segments.first + 1} -> PT${l.segments.first + 2}",
+              if (showSpec) specCell(l),
+              l.cutMm.toStringAsFixed(1),
+              "${l.count}",
+              l.totalMm.toStringAsFixed(1),
+            ],
+        ];
       }
 
       // 원자재 배치: 재단 최적화 화면과 같은 방식(저장해 둔 남은 토막 먼저 사용)으로 계산해서
@@ -566,6 +561,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         'setMultiplier': _setMultiplier,
         'groupSameLengths': _groupSameLengths,
         'doneKeys': _doneKeys.toList(),
+        'tubeSpec': _tubeSpec,
         'lengthUnit': _lengthUnit,
         'points': _points.map((p) {
           return {
@@ -595,6 +591,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           _globalMaker = stateData['globalMaker'] ?? "Swagelok";
           _setMultiplier = stateData['setMultiplier'] ?? 1;
           _groupSameLengths = stateData['groupSameLengths'] ?? true;
+          _tubeSpec = (stateData['tubeSpec'] as String?) ?? '';
           _doneKeys
             ..clear()
             ..addAll(
@@ -1838,6 +1835,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     // 있게 한다 (예전엔 총합만 쌓이고 언제 뭘 잘랐는지가 안 남았음).
     final now = DateTime.now();
     final List<CutRecord> cutRecords = [];
+    final segSpecs = _segmentSpecs();
     for (int i = 0; i < _points.length - 1; i++) {
       final point = _points[i];
       if (point.c2cController.text.isEmpty || point.calculatedCut <= 0) {
@@ -1849,9 +1847,11 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           id: '',
           projectId: widget.project.id,
           timestamp: now,
-          tubeSize: point.fitting.id != "none"
-              ? point.fitting.tubeOD
-              : nextFitting.tubeOD,
+          tubeSize: segSpecs[i].isNotEmpty
+              ? segSpecs[i]
+              : (point.fitting.id != "none"
+                    ? point.fitting.tubeOD
+                    : nextFitting.tubeOD),
           // 쉼표(1200,5) 등으로 쓴 값도 읽은 값 그대로 남긴다.
           originalLength:
               parseLengthInput(point.c2cController.text).value ?? 0.0,
@@ -1917,6 +1917,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         anyDone: sum.anyDone,
         recordsToProject: widget.onSaveCallback != null,
         canUndo: canUndo,
+        specs: specTotals(lines),
       ),
       confirmLabel: "저장",
       icon: Icons.save_outlined,
@@ -3459,6 +3460,18 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     );
   }
 
+  // 구간별 튜브 규격: 양쪽 부속에서 알 수 있으면 그 규격, 모르면 사용자가 지정한 규격.
+  List<String> _segmentSpecs() => [
+    for (int i = 0; i < _points.length - 1; i++)
+      tubeSpecFor(
+        startIsFitting: _points[i].fitting.id != "none",
+        startOD: _points[i].fitting.tubeOD,
+        endIsFitting: _points[i + 1].fitting.id != "none",
+        endOD: _points[i + 1].fitting.tubeOD,
+        fallback: _tubeSpec,
+      ),
+  ];
+
   // 결과 탭에 보여 줄 줄들(같은 길이 합산 여부에 따라 묶음이 달라진다).
   List<ResultLine> _resultLines() => buildResultLines(
     [
@@ -3471,6 +3484,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     ],
     _setMultiplier,
     grouped: _groupSameLengths,
+    specs: _segmentSpecs(),
   );
 
   List<FittingOrder> _fittingOrders() => fittingOrderList([
@@ -3525,6 +3539,121 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     );
   }
 
+  // 튜브 규격(제원) 고르기. 부속에서 규격을 알 수 없는 구간에만 적용된다.
+  Future<void> _pickTubeSpec() async {
+    final sizes = SmartFittingDB.tubeSizes;
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      // 다른 컷팅 팝업처럼 흰 바탕에 진한 글씨로 보이게 한다.
+      backgroundColor: CuttingColors.surface,
+      builder: (ctx) => Theme(
+        data: Theme.of(ctx).copyWith(
+          listTileTheme: const ListTileThemeData(
+            textColor: CuttingColors.textPrimary,
+            subtitleTextStyle: TextStyle(
+              fontSize: 12,
+              color: CuttingColors.textSecondary,
+            ),
+          ),
+        ),
+        child: DefaultTextStyle.merge(
+          style: const TextStyle(color: CuttingColors.textPrimary),
+          child: SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    child: Text(
+                      "자를 튜브 규격",
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    child: Text(
+                      "부속에서 규격을 알 수 있는 구간은 그 규격을 따르고, 나머지 구간에만 여기서 고른 규격을 씁니다.",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ),
+                  ListTile(
+                    key: const Key('spec_option_auto'),
+                    title: const Text("부속 기준 (자동)"),
+                    trailing: _tubeSpec.isEmpty
+                        ? const Icon(Icons.check_rounded, color: makitaTeal)
+                        : null,
+                    onTap: () => Navigator.pop(ctx, ''),
+                  ),
+                  for (final size in sizes)
+                    ListTile(
+                      key: Key('spec_option_$size'),
+                      title: Text("튜브 $size"),
+                      trailing: _tubeSpec == size
+                          ? const Icon(Icons.check_rounded, color: makitaTeal)
+                          : null,
+                      onTap: () => Navigator.pop(ctx, size),
+                    ),
+                  ListTile(
+                    key: const Key('spec_option_custom'),
+                    leading: const Icon(Icons.edit_rounded, color: makitaTeal),
+                    title: const Text("직접 입력"),
+                    subtitle: const Text("예: 12mm, 1/2\" × 0.049T"),
+                    onTap: () => Navigator.pop(ctx, '\u0000custom'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    var value = picked;
+    if (picked == '\u0000custom') {
+      final ctrl = TextEditingController(text: _tubeSpec);
+      final typed = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16),
+          title: const Text("튜브 규격 직접 입력"),
+          content: TextField(
+            key: const Key('spec_custom_field'),
+            controller: ctrl,
+            autofocus: true,
+            maxLength: 24,
+            decoration: const InputDecoration(
+              hintText: "예: 12mm, 1/2\" × 0.049T",
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("취소"),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: const Text("확인"),
+            ),
+          ],
+        ),
+      );
+      if (typed == null || !mounted) return;
+      value = typed;
+    }
+    setState(() => _tubeSpec = value);
+    _calculate(); // 규격이 바뀌면 잘랐음 표시도 정리하고 임시 저장한다.
+  }
+
   // 지시서를 글로 복사한다(카카오톡 등에 바로 붙여넣기).
   Future<void> _copyInstruction() async {
     final lines = _resultLines();
@@ -3566,6 +3695,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           ? "간섭이 발생한 구간을 수정하십시오."
           : "치수를 입력하십시오.",
       emptyIsError: d.interferenceCount > 0,
+      tubeSpec: _tubeSpec,
+      onPickSpec: _pickTubeSpec,
     );
   }
 }
