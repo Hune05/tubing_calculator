@@ -59,7 +59,11 @@ computeLandscapeMarkingData() {
 
   Map<String, dynamic> result;
   try {
-    result = engine.calculate(instructions, dataManager.benderOffset);
+    result = engine.calculate(
+      instructions,
+      dataManager.benderOffset,
+      tail: dataManager.tail,
+    );
   } catch (e) {
     return (totalCutLength: 0.0, markings: const [], error: e.toString());
   }
@@ -82,8 +86,9 @@ computeLandscapeMarkingData() {
     });
   }
 
-  final double totalCut =
-      pureCutLength + dataManager.tail + dataManager.cutMargin;
+  // 꼬리는 엔진이 마지막 셋백을 빼고 더해 준다(예전에는 여기서 그대로 더해
+  // 마지막 셋백만큼 길게 잘렸다). 여기서는 톱날 손실만 더한다.
+  final double totalCut = pureCutLength + dataManager.cutMargin;
 
   return (totalCutLength: totalCut, markings: markings, error: null);
 }
@@ -209,7 +214,11 @@ class _MobileResultTabState extends State<MobileResultTab>
         try {
           // 🚀 [버그 수정] "장비 원점 오프셋"도 설정에 저장만 되고 실제
           // 마킹 계산의 기준점에는 전혀 반영되지 않고 있었다.
-          result = engine.calculate(instructions, dataManager.benderOffset);
+          result = engine.calculate(
+            instructions,
+            dataManager.benderOffset,
+            tail: _tailLength,
+          );
         } catch (e) {
           calcError = e.toString();
         }
@@ -319,17 +328,58 @@ class _MobileResultTabState extends State<MobileResultTab>
         // 동일하게, 원자재 절단 시 톱날 두께만큼 없어지는 길이를 더해준다.
         double totalCut = bendList.isEmpty
             ? 0.0
-            : pureCutLength + _tailLength + dataManager.cutMargin;
+            : pureCutLength + dataManager.cutMargin;
         double diffAfterLastMark = (totalCut - lastMarkingPoint) - radius;
 
         if (diffAfterLastMark < 0) {
           diffAfterLastMark = 0;
         }
 
+        // 🚀 [추가] 만들 수 없는 형상(앞뒤 셋백보다 짧은 구간)이면 값 대신
+        // 먼저 알려 준다. 예전에는 조용히 이상한 마킹이 나왔다.
+        final List<String> warnings =
+            (result['warnings'] as List?)?.cast<String>() ?? const [];
+
         return Container(
           color: pureWhite,
           child: Column(
             children: [
+              if (warnings.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF3DF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFFC77700).withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '이대로는 만들 수 없습니다',
+                        style: TextStyle(
+                          color: Color(0xFFC77700),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      for (final w in warnings)
+                        Text(
+                          w,
+                          style: const TextStyle(
+                            color: Color(0xFFC77700),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               // 1. 상단 토탈 컷 카드
               Container(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),

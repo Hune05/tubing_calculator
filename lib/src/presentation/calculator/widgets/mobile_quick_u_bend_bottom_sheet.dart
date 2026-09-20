@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'dart:math' as math;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -106,7 +107,6 @@ class _MobileQuickUBendBottomSheetState
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     final dm = MobileBendDataManager();
-    final double gain90 = dm.gain90;
     final double fittingDepth = dm.fittingDepth;
 
     double startStraight = double.tryParse(_startStraightCtrl.text) ?? 0.0;
@@ -119,15 +119,11 @@ class _MobileQuickUBendBottomSheetState
     double startCutAdd = _isStartFitting ? fittingDepth : 0.0;
     double returnCutAdd = _isReturnFitting ? fittingDepth : 0.0;
 
-    // 🚀 [수정] 실측 연신율(gain90)이 계산에 전혀 반영되지 않고 순수 기하학적
-    // 호 길이(arcLength)만 쓰이고 있었음. 180°는 셋백(setBack = R·tan(θ/2))이
-    // 발산해서 다른 각도처럼 gain90 * (θ/90)을 그대로 쓸 수 없지만, 이 앱의
-    // 설정 화면 참고표(꿀단지 1. 180° U-벤딩)에 이미 "180° 연신율은 90° 연신율의
-    // 2배보다 더 늘어난다"고 명시되어 있으므로, 2×gain90을 최소 보정치(하한선)로
-    // 적용한다. 완전히 무보정(0)인 것보다는 실제값에 훨씬 가깝지만, 여전히
-    // 과소 절단(짧게 잘림) 방향의 근사치이므로 정밀도가 중요하면 실측 180° 연신율을
-    // 직접 측정해서 반영하는 걸 권장한다.
-    final double u180GainEstimate = gain90 > 0 ? gain90 * 2 : 0.0;
+    // 🚀 [고침] 예전에는 여기에 2×게인90을 "더했다". 게인은 교차점 기준 치수를
+    // 실제 관 길이로 바꿀 때 "빼는" 값인데, 여기서 쓰는 앞 직관 + 호 + 뒤 직관은
+    // 이미 펴 놓은 실제 길이라 게인을 더할 자리가 아니다. 3/8" 튜브(R≈38)에서
+    // 33mm쯤 길게 잘리고 있었다. 기하 그대로 쓴다.
+    // (소재가 늘어나는 양까지 보려면 180°로 한 번 꺾어 실측한 값을 따로 받아야 한다.)
 
     // 총 절단 기장 = 앞 직관 + 뒤 직관 + 호(Arc) 길이 + 연신율 보정 + 피팅 체결 여유분
     if (startStraight > 0 || returnStraight > 0) {
@@ -135,7 +131,6 @@ class _MobileQuickUBendBottomSheetState
           startStraight +
           returnStraight +
           arcLength +
-          u180GainEstimate +
           startCutAdd +
           returnCutAdd;
     }
@@ -256,17 +251,16 @@ class _MobileQuickUBendBottomSheetState
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          if (u180GainEstimate > 0) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              "• 연신율 보정(최소 추정치, 90° 실측값×2): +${u180GainEstimate.toStringAsFixed(1)} mm",
-                              style: TextStyle(
-                                color: Colors.amber.shade900,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "• 앞 직관 + 호 + 뒤 직관이 곧 자를 길이입니다"
+                            " (연신율은 더하지 않습니다)",
+                            style: TextStyle(
+                              color: Colors.amber.shade900,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
                             ),
-                          ],
+                          ),
                         ],
                       ),
                     ),

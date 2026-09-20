@@ -152,10 +152,27 @@ class _MarkingPageState extends State<MarkingPage> {
               );
             }
 
-            final result = engine.calculate(
-              instructions,
-              dataManager.benderOffset,
-            );
+            // 🚀 [고침] 180°처럼 엔진이 계산할 수 없는 입력이 들어오면 이 화면만
+            // 빨간 에러 화면으로 죽었다(폰 화면 두 곳은 이미 막아 뒀다).
+            Map<String, dynamic> result;
+            try {
+              result = engine.calculate(
+                instructions,
+                dataManager.benderOffset,
+                tail: _tailLength,
+              );
+            } catch (e) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    e.toString().replaceFirst('Invalid argument(s): ', ''),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: slate600, fontSize: 14),
+                  ),
+                ),
+              );
+            }
             final double pureCutLength = result['totalCutLength'];
             final List<StepResult> steps = result['steps'];
 
@@ -219,9 +236,9 @@ class _MarkingPageState extends State<MarkingPage> {
               }
             }
 
-            double totalCut = bendList.isEmpty
-                ? 0.0
-                : pureCutLength + _tailLength;
+            // 꼬리는 엔진이 마지막 셋백을 빼고 더해 준다. 톱날 손실은 이 화면의
+            // 제원 저장소에 아직 칸이 없어서 빠져 있다(폰 화면에는 있다).
+            double totalCut = bendList.isEmpty ? 0.0 : pureCutLength;
             double diffAfterLastMark = (totalCut - lastMarkingPoint) - radius;
             if (diffAfterLastMark < 0) diffAfterLastMark = 0;
 

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/engine/bend_geometry.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:math' as math;
 import 'package:shared_preferences/shared_preferences.dart'; // 🚀 SharedPreferences 임포트 추가
@@ -503,20 +505,18 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
 
       // 🚀 [버그 수정] 실측 연신율보다 반경 기반 이론값이 먼저 적용되던
       // 문제 (메인 마킹 엔진과 우선순위가 반대였음 - mobile_offset_bottom_sheet.dart와 동일한 버그).
-      if (_machineGain > 0) {
-        gainCenter = (_machineGain * (a3 / 90.0));
-        gainSide = (_machineGain * ((a3 / 2) / 90.0));
-        gain3Pt = gainCenter + (gainSide * 2);
-      } else if (_machineRadius > 0) {
-        double centerRad = a3 * math.pi / 180.0;
-        gainCenter =
-            (2 * _machineRadius * math.tan(centerRad / 2)) -
-            (math.pi * _machineRadius * a3 / 180.0);
-        gainSide =
-            (2 * _machineRadius * math.tan(radSide / 2)) -
-            (math.pi * _machineRadius * (a3 / 2) / 180.0);
-        gain3Pt = gainCenter + (gainSide * 2);
-      }
+      // 🚀 [고침] 실측 게인 각도 환산을 기하 비율로(공용 함수).
+      gainCenter = effectiveGain(
+        radius: _machineRadius,
+        angleDeg: a3,
+        measuredGain90: _machineGain,
+      );
+      gainSide = effectiveGain(
+        radius: _machineRadius,
+        angleDeg: a3 / 2,
+        measuredGain90: _machineGain,
+      );
+      gain3Pt = gainCenter + (gainSide * 2);
 
       if (gainCenter > 0 || gainSide > 0) {
         gainDetails3Pt =
@@ -527,7 +527,9 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         gainDetails3Pt = "설정된 연신율 데이터 없음";
       }
 
-      totalConsumed3Pt = pipeUsed3Pt + gain3Pt;
+      // 🚀 [고침] 게인은 자를 때 "빼는" 값인데 더하고 있었다(오프셋 시트는
+      // 빼고 있어서 같은 앱 안에서 부호가 반대였다).
+      totalConsumed3Pt = pipeUsed3Pt - gain3Pt;
     }
 
     // --- 4-Point 계산 ---
@@ -550,18 +552,13 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
       shrink4Pt = pipeUsed4Pt - run4PtTotal;
       if (_userOffsetShrink > 0) shrink4Pt += (_userOffsetShrink * 2);
 
-      double gainBend = 0.0;
-
-      // 🚀 [버그 수정] 3-Point와 동일한 우선순위 버그.
-      if (_machineGain > 0) {
-        gainBend = (_machineGain * (a4 / 90.0));
-        gain4Pt = gainBend * 4;
-      } else if (_machineRadius > 0) {
-        gainBend =
-            (2 * _machineRadius * math.tan(rad4 / 2)) -
-            (math.pi * _machineRadius * a4 / 180.0);
-        gain4Pt = gainBend * 4;
-      }
+      // 🚀 [고침] 실측 게인 각도 환산을 기하 비율로(공용 함수).
+      final double gainBend = effectiveGain(
+        radius: _machineRadius,
+        angleDeg: a4,
+        measuredGain90: _machineGain,
+      );
+      gain4Pt = gainBend * 4;
 
       if (gainBend > 0) {
         gainDetails4Pt =
@@ -571,7 +568,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         gainDetails4Pt = "설정된 연신율 데이터 없음";
       }
 
-      totalConsumed4Pt = pipeUsed4Pt + gain4Pt;
+      totalConsumed4Pt = pipeUsed4Pt - gain4Pt;
     }
 
     return Padding(
@@ -1064,7 +1061,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                       ),
                       SizedBox(height: 2),
                       Text(
-                        "도면합계 + 총 연신율 (파이프 소모량)",
+                        "도면합계 − 총 연신율 (실제 자를 길이)",
                         style: TextStyle(color: slate600, fontSize: 10),
                       ),
                     ],

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/engine/bend_geometry.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:math' as math;
 import 'package:shared_preferences/shared_preferences.dart'; // 🚀 설정 연동을 위해 임포트 추가
@@ -411,14 +413,13 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
       // (tube_bending_engine.dart)은 반대로 실측값을 항상 우선하는데,
       // 여기서는 반경까지 입력된 경우(거의 항상) 힘들게 현장에서 실측한
       // 값이 조용히 무시되고 있었다. 우선순위를 엔진과 동일하게 맞춘다.
-      double gainPerBend = 0.0;
-      if (_machineGain > 0) {
-        gainPerBend = _machineGain * (targetAngle / 90.0);
-      } else if (_machineRadius > 0) {
-        double setback = _machineRadius * math.tan(rad / 2);
-        double arcLength = math.pi * _machineRadius * targetAngle / 180.0;
-        gainPerBend = (2 * setback) - arcLength;
-      }
+      // 🚀 [고침] 실측 게인을 각도에 비례로 환산하던 것을 기하 비율로 바꿨다
+      // (45°에서 벤드당 16mm 어긋났다). 공용 기하 함수 한 곳만 쓴다.
+      final double gainPerBend = effectiveGain(
+        radius: _machineRadius,
+        angleDeg: targetAngle,
+        measuredGain90: _machineGain,
+      );
       totalGain = gainPerBend * 2;
     }
 

@@ -389,7 +389,11 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
     Map<String, dynamic>? result;
     String? calcError;
     try {
-      result = engine.calculate(instructions, dataManager.benderOffset);
+      result = engine.calculate(
+        instructions,
+        dataManager.benderOffset,
+        tail: _tailLength,
+      );
     } catch (e) {
       calcError = e.toString();
     }
@@ -461,9 +465,8 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
       if (!isStraight) markNumber++;
     }
 
-    double totalCut = widget.bendList.isEmpty
-        ? 0.0
-        : pureCutLength + _tailLength;
+    // 꼬리는 엔진이 마지막 셋백을 빼고 더해 준다.
+    double totalCut = widget.bendList.isEmpty ? 0.0 : pureCutLength;
     double diffAfterLastMark = totalCut - lastMarkingPoint;
 
     return Scaffold(
