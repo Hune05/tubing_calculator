@@ -38,7 +38,11 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     'inventory_logs',
   );
 
+  // 🚀 전선관·후렉시블·부속을 앞에 넣었다(전선관 작업에서 제일 많이 쓴다).
   final List<Map<String, dynamic>> _categories = [
+    {"id": "CONDUIT", "name": "전선관", "color": const Color(0xFF2F4858)},
+    {"id": "FLEX", "name": "후렉시블", "color": const Color(0xFF3B5E52)},
+    {"id": "ACC", "name": "부속·악세사리", "color": const Color(0xFF6B5344)},
     {"id": "TUBE", "name": "튜브 (Tube)", "color": const Color(0xFF4A5D66)},
     {
       "id": "FITTING",

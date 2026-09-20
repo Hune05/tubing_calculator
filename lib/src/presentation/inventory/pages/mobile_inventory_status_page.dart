@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../material_catalog.dart';
+import 'inventory_item_page.dart';
 import 'inventory_view_logic.dart';
+import 'material_catalog_page.dart';
 import 'mobile_inventory_logs_page.dart';
 import 'mobile_inventory_checkout_page.dart';
 
@@ -32,13 +35,17 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
   final CollectionReference _checkoutsDb = FirebaseFirestore.instance
       .collection('checkouts');
 
+  // 칩에 보이는 글은 한글, 자재에 저장된 분류는 영문 아이디다
+  // (material_catalog.dart에 둘을 짝지어 뒀다).
   final List<String> _categories = [
     "ALL",
+    "CONDUIT",
+    "FLEX",
+    "ACC",
     "TUBE",
     "FITTING",
     "VALVE",
     "FLANGE",
-    "GASKET",
     "기타",
   ];
 
@@ -64,8 +71,20 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
           ),
           actions: [
             IconButton(
+              icon: const Icon(LucideIcons.listPlus, size: 26),
+              tooltip: '자재 목록에서 재고에 넣기',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const MaterialCatalogPage(),
+                  ),
+                );
+              },
+            ),
+            IconButton(
               icon: const Icon(LucideIcons.clipboardList, size: 26),
-              tooltip: '로그 기록 보기',
+              tooltip: '자재 기록 보기',
               onPressed: () {
                 Navigator.push(
                   context,
@@ -170,7 +189,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: ChoiceChip(
-                  label: Text(cat),
+                  label: Text(cat == "ALL" ? "전체" : materialCategoryLabel(cat)),
                   labelStyle: TextStyle(
                     color: isSelected ? pureWhite : slate600,
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
@@ -256,120 +275,134 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                   bool canCheckout = qty > 0;
 
                   // 🌟 카드 박스 제거, 여백 위주 디자인
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 20,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        // 1. 자재 정보
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                itemName,
-                                style: const TextStyle(
-                                  color: slate900,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800, // 타이틀 볼드 강조
-                                  letterSpacing: -0.5,
+                  // 줄을 누르면 그 자재만 보는 한 장 화면으로 간다.
+                  return InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => InventoryItemPage(
+                            docId: doc.id,
+                            workerName: widget.workerName,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 20,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // 1. 자재 정보
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  itemName,
+                                  style: const TextStyle(
+                                    color: slate900,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800, // 타이틀 볼드 강조
+                                    letterSpacing: -0.5,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: canCheckout
-                                          ? makitaTeal.withValues(alpha: 0.1)
-                                          : Colors.red.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      "재고 $qty$unit",
-                                      style: TextStyle(
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
                                         color: canCheckout
-                                            ? makitaTeal
-                                            : Colors.redAccent,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w800,
+                                            ? makitaTeal.withValues(alpha: 0.1)
+                                            : Colors.red.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        "재고 $qty$unit",
+                                        style: TextStyle(
+                                          color: canCheckout
+                                              ? makitaTeal
+                                              : Colors.redAccent,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w800,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      inventorySpecAndPlace(data),
-                                      style: const TextStyle(
-                                        color: slate600,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        inventorySpecAndPlace(data),
+                                        style: const TextStyle(
+                                          color: slate600,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
+                          const SizedBox(width: 16),
 
-                        // 2. 조용하지만 명확한 액션 버튼
-                        ElevatedButton(
-                          onPressed: canCheckout
-                              ? () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          MobileInventoryCheckoutPage(
-                                            docId: doc.id,
-                                            itemName: itemName,
-                                            currentQty: qty,
-                                            unit: unit,
-                                            isCheckout: true,
-                                            workerName: widget.workerName,
-                                          ),
-                                    ),
-                                  );
-                                }
-                              : null,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: slate100, // 튀지 않는 배경색
-                            foregroundColor: slate900,
-                            disabledBackgroundColor: slate100.withValues(
-                              alpha: 0.5,
+                          // 2. 조용하지만 명확한 액션 버튼
+                          ElevatedButton(
+                            onPressed: canCheckout
+                                ? () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            MobileInventoryCheckoutPage(
+                                              docId: doc.id,
+                                              itemName: itemName,
+                                              currentQty: qty,
+                                              unit: unit,
+                                              isCheckout: true,
+                                              workerName: widget.workerName,
+                                            ),
+                                      ),
+                                    );
+                                  }
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: slate100, // 튀지 않는 배경색
+                              foregroundColor: slate900,
+                              disabledBackgroundColor: slate100.withValues(
+                                alpha: 0.5,
+                              ),
+                              disabledForegroundColor: slate600.withValues(
+                                alpha: 0.5,
+                              ),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 12,
+                              ),
+                              minimumSize: Size.zero,
                             ),
-                            disabledForegroundColor: slate600.withValues(
-                              alpha: 0.5,
+                            child: const Text(
+                              "불출",
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                              ),
                             ),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 12,
-                            ),
-                            minimumSize: Size.zero,
                           ),
-                          child: const Text(
-                            "불출",
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   );
                 },
