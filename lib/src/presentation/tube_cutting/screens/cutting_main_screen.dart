@@ -2072,81 +2072,6 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     );
   }
 
-  // 입력 탭 맨 아래 요약: 지금 입력한 구간 수와 합계 길이, 세트 수 조절, 재단 최적화 바로가기.
-  // 계산된 구간이 하나도 없으면 보이지 않는다. 원자재 본수는 넣지 않았다 — 재단 최적화 화면은
-  // 남은 토막·섞어 쓰기 설정에 따라 값이 달라져서, 여기 숫자와 어긋날 수 있기 때문이다.
-  Widget _buildInputSummaryBar() {
-    // 키보드가 올라와 있을 때는 숨긴다(입력칸이 보일 자리를 남기기 위해).
-    if (MediaQuery.of(context).viewInsets.bottom > 0) {
-      return const SizedBox.shrink();
-    }
-    final cuts = <double>[
-      for (int i = 0; i < _points.length - 1; i++)
-        if (_points[i].c2cController.text.trim().isNotEmpty &&
-            !_points[i].unreadable &&
-            _points[i].calculatedCut > 0)
-          _points[i].calculatedCut,
-    ];
-    if (cuts.isEmpty) return const SizedBox.shrink();
-    final oneSet = cuts.fold(0.0, (a, b) => a + b);
-    final total = oneSet * _setMultiplier;
-    return Container(
-      key: const Key('input_summary_bar'),
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      decoration: BoxDecoration(
-        color: whiteCard,
-        border: Border(top: BorderSide(color: Colors.grey.shade300)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            "구간 ${cuts.length}개 · 합계 ${total.toStringAsFixed(1)}mm",
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: textPrimary,
-            ),
-          ),
-          if (_setMultiplier > 1)
-            Text(
-              "1세트 ${oneSet.toStringAsFixed(1)}mm × $_setMultiplier세트",
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              _buildSetStepper(),
-              OutlinedButton.icon(
-                onPressed: _showOptimizationDialog,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: makitaTeal,
-                  side: const BorderSide(color: makitaTeal),
-                ),
-                icon: const Icon(Icons.view_column_outlined, size: 18),
-                label: const Text("재단 최적화"),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPointListPane() {
-    return Column(
-      children: [
-        Expanded(child: _buildPointListPaneBody()),
-        _buildInputSummaryBar(),
-      ],
-    );
-  }
-
   Widget _buildNarrowBody() {
     return Expanded(
       child: Column(
@@ -2184,7 +2109,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 추가" 버튼이 한 줄에 다 몰려 있어서, 화면이 좁으면 제목이 줄바꿈되며
   // 버튼들과 균형이 깨졌다. 제목/부제를 세로로 분리해 위계를 주고,
   // "포인트 추가"는 엄지로 누르기 쉬운 전체 폭 버튼으로 아래에 뒀다.
-  Widget _buildPointListPaneBody() {
+  Widget _buildPointListPane() {
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(

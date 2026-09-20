@@ -140,23 +140,30 @@ void main() {
 
     testWidgets('숫자를 넣으면 절단 길이가 카드에 바로 나온다', (tester) async {
       await open(tester);
-      expect(find.byKey(const Key('input_summary_bar')).evaluate(), isEmpty);
       expect(find.byKey(const Key('cut_breakdown_0')).evaluate(), isEmpty);
 
       await tester.enterText(lengthField(0), '1200,5');
       await tester.pump();
       expect(find.text('절단 1200.5mm'), findsOneWidget);
       expect(find.byKey(const Key('unreadable_0')).evaluate(), isEmpty);
-      expect(findText('구간 1개 · 합계 1200.5mm'), findsOneWidget);
+      // 입력 탭 아래에 화면을 가리는 요약 줄은 두지 않는다.
+      expect(find.byKey(const Key('set_plus')).evaluate(), isEmpty);
     });
 
-    testWidgets('읽을 수 없는 글자는 알려 주고 합계에서 뺀다', (tester) async {
+    testWidgets('읽을 수 없는 글자는 알려 주고 계산에서 뺀다', (tester) async {
       await open(tester);
       await tester.enterText(lengthField(0), '12a0');
       await tester.pump();
       expect(find.byKey(const Key('unreadable_0')), findsOneWidget);
       expect(find.textContaining('간섭 발생'), findsNothing);
-      expect(find.byKey(const Key('input_summary_bar')).evaluate(), isEmpty);
+      expect(find.byKey(const Key('cut_breakdown_0')).evaluate(), isEmpty);
+
+      // 결과 탭에도 나오지 않는다.
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('치수를 입력하십시오'), findsOneWidget);
+      await tester.tap(find.text('입력'));
+      await tester.pumpAndSettle();
 
       // 고쳐 쓰면 사라진다.
       await tester.enterText(lengthField(0), '1200');
@@ -165,28 +172,18 @@ void main() {
       expect(find.text('절단 1200.0mm'), findsOneWidget);
     });
 
-    testWidgets('세트 수를 입력 탭에서 바꾸면 합계가 곱해지고 결과 탭과 같다', (tester) async {
+    testWidgets('세트 수는 결과 탭에서 바꾸고 1 아래로는 내려가지 않는다', (tester) async {
       await open(tester);
       await tester.enterText(lengthField(0), '1000');
       await tester.pump();
-      expect(findText('구간 1개 · 합계 1000.0mm'), findsOneWidget);
-
-      await tester.tap(find.byKey(const Key('set_plus')));
-      await tester.pump();
-      await tester.tap(find.byKey(const Key('set_plus')));
-      await tester.pump();
-      expect(findText('구간 1개 · 합계 3000.0mm'), findsOneWidget);
-      expect(findText('1세트 1000.0mm × 3세트'), findsOneWidget);
-      expect(find.text('3 SET'), findsOneWidget);
-
-      // 결과 탭의 세트 수도 같은 값이다.
       await tester.tap(find.text('결과'));
       await tester.pumpAndSettle();
-      expect(find.text('3 SET'), findsWidgets);
-
-      // 1 아래로는 내려가지 않는다.
-      await tester.tap(find.text('입력'));
-      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('set_plus')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('set_plus')));
+      await tester.pump();
+      expect(find.text('3 SET'), findsOneWidget);
+      expect(find.textContaining('3000.0 mm'), findsWidgets);
       for (var i = 0; i < 5; i++) {
         await tester.tap(find.byKey(const Key('set_minus')));
         await tester.pump();
@@ -194,13 +191,14 @@ void main() {
       expect(find.text('1 SET'), findsOneWidget);
     });
 
-    testWidgets('글자를 크게 키워도 요약 줄이 넘치지 않는다', (tester) async {
+    testWidgets('글자를 크게 키워도 입력 탭이 넘치지 않는다', (tester) async {
       await open(tester, scale: 1.5);
       await tester.enterText(lengthField(0), '2600');
       await tester.pump();
-      await tester.tap(find.byKey(const Key('set_plus')));
+      expect(tester.takeException(), isNull);
+      await tester.enterText(lengthField(0), '2600abc');
       await tester.pump();
-      expect(find.byKey(const Key('input_summary_bar')), findsOneWidget);
+      expect(find.byKey(const Key('unreadable_0')), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -208,12 +206,13 @@ void main() {
       await open(tester, scale: 1.5);
       await tester.enterText(lengthField(0), '2600');
       await tester.pump();
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
       for (var i = 0; i < 3; i++) {
         await tester.tap(find.byKey(const Key('set_plus')));
         await tester.pump();
       }
-      await tester.tap(find.text('결과'));
-      await tester.pumpAndSettle();
+      expect(find.text('4 SET'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });
