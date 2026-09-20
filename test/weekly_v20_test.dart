@@ -94,7 +94,10 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(findTextContaining('최근 확인된 알림: 9/19 18:02  작업 일지'), findsOneWidget);
+      expect(
+        findTextContaining('최근 확인된 알림: 9/19 18:02  작업 일지'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('기록이 없으면 안내 문구가 보인다', (tester) async {

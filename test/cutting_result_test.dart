@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_leftovers.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +14,9 @@ import 'helpers_text.dart';
 
 // 튜브 컷팅 결과 탭: 줄 만들기, 잘랐음 표시, 총계, 부속 목록, 지시서 글, 화면.
 void main() {
+  // 잔재는 앱에서는 서버에 두지만, 테스트에서는 폰(prefs) 저장소로 바꿔 쓴다.
+  leftoverStore = PrefsLeftoverStore();
+
   group('자를 길이 줄', () {
     test('묶지 않으면 구간마다 한 줄, 계산 못 하는 구간은 뺀다', () {
       final l = buildResultLines(

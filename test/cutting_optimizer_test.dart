@@ -32,6 +32,9 @@ void expectValid(
 }
 
 void main() {
+  // 잔재는 앱에서는 서버에 두지만, 테스트에서는 폰(prefs) 저장소로 바꿔 쓴다.
+  leftoverStore = PrefsLeftoverStore();
+
   group('절단 길이 계산', () {
     test('중심 간 거리에서 양쪽 공제값을 뺀다', () {
       expect(

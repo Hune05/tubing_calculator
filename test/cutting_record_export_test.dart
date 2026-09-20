@@ -30,6 +30,9 @@ CutRecord rec(
 );
 
 void main() {
+  // 잔재는 앱에서는 서버에 두지만, 테스트에서는 폰(prefs) 저장소로 바꿔 쓴다.
+  leftoverStore = PrefsLeftoverStore();
+
   specGroups();
   group('컷팅 기록 표', () {
     test('날짜 오름차순으로 나오고 합계는 수량을 곱한다', () {

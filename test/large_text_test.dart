@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_leftovers.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/core/utils/error_log.dart';
@@ -135,6 +136,9 @@ void expectNoOverflow(WidgetTester tester, String where) {
 }
 
 void main() {
+  // 잔재는 앱에서는 서버에 두지만, 테스트에서는 폰(prefs) 저장소로 바꿔 쓴다.
+  leftoverStore = PrefsLeftoverStore();
+
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets('알림 점검', (tester) async {

@@ -37,6 +37,9 @@ SteelCutItem item(
 );
 
 void main() {
+  // 잔재는 앱에서는 서버에 두지만, 테스트에서는 폰(prefs) 저장소로 바꿔 쓴다.
+  leftoverStore = PrefsLeftoverStore();
+
   group('이론 중량', () {
     test('표에 있는 앵글·찬넬은 KS 단위중량 그대로', () {
       expect(steelKgPerM('앵글 40x40x3'), 1.83);
@@ -477,14 +480,15 @@ void main() {
     String progress(WidgetTester tester) =>
         tester.widget<Text>(find.byKey(const Key('result_progress'))).data!;
 
-    testWidgets('전부 잘랐으면 튜브용 "저장하십시오" 대신 잔재 안내와 버튼', (tester) async {
+    testWidgets('전부 잘랐으면 "모두 잘랐습니다."만, 잔재 이야기는 없다', (tester) async {
       SharedPreferences.setMockInitialValues({
         'steel_done_sp3': ['steel:앵글 40x40x3:500.0:2'],
       });
       await open(tester);
       expect(progress(tester), '모두 잘랐습니다.');
-      expect(find.byKey(const Key('result_done_action')), findsOneWidget);
-      // 다 자르지 않았으면 진행 글과 버튼이 없다.
+      // 잔재 저장은 재단 최적화 창에서만 한다 — 결과 탭에는 단추도, 저장 문구도 없다.
+      expect(find.byKey(const Key('result_done_action')), findsNothing);
+      expect(findTextContaining('잔재'), findsNothing);
     });
 
     testWidgets('전부 자르지 않았으면 진행 글만', (tester) async {
@@ -494,12 +498,12 @@ void main() {
       expect(find.byKey(const Key('result_done_action')), findsNothing);
     });
 
-    testWidgets('버튼으로 재단 최적화를 열어 저장하면 안내가 바뀌고 저장 표시가 남는다', (tester) async {
+    testWidgets('재단 최적화 창에서 저장하면 저장 표시가 남는다', (tester) async {
       SharedPreferences.setMockInitialValues({
         'steel_done_sp3': ['steel:앵글 40x40x3:500.0:2'],
       });
       await open(tester);
-      await tester.tap(find.byKey(const Key('result_done_action')));
+      await tester.tap(find.byKey(const Key('steel_btn_optimize')));
       await tester.pumpAndSettle();
       expect(find.text('재단 최적화 (원자재 소요 계산)'), findsOneWidget);
       final save = find.text('잘랐습니다 (잔재 저장)');
@@ -509,8 +513,8 @@ void main() {
       // 창을 닫는다.
       await tester.tapAt(const Offset(180, 20));
       await tester.pumpAndSettle();
-      expect(progress(tester), '모두 잘랐습니다. 잔재도 저장했습니다.');
-      expect(find.byKey(const Key('result_done_action')), findsNothing);
+      // 결과 탭 글은 그대로("모두 잘랐습니다."), 저장 사실은 기억한다.
+      expect(progress(tester), '모두 잘랐습니다.');
       final prefs = await SharedPreferences.getInstance();
       expect(
         prefs.getString('steel_leftover_saved_sp3'),
@@ -529,7 +533,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tapAt(const Offset(180, 20));
       await tester.pumpAndSettle();
-      expect(progress(tester), '모두 잘랐습니다. 잔재도 저장했습니다.');
+      expect(progress(tester), '모두 잘랐습니다.');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getStringList('steel_done_sp3'), [
         'steel:앵글 40x40x3:500.0:2',

@@ -2444,11 +2444,9 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                 onToggle: _toggleDone,
                 setMultiplier: _setMultiplier,
                 specHeaders: true,
-                allDoneText: _leftoversSaved
-                    ? "모두 잘랐습니다. 잔재도 저장했습니다."
-                    : "모두 잘랐습니다.",
-                allDoneActionLabel: _leftoversSaved ? null : "잔재 저장",
-                onAllDoneAction: _showOptimization,
+                // 잔재는 재단 최적화 창에서만 다룬다(결과 탭에서 "저장했습니다"라고만 하면
+                // 어디에 저장됐는지 알 수 없어 혼선만 생겼다).
+                allDoneText: "모두 잘랐습니다.",
                 specWeights: weights.bySpec,
                 unknownWeightSpecs: weights.unknownSpecs,
                 emptyMessage: "절단 항목을 먼저 추가하십시오.",

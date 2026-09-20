@@ -25,6 +25,10 @@ import 'package:tubing_calculator/src/presentation/steel_cutting/screens/mobile_
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_project_list_page.dart';
 
 // 🚀 2. 자재 관리 페이지들 임포트
+import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_login.dart';
+import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_status_page.dart';
+import 'package:tubing_calculator/src/presentation/material/material_order_page.dart';
+import 'package:tubing_calculator/src/presentation/material/order_log_page.dart';
 
 // 🚀 3. 프로필 및 소통 페이지 임포트
 import 'package:tubing_calculator/src/presentation/profile/pages/mobile_profile_page.dart';
@@ -625,12 +629,98 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   },
                 ),
 
-                // 🚀 [수정] 사용자 요청으로 "현장 소통(메시지/일정)",
-                // "공용 차량 및 장비", "자재 관리" 3개 섹션을 메뉴에서
-                // 숨김. 계산기/배치도/프로젝트 관리와 무관한 기능들이라
-                // 메뉴를 계산기 중심으로 간결하게 유지하기 위함. 페이지와
-                // import는 그대로 남겨뒀으니 필요해지면 이 주석 위치에
-                // 버튼들을 다시 붙이면 된다.
+                // 🚀 [되살림] "자재 관리"는 다시 쓰기로 해서 메뉴에 꺼냈다(2026-09-20).
+                // "현장 소통(메시지/일정)"과 "공용 차량 및 장비"는 계속 숨겨 둔다 —
+                // 페이지와 import는 남아 있으니 필요해지면 같은 방식으로 붙이면 된다.
+                const SizedBox(height: 32),
+                const Divider(height: 1, color: slate100, thickness: 8),
+                const SizedBox(height: 24),
+
+                const Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 24.0,
+                    vertical: 8.0,
+                  ),
+                  child: Text(
+                    "자재 관리",
+                    style: TextStyle(
+                      color: slate600,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                _buildMenuButton(
+                  context: context,
+                  title: "자재 현황 (불출 / 반납)",
+                  subtitle: "지금 재고 확인 및 현장 자재 입출고 처리",
+                  icon: Icons.inventory_2_outlined,
+                  iconColor: slate900,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => MobileInventoryStatusPage(
+                          workerName: widget.currentWorker,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                _buildMenuButton(
+                  context: context,
+                  title: "자재 통합 관리",
+                  subtitle: "재고조사 · 새 자재 등록 및 삭제",
+                  icon: Icons.admin_panel_settings_outlined,
+                  iconColor: slate900,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const MobileInventoryLoginScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMenuButton(
+                  context: context,
+                  title: "자재 발주 및 현황",
+                  subtitle: "새 자재 발주 요청 및 진행 상태 확인",
+                  icon: Icons.local_shipping_outlined,
+                  iconColor: slate900,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => MaterialOrderPage(
+                          isAdmin: widget.isAdmin,
+                          currentUser: widget.currentWorker,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                _buildMenuButton(
+                  context: context,
+                  title: "발주 의뢰 내역",
+                  subtitle: "지난 발주와 처리 완료·반려 내역 보기",
+                  icon: Icons.history_rounded,
+                  iconColor: slate900,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const OrderLogPage(),
+                      ),
+                    );
+                  },
+                ),
+
                 const SizedBox(height: 60),
               ],
             ),
