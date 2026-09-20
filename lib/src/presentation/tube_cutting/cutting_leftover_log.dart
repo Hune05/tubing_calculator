@@ -157,6 +157,44 @@ List<LeftoverLogEntry> filterLeftoverLog(
   return out;
 }
 
+const List<String> _wdKo = ['월', '화', '수', '목', '금', '토', '일'];
+
+// "9월 20일(일) 09:05"
+String fmtLogWhen(DateTime t) =>
+    '${t.month}월 ${t.day}일(${_wdKo[t.weekday - 1]}) '
+    '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+// 메신저에 붙여넣는 잔재 글: 지금 화면에 보이는 기록(거른 조건 포함)과, 있으면 지금 남아 있는 잔재.
+// [filterText]는 "최근 7일 · 앵글 40x40x3"처럼 어떤 조건으로 걸렀는지.
+String buildLeftoverLogText({
+  required List<LeftoverLogEntry> entries,
+  String filterText = '',
+  List<Leftover> current = const [],
+}) {
+  final b = StringBuffer();
+  b.writeln('[잔재 기록]${filterText.isEmpty ? '' : ' ($filterText)'}');
+  if (entries.isEmpty) {
+    b.writeln('기록이 없습니다.');
+  } else {
+    for (final e in entries) {
+      b.writeln(
+        '${fmtLogWhen(e.at)}${e.source.isEmpty ? '' : ' · ${e.source}'}',
+      );
+      b.writeln('  쓴 잔재: ${describeLeftovers(e.used)}');
+      b.writeln('  새 잔재: ${describeLeftovers(e.added)}');
+    }
+  }
+  if (current.isNotEmpty) {
+    final total = current.fold<double>(0, (s, l) => s + l.length);
+    b.writeln();
+    b.writeln(
+      '[지금 남은 잔재] 전체 ${current.length}개 · 합계 ${total.toStringAsFixed(0)}mm',
+    );
+    b.writeln(describeLeftovers(current));
+  }
+  return b.toString().trimRight();
+}
+
 // 같은 규격·길이를 "5400mm × 2"처럼 묶어 규격별로 적는다. 빈 목록이면 "없음".
 String describeLeftovers(List<Leftover> list) {
   if (list.isEmpty) return '없음';

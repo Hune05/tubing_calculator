@@ -55,8 +55,61 @@ void main() {
     test('기존 앵글·찬넬 규격과 id는 그대로다(예전 저장 항목이 깨지지 않게)', () {
       expect(SteelShapeDB.all.any((s) => s.id == 'angle_40x40x3'), true);
       expect(SteelShapeDB.all.any((s) => s.id == 'channel_100x50x5'), true);
-      expect(SteelShapeDB.angles.length, 16);
-      expect(SteelShapeDB.channels.length, 20);
+      // 예전부터 있던 앵글 16종·찬넬 20종의 id가 모두 남아 있다.
+      for (final v in [
+        '25x25x3',
+        '30x30x3',
+        '40x40x3',
+        '40x40x4',
+        '45x45x4',
+        '50x50x4',
+        '50x50x5',
+        '60x60x5',
+        '65x65x6',
+        '75x75x6',
+        '75x75x9',
+        '90x90x7',
+        '100x100x7',
+        '100x100x10',
+        '125x125x9',
+        '150x150x12',
+      ]) {
+        expect(
+          SteelShapeDB.angles.any((s) => s.id == 'angle_$v'),
+          true,
+          reason: v,
+        );
+      }
+      for (final v in [
+        '25x25x1.6',
+        '40x20x1.6',
+        '50x25x1.6',
+        '60x30x2.0',
+        '75x35x2.3',
+        '90x40x2.3',
+        '100x50x2.3',
+        '125x50x2.3',
+        '150x50x2.3',
+        '200x75x3.2',
+        '75x40x5',
+        '100x50x5',
+        '125x65x6',
+        '150x75x6.5',
+        '180x75x7',
+        '200x80x7.5',
+        '250x90x9',
+        '300x90x9',
+        '300x90x10',
+        '380x100x10.5',
+      ]) {
+        expect(
+          SteelShapeDB.channels.any((s) => s.id == 'channel_$v'),
+          true,
+          reason: v,
+        );
+      }
+      expect(SteelShapeDB.angles.length, 37);
+      expect(SteelShapeDB.channels.length, 22);
     });
 
     test('새로 넣은 대표 규격', () {

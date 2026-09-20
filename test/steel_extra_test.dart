@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_action_bar.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/data/models/steel_cutting_project_model.dart';
@@ -58,7 +60,7 @@ void main() {
     });
 
     test('각파이프·평철·환봉·강관·H형강 값', () {
-      expect(steelKgPerM('각파이프 50x50x2.3')!, closeTo(3.44, 0.02));
+      expect(steelKgPerM('각파이프 50x50x2.3')!, closeTo(3.34, 0.02));
       expect(steelKgPerM('평철 50x6')!, closeTo(2.355, 0.01));
       expect(steelKgPerM('환봉 Φ12')!, closeTo(0.888, 0.01));
       expect(steelKgPerM('강관 25A(34.0)'), 2.43);
@@ -70,7 +72,7 @@ void main() {
       for (final s in SteelShapeDB.all) {
         final kg = steelKgPerM(s.label);
         expect(kg, isNotNull, reason: s.label);
-        expect(kg! > 0.15 && kg < 120, true, reason: '${s.label} $kg');
+        expect(kg! > 0.15 && kg < 150, true, reason: '${s.label} $kg');
       }
     });
 
@@ -902,6 +904,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
       expect(find.text('잔재 기록'), findsOneWidget);
       expect(find.text('9월 20일(일) 09:05'), findsOneWidget);
       expect(find.text('형강 컷팅 · 루마'), findsOneWidget);
@@ -910,6 +913,7 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(home: LeftoverLogPage(entries: [])),
       );
+      await tester.pumpAndSettle();
       expect(findTextContaining('아직 잔재 기록이 없습니다'), findsOneWidget);
     });
 
@@ -1081,6 +1085,149 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('9월 15일(화) 10:00'), findsOneWidget);
       expect(find.text('9월 29일(화) 10:00'), findsNothing);
+    });
+  });
+
+  group('시판 규격표 대조', () {
+    test('각파이프 무게식이 시판 표(미주철근철강 SPSR) 값과 1.5% 안쪽', () {
+      const table = {
+        '각파이프 20x20x1.6': 0.87,
+        '각파이프 25x25x3.2': 1.98,
+        '각파이프 30x30x2.3': 1.89,
+        '각파이프 50x50x3.2': 4.50,
+        '각파이프 50x50x4.5': 6.02,
+        '각파이프 60x60x6': 9.45,
+        '각파이프 100x100x4.5': 13.1,
+        '각파이프 150x150x9': 38.2,
+        '각파이프 200x200x12': 67.9,
+        '각파이프 60x30x3.2': 3.99,
+        '각파이프 100x50x6': 12.3,
+        '각파이프 150x100x9': 31.1,
+        '각파이프 75x45x4.5': 7.43,
+      };
+      for (final e in table.entries) {
+        expect(
+          (steelKgPerM(e.key)! - e.value).abs() / e.value,
+          lessThan(0.015),
+          reason: e.key,
+        );
+      }
+    });
+
+    test('앵글·찬넬 표 값(부현·미주 표)과 새로 넣은 규격', () {
+      expect(steelKgPerM('앵글 250x250x35'), 128.0);
+      expect(steelKgPerM('앵글 200x200x25'), 73.6);
+      expect(steelKgPerM('앵글 50x50x6'), 4.43);
+      expect(steelKgPerM('찬넬 200x90x8'), 30.3);
+      expect(steelKgPerM('찬넬 380x100x13'), 67.3);
+    });
+
+    test('규격 종류별 개수와 겹침 없음', () {
+      expect(SteelShapeDB.byCategory('SQUARE').length, 98);
+      expect(SteelShapeDB.byCategory('STRUT').length, 12);
+      final all = SteelShapeDB.all;
+      expect(all.map((s) => s.id).toSet().length, all.length);
+      expect(all.map((s) => s.label).toSet().length, all.length);
+    });
+  });
+
+  group('잔재 기록 글 복사·카톡', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    final now = DateTime(2026, 9, 30, 12);
+    final entries = [
+      LeftoverLogEntry(
+        id: '3',
+        at: DateTime(2026, 9, 29, 10),
+        source: '형강 컷팅 · 루마',
+        used: const [Leftover('앵글 40x40x3', 3000)],
+        added: const [
+          Leftover('앵글 40x40x3', 5400),
+          Leftover('스트럿 41x41x2.5', 5000),
+        ],
+      ),
+      LeftoverLogEntry(
+        id: '2',
+        at: DateTime(2026, 9, 15, 10),
+        source: '튜브 컷팅 · H2',
+        used: const [],
+        added: const [Leftover('튜브 1/2"', 800)],
+      ),
+    ];
+
+    test('글: 조건, 기록, 지금 남은 잔재', () {
+      final t = buildLeftoverLogText(
+        entries: [entries.first],
+        filterText: '최근 7일',
+        current: const [
+          Leftover('앵글 40x40x3', 5400),
+          Leftover('앵글 40x40x3', 3000),
+          Leftover('스트럿 41x41x2.5', 5000),
+        ],
+      );
+      expect(t, '''[잔재 기록] (최근 7일)
+9월 29일(화) 10:00 · 형강 컷팅 · 루마
+  쓴 잔재: 앵글 40x40x3 3000mm
+  새 잔재: 앵글 40x40x3 5400mm / 스트럿 41x41x2.5 5000mm
+
+[지금 남은 잔재] 전체 3개 · 합계 13400mm
+앵글 40x40x3 5400mm, 3000mm / 스트럿 41x41x2.5 5000mm''');
+      expect(buildLeftoverLogText(entries: const []), '[잔재 기록]\n기록이 없습니다.');
+    });
+
+    testWidgets('버튼: 보이는 기록만 글로 복사하고, 카톡이 없으면 공유창으로', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      final oldK = kakaoSender;
+      final oldS = textSharer;
+      addTearDown(() {
+        kakaoSender = oldK;
+        textSharer = oldS;
+      });
+      String? copied;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied = (call.arguments as Map)['text'] as String;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LeftoverLogPage(
+            entries: entries,
+            now: now,
+            currentLeftovers: const [Leftover('앵글 40x40x3', 5400)],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      // 최근 7일로 거르면 9월 15일 기록은 글에서도 빠진다.
+      await tester.tap(find.byKey(const Key('log_days_7')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('leftover_log_copy')));
+      await tester.pumpAndSettle();
+      expect(copied, contains('[잔재 기록] (최근 7일)'));
+      expect(copied, contains('9월 29일(화) 10:00'));
+      expect(copied, isNot(contains('9월 15일')));
+      expect(copied, contains('[지금 남은 잔재] 전체 1개 · 합계 5400mm'));
+
+      String? shared;
+      kakaoSender = (t) async => false;
+      textSharer = (t) async => shared = t;
+      await tester.tap(find.byKey(const Key('leftover_log_kakao')));
+      await tester.pumpAndSettle();
+      expect(shared, copied);
+      expect(find.textContaining('카카오톡을 찾지 못해'), findsOneWidget);
     });
   });
 }

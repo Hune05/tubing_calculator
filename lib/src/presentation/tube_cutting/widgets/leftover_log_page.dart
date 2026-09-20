@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 
+import '../cutting_action_bar.dart' show kakaoSender, textSharer;
 import '../cutting_leftover_log.dart';
+import '../cutting_leftovers.dart';
 import '../cutting_theme.dart';
-
-const List<String> _wd = ['월', '화', '수', '목', '금', '토', '일'];
-
-String _fmtWhen(DateTime t) =>
-    '${t.month}월 ${t.day}일(${_wd[t.weekday - 1]}) '
-    '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
 // 잔재 기록 화면: 재단 최적화에서 잔재를 저장한 때마다 한 카드(쓴 잔재 / 새로 생긴 잔재). 최신이 위.
 class LeftoverLogPage extends StatelessWidget {
@@ -15,8 +12,20 @@ class LeftoverLogPage extends StatelessWidget {
   final List<LeftoverLogEntry>? entries;
   // "최근 7일" 같은 기간 기준 시각(테스트용). 없으면 지금.
   final DateTime? now;
+  // 글에 함께 넣을 지금 남은 잔재(테스트용). 없으면 폰에서 읽는다.
+  final List<Leftover>? currentLeftovers;
 
-  const LeftoverLogPage({super.key, this.entries, this.now});
+  const LeftoverLogPage({
+    super.key,
+    this.entries,
+    this.now,
+    this.currentLeftovers,
+  });
+
+  Future<(List<LeftoverLogEntry>, List<Leftover>)> _load() async => (
+    entries ?? await loadLeftoverLog(),
+    currentLeftovers ?? await loadLeftovers(),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -36,29 +45,30 @@ class LeftoverLogPage extends StatelessWidget {
           ),
         ),
       ),
-      body: entries != null
-          ? _LogList(entries: entries!, now: now)
-          : FutureBuilder<List<LeftoverLogEntry>>(
-              future: loadLeftoverLog(),
-              builder: (context, snap) {
-                if (!snap.hasData) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      color: CuttingColors.primary,
-                    ),
-                  );
-                }
-                return _LogList(entries: snap.data!, now: now);
-              },
-            ),
+      body: FutureBuilder<(List<LeftoverLogEntry>, List<Leftover>)>(
+        future: _load(),
+        builder: (context, snap) {
+          if (!snap.hasData) {
+            return const Center(
+              child: CircularProgressIndicator(color: CuttingColors.primary),
+            );
+          }
+          return _LogList(
+            entries: snap.data!.$1,
+            current: snap.data!.$2,
+            now: now,
+          );
+        },
+      ),
     );
   }
 }
 
 class _LogList extends StatefulWidget {
   final List<LeftoverLogEntry> entries;
+  final List<Leftover> current;
   final DateTime? now;
-  const _LogList({required this.entries, this.now});
+  const _LogList({required this.entries, this.current = const [], this.now});
 
   @override
   State<_LogList> createState() => _LogListState();
@@ -92,6 +102,43 @@ class _LogListState extends State<_LogList> {
           ),
         ),
       );
+
+  // 앞에 떠 있던 알림을 걷고 새로 보여 준다(복사 뒤 바로 카톡을 눌러도 기다리지 않게).
+  void _snack(BuildContext context, String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    showCuttingSnack(context, message, isError: isError);
+  }
+
+  String _text(List<LeftoverLogEntry> shown, String? label) {
+    final parts = [
+      if (_days != null) '최근 $_days일',
+      if (label != null) label.isEmpty ? '규격 미지정' : label,
+    ];
+    return buildLeftoverLogText(
+      entries: shown,
+      filterText: parts.join(' · '),
+      current: widget.current,
+    );
+  }
+
+  Future<void> _copy(String text) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    _snack(context, "잔재 기록을 글로 복사했습니다. 메신저에 붙여넣으십시오.");
+  }
+
+  Future<void> _kakao(String text) async {
+    if (await kakaoSender(text)) return;
+    if (!mounted) return;
+    try {
+      await textSharer(text);
+      if (!mounted) return;
+      _snack(context, "카카오톡을 찾지 못해 공유창으로 보냈습니다.");
+    } catch (e) {
+      if (!mounted) return;
+      _snack(context, "보내기 실패: $e", isError: true);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -161,6 +208,33 @@ class _LogListState extends State<_LogList> {
         ],
       ),
     );
+    final text = _text(entries, activeLabel);
+    final actions = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          TextButton.icon(
+            style: TextButton.styleFrom(
+              foregroundColor: CuttingColors.primaryDark,
+            ),
+            key: const Key('leftover_log_copy'),
+            onPressed: () => _copy(text),
+            icon: const Icon(Icons.copy_rounded, size: 18),
+            label: const Text("글 복사"),
+          ),
+          TextButton.icon(
+            style: TextButton.styleFrom(
+              foregroundColor: CuttingColors.primaryDark,
+            ),
+            key: const Key('leftover_log_kakao'),
+            onPressed: () => _kakao(text),
+            icon: const Icon(Icons.chat_bubble_rounded, size: 18),
+            label: const Text("카톡 보내기"),
+          ),
+        ],
+      ),
+    );
     final Widget body = entries.isEmpty
         ? const Center(
             child: Text(
@@ -173,6 +247,7 @@ class _LogListState extends State<_LogList> {
     return Column(
       children: [
         filters,
+        actions,
         Expanded(child: body),
       ],
     );
@@ -200,7 +275,7 @@ class _LogListState extends State<_LogList> {
                 children: [
                   Expanded(
                     child: Text(
-                      _fmtWhen(e.at),
+                      fmtLogWhen(e.at),
                       style: const TextStyle(
                         fontWeight: FontWeight.w900,
                         color: CuttingColors.textPrimary,
