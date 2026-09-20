@@ -139,3 +139,22 @@ List<SteelCutItem> overLengthItems(List<SteelCutItem> items, double maxStock) =>
       for (final i in items)
         if (maxStock > 0 && i.length > maxStock) i,
     ];
+
+// 한 규격 묶음의 항목을 [ordered] 순서로 다시 놓는다. 그 묶음이 쓰던 자리(전체 목록에서의 위치)는 그대로
+// 두고 그 자리에만 새 순서로 넣어서, 다른 규격 항목은 움직이지 않는다.
+List<SteelCutItem> applyShapeOrder(
+  List<SteelCutItem> items,
+  String shape,
+  List<SteelCutItem> ordered,
+) {
+  final slots = [
+    for (var i = 0; i < items.length; i++)
+      if (items[i].shapeLabel == shape) i,
+  ];
+  if (slots.length != ordered.length) return items;
+  final out = List.of(items);
+  for (var k = 0; k < slots.length; k++) {
+    out[slots[k]] = ordered[k];
+  }
+  return out;
+}

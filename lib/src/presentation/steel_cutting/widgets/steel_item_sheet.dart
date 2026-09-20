@@ -85,6 +85,24 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
     }
   }
 
+  // 칩을 길게 누르면 그 길이를 자주 쓰는 길이에서 뺀다(잘못 들어간 길이를 치운다).
+  Future<void> _forgetLength(double v) async {
+    HapticFeedback.selectionClick();
+    final ok = await showCuttingConfirmDialog(
+      context,
+      title: "자주 쓰는 길이에서 빼기",
+      message: "${fmtMm(v)}mm를 자주 쓰는 길이에서 뺍니다. 다시 여러 번 쓰면 또 나옵니다.",
+      confirmLabel: "빼기",
+      icon: Icons.straighten_rounded,
+    );
+    if (!ok || !mounted) return;
+    await forgetSteelLength(v, shapeLabel: _shape?.label ?? '');
+    if (!mounted) return;
+    await _loadTopLengths();
+    if (!mounted) return;
+    showCuttingSnack(context, "${fmtMm(v)}mm를 자주 쓰는 길이에서 뺐습니다.");
+  }
+
   Future<void> _loadTopLengths() async {
     final top = await loadTopSteelLengths(shapeLabel: _shape?.label ?? '');
     if (!mounted) return;
@@ -619,6 +637,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
                           InkWell(
                             key: Key('freq_len_${fmtMm(v)}'),
                             borderRadius: BorderRadius.circular(8),
+                            onLongPress: () => _forgetLength(v),
                             onTap: () {
                               HapticFeedback.selectionClick();
                               _lengthCtrl.text = fmtMm(v);

@@ -1300,6 +1300,21 @@ void main() {
       expect(await loadTopSteelLengths(shapeLabel: '앵글 50x50x5', n: 1), [500]);
     });
 
+    test('자주 쓰는 길이에서 빼기: 전체와 그 규격 기록에서 지운다', () async {
+      await bumpSteelLengthUse([500], shapeLabel: '앵글 50x50x5');
+      await bumpSteelLengthUse([500], shapeLabel: '앵글 50x50x5');
+      await bumpSteelLengthUse([800], shapeLabel: '찬넬 75x40x5');
+      await bumpSteelLengthUse([800], shapeLabel: '찬넬 75x40x5');
+      expect(await loadTopSteelLengths(), [500, 800]);
+      await forgetSteelLength(500, shapeLabel: '앵글 50x50x5');
+      expect(await loadTopSteelLengths(), [800]);
+      expect(await loadTopSteelLengths(shapeLabel: '앵글 50x50x5'), [800]);
+      // 규격을 주지 않으면 모든 규격 기록에서 뺀다.
+      await forgetSteelLength(800);
+      expect(await loadTopSteelLengths(), isEmpty);
+      expect(await loadTopSteelLengths(shapeLabel: '찬넬 75x40x5'), isEmpty);
+    });
+
     test('자주 쓰는 길이는 최대 개수를 넘으면 적게 쓴 것부터 버린다', () async {
       for (var i = 1; i <= kMaxSteelLengthFreq + 5; i++) {
         await bumpSteelLengthUse([i * 10.0]);
@@ -1399,6 +1414,21 @@ void main() {
         '',
       );
       expect(find.text('절단 항목 추가'), findsOneWidget);
+    });
+
+    testWidgets('칩을 길게 누르면 자주 쓰는 길이에서 뺀다', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        kSteelLengthFreqPrefsKey: '{"500":3,"800":2}',
+      });
+      await openSheet(tester);
+      await tester.longPress(find.byKey(const Key('freq_len_500')));
+      await tester.pumpAndSettle();
+      expect(find.text('자주 쓰는 길이에서 빼기'), findsOneWidget);
+      await tester.tap(find.text('빼기'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('freq_len_500')), findsNothing);
+      expect(find.byKey(const Key('freq_len_800')), findsOneWidget);
+      expect(await loadTopSteelLengths(), [800]);
     });
 
     testWidgets('저장한 길이는 세어 두었다가 자주 쓰는 길이 칩으로 나온다', (tester) async {
@@ -1661,12 +1691,88 @@ void main() {
       expect(find.byKey(const Key('steel_item_a')), findsOneWidget);
     });
 
-    testWidgets('머리글 ⋮ 메뉴에 규격 바꾸기와 다른 규격으로 복제가 있다', (tester) async {
+    testWidgets('머리글 ⋮ 메뉴에 규격 바꾸기·다른 규격으로 복제·순서 바꾸기가 있다', (tester) async {
       await open(tester, proj());
       await tester.tap(find.byKey(const Key('steel_group_menu_앵글 40x40x3')));
       await tester.pumpAndSettle();
       expect(find.text('규격 바꾸기 (길이 그대로)'), findsOneWidget);
       expect(find.text('다른 규격으로 복제'), findsOneWidget);
+      expect(find.text('순서 바꾸기'), findsOneWidget);
+    });
+
+    testWidgets('순서 바꾸기 창이 열리고 저장하면 닫힌다', (tester) async {
+      await open(tester, proj());
+      await tester.tap(find.byKey(const Key('steel_group_menu_앵글 40x40x3')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('순서 바꾸기'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('steel_reorder_list')), findsOneWidget);
+      expect(find.text('행을 길게 눌러 끌면 자르는 순서가 바뀝니다.'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('steel_reorder_save')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('steel_reorder_list')), findsNothing);
+      // 순서를 건드리지 않았으니 카드 순서도 그대로.
+      expect(
+        tester.getTopLeft(find.byKey(const Key('steel_item_a'))).dy <
+            tester.getTopLeft(find.byKey(const Key('steel_item_b'))).dy,
+        true,
+      );
+    });
+
+    testWidgets('항목이 하나뿐인 묶음은 순서를 바꿀 수 없다고 알린다', (tester) async {
+      await open(
+        tester,
+        proj(
+          items: [item('스트럿 41x41x2.5', 1000, 1, cat: 'STRUT', id: 'c')],
+        ),
+      );
+      await tester.tap(find.byKey(const Key('steel_group_menu_스트럿 41x41x2.5')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('순서 바꾸기'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('steel_reorder_list')), findsNothing);
+      expect(findTextContaining('항목이 둘 이상이어야'), findsOneWidget);
+    });
+
+    test('순서 바꾸기: 그 규격 자리에만 새 순서로 넣는다', () {
+      final items = [
+        item('앵글 40x40x3', 500, 1, id: 'a'),
+        item('스트럿 41x41x2.5', 1000, 1, cat: 'STRUT', id: 'c'),
+        item('앵글 40x40x3', 800, 1, id: 'b'),
+      ];
+      final group = [items[2], items[0]]; // 800을 먼저
+      final out = applyShapeOrder(items, '앵글 40x40x3', group);
+      expect(out.map((e) => e.id), ['b', 'c', 'a']); // 스트럿은 가운데 그대로
+      // 개수가 맞지 않으면 아무것도 바꾸지 않는다.
+      expect(
+        applyShapeOrder(items, '앵글 40x40x3', [items[0]]).map((e) => e.id),
+        ['a', 'c', 'b'],
+      );
+    });
+
+    testWidgets('카드를 길게 누르면 길이만 고친다', (tester) async {
+      await open(tester, proj());
+      await tester.longPress(find.byKey(const Key('steel_item_a')));
+      await tester.pumpAndSettle();
+      expect(find.text('길이 고치기'), findsOneWidget);
+      expect(findTextContaining('앵글 40x40x3 · 3개'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('steel_len_step_100')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('steel_len_save')));
+      await tester.pumpAndSettle();
+      // 500 + 100 = 600, 개수 3개는 그대로.
+      expect(find.text('600 mm'), findsOneWidget);
+      expect(find.text('500 mm'), findsNothing);
+      expect(findTextContaining('= 1800 mm'), findsOneWidget);
+    });
+
+    testWidgets('길이 고치기에서 취소하면 그대로다', (tester) async {
+      await open(tester, proj());
+      await tester.longPress(find.byKey(const Key('steel_item_a')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('취소'));
+      await tester.pumpAndSettle();
+      expect(find.text('500 mm'), findsOneWidget);
     });
 
     testWidgets('원자재보다 긴 항목은 위에 경고, 카드에 표시', (tester) async {

@@ -172,3 +172,23 @@ Future<List<double>> loadTopSteelLengths({
   }
   return out;
 }
+
+// 자주 쓰는 길이에서 그 길이를 뺀다(전체 기록과 고른 규격의 기록 모두에서). 다시 여러 번 쓰면 또 나온다.
+Future<void> forgetSteelLength(double v, {String shapeLabel = ''}) async {
+  final key = _lenKey(v);
+  final freq = await _loadFreq();
+  freq.remove(key);
+  final byShape = await _loadFreqByShape();
+  if (shapeLabel.trim().isEmpty) {
+    for (final m in byShape.values) {
+      m.remove(key);
+    }
+  } else {
+    byShape[shapeLabel]?.remove(key);
+  }
+  try {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(kSteelLengthFreqPrefsKey, jsonEncode(freq));
+    await p.setString(kSteelLengthFreqByShapePrefsKey, jsonEncode(byShape));
+  } catch (_) {}
+}

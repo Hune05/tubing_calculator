@@ -1210,10 +1210,12 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             onSelected: (v) {
               if (v == 'change') _changeGroupShape(shape);
               if (v == 'copy') _copyGroup(shape);
+              if (v == 'order') _reorderGroup(shape);
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'change', child: Text('규격 바꾸기 (길이 그대로)')),
               PopupMenuItem(value: 'copy', child: Text('다른 규격으로 복제')),
+              PopupMenuItem(value: 'order', child: Text('순서 바꾸기')),
             ],
           ),
         ],
@@ -1266,6 +1268,310 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         ],
       ),
     );
+  }
+
+  // 카드를 길게 누르면 길이만 빨리 고친다(규격·개수·비고는 그대로. 창을 다 열지 않아도 된다).
+  Future<void> _editLength(SteelCutItem item) async {
+    HapticFeedback.selectionClick();
+    final ctrl = TextEditingController(text: fmtMm(item.length));
+    void bump(double d) {
+      final cur = double.tryParse(ctrl.text.trim()) ?? 0;
+      final next = cur + d;
+      ctrl.text = fmtMm(next < 0 ? 0 : next);
+      ctrl.selection = TextSelection.collapsed(offset: ctrl.text.length);
+    }
+
+    final v = await showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: CuttingColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            cuttingDialogIcon(Icons.straighten_rounded),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                "길이 고치기",
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: CuttingColors.textPrimary,
+                  fontSize: 17,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "${item.shapeLabel} · ${item.qty}개",
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('steel_len_field'),
+              controller: ctrl,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: CuttingColors.textPrimary,
+              ),
+              decoration: InputDecoration(
+                suffixText: 'mm',
+                filled: true,
+                fillColor: Colors.grey.shade100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              onSubmitted: (s) => Navigator.pop(ctx, double.tryParse(s.trim())),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                for (final d in const [-100.0, -10.0, 10.0, 100.0])
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: InkWell(
+                        key: Key('steel_len_step_${d.toStringAsFixed(0)}'),
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => bump(d),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: CuttingColors.primarySoft,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            d > 0
+                                ? "+${d.toStringAsFixed(0)}"
+                                : d.toStringAsFixed(0),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                              color: CuttingColors.primary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("취소", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            key: const Key('steel_len_save'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: CuttingColors.primary,
+            ),
+            onPressed: () =>
+                Navigator.pop(ctx, double.tryParse(ctrl.text.trim())),
+            child: const Text(
+              "저장",
+              style: TextStyle(color: CuttingColors.surface),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || v == null) return;
+    if (v <= 0) {
+      showCuttingSnack(context, "길이를 숫자로 적으십시오.", isError: true);
+      return;
+    }
+    if (v == item.length) return;
+    final updated = SteelCutItem(
+      id: item.id,
+      category: item.category,
+      shapeLabel: item.shapeLabel,
+      length: v,
+      qty: item.qty,
+      note: item.note,
+    );
+    setState(() {
+      final idx = _items.indexWhere((e) => e.id == item.id);
+      if (idx >= 0) _items[idx] = updated;
+    });
+    try {
+      await _persistItems();
+      await _logChange('EDIT', updated);
+    } catch (e) {
+      if (mounted) showCuttingSnack(context, "저장하지 못했습니다: $e", isError: true);
+      return;
+    }
+    if (!mounted) return;
+    showCuttingSnack(context, "길이를 ${fmtMm(v)}mm로 고쳤습니다.");
+  }
+
+  // 한 규격 묶음의 항목을 끌어서 자를 순서대로 놓는다(⋮ 메뉴 → 순서 바꾸기).
+  Future<void> _reorderGroup(String shape) async {
+    final work = _items.where((e) => e.shapeLabel == shape).toList();
+    if (work.length < 2) {
+      showCuttingSnack(context, "항목이 둘 이상이어야 순서를 바꿉니다.", isError: true);
+      return;
+    }
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: CuttingColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    cuttingDialogIcon(Icons.swap_vert_rounded),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "순서 바꾸기",
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: CuttingColors.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            shape,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "행을 길게 눌러 끌면 자르는 순서가 바뀝니다.",
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 8),
+                Flexible(
+                  child: ReorderableListView.builder(
+                    key: const Key('steel_reorder_list'),
+                    shrinkWrap: true,
+                    buildDefaultDragHandles: true,
+                    itemCount: work.length,
+                    onReorder: (o, n) => setSheet(() {
+                      var ni = n;
+                      if (ni > o) ni -= 1;
+                      final moved = work.removeAt(o);
+                      work.insert(ni, moved);
+                    }),
+                    itemBuilder: (_, i) {
+                      final it = work[i];
+                      return Container(
+                        key: ValueKey(it.id),
+                        margin: const EdgeInsets.only(bottom: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: CuttingColors.border),
+                        ),
+                        child: Row(
+                          children: [
+                            Text(
+                              "${i + 1}",
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                "${fmtMm(it.length)} mm · ${it.qty}개"
+                                "${it.note.isEmpty ? '' : ' · ${it.note}'}",
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: CuttingColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    key: const Key('steel_reorder_save'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: CuttingColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text(
+                      "저장",
+                      style: TextStyle(
+                        color: CuttingColors.surface,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (saved != true || !mounted) return;
+    setState(() => _items = applyShapeOrder(_items, shape, work));
+    try {
+      await _persistItems();
+    } catch (e) {
+      if (mounted) showCuttingSnack(context, "저장하지 못했습니다: $e", isError: true);
+      return;
+    }
+    if (!mounted) return;
+    showCuttingSnack(context, "'$shape' 순서를 바꿨습니다.");
   }
 
   // 원자재 기준 길이를 입력 탭에서 바로 고친다(재단 최적화 창까지 들어가지 않아도 된다).
@@ -1453,6 +1759,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
           key: Key('steel_item_${item.id}'),
           borderRadius: BorderRadius.circular(14),
           onTap: () => _editItem(item),
+          onLongPress: () => _editLength(item),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
             child: Row(
