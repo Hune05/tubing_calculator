@@ -27,8 +27,6 @@ import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_boa
 // 🚀 2. 자재 관리 페이지들 임포트
 import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_login.dart';
 import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_status_page.dart';
-import 'package:tubing_calculator/src/presentation/material/material_order_page.dart';
-import 'package:tubing_calculator/src/presentation/material/order_log_page.dart';
 
 // 🚀 3. 프로필 및 소통 페이지 임포트
 import 'package:tubing_calculator/src/presentation/profile/pages/mobile_profile_page.dart';
@@ -685,42 +683,11 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                     );
                   },
                 ),
-                _buildMenuButton(
-                  context: context,
-                  title: "자재 발주 및 현황",
-                  subtitle: "새 자재 발주 요청 및 진행 상태 확인",
-                  icon: Icons.local_shipping_outlined,
-                  iconColor: slate900,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => MaterialOrderPage(
-                          isAdmin: widget.isAdmin,
-                          currentUser: widget.currentWorker,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                _buildMenuButton(
-                  context: context,
-                  title: "발주 의뢰 내역",
-                  subtitle: "지난 발주와 처리 완료·반려 내역 보기",
-                  icon: Icons.history_rounded,
-                  iconColor: slate900,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const OrderLogPage(),
-                      ),
-                    );
-                  },
-                ),
-
+                // 🚀 [정리] "자재 발주 및 현황"과 "발주 의뢰 내역"은 메뉴에서 뺐다
+                // (2026-09-20). 발주 기록이 한 건도 없고, 발주를 넣으면 지금
+                // 숨겨 둔 현장 소통(채팅)으로 글이 가는 반쪽 구조였다. 화면
+                // (material_order_page.dart, order_log_page.dart)은 지워지지
+                // 않았으니 필요해지면 여기에 다시 붙이면 된다.
                 const SizedBox(height: 60),
               ],
             ),

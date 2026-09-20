@@ -72,7 +72,9 @@ class _MobileInventoryCheckoutPageState
       if (_currentInputQty < 0) {
         _errorMessage = "수량은 0보다 커야 합니다";
       } else if (_currentInputQty > widget.currentQty) {
-        _errorMessage = widget.isCheckout ? "창고에 있는 재고보다 많습니다" : "불출했던 수량보다 많습니다";
+        _errorMessage = widget.isCheckout
+            ? "창고에 있는 재고보다 많습니다"
+            : "불출했던 수량보다 많습니다";
       } else {
         _errorMessage = null;
       }
@@ -188,10 +190,7 @@ class _MobileInventoryCheckoutPageState
 
       if (!mounted) return;
       HapticFeedback.mediumImpact();
-      _showSnackBar(
-        widget.isCheckout ? "불출했습니다" : "반납했습니다",
-        makitaTeal,
-      );
+      _showSnackBar(widget.isCheckout ? "불출했습니다" : "반납했습니다", makitaTeal);
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;

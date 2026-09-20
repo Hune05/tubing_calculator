@@ -27,9 +27,129 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
     HapticFeedback.lightImpact();
   }
 
+  // 서버로 보내기 전에 "무엇이 몇 개에서 몇 개로 바뀌는지" 한 줄씩 만든다.
+  // 수량 단추(-, +)를 잘못 눌러 놓고 그대로 올려 버리는 사고를 막기 위한 것이다.
+  Future<List<String>> _buildSyncPreview() async {
+    final lines = <String>[];
+    for (final entry in _localEdits.entries) {
+      final docId = entry.key;
+      final data = entry.value;
+
+      if (docId.startsWith("NEW_")) {
+        final name = _newLocalItems[docId]?['name'] ?? "이름 없는 새 자재";
+        lines.add("새 자재 $name — ${data.qty}EA 등록");
+        continue;
+      }
+
+      var name = "이름 없음";
+      var unit = "EA";
+      var before = -1;
+      try {
+        final snap = await _inventoryDb.doc(docId).get();
+        final m = snap.data() as Map<String, dynamic>?;
+        name = (m?['name'] as String?) ?? name;
+        unit = (m?['unit'] as String?) ?? unit;
+        before = (m?['qty'] as int?) ?? -1;
+      } catch (_) {}
+
+      if (before < 0) {
+        lines.add("$name — ${data.qty}$unit 로 맞춤");
+      } else if (before == data.qty) {
+        lines.add("$name — ${data.qty}$unit (수량 그대로)");
+      } else {
+        lines.add("$name — $before$unit → ${data.qty}$unit");
+      }
+    }
+    return lines;
+  }
+
+  Future<bool> _confirmSync(List<String> lines) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Theme(
+        data: ThemeData.light(),
+        child: AlertDialog(
+          backgroundColor: pureWhite,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Text(
+            "이대로 서버에 올립니까?",
+            style: TextStyle(
+              color: slate900,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final line in lines)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      line,
+                      style: const TextStyle(
+                        color: slate900,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 4),
+                const Text(
+                  "올리면 창고 재고가 이 수량으로 바뀝니다.",
+                  style: TextStyle(
+                    color: slate600,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text(
+                "취소",
+                style: TextStyle(color: slate600, fontWeight: FontWeight.w700),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: makitaTeal,
+                foregroundColor: pureWhite,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text(
+                "올립니다",
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    return ok == true;
+  }
+
   Future<void> _syncToServer() async {
     FocusScope.of(context).unfocus();
     if (!_validateSync()) return;
+
+    final preview = await _buildSyncPreview();
+    if (!mounted) return;
+    if (!await _confirmSync(preview)) return;
+    if (!mounted) return;
 
     HapticFeedback.heavyImpact();
 

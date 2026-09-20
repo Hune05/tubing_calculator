@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'inventory_view_logic.dart';
 import 'mobile_inventory_logs_page.dart';
 import 'mobile_inventory_checkout_page.dart';
 
@@ -217,7 +218,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                     _selectedCategory == "ALL" ||
                     data['category'] == _selectedCategory;
                 String target =
-                    "${data['name']} ${data['size']} ${data['location']}"
+                    "${data['name']} ${inventorySpecOf(data)} ${data['location']}"
                         .toLowerCase();
                 return categoryMatch && target.contains(_searchQuery);
               }).toList();
@@ -305,7 +306,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      "${data['size'] ?? '-'}  |  ${data['location'] ?? '-'}",
+                                      inventorySpecAndPlace(data),
                                       style: const TextStyle(
                                         color: slate600,
                                         fontSize: 13,
@@ -385,9 +386,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
   // ==========================================
   Widget _buildMyCheckoutsTab() {
     return StreamBuilder<QuerySnapshot>(
-      stream: _checkoutsDb
-          .where('workerName', isEqualTo: widget.workerName)
-          .snapshots(),
+      stream: _checkoutsDb.snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
@@ -395,7 +394,17 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
           );
         }
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        final mine = <DocumentSnapshot>[];
+        if (snapshot.hasData) {
+          for (final d in snapshot.data!.docs) {
+            final m = d.data() as Map<String, dynamic>?;
+            if (isSameWorker(widget.workerName, m?['workerName'] as String?)) {
+              mine.add(d);
+            }
+          }
+        }
+
+        if (!snapshot.hasData || mine.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -415,7 +424,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
           );
         }
 
-        var docs = snapshot.data!.docs.toList();
+        var docs = mine.toList();
         docs.sort((a, b) {
           var aData = a.data() as Map<String, dynamic>;
           var bData = b.data() as Map<String, dynamic>;
@@ -442,6 +451,10 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
             int qty = data['checkoutQty'] ?? 0;
             String unit = data['unit'] ?? 'EA';
             String reason = data['reason'] ?? '사유 없음';
+            String who = (data['workerName'] ?? '').toString().trim();
+            if (who.isNotEmpty && who != widget.workerName) {
+              reason = "$reason · $who";
+            }
 
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
