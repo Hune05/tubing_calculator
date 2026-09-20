@@ -2347,10 +2347,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     );
   }
 
-  // 날짜 칸에 그리는 일정 막대(색 + 제목). [cont]는 지난 주에서 이어지는 막대.
+  // 날짜 칸에 그리는 일정 막대(색 + 제목).
   Widget _calendarBar(
     _AgendaItem e, {
-    bool cont = false,
     bool roundLeft = true,
     bool roundRight = true,
   }) {
@@ -2367,7 +2366,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         child: Align(
           alignment: Alignment.centerLeft,
           child: Text(
-            cont ? "◀ ${e.baseTitle}" : e.baseTitle,
+            e.baseTitle,
             maxLines: 1,
             overflow: TextOverflow.clip,
             softWrap: false,
@@ -2394,6 +2393,22 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         lastDay: DateTime.utc(2035, 12, 31),
         focusedDay: _focusedDay,
         calendarFormat: _calendarFormat,
+        // 아래로 밀면 한 달 전체, 위로 밀면 그 주만 보여서 아래 일정 목록이 넓어진다.
+        availableGestures: AvailableGestures.all,
+        availableCalendarFormats: const {
+          CalendarFormat.month: "월",
+          CalendarFormat.week: "주",
+        },
+        onFormatChanged: (format) {
+          HapticFeedback.selectionClick();
+          setState(() {
+            _calendarFormat = format;
+            // 위 보기 모드 칩도 같이 맞춘다(주만 보이는데 "월"이 켜져 있으면 헷갈린다).
+            _viewMode = format == CalendarFormat.week
+                ? _ViewMode.week
+                : _ViewMode.month;
+          });
+        },
         rowHeight: 76,
         startingDayOfWeek: StartingDayOfWeek.sunday,
         selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
@@ -2493,7 +2508,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                           width: cellW - 6,
                           top: _kCellRowTop + row.key * _kCellRowH,
                           height: _kCellBarH,
-                          child: _calendarBar(row.value, cont: false),
+                          child: _calendarBar(row.value),
                         )
                       else if (row.value.spanIndex == 0 || dayIdx == 0)
                         // 기간 일정: 구간의 첫 칸(기간 첫날 또는 그 주의 일요일)에서 그 주 끝까지
@@ -2517,7 +2532,6 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                               height: _kCellBarH,
                               child: _calendarBar(
                                 e,
-                                cont: !roundLeft,
                                 roundLeft: roundLeft,
                                 roundRight: roundRight,
                               ),
