@@ -108,5 +108,7 @@
             <category android:name="android.intent.category.APP_WEATHER" />
         </intent>
         <package android:name="com.sec.android.daemonapp" />
+        <!-- 컷팅 지시서 글을 카카오톡으로 바로 보내려고, 카카오톡이 설치돼 있는지 확인한다. -->
+        <package android:name="com.kakao.talk" />
     </queries>
 </manifest>

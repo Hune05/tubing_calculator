@@ -418,8 +418,8 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('배관 라인 구축'), findsOneWidget);
-      expect(find.text('1. 배치도'), findsOneWidget);
-      expect(find.text('2. 컷팅 지시서'), findsOneWidget);
+      expect(find.text('배치도'), findsOneWidget);
+      expect(find.text('컷팅 지시서'), findsOneWidget);
       expect(find.byType(TabBar), findsNothing);
       expect(tester.takeException(), isNull);
 
@@ -453,8 +453,8 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('배관 라인 구축'), findsOneWidget);
-      expect(find.text('1. 배치도'), findsOneWidget);
-      expect(find.text('2. 컷팅 지시서'), findsOneWidget);
+      expect(find.text('배치도'), findsOneWidget);
+      expect(find.text('컷팅 지시서'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

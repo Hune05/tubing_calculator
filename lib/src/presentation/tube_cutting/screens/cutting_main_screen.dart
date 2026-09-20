@@ -18,6 +18,7 @@ import '../../../data/models/smart_fitting_db.dart';
 import '../widgets/smart_fitting_selector_sheet.dart';
 import 'cutting_history_page.dart';
 import '../widgets/cutting_optimization_sheet.dart';
+import '../cutting_action_bar.dart';
 import '../cutting_diagram_pdf.dart';
 import '../cutting_diagram_view.dart';
 import '../cutting_result_logic.dart';
@@ -126,6 +127,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 지금 떠 있는 실행 취소가 어느 저장의 것인지(다른 저장·화면 이동 뒤에는 자동으로 걷지 않게 구분한다).
   Object? _undoToken;
   Timer? _undoTimer;
+  // 결과 탭 아이콘 버튼은 처음 쓰는 동안 이름을 아래에 보여 주고, 한 번이라도 누르면 숨긴다.
+  static const String _kIconsUsedKey = 'cutting_result_icons_used';
+  bool _iconsUsed = true; // 읽어 오기 전에는 숨긴 상태로 시작해서 깜빡이지 않게 한다
 
   // 🚀 [4번 강화] 현장에 따라 인치로 측정하는 경우가 있어서 mm/in 단위를
   // 고를 수 있게 한다. 저장/계산은 항상 mm 기준이고, 사용자가 지금 고른
@@ -173,6 +177,25 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     _loadDraftState();
     _loadBladeKerf();
     _loadStockLength();
+    _loadIconsUsed();
+  }
+
+  Future<void> _loadIconsUsed() async {
+    try {
+      final used =
+          (await SharedPreferences.getInstance()).getBool(_kIconsUsedKey) ??
+          false;
+      if (mounted && !used) setState(() => _iconsUsed = false);
+    } catch (_) {}
+  }
+
+  // 아이콘 버튼을 한 번이라도 쓰면 이름 표시를 끈다.
+  void _markIconsUsed() {
+    if (_iconsUsed) return;
+    setState(() => _iconsUsed = true);
+    SharedPreferences.getInstance()
+        .then((p) => p.setBool(_kIconsUsedKey, true))
+        .catchError((_) => false);
   }
 
   void _scrollDiagramToFocused() {
@@ -2732,7 +2755,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             children: [
               const Expanded(
                 child: Text(
-                  "1. 배치도",
+                  "배치도",
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
@@ -2785,15 +2808,80 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "2. 컷팅 지시서",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              color: textPrimary,
-            ),
+          Row(
+            children: [
+              const Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    "컷팅 지시서",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: textPrimary,
+                    ),
+                  ),
+                ),
+              ),
+              // 재단 최적화, PDF 만들어 공유, 카카오톡으로 글 보내기, 글로 복사. 길게 누르면 이름이 뜬다.
+              CutActionBar(
+                showLabels: !_iconsUsed,
+                actions: [
+                  CutActionSpec(
+                    key: const Key('result_btn_optimize'),
+                    label: "재단 최적화",
+                    icon: const CutBarIcon(size: 26),
+                    onPressed: () {
+                      _markIconsUsed();
+                      _showOptimizationDialog();
+                    },
+                  ),
+                  CutActionSpec(
+                    key: const Key('result_btn_export'),
+                    label: "PDF 공유",
+                    icon: const Icon(
+                      Icons.picture_as_pdf_rounded,
+                      size: 24,
+                      color: makitaTeal,
+                    ),
+                    onPressed: () {
+                      _markIconsUsed();
+                      _exportCuttingList();
+                    },
+                  ),
+                  CutActionSpec(
+                    key: const Key('result_btn_kakao'),
+                    label: "카톡 보내기",
+                    background: const Color(0xFFFEE500),
+                    icon: const Icon(
+                      Icons.chat_bubble_rounded,
+                      size: 24,
+                      color: Color(0xFF3A1D1D),
+                    ),
+                    onPressed: () {
+                      _markIconsUsed();
+                      _sendToKakao();
+                    },
+                  ),
+                  CutActionSpec(
+                    key: const Key('result_btn_copy'),
+                    label: "글 복사",
+                    icon: const Icon(
+                      Icons.copy_rounded,
+                      size: 24,
+                      color: makitaTeal,
+                    ),
+                    onPressed: () {
+                      _markIconsUsed();
+                      _copyInstruction();
+                    },
+                  ),
+                ],
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Wrap(
             alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
@@ -2826,37 +2914,6 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             ],
           ),
           const SizedBox(height: 10),
-          // 재단 최적화(원자재 소요 계산), 컷팅 지시서 내보내기(PDF 공유), 지시서 글로 복사.
-          Row(
-            children: [
-              Expanded(
-                child: _resultActionButton(
-                  Icons.view_column_outlined,
-                  "재단 최적화",
-                  _showOptimizationDialog,
-                  const Key('result_btn_optimize'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _resultActionButton(
-                  Icons.ios_share_rounded,
-                  "PDF 공유",
-                  _exportCuttingList,
-                  const Key('result_btn_export'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _resultActionButton(
-                  Icons.copy_rounded,
-                  "글로 복사",
-                  _copyInstruction,
-                  const Key('result_btn_copy'),
-                ),
-              ),
-            ],
-          ),
           const SizedBox(height: 10),
           Expanded(
             child: Container(
@@ -3622,40 +3679,6 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     _saveDraftState();
   }
 
-  Widget _resultActionButton(
-    IconData icon,
-    String label,
-    VoidCallback onPressed,
-    Key key,
-  ) {
-    // 세 버튼이 한 줄에 같은 너비로 들어가도록 아이콘을 위에, 글자를 아래에 둔다.
-    return OutlinedButton(
-      key: key,
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        side: const BorderSide(color: makitaTeal),
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 22, color: makitaTeal),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: makitaTeal,
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // 튜브 규격(제원) 고르기. 부속에서 규격을 알 수 없는 구간에만 적용된다.
   Future<void> _pickTubeSpec() async {
     final sizes = SmartFittingDB.tubeSizes;
@@ -3771,14 +3794,11 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     _calculate(); // 규격이 바뀌면 잘랐음 표시도 정리하고 임시 저장한다.
   }
 
-  // 지시서를 글로 복사한다(카카오톡 등에 바로 붙여넣기).
-  Future<void> _copyInstruction() async {
+  // 지시서 글을 만든다(복사·카카오톡 보내기가 같은 글을 쓴다). 치수가 없으면 null.
+  String? _instructionText() {
     final lines = _resultLines();
-    if (lines.isEmpty) {
-      showCuttingSnack(context, "복사할 치수가 없습니다. 먼저 치수를 입력하십시오.", isError: true);
-      return;
-    }
-    final text = buildInstructionText(
+    if (lines.isEmpty) return null;
+    return buildInstructionText(
       projectName: widget.project.name,
       date: DateTime.now(),
       maker: _globalMaker,
@@ -3787,6 +3807,34 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       orders: _fittingOrders(),
       kerfMm: _bladeKerf,
     );
+  }
+
+  // 지시서 글을 카카오톡으로 바로 보낸다(대화방 고르는 화면으로 넘어간다). 카카오톡이 없으면 일반 공유창으로 보낸다.
+  Future<void> _sendToKakao() async {
+    final text = _instructionText();
+    if (text == null) {
+      showCuttingSnack(context, "보낼 치수가 없습니다. 먼저 치수를 입력하십시오.", isError: true);
+      return;
+    }
+    if (await kakaoSender(text)) return;
+    if (!mounted) return;
+    try {
+      await textSharer(text);
+      if (!mounted) return;
+      showCuttingSnack(context, "카카오톡을 찾지 못해 공유창으로 보냈습니다.");
+    } catch (e) {
+      if (!mounted) return;
+      showCuttingSnack(context, "보내기 실패: $e", isError: true);
+    }
+  }
+
+  // 지시서를 글로 복사한다(카카오톡 등에 바로 붙여넣기).
+  Future<void> _copyInstruction() async {
+    final text = _instructionText();
+    if (text == null) {
+      showCuttingSnack(context, "복사할 치수가 없습니다. 먼저 치수를 입력하십시오.", isError: true);
+      return;
+    }
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
     showCuttingSnack(context, "지시서를 글로 복사했습니다. 메신저에 붙여넣으십시오.");
