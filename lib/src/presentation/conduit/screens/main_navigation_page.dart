@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' as vmath;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/presentation/conduit/conduit_marking_logic.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/pipe_path_points.dart';
 
 import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_input_tab.dart';
@@ -294,6 +296,16 @@ class ConduitViewerTab extends StatelessWidget {
         final bendList = manager.bendList;
         final totalCut = globalMarkingState.value['totalCutLength'] ?? 0.0;
 
+        // 🚀 [추가] 실제 형상으로 그리려면 전선관 제원이 필요하다.
+        // 튜브 제원이 아니라 전선관 설정(굽힘 반경·관 굵기·커플링 깊이)을 쓴다.
+        final cs = globalBenderSettings.value;
+        final double clr = (cs['clr'] as num?)?.toDouble() ?? 0.0;
+        final double coupling =
+            (cs['couplingDepth'] as num?)?.toDouble() ?? 0.0;
+        final double od = conduitOuterDiameterMm(
+          (cs['conduitSize'] ?? '').toString(),
+        );
+
         return Scaffold(
           backgroundColor: const Color(0xFF151B22),
           body: SafeArea(
@@ -301,6 +313,9 @@ class ConduitViewerTab extends StatelessWidget {
               bendList: bendList,
               totalCutLength: totalCut,
               isLightMode: false,
+              bendRadius: clr,
+              outerDiameter: od,
+              fittingDepth: coupling,
             ),
           ),
         );
@@ -865,6 +880,10 @@ class MetricTapeMeasurePainter extends CustomPainter {
 // =========================================================
 // 4. 3D 아이소 뷰어
 // =========================================================
+/// 전선관 3D 그림.
+///
+/// 🚀 [고침] 공간 걷기를 따로 한 벌 들고 있었고 모서리를 각지게 이어 붙였다.
+/// 마킹 값과 같은 계산(pipeDrawPath)을 쓰고, 실제 비율로 그린다.
 class ConduitIsoVisualizer extends StatefulWidget {
   final List<Map<String, dynamic>> bendList;
   final double tailLength;
@@ -875,6 +894,15 @@ class ConduitIsoVisualizer extends StatefulWidget {
   final bool startFit;
   final bool endFit;
   final double totalCutLength;
+
+  /// 굽힘 중심선 반경(CLR). 실제 형상으로 그릴 때 모서리를 이만큼 둥글게 그린다.
+  final double bendRadius;
+
+  /// 전선관 바깥지름. 실제 형상으로 그릴 때 관 굵기를 이만큼 그린다.
+  final double outerDiameter;
+
+  /// 커플링에 관이 들어가는 깊이.
+  final double fittingDepth;
 
   const ConduitIsoVisualizer({
     super.key,
@@ -887,6 +915,9 @@ class ConduitIsoVisualizer extends StatefulWidget {
     this.startFit = false,
     this.endFit = false,
     this.totalCutLength = 0.0,
+    this.bendRadius = 0.0,
+    this.outerDiameter = 0.0,
+    this.fittingDepth = 0.0,
   });
 
   @override
@@ -896,6 +927,10 @@ class ConduitIsoVisualizer extends StatefulWidget {
 class _ConduitIsoVisualizerState extends State<ConduitIsoVisualizer> {
   static const double _defaultRotX = -math.pi / 6;
   static const double _defaultRotY = -math.pi / 4;
+
+  /// 실제 비율로 그릴지. 켜면 길이를 있는 그대로, 모서리는 반경만큼 둥글게,
+  /// 관 굵기도 바깥지름대로 그린다.
+  bool _realScale = true;
 
   double _rotationX = _defaultRotX;
   double _rotationY = _defaultRotY;
@@ -993,6 +1028,10 @@ class _ConduitIsoVisualizerState extends State<ConduitIsoVisualizer> {
                 isFlippedX: _isFlippedX,
                 isFlippedY: _isFlippedY,
                 startDirection: _startDir,
+                realScale: _realScale,
+                bendRadius: widget.bendRadius,
+                outerDiameter: widget.outerDiameter,
+                fittingDepth: widget.fittingDepth,
                 selectedSegmentIndex: widget.selectedSegmentIndex,
                 isLightMode: widget.isLightMode,
                 startFit: widget.startFit,
@@ -1012,7 +1051,7 @@ class _ConduitIsoVisualizerState extends State<ConduitIsoVisualizer> {
             child: Center(
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
+                  horizontal: 10,
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
@@ -1061,6 +1100,12 @@ class _ConduitIsoVisualizerState extends State<ConduitIsoVisualizer> {
                       () => setState(
                         () => _zoomLevel = (_zoomLevel + 0.2).clamp(0.2, 10.0),
                       ),
+                    ),
+                    _buildDivider(),
+                    _buildIconBtn(
+                      Icons.straighten,
+                      _realScale ? makitaTeal : Colors.white,
+                      () => setState(() => _realScale = !_realScale),
                     ),
                     _buildDivider(),
                     _buildIconBtn(Icons.refresh, makitaTeal, _resetView),
@@ -1185,8 +1230,8 @@ class _ConduitIsoVisualizerState extends State<ConduitIsoVisualizer> {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-        child: Icon(icon, color: color, size: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 4.0),
+        child: Icon(icon, color: color, size: 22),
       ),
     );
   }
@@ -1195,7 +1240,7 @@ class _ConduitIsoVisualizerState extends State<ConduitIsoVisualizer> {
     return Container(
       height: 20,
       width: 1,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 2),
       color: Colors.white24,
     );
   }
@@ -1245,6 +1290,57 @@ class ConduitFittingRenderable implements ConduitRenderable {
     canvas.drawLine(p1, p2, fitOutline);
     canvas.drawLine(p1, p2, fitPaint);
   }
+}
+
+/// 이어진 여러 토막(벤드가 휘는 호)을 한 붓으로 그린다.
+///
+/// 🚀 [고침] 호를 토막마다 따로 그리면 검은 테두리가 앞 토막을 덮어서
+/// 휜 자리가 뭉개지고 각지게 꺾인 것처럼 보였다.
+class ConduitPolylineRenderable implements ConduitRenderable {
+  final List<Offset> pts;
+  @override
+  final double z;
+  final bool isSelected;
+
+  ConduitPolylineRenderable(this.pts, this.z, {this.isSelected = false});
+
+  @override
+  void draw(
+    Canvas canvas,
+    Paint pipePaint,
+    Paint highlightPaint,
+    Paint outlinePaint,
+  ) {
+    if (pts.length < 2) return;
+    final path = Path()..moveTo(pts.first.dx, pts.first.dy);
+    for (var i = 1; i < pts.length; i++) {
+      path.lineTo(pts[i].dx, pts[i].dy);
+    }
+    canvas.drawPath(path, outlinePaint);
+    canvas.drawPath(path, isSelected ? highlightPaint : pipePaint);
+    drawConduitCenterLine(canvas, path, pipePaint);
+  }
+}
+
+/// 관 한가운데에 긋는 가는 선(중심선).
+///
+/// 🚀 [고침] 관을 바깥지름대로 굵게 그리면, 반경이 관 굵기의 서너 배밖에
+/// 안 되는 튜브에서는 휘는 자리가 굵기에 묻혀 각지게 꺾인 것처럼 보였다
+/// (3/8" 튜브 R38이면 호가 부푸는 양이 11mm라 관 굵기 12.7mm와 비슷하다).
+/// 관 굵기는 실제대로 두고, 가운데에 가는 선을 하나 더 그어 휜 모양이
+/// 드러나게 한다. 배관 도면에서 중심선을 긋는 것과 같다.
+void drawConduitCenterLine(Canvas canvas, Path path, Paint pipePaint) {
+  final w = pipePaint.strokeWidth;
+  if (w < 8.0) return;
+  canvas.drawPath(
+    path,
+    Paint()
+      ..color = Colors.white.withValues(alpha: 0.35)
+      ..strokeWidth = (w * 0.16).clamp(1.0, 3.0)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round,
+  );
 }
 
 class ConduitSegmentRenderable implements ConduitRenderable {
@@ -1511,6 +1607,12 @@ class ConduitIsoPainter extends CustomPainter {
   final bool startFit;
   final bool endFit;
 
+  /// 실제 비율로 그릴지.
+  final bool realScale;
+  final double bendRadius;
+  final double outerDiameter;
+  final double fittingDepth;
+
   ConduitIsoPainter({
     required this.bendList,
     this.tailLength = 0.0,
@@ -1526,39 +1628,15 @@ class ConduitIsoPainter extends CustomPainter {
     required this.isLightMode,
     required this.startFit,
     required this.endFit,
+    this.realScale = false,
+    this.bendRadius = 0.0,
+    this.outerDiameter = 0.0,
+    this.fittingDepth = 0.0,
   });
 
   double _getVisualLength(double realLength) {
     if (realLength <= 0) return 0.0;
     return 40.0 + math.pow(realLength, 0.5) * 6.0;
-  }
-
-  vmath.Vector3 _getAbsoluteDirection(double rot) {
-    if (rot == 0.0) return vmath.Vector3(0, 1, 0);
-    if (rot == 90.0) return vmath.Vector3(1, 0, 0);
-    if (rot == 180.0) return vmath.Vector3(0, -1, 0);
-    if (rot == 270.0) return vmath.Vector3(-1, 0, 0);
-    if (rot == 360.0) return vmath.Vector3(0, 0, 1);
-    if (rot == 450.0) return vmath.Vector3(0, 0, -1);
-    return vmath.Vector3(1, 0, 0);
-  }
-
-  vmath.Vector3 _getStartVector() {
-    switch (startDirection) {
-      case 'UP':
-        return vmath.Vector3(0, 1, 0);
-      case 'DOWN':
-        return vmath.Vector3(0, -1, 0);
-      case 'LEFT':
-        return vmath.Vector3(-1, 0, 0);
-      case 'FRONT':
-        return vmath.Vector3(0, 0, 1);
-      case 'BACK':
-        return vmath.Vector3(0, 0, -1);
-      case 'RIGHT':
-      default:
-        return vmath.Vector3(1, 0, 0);
-    }
   }
 
   void _drawBlueprintGrid(Canvas canvas, Size size, double sf) {
@@ -1591,10 +1669,18 @@ class ConduitIsoPainter extends CustomPainter {
     double sf = isLightMode ? 1.2 : 1.0;
     _drawBlueprintGrid(canvas, size, sf);
 
-    List<vmath.Vector3> pts3D = [];
-    vmath.Vector3 currentPos = vmath.Vector3.zero();
-    pts3D.add(currentPos.clone());
-    vmath.Vector3 currentDir = _getStartVector();
+    // 🚀 [고침] 이 그림도 공간 걷기를 따로 한 벌 들고 있었고, 모서리를
+    // 각지게 이어 붙였다. 마킹 값과 같은 계산(pipeDrawPath)을 쓰고,
+    // "실제 비율"을 켜면 모서리를 반경만큼 둥근 호로 그린다.
+    final drawPath = pipeDrawPath(
+      bendList,
+      startDir: startDirection,
+      radius: realScale ? bendRadius : 0.0,
+      tail: tailLength,
+      visualLength: realScale ? null : _getVisualLength,
+    );
+    final List<vmath.Vector3> pts3D = drawPath.points;
+    final List<int> segOwner = drawPath.owner;
 
     List<int> internalMarkNums = [];
     int currentMarkNum = 1;
@@ -1606,50 +1692,6 @@ class ConduitIsoPainter extends CustomPainter {
         internalMarkNums.add(currentMarkNum);
         currentMarkNum++;
       }
-    }
-
-    for (int i = 0; i < bendList.length; i++) {
-      var bend = bendList[i];
-      double realL = (bend['length'] as num?)?.toDouble() ?? 0.0;
-      double angle = (bend['angle'] as num?)?.toDouble() ?? 0.0;
-      double rot = (bend['rotation'] as num?)?.toDouble() ?? 0.0;
-      double visL = _getVisualLength(realL);
-
-      currentPos += (currentDir * visL);
-      pts3D.add(currentPos.clone());
-
-      if (angle > 0) {
-        vmath.Vector3 targetDir = _getAbsoluteDirection(rot);
-        vmath.Vector3 bendAxis = currentDir.cross(targetDir);
-
-        if (bendAxis.length2 > 0.001) {
-          bendAxis.normalize();
-          vmath.Quaternion bendQuat = vmath.Quaternion.axisAngle(
-            bendAxis,
-            -angle * math.pi / 180.0,
-          );
-          currentDir = bendQuat.rotate(currentDir)..normalize();
-        } else {
-          if (currentDir.dot(targetDir) < -0.9) {
-            vmath.Vector3 fallback = vmath.Vector3(0, 0, 1);
-            if (currentDir.cross(fallback).length2 < 0.001) {
-              fallback = vmath.Vector3(0, 1, 0);
-            }
-            bendAxis = currentDir.cross(fallback)..normalize();
-            vmath.Quaternion bendQuat = vmath.Quaternion.axisAngle(
-              bendAxis,
-              -angle * math.pi / 180.0,
-            );
-            currentDir = bendQuat.rotate(currentDir)..normalize();
-          }
-        }
-      }
-    }
-
-    if (tailLength > 0) {
-      double visTail = _getVisualLength(tailLength);
-      currentPos += (currentDir * visTail);
-      pts3D.add(currentPos.clone());
     }
 
     vmath.Vector3 center3D = _calculateCenter(pts3D);
@@ -1675,73 +1717,100 @@ class ConduitIsoPainter extends CustomPainter {
       );
     }
 
+    // 실제 비율이면 관 굵기를 바깥지름대로 그린다.
+    final double pipeWidth = (realScale && outerDiameter > 0)
+        ? (outerDiameter * scale).clamp(3.0, 40.0)
+        : 6.0 * sf;
+
     List<ConduitRenderable> renderQueue = [];
     List<ConduitLabelRenderable> labelQueue = [];
 
     int pipeEndIndex = projectedPts.length - 1;
 
-    for (int i = 0; i < pipeEndIndex; i++) {
-      double zAvg = (projectedPts[i].z + projectedPts[i + 1].z) / 2;
-      bool isSelected = selectedSegmentIndex == i;
+    // 🚀 [고침] 이어진 호 토막을 한 덩어리로 묶어 한 붓으로 그린다.
+    int i = 0;
+    while (i < pipeEndIndex) {
+      final int owner = i < segOwner.length ? segOwner[i] : -1;
 
-      Offset p1_2d = to2D(projectedPts[i]);
-      Offset p2_2d = to2D(projectedPts[i + 1]);
+      if (owner < 0) {
+        int j = i;
+        while (j < pipeEndIndex &&
+            (j < segOwner.length ? segOwner[j] : -1) < 0) {
+          j++;
+        }
+        final pts = <Offset>[
+          for (int k = i; k <= j; k++) to2D(projectedPts[k]),
+        ];
+        var zSum = 0.0;
+        for (int k = i; k <= j; k++) {
+          zSum += projectedPts[k].z;
+        }
+        renderQueue.add(ConduitPolylineRenderable(pts, zSum / (j - i + 1)));
+        i = j;
+        continue;
+      }
 
       renderQueue.add(
         ConduitSegmentRenderable(
-          p1_2d,
-          p2_2d,
+          to2D(projectedPts[i]),
+          to2D(projectedPts[i + 1]),
+          (projectedPts[i].z + projectedPts[i + 1].z) / 2,
+          isSelected: selectedSegmentIndex == owner,
+          isLightMode: isLightMode,
+        ),
+      );
+      i++;
+    }
+
+    // 글자는 곧은 토막마다 한 번씩만. 겹치면 바깥으로 밀어낸다.
+    for (final run in drawPath.straightRuns) {
+      final idx = run.bendIndex;
+      if (idx < 0 || idx >= bendList.length) continue;
+      final double realL = (bendList[idx]['length'] as num?)?.toDouble() ?? 0.0;
+      if (realL <= 0) continue;
+      final double angle = (bendList[idx]['angle'] as num?)?.toDouble() ?? 0.0;
+      final int mNum = internalMarkNums[idx];
+      final bool isSelected = selectedSegmentIndex == idx;
+
+      final pa = cameraMatrix.transformed3(run.a - center3D);
+      final pb = cameraMatrix.transformed3(run.b - center3D);
+      final a2 = to2D(pa);
+      final b2 = to2D(pb);
+      final zAvg = (pa.z + pb.z) / 2;
+
+      final mid = (a2 + b2) / 2;
+      final dx = b2.dx - a2.dx;
+      final dy = b2.dy - a2.dy;
+      final len = math.sqrt(dx * dx + dy * dy);
+      Offset normal = len > 0
+          ? Offset(-dy / len, dx / len)
+          : const Offset(0, -1);
+      if (normal.dy > 0) normal = Offset(-normal.dx, -normal.dy);
+      var labelPos = mid + normal * (18.0 * sf);
+      for (var push = 0; push < 6; push++) {
+        final tooClose = labelQueue.any(
+          (l) => (l.centerPos - labelPos).distance < 34.0 * sf,
+        );
+        if (!tooClose) break;
+        labelPos = labelPos + normal * (20.0 * sf);
+      }
+
+      labelQueue.add(
+        ConduitLabelRenderable(
+          labelPos,
           zAvg,
+          angle == 0.0 ? "L:${realL.toInt()}" : "$mNum",
+          isStraightPipe: angle == 0.0,
           isSelected: isSelected,
           isLightMode: isLightMode,
         ),
       );
-
-      if (i < bendList.length) {
-        double realL = (bendList[i]['length'] as num?)?.toDouble() ?? 0.0;
-        double angle = (bendList[i]['angle'] as num?)?.toDouble() ?? 0.0;
-        int mNum = internalMarkNums[i];
-
-        if (realL > 0) {
-          Offset mid = (p1_2d + p2_2d) / 2;
-          double dx = p2_2d.dx - p1_2d.dx;
-          double dy = p2_2d.dy - p1_2d.dy;
-          double len = math.sqrt(dx * dx + dy * dy);
-
-          Offset normal = len > 0
-              ? Offset(-dy / len, dx / len)
-              : const Offset(0, -1);
-          if (normal.dy > 0) normal = Offset(-normal.dx, -normal.dy);
-          Offset labelPos = mid + normal * (18.0 * sf);
-
-          if (angle == 0.0) {
-            labelQueue.add(
-              ConduitLabelRenderable(
-                labelPos,
-                zAvg,
-                "L:${realL.toInt()}",
-                isStraightPipe: true,
-                isSelected: isSelected,
-                isLightMode: isLightMode,
-              ),
-            );
-          } else {
-            labelQueue.add(
-              ConduitLabelRenderable(
-                labelPos,
-                zAvg,
-                "$mNum",
-                isStraightPipe: false,
-                isSelected: isSelected,
-                isLightMode: isLightMode,
-              ),
-            );
-          }
-        }
-      }
     }
 
-    double fitVisualLen = 20.0;
+    final double minOnScreen = 14.0 / scale;
+    final double fitVisualLen = (realScale && fittingDepth > 0)
+        ? math.max(fittingDepth, minOnScreen)
+        : 20.0;
     if (pts3D.length > 1) {
       if (startFit) {
         vmath.Vector3 dir = (pts3D[1] - pts3D[0])..normalize();
@@ -1799,7 +1868,8 @@ class ConduitIsoPainter extends CustomPainter {
     }
 
     vmath.Vector3 translatedEnd =
-        (currentPos + currentDir * (150.0 / scale)) - center3D;
+        (pathEndPoint(pts3D) + pathEndDirection(pts3D) * (150.0 / scale)) -
+        center3D;
     vmath.Vector3 pEndDir = cameraMatrix.transformed3(translatedEnd);
     Offset pEndDir2D = to2D(pEndDir);
     Offset pCurrentPos2D = to2D(projectedPts.last);
@@ -1819,19 +1889,19 @@ class ConduitIsoPainter extends CustomPainter {
 
     final pipePaint = Paint()
       ..color = isLightMode ? const Color(0xFF455A64) : const Color(0xFF607D8B)
-      ..strokeWidth = 6.0 * sf
+      ..strokeWidth = pipeWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     final highlightPaint = Paint()
       ..color = Colors.orange.shade500
-      ..strokeWidth = 8.0 * sf
+      ..strokeWidth = pipeWidth + 2.0 * sf
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     final outlinePaint = Paint()
       ..color = isLightMode ? Colors.black87 : Colors.black45
-      ..strokeWidth = 8.0 * sf
+      ..strokeWidth = pipeWidth + 2.0 * sf
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
@@ -1937,6 +2007,10 @@ class ConduitIsoPainter extends CustomPainter {
         oldDelegate.selectedSegmentIndex != selectedSegmentIndex ||
         oldDelegate.isLightMode != isLightMode ||
         oldDelegate.startFit != startFit ||
-        oldDelegate.endFit != endFit;
+        oldDelegate.endFit != endFit ||
+        oldDelegate.realScale != realScale ||
+        oldDelegate.bendRadius != bendRadius ||
+        oldDelegate.outerDiameter != outerDiameter ||
+        oldDelegate.fittingDepth != fittingDepth;
   }
 }

@@ -472,6 +472,59 @@ class MobileFittingRenderable implements MobileRenderable {
   }
 }
 
+/// 이어진 여러 토막(벤드가 휘는 호)을 한 붓으로 그린다.
+///
+/// 🚀 [고침] 호를 토막마다 따로 그렸더니, 토막을 그릴 때마다 검은 테두리를
+/// 다시 칠해서 앞 토막의 관 색을 덮었다. 이음새가 얼룩덜룩해지고 휜 자리가
+/// 뭉개져서 각지게 꺾인 것처럼 보였다. 테두리를 먼저 한 번, 관을 그 위에
+/// 한 번 그린다.
+class MobilePolylineRenderable implements MobileRenderable {
+  final List<Offset> pts;
+  @override
+  final double z;
+  final bool isSelected;
+
+  MobilePolylineRenderable(this.pts, this.z, {this.isSelected = false});
+
+  @override
+  void draw(
+    Canvas canvas,
+    Paint pipePaint,
+    Paint highlightPaint,
+    Paint outlinePaint,
+  ) {
+    if (pts.length < 2) return;
+    final path = Path()..moveTo(pts.first.dx, pts.first.dy);
+    for (var i = 1; i < pts.length; i++) {
+      path.lineTo(pts[i].dx, pts[i].dy);
+    }
+    canvas.drawPath(path, outlinePaint);
+    canvas.drawPath(path, isSelected ? highlightPaint : pipePaint);
+    drawCenterLine(canvas, path, pipePaint);
+  }
+}
+
+/// 관 한가운데에 긋는 가는 선(중심선).
+///
+/// 🚀 [고침] 관을 바깥지름대로 굵게 그리면, 반경이 관 굵기의 서너 배밖에
+/// 안 되는 튜브에서는 휘는 자리가 굵기에 묻혀 각지게 꺾인 것처럼 보였다
+/// (3/8" 튜브 R38이면 호가 부푸는 양이 11mm라 관 굵기 12.7mm와 비슷하다).
+/// 관 굵기는 실제대로 두고, 가운데에 가는 선을 하나 더 그어 휜 모양이
+/// 드러나게 한다. 배관 도면에서 중심선을 긋는 것과 같다.
+void drawCenterLine(Canvas canvas, Path path, Paint pipePaint) {
+  final w = pipePaint.strokeWidth;
+  if (w < 8.0) return; // 가는 관에는 중심선이 오히려 지저분하다.
+  canvas.drawPath(
+    path,
+    Paint()
+      ..color = Colors.white.withValues(alpha: 0.35)
+      ..strokeWidth = (w * 0.16).clamp(1.0, 3.0)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round,
+  );
+}
+
 class MobileSegmentRenderable implements MobileRenderable {
   final Offset p1, p2;
   @override
@@ -501,6 +554,13 @@ class MobileSegmentRenderable implements MobileRenderable {
     double sf = isLightMode ? 1.2 : 1.0;
     canvas.drawLine(p1, p2, outlinePaint);
     canvas.drawLine(p1, p2, isSelected ? highlightPaint : pipePaint);
+    drawCenterLine(
+      canvas,
+      Path()
+        ..moveTo(p1.dx, p1.dy)
+        ..lineTo(p2.dx, p2.dy),
+      pipePaint,
+    );
 
     double dx = p2.dx - p1.dx;
     double dy = p2.dy - p1.dy;
@@ -867,27 +927,44 @@ class MobileIsoPipePainter extends CustomPainter {
 
     int pipeEndIndex = projectedPts.length - 1;
 
-    for (int i = 0; i < pipeEndIndex; i++) {
-      double zAvg = (projectedPts[i].z + projectedPts[i + 1].z) / 2;
-      // 이 토막이 몇 번째 배관 줄인지(-1이면 벤드가 휘는 호).
+    // 🚀 [고침] 이어진 호 토막을 한 덩어리로 묶어 한 붓으로 그린다.
+    // 토막마다 따로 그리면 검은 테두리가 앞 토막을 덮어 휜 자리가 뭉개졌다.
+    int i = 0;
+    while (i < pipeEndIndex) {
       final int owner = i < segOwner.length ? segOwner[i] : -1;
-      final bool isArc = owner < 0;
-      bool isSelected = !isArc && selectedSegmentIndex == owner;
 
-      Offset p1_2d = to2D(projectedPts[i]);
-      Offset p2_2d = to2D(projectedPts[i + 1]);
+      if (owner < 0) {
+        // 벤드가 휘는 호: 이어지는 데까지 모아서 한 붓으로.
+        int j = i;
+        while (j < pipeEndIndex &&
+            (j < segOwner.length ? segOwner[j] : -1) < 0) {
+          j++;
+        }
+        final pts = <Offset>[
+          for (int k = i; k <= j; k++) to2D(projectedPts[k]),
+        ];
+        var zSum = 0.0;
+        for (int k = i; k <= j; k++) {
+          zSum += projectedPts[k].z;
+        }
+        renderQueue.add(
+          MobilePolylineRenderable(pts, zSum / (j - i + 1)),
+        );
+        i = j;
+        continue;
+      }
 
+      final double zAvg = (projectedPts[i].z + projectedPts[i + 1].z) / 2;
       renderQueue.add(
         MobileSegmentRenderable(
-          p1_2d,
-          p2_2d,
+          to2D(projectedPts[i]),
+          to2D(projectedPts[i + 1]),
           zAvg,
-          isSelected: isSelected,
+          isSelected: selectedSegmentIndex == owner,
           isLightMode: isLightMode,
-          // 호는 잘게 나눠 그리므로 토막마다 화살표를 찍으면 지저분하다.
-          showArrow: !isArc,
         ),
       );
+      i++;
     }
 
     // 🚀 [고침] 예전에는 꼭짓점 사이마다 글자를 달아서, 호를 잘게 나누면
@@ -1153,6 +1230,12 @@ class MobileIsoPipePainter extends CustomPainter {
         oldDelegate.selectedSegmentIndex != selectedSegmentIndex ||
         oldDelegate.isLightMode != isLightMode ||
         oldDelegate.startFit != startFit ||
-        oldDelegate.endFit != endFit;
+        oldDelegate.endFit != endFit ||
+        // 🚀 [고침] 실제 비율·반경·굵기가 바뀌어도 다시 그리지 않아서,
+        // 자 단추를 눌러도 그림이 그대로일 때가 있었다.
+        oldDelegate.realScale != realScale ||
+        oldDelegate.bendRadius != bendRadius ||
+        oldDelegate.outerDiameter != outerDiameter ||
+        oldDelegate.fittingDepth != fittingDepth;
   }
 }

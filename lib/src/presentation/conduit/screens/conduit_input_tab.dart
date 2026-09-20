@@ -328,7 +328,12 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                       color: slate900,
                     ),
                   ),
-                  Row(
+                  // 🚀 [고침] 길이와 방향을 한 줄에 붙여 놓아서, 방향 글이
+                  // 길면 줄이 넘쳤다("RIGHT OVERFLOWED"). 자리가 모자라면
+                  // 아랫줄로 내려가게 한다.
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 2,
                     children: [
                       Text(
                         "길이: ${item['length']}mm",
@@ -338,8 +343,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                           color: makitaTeal,
                         ),
                       ),
-                      if (!isStraight) ...[
-                        const SizedBox(width: 8),
+                      if (!isStraight)
                         Text(
                           "방향: ${_getDirectionText(rotation)}",
                           style: const TextStyle(
@@ -348,7 +352,6 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                             color: slate600,
                           ),
                         ),
-                      ],
                     ],
                   ),
                 ],

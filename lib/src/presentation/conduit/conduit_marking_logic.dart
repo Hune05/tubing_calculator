@@ -287,3 +287,29 @@ List<Map<String, dynamic>> _chicagoMarkings(
   }
   return markings;
 }
+
+/// 전선관 규격 이름(22mm, G22, E25, 1/2" …)에서 바깥지름(mm)을 뽑는다.
+/// 3D 그림에서 관 굵기를 실제대로 그릴 때 쓴다. 못 읽으면 0.
+double conduitOuterDiameterMm(String size) {
+  final s = size.trim();
+  if (s.isEmpty) return 0.0;
+
+  // "22mm", "G22", "E25", "22" 처럼 숫자가 곧 지름인 경우.
+  final mm = RegExp(r'(\d+(?:\.\d+)?)\s*mm').firstMatch(s);
+  if (mm != null) return double.tryParse(mm.group(1)!) ?? 0.0;
+
+  final letter = RegExp(r'^[A-Za-z]+\s*(\d+(?:\.\d+)?)$').firstMatch(s);
+  if (letter != null) return double.tryParse(letter.group(1)!) ?? 0.0;
+
+  // 인치 표기("1/2\"", "3/4\"")는 인치를 mm로 바꾼다.
+  final frac = RegExp(r'^(\d+)\s*/\s*(\d+)').firstMatch(s);
+  if (frac != null) {
+    final a = double.tryParse(frac.group(1)!) ?? 0;
+    final b = double.tryParse(frac.group(2)!) ?? 0;
+    if (b > 0) return a / b * 25.4;
+  }
+
+  final plain = RegExp(r'^(\d+(?:\.\d+)?)').firstMatch(s);
+  if (plain != null) return double.tryParse(plain.group(1)!) ?? 0.0;
+  return 0.0;
+}
