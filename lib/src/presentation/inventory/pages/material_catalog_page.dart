@@ -296,6 +296,7 @@ class _CatalogBodyState extends State<_CatalogBody> {
           kind: item.kind,
           unit: unit.text.trim().isEmpty ? item.unit : unit.text.trim(),
           order: item.order,
+          source: item.source,
         ),
       );
       if (!mounted) return;
@@ -463,9 +464,12 @@ class _CatalogBodyState extends State<_CatalogBody> {
                               ),
                               subtitle: Text(
                                 [
-                                  materialCategoryLabel(item.category),
-                                  if (item.kind.isNotEmpty) item.kind,
+                                  if (item.kind.isNotEmpty)
+                                    item.kind
+                                  else
+                                    materialCategoryLabel(item.category),
                                   "단위 ${item.unit}",
+                                  if (item.source.isNotEmpty) item.source,
                                 ].join(' · '),
                                 style: const TextStyle(
                                   color: CuttingColors.textSecondary,

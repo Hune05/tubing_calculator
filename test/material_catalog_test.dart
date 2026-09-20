@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/inventory/material_catalog.dart';
 
 void main() {
-  final list = builtinMaterialCatalog();
+  final list = allMaterialCatalog();
 
   group('기본 자재 목록', () {
     test('전선관·후렉시블·부속이 모두 들어 있다', () {
@@ -28,23 +28,55 @@ void main() {
 
     test('전선관은 본, 후렉시블은 m, 부속은 EA로 센다', () {
       for (final i in list) {
-        if (i.category == 'CONDUIT') expect(i.unit, '본');
         if (i.category == 'FLEX') expect(i.unit, 'm');
         if (i.category == 'ACC') expect(i.unit, 'EA');
       }
     });
 
-    test('후강 전선관 22mm가 있다', () {
-      final it = list.firstWhere((i) => i.id == 'conduit_rigid_22');
-      expect(it.name, '후강 전선관 22mm');
-      expect(it.spec, '22mm');
-      expect(it.category, 'CONDUIT');
+    test('업체 자료에 강제전선관과 나사없는 전선관이 있다', () {
+      final g22 = list.firstWhere(
+        (i) => i.name.contains('강제전선관') && i.spec == 'G22',
+      );
+      expect(g22.category, 'CONDUIT');
+      expect(g22.unit, '본');
+      expect(g22.source, '경진전기');
+      expect(
+        list.any((i) => i.name.contains('나사없는 전선관') && i.spec == 'E19'),
+        isTrue,
+      );
     });
 
-    test('금속 후렉시블과 PF관·CD관이 있다', () {
-      expect(list.any((i) => i.id == 'flex_metal_24'), isTrue);
-      expect(list.any((i) => i.id == 'flex_pf_16'), isTrue);
-      expect(list.any((i) => i.id == 'flex_cd_16'), isTrue);
+    test('업체 자료에 후렉시블 GW·SW·SF가 있다', () {
+      expect(
+        list.any((i) => i.category == 'FLEX' && i.name.contains('GW')),
+        isTrue,
+      );
+      expect(
+        list.any((i) => i.category == 'FLEX' && i.name.contains('SW')),
+        isTrue,
+      );
+      expect(
+        list.any((i) => i.category == 'FLEX' && i.name.contains('SF')),
+        isTrue,
+      );
+    });
+
+    test('업체 자료에 현장에서 부르는 부속 이름이 그대로 있다', () {
+      for (final word in ['카프링', '부싱', '로크너트', '새들', '레듀샤', '엔트런스']) {
+        expect(list.any((i) => i.name.contains(word)), isTrue, reason: ' 없음');
+      }
+    });
+
+    test('업체 자료는 어디서 왔는지 남아 있다', () {
+      final fromVendor = list.where((i) => i.source == '경진전기').length;
+      expect(fromVendor, greaterThan(500));
+    });
+
+    test('업체 자료 이름에 규격 범위나 재고 메모가 남아 있지 않다', () {
+      for (final i in list.where((i) => i.source == '경진전기')) {
+        expect(i.name.contains('~'), isFalse, reason: i.name);
+        expect(i.name.contains('재고'), isFalse, reason: i.name);
+      }
     });
 
     test('곤질레다(컨듈렛)가 부속에 들어 있다', () {
@@ -59,16 +91,10 @@ void main() {
       expect(kCommonMaterialMakers.contains('곤질레다'), isFalse);
     });
 
-    test('커플링·커넥터·박스 같은 부속이 있다', () {
-      expect(list.any((i) => i.id == 'acc_coupling_22'), isTrue);
-      expect(list.any((i) => i.id == 'acc_box_connector_22'), isTrue);
-      expect(list.any((i) => i.id == 'acc_flex_conn_st_24'), isTrue);
-      expect(list.any((i) => i.id == 'acc_box_octa'), isTrue);
-    });
-
-    test('순서가 겹치지 않고 커진다', () {
-      for (var i = 1; i < list.length; i++) {
-        expect(list[i].order > list[i - 1].order, isTrue);
+    test('순서가 겹치지 않고 커진다(업체 자료 안에서)', () {
+      final v = list.where((i) => i.source == '경진전기').toList();
+      for (var i = 1; i < v.length; i++) {
+        expect(v[i].order > v[i - 1].order, isTrue);
       }
     });
   });
@@ -98,11 +124,11 @@ void main() {
       expect(back.order, it.order);
     });
 
-    test('찾기 글에 이름·규격·분류가 들어간다', () {
-      final it = list.firstWhere((i) => i.id == 'conduit_rigid_22');
-      expect(it.searchText.contains('후강'), isTrue);
+    test('찾기 글에 이름·규격·갈래가 들어간다', () {
+      final it = list.firstWhere((i) => i.id == 'acc_condulet_lb_22');
+      expect(it.searchText.contains('lb'), isTrue);
       expect(it.searchText.contains('22mm'), isTrue);
-      expect(it.searchText.contains('전선관'), isTrue);
+      expect(it.searchText.contains('곤질레다'), isTrue);
     });
   });
 

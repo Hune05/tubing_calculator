@@ -36,7 +36,7 @@ Future<int> seedMissingCatalog() async {
   final snap = await _catalog.get();
   final have = {for (final d in snap.docs) d.id};
   final missing = [
-    for (final item in builtinMaterialCatalog())
+    for (final item in allMaterialCatalog())
       if (!have.contains(item.id)) item,
   ];
   if (missing.isEmpty) return 0;
