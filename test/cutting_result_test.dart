@@ -416,6 +416,8 @@ Union Cross 1/2" × 2''');
       expect(find.textContaining('모두 잘랐습니다'), findsOneWidget);
       await tester.tap(find.text('저장하기'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('저장')); // 확인 창
+      await tester.pumpAndSettle();
       expect(find.text('치수를 입력하십시오.'), findsOneWidget);
       final prefs = await SharedPreferences.getInstance();
       final draft = jsonDecode(

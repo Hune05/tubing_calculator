@@ -232,3 +232,45 @@ String buildInstructionText({
   }
   return b.toString().trimRight();
 }
+
+// ── 저장 확인 ──
+// "저장하기"를 누르면 보여 주는 확인 글. 무엇이 어디에 기록되는지, 입력이 비워지는지, 되돌릴 수
+// 있는지를 저장하기 전에 알려 준다.
+String buildSaveConfirmMessage({
+  required double baseMm, // 톱날 손실을 뺀 1회 저장 길이(세트 수 곱한 값)
+  required int cutCount, // 자를 구간 수(1세트 기준)
+  required int setMultiplier,
+  required double kerfLossMm,
+  required List<FittingOrder> orders,
+  required int notDoneLines, // 잘랐음 표시를 안 한 줄 수
+  required bool anyDone, // 표시를 한 줄이 하나라도 있는지
+  required bool recordsToProject, // 프로젝트 자재 사용량·기록에 올라가는지
+  required bool canUndo,
+}) {
+  final set = setMultiplier < 1 ? 1 : setMultiplier;
+  final b = StringBuffer();
+  b.writeln('잘라 낸 길이는 총 ${_one(baseMm)}mm입니다 (구간 $cutCount개 × $set세트).');
+  if (kerfLossMm > 0) {
+    b.writeln(
+      '톱날 손실 ${_one(kerfLossMm)}mm가 더해져 ${_one(baseMm + kerfLossMm)}mm로 기록됩니다.',
+    );
+  }
+  if (orders.isNotEmpty) {
+    final shown = orders.take(3).map((o) => '${o.label} ×${o.qty}').join(' · ');
+    final more = orders.length > 3 ? ' 외 ${orders.length - 3}종' : '';
+    b.writeln('사용한 부속: $shown$more.');
+  }
+  if (anyDone && notDoneLines > 0) {
+    b.writeln('아직 잘랐음 표시를 하지 않은 줄이 $notDoneLines개 있습니다.');
+  }
+  b.writeln();
+  b.writeln(
+    recordsToProject
+        ? '저장하면 이 작업의 컷팅 기록과 자재 사용량(재고 차감 대기)에 올라가고, 입력이 비워집니다.'
+        : '저장하면 누적 사용량에 더해지고, 입력이 비워집니다.',
+  );
+  if (canUndo) {
+    b.write('저장한 뒤 10초 동안은 "실행 취소"로 되돌릴 수 있습니다.');
+  }
+  return b.toString().trimRight();
+}

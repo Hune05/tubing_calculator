@@ -59,6 +59,43 @@ List<Map<String, dynamic>> mergeMaterialsUsage(
   return materials;
 }
 
+/// [mergeMaterialsUsage]로 더했던 사용량을 다시 뺀다("저장" 실행 취소용). 남은 값이 0 이하가 되면
+/// 그 항목은 목록에서 지운다(그 사이 재고 차감으로 이미 비워졌다면 아무것도 하지 않는다).
+List<Map<String, dynamic>> subtractMaterialsUsage(
+  List<dynamic> currentMaterials,
+  double tubeLengthMm,
+  List<Map<String, dynamic>> fittingsList,
+) {
+  final List<Map<String, dynamic>> materials = currentMaterials
+      .map((m) => Map<String, dynamic>.from(m as Map))
+      .toList();
+
+  if (tubeLengthMm > 0) {
+    final tubeIdx = materials.indexWhere((m) => m['type'] == 'TUBE');
+    if (tubeIdx >= 0) {
+      final left = (materials[tubeIdx]['qty_mm'] as num? ?? 0) - tubeLengthMm;
+      if (left <= 1e-6) {
+        materials.removeAt(tubeIdx);
+      } else {
+        materials[tubeIdx]['qty_mm'] = left;
+      }
+    }
+  }
+
+  for (final fit in fittingsList) {
+    final idx = materials.indexWhere((m) => m['db_name'] == fit['db_name']);
+    if (idx < 0) continue;
+    final left =
+        (materials[idx]['qty_ea'] as num? ?? 0) - (fit['qty'] as num? ?? 0);
+    if (left <= 0) {
+      materials.removeAt(idx);
+    } else {
+      materials[idx]['qty_ea'] = left;
+    }
+  }
+  return materials;
+}
+
 /// CuttingMainScreen의 onSaveCallback에서 호출한다. 프로젝트 누적치
 /// (totalTubeUsed/cutCount/usedFittings/lastCutAt)를 갱신하고, 재고 차감에
 /// 쓸 materials를 누적하고, 이번 "완료"로 생성된 CutRecord들을 서브컬렉션에
@@ -97,6 +134,48 @@ Future<void> saveCuttingSession({
       batch.set(recordsRef.doc(), record.toMap());
     }
     await batch.commit();
+  }
+}
+
+/// [saveCuttingSession]으로 저장한 것을 되돌린다("저장" 직후 실행 취소).
+/// 호출하기 전에 [project]의 메모리 값(누적 길이·횟수)은 이미 뺀 상태여야 한다 — 저장할 때와
+/// 똑같이 그 값을 문서에 그대로 쓴다. 자재 사용량(materials)에서는 이번에 더한 만큼을 빼고,
+/// 이번 저장으로 만들어진 컷팅 기록(같은 저장 시각을 가진 것)을 지운다.
+Future<void> undoCuttingSession({
+  required String projectId,
+  required CuttingProject project,
+  required double totalTubeLength,
+  required List<Map<String, dynamic>> fittingsList,
+  required List<CutRecord> cutRecords,
+}) async {
+  final docRef = FirebaseFirestore.instance
+      .collection(kCuttingProjectsCollection)
+      .doc(projectId);
+
+  final snap = await docRef.get();
+  final existingMaterials = (snap.data()?['materials'] as List?) ?? [];
+  await docRef.update({
+    'totalTubeUsed': project.totalTubeUsed,
+    'cutCount': project.cutCount,
+    'usedFittings': project.usedFittings,
+    'materials': subtractMaterialsUsage(
+      existingMaterials,
+      totalTubeLength,
+      fittingsList,
+    ),
+  });
+
+  if (cutRecords.isNotEmpty) {
+    final savedAt = cutRecords.first.timestamp.toIso8601String();
+    final recordsRef = docRef.collection(kCutRecordsSubcollection);
+    final made = await recordsRef.where('timestamp', isEqualTo: savedAt).get();
+    if (made.docs.isNotEmpty) {
+      final batch = FirebaseFirestore.instance.batch();
+      for (final d in made.docs) {
+        batch.delete(d.reference);
+      }
+      await batch.commit();
+    }
   }
 }
 

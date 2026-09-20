@@ -59,6 +59,8 @@ Future<bool> showCuttingConfirmDialog(
     context: context,
     builder: (ctx) => AlertDialog(
       backgroundColor: CuttingColors.surface,
+      // 폰에서도 글이 좁게 접히지 않도록 팝업을 넓게 쓴다.
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: Row(
         children: [
@@ -76,11 +78,14 @@ Future<bool> showCuttingConfirmDialog(
           ),
         ],
       ),
-      content: Text(
-        message,
-        style: const TextStyle(
-          color: CuttingColors.textSecondary,
-          fontSize: 14,
+      content: SingleChildScrollView(
+        child: Text(
+          message,
+          style: const TextStyle(
+            color: CuttingColors.textSecondary,
+            fontSize: 14,
+            height: 1.45,
+          ),
         ),
       ),
       actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -165,6 +170,7 @@ void showCuttingUndoSnack(
   BuildContext context,
   String message, {
   required VoidCallback onUndo,
+  Duration duration = const Duration(seconds: 4),
 }) {
   ScaffoldMessenger.of(context).clearSnackBars();
   ScaffoldMessenger.of(context).showSnackBar(
@@ -172,7 +178,7 @@ void showCuttingUndoSnack(
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       backgroundColor: CuttingColors.primaryDark,
-      duration: const Duration(seconds: 4),
+      duration: duration,
       content: Text(
         message,
         style: const TextStyle(

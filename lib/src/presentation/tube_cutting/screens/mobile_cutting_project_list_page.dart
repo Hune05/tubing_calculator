@@ -317,6 +317,21 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                   cutRecords: cutRecords,
                 );
               },
+          // 저장 직후 "실행 취소": 저장한 사용량·기록을 되돌린다(화면이 메모리 값은 이미 뺐다).
+          onUndoCallback:
+              (
+                double totalTubeLength,
+                List<Map<String, dynamic>> fittingsList,
+                List<CutRecord> cutRecords,
+              ) {
+                undoCuttingSession(
+                  projectId: docId,
+                  project: project,
+                  totalTubeLength: totalTubeLength,
+                  fittingsList: fittingsList,
+                  cutRecords: cutRecords,
+                );
+              },
         ),
       ),
     );

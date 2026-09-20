@@ -82,10 +82,21 @@ class CuttingMainScreen extends StatefulWidget {
   ])?
   onSaveCallback;
 
+  // "저장" 직후 실행 취소를 눌렀을 때 저장한 것을 되돌리는 콜백(저장할 때 넘긴 값과 같은 값을 받는다).
+  // onSaveCallback으로 바깥에 저장하는 화면은 이것도 넘겨야 "실행 취소"가 나온다 — 없으면 바깥에
+  // 저장된 것을 되돌릴 방법이 없으므로 실행 취소를 보여 주지 않는다.
+  final Function(
+    double totalTubeLength,
+    List<Map<String, dynamic>> fittingsList,
+    List<CutRecord> cutRecords,
+  )?
+  onUndoCallback;
+
   const CuttingMainScreen({
     super.key,
     required this.project,
     this.onSaveCallback,
+    this.onUndoCallback,
   });
 
   @override
@@ -107,6 +118,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   bool _groupSameLengths = true;
   // 결과 탭에서 "잘랐음"으로 표시한 줄(열쇠는 cutting_result_logic.dart 참고). 임시 저장에 함께 남긴다.
   final Set<String> _doneKeys = {};
+  // 저장 직후 띄운 "실행 취소" 스낵바를 화면을 떠날 때 함께 없애기 위해 잡아 둔다.
+  ScaffoldMessengerState? _undoMessenger;
 
   // 🚀 [4번 강화] 현장에 따라 인치로 측정하는 경우가 있어서 mm/in 단위를
   // 고를 수 있게 한다. 저장/계산은 항상 mm 기준이고, 사용자가 지금 고른
@@ -513,6 +526,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
 
   @override
   void dispose() {
+    // 화면을 떠나면 실행 취소를 더는 할 수 없으니 스낵바도 걷는다.
+    _undoMessenger?.clearSnackBars();
     WidgetsBinding.instance.removeObserver(this);
     _saveDraftState();
     for (var point in _points) {
@@ -1771,47 +1786,29 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     );
   }
 
-  void _saveRecord() {
-    if (_points.any(
-      (p) => p.c2cController.text.isNotEmpty && p.calculatedCut < 0,
-    )) {
-      showCuttingSnack(
-        context,
-        "간섭이 발생한 구간이 있습니다. 치수를 확인해 주십시오!",
-        isError: true,
-      );
-      return;
-    }
-
-    double totalOneSet = _points
+  // 저장할 내용을 미리 계산한다(확인 창과 실제 저장이 같은 계산을 쓴다). 저장할 것이 없으면 null.
+  _SavePlan? _buildSavePlan() {
+    final double totalOneSet = _points
         .sublist(0, _points.length - 1)
         .fold(
           0.0,
           (acc, point) =>
               acc + (point.calculatedCut > 0 ? point.calculatedCut : 0.0),
         );
-
-    double finalTotal = totalOneSet * _setMultiplier;
-
-    if (finalTotal <= 0) return;
-
-    FocusScope.of(context).unfocus();
+    final double baseMm = totalOneSet * _setMultiplier;
+    if (baseMm <= 0) return null;
 
     // 🚀 [자재 관리용 완벽 분리] 제조사, 규격, 품명, 수량을 담을 객체 리스트
-    Map<String, Map<String, dynamic>> groupedFittings = {};
-    int totalFittingCount = 0;
-
+    final Map<String, Map<String, dynamic>> groupedFittings = {};
     for (var point in _points) {
       if (point.fitting.id != "none") {
-        String maker = point.fitting.category == "CUSTOM"
+        final String maker = point.fitting.category == "CUSTOM"
             ? "CUSTOM"
             : _globalMaker;
-        String spec = point.fitting.tubeOD;
-        String name = point.fitting.name;
-
+        final String spec = point.fitting.tubeOD;
+        final String name = point.fitting.name;
         // 고유 식별 키 (제조사_규격_이름)
-        String uniqueKey = "${maker}_${spec}_$name";
-
+        final String uniqueKey = "${maker}_${spec}_$name";
         if (groupedFittings.containsKey(uniqueKey)) {
           groupedFittings[uniqueKey]!['qty'] += 1;
         } else {
@@ -1826,7 +1823,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       }
     }
 
-    List<Map<String, dynamic>> finalFittingsList = [];
+    int totalFittingCount = 0;
+    final List<Map<String, dynamic>> finalFittingsList = [];
     groupedFittings.forEach((key, data) {
       data['qty'] = (data['qty'] as int) * _setMultiplier;
       totalFittingCount += data['qty'] as int;
@@ -1839,7 +1837,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     // 남겨서, 프로젝트 안의 "기록" 탭에서 날짜/요일별로 되짚어볼 수
     // 있게 한다 (예전엔 총합만 쌓이고 언제 뭘 잘랐는지가 안 남았음).
     final now = DateTime.now();
-    List<CutRecord> cutRecords = [];
+    final List<CutRecord> cutRecords = [];
     for (int i = 0; i < _points.length - 1; i++) {
       final point = _points[i];
       if (point.c2cController.text.isEmpty || point.calculatedCut <= 0) {
@@ -1854,7 +1852,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           tubeSize: point.fitting.id != "none"
               ? point.fitting.tubeOD
               : nextFitting.tubeOD,
-          originalLength: double.tryParse(point.c2cController.text) ?? 0.0,
+          // 쉼표(1200,5) 등으로 쓴 값도 읽은 값 그대로 남긴다.
+          originalLength:
+              parseLengthInput(point.c2cController.text).value ?? 0.0,
           startFitting: point.fitting.id == "none" ? "직관" : point.fitting.name,
           endFitting: nextFitting.id == "none" ? "직관" : nextFitting.name,
           cutLength: point.calculatedCut,
@@ -1873,12 +1873,71 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     // 실제로 자른 횟수(구간 수 × 세트 수)만큼 커프 손실을 더한다.
     final int cutsThisSave = cutRecords.length * _setMultiplier;
     final double kerfLoss = _bladeKerf * cutsThisSave;
-    finalTotal += kerfLoss;
+    return _SavePlan(
+      baseMm: baseMm,
+      kerfLossMm: kerfLoss,
+      finalTotalMm: baseMm + kerfLoss,
+      fittings: finalFittingsList,
+      fittingCount: totalFittingCount,
+      records: cutRecords,
+    );
+  }
+
+  // "저장하기": 먼저 무엇이 저장되는지 확인을 받고, 승인하면 저장한다.
+  Future<void> _saveRecord() async {
+    if (_points.any(
+      (p) => p.c2cController.text.isNotEmpty && p.calculatedCut < 0,
+    )) {
+      showCuttingSnack(
+        context,
+        "간섭이 발생한 구간이 있습니다. 치수를 확인해 주십시오!",
+        isError: true,
+      );
+      return;
+    }
+    final plan = _buildSavePlan();
+    if (plan == null) return;
+    FocusScope.of(context).unfocus();
+
+    final lines = _resultLines();
+    final sum = summarizeResult(lines, _doneKeys);
+    // 바깥(프로젝트)에 저장하는 화면은 되돌리는 콜백까지 있어야 실행 취소를 줄 수 있다.
+    final bool canUndo =
+        widget.onSaveCallback == null || widget.onUndoCallback != null;
+    final ok = await showCuttingConfirmDialog(
+      context,
+      title: "저장하시겠습니까?",
+      message: buildSaveConfirmMessage(
+        baseMm: plan.baseMm,
+        cutCount: plan.records.length,
+        setMultiplier: _setMultiplier,
+        kerfLossMm: plan.kerfLossMm,
+        orders: _fittingOrders(),
+        notDoneLines: sum.lineCount - sum.doneLines,
+        anyDone: sum.anyDone,
+        recordsToProject: widget.onSaveCallback != null,
+        canUndo: canUndo,
+      ),
+      confirmLabel: "저장",
+      icon: Icons.save_outlined,
+    );
+    if (!ok || !mounted) return;
+    _commitSave(plan, canUndo);
+  }
+
+  void _commitSave(_SavePlan plan, bool canUndo) {
+    // 되돌릴 때 입력을 그대로 살리기 위해, 지우기 전의 값을 붙잡아 둔다.
+    final snapshot = _SavedSnapshot(
+      plan: plan,
+      texts: [for (final p in _points) p.c2cController.text],
+      setMultiplier: _setMultiplier,
+      doneKeys: {..._doneKeys},
+    );
 
     setState(() {
       try {
         widget.project.recordUsage(
-          tubeLengthMm: finalTotal,
+          tubeLengthMm: plan.finalTotalMm,
           fittings: {},
           multiplier: _setMultiplier,
         );
@@ -1888,7 +1947,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
 
       // 🚀 부모(ProjectManagementPage)의 바구니로 완벽하게 규격화된 데이터를 쏩니다!
       if (widget.onSaveCallback != null) {
-        widget.onSaveCallback!(finalTotal, finalFittingsList, cutRecords);
+        widget.onSaveCallback!(plan.finalTotalMm, plan.fittings, plan.records);
       }
 
       for (var point in _points) {
@@ -1900,13 +1959,66 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       _calculate();
     });
 
-    final kerfNote = kerfLoss > 0
-        ? " (커프 손실 +${kerfLoss.toStringAsFixed(1)}mm 포함)"
+    final kerfNote = plan.kerfLossMm > 0
+        ? " (커프 손실 +${plan.kerfLossMm.toStringAsFixed(1)}mm 포함)"
         : "";
-    showCuttingSnack(
-      context,
-      "튜브 총 ${finalTotal.toStringAsFixed(1)}mm$kerfNote 및 피팅 $totalFittingCount개 작업 완료!",
-    );
+    final msg =
+        "튜브 총 ${plan.finalTotalMm.toStringAsFixed(1)}mm$kerfNote 및 피팅 ${plan.fittingCount}개 작업 완료!";
+    if (canUndo) {
+      _undoMessenger = ScaffoldMessenger.of(context);
+      showCuttingUndoSnack(
+        context,
+        msg,
+        duration: const Duration(seconds: 10),
+        onUndo: () => _undoSave(snapshot),
+      );
+    } else {
+      showCuttingSnack(context, msg);
+    }
+  }
+
+  // 저장 직후 "실행 취소": 저장한 사용량·기록을 되돌리고 입력을 원래대로 채운다.
+  Future<void> _undoSave(_SavedSnapshot s) async {
+    if (!mounted) return;
+    // 그 사이에 새로 입력한 값이 있으면 덮어쓰기 전에 한 번 더 묻는다.
+    if (_points.any((p) => p.c2cController.text.trim().isNotEmpty)) {
+      final ok = await showCuttingConfirmDialog(
+        context,
+        title: "저장을 되돌리시겠습니까?",
+        message: "지금 입력한 값은 지워지고, 방금 저장한 내용이 입력 화면으로 돌아옵니다.",
+        confirmLabel: "되돌리기",
+        icon: Icons.undo_rounded,
+      );
+      if (!ok || !mounted) return;
+    }
+
+    setState(() {
+      // 저장하며 더했던 값을 뺀다(메모리). 바깥에 저장한 것은 아래 콜백이 뺀다.
+      try {
+        widget.project.recordUsage(
+          tubeLengthMm: -s.plan.finalTotalMm,
+          fittings: {},
+          multiplier: -s.setMultiplier,
+        );
+      } catch (e) {
+        debugPrint("단독 모드 에러 무시: $e");
+      }
+      widget.onUndoCallback?.call(
+        s.plan.finalTotalMm,
+        s.plan.fittings,
+        s.plan.records,
+      );
+
+      for (var i = 0; i < _points.length && i < s.texts.length; i++) {
+        _points[i].c2cController.text = s.texts[i];
+      }
+      _setMultiplier = s.setMultiplier;
+      _doneKeys
+        ..clear()
+        ..addAll(s.doneKeys);
+      _calculate();
+    });
+    showCuttingSnack(context, "저장을 취소하고 입력을 되돌렸습니다.");
   }
 
   Widget _buildFittingBadge(FittingItem item, bool isNone) {
@@ -3456,4 +3568,38 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       emptyIsError: d.interferenceCount > 0,
     );
   }
+}
+
+// 저장할 내용(확인 창과 실제 저장이 함께 쓴다).
+class _SavePlan {
+  final double baseMm; // 톱날 손실을 뺀 길이
+  final double kerfLossMm;
+  final double finalTotalMm; // 기록되는 총 길이(톱날 손실 포함)
+  final List<Map<String, dynamic>> fittings;
+  final int fittingCount;
+  final List<CutRecord> records;
+
+  const _SavePlan({
+    required this.baseMm,
+    required this.kerfLossMm,
+    required this.finalTotalMm,
+    required this.fittings,
+    required this.fittingCount,
+    required this.records,
+  });
+}
+
+// 저장 직전의 입력 상태(실행 취소로 되살릴 때 쓴다).
+class _SavedSnapshot {
+  final _SavePlan plan;
+  final List<String> texts;
+  final int setMultiplier;
+  final Set<String> doneKeys;
+
+  const _SavedSnapshot({
+    required this.plan,
+    required this.texts,
+    required this.setMultiplier,
+    required this.doneKeys,
+  });
 }
