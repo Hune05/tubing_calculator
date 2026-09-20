@@ -172,12 +172,15 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   void _setFocusedPoint(int index) {
     if (_focusedPointIndex == index) return;
     setState(() => _focusedPointIndex = index);
-    if (_tabController.index == 1) {
+    if (_tabController.index == 1 || _isWideLayout) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _scrollDiagramToFocused();
       });
     }
   }
+
+  // 배치도가 입력과 나란히 늘 보이는 넓은 화면인지(탭 대신 여러 칸으로 보여 줄 때).
+  bool get _isWideLayout => MediaQuery.of(context).size.shortestSide >= 600;
 
   Future<void> _loadBladeKerf() async {
     final prefs = await SharedPreferences.getInstance();
@@ -2071,6 +2074,21 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 🚀 [추가] 넓은 화면(태블릿/폴더블 펼침) - 예전부터 있던 좌우 2단
   // 레이아웃 그대로. 왼쪽엔 포인트 리스트, 오른쪽엔 배치도+컷팅 지시서.
   Widget _buildWideBody() {
+    // 아주 넓은 화면(가로로 놓은 태블릿·펼친 폴더블)은 입력 | 배치도 | 결과를 세 칸으로 나란히 둔다.
+    // 그보다 좁으면 배치도와 결과를 위아래로 쌓아 오른쪽 한 칸에 둔다.
+    if (MediaQuery.of(context).size.width >= 1000) {
+      return Expanded(
+        child: Row(
+          children: [
+            Expanded(flex: 4, child: _buildPointListPane()),
+            Container(width: 1, color: Colors.black12),
+            Expanded(flex: 4, child: _buildDiagramPane()),
+            Container(width: 1, color: Colors.black12),
+            Expanded(flex: 4, child: _buildInstructionsPane()),
+          ],
+        ),
+      );
+    }
     return Expanded(
       child: Row(
         children: [
@@ -2483,7 +2501,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             ],
           ),
           Text(
-            "지점을 누르면 입력 화면에서 바로 고칠 수 있습니다",
+            "지점을 누르면 입력 화면에서 바로 고치고, 길게 누르면 부속을 바꿀 수 있습니다",
             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 10),
@@ -2495,6 +2513,11 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               controller: _diagramScrollController,
               setMultiplier: _setMultiplier,
               onTapPoint: _jumpToInputPoint,
+              onLongPressPoint: (i) {
+                HapticFeedback.mediumImpact();
+                setState(() => _focusedPointIndex = i);
+                _openFittingSelector(i);
+              },
             ),
           ),
         ],

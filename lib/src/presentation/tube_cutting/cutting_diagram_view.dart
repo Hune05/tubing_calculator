@@ -13,6 +13,25 @@ import 'cutting_theme.dart';
 
 enum SegmentState { empty, unreadable, ok, interference }
 
+// 부속 이름·분류로 배치도 점 안에 넣을 아이콘을 고른다(영어·한글 이름 모두).
+// 순서가 중요하다 — "Union Elbow"는 유니온이 아니라 엘보로, "Elbow Adapter"도 엘보로 본다.
+IconData iconForFitting(String name, String category) {
+  final t = '${name.toLowerCase()} ${category.toLowerCase()}';
+  bool has(List<String> keys) => keys.any(t.contains);
+  if (has(['elbow', '엘보', '90도', '45도'])) return Icons.turn_right_rounded;
+  if (has(['tee', '티자', 't자', '티'])) return Icons.call_split_rounded;
+  if (has(['cross', '십자'])) return Icons.add_rounded;
+  if (has(['valve', '밸브'])) return Icons.tune_rounded;
+  if (has(['reduc', '레듀', '리듀'])) return Icons.unfold_less_rounded;
+  if (has(['bulkhead', '벌크헤드'])) return Icons.view_sidebar_rounded;
+  if (has(['plug', 'cap', '플러그', '캡'])) return Icons.stop_rounded;
+  if (has(['union', '유니온'])) return Icons.link_rounded;
+  if (has(['adapter', 'connector', '어댑터', '커넥터', '니플'])) {
+    return Icons.cable_rounded;
+  }
+  return Icons.settings_rounded;
+}
+
 class DiagramPoint {
   final bool isNone; // 부속 없이 직관으로 이어지는 지점
   final String name;
@@ -30,7 +49,7 @@ class DiagramPoint {
     isNone: f.id == 'none',
     name: f.name,
     tubeOD: f.tubeOD,
-    icon: f.icon,
+    icon: iconForFitting(f.name, f.category),
   );
 
   // 규격 글자로 쓸 수 있는 값이면 그 글자, 아니면 null.
@@ -127,6 +146,8 @@ class CuttingDiagramView extends StatelessWidget {
   final List<DiagramSegment> segments; // points.length - 1개
   final int? focusedIndex;
   final ValueChanged<int> onTapPoint;
+  // 지점을 길게 누르면(부속 바꾸기). 없으면 길게 눌러도 아무 일도 없다.
+  final ValueChanged<int>? onLongPressPoint;
   final ScrollController? controller;
   final int setMultiplier;
 
@@ -135,6 +156,7 @@ class CuttingDiagramView extends StatelessWidget {
     required this.points,
     required this.segments,
     required this.onTapPoint,
+    this.onLongPressPoint,
     this.focusedIndex,
     this.controller,
     this.setMultiplier = 1,
@@ -245,6 +267,9 @@ class CuttingDiagramView extends StatelessWidget {
         key: Key('diagram_point_$i'),
         borderRadius: BorderRadius.circular(10),
         onTap: () => onTapPoint(i),
+        onLongPress: onLongPressPoint == null
+            ? null
+            : () => onLongPressPoint!(i),
         child: SizedBox(
           height: pointH + segH,
           child: Row(

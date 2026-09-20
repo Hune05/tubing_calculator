@@ -263,6 +263,78 @@ void main() {
     });
   });
 
+  group('부속 아이콘', () {
+    IconData ic(String n, [String c = '']) => iconForFitting(n, c);
+
+    test('앱에 들어 있는 부속 이름마다 맞는 아이콘', () {
+      expect(ic('Union Elbow (90도)', 'Union'), Icons.turn_right_rounded);
+      expect(ic('Elbow Adapter', 'Adapter'), Icons.turn_right_rounded);
+      expect(ic('Union Tee (T자)', 'Union'), Icons.call_split_rounded);
+      expect(ic('Union Cross (십자)', 'Union'), Icons.add_rounded);
+      expect(ic('Ball Valve', 'Valve'), Icons.tune_rounded);
+      expect(ic('Needle Valve', 'Valve'), Icons.tune_rounded);
+      expect(ic('Check Valve', 'Valve'), Icons.tune_rounded);
+      expect(ic('Reducing Union', 'Union'), Icons.unfold_less_rounded);
+      expect(ic('Bulkhead Union', 'Union'), Icons.view_sidebar_rounded);
+      expect(ic('Straight Union (일자)', 'Union'), Icons.link_rounded);
+      expect(ic('Male Connector', 'Connector'), Icons.cable_rounded);
+      expect(ic('Female Adapter', 'Adapter'), Icons.cable_rounded);
+      expect(ic('Tube Adapter', 'Adapter'), Icons.cable_rounded);
+    });
+
+    test('직접 입력한 한글 이름도 알아본다', () {
+      expect(ic('볼밸브', 'CUSTOM'), Icons.tune_rounded);
+      expect(ic('유니온', 'CUSTOM'), Icons.link_rounded);
+      expect(ic('엘보', 'CUSTOM'), Icons.turn_right_rounded);
+      expect(ic('티', 'CUSTOM'), Icons.call_split_rounded);
+      expect(ic('니플', 'CUSTOM'), Icons.cable_rounded);
+      expect(ic('플러그', 'CUSTOM'), Icons.stop_rounded);
+      expect(ic('용접 소켓', 'CUSTOM'), Icons.settings_rounded);
+    });
+  });
+
+  group('배치도 길게 누르기·넓은 화면', () {
+    testWidgets('지점을 길게 누르면 그 번호를 알려 준다', (tester) async {
+      final longs = <int>[];
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CuttingDiagramView(
+              points: [none(), fit('유니온'), none()],
+              segments: [ok(1000), ok(500)],
+              onTapPoint: (_) {},
+              onLongPressPoint: longs.add,
+            ),
+          ),
+        ),
+      );
+      await tester.longPress(find.byKey(const Key('diagram_point_1')));
+      expect(longs, [1]);
+    });
+
+    testWidgets('길게 누르기를 안 넘기면 아무 일도 없다', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CuttingDiagramView(
+              points: [none(), none()],
+              segments: [ok(1000)],
+              onTapPoint: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.longPress(find.byKey(const Key('diagram_point_0')));
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('배치도 → 입력 이동', () {
     setUp(() => SharedPreferences.setMockInitialValues({}));
 
@@ -325,6 +397,76 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('숫자로 읽을 수 없습니다'), findsOneWidget);
       expect(find.textContaining('읽을 수 없는 값 1곳'), findsOneWidget);
+    });
+
+    testWidgets('아주 넓은 화면에서는 입력·배치도·결과가 세 칸으로 나란히 보인다', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CuttingMainScreen(
+              project: CuttingProject(
+                id: 'p1',
+                name: 'TEST',
+                createdAt: DateTime(2026, 9, 20),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('배관 라인 구축'), findsOneWidget);
+      expect(find.text('1. 배치도'), findsOneWidget);
+      expect(find.text('2. 컷팅 지시서'), findsOneWidget);
+      expect(find.byType(TabBar), findsNothing);
+      expect(tester.takeException(), isNull);
+
+      // 배치도에서 지점을 누르면 옆의 입력 칸에 커서가 간다.
+      await tester.enterText(lengthField(0), '1500');
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('diagram_point_0')));
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+      expect(
+        tester.widget<TextField>(lengthField(0)).focusNode!.hasFocus,
+        true,
+      );
+    });
+
+    testWidgets('중간 너비(세로 태블릿)는 배치도와 결과를 오른쪽에 쌓는다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CuttingMainScreen(
+              project: CuttingProject(
+                id: 'p1',
+                name: 'TEST',
+                createdAt: DateTime(2026, 9, 20),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('배관 라인 구축'), findsOneWidget);
+      expect(find.text('1. 배치도'), findsOneWidget);
+      expect(find.text('2. 컷팅 지시서'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('배치도에서 지점을 길게 누르면 부속 선택창이 열린다', (tester) async {
+      await open(tester);
+      await tester.tap(find.text('배치도'));
+      await tester.pumpAndSettle();
+      await tester.longPress(find.byKey(const Key('diagram_point_1')));
+      await tester.pumpAndSettle();
+      // 선택창 안의 즐겨찾기 목록은 서버(Firestore)에서 읽어서 테스트에서는 오류가 나지만, 창이 열리는 것까지만 본다.
+      expect(find.byType(BottomSheet), findsOneWidget);
+      tester.takeException();
     });
   });
 }
