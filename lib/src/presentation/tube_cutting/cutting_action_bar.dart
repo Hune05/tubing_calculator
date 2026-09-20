@@ -44,7 +44,7 @@ TextSharer textSharer = (text) async {
   await Share.share(text);
 };
 
-// ── 재단 최적화 아이콘 ──
+// ── 재단 계획 아이콘 ──
 // 원자재 막대 하나에 조각들이 채워지고 끝에 자투리가 남는 모양. 기본 아이콘 중에는 "원자재를
 // 몇 본, 어떻게 자르나"를 뜻하는 것이 없어서 직접 그린다.
 class CutBarIcon extends StatelessWidget {

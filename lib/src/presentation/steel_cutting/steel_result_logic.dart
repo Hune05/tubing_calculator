@@ -6,7 +6,7 @@ import 'steel_weight.dart';
 // 형강 컷팅 "결과" 탭의 계산(화면과 분리해서 테스트로 지킨다). 튜브 컷팅의 결과 목록(ResultLine)을
 // 그대로 쓰되, 줄은 "같은 규격·같은 길이"끼리 묶는다(항목이 여러 개여도 자르는 사람에게는 같은 일이다).
 
-// 형강 재단 최적화의 "여러 길이 섞어 쓰기" 설정 저장 키(튜브 컷팅과 따로 둔다 — 쓰는 원자재 길이가 다르다).
+// 형강 재단 계획의 "여러 길이 섞어 쓰기" 설정 저장 키(튜브 컷팅과 따로 둔다 — 쓰는 원자재 길이가 다르다).
 const String kSteelMixPrefsKey = 'cutting_mix_lengths_steel_v1';
 
 String _one(double v) => v.toStringAsFixed(1);
@@ -67,7 +67,7 @@ class _Acc {
   _Acc(this.length);
 }
 
-// 규격을 무게가 큰 것부터 다시 늘어놓는다(무거운 자재부터 옮기고 자르기 위해). 무게를 모르는 규격은 뒤로,
+// 규격을 무게가 큰 것부터 다시 늘어놓는다(무거운 자재부터 옮기고 자르기 위해). 중량을 모르는 규격은 뒤로,
 // 무게가 같거나 모르는 것끼리는 원래 순서를 지킨다. 한 규격 안의 줄 순서는 그대로다.
 List<ResultLine> sortLinesByWeight(List<ResultLine> lines) {
   final subs = shapeSubtotals(lines);

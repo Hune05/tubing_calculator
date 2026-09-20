@@ -78,7 +78,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
           iconTheme: const IconThemeData(color: slate900),
           centerTitle: true,
           title: const Text(
-            "자재 현장 지원",
+            "자재 현황",
             style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 18,
@@ -326,7 +326,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                _shortOnly ? "모자란 자재만 보고 있습니다" : "모자란 자재 $count개",
+                _shortOnly ? "부족한 자재만 보고 있습니다" : "자재 부족 $count개",
                 style: const TextStyle(
                   color: warnColor,
                   fontSize: 14,
@@ -517,9 +517,9 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
   Future<void> _removeLeftover(Leftover l) async {
     final ok = await showCuttingConfirmDialog(
       context,
-      title: "이 잔재를 지웁니까?",
+      title: "이 잔재를 지우겠습니까?",
       message: "${_leftoverTitle(l)}를 잔재 목록에서 지웁니다.",
-      confirmLabel: "지웁니다",
+      confirmLabel: "지우기",
       danger: true,
     );
     if (!ok) return;
@@ -564,7 +564,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
             children: [
               const Expanded(
                 child: Text(
-                  "자르고 남은 잔재입니다. 재단 최적화에서 이 잔재부터 씁니다.",
+                  "자르고 남은 잔재입니다. 재단 계획에서 이 잔재부터 씁니다.",
                   style: TextStyle(
                     color: slate600,
                     fontSize: 13,

@@ -298,7 +298,7 @@ void main() {
     expectNoOverflow(tester, '보고서 양식');
   });
 
-  testWidgets('재단 최적화 시트(잔재 포함)', (tester) async {
+  testWidgets('재단 계획 시트(잔재 포함)', (tester) async {
     SharedPreferences.setMockInitialValues({
       'cutting_leftovers_v1': ['1000튜브 1/2"', '850튜브 1/2"'],
     });
@@ -323,7 +323,7 @@ void main() {
     );
     await tester.tap(find.text('열기'));
     await tester.pumpAndSettle();
-    expectNoOverflow(tester, '재단 최적화 시트');
+    expectNoOverflow(tester, '재단 계획 시트');
     await tester.tap(find.text('잔재 관리'));
     await tester.pumpAndSettle();
     expectNoOverflow(tester, '잔재 관리 창');

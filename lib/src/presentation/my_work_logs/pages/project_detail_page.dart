@@ -1324,7 +1324,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'summary', child: Text("현황 요약 이미지 공유")),
               PopupMenuItem(value: 'header', child: Text("이 프로젝트 보고서 머리말")),
-              PopupMenuItem(value: 'reminder', child: Text("이 프로젝트 작업 일지 알림 시간")),
+              PopupMenuItem(
+                value: 'reminder',
+                child: Text("이 프로젝트 작업 일지 알림 시간"),
+              ),
               PopupMenuItem(value: 'optimize', child: Text("사진 용량 정리")),
             ],
           ),

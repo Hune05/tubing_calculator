@@ -220,7 +220,7 @@ class MenuScreen extends StatelessWidget {
           context,
           icon: Icons.square_foot,
           title: '형강 컷팅',
-          subtitle: '찬넬/앵글 재단 최적화·지시서',
+          subtitle: '찬넬/앵글 재단 계획·지시서',
           iconColor: makitaTeal,
           onTap: () => Navigator.pushNamed(context, '/steel-cutting'),
         ),

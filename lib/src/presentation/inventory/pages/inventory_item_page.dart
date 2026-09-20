@@ -382,7 +382,7 @@ class _Body extends StatelessWidget {
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("고칩니다"),
+            child: const Text("고치기"),
           ),
         ],
       ),
@@ -447,7 +447,7 @@ class _Body extends StatelessWidget {
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("고칩니다"),
+            child: const Text("고치기"),
           ),
         ],
       ),
@@ -461,9 +461,9 @@ class _Body extends StatelessWidget {
 
     final sure = await showCuttingConfirmDialog(
       context,
-      title: "재고를 고칩니까?",
+      title: "재고를 고치겠습니까?",
       message: "$_name — $_qty$_unit → $next$_unit",
-      confirmLabel: "고칩니다",
+      confirmLabel: "고치기",
     );
     if (!sure) return;
 

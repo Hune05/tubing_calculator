@@ -221,8 +221,9 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
           // Gain(90°) = CLR × (2 − π/2)  (호 형상 기준 이론값)
           if (spec.containsKey('clr')) {
             final double clrVal = (spec['clr'] as num).toDouble();
-            _gainController.text = (clrVal * (2 - math.pi / 2))
-                .toStringAsFixed(1);
+            _gainController.text = (clrVal * (2 - math.pi / 2)).toStringAsFixed(
+              1,
+            );
           }
         } else if (_selectedTypeId == 'chicago') {
           if (spec.containsKey('degPerNotch')) {
@@ -242,8 +243,9 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
           }
           if (spec.containsKey('clr')) {
             final double clrVal = (spec['clr'] as num).toDouble();
-            _gainController.text = (clrVal * (2 - math.pi / 2))
-                .toStringAsFixed(1);
+            _gainController.text = (clrVal * (2 - math.pi / 2)).toStringAsFixed(
+              1,
+            );
           }
         }
       }
@@ -769,7 +771,8 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             "90° 테이크업 (Take-up)",
             _takeUpController,
             suffix: unit,
-            helpText: "시카고식도 슈에 감아 구부리는 방식이라 첫 벤딩점에서 여유 길이 차감이 필요합니다. 동일 규격 수동 벤더 값을 근사치로 사용합니다.",
+            helpText:
+                "시카고식도 슈에 감아 구부리는 방식이라 첫 벤딩점에서 여유 길이 차감이 필요합니다. 동일 규격 수동 벤더 값을 근사치로 사용합니다.",
           ),
           _buildInputRow(
             "노치 간격",

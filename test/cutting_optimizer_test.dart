@@ -246,7 +246,7 @@ void main() {
     });
   });
 
-  group('재단 최적화 화면', () {
+  group('재단 계획 화면', () {
     setUp(() => SharedPreferences.setMockInitialValues({}));
 
     Future<void> open(

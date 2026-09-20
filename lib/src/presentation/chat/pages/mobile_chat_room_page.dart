@@ -165,9 +165,7 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
     }
     if (hasUpdates) {
       batch.update(
-        FirebaseFirestore.instance
-            .collection('chat_rooms')
-            .doc(widget.roomId),
+        FirebaseFirestore.instance.collection('chat_rooms').doc(widget.roomId),
         {'unread': 0},
       );
       batch.commit();

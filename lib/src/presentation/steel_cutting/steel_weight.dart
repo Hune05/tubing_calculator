@@ -189,7 +189,7 @@ double? steelWeightKg(String shapeLabel, double lengthMm) {
   return u == null ? null : u * lengthMm / 1000;
 }
 
-/// 프로젝트 목록 줄에 보이는 무게 글("약 12.0kg"). 세트 수를 곱하고, 무게를 모르는 규격이 섞여 있으면
+/// 프로젝트 목록 줄에 보이는 무게 글("약 12.0kg"). 세트 수를 곱하고, 중량을 모르는 규격이 섞여 있으면
 /// 그만큼 더 나가니 "이상"을 붙인다. 아무것도 모르면 빈 글자.
 String steelProjectWeightText(SteelCuttingProject project) {
   var kg = 0.0;

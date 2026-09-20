@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'cutting_leftovers.dart';
 
-// 잔재 기록: 재단 최적화에서 "잘랐습니다 (잔재 저장)"를 누를 때마다 언제·어느 작업에서·어떤 잔재를 쓰고
+// 잔재 기록: 재단 계획에서 "잘랐습니다 (잔재 저장)"를 누를 때마다 언제·어느 작업에서·어떤 잔재를 쓰고
 // 어떤 잔재가 새로 생겼는지 한 건씩 적어 둔다. 튜브·형강이 함께 쓰고, 이 폰에만 저장한다(최근 100건).
 // 창에서 저장을 되돌리면 그 기록도 함께 지운다.
 const String kLeftoverLogPrefsKey = 'cutting_leftover_log_v1';

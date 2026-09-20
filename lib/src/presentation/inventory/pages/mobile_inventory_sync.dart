@@ -7,7 +7,7 @@ part of 'mobile_inventory_page.dart';
 extension MobileInventorySyncExt on _MobileInventoryPageState {
   bool _validateSync() {
     if (_localEdits.isEmpty) {
-      _showErrorSnackBar("변경된 데이터가 없습니다.");
+      _showErrorSnackBar("고친 것이 없습니다.");
       return false;
     }
     return true;
@@ -75,7 +75,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
             borderRadius: BorderRadius.circular(24),
           ),
           title: const Text(
-            "이대로 서버에 올립니까?",
+            "이대로 서버에 올리겠습니까?",
             style: TextStyle(
               color: slate900,
               fontSize: 20,
@@ -168,7 +168,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          "서버로 실사 데이터를 전송 중입니다...",
+          "서버로 올리고 있습니다.",
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: makitaTeal,
@@ -231,7 +231,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
 
           batch.set(_logsDb.doc(), {
             'type': 'INIT',
-            'project_name': '📱 모바일 현장 신규등록',
+            'project_name': '현장 자재 등록',
             'material_name': itemName,
             'qty': data.qty,
             'unit': 'EA',
@@ -284,7 +284,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
             if (diff != 0) {
               batch.set(_logsDb.doc(), {
                 'type': 'AUDIT',
-                'project_name': '📱 모바일 현장 실사',
+                'project_name': '현장 재고조사',
                 'material_name': dbData['name'],
                 'qty': diff.abs(),
                 'sign': diff > 0 ? '+' : '-',
@@ -313,7 +313,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
-            "서버 동기화 완료! PC에도 즉시 반영되었습니다.",
+            "서버에 올렸습니다. PC에서도 바로 보입니다.",
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           backgroundColor: Colors.green.shade700,
@@ -327,7 +327,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
           (log) => log['id'] == newRecord['id'],
         )['status'] = "failed",
       );
-      _showErrorSnackBar("전송 실패: 네트워크를 확인하십시오.");
+      _showErrorSnackBar("올리지 못했습니다. 통신을 확인하십시오.");
     }
   }
 }

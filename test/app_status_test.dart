@@ -109,7 +109,7 @@ void main() {
       expect(findText('3개'), findsOneWidget);
       expect(findText('연결됨'), findsOneWidget);
       expect(findTextContaining('3시간 전'), findsOneWidget);
-      expect(findText('없음'), findsOneWidget); // 서버에 올리는 중인 저장
+      expect(findText('없음'), findsOneWidget); // 서버로 올리는 중
       expect(find.text('기록된 오류가 없습니다.'), findsOneWidget);
     });
 

@@ -155,7 +155,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   double _bladeKerf = 0.0;
   static const String _kerfPrefsKey = 'cutting_blade_kerf';
 
-  // 🚀 [5번 강화, 추가] 재단 최적화(원자재 소요 계산)에 쓸 원자재 기준
+  // 🚀 [5번 강화, 추가] 재단 계획(원자재 소요 계산)에 쓸 원자재 기준
   // 길이. 커프처럼 기기에 저장해두고 다음에 또 쓸 수 있게 한다.
   double _stockLength = 6000.0;
   static const String _stockLengthPrefsKey = 'cutting_stock_length';
@@ -288,7 +288,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 규격 조합 최적화를 재사용하기 위해서다. 이 화면은 "필요한 절단 길이
   // 목록"을 뽑아서 넘기고, 원자재 기준 길이가 바뀌면 기존처럼
   // SharedPreferences에 저장하는 역할만 담당한다.
-  // 재단 최적화에서 "잘랐습니다"(잔재 저장)를 눌렀을 때: 결과의 모든 줄을 "잘랐음"으로 맞춘다.
+  // 재단 계획에서 "잘랐습니다"(잔재 저장)를 눌렀을 때: 결과의 모든 줄을 "잘랐음"으로 맞춘다.
   // 기록으로 남기는 것은 결과 탭의 "저장하기"다. 창에서 저장을 되돌리면 표시도 저장 전으로 돌린다.
   Set<String>? _doneBeforeLeftoverSave;
 
@@ -444,7 +444,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               ),
             ], rows: fittingOrders.length);
 
-      // 원자재 배치: 재단 최적화 화면과 같은 방식(저장해 둔 잔재 먼저 사용)으로 계산해서
+      // 원자재 배치: 재단 계획 화면과 같은 방식(저장해 둔 잔재 먼저 사용)으로 계산해서
       // 어느 원자재에서 어떤 길이를 자를지까지 지시서에 넣는다.
       final leftovers = await loadLeftovers();
       final mixLengths = await loadMixLengths();
@@ -537,7 +537,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             ),
             pw.SizedBox(height: 8),
             pw.Text("프로젝트: ${widget.project.name}"),
-            pw.Text("작성일시: $dateStr"),
+            pw.Text("작성 날짜: $dateStr"),
             pw.Text(
               "메이커 고정: $_globalMaker    세트 수: $_setMultiplier SET"
               "${_bladeKerf > 0 ? '    톱날 손실: ${_bladeKerf.toStringAsFixed(1)}mm/회' : ''}",
@@ -562,8 +562,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               alignment: pw.Alignment.centerRight,
               child: pw.Text(
                 _setMultiplier > 1
-                    ? "총 소요 길이: 1세트 ${(grandTotal / _setMultiplier).toStringAsFixed(1)} mm × $_setMultiplier세트 = ${grandTotal.toStringAsFixed(1)} mm"
-                    : "총 소요 길이: ${grandTotal.toStringAsFixed(1)} mm",
+                    ? "총 절단 길이: 1세트 ${(grandTotal / _setMultiplier).toStringAsFixed(1)} mm × $_setMultiplier세트 = ${grandTotal.toStringAsFixed(1)} mm"
+                    : "총 절단 길이: ${grandTotal.toStringAsFixed(1)} mm",
                 style: pw.TextStyle(
                   fontSize: 16,
                   fontWeight: pw.FontWeight.bold,
@@ -778,7 +778,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         final double c2cRaw = parsed.value!;
         // 🚀 [4번 강화] 공제값(deduction)은 항상 mm 기준(부속 DB)이라,
         // 입력값이 인치 모드면 계산 전에 먼저 mm로 환산한다. 계산/저장/
-        // PDF/재단 최적화 등 이후 모든 로직은 계속 mm만 다루면 된다.
+        // PDF/재단 계획 등 이후 모든 로직은 계속 mm만 다루면 된다.
         _points[i].c2cMm = _lengthUnit == 'in' ? c2cRaw * kInchToMm : c2cRaw;
         _points[i].calculatedCut = cutLengthMm(
           c2cInput: c2cRaw,
@@ -2867,7 +2867,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                   ),
                 ),
               ),
-              // 재단 최적화, PDF 만들어 공유, 카카오톡으로 글 보내기, 글로 복사. 길게 누르면 이름이 뜬다.
+              // 재단 계획, PDF 만들어 공유, 카카오톡으로 글 보내기, 글로 복사. 길게 누르면 이름이 뜬다.
               CutActionBar(
                 showLabels: !_iconsUsed || _labelsPinned,
                 // 처음 쓰기 전에는 이름이 이미 보이니 "?" 버튼을 두지 않는다.
@@ -2880,7 +2880,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                 actions: [
                   CutActionSpec(
                     key: const Key('result_btn_optimize'),
-                    label: "재단 최적화",
+                    label: "재단 계획",
                     icon: const CutBarIcon(size: 21),
                     onPressed: () {
                       _markIconsUsed();

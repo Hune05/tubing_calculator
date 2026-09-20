@@ -162,7 +162,7 @@ void main() {
       expect(findTextContaining('스트럿 41x41x2.5  약 7.8kg'), findsOneWidget);
       expect(
         tester.widget<Text>(find.byKey(const Key('result_weight'))).data,
-        '총 무게 약 12.0kg',
+        '총 중량 약 12.0kg',
       );
     });
 
@@ -170,7 +170,7 @@ void main() {
       await open(tester, proj(sets: 3));
       expect(
         tester.widget<Text>(find.byKey(const Key('result_weight'))).data,
-        '총 무게 약 36.1kg',
+        '총 중량 약 36.1kg',
       );
     });
   });
@@ -486,7 +486,7 @@ void main() {
       });
       await open(tester);
       expect(progress(tester), '모두 잘랐습니다.');
-      // 잔재 저장은 재단 최적화 창에서만 한다 — 결과 탭에는 단추도, 저장 문구도 없다.
+      // 잔재 저장은 재단 계획 창에서만 한다 — 결과 탭에는 단추도, 저장 문구도 없다.
       expect(find.byKey(const Key('result_done_action')), findsNothing);
       expect(findTextContaining('잔재'), findsNothing);
     });
@@ -498,14 +498,14 @@ void main() {
       expect(find.byKey(const Key('result_done_action')), findsNothing);
     });
 
-    testWidgets('재단 최적화 창에서 저장하면 저장 표시가 남는다', (tester) async {
+    testWidgets('재단 계획 창에서 저장하면 저장 표시가 남는다', (tester) async {
       SharedPreferences.setMockInitialValues({
         'steel_done_sp3': ['steel:앵글 40x40x3:500.0:2'],
       });
       await open(tester);
       await tester.tap(find.byKey(const Key('steel_btn_optimize')));
       await tester.pumpAndSettle();
-      expect(find.text('재단 최적화 (원자재 소요 계산)'), findsOneWidget);
+      expect(find.text('재단 계획 (원자재 몇 본 드는지)'), findsOneWidget);
       final save = find.text('잘랐습니다 (잔재 저장)');
       await tester.ensureVisible(save);
       await tester.tap(save);
@@ -522,7 +522,7 @@ void main() {
       );
     });
 
-    testWidgets('재단 최적화에서 잘랐습니다를 누르면 결과의 모든 줄이 잘랐음이 된다', (tester) async {
+    testWidgets('재단 계획에서 잘랐습니다를 누르면 결과의 모든 줄이 잘랐음이 된다', (tester) async {
       SharedPreferences.setMockInitialValues({});
       await open(tester);
       await tester.tap(find.byKey(const Key('steel_btn_optimize')));
@@ -584,7 +584,7 @@ void main() {
       );
     });
 
-    testWidgets('이미 저장한 결과는 재단 최적화에서 저장 버튼 대신 "저장했습니다"', (tester) async {
+    testWidgets('이미 저장한 결과는 재단 계획에서 저장 버튼 대신 "저장했습니다"', (tester) async {
       SharedPreferences.setMockInitialValues({
         'steel_done_sp4': ['steel:앵글 40x40x3:500.0:2'],
         'steel_leftover_saved_sp4': 'steel:앵글 40x40x3:500.0:2',
@@ -1788,7 +1788,7 @@ void main() {
       expect(prefs.getStringList('steel_done_sp9'), [lines.first.key]);
     });
 
-    testWidgets('총계 카드에 새 자재 본수가 보인다', (tester) async {
+    testWidgets('총계 카드에 새 원자재 본수가 보인다', (tester) async {
       SharedPreferences.setMockInitialValues({});
       // 앵글 2000mm 4개 = 8000mm → 6000 자재로 2본, 스트럿 1000mm 1개 → 1본.
       await open(
@@ -1802,7 +1802,7 @@ void main() {
       );
       await tester.tap(find.text('결과'));
       await tester.pumpAndSettle();
-      expect(findTextContaining('새 자재 6000 3본'), findsOneWidget);
+      expect(findTextContaining('새 원자재 6000 3본'), findsOneWidget);
     });
 
     testWidgets('자른 줄 감추기 칩', (tester) async {

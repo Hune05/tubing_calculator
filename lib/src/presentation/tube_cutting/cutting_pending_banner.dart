@@ -33,7 +33,7 @@ class PendingWritesBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              "아직 올라가지 못한 저장이 $count건 있습니다. 통신되면 저절로 올라갑니다.",
+              "폰에만 저장된 것 $count건 · 통신되면 서버로 올라갑니다.",
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w800,

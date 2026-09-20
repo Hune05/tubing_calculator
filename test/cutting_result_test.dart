@@ -430,7 +430,7 @@ Union Cross 1/2" × 2''');
       expect(draft['doneKeys'], isEmpty);
     });
 
-    testWidgets('재단 최적화에서 잔재를 저장하면 잘랐음 표시가 맞춰지고, 되돌리면 원래대로', (tester) async {
+    testWidgets('재단 계획에서 잔재를 저장하면 잘랐음 표시가 맞춰지고, 되돌리면 원래대로', (tester) async {
       tester.view.physicalSize = const Size(1080, 4000);
       tester.view.devicePixelRatio = 3.0;
       addTearDown(tester.view.reset);

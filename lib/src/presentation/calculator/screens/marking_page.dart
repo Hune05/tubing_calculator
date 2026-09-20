@@ -152,7 +152,10 @@ class _MarkingPageState extends State<MarkingPage> {
               );
             }
 
-            final result = engine.calculate(instructions, dataManager.benderOffset);
+            final result = engine.calculate(
+              instructions,
+              dataManager.benderOffset,
+            );
             final double pureCutLength = result['totalCutLength'];
             final List<StepResult> steps = result['steps'];
 

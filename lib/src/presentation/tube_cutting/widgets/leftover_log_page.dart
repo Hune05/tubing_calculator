@@ -6,7 +6,7 @@ import '../cutting_leftover_log.dart';
 import '../cutting_leftovers.dart';
 import '../cutting_theme.dart';
 
-// 잔재 기록 화면: 재단 최적화에서 잔재를 저장한 때마다 한 카드(쓴 잔재 / 새로 생긴 잔재). 최신이 위.
+// 잔재 기록 화면: 재단 계획에서 잔재를 저장한 때마다 한 카드(쓴 잔재 / 새로 생긴 잔재). 최신이 위.
 class LeftoverLogPage extends StatelessWidget {
   // 테스트에서 저장소 없이 그릴 수 있게 기록을 직접 넘길 수도 있다. 없으면 폰에서 읽는다.
   final List<LeftoverLogEntry>? entries;
@@ -150,7 +150,7 @@ class _LogListState extends State<_LogList> {
         child: Padding(
           padding: EdgeInsets.all(24),
           child: Text(
-            "아직 잔재 기록이 없습니다.\n재단 최적화에서 '잘랐습니다 (잔재 저장)'를 누르면 남습니다.",
+            "아직 잔재 기록이 없습니다.\n재단 계획에서 '잘랐습니다 (잔재 저장)'를 누르면 남습니다.",
             textAlign: TextAlign.center,
             style: TextStyle(color: CuttingColors.textSecondary),
           ),

@@ -379,7 +379,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                     ),
                     onPressed: () => Navigator.pop(ctx),
                     child: const Text(
-                      "이해했습니다!",
+                      "알겠습니다",
                       style: TextStyle(
                         color: pureWhite,
                         fontWeight: FontWeight.bold,
@@ -2620,10 +2620,7 @@ class MakitaNumericInput extends StatelessWidget {
     // 너무 커지지 않을 최대값(64) 사이로 clamp한다.
     final double screenWidth = MediaQuery.of(context).size.width;
     final double autoButtonWidth = (screenWidth * 0.11).clamp(34.0, 64.0);
-    final double fieldVerticalPadding = (screenWidth * 0.032).clamp(
-      10.0,
-      16.0,
-    );
+    final double fieldVerticalPadding = (screenWidth * 0.032).clamp(10.0, 16.0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

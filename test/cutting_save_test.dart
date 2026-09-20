@@ -46,9 +46,9 @@ void main() {
       expect(t.contains('톱날 손실 12.0mm가 더해져 5122.6mm로 기록됩니다.'), true);
     });
 
-    test('프로젝트에 저장하는 화면은 컷팅 기록·재고 차감 대기를 알려 준다', () {
+    test('프로젝트에 저장하는 화면은 컷팅 기록·출고 대기를 알려 준다', () {
       final t = msg(toProject: true);
-      expect(t.contains('컷팅 기록과 자재 사용량(재고 차감 대기)'), true);
+      expect(t.contains('컷팅 기록과 자재 사용량(출고 대기)'), true);
     });
 
     test('되돌릴 수 없는 화면은 실행 취소 문구가 없다', () {
@@ -233,7 +233,7 @@ void main() {
       );
       await tester.tap(find.text('저장하기'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('재고 차감 대기'), findsOneWidget);
+      expect(find.textContaining('출고 대기'), findsOneWidget);
       await tester.tap(find.text('저장'));
       await tester.pumpAndSettle();
       expect(saved, [1500]);

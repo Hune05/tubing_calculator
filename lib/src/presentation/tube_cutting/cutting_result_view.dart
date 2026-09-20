@@ -25,7 +25,7 @@ class CuttingResultView extends StatelessWidget {
   final bool specHeaders;
   // 규격별 이론 중량(kg, 세트 곱함). 규격 머리글과 총계 카드에 "약 …kg"로 보여 준다(비면 표시 안 함).
   final Map<String, double> specWeights;
-  // 위 무게를 모르는 규격 수(총 중량에서 빠진 규격을 알려 준다).
+  // 위 중량을 모르는 규격 수(총 중량에서 빠진 규격을 알려 준다).
   final int unknownWeightSpecs;
   // 모두 잘랐을 때 진행 줄에 보일 글(없으면 튜브용 "저장하십시오"). 저장 버튼이 없는 화면은 자기 글을 넘긴다.
   final String? allDoneText;
@@ -352,8 +352,8 @@ class _Header extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
-                '총 무게 약 ${fmtKg(totalWeightKg!)}kg'
-                '${unknownWeightSpecs > 0 ? ' (무게를 모르는 규격 $unknownWeightSpecs종 제외)' : ''}',
+                '총 중량 약 ${fmtKg(totalWeightKg!)}kg'
+                '${unknownWeightSpecs > 0 ? ' (중량을 모르는 규격 $unknownWeightSpecs종 제외)' : ''}',
                 key: const Key('result_weight'),
                 style: const TextStyle(
                   fontSize: 13,

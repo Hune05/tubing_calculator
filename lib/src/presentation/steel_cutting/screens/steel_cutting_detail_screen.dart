@@ -36,8 +36,8 @@ import 'steel_pdf_preview_page.dart';
 
 // 🚀 [형강 컷팅 신규] 찬넬/앵글처럼 피팅 없이 그냥 "규격 - 길이 - 수량"만
 // 있는 단순 절단 작업 전용 화면. 튜브 컷팅 계산기와 달리 라인(구간)을
-// 조립할 필요가 없어서, 목록에 항목을 추가하고 바로 재단 최적화·지시서
-// 출력으로 넘어가는 훨씬 짧은 흐름으로 만들었다. 재단 최적화는 튜브
+// 조립할 필요가 없어서, 목록에 항목을 추가하고 바로 재단 계획·지시서
+// 출력으로 넘어가는 훨씬 짧은 흐름으로 만들었다. 재단 계획는 튜브
 // 컷팅과 완전히 같은 다중 규격 조합 FFD 빈 패킹(cutting_optimizer.dart)을
 // 공용 시트(cutting_optimization_sheet.dart)로 그대로 재사용한다.
 class SteelCuttingDetailScreen extends StatefulWidget {
@@ -73,7 +73,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   bool _pendingSave = false;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _pendingWatch;
 
-  // 재단 최적화에서 "여러 길이 섞어 쓰기"로 고른 가장 긴 원자재(0이면 안 씀). 긴 항목 경고 기준에 쓴다.
+  // 재단 계획에서 "여러 길이 섞어 쓰기"로 고른 가장 긴 원자재(0이면 안 씀). 긴 항목 경고 기준에 쓴다.
   double _mixMax = 0;
   // 카드에서 개수를 바꾸면 화면은 바로 고치고, 저장(과 변경 기록)은 손을 뗀 뒤 한 번만 한다.
   final Map<String, Timer> _qtyTimers = {};
@@ -485,7 +485,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   }
 
   // 🚀 [규격별 분리] 앵글과 찬넬처럼 서로 다른 규격은 같은 원자재(본)에서
-  // 나올 수 없으니, 재단 최적화는 규격(shapeLabel)별로 따로 계산해야
+  // 나올 수 없으니, 재단 계획는 규격(shapeLabel)별로 따로 계산해야
   // 실제로 현장에서 그대로 따라 할 수 있는 지시서가 나온다.
   Map<String, List<double>> _collectPiecesByShape() {
     final Map<String, List<double>> byShape = {};
@@ -680,7 +680,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     );
   }
 
-  // 재단 최적화에서 "잘랐습니다"를 눌러 잔재를 저장했을 때: 결과의 모든 줄을 "잘랐음"으로 맞추고, 이 결과의
+  // 재단 계획에서 "잘랐습니다"를 눌러 잔재를 저장했을 때: 결과의 모든 줄을 "잘랐음"으로 맞추고, 이 결과의
   // 잔재는 저장했다고 적어 둔다(항목이나 세트를 바꾸면 저절로 "아직 저장 안 함"으로 돌아간다).
   // 저장 직전의 "잘랐음" 표시(되돌리기용).
   Set<String>? _doneBeforeSave;
@@ -698,7 +698,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         .catchError((_) => false);
   }
 
-  // 재단 최적화 창에서 저장을 되돌렸을 때: 잘랐음 표시와 "저장함" 기록을 저장 전으로 돌린다.
+  // 재단 계획 창에서 저장을 되돌렸을 때: 잘랐음 표시와 "저장함" 기록을 저장 전으로 돌린다.
   void _onLeftoversSaveUndone() {
     if (!mounted) return;
     setState(() {
@@ -726,7 +726,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       onLeftoversSaveUndone: _onLeftoversSaveUndone,
       leftoversAlreadySaved: _leftoversSaved,
       leftoverLogSource: '형강 컷팅 · ${widget.project.name}',
-      title: "재단 최적화 (원자재 소요 계산)",
+      title: "재단 계획 (원자재 몇 본 드는지)",
       onStockLengthChanged: (v) {
         setState(() => _stockLength = v);
         _persistStockLength(v);
@@ -751,7 +751,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   }
 
   // 지시서 PDF: 자를 길이 표(1개 길이 × 개수 = 합계) + 규격별 원자재 배치. 잔재와 여러 길이 섞어 쓰기
-  // 설정도 재단 최적화 화면과 같게 반영한다.
+  // 설정도 재단 계획 화면과 같게 반영한다.
   Future<void> _exportInstructionSheet() async {
     final lines = _resultLines();
     if (lines.isEmpty) {
@@ -891,7 +891,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             ),
             pw.SizedBox(height: 8),
             pw.Text("프로젝트: ${widget.project.name}"),
-            pw.Text("작성일시: $dateStr"),
+            pw.Text("작성 날짜: $dateStr"),
             pw.Text(
               "원자재 기준 길이: ${_stockLength.toStringAsFixed(0)}mm    세트 수: $_setMultiplier SET"
               "${_bladeKerf > 0 ? '    톱날 손실: ${_bladeKerf.toStringAsFixed(1)}mm/회' : ''}",
@@ -908,8 +908,8 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
               alignment: pw.Alignment.centerRight,
               child: pw.Text(
                 _setMultiplier > 1
-                    ? "총 소요 길이: 1세트 ${fmtMm(grandTotal / _setMultiplier)} mm × $_setMultiplier세트 = ${fmtMm(grandTotal)} mm"
-                    : "총 소요 길이: ${fmtMm(grandTotal)} mm",
+                    ? "총 절단 길이: 1세트 ${fmtMm(grandTotal / _setMultiplier)} mm × $_setMultiplier세트 = ${fmtMm(grandTotal)} mm"
+                    : "총 절단 길이: ${fmtMm(grandTotal)} mm",
                 style: pw.TextStyle(
                   fontSize: 14,
                   fontWeight: pw.FontWeight.bold,
@@ -928,7 +928,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
               ),
             pw.SizedBox(height: 20),
             pw.Text(
-              "2. 원자재별 배치 (재단 최적화, 총 $totalBars본 - 규격별로 각각 계산됨)",
+              "2. 원자재별 배치 (재단 계획, 총 $totalBars본 - 규격별로 각각 계산됨)",
               style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
             ),
             ...planWidgets,
@@ -1931,7 +1931,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     showCuttingSnack(context, "'$shape' 순서를 바꿨습니다.");
   }
 
-  // 원자재 기준 길이를 입력 탭에서 바로 고친다(재단 최적화 창까지 들어가지 않아도 된다).
+  // 원자재 기준 길이를 입력 탭에서 바로 고친다(재단 계획 창까지 들어가지 않아도 된다).
   Future<void> _showStockDialog() async {
     final ctrl = TextEditingController(text: _stockLength.toStringAsFixed(0));
     final v = await showDialog<double>(
@@ -1960,7 +1960,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "자재 한 본의 길이입니다. 재단 최적화 배치와 긴 항목 경고가 이 길이를 씁니다.",
+              "자재 한 본의 길이입니다. 재단 계획 배치와 긴 항목 경고가 이 길이를 씁니다.",
               style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
             ),
             const SizedBox(height: 12),
@@ -2270,7 +2270,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     }
   }
 
-  // 결과 창: 제목줄 아이콘(재단 최적화·PDF·카톡·글 복사) + 세트 수 + 규격별로 묶은 자를 길이 목록.
+  // 결과 창: 제목줄 아이콘(재단 계획·PDF·카톡·글 복사) + 세트 수 + 규격별로 묶은 자를 길이 목록.
   Widget _buildResultPane() {
     final lines = _resultLines();
     final weights = weightTotals(lines);
@@ -2307,7 +2307,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                 actions: [
                   CutActionSpec(
                     key: const Key('steel_btn_optimize'),
-                    label: "재단 최적화",
+                    label: "재단 계획",
                     icon: const CutBarIcon(size: 21),
                     onPressed: () {
                       _markIconsUsed();
@@ -2412,7 +2412,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                     _buildResultChip(
                       key: const Key('steel_sort_weight'),
                       icon: Icons.swap_vert_rounded,
-                      label: "무게 큰 규격부터",
+                      label: "중량 큰 규격부터",
                       on: _sortByWeight,
                       onTap: _toggleSortWeight,
                     ),
@@ -2444,7 +2444,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                 onToggle: _toggleDone,
                 setMultiplier: _setMultiplier,
                 specHeaders: true,
-                // 잔재는 재단 최적화 창에서만 다룬다(결과 탭에서 "저장했습니다"라고만 하면
+                // 잔재는 재단 계획 창에서만 다룬다(결과 탭에서 "저장했습니다"라고만 하면
                 // 어디에 저장됐는지 알 수 없어 혼선만 생겼다).
                 allDoneText: "모두 잘랐습니다.",
                 specWeights: weights.bySpec,
@@ -2462,7 +2462,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     );
   }
 
-  // 새 자재만으로 자를 때 몇 본이 드는지. 재단 최적화 창과 같은 계산(FFD)을 규격별로 돌려
+  // 새 자재만으로 자를 때 몇 본이 드는지. 재단 계획 창과 같은 계산(FFD)을 규격별로 돌려
   // 본수를 더한다. 잔재는 넣지 않는다 — 잔재를 쓰면 창에서 더 줄어든다.
   // 조각이 너무 많으면(수백 개) 계산을 건너뛰고 아무 글도 보여 주지 않는다.
   String _stockNote() {
@@ -2483,10 +2483,10 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       bars += r.barCount;
     }
     if (bars == 0) return '';
-    return "새 자재 ${fmtMm(_stockLength)} $bars본";
+    return "새 원자재 ${fmtMm(_stockLength)} $bars본";
   }
 
-  // 결과 탭 제목줄 아래의 켜고 끄는 칩(다 자른 규격 접기 · 자른 줄 감추기 · 무게 큰 규격부터).
+  // 결과 탭 제목줄 아래의 켜고 끄는 칩(다 자른 규격 접기 · 자른 줄 감추기 · 중량 큰 규격부터).
   Widget _buildResultChip({
     required Key key,
     required IconData icon,

@@ -8,7 +8,7 @@ import '../cutting_optimizer.dart';
 import '../cutting_theme.dart';
 import 'leftover_log_page.dart';
 
-// 🚀 [형강 컷팅 신규 기능 대비 리팩터링] 원래 이 "재단 최적화" 시트는
+// 🚀 [형강 컷팅 신규 기능 대비 리팩터링] 원래 이 "재단 계획" 시트는
 // CuttingMainScreen 안에 300줄 가까이 박혀 있어서, 튜브 라인이 아니라
 // 그냥 "길이 목록"만 있는 다른 화면(형강/찬넬/앵글 컷팅)에서는 똑같은
 // 계산·화면을 다시 통째로 베껴야 했다. 여기로 빼서 "필요한 절단 길이
@@ -31,7 +31,7 @@ Future<void> showCuttingOptimizationSheet(
   Map<String, List<double>>? groupedPieces,
   required double initialStockLength,
   double kerf = 0.0,
-  String title = "재단 최적화 (원자재 소요 계산)",
+  String title = "재단 계획 (원자재 몇 본 드는지)",
   ValueChanged<double>? onStockLengthChanged,
   // 여러 길이 섞어 쓰기 설정을 저장할 곳. 없으면 저장하지 않는다.
   String? mixPrefsKey,

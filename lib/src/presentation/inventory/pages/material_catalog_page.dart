@@ -224,7 +224,7 @@ class _CatalogBodyState extends State<_CatalogBody> {
                   foregroundColor: Colors.white,
                 ),
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text("넣습니다"),
+                child: const Text("넣기"),
               ),
             ],
           ),
@@ -278,7 +278,7 @@ class _CatalogBodyState extends State<_CatalogBody> {
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("고칩니다"),
+            child: const Text("고치기"),
           ),
         ],
       ),
@@ -311,9 +311,9 @@ class _CatalogBodyState extends State<_CatalogBody> {
   Future<void> _deleteItem(CatalogItem item) async {
     final ok = await showCuttingConfirmDialog(
       context,
-      title: "목록에서 지웁니까?",
+      title: "목록에서 지우겠습니까?",
       message: "${item.name}을 자재 목록에서 지웁니다. 창고 재고는 그대로 둡니다.",
-      confirmLabel: "지웁니다",
+      confirmLabel: "지우기",
       danger: true,
     );
     if (!ok) return;

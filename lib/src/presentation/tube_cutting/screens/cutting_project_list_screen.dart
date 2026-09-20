@@ -14,7 +14,7 @@ import 'cutting_history_page.dart';
 // (kCuttingProjectsCollection)을 써서, 어느 화면으로 들어와도 같은 작업
 // 목록을 보고 이어서 작업할 수 있게 통일했다.
 // 🚀 [UI 고도화] AppBar/카드/다이얼로그 색을 모바일 목록 화면과 같은
-// CuttingColors 팔레트로 통일하고, 재고 차감 대기 배지를 카드에 추가했다.
+// CuttingColors 팔레트로 통일하고, 출고 대기 배지를 카드에 추가했다.
 class CuttingProjectListScreen extends StatefulWidget {
   const CuttingProjectListScreen({super.key});
 

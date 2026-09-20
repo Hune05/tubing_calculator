@@ -126,7 +126,7 @@ class _AppStatusPageState extends State<AppStatusPage> {
       ),
       _Row(
         '서버 연결',
-        server == null ? '연결하지 못함 — 네트워크를 확인하십시오' : '연결됨',
+        server == null ? '연결하지 못함 — 통신을 확인하십시오' : '연결됨',
         server == null ? _Level.bad : _Level.ok,
       ),
       _Row(
@@ -139,7 +139,7 @@ class _AppStatusPageState extends State<AppStatusPage> {
                   : _Level.ok),
       ),
       _Row(
-        '서버에 올리는 중인 저장',
+        '서버로 올리는 중',
         waiting == 0 ? '없음' : '$waiting건 (네트워크가 연결되면 자동으로 올라갑니다)',
         waiting == 0 ? _Level.ok : _Level.warn,
       ),

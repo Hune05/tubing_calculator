@@ -103,7 +103,7 @@ void main() {
     test('영문 아이디를 한글로 바꿔 준다', () {
       expect(materialCategoryLabel('CONDUIT'), '전선관');
       expect(materialCategoryLabel('FLEX'), '후렉시블');
-      expect(materialCategoryLabel('ACC'), '부속·악세사리');
+      expect(materialCategoryLabel('ACC'), '부속');
     });
 
     test('모르는 분류는 그대로 두고, 비면 기타로 본다', () {

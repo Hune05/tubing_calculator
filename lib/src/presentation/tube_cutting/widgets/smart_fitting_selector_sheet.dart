@@ -464,7 +464,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
     );
   }
 
-  // 🚀 [팝업 통일감] 재단 최적화 시트와 같은 흰 배경 + 원형 아이콘 헤더 +
+  // 🚀 [팝업 통일감] 재단 계획 시트와 같은 흰 배경 + 원형 아이콘 헤더 +
   // 닫기 버튼 형식으로 바꿨다. 예전엔 이 팝업만 진한 틸 색 헤더 블록을
   // 따로 써서, 같은 앱 안에서도 팝업마다 인상이 달랐다. DraggableScroll
   // -ableSheet로도 바꿔서 다른 시트들처럼 화면 크기에 맞게 늘어난다.

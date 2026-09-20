@@ -800,7 +800,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                         Padding(
                           padding: const EdgeInsets.only(top: 16),
                           child: Text(
-                            "※ 칩을 길게 누르면 위치가 삭제됩니다.",
+                            "※ 길게 누르면 위치가 지워집니다.",
                             style: TextStyle(
                               fontSize: 12,
                               color: slate600.withValues(alpha: 0.8),

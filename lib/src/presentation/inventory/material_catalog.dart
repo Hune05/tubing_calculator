@@ -14,7 +14,7 @@ import 'material_catalog_vendor.dart';
 const Map<String, String> kMaterialCategoryLabels = {
   'CONDUIT': '전선관',
   'FLEX': '후렉시블',
-  'ACC': '부속·악세사리',
+  'ACC': '부속',
   'TUBE': '튜브',
   'FITTING': '피팅',
   'VALVE': '밸브',

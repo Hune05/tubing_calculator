@@ -88,116 +88,118 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
       bottomNavigationBar: isFieldTab
           ? const SizedBox.shrink()
           : Container(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: BottomNavigationBar(
-          currentIndex: isWide ? _wideIndexFor(_currentIndex) : _currentIndex,
-          onTap: (tappedIndex) => _onTabTapped(
-            isWide ? _narrowIndexFor(tappedIndex) : tappedIndex,
-          ),
-          backgroundColor: pureWhite,
-          selectedItemColor: makitaTeal,
-          unselectedItemColor: slate600,
-          type: BottomNavigationBarType.fixed,
-          selectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.normal,
-            fontSize: 12,
-          ),
-          items: isWide
-              ? [
-                  _buildNavItem(
-                    Icons.edit_document,
-                    Icons.edit_outlined,
-                    "입력 / 마킹",
-                    0,
-                    isWide: true,
-                  ),
-                  _buildNavItem(
-                    Icons.architecture_rounded,
-                    Icons.architecture_outlined,
-                    "현장",
-                    1,
-                    isWide: true,
-                  ),
-                  _buildNavItem(
-                    Icons.view_in_ar_rounded,
-                    Icons.view_in_ar_outlined,
-                    "아이소",
-                    2,
-                    isWide: true,
-                  ),
-                  _buildNavItem(
-                    Icons.folder_rounded,
-                    Icons.folder_outlined,
-                    "보관함",
-                    3,
-                    isWide: true,
-                  ),
-                  _buildNavItem(
-                    Icons.settings_rounded,
-                    Icons.settings_outlined,
-                    "설정",
-                    4,
-                    isWide: true,
-                  ),
-                ]
-              : [
-                  _buildNavItem(
-                    Icons.edit_document,
-                    Icons.edit_outlined,
-                    "입력",
-                    0,
-                    isWide: false,
-                  ),
-                  _buildNavItem(
-                    Icons.format_list_numbered_rounded,
-                    Icons.format_list_numbered_rtl_outlined,
-                    "마킹",
-                    1,
-                    isWide: false,
-                  ),
-                  _buildNavItem(
-                    Icons.architecture_rounded,
-                    Icons.architecture_outlined,
-                    "현장",
-                    2,
-                    isWide: false,
-                  ),
-                  _buildNavItem(
-                    Icons.view_in_ar_rounded,
-                    Icons.view_in_ar_outlined,
-                    "아이소",
-                    3,
-                    isWide: false,
-                  ),
-                  _buildNavItem(
-                    Icons.folder_rounded,
-                    Icons.folder_outlined,
-                    "보관함",
-                    4,
-                    isWide: false,
-                  ),
-                  _buildNavItem(
-                    Icons.settings_rounded,
-                    Icons.settings_outlined,
-                    "설정",
-                    5,
-                    isWide: false,
+              decoration: BoxDecoration(
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, -2),
                   ),
                 ],
-        ),
-      ),
+              ),
+              child: BottomNavigationBar(
+                currentIndex: isWide
+                    ? _wideIndexFor(_currentIndex)
+                    : _currentIndex,
+                onTap: (tappedIndex) => _onTabTapped(
+                  isWide ? _narrowIndexFor(tappedIndex) : tappedIndex,
+                ),
+                backgroundColor: pureWhite,
+                selectedItemColor: makitaTeal,
+                unselectedItemColor: slate600,
+                type: BottomNavigationBarType.fixed,
+                selectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.normal,
+                  fontSize: 12,
+                ),
+                items: isWide
+                    ? [
+                        _buildNavItem(
+                          Icons.edit_document,
+                          Icons.edit_outlined,
+                          "입력 / 마킹",
+                          0,
+                          isWide: true,
+                        ),
+                        _buildNavItem(
+                          Icons.architecture_rounded,
+                          Icons.architecture_outlined,
+                          "현장",
+                          1,
+                          isWide: true,
+                        ),
+                        _buildNavItem(
+                          Icons.view_in_ar_rounded,
+                          Icons.view_in_ar_outlined,
+                          "아이소",
+                          2,
+                          isWide: true,
+                        ),
+                        _buildNavItem(
+                          Icons.folder_rounded,
+                          Icons.folder_outlined,
+                          "보관함",
+                          3,
+                          isWide: true,
+                        ),
+                        _buildNavItem(
+                          Icons.settings_rounded,
+                          Icons.settings_outlined,
+                          "설정",
+                          4,
+                          isWide: true,
+                        ),
+                      ]
+                    : [
+                        _buildNavItem(
+                          Icons.edit_document,
+                          Icons.edit_outlined,
+                          "입력",
+                          0,
+                          isWide: false,
+                        ),
+                        _buildNavItem(
+                          Icons.format_list_numbered_rounded,
+                          Icons.format_list_numbered_rtl_outlined,
+                          "마킹",
+                          1,
+                          isWide: false,
+                        ),
+                        _buildNavItem(
+                          Icons.architecture_rounded,
+                          Icons.architecture_outlined,
+                          "현장",
+                          2,
+                          isWide: false,
+                        ),
+                        _buildNavItem(
+                          Icons.view_in_ar_rounded,
+                          Icons.view_in_ar_outlined,
+                          "아이소",
+                          3,
+                          isWide: false,
+                        ),
+                        _buildNavItem(
+                          Icons.folder_rounded,
+                          Icons.folder_outlined,
+                          "보관함",
+                          4,
+                          isWide: false,
+                        ),
+                        _buildNavItem(
+                          Icons.settings_rounded,
+                          Icons.settings_outlined,
+                          "설정",
+                          5,
+                          isWide: false,
+                        ),
+                      ],
+              ),
+            ),
     );
   }
 
@@ -268,10 +270,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
           children: [
             const Expanded(flex: 5, child: MobileInputTab()),
             Container(width: 1, color: slate100),
-            Expanded(
-              flex: 6,
-              child: MobileResultTab(startDir: _startDir),
-            ),
+            Expanded(flex: 6, child: MobileResultTab(startDir: _startDir)),
           ],
         ),
         BendingLandscapeMarkingScreen(

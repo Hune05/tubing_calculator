@@ -8,7 +8,7 @@ import 'package:tubing_calculator/src/presentation/tube_cutting/widgets/cutting_
 
 import 'helpers_text.dart';
 
-// 컷팅 기록 내보내기 표, 그리고 재단 최적화 화면의 "여러 길이 섞어 쓰기".
+// 컷팅 기록 내보내기 표, 그리고 재단 계획 화면의 "여러 길이 섞어 쓰기".
 CutRecord rec(
   String id,
   DateTime at, {
@@ -98,7 +98,7 @@ void main() {
     });
   });
 
-  group('재단 최적화 화면: 여러 길이 섞어 쓰기', () {
+  group('재단 계획 화면: 여러 길이 섞어 쓰기', () {
     setUp(() => SharedPreferences.setMockInitialValues({}));
 
     Future<void> open(WidgetTester tester, List<double> pieces) async {

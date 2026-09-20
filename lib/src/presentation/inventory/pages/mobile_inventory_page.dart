@@ -49,7 +49,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
   final List<Map<String, dynamic>> _categories = const [
     {"id": "CONDUIT", "name": "전선관"},
     {"id": "FLEX", "name": "후렉시블"},
-    {"id": "ACC", "name": "부속·악세사리"},
+    {"id": "ACC", "name": "부속"},
     {"id": "TUBE", "name": "튜브"},
     {"id": "FITTING", "name": "피팅"},
     {"id": "VALVE", "name": "밸브"},
@@ -284,9 +284,9 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
   Future<void> _undoEdits() async {
     final ok = await showCuttingConfirmDialog(
       context,
-      title: "고친 것을 되돌립니까?",
+      title: "고친 것을 되돌리겠습니까?",
       message: "서버에 올리지 않은 ${_localEdits.length}건을 모두 되돌립니다.",
-      confirmLabel: "되돌립니다",
+      confirmLabel: "되돌리기",
       danger: true,
     );
     if (!ok) return;
@@ -440,11 +440,11 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     HapticFeedback.heavyImpact();
     final ok = await showCuttingConfirmDialog(
       context,
-      title: isLocalNew ? "적어 둔 것을 지웁니까?" : "자재를 아주 지웁니까?",
+      title: isLocalNew ? "올릴 목록에서 지우겠습니까?" : "자재를 아주 지우겠습니까?",
       message: isLocalNew
           ? "$itemName을 올릴 목록에서 지웁니다."
           : "$itemName을 창고 목록에서 아주 지웁니다. 되돌릴 수 없습니다.",
-      confirmLabel: "지웁니다",
+      confirmLabel: "지우기",
       danger: true,
     );
     if (!ok) return;

@@ -1835,7 +1835,9 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                                         Text(
                                           tempExpectedDate == null
                                               ? "달력을 눌러 날짜 선택"
-                                              : _formatDateWithTime(tempExpectedDate!),
+                                              : _formatDateWithTime(
+                                                  tempExpectedDate!,
+                                                ),
                                           style: TextStyle(
                                             fontSize: 16,
                                             fontWeight: tempExpectedDate == null

@@ -314,7 +314,7 @@ class PendingDeductionBadge extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Text(
-            "재고 차감 대기 $materialCount건",
+            "출고 대기 $materialCount건",
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,

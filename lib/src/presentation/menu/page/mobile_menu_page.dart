@@ -427,7 +427,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 _buildMenuButton(
                   context: context,
                   title: "벤딩 마킹 계산기",
-                  subtitle: "스마트폰 최적화 · 단계별 치수 입력",
+                  subtitle: "스마트폰용 · 단계별 치수 입력",
                   icon: Icons.calculate_rounded,
                   iconColor: makitaTeal,
                   badgeText: "Main",
@@ -466,7 +466,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 _buildMenuButton(
                   context: context,
                   title: "형강 컷팅 (찬넬/앵글)",
-                  subtitle: "라인 조립 없이 규격·길이만으로 재단 최적화·지시서 출력",
+                  subtitle: "라인 조립 없이 규격·길이만으로 재단 계획·지시서 출력",
                   icon: Icons.square_foot_rounded,
                   iconColor: makitaTeal,
                   badgeText: "New",
@@ -578,7 +578,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: const Text(
-                              "QR 코드 데이터를 해석할 수 없습니다.",
+                              "QR 코드를 읽을 수 없습니다.",
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                             backgroundColor: Colors.redAccent.shade400,

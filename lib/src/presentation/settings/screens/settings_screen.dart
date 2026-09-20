@@ -2344,8 +2344,10 @@ class MakitaNumericInput extends StatelessWidget {
                 34.0,
                 64.0,
               );
-              final double fieldVerticalPadding = (availableWidth * 0.07)
-                  .clamp(10.0, 16.0);
+              final double fieldVerticalPadding = (availableWidth * 0.07).clamp(
+                10.0,
+                16.0,
+              );
               return Row(
                 children: [
                   Expanded(

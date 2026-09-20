@@ -158,8 +158,7 @@ class _BendingLandscapeMarkingScreenState
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
                       child: Text(
-                        data.error ??
-                            "입력 탭에서 배관 형태와 길이를 추가하면 현장 도면이 생성됩니다.",
+                        data.error ?? "입력 탭에서 배관 형태와 길이를 추가하면 현장 도면이 생성됩니다.",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
@@ -216,9 +215,7 @@ class _BendingLandscapeMarkingScreenState
                                 width: totalCutLength * mmToPixel,
                                 height: 50,
                                 child: CustomPaint(
-                                  painter: _MetricTapeMeasurePainter(
-                                    mmToPixel,
-                                  ),
+                                  painter: _MetricTapeMeasurePainter(mmToPixel),
                                 ),
                               ),
                             ),

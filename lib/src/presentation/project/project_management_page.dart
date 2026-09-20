@@ -595,8 +595,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                   if (textValue.isNotEmpty || attachedImages.isNotEmpty) {
                     setState(() {
                       projects[projectIndex]['punch_lists'].insert(0, {
-                        "id": DateTime.now().millisecondsSinceEpoch
-                            .toString(),
+                        "id": DateTime.now().millisecondsSinceEpoch.toString(),
                         "created_at": DateTime.now(),
                         // 🚀 처리 완료 전까지 우선순위별 주기로 알림을
                         // 보내기 위한 발송 시간 기록 (모바일 이슈 등록과 동일)

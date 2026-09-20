@@ -446,7 +446,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    "이 날 총 소요 길이",
+                    "이 날 총 절단 길이",
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,

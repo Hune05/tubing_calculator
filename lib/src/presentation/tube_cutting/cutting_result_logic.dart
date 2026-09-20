@@ -375,7 +375,7 @@ String buildSaveConfirmMessage({
   b.writeln();
   b.writeln(
     recordsToProject
-        ? '저장하면 이 작업의 컷팅 기록과 자재 사용량(재고 차감 대기)에 올라가고, 입력이 비워집니다.'
+        ? '저장하면 이 작업의 컷팅 기록과 자재 사용량(출고 대기)에 올라가고, 입력이 비워집니다.'
         : '저장하면 누적 사용량에 더해지고, 입력이 비워집니다.',
   );
   if (canUndo) {

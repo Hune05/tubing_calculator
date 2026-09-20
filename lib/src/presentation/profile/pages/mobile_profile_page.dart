@@ -75,8 +75,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
       final GoogleSignInAccount account = await _googleSignIn.authenticate();
 
       if (account != null) {
-        final GoogleSignInAuthentication googleAuth =
-            account.authentication;
+        final GoogleSignInAuthentication googleAuth = account.authentication;
         final OAuthCredential credential = GoogleAuthProvider.credential(
           idToken: googleAuth.idToken,
         );

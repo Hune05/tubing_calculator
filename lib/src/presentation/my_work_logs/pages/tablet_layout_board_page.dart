@@ -5143,6 +5143,4 @@ class _TabletLayoutBoardPageState extends State<TabletLayoutBoardPage>
 // Helper Painters
 // ---------------------------------------------------------
 
-
 // 🚀 SmartGuidePainter·GridPainter 는 models/layout_board_painters.dart 로 옮겼다(모바일·태블릿 공용).
-

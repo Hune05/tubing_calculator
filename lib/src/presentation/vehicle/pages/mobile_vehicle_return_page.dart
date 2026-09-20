@@ -319,7 +319,8 @@ class _MobileVehicleReturnPageState extends State<MobileVehicleReturnPage> {
                 controller: _remarksCtrl,
                 maxLines: 3,
                 decoration: InputDecoration(
-                  hintText: "주유 필요, 스크래치 발생, 워셔액 부족 등\n다음 사용자와 관리자를 위해 남겨 주십시오.",
+                  hintText:
+                      "주유 필요, 스크래치 발생, 워셔액 부족 등\n다음 사용자와 관리자를 위해 남겨 주십시오.",
                   hintStyle: const TextStyle(
                     color: Colors.black26,
                     fontSize: 14,
@@ -423,7 +424,9 @@ class _MobileVehicleReturnPageState extends State<MobileVehicleReturnPage> {
     if (previousMileage != null && finalMileage < previousMileage) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("입력한 주행거리가 이전 기록(${previousMileage}km)보다 작습니다. 다시 확인해 주십시오."),
+          content: Text(
+            "입력한 주행거리가 이전 기록(${previousMileage}km)보다 작습니다. 다시 확인해 주십시오.",
+          ),
           backgroundColor: warningRed,
         ),
       );

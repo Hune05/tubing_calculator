@@ -529,7 +529,8 @@ class PunchListSection extends StatefulWidget {
   // 주간 보고 포함 여부를 일괄로 바꾼 뒤 저장/새로고침하라고 알리는 콜백.
   final VoidCallback? onBulkChanged;
 
-  const PunchListSection({super.key, 
+  const PunchListSection({
+    super.key,
     required this.punchLists,
     required this.onOpenPunchDetail,
     this.onBulkChanged,
@@ -758,7 +759,11 @@ class DailyReportPager extends StatefulWidget {
   final List<dynamic> reports;
   final void Function(Map<String, dynamic> report) onOpenReport;
 
-  const DailyReportPager({super.key, required this.reports, required this.onOpenReport});
+  const DailyReportPager({
+    super.key,
+    required this.reports,
+    required this.onOpenReport,
+  });
 
   @override
   State<DailyReportPager> createState() => DailyReportPagerState();

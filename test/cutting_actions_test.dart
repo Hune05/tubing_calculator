@@ -5,7 +5,7 @@ import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_action_bar.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_main_screen.dart';
 
-// 결과 탭 제목줄의 아이콘 버튼 줄(재단 최적화·PDF·카톡·복사)과 카카오톡 바로 보내기.
+// 결과 탭 제목줄의 아이콘 버튼 줄(재단 계획·PDF·카톡·복사)과 카카오톡 바로 보내기.
 void main() {
   group('아이콘 버튼 줄', () {
     Future<void> show(
@@ -41,7 +41,7 @@ void main() {
                   CutActionBar(
                     showLabels: labels,
                     actions: [
-                      for (final n in ['재단 최적화', 'PDF 공유', '카톡 보내기', '글 복사'])
+                      for (final n in ['재단 계획', 'PDF 공유', '카톡 보내기', '글 복사'])
                         CutActionSpec(
                           key: Key('btn_$n'),
                           label: n,
@@ -62,15 +62,15 @@ void main() {
     testWidgets('각 아이콘을 누르면 자기 동작이 불린다', (tester) async {
       final pressed = <String>[];
       await show(tester, pressed: pressed);
-      for (final n in ['재단 최적화', 'PDF 공유', '카톡 보내기', '글 복사']) {
+      for (final n in ['재단 계획', 'PDF 공유', '카톡 보내기', '글 복사']) {
         await tester.tap(find.byKey(Key('btn_$n')));
       }
-      expect(pressed, ['재단 최적화', 'PDF 공유', '카톡 보내기', '글 복사']);
+      expect(pressed, ['재단 계획', 'PDF 공유', '카톡 보내기', '글 복사']);
     });
 
     testWidgets('누르는 영역은 36dp(맨손으로 쓰는 폰이라 작게)이고 서로 간격이 있다', (tester) async {
       await show(tester);
-      final a = tester.getRect(find.byKey(const Key('btn_재단 최적화')));
+      final a = tester.getRect(find.byKey(const Key('btn_재단 계획')));
       final b = tester.getRect(find.byKey(const Key('btn_PDF 공유')));
       expect(a.width == 36 && a.height == 36, true);
       expect(b.left - a.right >= 3 - 0.01, true);
@@ -85,10 +85,10 @@ void main() {
 
     testWidgets('처음 쓰는 동안에는 이름이 아래에 보이고, 아니면 숨는다', (tester) async {
       await show(tester, labels: true);
-      expect(find.byKey(const Key('action_label_재단 최적화')), findsOneWidget);
+      expect(find.byKey(const Key('action_label_재단 계획')), findsOneWidget);
       expect(find.byKey(const Key('action_label_카톡 보내기')), findsOneWidget);
       await show(tester, labels: false);
-      expect(find.byKey(const Key('action_label_재단 최적화')).evaluate(), isEmpty);
+      expect(find.byKey(const Key('action_label_재단 계획')).evaluate(), isEmpty);
     });
 
     testWidgets('좁은 화면·큰 글씨에서도 제목과 함께 한 줄에 넘치지 않는다', (tester) async {
@@ -99,7 +99,7 @@ void main() {
     });
   });
 
-  group('재단 최적화 아이콘', () {
+  group('재단 계획 아이콘', () {
     testWidgets('그려지고 크기를 따른다', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
