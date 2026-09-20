@@ -482,7 +482,7 @@ void main() {
       await tester.tap(find.text('결과'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('result_spec_warning')), findsOneWidget);
-      expect(find.textContaining('규격이 없는 줄이 1개'), findsOneWidget);
+      expect(find.textContaining('규격 없는 줄 1개'), findsOneWidget);
       // 경고를 누르면 규격 고르는 창이 열린다.
       await tester.tap(find.byKey(const Key('result_spec_warning')));
       await tester.pumpAndSettle();

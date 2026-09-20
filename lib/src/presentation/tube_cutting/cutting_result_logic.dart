@@ -38,6 +38,11 @@ class ResultLine {
   final int count; // 세트 수를 곱한 개수
   final List<int> segments; // 이 줄에 들어간 구간 번호(0부터)
   final String spec; // 튜브 규격(모르면 빈 글자)
+  // 세트 수를 곱하기 전의 개수(1세트에 들어 있는 개수)와 세트 수. count = baseCount × sets.
+  // 1개 값(cutMm)은 세트 수와 상관없이 늘 같다.
+  final int baseCount;
+  final int sets;
+  final bool grouped; // 같은 길이끼리 묶은 줄인지
 
   const ResultLine({
     required this.key,
@@ -47,9 +52,16 @@ class ResultLine {
     required this.count,
     required this.segments,
     this.spec = '',
+    this.baseCount = 1,
+    this.sets = 1,
+    this.grouped = false,
   });
 
   double get totalMm => cutMm * count;
+
+  // "구간 2개 × 3세트 = 6개" 처럼 개수가 어디서 나왔는지. 세트가 1이면 빈 글자.
+  String get countFormula =>
+      sets > 1 ? '${grouped ? '구간 ' : ''}$baseCount개 × $sets세트 = $count개' : '';
 }
 
 // [cuts]는 구간별 절단 길이이고, 계산할 수 없는 구간(비었음·못 읽음·간섭)은 null 또는 0 이하.
@@ -80,6 +92,9 @@ List<ResultLine> buildResultLines(
           count: set,
           segments: [i],
           spec: sp,
+          baseCount: 1,
+          sets: set,
+          grouped: false,
         ),
       );
     }
@@ -117,6 +132,9 @@ List<ResultLine> buildResultLines(
         count: count,
         segments: segs,
         spec: sp,
+        baseCount: segs.length,
+        sets: set,
+        grouped: true,
       ),
     );
   }
@@ -313,7 +331,14 @@ String buildSaveConfirmMessage({
 }) {
   final set = setMultiplier < 1 ? 1 : setMultiplier;
   final b = StringBuffer();
-  b.writeln('잘라 낸 길이는 총 ${_one(baseMm)}mm입니다 (구간 $cutCount개 × $set세트).');
+  // 1세트 길이 × 세트 수 = 합계 식으로 보여 준다(세트를 올려도 1세트 값은 그대로).
+  if (set > 1) {
+    b.writeln(
+      '잘라 낸 길이는 1세트 ${_one(baseMm / set)}mm × $set세트 = ${_one(baseMm)}mm입니다 (구간 $cutCount개).',
+    );
+  } else {
+    b.writeln('잘라 낸 길이는 총 ${_one(baseMm)}mm입니다 (구간 $cutCount개).');
+  }
   if (kerfLossMm > 0) {
     b.writeln(
       '톱날 손실 ${_one(kerfLossMm)}mm가 더해져 ${_one(baseMm + kerfLossMm)}mm로 기록됩니다.',

@@ -33,7 +33,7 @@ void main() {
 
     test('길이와 구간·세트 수, 되돌릴 수 있다는 안내', () {
       final t = msg();
-      expect(t.contains('총 5110.6mm입니다 (구간 3개 × 2세트)'), true);
+      expect(t.contains('1세트 2555.3mm × 2세트 = 5110.6mm입니다 (구간 3개).'), true);
       expect(t.contains('저장하면 누적 사용량에 더해지고, 입력이 비워집니다.'), true);
       expect(t.contains('저장한 뒤 10초 동안은 "실행 취소"로 되돌릴 수 있습니다.'), true);
       expect(t.contains('톱날'), false);
@@ -166,10 +166,7 @@ void main() {
       await tester.tap(find.text('저장하기'));
       await tester.pumpAndSettle();
       expect(find.text('저장하시겠습니까?'), findsOneWidget);
-      expect(
-        find.textContaining('총 1500.0mm입니다 (구간 2개 × 1세트)'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('총 1500.0mm입니다 (구간 2개).'), findsOneWidget);
       await tester.tap(find.text('취소'));
       await tester.pumpAndSettle();
       expect(p.totalTubeUsed, 0);

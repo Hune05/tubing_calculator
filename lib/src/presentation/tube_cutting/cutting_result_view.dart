@@ -197,7 +197,7 @@ class _Header extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '튜브 규격이 없는 줄이 $unknownSpecLines개 있습니다. 규격을 지정하십시오.',
+                          '규격 없는 줄 $unknownSpecLines개 · 눌러서 지정',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
@@ -210,20 +210,28 @@ class _Header extends StatelessWidget {
                 ),
               ),
             ),
-          const Text(
-            '총 절단 길이',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: CuttingColors.textSecondary,
+          // 세트가 하나뿐일 때만 "총 절단 길이" 제목을 둔다(여럿이면 큰 숫자가 "1세트 …"라서 제목이 필요 없다).
+          if (setMultiplier <= 1)
+            const Text(
+              '총 절단 길이',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: CuttingColors.textSecondary,
+              ),
             ),
-          ),
+          // 세트가 둘 이상이면 큰 숫자는 1세트 길이(세트를 바꿔도 변하지 않는다)이고, 아래에 세트 수를
+          // 곱한 합계를 식으로 보여 준다.
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
-              '${s.totalMm.toStringAsFixed(1)} mm',
-              key: const Key('result_total_mm'),
+              setMultiplier > 1
+                  ? '1세트 ${(s.totalMm / setMultiplier).toStringAsFixed(1)} mm'
+                  : '${s.totalMm.toStringAsFixed(1)} mm',
+              key: setMultiplier > 1
+                  ? const Key('result_set_mm')
+                  : const Key('result_total_mm'),
               style: const TextStyle(
                 fontSize: 26,
                 fontWeight: FontWeight.w900,
@@ -231,15 +239,31 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
-          Text(
-            '총 ${s.totalPieces}개 · ${s.lineCount}종류'
-            '${setMultiplier > 1 ? ' · $setMultiplier세트' : ''}',
-            key: const Key('result_counts'),
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: CuttingColors.textPrimary,
-            ),
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            children: [
+              if (setMultiplier > 1)
+                Text(
+                  '× $setMultiplier세트 = ${s.totalMm.toStringAsFixed(1)} mm',
+                  key: const Key('result_total_mm'),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    color: CuttingColors.textPrimary,
+                  ),
+                ),
+              Text(
+                '총 ${s.totalPieces}개 · ${s.lineCount}종류'
+                '${setMultiplier > 1 ? ' · $setMultiplier세트' : ''}',
+                key: const Key('result_counts'),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: CuttingColors.textPrimary,
+                ),
+              ),
+            ],
           ),
           // 규격이 둘 이상이면 규격별 합계를 보여 준다(자를 튜브가 달라서 따로 준비해야 한다).
           if (specs.length > 1 ||
@@ -361,12 +385,17 @@ class _Row extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // 큰 글씨는 늘 "1개 절단 값"이다(세트 수를 바꿔도 변하지 않는다). 묶은 줄의 제목은 이미 그 값이고,
+                    // 묶지 않은 줄은 제목이 "PT1 → PT2"라서 값으로 바꾸고 구간 이름은 아래 줄로 내린다.
                     Text(
-                      line.title,
+                      line.grouped
+                          ? line.title
+                          : '${line.cutMm.toStringAsFixed(1)} mm',
+                      key: Key('result_piece_${line.key}'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 15,
+                        fontSize: 17,
                         fontWeight: FontWeight.w900,
                         color: isDone ? grey : CuttingColors.textPrimary,
                         decoration: isDone ? TextDecoration.lineThrough : null,
@@ -410,7 +439,7 @@ class _Row extends StatelessWidget {
                         Flexible(
                           flex: 3,
                           child: Text(
-                            line.detail,
+                            line.grouped ? line.detail : line.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(fontSize: 12, color: grey),
@@ -418,6 +447,19 @@ class _Row extends StatelessWidget {
                         ),
                       ],
                     ),
+                    // 개수가 어디서 나왔는지("구간 2개 × 3세트 = 6개").
+                    if (line.countFormula.isNotEmpty)
+                      Text(
+                        line.countFormula,
+                        key: Key('result_formula_${line.key}'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: grey,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -434,6 +476,7 @@ class _Row extends StatelessWidget {
                     children: [
                       Text(
                         '× ${line.count}개',
+                        key: Key('result_count_${line.key}'),
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
@@ -441,11 +484,12 @@ class _Row extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '${line.totalMm.toStringAsFixed(1)} mm',
+                        '= ${line.totalMm.toStringAsFixed(1)} mm',
+                        key: Key('result_line_total_${line.key}'),
                         style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                          color: isDone ? grey : CuttingColors.primary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: isDone ? grey : CuttingColors.textSecondary,
                         ),
                       ),
                     ],
