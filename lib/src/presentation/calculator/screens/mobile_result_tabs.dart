@@ -4,9 +4,10 @@ import 'package:flutter/services.dart';
 
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
-import 'package:tubing_calculator/src/core/engine/bend_path.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
+import 'package:tubing_calculator/src/presentation/calculator/bend_check.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_pipe_visualizer.dart';
 import 'package:tubing_calculator/src/core/database/database_helper.dart';
@@ -263,32 +264,20 @@ class _MobileResultTabState extends State<MobileResultTab>
         final List<StepResult> steps = result['steps'];
 
 
-        // 🚀 [추가] 관이 저희끼리 닿는 형상인지 같이 본다. 예전에는 관이
-        // 자기 자신을 뚫고 지나가는 그림을 그려 주고도 아무 말이 없었다.
-        // 굴림(롤) 각도도 여기서 뽑아 마킹 표 아래에 적어 준다.
-        final path = buildBendPath(
-          [
-            for (final b in bendList)
-              PathSegment(
-                length: (b['length'] as num?)?.toDouble() ?? 0.0,
-                angle: (b['angle'] as num?)?.toDouble() ?? 0.0,
-                rotation: (b['rotation'] as num?)?.toDouble() ?? 0.0,
-              ),
-          ],
-          radius: radius,
-          startDirection: directionForName(widget.startDir),
-          tail: _tailLength,
-        );
+        // 관이 저희끼리 닿는지, 얼마나 굴려 물려야 하는지 같이 본다.
         final settings = AppSettingsController();
-        final double outerDiameter = settings.isInch
-            ? settings.tubeOD * 25.4
-            : settings.tubeOD;
-
-        // 두 번째 벤드부터, 앞 벤드 기준으로 관을 얼마나 굴려야 하는지.
-        final rolls = <int, double>{
-          for (final b in path.bends)
-            if (b.rollDeg > 0.5) b.index: b.rollDeg,
-        };
+        final check = checkBends(
+          bendList,
+          radius: radius,
+          startDir: widget.startDir,
+          tail: _tailLength,
+          outerDiameter: settings.isInch
+              ? settings.tubeOD * 25.4
+              : settings.tubeOD,
+          engineWarnings:
+              (result['warnings'] as List?)?.cast<String>() ?? const [],
+        );
+        final rolls = check.rollByIndex;
 
         List<Map<String, dynamic>> displayMarks = [];
         int markNumber = 1;
@@ -368,51 +357,13 @@ class _MobileResultTabState extends State<MobileResultTab>
 
         // 🚀 [추가] 만들 수 없는 형상(앞뒤 셋백보다 짧은 구간)이면 값 대신
         // 먼저 알려 준다. 예전에는 조용히 이상한 마킹이 나왔다.
-        final List<String> warnings = [
-          ...(result['warnings'] as List?)?.cast<String>() ?? const <String>[],
-          ...selfInterferenceWarnings(path, outerDiameter: outerDiameter),
-        ];
+        final List<String> warnings = check.warnings;
 
         return Container(
           color: pureWhite,
           child: Column(
             children: [
-              if (warnings.isNotEmpty)
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF3DF),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFFC77700).withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '이대로는 만들 수 없습니다',
-                        style: TextStyle(
-                          color: Color(0xFFC77700),
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      for (final w in warnings)
-                        Text(
-                          w,
-                          style: const TextStyle(
-                            color: Color(0xFFC77700),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+              BendWarningBanner(warnings: warnings),
               // 1. 상단 토탈 컷 카드
               Container(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),

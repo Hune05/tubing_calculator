@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/data/bend_data_manager.dart';
 import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
+import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
+import 'package:tubing_calculator/src/presentation/calculator/bend_check.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
 
 const Color slate900 = Color(0xFF0F172A);
 const Color slate600 = Color(0xFF475569);
@@ -446,6 +449,21 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
     final double pureCutLength = result['totalCutLength'];
     final List<StepResult> steps = result['steps'];
 
+    // 🚀 [고침] 만들 수 없는 형상(짧은 구간·못 꺾는 방향)과, 관이 저희끼리
+    // 닿는지를 이 화면은 보지 않았다. 폰·태블릿 화면과 같이 본다.
+    final settings = AppSettingsController();
+    final check = checkBends(
+      widget.bendList,
+      radius: radius,
+      startDir: widget.startDir,
+      tail: _tailLength,
+      outerDiameter: settings.isInch
+          ? settings.tubeOD * 25.4
+          : settings.tubeOD,
+      engineWarnings:
+          (result['warnings'] as List?)?.cast<String>() ?? const [],
+    );
+
     List<Map<String, dynamic>> displayMarks = [];
     int markNumber = 1;
     double lastMarkingPoint = 0.0;
@@ -461,6 +479,7 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
         'mark_num': isStraight ? 0 : markNumber,
         'marking_point': currentMark,
         'incremental_mark': steps[i].incrementalMark,
+        'roll_deg': check.rollByIndex[i] ?? 0.0,
       });
       if (!isStraight) markNumber++;
     }
@@ -491,6 +510,7 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
       body: SafeArea(
         child: Column(
           children: [
+            BendWarningBanner(warnings: check.warnings),
             // 🚀 세로 모드 권장 안내 배너
             Container(
               width: double.infinity,
@@ -970,6 +990,19 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
                                       ),
                                     ],
                                   ),
+                                  if (((item['roll_deg'] as num?)?.toDouble() ??
+                                          0.0) >
+                                      0.5) ...[
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      "앞 벤드에서 ${((item['roll_deg'] as num).toDouble()).round()}° 굴려 물리십시오",
+                                      style: const TextStyle(
+                                        color: Color(0xFFC77700),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ],

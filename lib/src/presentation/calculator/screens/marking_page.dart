@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/data/bend_data_manager.dart';
 import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
+import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
+import 'package:tubing_calculator/src/presentation/calculator/bend_check.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 
 const Color makitaTeal = Color(0xFF007580);
@@ -176,6 +179,21 @@ class _MarkingPageState extends State<MarkingPage> {
             final double pureCutLength = result['totalCutLength'];
             final List<StepResult> steps = result['steps'];
 
+            // 🚀 [고침] 만들 수 없는 형상(짧은 구간·못 꺾는 방향)과, 관이
+            // 저희끼리 닿는지를 이 화면은 보지 않았다. 폰 화면과 같이 본다.
+            final settings = AppSettingsController();
+            final check = checkBends(
+              bendList,
+              radius: radius,
+              startDir: widget.startDir,
+              tail: _tailLength,
+              outerDiameter: settings.isInch
+                  ? settings.tubeOD * 25.4
+                  : settings.tubeOD,
+              engineWarnings:
+                  (result['warnings'] as List?)?.cast<String>() ?? const [],
+            );
+
             // 🚀 [핵심 수정 완료] ISO 형상 파괴 버그 픽스!
             List<Map<String, dynamic>> displayMarks = [];
             int markNumber = 1;
@@ -229,6 +247,7 @@ class _MarkingPageState extends State<MarkingPage> {
                   'marking_point': currentMark,
                   'incremental_mark':
                       steps[i].incrementalMark + accumulatedIncremental,
+                  'roll_deg': check.rollByIndex[i] ?? 0.0,
                 });
 
                 markNumber++; // 벤딩이므로 넘버링 증가
@@ -249,6 +268,7 @@ class _MarkingPageState extends State<MarkingPage> {
 
             return Column(
               children: [
+                BendWarningBanner(warnings: check.warnings),
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -747,6 +767,20 @@ class _MarkingPageState extends State<MarkingPage> {
                                           ),
                                         ],
                                       ),
+                                      if (((item['roll_deg'] as num?)
+                                                  ?.toDouble() ??
+                                              0.0) >
+                                          0.5) ...[
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          "앞 벤드에서 ${((item['roll_deg'] as num).toDouble()).round()}° 굴려 물리십시오",
+                                          style: const TextStyle(
+                                            color: Color(0xFFC77700),
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ],
