@@ -149,6 +149,8 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     double shrink,
     double startDistance,
   ) {
+    // 1번 마킹이 시작 거리와 같아지도록 셋백을 더한다.
+    final double firstLen = startDistance + bendSetback(_machineRadius, angle);
     double r1 = _isInverted
         ? (_selectedRotation! + 180.0) % 360.0
         : _selectedRotation!;
@@ -157,7 +159,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
         : (_selectedRotation! + 180.0) % 360.0;
 
     widget.onAddMultipleBends([
-      {'length': startDistance + shrink, 'angle': angle, 'rotation': r1},
+      {'length': firstLen, 'angle': angle, 'rotation': r1},
       {'length': travel, 'angle': angle, 'rotation': r2},
     ]);
 
@@ -165,8 +167,8 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
       SnackBar(
         content: Text(
           startDistance > 0
-              ? "1번 마킹에 거리(${startDistance}mm) + 축소값(${shrink}mm)이 적용되었습니다."
-              : "축소값(${shrink}mm)과 빗변(${travel}mm)이 리스트에 추가되었습니다.",
+              ? "1번 마킹이 ${startDistance}mm 자리에 찍힙니다. 축소값은 ${shrink}mm입니다."
+              : "빗변 ${travel}mm로 넣었습니다. 축소값은 ${shrink}mm입니다.",
         ),
         backgroundColor: makitaTeal,
       ),
@@ -223,7 +225,11 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     double roundedShrink = double.parse(shrink.toStringAsFixed(1));
 
     double startDistance = double.tryParse(_startDistanceCtrl.text) ?? 0.0;
-    double firstSegmentLength = startDistance + roundedShrink;
+    // 🚀 [고침] 예전에는 축소값을 더해서, 반경과 높이가 우연히 같을 때만
+    // "시작 거리 = 1번 마킹"이 맞았다(3/8" 튜브 R38에 높이 100이면 26mm 늦게
+    // 시작했다). 셋백을 더하면 1번 마킹이 시작 거리와 정확히 같아진다.
+    double firstSegmentLength =
+        startDistance + bendSetback(_machineRadius, roundedAngle);
     double secondSegmentLength = roundedTravel;
 
     // 🚀 [추가] 슈 간섭 경고 (Soft Warning)

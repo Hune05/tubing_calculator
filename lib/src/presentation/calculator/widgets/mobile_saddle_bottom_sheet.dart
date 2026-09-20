@@ -59,6 +59,10 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
   double _minStraight = 0.0;
   bool _warnShoeInterference = true;
 
+  // 🚀 [추가] 장애물 앞 시작 거리. 예전에는 첫 구간을 축소값으로 강제해서
+  // 1번 마킹이 관 끝 20mm 자리에 찍혔고(벤더에 물리지도 않는다), 장애물 위에
+  // 꼭대기를 맞추려면 사람이 손으로 계산해야 했다.
+  final TextEditingController _startDistanceCtrl = TextEditingController();
   final TextEditingController _heightCtrl = TextEditingController();
   final TextEditingController _widthCtrl = TextEditingController();
   final TextEditingController _angle3PtCtrl = TextEditingController();
@@ -88,6 +92,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     _angle3PtCtrl.text = _formatNum(dm.saddleAngle3Pt);
     _angle4PtCtrl.text = _formatNum(dm.saddleAngle4Pt);
 
+    _startDistanceCtrl.addListener(() => setState(() {}));
     _heightCtrl.addListener(() {
       dm.saddleHeight = double.tryParse(_heightCtrl.text) ?? 0.0;
       setState(() {});
@@ -127,6 +132,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
   @override
   void dispose() {
     _tabController.dispose();
+    _startDistanceCtrl.dispose();
     _heightCtrl.dispose();
     _widthCtrl.dispose();
     _angle3PtCtrl.dispose();
@@ -154,13 +160,24 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     double sideAngle = a3 / 2;
     double oppRot = _getOppositeRotation(_selectedRotation!);
 
-    widget.onAddBend(roundedShrink, sideAngle, _selectedRotation!);
+    // 🚀 [고침] 1번 마킹이 시작 거리와 같아지도록 셋백을 더한다.
+    final double startDistance =
+        double.tryParse(_startDistanceCtrl.text) ?? 0.0;
+    final double firstLen =
+        startDistance + bendSetback(_machineRadius, sideAngle);
+
+    widget.onAddBend(firstLen, sideAngle, _selectedRotation!);
     widget.onAddBend(roundedTravel, a3, oppRot);
     widget.onAddBend(roundedTravel, sideAngle, _selectedRotation!);
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("축소값(+${roundedShrink}mm)이 첫 번째 마킹에 자동 적용되었습니다."),
+        content: Text(
+          startDistance > 0
+              ? "1번 마킹이 ${startDistance.toStringAsFixed(0)}mm 자리에 찍힙니다."
+                    " 축소값은 ${roundedShrink}mm입니다."
+              : "넣었습니다. 축소값은 ${roundedShrink}mm입니다.",
+        ),
         backgroundColor: makitaTeal,
       ),
     );
@@ -271,19 +288,29 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
 
   // 🚀 [추가] 4포인트 강제 집어넣기용 분리된 로직
   void _execute4Point(double travel4Pt, double w, double a4, double shrink) {
+    final double startDistance4 =
+        double.tryParse(_startDistanceCtrl.text) ?? 0.0;
     double roundedTravel = double.parse(travel4Pt.toStringAsFixed(1));
     double roundedW = double.parse(w.toStringAsFixed(1));
     double roundedShrink = double.parse(shrink.toStringAsFixed(1));
     double oppRot = _getOppositeRotation(_selectedRotation!);
 
-    widget.onAddBend(roundedShrink, a4, _selectedRotation!);
+    // 🚀 [고침] 1번 마킹이 시작 거리와 같아지도록 셋백을 더한다.
+    final double firstLen4 = startDistance4 + bendSetback(_machineRadius, a4);
+
+    widget.onAddBend(firstLen4, a4, _selectedRotation!);
     widget.onAddBend(roundedTravel, a4, oppRot);
     widget.onAddBend(roundedW, a4, oppRot);
     widget.onAddBend(roundedTravel, a4, _selectedRotation!);
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("축소값(+${roundedShrink}mm)이 첫 번째 마킹에 자동 적용되었습니다."),
+        content: Text(
+          startDistance4 > 0
+              ? "1번 마킹이 ${startDistance4.toStringAsFixed(0)}mm 자리에 찍힙니다."
+                    " 축소값은 ${roundedShrink}mm입니다."
+              : "넣었습니다. 축소값은 ${roundedShrink}mm입니다.",
+        ),
         backgroundColor: makitaTeal,
       ),
     );
@@ -676,6 +703,21 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         ),
         const SizedBox(height: 8),
         Row(children: [Expanded(child: _buildInputRow(_heightCtrl, "높이 mm"))]),
+        const SizedBox(height: 20),
+        const Text(
+          "장애물 앞 시작 거리 (옵션)",
+          style: TextStyle(
+            color: slate600,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(child: _buildInputRow(_startDistanceCtrl, "거리 mm")),
+          ],
+        ),
         const SizedBox(height: 20),
         const Text(
           "센터 각도 (∠)",

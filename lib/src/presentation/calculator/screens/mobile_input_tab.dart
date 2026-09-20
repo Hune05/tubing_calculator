@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/engine/bend_path.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -118,6 +120,69 @@ class _MobileInputTabState extends State<MobileInputTab>
     double finalRotation = _selectedAngle == 0.0 ? 0.0 : _selectedRotation!;
 
     final settings = AppSettingsController();
+
+    // 🚀 [추가] 지금 진행 방향과 같은(또는 정반대) 방향은 꺾을 수 없다.
+    // 예전에는 그냥 들어가서, 3D 그림은 안 꺾이는데 절단 길이에는 호가 더해지는
+    // 어긋남이 생겼다(오프셋 뒤에 "우"로 90°를 붙이는 경우가 대표적이다).
+    if (_selectedAngle > 0) {
+      final bends = MobileBendDataManager().bendList;
+      final current = directionAfter([
+        for (final b in bends)
+          PathSegment(
+            length: (b['length'] as num?)?.toDouble() ?? 0.0,
+            angle: (b['angle'] as num?)?.toDouble() ?? 0.0,
+            rotation: (b['rotation'] as num?)?.toDouble() ?? 0.0,
+          ),
+      ], radius: settings.bendRadius > 0 ? settings.bendRadius : 1.0);
+      if (!canBendToward(current, directionForRotation(finalRotation))) {
+        final label = _directions.firstWhere(
+          (d) => d['val'] == finalRotation,
+          orElse: () => {'label': ''},
+        )['label'];
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: pureWhite,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.deepOrange),
+                SizedBox(width: 8),
+                Text(
+                  "그 방향으로는 못 꺾습니다",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: slate900,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              "관이 이미 '$label' 쪽으로 가고 있거나 그 정반대입니다.\n"
+              "방향은 '꺾고 나서 관이 향할 쪽'을 고르는 것이라, 지금 가는 쪽과"
+              " 같으면 꺾을 수 없습니다. 다른 축(위·아래·앞·뒤 등)에서 고르십시오.",
+              style: const TextStyle(color: slate900, fontSize: 14),
+            ),
+            actions: [
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepOrange,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text("확인", style: TextStyle(color: pureWhite)),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+    }
 
     // 기계 간섭 & 누설 위험 이중 검사 로직
     double minFittingStraight = _getMinFittingStraight(settings.tubeOD);
