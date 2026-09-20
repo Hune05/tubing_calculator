@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/utils/pdf_fonts.dart';
-import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:flutter/services.dart'
+    show Clipboard, ClipboardData, HapticFeedback;
 import 'dart:convert';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,6 +19,8 @@ import 'cutting_history_page.dart';
 import '../widgets/cutting_optimization_sheet.dart';
 import '../cutting_diagram_pdf.dart';
 import '../cutting_diagram_view.dart';
+import '../cutting_result_logic.dart';
+import '../cutting_result_view.dart';
 import '../cutting_leftovers.dart'
     show loadLeftovers, loadMixLengths, kTubeMixPrefsKey;
 import '../cutting_math.dart'
@@ -100,7 +103,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   String _globalMaker = "Swagelok";
   List<CutPoint> _points = [];
   int _setMultiplier = 1;
-  bool _groupSameLengths = false;
+  // 같은 길이끼리 묶어 보기. 처음 만드는 작업은 켜 둔다(이미 저장된 작업은 예전에 고른 값을 그대로 쓴다).
+  bool _groupSameLengths = true;
+  // 결과 탭에서 "잘랐음"으로 표시한 줄(열쇠는 cutting_result_logic.dart 참고). 임시 저장에 함께 남긴다.
+  final Set<String> _doneKeys = {};
 
   // 🚀 [4번 강화] 현장에 따라 인치로 측정하는 경우가 있어서 mm/in 단위를
   // 고를 수 있게 한다. 저장/계산은 항상 mm 기준이고, 사용자가 지금 고른
@@ -544,6 +550,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         'globalMaker': _globalMaker,
         'setMultiplier': _setMultiplier,
         'groupSameLengths': _groupSameLengths,
+        'doneKeys': _doneKeys.toList(),
         'lengthUnit': _lengthUnit,
         'points': _points.map((p) {
           return {
@@ -572,7 +579,14 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         setState(() {
           _globalMaker = stateData['globalMaker'] ?? "Swagelok";
           _setMultiplier = stateData['setMultiplier'] ?? 1;
-          _groupSameLengths = stateData['groupSameLengths'] ?? false;
+          _groupSameLengths = stateData['groupSameLengths'] ?? true;
+          _doneKeys
+            ..clear()
+            ..addAll(
+              ((stateData['doneKeys'] as List?) ?? const []).map(
+                (e) => e.toString(),
+              ),
+            );
           _lengthUnit = stateData['lengthUnit'] ?? "mm";
 
           if (stateData['points'] != null) {
@@ -633,6 +647,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           endDeduction: _points[i + 1].fitting.deduction,
         );
       }
+      // 길이나 개수가 바뀌어 더는 목록에 없는 "잘랐음" 표시는 지운다.
+      final live = {for (final l in _resultLines()) l.key};
+      _doneKeys.removeWhere((k) => !live.contains(k));
     });
     _saveDraftState();
   }
@@ -1879,6 +1896,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         point.calculatedCut = 0.0;
       }
       _setMultiplier = 1;
+      _doneKeys.clear();
       _calculate();
     });
 
@@ -2578,52 +2596,33 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             ],
           ),
           const SizedBox(height: 10),
-          // 🚀 [4·5번 강화] 재단 최적화(원자재 소요 계산)와 컷팅 지시서
-          // 내보내기(PDF 공유) - 예전엔 둘 다 이 계산기에 없던 기능이라
-          // 화면 캡처나 수기 메모에 의존해야 했다.
+          // 재단 최적화(원자재 소요 계산), 컷팅 지시서 내보내기(PDF 공유), 지시서 글로 복사.
           Row(
             children: [
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _showOptimizationDialog,
-                  icon: const Icon(
-                    Icons.view_column_outlined,
-                    size: 18,
-                    color: makitaTeal,
-                  ),
-                  label: const Text(
-                    "재단 최적화",
-                    style: TextStyle(
-                      color: makitaTeal,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: makitaTeal),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
+                child: _resultActionButton(
+                  Icons.view_column_outlined,
+                  "재단 최적화",
+                  _showOptimizationDialog,
+                  const Key('result_btn_optimize'),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _exportCuttingList,
-                  icon: const Icon(
-                    Icons.ios_share_rounded,
-                    size: 18,
-                    color: makitaTeal,
-                  ),
-                  label: const Text(
-                    "내보내기",
-                    style: TextStyle(
-                      color: makitaTeal,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: makitaTeal),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
+                child: _resultActionButton(
+                  Icons.ios_share_rounded,
+                  "PDF 공유",
+                  _exportCuttingList,
+                  const Key('result_btn_export'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _resultActionButton(
+                  Icons.copy_rounded,
+                  "글로 복사",
+                  _copyInstruction,
+                  const Key('result_btn_copy'),
                 ),
               ),
             ],
@@ -3348,170 +3347,113 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     );
   }
 
-  Widget _buildCuttingListRenderer() {
-    List<double> validCuts = _points
-        .sublist(0, _points.length - 1)
-        .where((p) => p.c2cController.text.isNotEmpty && p.calculatedCut > 0)
-        .map((p) => p.calculatedCut)
-        .toList();
+  // 결과 탭에 보여 줄 줄들(같은 길이 합산 여부에 따라 묶음이 달라진다).
+  List<ResultLine> _resultLines() => buildResultLines(
+    [
+      for (int i = 0; i < _points.length - 1; i++)
+        (_points[i].c2cController.text.trim().isNotEmpty &&
+                !_points[i].unreadable &&
+                _points[i].calculatedCut > 0)
+            ? _points[i].calculatedCut
+            : null,
+    ],
+    _setMultiplier,
+    grouped: _groupSameLengths,
+  );
 
-    if (validCuts.isEmpty) {
-      bool hasError = _points.any(
-        (p) => p.c2cController.text.isNotEmpty && p.calculatedCut < 0,
-      );
-      return Center(
-        child: Text(
-          hasError ? "간섭이 발생한 구간을 수정하십시오." : "치수를 입력하십시오.",
-          style: TextStyle(
-            color: hasError ? Colors.red : Colors.grey.shade600,
-            fontWeight: FontWeight.bold,
-          ),
+  List<FittingOrder> _fittingOrders() => fittingOrderList([
+    for (final p in _points)
+      if (p.fitting.id != "none")
+        FittingUse(
+          maker: p.fitting.category == "CUSTOM" ? "CUSTOM" : _globalMaker,
+          spec: p.fitting.tubeOD,
+          name: p.fitting.name,
         ),
-      );
-    }
+  ], _setMultiplier);
 
-    // 🚀 [재구성] 예전엔 항목 하나에 텍스트 4개를 spaceBetween Row 한
-    // 줄에 다 욱여넣어서, 실제 작업대에서 보는 이 화면이 좁은 폰에서
-    // 넘치거나 글자가 짓눌릴 위험이 제일 컸다. 카드 형태로 바꿔서
-    // 가장 중요한 "최종 필요 길이"를 크고 명확하게, 나머지 정보는
-    // 위아래로 배치해 절대 겹치거나 넘치지 않게 했다.
-    if (_groupSameLengths) {
-      Map<double, int> grouped = {};
-      for (var cut in validCuts) {
-        grouped[cut] = (grouped[cut] ?? 0) + 1;
-      }
-      return ListView.separated(
-        padding: const EdgeInsets.all(12),
-        itemCount: grouped.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 8),
-        itemBuilder: (context, index) {
-          double length = grouped.keys.elementAt(index);
-          int count = grouped[length]!;
-          int totalCount = count * _setMultiplier;
-          return _buildCutResultCard(
-            topLeft: "${length.toStringAsFixed(1)} mm",
-            topRight: "총 $totalCount 개",
-            subtitle: "기본 $count개 × $_setMultiplier SET",
-            totalLabel: "합계 소요 길이",
-            totalValue: "${(length * totalCount).toStringAsFixed(1)} mm",
-          );
-        },
-      );
-    } else {
-      final visibleIndices = List.generate(_points.length - 1, (i) => i).where((
-        index,
-      ) {
-        if (_points[index].c2cController.text.isEmpty) return false;
-        return _points[index].calculatedCut >= 0;
-      }).toList();
-
-      return ListView.separated(
-        padding: const EdgeInsets.all(12),
-        itemCount: visibleIndices.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 8),
-        itemBuilder: (context, listIndex) {
-          final index = visibleIndices[listIndex];
-          double cutLen = _points[index].calculatedCut;
-          return _buildCutResultCard(
-            topLeft: "PT${index + 1} → PT${index + 2}",
-            topRight: "× $_setMultiplier 개",
-            subtitle: "구간 길이 ${cutLen.toStringAsFixed(1)} mm",
-            totalLabel: "합계 소요 길이",
-            totalValue: "${(cutLen * _setMultiplier).toStringAsFixed(1)} mm",
-          );
-        },
-      );
-    }
+  void _toggleDone(String key) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (!_doneKeys.remove(key)) _doneKeys.add(key);
+    });
+    _saveDraftState();
   }
 
-  // 🚀 [추가] 컷팅 결과 카드 - 가장 중요한 "합계 소요 길이"를 크고
-  // 명확하게 강조하고, 나머지 부가 정보는 작게 위아래로 배치한다.
-  Widget _buildCutResultCard({
-    required String topLeft,
-    required String topRight,
-    required String subtitle,
-    required String totalLabel,
-    required String totalValue,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: whiteCard,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
+  Widget _resultActionButton(
+    IconData icon,
+    String label,
+    VoidCallback onPressed,
+    Key key,
+  ) {
+    // 세 버튼이 한 줄에 같은 너비로 들어가도록 아이콘을 위에, 글자를 아래에 둔다.
+    return OutlinedButton(
+      key: key,
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        side: const BorderSide(color: makitaTeal),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  topLeft,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    color: textPrimary,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: makitaTeal.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  topRight,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: makitaTeal,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 2),
+          Icon(icon, size: 22, color: makitaTeal),
+          const SizedBox(height: 4),
           Text(
-            subtitle,
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Divider(height: 1),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                totalLabel,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    totalValue,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      color: makitaTeal,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: makitaTeal,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  // 지시서를 글로 복사한다(카카오톡 등에 바로 붙여넣기).
+  Future<void> _copyInstruction() async {
+    final lines = _resultLines();
+    if (lines.isEmpty) {
+      showCuttingSnack(context, "복사할 치수가 없습니다. 먼저 치수를 입력하십시오.", isError: true);
+      return;
+    }
+    final text = buildInstructionText(
+      projectName: widget.project.name,
+      date: DateTime.now(),
+      maker: _globalMaker,
+      setMultiplier: _setMultiplier,
+      lines: lines,
+      orders: _fittingOrders(),
+      kerfMm: _bladeKerf,
+    );
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    showCuttingSnack(context, "지시서를 글로 복사했습니다. 메신저에 붙여넣으십시오.");
+  }
+
+  Widget _buildCuttingListRenderer() {
+    final lines = _resultLines();
+    final diag = _diagramData();
+    final d = summarizeDiagram(diag.$1, diag.$2, _setMultiplier);
+    final issues = [
+      if (d.unreadableCount > 0) '읽을 수 없는 값 ${d.unreadableCount}곳',
+      if (d.interferenceCount > 0) '간섭 ${d.interferenceCount}곳',
+    ];
+    return CuttingResultView(
+      lines: lines,
+      summary: summarizeResult(lines, _doneKeys),
+      orders: _fittingOrders(),
+      done: _doneKeys,
+      onToggle: _toggleDone,
+      setMultiplier: _setMultiplier,
+      warning: issues.isEmpty ? '' : '목록에서 뺀 구간: ${issues.join(' · ')}',
+      emptyMessage: d.interferenceCount > 0
+          ? "간섭이 발생한 구간을 수정하십시오."
+          : "치수를 입력하십시오.",
+      emptyIsError: d.interferenceCount > 0,
     );
   }
 }

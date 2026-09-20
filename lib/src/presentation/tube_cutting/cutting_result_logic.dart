@@ -1,0 +1,234 @@
+import 'cutting_math.dart';
+
+// 튜브 컷팅 "결과" 탭의 계산(화면과 분리해서 테스트로 지킨다):
+//  - 구간별/같은 길이끼리 묶은 "자를 길이" 목록과 총계,
+//  - 잘랐음 표시(체크)의 진행 상황,
+//  - 필요한 부속 목록,
+//  - 카카오톡 등에 붙여넣을 지시서 글.
+
+String _one(double v) => v.toStringAsFixed(1);
+
+class ResultLine {
+  // 잘랐음 표시를 기억하는 열쇠. 길이·개수가 바뀌면 열쇠도 바뀌어서 이전 표시가 저절로 사라진다.
+  final String key;
+  final String title; // "PT1 → PT2" 또는 "2600.0 mm"
+  final String detail; // 작은 글씨 설명
+  final double cutMm; // 하나의 절단 길이
+  final int count; // 세트 수를 곱한 개수
+  final List<int> segments; // 이 줄에 들어간 구간 번호(0부터)
+
+  const ResultLine({
+    required this.key,
+    required this.title,
+    required this.detail,
+    required this.cutMm,
+    required this.count,
+    required this.segments,
+  });
+
+  double get totalMm => cutMm * count;
+}
+
+// [cuts]는 구간별 절단 길이이고, 계산할 수 없는 구간(비었음·못 읽음·간섭)은 null 또는 0 이하.
+List<ResultLine> buildResultLines(
+  List<double?> cuts,
+  int setMultiplier, {
+  required bool grouped,
+}) {
+  final set = setMultiplier < 1 ? 1 : setMultiplier;
+  final out = <ResultLine>[];
+  if (!grouped) {
+    for (var i = 0; i < cuts.length; i++) {
+      final c = cuts[i];
+      if (c == null || c <= 0) continue;
+      out.add(
+        ResultLine(
+          key: 'seg:$i:${_one(c)}:$set',
+          title: 'PT${i + 1} → PT${i + 2}',
+          detail: '구간 길이 ${_one(c)} mm',
+          cutMm: c,
+          count: set,
+          segments: [i],
+        ),
+      );
+    }
+    return out;
+  }
+  // 같은 길이(소수 첫째 자리까지 같으면 같은 것으로)끼리 묶고, 처음 나온 순서를 지킨다.
+  final order = <String>[];
+  final members = <String, List<int>>{};
+  final values = <String, double>{};
+  for (var i = 0; i < cuts.length; i++) {
+    final c = cuts[i];
+    if (c == null || c <= 0) continue;
+    final k = _one(c);
+    if (!members.containsKey(k)) {
+      order.add(k);
+      members[k] = [];
+      values[k] = c;
+    }
+    members[k]!.add(i);
+  }
+  for (final k in order) {
+    final segs = members[k]!;
+    final count = segs.length * set;
+    out.add(
+      ResultLine(
+        key: 'len:$k:$count',
+        title: '$k mm',
+        detail: segs.map((i) => 'PT${i + 1}→${i + 2}').join(' · '),
+        cutMm: values[k]!,
+        count: count,
+        segments: segs,
+      ),
+    );
+  }
+  return out;
+}
+
+class ResultSummary {
+  final int lineCount;
+  final int totalPieces;
+  final double totalMm;
+  final int donePieces;
+  final int doneLines;
+
+  const ResultSummary({
+    required this.lineCount,
+    required this.totalPieces,
+    required this.totalMm,
+    required this.donePieces,
+    required this.doneLines,
+  });
+
+  bool get anyDone => doneLines > 0;
+  bool get allDone => lineCount > 0 && doneLines == lineCount;
+  double get progress => totalPieces == 0 ? 0 : donePieces / totalPieces;
+}
+
+ResultSummary summarizeResult(List<ResultLine> lines, Set<String> done) {
+  var pieces = 0, donePieces = 0, doneLines = 0;
+  var mm = 0.0;
+  for (final l in lines) {
+    pieces += l.count;
+    mm += l.totalMm;
+    if (done.contains(l.key)) {
+      donePieces += l.count;
+      doneLines++;
+    }
+  }
+  return ResultSummary(
+    lineCount: lines.length,
+    totalPieces: pieces,
+    totalMm: mm,
+    donePieces: donePieces,
+    doneLines: doneLines,
+  );
+}
+
+// 지금 목록에 없는(길이가 바뀌어 쓸모없어진) 표시는 버린다.
+Set<String> pruneDone(Set<String> done, List<ResultLine> lines) {
+  final live = {for (final l in lines) l.key};
+  return done.where(live.contains).toSet();
+}
+
+// ── 필요한 부속 ──
+class FittingUse {
+  final String maker;
+  final String spec;
+  final String name;
+  const FittingUse({
+    required this.maker,
+    required this.spec,
+    required this.name,
+  });
+}
+
+class FittingOrder {
+  final String maker;
+  final String spec;
+  final String name;
+  final int qty;
+  const FittingOrder({
+    required this.maker,
+    required this.spec,
+    required this.name,
+    required this.qty,
+  });
+
+  // "Union Cross 1/2\"" (규격을 모르면 이름만)
+  String get label => spec.isEmpty || spec == '미지정' ? name : '$name $spec';
+}
+
+// 같은 제조사·규격·이름끼리 모아 세트 수를 곱한다. 많은 것부터, 같으면 이름순.
+List<FittingOrder> fittingOrderList(List<FittingUse> uses, int setMultiplier) {
+  final set = setMultiplier < 1 ? 1 : setMultiplier;
+  final counts = <String, int>{};
+  final first = <String, FittingUse>{};
+  for (final u in uses) {
+    final k = '${u.maker}|${u.spec}|${u.name}';
+    counts[k] = (counts[k] ?? 0) + 1;
+    first.putIfAbsent(k, () => u);
+  }
+  final out = [
+    for (final e in counts.entries)
+      FittingOrder(
+        maker: first[e.key]!.maker,
+        spec: first[e.key]!.spec,
+        name: first[e.key]!.name,
+        qty: e.value * set,
+      ),
+  ];
+  out.sort((a, b) {
+    final c = b.qty.compareTo(a.qty);
+    return c != 0 ? c : a.label.compareTo(b.label);
+  });
+  return out;
+}
+
+// ── 지시서 글 ──
+String buildInstructionText({
+  required String projectName,
+  required DateTime date,
+  required String maker,
+  required int setMultiplier,
+  required List<ResultLine> lines,
+  required List<FittingOrder> orders,
+  double kerfMm = 0,
+}) {
+  final set = setMultiplier < 1 ? 1 : setMultiplier;
+  final d =
+      '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
+  final b = StringBuffer();
+  b.writeln('[컷팅 지시서] $projectName');
+  b.writeln(
+    '$d · $maker · $set세트${kerfMm > 0 ? ' · 톱날 ${fmtMm(kerfMm)}mm' : ''}',
+  );
+  b.writeln();
+  b.writeln('■ 자를 길이');
+  var pieces = 0;
+  var mm = 0.0;
+  for (var i = 0; i < lines.length; i++) {
+    final l = lines[i];
+    final what = l.title.contains('→')
+        ? l.title
+        : '${l.title.replaceAll(' mm', '')}mm';
+    final len = l.title.contains('→') ? ' ${_one(l.cutMm)}mm' : '';
+    b.writeln('${i + 1}) $what$len × ${l.count}개');
+    pieces += l.count;
+    mm += l.totalMm;
+  }
+  if (lines.isEmpty) {
+    b.writeln('(계산된 구간이 없습니다)');
+  } else {
+    b.writeln('합계 ${_one(mm)}mm (총 $pieces개)');
+  }
+  if (orders.isNotEmpty) {
+    b.writeln();
+    b.writeln('■ 필요한 부속');
+    for (final o in orders) {
+      b.writeln('${o.label} × ${o.qty}');
+    }
+  }
+  return b.toString().trimRight();
+}
