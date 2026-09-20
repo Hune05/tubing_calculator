@@ -1766,17 +1766,15 @@ void main() {
       expect(find.byKey(const Key('steel_result_summary')), findsOneWidget);
       // 앵글 2300mm(1본) + 스트럿 3000mm(1본) = 최소 2본, 남은 6개 · 5300mm
       expect(findTextContaining('원자재 최소 2본'), findsOneWidget);
-      expect(findTextContaining('남은 7개'), findsOneWidget);
+      expect(findTextContaining('안 자른 7개'), findsOneWidget);
       expect(find.byKey(const Key('steel_clear_done')), findsNothing);
       await tester.tap(find.text('800.0 mm'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('steel_clear_done')), findsOneWidget);
       await tester.tap(find.byKey(const Key('steel_clear_done')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('지우기'));
-      await tester.pumpAndSettle();
       expect(find.byKey(const Key('steel_clear_done')), findsNothing);
-      expect(findTextContaining('남은 7개'), findsOneWidget);
+      expect(findTextContaining('안 자른 7개'), findsOneWidget);
     });
 
     testWidgets('아이콘을 써 본 뒤에는 칩이 아이콘만 남고, ?를 누르면 이름이 다시 보인다', (tester) async {
@@ -1806,6 +1804,41 @@ void main() {
           .getTopLeft(find.byKey(const Key('result_header')))
           .dy;
       expect(summaryY < headerY, true);
+    });
+
+    testWidgets('다 자르고 잔재까지 저장한 작업은 다시 열면 스스로 새로 시작한다', (tester) async {
+      final p = proj();
+      final lines = buildSteelResultLines(p.items, 1);
+      SharedPreferences.setMockInitialValues({
+        'steel_done_sp9': lines.map((l) => l.key).toList(),
+        'steel_leftover_saved_sp9': lines.map((l) => l.key).join('|'),
+        'steel_result_folded_sp9': ['앵글 40x40x3'],
+      });
+      await open(tester, p);
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+      expect(findTextContaining('잘랐음 표시를 새로 시작합니다'), findsOneWidget);
+      expect(findTextContaining('안 자른 7개'), findsOneWidget);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getStringList('steel_done_sp9'), isEmpty);
+      expect(prefs.getStringList('steel_result_folded_sp9'), isEmpty);
+      // 잔재 저장 기록은 남긴다(같은 잔재를 두 번 저장하지 않게).
+      expect(prefs.getString('steel_leftover_saved_sp9'), isNotNull);
+    });
+
+    testWidgets('아직 다 자르지 않은 작업은 잘랐음 표시를 그대로 둔다', (tester) async {
+      final p = proj();
+      final lines = buildSteelResultLines(p.items, 1);
+      SharedPreferences.setMockInitialValues({
+        'steel_done_sp9': [lines.first.key],
+        'steel_leftover_saved_sp9': lines.map((l) => l.key).join('|'),
+      });
+      await open(tester, p);
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+      expect(findTextContaining('새로 시작합니다'), findsNothing);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getStringList('steel_done_sp9'), [lines.first.key]);
     });
 
     testWidgets('자른 줄 감추기 칩', (tester) async {

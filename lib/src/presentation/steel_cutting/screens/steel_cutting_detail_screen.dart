@@ -184,7 +184,30 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         _leftoverSavedSig = sig;
       });
       _pruneDone();
+      await _autoRestartIfFinished();
     } catch (_) {}
+  }
+
+  // 지난번에 다 자르고 잔재까지 저장한 작업을 다시 열면 스스로 새로 시작한다(잘랐음 표시와 접어 둔
+  // 규격을 지운다. 잔재 저장 기록은 남겨 둔다 — 같은 잔재를 두 번 저장하지 않게 막는 장치다). 사용자가 "잘랐음 지우기"를 누를 일을 없앤다. 아직 다 자르지 않았거나 잔재를
+  // 저장하지 않은 작업은 그대로 둔다 — 하던 일을 이어서 해야 하기 때문이다.
+  Future<void> _autoRestartIfFinished() async {
+    if (_doneKeys.isEmpty || !_leftoversSaved) return;
+    final lines = _resultLines();
+    if (lines.isEmpty) return;
+    if (!lines.every((l) => _doneKeys.contains(l.key))) return;
+    if (!mounted) return;
+    setState(() {
+      _doneKeys.clear();
+      _resultFolded.clear();
+    });
+    await _saveDone();
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setStringList(_resultFoldedKey, const []);
+    } catch (_) {}
+    if (!mounted) return;
+    showCuttingSnack(context, "지난번에 다 잘랐으니 잘랐음 표시를 새로 시작합니다.");
   }
 
   Future<void> _saveDone() async {
@@ -308,15 +331,10 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   }
 
   // 잘랐음 표시를 한꺼번에 지운다(같은 작업을 다시 자를 때).
+  // 잘랐음 표시를 한꺼번에 지운다. 표시만 지우는 일이라 확인 창 없이 바로 하고 되돌리기를 준다.
   Future<void> _clearDone() async {
-    final ok = await showCuttingConfirmDialog(
-      context,
-      title: "잘랐음 지우기",
-      message: "${_doneKeys.length}줄의 잘랐음 표시를 지웁니다. 절단 항목은 그대로입니다.",
-      confirmLabel: "지우기",
-      icon: Icons.restart_alt_rounded,
-    );
-    if (!ok || !mounted) return;
+    final before = Set<String>.of(_doneKeys);
+    final beforeFolded = Set<String>.of(_resultFolded);
     setState(() {
       _doneKeys.clear();
       _resultFolded.clear();
@@ -327,7 +345,22 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       await p.setStringList(_resultFoldedKey, const []);
     } catch (_) {}
     if (!mounted) return;
-    showCuttingSnack(context, "잘랐음 표시를 지웠습니다.");
+    showCuttingUndoSnack(
+      context,
+      "${before.length}줄의 잘랐음 표시를 지웠습니다.",
+      onUndo: () {
+        setState(() {
+          _doneKeys.addAll(before);
+          _resultFolded.addAll(beforeFolded);
+        });
+        _saveDone();
+        SharedPreferences.getInstance()
+            .then(
+              (p) => p.setStringList(_resultFoldedKey, _resultFolded.toList()),
+            )
+            .catchError((_) => false);
+      },
+    );
   }
 
   void _toggleFoldDone() {
@@ -2423,9 +2456,9 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             child: Text(
               [
                 if (bars > 0) "원자재 최소 $bars본",
-                rest.pieces == 0
-                    ? "모두 잘랐습니다"
-                    : "남은 ${rest.pieces}개 ${fmtMm(rest.mm)}mm",
+                // 다 자른 뒤에는 여기서 말하지 않는다 — 총계 카드가 "모두 잘랐습니다"로 이미 알려 준다.
+                if (rest.pieces > 0)
+                  "안 자른 ${rest.pieces}개 · ${fmtMm(rest.mm)}mm",
               ].join("  ·  "),
               maxLines: 2,
               style: TextStyle(
