@@ -102,9 +102,21 @@ class PathBend {
   });
 }
 
+/// 곧은 토막 하나(벤드와 벤드 사이의 실제 직선 부분).
+class PathLine {
+  final vm.Vector3 a;
+  final vm.Vector3 b;
+
+  const PathLine(this.a, this.b);
+
+  double get length => (b - a).length;
+}
+
 class BendPath {
   final List<vm.Vector3> corners; // 교차점(시작점 포함하지 않음)
   final List<PathBend> bends;
+  /// 곧은 토막들(접점에서 접점까지). 그림과 간섭 검사가 쓴다.
+  final List<PathLine> straights;
   final vm.Vector3 endPoint;
   final vm.Vector3 endDirection;
   final double developedLength; // 실제 필요한 관 길이
@@ -113,11 +125,82 @@ class BendPath {
   const BendPath({
     required this.corners,
     required this.bends,
+    this.straights = const [],
     required this.endPoint,
     required this.endDirection,
     required this.developedLength,
     required this.warnings,
   });
+}
+
+/// 두 토막 사이의 가장 가까운 거리. 둘 다 선분으로 본다.
+double segmentDistance(
+  vm.Vector3 p1,
+  vm.Vector3 q1,
+  vm.Vector3 p2,
+  vm.Vector3 q2,
+) {
+  final d1 = q1 - p1;
+  final d2 = q2 - p2;
+  final r = p1 - p2;
+  final a = d1.dot(d1);
+  final e = d2.dot(d2);
+  final f = d2.dot(r);
+
+  double s;
+  double t;
+  const eps = 1e-9;
+  if (a <= eps && e <= eps) return r.length;
+  if (a <= eps) {
+    s = 0.0;
+    t = (f / e).clamp(0.0, 1.0);
+  } else {
+    final c = d1.dot(r);
+    if (e <= eps) {
+      t = 0.0;
+      s = (-c / a).clamp(0.0, 1.0);
+    } else {
+      final b = d1.dot(d2);
+      final denom = a * e - b * b;
+      s = denom > eps ? ((b * f - c * e) / denom).clamp(0.0, 1.0) : 0.0;
+      t = (b * s + f) / e;
+      if (t < 0.0) {
+        t = 0.0;
+        s = (-c / a).clamp(0.0, 1.0);
+      } else if (t > 1.0) {
+        t = 1.0;
+        s = ((b - c) / a).clamp(0.0, 1.0);
+      }
+    }
+  }
+  return ((p1 + d1 * s) - (p2 + d2 * t)).length;
+}
+
+/// 관이 저희끼리 부딪히는지 본다.
+/// 바깥지름 [outerDiameter]만큼 떨어져 있어야 하고, 붙어 있는 두 토막은
+/// 벤드로 이어지므로 보지 않는다.
+/// 🚀 [고침] 예전에는 화면에 형상만 그려 줄 뿐, 관이 자기 자신을 뚫고
+/// 지나가도 아무 말이 없었다. 만들 수 없는 형상을 현장에 가서야 알았다.
+List<String> selfInterferenceWarnings(
+  BendPath path, {
+  required double outerDiameter,
+}) {
+  final out = <String>[];
+  if (outerDiameter <= 0) return out;
+  final lines = path.straights;
+  for (var i = 0; i < lines.length; i++) {
+    for (var j = i + 2; j < lines.length; j++) {
+      final d = segmentDistance(lines[i].a, lines[i].b, lines[j].a, lines[j].b);
+      if (d < outerDiameter) {
+        out.add(
+          '${i + 1}번 구간과 ${j + 1}번 구간이 '
+          '${d.toStringAsFixed(0)}mm까지 붙습니다(관 굵기 '
+          '${outerDiameter.toStringAsFixed(0)}mm). 이대로는 서로 닿습니다.',
+        );
+      }
+    }
+  }
+  return out;
 }
 
 /// 구간 목록을 공간에서 걸어 본다.
@@ -133,6 +216,8 @@ BendPath buildBendPath(
 
   final corners = <vm.Vector3>[];
   final bends = <PathBend>[];
+  final straights = <PathLine>[];
+  var straightFrom = pos.clone();
   var developed = 0.0;
   var prevSb = 0.0;
   vm.Vector3? prevBendAxis;
@@ -176,15 +261,20 @@ BendPath buildBendPath(
       continue;
     }
 
+    straights.add(PathLine(straightFrom.clone(), tangentIn.clone()));
+
     final axis = cross.normalized();
     final rad = s.angle * math.pi / 180.0;
     final dirBefore = dir.clone();
     dir = (dir * math.cos(rad) + axis.cross(dir) * math.sin(rad)).normalized();
 
     // 앞 벤드 평면과 이번 평면 사이의 각도 = 현장에서 관을 굴릴 각도.
+    // 🚀 [고침] 축끼리의 각도를 그대로 썼더니, 오프셋처럼 같은 평면에서
+    // 반대로 꺾는 경우에 180°로 나왔다(굴릴 필요가 없는데 굴리라고 나왔다).
+    // 평면과 평면 사이의 각도는 언제나 90°를 넘지 않으므로 절댓값을 쓴다.
     var roll = 0.0;
     if (prevBendAxis != null) {
-      final dot = prevBendAxis.dot(axis).clamp(-1.0, 1.0);
+      final dot = prevBendAxis.dot(axis).abs().clamp(-1.0, 1.0);
       roll = math.acos(dot) * 180.0 / math.pi;
     }
 
@@ -209,6 +299,12 @@ BendPath buildBendPath(
     prevBendAxis = axis;
     pos = corner;
     prevSb = mySb;
+    straightFrom = corner + dir * mySb;
+  }
+
+  if (pos != straightFrom) {
+    straights.add(PathLine(straightFrom.clone(), pos.clone()));
+    straightFrom = pos.clone();
   }
 
   if (tail > 0) {
@@ -222,11 +318,20 @@ BendPath buildBendPath(
     developed += tailStraight;
     pos = pos + dir * tail;
     corners.add(pos.clone());
+    if (straights.isNotEmpty) {
+      straights[straights.length - 1] = PathLine(
+        straights.last.a,
+        pos.clone(),
+      );
+    } else {
+      straights.add(PathLine(straightFrom.clone(), pos.clone()));
+    }
   }
 
   return BendPath(
     corners: corners,
     bends: bends,
+    straights: straights,
     endPoint: pos,
     endDirection: dir,
     developedLength: developed,

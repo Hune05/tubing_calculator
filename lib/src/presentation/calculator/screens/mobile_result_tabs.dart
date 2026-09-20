@@ -4,7 +4,9 @@ import 'package:flutter/services.dart';
 
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
+import 'package:tubing_calculator/src/core/engine/bend_path.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
+import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_pipe_visualizer.dart';
 import 'package:tubing_calculator/src/core/database/database_helper.dart';
@@ -260,6 +262,34 @@ class _MobileResultTabState extends State<MobileResultTab>
         final double pureCutLength = result['totalCutLength'];
         final List<StepResult> steps = result['steps'];
 
+
+        // 🚀 [추가] 관이 저희끼리 닿는 형상인지 같이 본다. 예전에는 관이
+        // 자기 자신을 뚫고 지나가는 그림을 그려 주고도 아무 말이 없었다.
+        // 굴림(롤) 각도도 여기서 뽑아 마킹 표 아래에 적어 준다.
+        final path = buildBendPath(
+          [
+            for (final b in bendList)
+              PathSegment(
+                length: (b['length'] as num?)?.toDouble() ?? 0.0,
+                angle: (b['angle'] as num?)?.toDouble() ?? 0.0,
+                rotation: (b['rotation'] as num?)?.toDouble() ?? 0.0,
+              ),
+          ],
+          radius: radius,
+          startDirection: directionForName(widget.startDir),
+          tail: _tailLength,
+        );
+        final settings = AppSettingsController();
+        final double outerDiameter = settings.isInch
+            ? settings.tubeOD * 25.4
+            : settings.tubeOD;
+
+        // 두 번째 벤드부터, 앞 벤드 기준으로 관을 얼마나 굴려야 하는지.
+        final rolls = <int, double>{
+          for (final b in path.bends)
+            if (b.rollDeg > 0.5) b.index: b.rollDeg,
+        };
+
         List<Map<String, dynamic>> displayMarks = [];
         int markNumber = 1;
         double lastMarkingPoint = 0.0;
@@ -318,6 +348,7 @@ class _MobileResultTabState extends State<MobileResultTab>
                   steps[i].incrementalMark + accumulatedIncremental,
               'applied_fit': appliedFit,
               'target_angle': steps[i].targetAngle,
+              'roll_deg': rolls[i] ?? 0.0,
             });
             markNumber++;
             accumulatedIncremental = 0.0;
@@ -337,8 +368,10 @@ class _MobileResultTabState extends State<MobileResultTab>
 
         // 🚀 [추가] 만들 수 없는 형상(앞뒤 셋백보다 짧은 구간)이면 값 대신
         // 먼저 알려 준다. 예전에는 조용히 이상한 마킹이 나왔다.
-        final List<String> warnings =
-            (result['warnings'] as List?)?.cast<String>() ?? const [];
+        final List<String> warnings = [
+          ...(result['warnings'] as List?)?.cast<String>() ?? const <String>[],
+          ...selfInterferenceWarnings(path, outerDiameter: outerDiameter),
+        ];
 
         return Container(
           color: pureWhite,
@@ -640,6 +673,11 @@ class _MobileResultTabState extends State<MobileResultTab>
                               angleVal;
                           bool hasSpringback =
                               (targetAngleVal - angleVal).abs() > 0.05;
+                          // 앞 벤드와 다른 평면으로 꺾을 때 관을 굴릴 각도.
+                          // 예전에는 화면에 나오지 않아, 관을 얼마나 돌려
+                          // 물려야 하는지 눈대중으로 맞췄다.
+                          final double rollDeg =
+                              (item['roll_deg'] as num?)?.toDouble() ?? 0.0;
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: 12),
@@ -749,6 +787,17 @@ class _MobileResultTabState extends State<MobileResultTab>
                                         "스프링백 보정 → ${targetAngleVal.toStringAsFixed(1)}°",
                                         style: const TextStyle(
                                           color: makitaTeal,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                    if (rollDeg > 0.5) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        "앞 벤드에서 ${rollDeg.round()}° 굴려 물리십시오",
+                                        style: const TextStyle(
+                                          color: Color(0xFFC77700),
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
                                         ),
