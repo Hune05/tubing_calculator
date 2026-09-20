@@ -1784,6 +1784,23 @@ void main() {
       expect(prefs.getStringList('steel_done_sp9'), [lines.first.key]);
     });
 
+    testWidgets('총계 카드에 새 자재 본수가 보인다', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      // 앵글 2000mm 4개 = 8000mm → 6000 자재로 2본, 스트럿 1000mm 1개 → 1본.
+      await open(
+        tester,
+        proj(
+          items: [
+            item('앵글 40x40x3', 2000, 4, id: 'a'),
+            item('스트럿 41x41x2.5', 1000, 1, cat: 'STRUT', id: 'c'),
+          ],
+        ),
+      );
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+      expect(findTextContaining('새 자재 6000 3본'), findsOneWidget);
+    });
+
     testWidgets('자른 줄 감추기 칩', (tester) async {
       SharedPreferences.setMockInitialValues({});
       await open(tester, proj());

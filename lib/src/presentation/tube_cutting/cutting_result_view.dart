@@ -38,6 +38,8 @@ class CuttingResultView extends StatelessWidget {
   final ValueChanged<String>? onToggleSpec;
   // 켜면 "잘랐음"으로 표시한 줄은 감춘다(남은 것만 본다). 규격 머리글은 그대로 둔다.
   final bool hideDoneLines;
+  // 총계 카드에 한 줄 더 붙일 글(예: "새 자재 6000 3본"). 비면 붙이지 않는다.
+  final String stockNote;
 
   const CuttingResultView({
     super.key,
@@ -61,6 +63,7 @@ class CuttingResultView extends StatelessWidget {
     this.collapsedSpecs = const {},
     this.onToggleSpec,
     this.hideDoneLines = false,
+    this.stockNote = '',
   });
 
   // 그 규격을 지금 접어 두었는지(규격 머리글을 쓰고, 접기를 켰을 때만).
@@ -98,6 +101,7 @@ class CuttingResultView extends StatelessWidget {
           allDoneText: allDoneText,
           allDoneActionLabel: allDoneActionLabel,
           onAllDoneAction: onAllDoneAction,
+          stockNote: stockNote,
         ),
         const SizedBox(height: 10),
         for (var i = 0; i < lines.length; i++) ...[
@@ -147,6 +151,7 @@ class _Header extends StatelessWidget {
   final String? allDoneText;
   final String? allDoneActionLabel;
   final VoidCallback? onAllDoneAction;
+  final String stockNote;
 
   const _Header({
     required this.summary,
@@ -161,6 +166,7 @@ class _Header extends StatelessWidget {
     this.allDoneText,
     this.allDoneActionLabel,
     this.onAllDoneAction,
+    this.stockNote = '',
   });
 
   @override
@@ -329,6 +335,19 @@ class _Header extends StatelessWidget {
               ),
             ],
           ),
+          if (stockNote.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                stockNote,
+                key: const Key('result_stock_note'),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: CuttingColors.textPrimary,
+                ),
+              ),
+            ),
           if (totalWeightKg != null)
             Padding(
               padding: const EdgeInsets.only(top: 6),

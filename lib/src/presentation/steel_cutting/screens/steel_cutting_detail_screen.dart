@@ -2455,12 +2455,37 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                 collapsedSpecs: _resultFolded,
                 onToggleSpec: _toggleResultFold,
                 hideDoneLines: _hideDone,
+                stockNote: _stockNote(),
               ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  // 새 자재만으로 자를 때 몇 본이 드는지. 재단 최적화 창과 같은 계산(FFD)을 규격별로 돌려
+  // 본수를 더한다. 잔재는 넣지 않는다 — 잔재를 쓰면 창에서 더 줄어든다.
+  // 조각이 너무 많으면(수백 개) 계산을 건너뛰고 아무 글도 보여 주지 않는다.
+  String _stockNote() {
+    if (_stockLength <= 0) return '';
+    final byShape = _collectPiecesByShape();
+    var pieces = 0;
+    for (final list in byShape.values) {
+      pieces += list.length;
+    }
+    if (pieces == 0 || pieces > 400) return '';
+    var bars = 0;
+    for (final list in byShape.values) {
+      final r = optimizeCutting(
+        pieces: list,
+        stockLength: _stockLength,
+        kerf: _bladeKerf,
+      );
+      bars += r.barCount;
+    }
+    if (bars == 0) return '';
+    return "새 자재 ${fmtMm(_stockLength)} $bars본";
   }
 
   // 결과 탭 제목줄 아래의 켜고 끄는 칩(다 자른 규격 접기 · 자른 줄 감추기 · 무게 큰 규격부터).
