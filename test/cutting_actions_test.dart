@@ -73,7 +73,7 @@ void main() {
       final a = tester.getRect(find.byKey(const Key('btn_재단 최적화')));
       final b = tester.getRect(find.byKey(const Key('btn_PDF 공유')));
       expect(a.width >= 44 && a.height >= 44, true);
-      expect(b.left - a.right >= 4 - 0.01, true);
+      expect(b.left - a.right >= 3 - 0.01, true);
     });
 
     testWidgets('길게 누르면 이름이 뜬다', (tester) async {

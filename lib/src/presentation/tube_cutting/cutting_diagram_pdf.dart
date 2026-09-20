@@ -8,6 +8,27 @@ import 'cutting_math.dart';
 // 같은 모양(세로선 위의 점, 구간 길이에 비례한 선, 누적 위치, 요약)으로 만든다.
 // 글꼴은 호출한 쪽 문서의 theme(한글 글꼴)을 그대로 쓴다.
 
+// 제목·요약·표를 한 덩어리로 묶는다. 묶은 덩어리는 쪽에 다 들어가지 않으면 통째로 다음 쪽으로 넘어가서,
+// 표 머리만 앞 쪽 맨 아래에 남고 행이 다음 쪽으로 넘어가는 일이 없다. 행이 [maxRows]개보다 많은 표는 한 쪽을
+// 넘을 수 있어서 묶지 않고 그대로 둔다(묶으면 쪽 수 초과 오류가 난다).
+List<pw.Widget> keepTogether(
+  List<pw.Widget> children, {
+  required int rows,
+  int maxRows = 14,
+}) {
+  if (children.isEmpty || rows > maxRows) return children;
+  // Column·Container는 쪽 경계에서 표를 따라 같이 갈라진다. Inseparable(canSpan 기본 false)은 통째로 한 쪽에
+  // 두고, 남은 자리가 모자라면 다음 쪽으로 넘긴다.
+  return [
+    pw.Inseparable(
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: children,
+      ),
+    ),
+  ];
+}
+
 const PdfColor _teal = PdfColor.fromInt(0xFF007580);
 const PdfColor _danger = PdfColor.fromInt(0xFFE0432B);
 const PdfColor _grey = PdfColor.fromInt(0xFFB0B7BF);

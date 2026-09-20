@@ -130,6 +130,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 결과 탭 아이콘 버튼은 처음 쓰는 동안 이름을 아래에 보여 주고, 한 번이라도 누르면 숨긴다.
   static const String _kIconsUsedKey = 'cutting_result_icons_used';
   bool _iconsUsed = true; // 읽어 오기 전에는 숨긴 상태로 시작해서 깜빡이지 않게 한다
+  // "?" 버튼으로 이름을 잠깐 다시 보는 중인지(저장하지 않는다. 아이콘을 쓰거나 다시 누르면 숨는다).
+  bool _labelsPinned = false;
 
   // 🚀 [4번 강화] 현장에 따라 인치로 측정하는 경우가 있어서 mm/in 단위를
   // 고를 수 있게 한다. 저장/계산은 항상 mm 기준이고, 사용자가 지금 고른
@@ -191,6 +193,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
 
   // 아이콘 버튼을 한 번이라도 쓰면 이름 표시를 끈다.
   void _markIconsUsed() {
+    if (_labelsPinned) setState(() => _labelsPinned = false);
     if (_iconsUsed) return;
     setState(() => _iconsUsed = true);
     SharedPreferences.getInstance()
@@ -380,7 +383,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       final fittingOrders = _fittingOrders();
       final List<pw.Widget> fittingWidgets = fittingOrders.isEmpty
           ? const []
-          : [
+          : keepTogether([
               pw.SizedBox(height: 20),
               pw.Text(
                 "필요한 부속",
@@ -412,7 +415,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                 alignment: pw.Alignment.centerRight,
                 child: pw.Text(fittingTableTotal(fittingOrders)),
               ),
-            ];
+            ], rows: fittingOrders.length);
 
       // 원자재 배치: 재단 최적화 화면과 같은 방식(저장해 둔 남은 토막 먼저 사용)으로 계산해서
       // 어느 원자재에서 어떤 길이를 자를지까지 지시서에 넣는다.
@@ -421,18 +424,23 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       final groups = _collectRequiredPiecesByTubeSize();
       // 라인 모양(배치도)을 지시서에도 그려 넣는다.
       final diagramData = _diagramData();
+      final diagramBody = buildDiagramPdfWidgets(
+        points: diagramData.$1,
+        segments: diagramData.$2,
+        setMultiplier: _setMultiplier,
+      );
+      // "배치도" 제목이 쪽 맨 아래에 혼자 남지 않게 첫 지점과 묶는다.
       final List<pw.Widget> diagramWidgets = [
-        pw.SizedBox(height: 20),
-        pw.Text(
-          "배치도",
-          style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
-        ),
-        pw.SizedBox(height: 8),
-        ...buildDiagramPdfWidgets(
-          points: diagramData.$1,
-          segments: diagramData.$2,
-          setMultiplier: _setMultiplier,
-        ),
+        ...keepTogether([
+          pw.SizedBox(height: 20),
+          pw.Text(
+            "배치도",
+            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 8),
+          if (diagramBody.isNotEmpty) diagramBody.first,
+        ], rows: 0),
+        ...diagramBody.skip(1),
       ];
       final List<pw.Widget> planWidgets = [];
       for (final e in groups.entries) {
@@ -453,37 +461,43 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                 kerf: _bladeKerf,
                 leftovers: groupLeftovers,
               );
-        planWidgets.addAll([
-          pw.SizedBox(height: 20),
-          pw.Text(
-            groups.length > 1 || e.key.isNotEmpty
-                ? "원자재 배치 - ${e.key.isEmpty ? '규격 미지정' : e.key}"
-                : "원자재 배치",
-            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
-          ),
-          pw.SizedBox(height: 4),
-          pw.Text(planSummary(r)),
-          pw.SizedBox(height: 6),
-          if (r.bars.isNotEmpty || r.leftoverBars.isNotEmpty)
-            pw.TableHelper.fromTextArray(
-              headers: kPlanHeaders,
-              data: planRows(r),
-              headerStyle: pw.TextStyle(
-                fontWeight: pw.FontWeight.bold,
-                font: koreanBold,
-              ),
-              cellStyle: pw.TextStyle(font: koreanFont),
-              headerDecoration: const pw.BoxDecoration(
-                color: PdfColors.grey300,
-              ),
-              cellAlignment: pw.Alignment.centerLeft,
-              border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
-            ),
-          if (r.oversizedPieces.isNotEmpty)
+        // 제목·요약·표를 한 덩어리로 묶어 쪽 경계에서 표 머리만 따로 남지 않게 한다.
+        planWidgets.addAll(
+          keepTogether([
+            pw.SizedBox(height: 20),
             pw.Text(
-              "원자재(${r.stockLength.toStringAsFixed(0)}mm)보다 길어 배치하지 못한 구간이 ${r.oversizedPieces.length}개 있습니다.",
+              groups.length > 1 || e.key.isNotEmpty
+                  ? "원자재 배치 - ${e.key.isEmpty ? '규격 미지정' : e.key}"
+                  : "원자재 배치",
+              style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
             ),
-        ]);
+            pw.SizedBox(height: 4),
+            pw.Text(planSummary(r)),
+            pw.SizedBox(height: 6),
+            if (r.bars.isNotEmpty || r.leftoverBars.isNotEmpty)
+              pw.TableHelper.fromTextArray(
+                headers: kPlanHeaders,
+                data: planRows(r),
+                headerStyle: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold,
+                  font: koreanBold,
+                ),
+                cellStyle: pw.TextStyle(font: koreanFont),
+                headerDecoration: const pw.BoxDecoration(
+                  color: PdfColors.grey300,
+                ),
+                cellAlignment: pw.Alignment.centerLeft,
+                border: pw.TableBorder.all(
+                  color: PdfColors.grey400,
+                  width: 0.5,
+                ),
+              ),
+            if (r.oversizedPieces.isNotEmpty)
+              pw.Text(
+                "원자재(${r.stockLength.toStringAsFixed(0)}mm)보다 길어 배치하지 못한 구간이 ${r.oversizedPieces.length}개 있습니다.",
+              ),
+          ], rows: r.bars.length + r.leftoverBars.length),
+        );
       }
 
       pdf.addPage(
@@ -2826,7 +2840,14 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               ),
               // 재단 최적화, PDF 만들어 공유, 카카오톡으로 글 보내기, 글로 복사. 길게 누르면 이름이 뜬다.
               CutActionBar(
-                showLabels: !_iconsUsed,
+                showLabels: !_iconsUsed || _labelsPinned,
+                // 처음 쓰기 전에는 이름이 이미 보이니 "?" 버튼을 두지 않는다.
+                onToggleLabels: _iconsUsed
+                    ? () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _labelsPinned = !_labelsPinned);
+                      }
+                    : null,
                 actions: [
                   CutActionSpec(
                     key: const Key('result_btn_optimize'),

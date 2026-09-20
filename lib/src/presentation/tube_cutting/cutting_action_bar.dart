@@ -152,11 +152,14 @@ class CutActionSpec {
 class CutActionBar extends StatelessWidget {
   final List<CutActionSpec> actions;
   final bool showLabels;
+  // 아이콘 이름을 다시 보고 싶을 때 누르는 작은 "?" 버튼의 동작. 없으면 "?" 버튼을 두지 않는다.
+  final VoidCallback? onToggleLabels;
 
   const CutActionBar({
     super.key,
     required this.actions,
     this.showLabels = false,
+    this.onToggleLabels,
   });
 
   static const double target = 46; // 누르는 영역(장갑 낀 손도 누를 수 있게)
@@ -166,9 +169,34 @@ class CutActionBar extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (onToggleLabels != null)
+          Padding(
+            padding: EdgeInsets.zero,
+            child: Tooltip(
+              message: showLabels ? '이름 숨기기' : '아이콘 이름 보기',
+              child: InkWell(
+                key: const Key('action_help'),
+                customBorder: const CircleBorder(),
+                onTap: onToggleLabels,
+                child: SizedBox(
+                  width: 26,
+                  height: target,
+                  child: Center(
+                    child: Icon(
+                      showLabels
+                          ? Icons.close_rounded
+                          : Icons.help_outline_rounded,
+                      size: 20,
+                      color: CuttingColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         for (final a in actions)
           Padding(
-            padding: const EdgeInsets.only(left: 4),
+            padding: const EdgeInsets.only(left: 3),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -192,7 +220,7 @@ class CutActionBar extends StatelessWidget {
                 ),
                 if (showLabels)
                   SizedBox(
-                    width: target + 4,
+                    width: target + 3,
                     child: Text(
                       a.label,
                       key: Key('action_label_${a.label}'),
