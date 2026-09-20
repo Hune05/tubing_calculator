@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/models/cutting_project_model.dart';
+import 'cutting_stock_deduct.dart';
 import 'cutting_theme.dart';
 
 // 🚀 [신규] 모바일/데스크톱 컷팅 작업 목록 화면이 공통으로 쓰는 Firestore
@@ -223,15 +225,24 @@ Future<void> deductCuttingProjectInventory({
   required BuildContext context,
   required String projectId,
   required String projectName,
+  String worker = '',
 }) async {
   final db = FirebaseFirestore.instance;
+  // 누가 차감했는지 기록에 남기려고, 안 넘겨 주면 폰에 적힌 이름을 쓴다.
+  var who = worker.trim();
+  if (who.isEmpty) {
+    try {
+      final p = await SharedPreferences.getInstance();
+      who = p.getString('user_real_name') ?? '';
+    } catch (_) {}
+  }
   final docRef = db.collection(kCuttingProjectsCollection).doc(projectId);
   final snap = await docRef.get();
   final materials = (snap.data()?['materials'] as List?) ?? [];
 
   if (materials.isEmpty) {
     if (context.mounted) {
-      showCuttingSnack(context, "차감할 새 사용량이 없습니다.", isError: true);
+      showCuttingSnack(context, "차감할 자재가 없습니다.", isError: true);
     }
     return;
   }
@@ -239,8 +250,8 @@ Future<void> deductCuttingProjectInventory({
   if (!context.mounted) return;
   final confirmed = await showCuttingConfirmDialog(
     context,
-    title: "재고 차감",
-    message: "'$projectName'에서 사용된 자재 ${materials.length}건을 창고 재고에서 차감하시겠습니까?",
+    title: "재고에서 차감하겠습니까?",
+    message: "'$projectName'에서 쓴 자재 ${materials.length}건을 창고 재고에서 뺍니다.",
     confirmLabel: "차감하기",
     icon: Icons.inventory_2_outlined,
   );
@@ -256,57 +267,79 @@ Future<void> deductCuttingProjectInventory({
   );
 
   try {
+    // 🚀 [고침] 예전에는 이름이 딱 맞는 재고가 없으면 수량이 음수인 자재를
+    // 새로 만들어 버렸다("임시 등록 (확인 필요)"). 그러면 창고에 없는 자재가
+    // −3본처럼 남아 재고가 엉킨다. 지금은 못 찾은 것은 그대로 두고 몇 건인지
+    // 알려 준다. 칸 이름(spec·minQty)과 기록 모양도 자재 화면과 맞췄다.
+    final takes = stockTakesFromMaterials(materials);
+    final done = <StockTake>[];
+    final missing = <StockTake>[];
     final batch = db.batch();
-    for (final mat in materials) {
-      final m = mat as Map;
-      final bool isTube = m['type'] == 'TUBE';
-      final int requiredQty = isTube
-          ? (((m['qty_mm'] as num? ?? 0)) / 6000).ceil()
-          : ((m['qty_ea'] as num? ?? 0)).toInt();
-      if (requiredQty <= 0) continue;
 
+    for (final take in takes) {
       final invSnap = await db
           .collection('inventory')
-          .where('name', isEqualTo: m['db_name'])
+          .where('name', isEqualTo: take.name)
           .limit(1)
           .get();
-      if (invSnap.docs.isNotEmpty) {
-        final doc = invSnap.docs.first;
-        batch.update(db.collection('inventory').doc(doc.id), {
-          'qty': (doc.data()['qty'] ?? 0) - requiredQty,
-        });
-      } else {
-        batch.set(db.collection('inventory').doc(), {
-          "name": m['db_name'],
-          "size": m['spec'] ?? "규격 확인 필요",
-          "category": m['type'],
-          "qty": -requiredQty,
-          "min_qty": 10,
-          "is_dead_stock": false,
-          "unit": isTube ? "본" : "EA",
-          "createdAt": FieldValue.serverTimestamp(),
-          "location": "임시 등록 (확인 필요)",
-        });
+
+      if (invSnap.docs.isEmpty) {
+        missing.add(take);
+        continue;
       }
+
+      final doc = invSnap.docs.first;
+      final data = doc.data();
+      final unit = (data['unit'] as String?) ?? take.unit;
+
+      batch.update(db.collection('inventory').doc(doc.id), {
+        'qty': FieldValue.increment(-take.qty),
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+
+      // 자재 기록은 불출과 같은 모양으로 남긴다(자재 화면에서 그대로 읽힌다).
       batch.set(db.collection('inventory_logs').doc(), {
-        "project_name": projectName,
-        "material_name": m['db_name'],
-        "deducted_qty": requiredQty,
-        "unit": isTube ? "본" : "EA",
-        "timestamp": FieldValue.serverTimestamp(),
+        'material_name': take.name,
+        'type': 'OUT',
+        'action': '컷팅 사용',
+        'qty': take.qty,
+        'unit': unit,
+        'worker_name': who,
+        'project_name': projectName,
+        'device': 'Mobile',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      done.add(take);
+    }
+
+    // 뺀 것만 지운다. 못 찾은 것은 남겨 둬서, 자재를 넣은 뒤 다시 뺄 수 있게 한다.
+    if (missing.isEmpty) {
+      batch.update(docRef, {'materials': []});
+    } else {
+      batch.update(docRef, {
+        'materials': [
+          for (final raw in materials)
+            if (raw is Map &&
+                missing.any(
+                  (m) => m.name == (raw['db_name'] ?? raw['name'] ?? ''),
+                ))
+              raw,
+        ],
       });
     }
-    batch.update(docRef, {'materials': []});
+
     await batch.commit();
 
+    final result = StockDeductResult(done: done, missing: missing);
     if (context.mounted) Navigator.pop(context);
     if (context.mounted) {
-      showCuttingSnack(context, "재고 차감 및 출고 기록 완료!");
+      showCuttingSnack(context, result.message, isError: !result.allDone);
     }
   } catch (e) {
     if (context.mounted) Navigator.pop(context);
     if (context.mounted) {
-      showCuttingSnack(context, "차감 실패: $e", isError: true);
+      showCuttingSnack(context, "차감하지 못했습니다: $e", isError: true);
     }
   }
 }

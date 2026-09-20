@@ -85,6 +85,13 @@ class MobileInventoryLogsPage extends StatelessWidget {
               // 🚀 [버그 해결 핵심] action과 type을 모두 읽어서 정확한 행동을 판별합니다.
               String rawType = data['type'] ?? "";
               String rawAction = data['action'] ?? "";
+              // 예전 컷팅 차감 기록은 type·action이 없고 deducted_qty만 있었다.
+              if (rawType.isEmpty &&
+                  rawAction.isEmpty &&
+                  data['deducted_qty'] != null) {
+                rawType = 'OUT';
+                rawAction = '컷팅 사용';
+              }
 
               String displayAction = "작업";
               Color actionColor = slate600;
@@ -131,7 +138,10 @@ class MobileInventoryLogsPage extends StatelessWidget {
                 displayQtyPrefix = "+";
               }
 
-              int qty = data['qty'] ?? 0;
+              // 예전 컷팅 차감 기록은 수량을 'deducted_qty'에 넣었다. 그대로 두면
+              // 기록 화면에 0으로 보이니 그 칸도 같이 읽는다.
+              int qty = ((data['qty'] ?? data['deducted_qty'] ?? 0) as num)
+                  .toInt();
               String unit = data['unit'] ?? "EA";
 
               return Container(

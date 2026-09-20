@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_stock_deduct.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -1099,38 +1100,36 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
       // (기존에는 자재 하나씩 개별적으로 await 하다가 중간에 실패하면 일부만 차감된 채
       //  isDeducted가 false로 남아, 재시도 시 이미 차감된 자재가 중복으로 또 차감되는 문제가 있었습니다.)
       final batch = _db.batch();
-      for (var mat in materials) {
-        int requiredQty = mat['type'] == 'TUBE'
-            ? ((mat['qty_mm'] as num) / 6000).ceil()
-            : (mat['qty_ea'] as num).toInt();
+      // 🚀 [고침] 예전에는 이름이 딱 맞는 재고가 없으면 수량이 음수인 자재를
+      // 새로 만들어 버려서(임시 등록) 창고에 없는 자재가 −3본처럼 남았다.
+      // 지금은 못 찾은 것은 그대로 두고 몇 건인지 알려 준다. 기록도 자재 화면과
+      // 같은 모양(불출·수량)으로 남긴다.
+      final takes = stockTakesFromMaterials(materials);
+      final missing = <StockTake>[];
+      for (final take in takes) {
         final snapshot = await _db
             .collection('inventory')
-            .where('name', isEqualTo: mat['db_name'])
+            .where('name', isEqualTo: take.name)
             .limit(1)
             .get();
-        if (snapshot.docs.isNotEmpty) {
-          final doc = snapshot.docs.first;
-          batch.update(_db.collection('inventory').doc(doc.id), {
-            'qty': (doc.data()['qty'] ?? 0) - requiredQty,
-          });
-        } else {
-          batch.set(_db.collection('inventory').doc(), {
-            "name": mat['db_name'],
-            "size": mat['spec'] ?? "규격 확인 필요",
-            "category": mat['type'],
-            "qty": -requiredQty,
-            "min_qty": 10,
-            "is_dead_stock": false,
-            "unit": mat['type'] == 'TUBE' ? "본" : "EA",
-            "createdAt": FieldValue.serverTimestamp(),
-            "location": "임시 등록 (확인 필요)",
-          });
+        if (snapshot.docs.isEmpty) {
+          missing.add(take);
+          continue;
         }
+        final doc = snapshot.docs.first;
+        final unit = (doc.data()['unit'] as String?) ?? take.unit;
+        batch.update(_db.collection('inventory').doc(doc.id), {
+          'qty': FieldValue.increment(-take.qty),
+          'lastUpdated': FieldValue.serverTimestamp(),
+        });
         batch.set(_db.collection('inventory_logs').doc(), {
+          "material_name": take.name,
+          "type": "OUT",
+          "action": "컷팅 사용",
+          "qty": take.qty,
+          "unit": unit,
           "project_name": project['name'],
-          "material_name": mat['db_name'],
-          "deducted_qty": requiredQty,
-          "unit": mat['type'] == 'TUBE' ? "본" : "EA",
+          "device": "PC",
           "timestamp": FieldValue.serverTimestamp(),
         });
       }
