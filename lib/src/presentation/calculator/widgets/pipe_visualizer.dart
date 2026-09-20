@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' as vmath;
+import 'package:tubing_calculator/src/presentation/calculator/widgets/pipe_path_points.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
@@ -615,34 +616,6 @@ class IsoPipePainter extends CustomPainter {
     return 40.0 + math.pow(realLength, 0.5) * 6.0;
   }
 
-  vmath.Vector3 _getAbsoluteDirection(double rot) {
-    if (rot == 0.0) return vmath.Vector3(0, 1, 0);
-    if (rot == 90.0) return vmath.Vector3(1, 0, 0);
-    if (rot == 180.0) return vmath.Vector3(0, -1, 0);
-    if (rot == 270.0) return vmath.Vector3(-1, 0, 0);
-    if (rot == 360.0) return vmath.Vector3(0, 0, 1);
-    if (rot == 450.0) return vmath.Vector3(0, 0, -1);
-    return vmath.Vector3(1, 0, 0);
-  }
-
-  vmath.Vector3 _getStartVector() {
-    switch (startDirection) {
-      case 'UP':
-        return vmath.Vector3(0, 1, 0);
-      case 'DOWN':
-        return vmath.Vector3(0, -1, 0);
-      case 'LEFT':
-        return vmath.Vector3(-1, 0, 0);
-      case 'FRONT':
-        return vmath.Vector3(0, 0, 1);
-      case 'BACK':
-        return vmath.Vector3(0, 0, -1);
-      case 'RIGHT':
-      default:
-        return vmath.Vector3(1, 0, 0);
-    }
-  }
-
   void _drawBlueprintGrid(Canvas canvas, Size size, double sf) {
     final minorPaint = Paint()
       ..color = isLightMode ? Colors.grey.shade200 : const Color(0xFF202A36)
@@ -676,11 +649,15 @@ class IsoPipePainter extends CustomPainter {
 
     _drawBlueprintGrid(canvas, size, sf);
 
-    List<vmath.Vector3> pts3D = [];
-    vmath.Vector3 currentPos = vmath.Vector3.zero();
-    pts3D.add(currentPos.clone());
-
-    vmath.Vector3 currentDir = _getStartVector();
+    // 🚀 [고침] 이 그림도 공간 걷기를 따로 한 벌 들고 있었다. 마킹 값과
+    // 같은 계산(pipePathPoints)을 쓴다. 꺾을 수 없는 방향일 때 아무 평면이나
+    // 골라 꺾어서, 만들 수 없는 형상을 그려 주던 것도 없앴다.
+    final List<vmath.Vector3> pts3D = pipePathPoints(
+      bendList,
+      startDir: startDirection,
+      visualLength: _getVisualLength,
+      tail: tailLength,
+    );
 
     List<int> internalMarkNums = [];
     int currentMarkNum = 1;
@@ -692,50 +669,6 @@ class IsoPipePainter extends CustomPainter {
         internalMarkNums.add(currentMarkNum);
         currentMarkNum++;
       }
-    }
-
-    for (int i = 0; i < bendList.length; i++) {
-      var bend = bendList[i];
-      double realL = (bend['length'] ?? 0).toDouble();
-      double angle = (bend['angle'] ?? 0).toDouble();
-      double rot = (bend['rotation'] ?? 0).toDouble();
-      double visL = _getVisualLength(realL);
-
-      currentPos += (currentDir * visL);
-      pts3D.add(currentPos.clone());
-
-      if (angle > 0) {
-        vmath.Vector3 targetDir = _getAbsoluteDirection(rot);
-        vmath.Vector3 bendAxis = currentDir.cross(targetDir);
-
-        if (bendAxis.length2 > 0.001) {
-          bendAxis.normalize();
-          vmath.Quaternion bendQuat = vmath.Quaternion.axisAngle(
-            bendAxis,
-            -angle * math.pi / 180.0,
-          );
-          currentDir = bendQuat.rotate(currentDir)..normalize();
-        } else {
-          if (currentDir.dot(targetDir) < -0.9) {
-            vmath.Vector3 fallback = vmath.Vector3(0, 0, 1);
-            if (currentDir.cross(fallback).length2 < 0.001) {
-              fallback = vmath.Vector3(0, 1, 0);
-            }
-            bendAxis = currentDir.cross(fallback)..normalize();
-            vmath.Quaternion bendQuat = vmath.Quaternion.axisAngle(
-              bendAxis,
-              -angle * math.pi / 180.0,
-            );
-            currentDir = bendQuat.rotate(currentDir)..normalize();
-          }
-        }
-      }
-    }
-
-    if (tailLength > 0) {
-      double visTail = _getVisualLength(tailLength);
-      currentPos += (currentDir * visTail);
-      pts3D.add(currentPos.clone());
     }
 
     vmath.Vector3 center3D = _calculateCenter(pts3D);
@@ -895,7 +828,8 @@ class IsoPipePainter extends CustomPainter {
     }
 
     vmath.Vector3 translatedEnd =
-        (currentPos + currentDir * (150.0 / scale)) - center3D;
+        (pathEndPoint(pts3D) + pathEndDirection(pts3D) * (150.0 / scale)) -
+        center3D;
     vmath.Vector3 pEndDir = cameraMatrix.transformed3(translatedEnd);
     Offset pEndDir2D = to2D(pEndDir);
     Offset pCurrentPos2D = to2D(projectedPts.last);
