@@ -52,6 +52,8 @@ Future<void> showCuttingOptimizationSheet(
   String deductedBarsSig = '',
   // 뺐을 때 그 본수 모양을 화면에 돌려준다(화면이 폰에 적어 둔다).
   void Function(String sig)? onStockDeducted,
+  // 잘못 뺐을 때 도로 넣는다. 돌려놓았으면 true.
+  Future<bool> Function(Map<String, int> barsBySpec)? onUndoDeductStock,
 }) async {
   final Map<String, List<double>> groups =
       (groupedPieces != null && groupedPieces.isNotEmpty)
@@ -396,6 +398,15 @@ Future<void> showCuttingOptimizationSheet(
               setSheetState(() => deductedSig = sig);
               onStockDeducted?.call(sig);
             },
+            onUndoDeductStock: onUndoDeductStock == null
+                ? null
+                : () async {
+                    final ok = await onUndoDeductStock(barsBySpec);
+                    if (ok) {
+                      setSheetState(() => deductedSig = '');
+                      onStockDeducted?.call('');
+                    }
+                  },
             onToggle: (v) => setSheetState(() {
               useLeftovers = v;
               leftoversSaved = false;
@@ -857,6 +868,7 @@ Widget _buildLeftoverCard({
   bool stockDeducted = false,
   Future<bool> Function(Map<String, int> barsBySpec)? onDeductStock,
   VoidCallback? onStockDeducted,
+  VoidCallback? onUndoDeductStock,
 }) {
   return Builder(
     builder: (context) => _tealTheme(
@@ -931,7 +943,7 @@ Widget _buildLeftoverCard({
                     child: const Text("잘랐습니다 (잔재 저장)"),
                   ),
                 if (onDeductStock != null)
-                  if (stockDeducted)
+                  if (stockDeducted) ...[
                     const Padding(
                       padding: EdgeInsets.symmetric(
                         horizontal: 8,
@@ -944,8 +956,14 @@ Widget _buildLeftoverCard({
                           color: CuttingColors.success,
                         ),
                       ),
-                    )
-                  else
+                    ),
+                    if (onUndoDeductStock != null)
+                      TextButton(
+                        key: const Key('stock_deduct_undo'),
+                        onPressed: onUndoDeductStock,
+                        child: const Text("되돌리기"),
+                      ),
+                  ] else
                     OutlinedButton(
                       key: const Key('stock_deduct'),
                       onPressed: barsBySpec.isEmpty

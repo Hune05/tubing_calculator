@@ -1,95 +1,57 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart'; // 🚀 ChangeNotifier를 위해 추가
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/data/machine_specs.dart';
 
+/// 태블릿·PC 화면이 쓰는 벤드 목록 보관함.
+/// 제원(반경·게인·테이크업 등)은 [MachineSpecs] 한 벌을 같이 본다 —
+/// 예전에는 폰 화면과 따로 들고 있어서, 폰에서 고친 제원이 여기 마킹에
+/// 반영되지 않았다.
 class BendDataManager extends ChangeNotifier {
-  // 🚀 ChangeNotifier 상속
-  // 싱글톤 패턴 적용
   static final BendDataManager _instance = BendDataManager._internal();
   factory BendDataManager() => _instance;
-  BendDataManager._internal();
+  BendDataManager._internal() {
+    _specs.addListener(notifyListeners);
+  }
+
+  final MachineSpecs _specs = MachineSpecs();
 
   List<Map<String, double>> bendList = [];
 
-  String _pipeSize = '1/2"';
-  String get pipeSize => _pipeSize;
+  String get pipeSize => _specs.pipeSize;
 
-  bool _startFit = false;
-  bool get startFit => _startFit;
-  set startFit(bool value) {
-    _startFit = value;
-    _saveCurrentState();
-    notifyListeners();
-  }
+  bool get startFit => _specs.startFit;
+  set startFit(bool value) => _specs.startFit = value;
 
-  bool _endFit = false;
-  bool get endFit => _endFit;
-  set endFit(bool value) {
-    _endFit = value;
-    _saveCurrentState();
-    notifyListeners();
-  }
+  bool get endFit => _specs.endFit;
+  set endFit(bool value) => _specs.endFit = value;
 
-  double _tail = 0.0;
-  double get tail => _tail;
-  set tail(double value) {
-    _tail = value;
-    _saveCurrentState();
-    notifyListeners();
-  }
+  double get tail => _specs.tail;
+  set tail(double value) => _specs.tail = value;
 
-  double _fittingDepth = 0.0;
-  double get fittingDepth => _fittingDepth;
-  set fittingDepth(double value) {
-    _fittingDepth = value;
-    _saveCurrentState();
-    notifyListeners();
-  }
+  double get fittingDepth => _specs.fittingDepth;
+  set fittingDepth(double value) => _specs.fittingDepth = value;
 
-  double _takeUp90 = 0.0;
-  double get takeUp90 => _takeUp90;
-  set takeUp90(double value) {
-    _takeUp90 = value;
-    _saveCurrentState();
-    notifyListeners();
-  }
+  double get takeUp90 => _specs.takeUp90;
+  set takeUp90(double value) => _specs.takeUp90 = value;
 
-  double _gain90 = 0.0;
-  double get gain90 => _gain90;
-  set gain90(double value) {
-    _gain90 = value;
-    _saveCurrentState();
-    notifyListeners();
-  }
+  double get gain90 => _specs.gain90;
+  set gain90(double value) => _specs.gain90 = value;
 
-  // 🚀 [추가] 실제 벤드 반경. 예전엔 이 필드가 아예 없어서
-  // MarkingPage가 반경 대신 takeUp90 값을 잘못 가져다 쓰고 있었다.
-  double _radius = 0.0;
-  double get radius => _radius;
-  set radius(double value) {
-    _radius = value;
-    _saveCurrentState();
-    notifyListeners();
-  }
+  double get radius => _specs.radius;
+  set radius(double value) => _specs.radius = value;
 
-  // 🚀 [추가] MobileBendDataManager에는 있지만 여기엔 없던 필드들.
-  // 지금 당장 MarkingPage가 쓰진 않지만, 나중에 데스크톱 쪽 설정 화면이
-  // 이 값들을 다루게 되면 저장/로드가 가능하도록 같이 채워둔다.
-  double _benderOffset = 0.0;
-  double get benderOffset => _benderOffset;
-  set benderOffset(double value) {
-    _benderOffset = value;
-    _saveCurrentState();
-    notifyListeners();
-  }
+  double get benderOffset => _specs.benderOffset;
+  set benderOffset(double value) => _specs.benderOffset = value;
 
-  double _springback = 0.0;
-  double get springback => _springback;
-  set springback(double value) {
-    _springback = value;
-    _saveCurrentState();
-    notifyListeners();
-  }
+  double get springback => _specs.springback;
+  set springback(double value) => _specs.springback = value;
+
+  // 톱날 손실(커프). 자를 때 톱날이 먹는 두께.
+  // 🚀 [고침] 폰 화면에는 있는데 태블릿·PC 쪽에는 칸이 없어서, 자를 길이에
+  // 톱날 두께가 빠진 채로 나왔다.
+  double get cutMargin => _specs.cutMargin;
+  set cutMargin(double value) => _specs.cutMargin = value;
 
   void updateSettings({
     String? pipeSize,
@@ -103,42 +65,24 @@ class BendDataManager extends ChangeNotifier {
     double? benderOffset,
     double? springback,
   }) {
-    if (pipeSize != null) _pipeSize = pipeSize;
-    if (startFit != null) _startFit = startFit;
-    if (endFit != null) _endFit = endFit;
-    if (tail != null) _tail = tail;
-    if (fittingDepth != null) _fittingDepth = fittingDepth;
-    if (takeUp90 != null) _takeUp90 = takeUp90;
-    if (gain90 != null) _gain90 = gain90;
-    if (radius != null) _radius = radius;
-    if (benderOffset != null) _benderOffset = benderOffset;
-    if (springback != null) _springback = springback;
-
-    // 🚀 [수정] 예전엔 여기서 저장 호출이 빠져 있어서, 이 함수로 바뀐 값이
-    // 화면엔 바로 보이지만 앱을 재시작하면 사라지는 버그가 있었다.
-    _saveCurrentState();
-    notifyListeners(); // 🚀 UI 즉각 반영 (방송)
+    _specs.update(
+      pipeSize: pipeSize,
+      startFit: startFit,
+      endFit: endFit,
+      tail: tail,
+      fittingDepth: fittingDepth,
+      takeUp90: takeUp90,
+      gain90: gain90,
+      radius: radius,
+      benderOffset: benderOffset,
+      springback: springback,
+    );
   }
 
   Future<void> loadSavedSettings() async {
+    await _specs.load();
+
     final prefs = await SharedPreferences.getInstance();
-
-    bool isInch = prefs.getBool('isInch') ?? false;
-    double tubeOD = prefs.getDouble('tubeOD') ?? (isInch ? 0.5 : 12.7);
-    _pipeSize = isInch ? '$tubeOD"' : '${tubeOD}mm';
-
-    _startFit = prefs.getBool('start_fit') ?? false;
-    _endFit = prefs.getBool('end_fit') ?? false;
-    _tail = prefs.getDouble('tail_length') ?? 0.0;
-
-    _fittingDepth = prefs.getDouble('fittingDepth') ?? 0.0;
-    _takeUp90 = prefs.getDouble('takeUp') ?? 0.0;
-    _gain90 = prefs.getDouble('gain') ?? 0.0;
-    // 🚀 [추가] 예전엔 반경/오프셋/스프링백을 아예 불러오지 않았다.
-    _radius = prefs.getDouble('bendRadius') ?? 0.0;
-    _benderOffset = prefs.getDouble('benderOffset') ?? 0.0;
-    _springback = prefs.getDouble('springback') ?? 0.0;
-
     final savedBends = prefs.getString('current_bend_list');
     if (savedBends != null) {
       try {
@@ -154,30 +98,14 @@ class BendDataManager extends ChangeNotifier {
       }
     }
 
-    notifyListeners(); // 🚀 로딩 끝난 후 화면 갱신 방송
+    notifyListeners();
   }
 
-  // 🚀 [수정] notifyListeners()를 이 안에서 더 이상 부르지 않는다.
-  // 예전엔 여기서만 불렀기 때문에, await 체인이 다 끝난 뒤에야(디스크 I/O
-  // 완료 후) 알림이 갔다 - 세터를 호출한 시점과 리스너가 반응하는 시점 사이에
-  // 지연이 생겼었다. 이제는 각 세터/메서드가 저장을 던져놓고 그 자리에서
-  // 바로 notifyListeners()를 불러서 UI가 즉시 반응한다.
   Future<void> _saveCurrentState() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    final jsonStr = jsonEncode(bendList);
-    await prefs.setString('current_bend_list', jsonStr);
-
-    await prefs.setBool('start_fit', _startFit);
-    await prefs.setBool('end_fit', _endFit);
-    await prefs.setDouble('tail_length', _tail);
-
-    await prefs.setDouble('fittingDepth', _fittingDepth);
-    await prefs.setDouble('takeUp', _takeUp90);
-    await prefs.setDouble('gain', _gain90);
-    await prefs.setDouble('bendRadius', _radius);
-    await prefs.setDouble('benderOffset', _benderOffset);
-    await prefs.setDouble('springback', _springback);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('current_bend_list', jsonEncode(bendList));
+    } catch (_) {}
   }
 
   void addBend(double length, double angle, double rotation) {

@@ -296,11 +296,23 @@ Future<void> deductCuttingProjectInventory({
     return;
   }
 
+  // 빼기 전에 불출로 이미 나가 있는 자재가 있으면 알려 준다(두 번 빼기 막기).
+  final stock = await loadStockInfo();
+  final takes = stockTakesFromMaterials(
+    materials,
+    barLengthByName: stock.barLengthByName,
+    unitByName: stock.unitByName,
+  );
+  final warning = doubleDeductWarning(takes, await loadOpenCheckouts());
+
   if (!context.mounted) return;
   final confirmed = await showCuttingConfirmDialog(
     context,
     title: "재고에서 차감하겠습니까?",
-    message: "'$projectName'에서 쓴 자재 ${materials.length}건을 창고 재고에서 뺍니다.",
+    message: warning.isEmpty
+        ? "'$projectName'에서 쓴 자재 ${materials.length}건을 창고 재고에서 뺍니다."
+        : "'$projectName'에서 쓴 자재 ${materials.length}건을 창고 재고에서 뺍니다."
+              "\n\n$warning",
     confirmLabel: "차감하기",
     icon: Icons.inventory_2_outlined,
   );
@@ -320,11 +332,6 @@ Future<void> deductCuttingProjectInventory({
     // 형강 화면까지 세 벌). 한 곳만 고치면 나머지가 어긋나므로 공용 함수
     // deductStockTakes 하나로 모았다. 재고에 없는 자재를 음수로 새로 만들지
     // 않고, 통신이 안 될 때 "재고에 없다"고 잘라 말하지 않는 것도 여기 들어 있다.
-    final barLengths = await loadBarLengths();
-    final takes = stockTakesFromMaterials(
-      materials,
-      barLengthByName: barLengths,
-    );
     final result = await deductStockTakes(
       takes,
       projectName: projectName,

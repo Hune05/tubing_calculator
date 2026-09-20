@@ -34,9 +34,13 @@ int barLengthOf(Map<String, dynamic>? data) {
 /// 튜브는 쓴 길이를 한 본 길이로 나눠 올림하고, 피팅은 개수를 그대로 쓴다.
 /// [barLengthByName]에 자재 이름별 한 본 길이가 있으면 그 길이로 나눈다
 /// (3m·8m짜리 원자재를 6m로 나누던 것을 막는다).
+/// [unitByName]에 자재를 세는 단위가 있으면 그 단위로 뺀다.
+/// 🚀 [고침] 창고에서 미터로 세는 자재도 무조건 본으로 뺐다. 6m 한 본을
+/// 쓰면 "2m"짜리 재고에서 2가 아니라 1이 빠져 재고가 안 맞았다.
 List<StockTake> stockTakesFromMaterials(
   List<dynamic> materials, {
   Map<String, int>? barLengthByName,
+  Map<String, String>? unitByName,
 }) {
   final out = <StockTake>[];
   for (final raw in materials) {
@@ -46,17 +50,28 @@ List<StockTake> stockTakesFromMaterials(
     final name = (m['db_name'] ?? m['name'] ?? '').toString().trim();
     if (name.isEmpty) continue;
 
-    final bar = barLengthByName?[name] ?? kTubeBarMm;
-    final int qty = isTube
-        ? _ceilDiv(((m['qty_mm'] as num?) ?? 0).round(), bar)
-        : ((m['qty_ea'] as num?) ?? 0).round();
+    final stockUnit = (unitByName?[name] ?? '').trim();
+    final mm = ((m['qty_mm'] as num?) ?? 0).round();
+
+    int qty;
+    String unit;
+    if (!isTube) {
+      qty = ((m['qty_ea'] as num?) ?? 0).round();
+      unit = stockUnit.isEmpty ? 'EA' : stockUnit;
+    } else if (stockUnit == 'm') {
+      qty = _ceilDiv(mm, 1000);
+      unit = 'm';
+    } else {
+      qty = _ceilDiv(mm, barLengthByName?[name] ?? kTubeBarMm);
+      unit = stockUnit.isEmpty ? '본' : stockUnit;
+    }
     if (qty <= 0) continue;
 
     out.add(
       StockTake(
         name: name,
         qty: qty,
-        unit: isTube ? '본' : 'EA',
+        unit: unit,
         spec: (m['spec'] ?? '').toString(),
       ),
     );
@@ -69,23 +84,74 @@ int _ceilDiv(int a, int b) {
   return (a + b - 1) ~/ b;
 }
 
-/// 창고 재고에 적힌 자재별 한 본 길이(mm)를 읽어 온다.
-/// 컷팅에서 "몇 본 드는지" 셀 때 쓴다. 적혀 있지 않은 자재는 빠지고,
-/// 그런 자재는 기본 6000mm로 센다.
-Future<Map<String, int>> loadBarLengths() async {
+/// 창고 재고에 적힌 자재별 한 본 길이(mm)와 세는 단위.
+class StockInfo {
+  /// 자재 이름 → 한 본 길이(mm). 적혀 있지 않은 자재는 빠진다(기본 6000).
+  final Map<String, int> barLengthByName;
+
+  /// 자재 이름 → 세는 단위(본·m·EA 등).
+  final Map<String, String> unitByName;
+
+  const StockInfo({
+    this.barLengthByName = const {},
+    this.unitByName = const {},
+  });
+}
+
+/// 창고 재고에서 한 본 길이와 세는 단위를 한 번에 읽어 온다.
+Future<StockInfo> loadStockInfo() async {
   try {
     final snap = await FirebaseFirestore.instance.collection('inventory').get();
-    final out = <String, int>{};
+    final bars = <String, int>{};
+    final units = <String, String>{};
     for (final d in snap.docs) {
       final name = (d.data()['name'] as String?)?.trim() ?? '';
+      if (name.isEmpty) continue;
       final len = (d.data()['barLengthMm'] as num?)?.toInt() ?? 0;
-      if (name.isEmpty || len <= 0) continue;
-      out[name] = len;
+      if (len > 0) bars[name] = len;
+      final unit = (d.data()['unit'] as String?)?.trim() ?? '';
+      if (unit.isNotEmpty) units[name] = unit;
+    }
+    return StockInfo(barLengthByName: bars, unitByName: units);
+  } catch (_) {
+    return const StockInfo();
+  }
+}
+
+/// 아직 반납하지 않은 불출 수량을 자재 이름별로 읽어 온다.
+/// 🚀 [고침] 창고에서 불출로 이미 빼 간 자재를 컷팅에서 또 빼면 재고가
+/// 두 번 줄어든다. 빼기 전에 이 목록을 보여 주고 사람이 판단하게 한다.
+Future<Map<String, int>> loadOpenCheckouts() async {
+  try {
+    final snap = await FirebaseFirestore.instance.collection('checkouts').get();
+    final out = <String, int>{};
+    for (final d in snap.docs) {
+      final name = (d.data()['itemName'] as String?)?.trim() ?? '';
+      final qty = (d.data()['checkoutQty'] as num?)?.toInt() ?? 0;
+      if (name.isEmpty || qty <= 0) continue;
+      out[name] = (out[name] ?? 0) + qty;
     }
     return out;
   } catch (_) {
     return const {};
   }
+}
+
+/// 뺄 자재 가운데 아직 불출 중인 것만 골라 알림 글을 만든다.
+/// 불출 중인 것이 없으면 빈 글을 돌려준다.
+String doubleDeductWarning(
+  List<StockTake> takes,
+  Map<String, int> openCheckouts,
+) {
+  final lines = <String>[];
+  for (final t in takes) {
+    final held = openCheckouts[t.name.trim()] ?? 0;
+    if (held > 0) lines.add("${t.name} $held${t.unit}");
+  }
+  if (lines.isEmpty) return '';
+  return "아래 자재는 불출로 이미 나가 있습니다.\n"
+      "${lines.join('\n')}\n"
+      "그 자재로 자른 것이면 여기서 또 빼면 재고가 두 번 줍니다.";
 }
 
 /// 차감 결과. 뺀 것과, 재고에 없어서 못 뺀 것을 나눠 알려 준다.
@@ -135,6 +201,70 @@ class StockDeductResult {
     }
     return "자재 ${done.length}건을 차감했습니다."
         " ${missing.length}건은 재고에 없어 그대로 뒀습니다.${tail.toString()}";
+  }
+}
+
+/// 방금 뺀 것을 도로 넣는다(잘못 눌렀을 때).
+/// 기록에는 반납으로 남겨서, 무엇이 왜 돌아왔는지 자재 기록에 보인다.
+Future<void> undoStockTakes(
+  List<StockTake> takes, {
+  required String projectName,
+  String worker = '',
+  String device = 'Mobile',
+  String action = '차감 되돌림',
+  String projectId = '',
+}) async {
+  final db = FirebaseFirestore.instance;
+
+  var who = worker.trim();
+  if (who.isEmpty) {
+    try {
+      final p = await SharedPreferences.getInstance();
+      who = p.getString('user_real_name') ?? '';
+    } catch (_) {}
+  }
+
+  final all = await db.collection('inventory').get();
+  final byName = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
+  for (final d in all.docs) {
+    final n = (d.data()['name'] as String?)?.trim() ?? '';
+    if (n.isEmpty || byName.containsKey(n)) continue;
+    byName[n] = d;
+  }
+
+  final batch = db.batch();
+  var any = false;
+  for (final take in takes) {
+    if (take.qty <= 0) continue;
+    final doc = byName[take.name.trim()];
+    if (doc == null) continue;
+    batch.update(db.collection('inventory').doc(doc.id), {
+      'qty': FieldValue.increment(take.qty),
+      'lastUpdated': FieldValue.serverTimestamp(),
+    });
+    batch.set(db.collection('inventory_logs').doc(), {
+      'material_name': take.name,
+      'type': 'IN',
+      'action': action,
+      'qty': take.qty,
+      'unit': (doc.data()['unit'] as String?) ?? take.unit,
+      'worker_name': who,
+      'project_name': projectName,
+      'project_id': projectId,
+      'device': device,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+    any = true;
+  }
+  if (!any) return;
+
+  if (all.metadata.isFromCache) {
+    unawaited(batch.commit().catchError((_) {}));
+  } else {
+    await batch.commit().timeout(
+      const Duration(seconds: 8),
+      onTimeout: () {},
+    );
   }
 }
 

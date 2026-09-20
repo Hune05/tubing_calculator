@@ -1,101 +1,56 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/data/machine_specs.dart';
 
+/// 폰 화면이 쓰는 벤드 목록 보관함.
+/// 제원(반경·게인·테이크업 등)은 [MachineSpecs] 한 벌을 태블릿·PC 화면과
+/// 같이 본다 — 예전에는 따로 들고 있어서 한쪽에서 고친 제원이 다른 쪽
+/// 마킹에 반영되지 않았다.
 class MobileBendDataManager extends ChangeNotifier {
   static final MobileBendDataManager _instance =
       MobileBendDataManager._internal();
   factory MobileBendDataManager() => _instance;
-  MobileBendDataManager._internal();
+  MobileBendDataManager._internal() {
+    _specs.addListener(notifyListeners);
+  }
+
+  final MachineSpecs _specs = MachineSpecs();
 
   List<Map<String, dynamic>> bendList = [];
 
-  String _pipeSize = '1/2"';
-  String get pipeSize => _pipeSize;
+  String get pipeSize => _specs.pipeSize;
 
-  bool _startFit = false;
-  bool get startFit => _startFit;
-  set startFit(bool value) {
-    _startFit = value;
-    _saveCurrentState();
-    notifyListeners();
-  }
+  bool get startFit => _specs.startFit;
+  set startFit(bool value) => _specs.startFit = value;
 
-  bool _endFit = false;
-  bool get endFit => _endFit;
-  set endFit(bool value) {
-    _endFit = value;
-    _saveCurrentState();
-    notifyListeners();
-  }
+  bool get endFit => _specs.endFit;
+  set endFit(bool value) => _specs.endFit = value;
 
-  double _tail = 0.0;
-  double get tail => _tail;
-  set tail(double value) {
-    _tail = value;
-    _saveCurrentState();
-    notifyListeners();
-  }
+  double get tail => _specs.tail;
+  set tail(double value) => _specs.tail = value;
 
-  // 🚀 핵심 제원들
-  double _fittingDepth = 0.0;
-  double get fittingDepth => _fittingDepth;
-  set fittingDepth(double value) {
-    _fittingDepth = value;
-    _saveCurrentState();
-    notifyListeners();
-  }
+  double get fittingDepth => _specs.fittingDepth;
+  set fittingDepth(double value) => _specs.fittingDepth = value;
 
-  double _takeUp90 = 0.0;
-  double get takeUp90 => _takeUp90;
-  set takeUp90(double value) {
-    _takeUp90 = value;
-    _saveCurrentState();
-    notifyListeners();
-  }
+  double get takeUp90 => _specs.takeUp90;
+  set takeUp90(double value) => _specs.takeUp90 = value;
 
-  double _gain90 = 0.0;
-  double get gain90 => _gain90;
-  set gain90(double value) {
-    _gain90 = value;
-    _saveCurrentState();
-    notifyListeners();
-  }
+  double get gain90 => _specs.gain90;
+  set gain90(double value) => _specs.gain90 = value;
 
-  double _radius = 0.0;
-  double get radius => _radius;
-  set radius(double value) {
-    _radius = value;
-    _saveCurrentState();
-    notifyListeners();
-  }
+  double get radius => _specs.radius;
+  set radius(double value) => _specs.radius = value;
 
-  double _benderOffset = 0.0;
-  double get benderOffset => _benderOffset;
-  set benderOffset(double value) {
-    _benderOffset = value;
-    _saveCurrentState();
-    notifyListeners();
-  }
+  double get benderOffset => _specs.benderOffset;
+  set benderOffset(double value) => _specs.benderOffset = value;
 
-  double _springback = 0.0;
-  double get springback => _springback;
-  set springback(double value) {
-    _springback = value;
-    _saveCurrentState();
-    notifyListeners();
-  }
+  double get springback => _specs.springback;
+  set springback(double value) => _specs.springback = value;
 
-  // 🚀 [추가] 톱날 손실(커프) 보정 - 전선관 계산기의 bladeKerf와 동일한
-  // 역할. 예전엔 설정 모델에 필드만 있고 입력창/계산 반영이 전혀 없던
-  // 미완성 기능이었다.
-  double _cutMargin = 0.0;
-  double get cutMargin => _cutMargin;
-  set cutMargin(double value) {
-    _cutMargin = value;
-    _saveCurrentState();
-    notifyListeners();
-  }
+  // 톱날 손실(커프). 자를 때 톱날이 먹는 두께.
+  double get cutMargin => _specs.cutMargin;
+  set cutMargin(double value) => _specs.cutMargin = value;
 
   // ===============================================
   // 새들(Saddle) & 오프셋(Offset) 마지막 입력값 기억 변수
@@ -172,37 +127,20 @@ class MobileBendDataManager extends ChangeNotifier {
     double? springback,
     double? cutMargin,
   }) {
-    if (takeUp90 != null) _takeUp90 = takeUp90;
-    if (fittingDepth != null) _fittingDepth = fittingDepth;
-    if (gain90 != null) _gain90 = gain90;
-    if (radius != null) _radius = radius;
-    if (benderOffset != null) _benderOffset = benderOffset;
-    if (springback != null) _springback = springback;
-    if (cutMargin != null) _cutMargin = cutMargin;
-
-    // 변수를 한 번에 다 바꾼 후, 마지막에 딱 1번만 저장 및 화면 갱신
-    _saveCurrentState();
-    notifyListeners();
+    _specs.update(
+      takeUp90: takeUp90,
+      fittingDepth: fittingDepth,
+      gain90: gain90,
+      radius: radius,
+      benderOffset: benderOffset,
+      springback: springback,
+      cutMargin: cutMargin,
+    );
   }
 
   Future<void> loadSavedSettings() async {
+    await _specs.load();
     final prefs = await SharedPreferences.getInstance();
-
-    bool isInch = prefs.getBool('isInch') ?? false;
-    double tubeOD = prefs.getDouble('tubeOD') ?? (isInch ? 0.5 : 12.7);
-    _pipeSize = isInch ? '$tubeOD"' : '${tubeOD}mm';
-
-    _startFit = prefs.getBool('start_fit') ?? false;
-    _endFit = prefs.getBool('end_fit') ?? false;
-    _tail = prefs.getDouble('tail_length') ?? 0.0;
-
-    _fittingDepth = prefs.getDouble('fittingDepth') ?? 0.0;
-    _takeUp90 = prefs.getDouble('takeUp') ?? 0.0;
-    _gain90 = prefs.getDouble('gain') ?? 0.0;
-    _radius = prefs.getDouble('bendRadius') ?? 0.0;
-    _benderOffset = prefs.getDouble('benderOffset') ?? 0.0;
-    _springback = prefs.getDouble('springback') ?? 0.0;
-    _cutMargin = prefs.getDouble('cutMargin') ?? 0.0;
 
     _saddleHeight = prefs.getDouble('saddleHeight') ?? 100.0;
     _saddleWidth = prefs.getDouble('saddleWidth') ?? 200.0;
@@ -237,18 +175,6 @@ class MobileBendDataManager extends ChangeNotifier {
     final jsonStr = jsonEncode(bendList);
 
     await prefs.setString('mobile_current_bend_list', jsonStr);
-    await prefs.setBool('start_fit', _startFit);
-    await prefs.setBool('end_fit', _endFit);
-    await prefs.setDouble('tail_length', _tail);
-
-    // 이 값들은 SettingsManager를 통해 저장되지만, 즉각적인 캐싱을 위해 남겨둠
-    await prefs.setDouble('fittingDepth', _fittingDepth);
-    await prefs.setDouble('takeUp', _takeUp90);
-    await prefs.setDouble('gain', _gain90);
-    await prefs.setDouble('bendRadius', _radius);
-    await prefs.setDouble('benderOffset', _benderOffset);
-    await prefs.setDouble('springback', _springback);
-    await prefs.setDouble('cutMargin', _cutMargin);
 
     await prefs.setDouble('saddleHeight', _saddleHeight);
     await prefs.setDouble('saddleWidth', _saddleWidth);

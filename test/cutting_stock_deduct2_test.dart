@@ -44,6 +44,60 @@ void main() {
     });
   });
 
+  group('세는 단위대로 뺀다', () {
+    test('미터로 세는 자재는 미터로 뺀다', () {
+      final takes = stockTakesFromMaterials(
+        [
+          {'db_name': '튜브 3/8"', 'type': 'TUBE', 'qty_mm': 6500},
+        ],
+        unitByName: {'튜브 3/8"': 'm'},
+      );
+      expect(takes.first.qty, 7); // 6.5m → 7m
+      expect(takes.first.unit, 'm');
+    });
+
+    test('본으로 세는 자재는 본으로 뺀다', () {
+      final takes = stockTakesFromMaterials(
+        [
+          {'db_name': '튜브 3/8"', 'type': 'TUBE', 'qty_mm': 6500},
+        ],
+        unitByName: {'튜브 3/8"': '본'},
+      );
+      expect(takes.first.qty, 2);
+      expect(takes.first.unit, '본');
+    });
+
+    test('단위를 모르면 예전처럼 본으로 뺀다', () {
+      final takes = stockTakesFromMaterials([
+        {'db_name': '튜브 3/8"', 'type': 'TUBE', 'qty_mm': 6500},
+      ]);
+      expect(takes.first.qty, 2);
+      expect(takes.first.unit, '본');
+    });
+
+    test('미터로 셀 때는 한 본 길이를 보지 않는다', () {
+      final takes = stockTakesFromMaterials(
+        [
+          {'db_name': '튜브 3/8"', 'type': 'TUBE', 'qty_mm': 6500},
+        ],
+        barLengthByName: {'튜브 3/8"': 3000},
+        unitByName: {'튜브 3/8"': 'm'},
+      );
+      expect(takes.first.qty, 7);
+    });
+
+    test('피팅은 창고 단위를 따라간다', () {
+      final takes = stockTakesFromMaterials(
+        [
+          {'db_name': '유니온', 'type': 'FITTING', 'qty_ea': 4},
+        ],
+        unitByName: {'유니온': '개'},
+      );
+      expect(takes.first.qty, 4);
+      expect(takes.first.unit, '개');
+    });
+  });
+
   group('차감 결과 알림 글', () {
     const t = StockTake(name: '튜브 3/8"', qty: 1, unit: '본');
 

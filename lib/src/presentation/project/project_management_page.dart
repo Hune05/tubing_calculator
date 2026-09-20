@@ -1098,10 +1098,11 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
       // 한 곳만 고치면 나머지가 어긋나므로 공용 함수 하나로 모았다.
       // 재고에 없는 자재를 음수로 새로 만들지 않고, 통신이 안 될 때
       // "재고에 없다"고 잘라 말하지 않는 것도 그 함수에 들어 있다.
-      final barLengths = await loadBarLengths();
+      final stock = await loadStockInfo();
       final takes = stockTakesFromMaterials(
         materials,
-        barLengthByName: barLengths,
+        barLengthByName: stock.barLengthByName,
+        unitByName: stock.unitByName,
       );
       final result = await deductStockTakes(
         takes,

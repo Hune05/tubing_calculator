@@ -236,10 +236,15 @@ class _MarkingPageState extends State<MarkingPage> {
               }
             }
 
-            // 꼬리는 엔진이 마지막 셋백을 빼고 더해 준다. 톱날 손실은 이 화면의
-            // 제원 저장소에 아직 칸이 없어서 빠져 있다(폰 화면에는 있다).
-            double totalCut = bendList.isEmpty ? 0.0 : pureCutLength;
-            double diffAfterLastMark = (totalCut - lastMarkingPoint) - radius;
+            // 꼬리는 엔진이 마지막 셋백을 빼고 더해 준다.
+            // 🚀 [고침] 톱날 손실(커프)이 이 화면에만 빠져 있었다. 폰 화면과
+            // 같이 자를 길이에 더한다. 마지막 마킹 뒤 남는 길이는 톱날이
+            // 먹는 두께와 상관없으므로 순수 길이로 잰다.
+            final double pureTotal = bendList.isEmpty ? 0.0 : pureCutLength;
+            final double totalCut = bendList.isEmpty
+                ? 0.0
+                : pureCutLength + dataManager.cutMargin;
+            double diffAfterLastMark = (pureTotal - lastMarkingPoint) - radius;
             if (diffAfterLastMark < 0) diffAfterLastMark = 0;
 
             return Column(

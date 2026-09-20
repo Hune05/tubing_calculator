@@ -733,6 +733,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       onLeftoversSaveUndone: _onLeftoversSaveUndone,
       leftoversAlreadySaved: _leftoversSaved,
       deductedBarsSig: _stockDeductedSig,
+      onUndoDeductStock: _undoDeductStock,
       onStockDeducted: (sig) {
         _stockDeductedSig = sig;
         SharedPreferences.getInstance()
@@ -762,10 +763,15 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     if (takes.isEmpty) return false;
 
     final lines = [for (final t in takes) "${t.name} ${t.qty}본"].join('\n');
+    // 불출로 이미 나가 있는 자재면 알려 준다(재고가 두 번 줄지 않게).
+    final warning = doubleDeductWarning(takes, await loadOpenCheckouts());
+    if (!mounted) return false;
     final ok = await showCuttingConfirmDialog(
       context,
       title: "재고에서 빼겠습니까?",
-      message: "$lines\n\n창고 재고에서 위 수량을 빼고 자재 기록에 남깁니다.",
+      message: warning.isEmpty
+          ? "$lines\n\n창고 재고에서 위 수량을 빼고 자재 기록에 남깁니다."
+          : "$lines\n\n창고 재고에서 위 수량을 빼고 자재 기록에 남깁니다.\n\n$warning",
       confirmLabel: "빼기",
       icon: Icons.inventory_2_outlined,
     );
@@ -784,6 +790,41 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     } catch (_) {
       if (!mounted) return false;
       showCuttingSnack(context, "재고에서 빼지 못했습니다.", isError: true);
+      return false;
+    }
+  }
+
+  /// 재단 계획 창에서 "되돌리기"를 눌렀을 때. 방금 뺀 본수를 도로 넣는다.
+  Future<bool> _undoDeductStock(Map<String, int> barsBySpec) async {
+    final takes = <StockTake>[
+      for (final e in barsBySpec.entries)
+        if (e.value > 0 && e.key.trim().isNotEmpty)
+          StockTake(name: e.key.trim(), qty: e.value, unit: '본'),
+    ];
+    if (takes.isEmpty) return false;
+
+    final lines = [for (final t in takes) "${t.name} ${t.qty}본"].join('\n');
+    final ok = await showCuttingConfirmDialog(
+      context,
+      title: "뺀 것을 도로 넣겠습니까?",
+      message: "$lines\n\n창고 재고에 위 수량을 도로 넣고 자재 기록에 남깁니다.",
+      confirmLabel: "도로 넣기",
+      icon: Icons.undo,
+    );
+    if (!ok) return false;
+
+    try {
+      await undoStockTakes(
+        takes,
+        projectName: '형강 컷팅 · ${widget.project.name}',
+        projectId: widget.project.id,
+      );
+      if (!mounted) return true;
+      showCuttingSnack(context, "재고에 도로 넣었습니다.");
+      return true;
+    } catch (_) {
+      if (!mounted) return false;
+      showCuttingSnack(context, "도로 넣지 못했습니다.", isError: true);
       return false;
     }
   }

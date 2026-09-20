@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:tubing_calculator/src/data/machine_specs.dart';
 
 import 'settings_manager.dart';
 
@@ -126,13 +127,31 @@ class AppSettingsController extends ChangeNotifier {
 
     _isLoaded = true;
     _loadingFuture = null;
+    _syncMachineSpecs();
     _applyWakelock();
     notifyListeners();
+  }
+
+  /// 벤더 제원을 마킹 화면이 보는 보관함에도 그대로 넣는다.
+  /// 🚀 [고침] 예전에는 설정을 저장해도 폰에 적히기만 하고, 이미 떠 있는
+  /// 마킹 화면은 옛 제원을 들고 있었다. 반경이나 게인이 바뀌면 마킹 자리가
+  /// 바뀌므로, 저장할 때 바로 같이 넣는다.
+  void _syncMachineSpecs() {
+    MachineSpecs().update(
+      radius: bendRadius,
+      takeUp90: takeUp,
+      gain90: gain,
+      springback: springback,
+      benderOffset: benderOffset,
+      fittingDepth: fittingDepth,
+      cutMargin: cutMargin,
+    );
   }
 
   /// 설정 탭에서 "저장" 버튼을 눌렀을 때 호출. 컨트롤러의 현재 필드값들을
   /// 그대로 영속 저장소(SettingsManager)에 기록하고, 구독자들에게 알린다.
   Future<void> save() async {
+    _syncMachineSpecs();
     await SettingsManager.saveSettings(
       isInch: isInch,
       useHaptic: useHaptic,

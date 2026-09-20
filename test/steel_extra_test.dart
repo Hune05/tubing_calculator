@@ -522,6 +522,27 @@ void main() {
       expect(find.text('재고에서 뺐습니다'), findsOneWidget);
     });
 
+    testWidgets('이미 뺐으면 되돌리기 단추가 같이 보인다', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'steel_stock_deducted_sp3': '앵글 40x40x3=1',
+      });
+      await open(tester);
+      await tester.tap(find.byKey(const Key('steel_btn_optimize')));
+      await tester.pumpAndSettle();
+      final undo = find.byKey(const Key('stock_deduct_undo'));
+      expect(undo, findsOneWidget);
+      await tester.ensureVisible(undo);
+      // 누르지는 않는다 — 실제 창고 재고를 건드리는 동작이다.
+    });
+
+    testWidgets('아직 안 뺐으면 되돌리기 단추가 없다', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await open(tester);
+      await tester.tap(find.byKey(const Key('steel_btn_optimize')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('stock_deduct_undo')), findsNothing);
+    });
+
     testWidgets('본수가 다르면 다시 뺄 수 있다', (tester) async {
       SharedPreferences.setMockInitialValues({
         'steel_stock_deducted_sp3': '앵글 40x40x3=9',
