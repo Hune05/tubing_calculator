@@ -17,7 +17,8 @@ import 'cutting_history_page.dart';
 import '../widgets/cutting_optimization_sheet.dart';
 import '../cutting_leftovers.dart'
     show loadLeftovers, loadMixLengths, kTubeMixPrefsKey;
-import '../cutting_math.dart' show cutLengthMm;
+import '../cutting_math.dart'
+    show cutBreakdownText, cutLengthMm, parseLengthInput;
 import '../cutting_optimizer.dart';
 import '../cutting_plan_rows.dart';
 import '../cutting_theme.dart';
@@ -47,6 +48,9 @@ class CutPoint {
   // 필드로 자동으로 넘어가도록 포커스 체인을 걸기 위한 노드.
   final FocusNode c2cFocusNode = FocusNode();
   double calculatedCut;
+  // 길이 칸의 글자를 숫자로 읽지 못했는지, 읽은 길이(mm).
+  bool unreadable = false;
+  double c2cMm = 0.0;
 
   CutPoint({required this.fitting})
     : c2cController = TextEditingController(),
@@ -247,7 +251,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     final List<int> visibleIndices = [];
     for (int i = 0; i < _points.length - 1; i++) {
       if (_points[i].c2cController.text.isEmpty) continue;
-      if (_points[i].calculatedCut < 0) continue;
+      if (_points[i].calculatedCut <= 0) continue;
       visibleIndices.add(i);
     }
     if (visibleIndices.isEmpty) {
@@ -536,15 +540,20 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   void _calculate() {
     setState(() {
       for (int i = 0; i < _points.length - 1; i++) {
-        if (_points[i].c2cController.text.trim().isEmpty) {
+        final parsed = parseLengthInput(_points[i].c2cController.text);
+        _points[i].unreadable = parsed.unreadable;
+        if (parsed.value == null) {
+          // 비었거나 숫자로 읽지 못한 칸은 계산에서 뺀다(예전에는 못 읽으면 조용히 0으로 계산했다).
           _points[i].calculatedCut = 0.0;
+          _points[i].c2cMm = 0.0;
           continue;
         }
 
-        double c2cRaw = double.tryParse(_points[i].c2cController.text) ?? 0.0;
+        final double c2cRaw = parsed.value!;
         // 🚀 [4번 강화] 공제값(deduction)은 항상 mm 기준(부속 DB)이라,
         // 입력값이 인치 모드면 계산 전에 먼저 mm로 환산한다. 계산/저장/
         // PDF/재단 최적화 등 이후 모든 로직은 계속 mm만 다루면 된다.
+        _points[i].c2cMm = _lengthUnit == 'in' ? c2cRaw * kInchToMm : c2cRaw;
         _points[i].calculatedCut = cutLengthMm(
           c2cInput: c2cRaw,
           inputIsInch: _lengthUnit == 'in',
@@ -2015,6 +2024,129 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
 
   // 🚀 [추가] 좁은 화면(폰/폴더블 접힘) - 좌우로 욱여넣는 대신 탭으로
   // 나눠서 한 화면에 한 섹션씩 전체 폭을 다 쓰게 한다.
+  // 세트 수(× N SET) 조절. 입력 탭 아래 요약 줄과 결과 탭이 같은 값을 함께 쓴다.
+  Widget _buildSetStepper() {
+    return Container(
+      decoration: BoxDecoration(
+        color: whiteCard,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: makitaTeal),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            key: const Key('set_minus'),
+            icon: const Icon(Icons.remove, color: makitaTeal),
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              setState(() {
+                if (_setMultiplier > 1) {
+                  _setMultiplier--;
+                  _saveDraftState();
+                }
+              });
+            },
+          ),
+          Text(
+            "$_setMultiplier SET",
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: textPrimary,
+            ),
+          ),
+          IconButton(
+            key: const Key('set_plus'),
+            icon: const Icon(Icons.add, color: makitaTeal),
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              setState(() {
+                _setMultiplier++;
+                _saveDraftState();
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 입력 탭 맨 아래 요약: 지금 입력한 구간 수와 합계 길이, 세트 수 조절, 재단 최적화 바로가기.
+  // 계산된 구간이 하나도 없으면 보이지 않는다. 원자재 본수는 넣지 않았다 — 재단 최적화 화면은
+  // 남은 토막·섞어 쓰기 설정에 따라 값이 달라져서, 여기 숫자와 어긋날 수 있기 때문이다.
+  Widget _buildInputSummaryBar() {
+    // 키보드가 올라와 있을 때는 숨긴다(입력칸이 보일 자리를 남기기 위해).
+    if (MediaQuery.of(context).viewInsets.bottom > 0) {
+      return const SizedBox.shrink();
+    }
+    final cuts = <double>[
+      for (int i = 0; i < _points.length - 1; i++)
+        if (_points[i].c2cController.text.trim().isNotEmpty &&
+            !_points[i].unreadable &&
+            _points[i].calculatedCut > 0)
+          _points[i].calculatedCut,
+    ];
+    if (cuts.isEmpty) return const SizedBox.shrink();
+    final oneSet = cuts.fold(0.0, (a, b) => a + b);
+    final total = oneSet * _setMultiplier;
+    return Container(
+      key: const Key('input_summary_bar'),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      decoration: BoxDecoration(
+        color: whiteCard,
+        border: Border(top: BorderSide(color: Colors.grey.shade300)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            "구간 ${cuts.length}개 · 합계 ${total.toStringAsFixed(1)}mm",
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: textPrimary,
+            ),
+          ),
+          if (_setMultiplier > 1)
+            Text(
+              "1세트 ${oneSet.toStringAsFixed(1)}mm × $_setMultiplier세트",
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _buildSetStepper(),
+              OutlinedButton.icon(
+                onPressed: _showOptimizationDialog,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: makitaTeal,
+                  side: const BorderSide(color: makitaTeal),
+                ),
+                icon: const Icon(Icons.view_column_outlined, size: 18),
+                label: const Text("재단 최적화"),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPointListPane() {
+    return Column(
+      children: [
+        Expanded(child: _buildPointListPaneBody()),
+        _buildInputSummaryBar(),
+      ],
+    );
+  }
+
   Widget _buildNarrowBody() {
     return Expanded(
       child: Column(
@@ -2052,7 +2184,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 추가" 버튼이 한 줄에 다 몰려 있어서, 화면이 좁으면 제목이 줄바꿈되며
   // 버튼들과 균형이 깨졌다. 제목/부제를 세로로 분리해 위계를 주고,
   // "포인트 추가"는 엄지로 누르기 쉬운 전체 폭 버튼으로 아래에 뒀다.
-  Widget _buildPointListPane() {
+  Widget _buildPointListPaneBody() {
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
@@ -2495,8 +2627,11 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             ),
           ),
           const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
               Row(
                 mainAxisSize: MainAxisSize.min,
@@ -2520,48 +2655,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                   ),
                 ],
               ),
-              Container(
-                decoration: BoxDecoration(
-                  color: whiteCard,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: makitaTeal),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.remove, color: makitaTeal),
-                      onPressed: () {
-                        HapticFeedback.selectionClick();
-                        setState(() {
-                          if (_setMultiplier > 1) {
-                            _setMultiplier--;
-                            _saveDraftState();
-                          }
-                        });
-                      },
-                    ),
-                    Text(
-                      "$_setMultiplier SET",
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: textPrimary,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.add, color: makitaTeal),
-                      onPressed: () {
-                        HapticFeedback.selectionClick();
-                        setState(() {
-                          _setMultiplier++;
-                          _saveDraftState();
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
+              _buildSetStepper(),
             ],
           ),
           const SizedBox(height: 10),
@@ -3014,6 +3108,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
 
   Widget _buildLengthInputCard(int index) {
     bool hasInput = _points[index].c2cController.text.trim().isNotEmpty;
+    final bool unreadable = hasInput && _points[index].unreadable;
     bool isInterference = hasInput && _points[index].calculatedCut < 0;
     bool isSuspiciouslyShort =
         hasInput &&
@@ -3116,16 +3211,18 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide(
-                              color: isInterference
+                              color: (isInterference || unreadable)
                                   ? Colors.red
                                   : Colors.grey.shade300,
-                              width: isInterference ? 2 : 1,
+                              width: (isInterference || unreadable) ? 2 : 1,
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide(
-                              color: isInterference ? Colors.red : makitaTeal,
+                              color: (isInterference || unreadable)
+                                  ? Colors.red
+                                  : makitaTeal,
                               width: 2,
                             ),
                           ),
@@ -3205,6 +3302,52 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                     ),
                 ],
               ),
+              // 어떻게 나온 절단 길이인지(중심 간 거리 − 양쪽 공제값) 바로 보여 준다.
+              if (hasInput &&
+                  !unreadable &&
+                  !isInterference &&
+                  _points[index].calculatedCut > 0)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, left: 4),
+                  child: Text(
+                    cutBreakdownText(
+                      c2cMm: _points[index].c2cMm,
+                      startDeduction: startItem.deduction,
+                      endDeduction: endItem.deduction,
+                    ),
+                    key: Key('cut_breakdown_$index'),
+                    style: const TextStyle(
+                      color: makitaTeal,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              if (unreadable)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, left: 4),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        color: Colors.red,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          "숫자로 읽을 수 없습니다. 예: 1200 또는 1200.5",
+                          key: Key('unreadable_$index'),
+                          style: TextStyle(
+                            color: Colors.red.shade700,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               if (isInterference)
                 Padding(
                   padding: const EdgeInsets.only(top: 4, left: 4),
@@ -3432,12 +3575,18 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                   color: Colors.grey.shade600,
                 ),
               ),
-              Text(
-                totalValue,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.redAccent,
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    totalValue,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.redAccent,
+                    ),
+                  ),
                 ),
               ),
             ],
