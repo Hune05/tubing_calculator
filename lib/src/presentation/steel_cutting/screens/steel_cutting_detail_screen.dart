@@ -20,6 +20,7 @@ import '../../tube_cutting/cutting_diagram_pdf.dart' show keepTogether;
 import '../../tube_cutting/cutting_leftovers.dart';
 import '../../tube_cutting/cutting_math.dart' show fmtMm;
 import '../../tube_cutting/cutting_optimizer.dart';
+import '../../tube_cutting/cutting_pending_banner.dart';
 import '../../tube_cutting/cutting_plan_rows.dart';
 import '../../tube_cutting/cutting_result_logic.dart';
 import '../../tube_cutting/cutting_result_view.dart';
@@ -68,6 +69,10 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   // 결과 탭에서 접어 둔 규격(입력 탭 접기와 따로 기억한다 — 입력은 고치는 중, 결과는 자르는 중이다).
   final Set<String> _resultFolded = {};
   String get _resultFoldedKey => 'steel_result_folded_${widget.project.id}';
+  // 이 작업의 저장이 아직 서버로 못 올라갔는지(통신 없는 현장에서 쓴 것이 남아 있는지).
+  bool _pendingSave = false;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _pendingWatch;
+
   // 재단 최적화에서 "여러 길이 섞어 쓰기"로 고른 가장 긴 원자재(0이면 안 씀). 긴 항목 경고 기준에 쓴다.
   double _mixMax = 0;
   // 카드에서 개수를 바꾸면 화면은 바로 고치고, 저장(과 변경 기록)은 손을 뗀 뒤 한 번만 한다.
@@ -125,6 +130,21 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     _loadHideDone();
     _loadCollapsed();
     _loadMixMax();
+    _watchPending();
+  }
+
+  // 통신이 없어 못 올라간 저장이 있으면 입력 탭 위에 알려 준다.
+  void _watchPending() {
+    try {
+      _pendingWatch = _docRef.snapshots(includeMetadataChanges: true).listen((
+        snap,
+      ) {
+        final p = snap.metadata.hasPendingWrites;
+        if (mounted && p != _pendingSave) {
+          setState(() => _pendingSave = p);
+        }
+      }, onError: (_) {});
+    } catch (_) {}
   }
 
   Future<void> _loadCollapsed() async {
@@ -376,6 +396,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
 
   @override
   void dispose() {
+    _pendingWatch?.cancel();
     if (_qtyTimers.isNotEmpty) {
       for (final t in _qtyTimers.values) {
         t.cancel();
@@ -1055,6 +1076,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     final over = overLengthItems(_items, _maxStock);
     final mergeGroups = findMergeGroups(_items);
     final rows = <Widget>[
+      if (_pendingSave) const PendingWritesBanner(count: 1),
       if (_specFilter.isNotEmpty) _buildSpecFilterBanner(),
       if (over.isNotEmpty) _buildOverBanner(over.length),
       if (mergeGroups.isNotEmpty) _buildMergeBanner(mergeGroups.length),

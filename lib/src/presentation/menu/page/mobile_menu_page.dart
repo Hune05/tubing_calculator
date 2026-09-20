@@ -64,7 +64,11 @@ class MobileMenuPage extends StatefulWidget {
   State<MobileMenuPage> createState() => _MobileMenuPageState();
 }
 
-class _MobileMenuPageState extends State<MobileMenuPage> {
+class _MobileMenuPageState extends State<MobileMenuPage>
+    with WidgetsBindingObserver {
+  // 🚀 [통신 없는 현장] 날씨를 못 불러왔는지. 못 불러오면 "동기화 중..."에 머물지 않고
+  // 다시 부를 수 있게 알려 준다.
+  bool _weatherFailed = false;
   // 🚀 [신규] "내 일정 관리" 메뉴 버튼에 "오늘 N건" 배지를 보여주기 위한
   // 오늘 미완료 일정 개수 - 프로젝트 일정 + 개인 일정(반복 포함)을 합산.
   int? _todayScheduleCount;
@@ -86,8 +90,24 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchDetailedWeather();
     _loadTodayScheduleCount();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // 앱을 다시 볼 때 날씨를 못 불러왔으면 한 번 더 시도한다(현장을 나와 통신이 잡히면
+  // 대개 이때 갱신된다). 주기적으로 계속 부르지는 않는다 — 배터리와 데이터만 먹는다.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _weatherFailed) {
+      _fetchDetailedWeather();
+    }
   }
 
   Future<void> _loadTodayScheduleCount() async {
@@ -200,11 +220,12 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
         'https://api.openweathermap.org/data/2.5/forecast?lat=$lat&lon=$lon&appid=$apiKey&units=metric&lang=kr',
       );
 
+      // 통신이 없으면 응답이 오지 않으므로 오래 기다리지 않는다.
       final responses = await Future.wait([
         http.get(weatherUrl),
         http.get(airUrl),
         http.get(forecastUrl),
-      ]);
+      ]).timeout(const Duration(seconds: 8));
 
       if (responses[0].statusCode == 200 &&
           responses[1].statusCode == 200 &&
@@ -274,7 +295,10 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
 
   void _setFallback() {
     if (mounted) {
-      setState(() => _isWeatherLoaded = true);
+      setState(() {
+        _isWeatherLoaded = true;
+        _weatherFailed = true;
+      });
     }
   }
 
@@ -852,6 +876,52 @@ class _MobileMenuPageState extends State<MobileMenuPage> {
       return const Text(
         "날씨 정보 동기화 중...",
         style: TextStyle(color: slate600, fontSize: 12),
+      );
+    }
+    // 통신이 없어 못 불러온 경우: 눌러서 다시 부를 수 있게 한다.
+    if (_weatherFailed) {
+      return InkWell(
+        onTap: () {
+          setState(() {
+            _isWeatherLoaded = false;
+            _weatherFailed = false;
+          });
+          _fetchDetailedWeather();
+        },
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.refresh_rounded, size: 14, color: slate600),
+            SizedBox(width: 4),
+            Text(
+              "날씨를 불러오지 못했습니다. 누르면 다시 불러옵니다.",
+              style: TextStyle(color: slate600, fontSize: 12),
+            ),
+          ],
+        ),
+      );
+    }
+    // 통신이 없어 못 불러온 경우: 눌러서 다시 부를 수 있게 한다.
+    if (_weatherFailed) {
+      return InkWell(
+        onTap: () {
+          setState(() {
+            _isWeatherLoaded = false;
+            _weatherFailed = false;
+          });
+          _fetchDetailedWeather();
+        },
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.refresh_rounded, size: 14, color: slate600),
+            SizedBox(width: 4),
+            Text(
+              "날씨를 불러오지 못했습니다. 누르면 다시 불러옵니다.",
+              style: TextStyle(color: slate600, fontSize: 12),
+            ),
+          ],
+        ),
       );
     }
     // 🚀 [삭제] 위에 있던 인사말 제목이 없어진 뒤로는 이 top 여백이

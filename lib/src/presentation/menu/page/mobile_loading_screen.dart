@@ -29,6 +29,11 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
     // 🔥 앱 켜지자마자 바로 로그인 상태 체크 시작
     _checkLoginStatusAndRoute();
 
+    // 🚀 [통신 없는 현장] 발전소처럼 통신이 안 되는 곳에서는 토큰 저장·구글 로그인이
+    // 응답 없이 오래 걸려서 이 화면에 갇혔다. 어떤 이유로든 8초 안에 못 넘어가면
+    // 저장된 이름(없으면 게스트)으로 그냥 들어간다.
+    Future.delayed(const Duration(seconds: 8), () => _goOnce(_fallbackName));
+
     // 🔥 토큰이 앱 사용 중 자동으로 갱신될 때를 대비한 리스너
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
       final prefs = await SharedPreferences.getInstance();
@@ -46,7 +51,10 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
   Future<void> _saveUserToken(String userName) async {
     if (userName == "로그인 필요") return;
     try {
-      String? token = await FirebaseMessaging.instance.getToken();
+      String? token = await FirebaseMessaging.instance.getToken().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => null,
+      );
       if (token != null) {
         await FirebaseFirestore.instance.collection('users').doc(userName).set({
           'fcmToken': token,
@@ -59,6 +67,16 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
     }
   }
 
+  // 이 화면을 떠나는 길은 하나뿐이게 한다(안전망과 겹쳐 두 번 넘어가지 않게).
+  bool _routed = false;
+  String _fallbackName = "로그인 필요";
+
+  void _goOnce(String name) {
+    if (_routed || !mounted) return;
+    _routed = true;
+    _navigateToMainMenu(name);
+  }
+
   Future<void> _checkLoginStatusAndRoute() async {
     try {
       // 1. 스플래시 화면(로고)을 최소 1.5초간 보여주기 위함
@@ -69,8 +87,11 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
       String? savedName = prefs.getString('user_real_name');
 
       if (savedName != null && savedName.isNotEmpty) {
-        await _saveUserToken(savedName); // 🔥 자동 로그인 성공 시 토큰 갱신
-        if (mounted) _navigateToMainMenu(savedName);
+        _fallbackName = savedName;
+        // 🚀 토큰 저장은 통신이 필요하다. 기다리면 통신 없는 현장에서 앱이 안 열리므로
+        // 화면을 먼저 넘기고 토큰은 뒤에서 올린다(통신되면 알아서 올라간다).
+        _goOnce(savedName);
+        _saveUserToken(savedName);
         return;
       }
 
@@ -80,8 +101,10 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
             '289974993415-lhibiid49ncmb5hev53hnasj7vhkvki3.apps.googleusercontent.com',
       );
 
-      final GoogleSignInAccount? account = await _googleSignIn
-          .attemptLightweightAuthentication();
+      // 통신이 없으면 응답이 오지 않으므로 오래 기다리지 않는다.
+      final GoogleSignInAccount? account = await (_googleSignIn
+          .attemptLightweightAuthentication()
+          ?.timeout(const Duration(seconds: 5), onTimeout: () => null));
 
       if (account != null) {
         final GoogleSignInAuthentication googleAuth = account.authentication;
@@ -96,15 +119,15 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
 
         await _saveUserToken(name); // 🔥 구글 자동 로그인 성공 시 토큰 갱신
 
-        if (mounted) _navigateToMainMenu(name);
+        _goOnce(name);
       } else {
         // 4. 정보가 아무것도 없으면? => 가두지 않고 '게스트'로 메인화면 통과!
-        if (mounted) _navigateToMainMenu("로그인 필요");
+        _goOnce(_fallbackName);
       }
     } catch (e) {
       debugPrint("🚨 자동 로그인 체크 에러: $e");
-      // 에러가 나더라도 무한 로딩에 빠지지 않도록 게스트로 넘깁니다.
-      if (mounted) _navigateToMainMenu("로그인 필요");
+      // 에러가 나더라도 무한 로딩에 빠지지 않도록 저장된 이름(없으면 게스트)으로 넘깁니다.
+      _goOnce(_fallbackName);
     }
   }
 
@@ -116,10 +139,9 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
         // 🚀 [수정] 폴더블 대응: 화면 크기를 실시간으로 반영하는
         // HomeMenuRouter를 거치도록 해서, 접힌 채로 앱을 켰다가 펼쳐도
         // (혹은 그 반대도) 그 순간의 화면에 맞는 홈 화면으로 즉시 전환된다.
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            HomeMenuRouter(
-              currentWorker: userName,
-            ), // 🔥 전달받은 이름 또는 "로그인 필요" 전달
+        pageBuilder: (context, animation, secondaryAnimation) => HomeMenuRouter(
+          currentWorker: userName,
+        ), // 🔥 전달받은 이름 또는 "로그인 필요" 전달
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },

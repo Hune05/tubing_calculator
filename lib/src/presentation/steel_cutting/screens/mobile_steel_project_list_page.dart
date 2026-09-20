@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../data/models/steel_cutting_project_model.dart';
+import '../../tube_cutting/cutting_pending_banner.dart';
 import '../../tube_cutting/cutting_theme.dart';
 import '../steel_weight.dart';
 import 'steel_cutting_detail_screen.dart';
@@ -348,7 +349,8 @@ class MobileSteelProjectListPage extends StatelessWidget {
           stream: FirebaseFirestore.instance
               .collection(kSteelCuttingProjectsCollection)
               .orderBy('createdAt', descending: true)
-              .snapshots(),
+              // 서버로 아직 못 올라간 저장이 있는지 알려면 메타데이터 변화도 받아야 한다.
+              .snapshots(includeMetadataChanges: true),
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               return Center(
@@ -405,11 +407,17 @@ class MobileSteelProjectListPage extends StatelessWidget {
               );
             }
 
+            final int pending = docs
+                .where((d) => d.metadata.hasPendingWrites)
+                .length;
+
             return ListView.builder(
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-              itemCount: docs.length,
-              itemBuilder: (context, index) {
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 100),
+              itemCount: docs.length + 1,
+              itemBuilder: (context, i) {
+                if (i == 0) return PendingWritesBanner(count: pending);
+                final index = i - 1;
                 final doc = docs[index];
                 final data = doc.data() as Map<String, dynamic>;
                 final project = SteelCuttingProject.fromMap(doc.id, data);
