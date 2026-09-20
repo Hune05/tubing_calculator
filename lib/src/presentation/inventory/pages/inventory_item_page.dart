@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../tube_cutting/cutting_pending_banner.dart';
 import '../../tube_cutting/cutting_theme.dart';
 import '../material_catalog.dart';
 import 'inventory_view_logic.dart';
@@ -46,7 +47,7 @@ class InventoryItemPage extends StatelessWidget {
           stream: FirebaseFirestore.instance
               .collection(kInventoryCollection)
               .doc(docId)
-              .snapshots(),
+              .snapshots(includeMetadataChanges: true),
           builder: (context, snap) {
             if (!snap.hasData) {
               return const Center(
@@ -65,7 +66,13 @@ class InventoryItemPage extends StatelessWidget {
                 ),
               );
             }
-            return _Body(docId: docId, workerName: workerName, data: data);
+            return _Body(
+              docId: docId,
+              workerName: workerName,
+              data: data,
+              // 통신이 없어 아직 서버로 못 올라간 고침이 있으면 알려 준다.
+              pending: snap.data!.metadata.hasPendingWrites ? 1 : 0,
+            );
           },
         ),
       ),
@@ -77,11 +84,13 @@ class _Body extends StatelessWidget {
   final String docId;
   final String workerName;
   final Map<String, dynamic> data;
+  final int pending;
 
   const _Body({
     required this.docId,
     required this.workerName,
     required this.data,
+    this.pending = 0,
   });
 
   String get _name => (data['name'] ?? '이름 없음').toString();
@@ -98,6 +107,11 @@ class _Body extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
       children: [
+        if (pending > 0)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: PendingWritesBanner(count: pending),
+          ),
         Text(
           _name,
           style: const TextStyle(

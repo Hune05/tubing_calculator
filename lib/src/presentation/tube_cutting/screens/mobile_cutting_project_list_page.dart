@@ -6,6 +6,7 @@ import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_main_screen.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_history_page.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_firestore_helper.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_pending_banner.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_theme.dart';
 import 'package:tubing_calculator/src/core/utils/db_seeder.dart';
 
@@ -413,7 +414,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
           stream: FirebaseFirestore.instance
               .collection(kCuttingProjectsCollection)
               .orderBy('createdAt', descending: true)
-              .snapshots(),
+              .snapshots(includeMetadataChanges: true),
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               return Center(
@@ -470,11 +471,18 @@ class MobileCuttingProjectListPage extends StatelessWidget {
               );
             }
 
+            // 통신 없는 곳에서 만든 작업이 아직 서버로 못 올라갔으면 알려 준다.
+            final pending = docs
+                .where((d) => d.metadata.hasPendingWrites)
+                .length;
+
             return ListView.builder(
               physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-              itemCount: docs.length,
-              itemBuilder: (context, index) {
+              itemCount: docs.length + 1,
+              itemBuilder: (context, i) {
+                if (i == 0) return PendingWritesBanner(count: pending);
+                final index = i - 1;
                 final doc = docs[index];
                 final data = doc.data() as Map<String, dynamic>;
                 final project = CuttingProject.fromMap(doc.id, data);

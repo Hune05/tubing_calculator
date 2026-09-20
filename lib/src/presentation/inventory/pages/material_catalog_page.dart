@@ -11,15 +11,18 @@ import 'material_catalog_store.dart';
 /// 창·시트·메뉴가 모두 밝은 테마를 따라간다(앱 기본값은 어두운 테마라서,
 /// 화면 안쪽에서 테마를 씌우면 창만 검게 뜬다).
 class MaterialCatalogPage extends StatelessWidget {
-  const MaterialCatalogPage({super.key});
+  // 누가 넣었는지 자재 기록에 남기기 위해 이름을 받는다.
+  final String workerName;
+  const MaterialCatalogPage({super.key, this.workerName = ''});
 
   @override
   Widget build(BuildContext context) =>
-      const CuttingTheme(child: _CatalogBody());
+      CuttingTheme(child: _CatalogBody(workerName: workerName));
 }
 
 class _CatalogBody extends StatefulWidget {
-  const _CatalogBody();
+  final String workerName;
+  const _CatalogBody({required this.workerName});
 
   @override
   State<_CatalogBody> createState() => _CatalogBodyState();
@@ -116,6 +119,7 @@ class _CatalogBodyState extends State<_CatalogBody> {
         items,
         maker: answer.maker,
         location: answer.place,
+        worker: widget.workerName,
       );
       await rememberMaker(answer.maker);
       if (!mounted) return;

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../tube_cutting/cutting_leftovers.dart';
+import '../../tube_cutting/cutting_pending_banner.dart';
 import '../../tube_cutting/cutting_theme.dart'
     show showCuttingConfirmDialog, showCuttingSnack;
 import '../../tube_cutting/widgets/leftover_log_page.dart';
@@ -93,7 +94,8 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const MaterialCatalogPage(),
+                    builder: (context) =>
+                        MaterialCatalogPage(workerName: widget.workerName),
                   ),
                 );
               },
@@ -247,13 +249,18 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
           child: _selectedCategory == kLeftoverCategory
               ? _buildLeftoverList()
               : StreamBuilder<QuerySnapshot>(
-                  stream: _inventoryDb.snapshots(),
+                  stream: _inventoryDb.snapshots(includeMetadataChanges: true),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) {
                       return const Center(
                         child: CircularProgressIndicator(color: slate300),
                       );
                     }
+
+                    // 아직 서버로 못 올라간 저장이 몇 건인지(통신 없는 곳에서 고친 것).
+                    final pending = snapshot.data!.docs
+                        .where((d) => d.metadata.hasPendingWrites)
+                        .length;
 
                     // 최소 수량 아래로 내려간 자재가 몇 개인지(칸을 가리지 않고 센다).
                     final shortCount = snapshot.data!.docs
@@ -278,6 +285,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                     if (filteredDocs.isEmpty) {
                       return Column(
                         children: [
+                          PendingWritesBanner(count: pending),
                           if (shortCount > 0) _shortBar(shortCount),
                           const Expanded(
                             child: Center(
@@ -297,6 +305,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
 
                     return Column(
                       children: [
+                        PendingWritesBanner(count: pending),
                         if (shortCount > 0) _shortBar(shortCount),
                         Expanded(child: _inventoryList(filteredDocs)),
                       ],

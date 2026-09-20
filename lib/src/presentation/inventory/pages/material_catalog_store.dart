@@ -71,6 +71,7 @@ Future<int> addCatalogItemsToInventory(
   List<CatalogItem> items, {
   String maker = '',
   String location = '',
+  String worker = '',
 }) async {
   var added = 0;
   for (final item in items) {
@@ -96,6 +97,20 @@ Future<int> addCatalogItemsToInventory(
       'catalogId': item.id,
       'createdAt': FieldValue.serverTimestamp(),
     });
+    // 누가 언제 재고에 넣었는지 자재 기록에도 남긴다(수량은 0이라 재고는 안 움직인다).
+    try {
+      await FirebaseFirestore.instance.collection('inventory_logs').add({
+        'material_name': item.name,
+        'action': '자재 등록',
+        'type': 'INIT',
+        'qty': 0,
+        'unit': item.unit,
+        'worker_name': worker,
+        'project_name': '자재 목록에서 넣음',
+        'device': 'Mobile',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {}
     added++;
   }
   return added;

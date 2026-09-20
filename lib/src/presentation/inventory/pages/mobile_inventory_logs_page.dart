@@ -92,11 +92,15 @@ class MobileInventoryLogsPage extends StatelessWidget {
               String displayQtyPrefix = "";
 
               // 1. 신규 등록 및 실사 조정인지 먼저 확인 (가장 우선순위)
-              if (rawAction.contains('신규') || rawAction.contains('추가')) {
-                displayAction = "신규 등록";
+              if (rawAction.contains('신규') ||
+                  rawAction.contains('추가') ||
+                  rawAction.contains('등록')) {
+                // 자재 목록에서 넣기만 한 것은 수량이 0이라 "+0"이 어색하다.
+                final justAdded = ((data['qty'] as num?)?.toInt() ?? 0) == 0;
+                displayAction = justAdded ? "자재 등록" : "신규 등록";
                 actionColor = Colors.blue.shade600;
                 actionIcon = LucideIcons.boxSelect;
-                displayQtyPrefix = "+";
+                displayQtyPrefix = justAdded ? "" : "+";
               } else if (rawAction.contains('실사') ||
                   rawAction.contains('수정') ||
                   rawAction.contains('조정')) {

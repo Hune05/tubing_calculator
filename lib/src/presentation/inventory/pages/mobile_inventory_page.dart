@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'dart:async';
 
+import '../../tube_cutting/cutting_pending_banner.dart';
 import '../../tube_cutting/cutting_theme.dart'
     show showCuttingConfirmDialog, showCuttingSnack;
 import '../material_catalog.dart' show materialCategoryLabel;
@@ -163,7 +164,8 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => const MaterialCatalogPage(),
+                builder: (context) =>
+                    MaterialCatalogPage(workerName: widget.workerName),
               ),
             ),
           ),
@@ -298,13 +300,17 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
 
   Widget _auditList() {
     return StreamBuilder<QuerySnapshot>(
-      stream: _inventoryDb.snapshots(),
+      stream: _inventoryDb.snapshots(includeMetadataChanges: true),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Center(
             child: CircularProgressIndicator(color: makitaTeal),
           );
         }
+
+        final pending = snapshot.data!.docs
+            .where((d) => d.metadata.hasPendingWrites)
+            .length;
 
         // 서버에 있는 자재 + 이 화면에서 새로 적은 자재를 한 목록으로 합친다.
         final dbDocs = snapshot.data!.docs.where(_matchesFilter).toList()
@@ -326,94 +332,112 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
 
         final total = dbDocs.length + localNew.length;
         if (total == 0) {
-          return Center(
-            child: Text(
-              _searchQuery.isEmpty ? "등록된 자재가 없습니다." : "찾는 자재가 없습니다.",
-              style: const TextStyle(
-                color: slate600,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+          return Column(
+            children: [
+              PendingWritesBanner(count: pending),
+              Expanded(child: _emptyNote()),
+            ],
           );
         }
 
-        return ListView.builder(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-          itemCount: total,
-          itemBuilder: (context, i) {
-            final isLocalNew = i >= dbDocs.length;
-            final String docId;
-            final String itemName;
-            final ItemData displayData;
+        return Column(
+          children: [
+            PendingWritesBanner(count: pending),
+            Expanded(child: _cards(dbDocs, localNew, total)),
+          ],
+        );
+      },
+    );
+  }
 
-            if (!isLocalNew) {
-              final doc = dbDocs[i];
-              docId = doc.id;
-              final m = doc.data() as Map<String, dynamic>?;
-              itemName = (m?['name'] ?? '이름 없음').toString();
-              displayData =
-                  _localEdits[docId] ?? _createItemDataFromDoc(m ?? {});
-            } else {
-              final e = localNew[i - dbDocs.length];
-              docId = e.key;
-              itemName = (e.value['name'] ?? '이름 없음').toString();
-              displayData =
-                  _localEdits[docId] ?? _createItemDataFromDoc(e.value);
-            }
+  Widget _emptyNote() => Center(
+    child: Text(
+      _searchQuery.isEmpty ? "등록된 자재가 없습니다." : "찾는 자재가 없습니다.",
+      style: const TextStyle(
+        color: slate600,
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
 
-            final card = InventoryItemCard(
-              itemName: itemName,
-              data: displayData,
-              categoryIndex: 0,
-              themeColor: makitaTeal,
-              onUpdateQuantity: (delta) {
-                HapticFeedback.lightImpact();
-                setState(() {
-                  if (!_localEdits.containsKey(docId) && !isLocalNew) {
-                    final m = dbDocs.firstWhere((d) => d.id == docId).data();
-                    _localEdits[docId] = _createItemDataFromDoc(
-                      (m as Map<String, dynamic>?) ?? {},
-                    );
-                  }
-                  final next = (_localEdits[docId]?.qty ?? 0) + delta;
-                  if (next >= 0) _localEdits[docId]!.qty = next;
-                });
-              },
-              onQuantityTap: () =>
-                  _showQuantityInputDialog(docId, itemName, displayData.qty),
-              onExtraInfoTap: (infoType) =>
-                  _showExtraInfoDialog(docId, displayData, infoType),
-            );
+  Widget _cards(
+    List<DocumentSnapshot> dbDocs,
+    List<MapEntry<String, Map<String, dynamic>>> localNew,
+    int total,
+  ) {
+    return ListView.builder(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+      itemCount: total,
+      itemBuilder: (context, i) {
+        final isLocalNew = i >= dbDocs.length;
+        final String docId;
+        final String itemName;
+        final ItemData displayData;
 
-            return GestureDetector(
-              onLongPress: () => _askDelete(
-                docId: docId,
-                itemName: itemName,
-                isLocalNew: isLocalNew,
-                qty: displayData.qty,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: pureWhite,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: slate100, width: 2),
-                  ),
-                  child: Theme(
-                    data: ThemeData.light().copyWith(
-                      cardColor: pureWhite,
-                      scaffoldBackgroundColor: pureWhite,
-                      colorScheme: const ColorScheme.light(surface: pureWhite),
-                    ),
-                    child: card,
-                  ),
-                ),
-              ),
-            );
+        if (!isLocalNew) {
+          final doc = dbDocs[i];
+          docId = doc.id;
+          final m = doc.data() as Map<String, dynamic>?;
+          itemName = (m?['name'] ?? '이름 없음').toString();
+          displayData = _localEdits[docId] ?? _createItemDataFromDoc(m ?? {});
+        } else {
+          final e = localNew[i - dbDocs.length];
+          docId = e.key;
+          itemName = (e.value['name'] ?? '이름 없음').toString();
+          displayData = _localEdits[docId] ?? _createItemDataFromDoc(e.value);
+        }
+
+        final card = InventoryItemCard(
+          itemName: itemName,
+          data: displayData,
+          categoryIndex: 0,
+          themeColor: makitaTeal,
+          onUpdateQuantity: (delta) {
+            HapticFeedback.lightImpact();
+            setState(() {
+              if (!_localEdits.containsKey(docId) && !isLocalNew) {
+                final m = dbDocs.firstWhere((d) => d.id == docId).data();
+                _localEdits[docId] = _createItemDataFromDoc(
+                  (m as Map<String, dynamic>?) ?? {},
+                );
+              }
+              final next = (_localEdits[docId]?.qty ?? 0) + delta;
+              if (next >= 0) _localEdits[docId]!.qty = next;
+            });
           },
+          onQuantityTap: () =>
+              _showQuantityInputDialog(docId, itemName, displayData.qty),
+          onExtraInfoTap: (infoType) =>
+              _showExtraInfoDialog(docId, displayData, infoType),
+        );
+
+        return GestureDetector(
+          onLongPress: () => _askDelete(
+            docId: docId,
+            itemName: itemName,
+            isLocalNew: isLocalNew,
+            qty: displayData.qty,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: pureWhite,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: slate100, width: 2),
+              ),
+              child: Theme(
+                data: ThemeData.light().copyWith(
+                  cardColor: pureWhite,
+                  scaffoldBackgroundColor: pureWhite,
+                  colorScheme: const ColorScheme.light(surface: pureWhite),
+                ),
+                child: card,
+              ),
+            ),
+          ),
         );
       },
     );

@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../tube_cutting/cutting_pending_banner.dart';
 import 'kakao_place_search.dart';
 import 'korean_holidays.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -3525,10 +3526,15 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                 stream: FirebaseFirestore.instance
                     .collection(kPersonalSchedulesCollection)
                     .where('owner', isEqualTo: _currentWorker)
-                    .snapshots(),
+                    .snapshots(includeMetadataChanges: true),
                 builder: (context, snapshot) {
                   final List<_AgendaItem> personalItems = [];
+                  // 통신 없는 곳에서 만든 일정이 아직 서버로 못 올라갔으면 알려 준다.
+                  var pending = 0;
                   if (snapshot.hasData) {
+                    pending = snapshot.data!.docs
+                        .where((d) => d.metadata.hasPendingWrites)
+                        .length;
                     for (final doc in snapshot.data!.docs) {
                       final data = doc.data() as Map<String, dynamic>;
                       personalItems.addAll(_expandPersonalItem(doc.id, data));
@@ -3599,6 +3605,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                             },
                       child: Column(
                         children: [
+                          PendingWritesBanner(count: pending),
                           _buildTodaySummary(todayText),
                           _buildViewModeToggle(),
                           if (_viewMode == _ViewMode.timeline) ...[
