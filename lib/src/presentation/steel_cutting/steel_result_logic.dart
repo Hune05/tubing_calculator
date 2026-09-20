@@ -138,6 +138,21 @@ List<ShapeSubtotal> shapeSubtotals(List<ResultLine> lines) {
   ];
 }
 
+// 줄을 모두 "잘랐음"으로 표시한 규격 이름. 다 자른 규격을 접어 둘 때 쓴다. 규격이 하나뿐이면 접을 것이
+// 없으므로 빈 값을 준다(하나뿐인데 접으면 화면에 남는 것이 머리글밖에 없다).
+Set<String> fullyDoneSpecs(List<ResultLine> lines, Set<String> done) {
+  final subs = shapeSubtotals(lines);
+  if (subs.length < 2) return {};
+  final out = <String>{};
+  for (final s in subs) {
+    final ls = lines.where((l) => l.spec == s.shape);
+    if (ls.isNotEmpty && ls.every((l) => done.contains(l.key))) {
+      out.add(s.shape);
+    }
+  }
+  return out;
+}
+
 // 카카오톡·메신저에 붙여넣는 형강 지시서 글.
 String buildSteelInstructionText({
   required String projectName,

@@ -121,6 +121,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     _loadDone();
     _loadIconsUsed();
     _loadSortWeight();
+    _loadFoldDone();
     _loadCollapsed();
     _loadMixMax();
   }
@@ -224,6 +225,9 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   // 결과를 무게가 큰 규격부터 보여 줄지(이 폰에 기억한다).
   static const String _kSortWeightKey = 'steel_result_sort_weight';
   bool _sortByWeight = false;
+  // 다 자른 규격을 접어 둘지(기본 켬). 튜브 컷팅과 따로 두지 않고 형강 결과 탭에서만 쓴다.
+  static const String _kFoldDoneKey = 'steel_result_fold_done';
+  bool _foldDone = true;
 
   List<ResultLine> _resultLines() {
     final lines = buildSteelResultLines(_items, _setMultiplier);
@@ -253,6 +257,44 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       if (!_doneKeys.remove(key)) _doneKeys.add(key);
     });
     _saveDone();
+    // 이 줄로 그 규격을 다 잘랐으면 접어 둔다(켜 두었을 때만). 방금 누른 규격만 접어서, 손으로 다시 펴 둔
+    // 다른 규격이 제멋대로 닫히지 않게 한다.
+    if (!_foldDone || !_doneKeys.contains(key)) return;
+    final lines = _resultLines();
+    final spec = lines
+        .firstWhere((l) => l.key == key, orElse: () => lines.first)
+        .spec;
+    if (fullyDoneSpecs(lines, _doneKeys).contains(spec)) _foldSpecs([spec]);
+  }
+
+  // 규격을 접어 두고 이 폰에 기억한다(손으로 접는 것과 같은 자리에 적는다).
+  void _foldSpecs(Iterable<String> specs) {
+    final added = specs.where((s) => !_resultFolded.contains(s)).toList();
+    if (added.isEmpty) return;
+    setState(() => _resultFolded.addAll(added));
+    SharedPreferences.getInstance()
+        .then((p) => p.setStringList(_resultFoldedKey, _resultFolded.toList()))
+        .catchError((_) => false);
+  }
+
+  Future<void> _loadFoldDone() async {
+    try {
+      final on =
+          (await SharedPreferences.getInstance()).getBool(_kFoldDoneKey) ??
+          true;
+      if (mounted && !on) setState(() => _foldDone = false);
+    } catch (_) {}
+  }
+
+  void _toggleFoldDone() {
+    HapticFeedback.selectionClick();
+    setState(() => _foldDone = !_foldDone);
+    SharedPreferences.getInstance()
+        .then((p) => p.setBool(_kFoldDoneKey, _foldDone))
+        .catchError((_) => false);
+    // 켤 때는 이미 다 자른 규격을 바로 접는다. 끌 때는 접어 둔 것을 그대로 두고(머리글을 누르면 펴진다)
+    // 앞으로만 접지 않는다.
+    if (_foldDone) _foldSpecs(fullyDoneSpecs(_resultLines(), _doneKeys));
   }
 
   @override
@@ -1559,50 +1601,31 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             ],
           ),
           if (shapeSubtotals(lines).length > 1)
-            Align(
-              alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: InkWell(
-                  key: const Key('steel_sort_weight'),
-                  borderRadius: BorderRadius.circular(8),
-                  onTap: _toggleSortWeight,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _sortByWeight
-                          ? CuttingColors.primary
-                          : Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.swap_vert_rounded,
-                          size: 16,
-                          color: _sortByWeight
-                              ? Colors.white
-                              : Colors.grey.shade700,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          "무게 큰 규격부터",
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: _sortByWeight
-                                ? Colors.white
-                                : Colors.grey.shade700,
-                          ),
-                        ),
-                      ],
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Flexible(
+                    child: _buildResultChip(
+                      key: const Key('steel_fold_done'),
+                      icon: Icons.unfold_less_rounded,
+                      label: "다 자른 규격 접기",
+                      on: _foldDone,
+                      onTap: _toggleFoldDone,
                     ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: _buildResultChip(
+                      key: const Key('steel_sort_weight'),
+                      icon: Icons.swap_vert_rounded,
+                      label: "무게 큰 규격부터",
+                      on: _sortByWeight,
+                      onTap: _toggleSortWeight,
+                    ),
+                  ),
+                ],
               ),
             ),
           const SizedBox(height: 12),
@@ -1635,6 +1658,48 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // 결과 탭 제목줄 아래의 켜고 끄는 칩(다 자른 규격 접기 · 무게 큰 규격부터).
+  Widget _buildResultChip({
+    required Key key,
+    required IconData icon,
+    required String label,
+    required bool on,
+    required VoidCallback onTap,
+  }) {
+    final fg = on ? Colors.white : Colors.grey.shade700;
+    return InkWell(
+      key: key,
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: on ? CuttingColors.primary : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: fg),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: fg,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

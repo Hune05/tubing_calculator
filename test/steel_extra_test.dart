@@ -1767,6 +1767,80 @@ void main() {
       expect(find.text('800.0 mm'), findsOneWidget);
     });
 
+    test('다 자른 규격 고르기: 규격이 둘 이상이고 그 규격 줄이 모두 잘랐음일 때만', () {
+      final lines = buildSteelResultLines([
+        item('앵글 40x40x3', 500, 3, id: 'a'),
+        item('앵글 40x40x3', 800, 1, id: 'b'),
+        item('스트럿 41x41x2.5', 1000, 3, cat: 'STRUT', id: 'c'),
+      ], 1);
+      final angle = lines
+          .where((l) => l.spec == '앵글 40x40x3')
+          .map((l) => l.key);
+      expect(fullyDoneSpecs(lines, {}), isEmpty);
+      expect(fullyDoneSpecs(lines, {angle.first}), isEmpty); // 한 줄만 잘랐음
+      expect(fullyDoneSpecs(lines, angle.toSet()), {'앵글 40x40x3'});
+      expect(fullyDoneSpecs(lines, lines.map((l) => l.key).toSet()), {
+        '앵글 40x40x3',
+        '스트럿 41x41x2.5',
+      });
+      // 규격이 하나뿐이면 접을 것이 없다.
+      final one = buildSteelResultLines([item('앵글 40x40x3', 500, 3)], 1);
+      expect(fullyDoneSpecs(one, one.map((l) => l.key).toSet()), isEmpty);
+    });
+
+    testWidgets('마지막 줄을 잘랐음으로 표시하면 그 규격이 접힌다', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await openResult(tester);
+      // 앵글 두 줄을 모두 잘랐음으로: 첫 줄에서는 접히지 않고, 둘째 줄에서 접힌다.
+      await tester.tap(find.text('800.0 mm'));
+      await tester.pumpAndSettle();
+      expect(find.text('500.0 mm'), findsOneWidget);
+      await tester.tap(find.text('500.0 mm'));
+      await tester.pumpAndSettle();
+      expect(find.text('800.0 mm'), findsNothing);
+      expect(find.text('500.0 mm'), findsNothing);
+      expect(findTextContaining('완료 · 4개'), findsOneWidget);
+      expect(find.text('1000.0 mm'), findsOneWidget); // 스트럿은 그대로
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getStringList('steel_result_folded_sp10'), ['앵글 40x40x3']);
+      // 다시 펴 두면 그대로 펴져 있다(제멋대로 닫히지 않는다).
+      await tester.tap(find.byKey(const Key('spec_fold_앵글 40x40x3')));
+      await tester.pumpAndSettle();
+      expect(find.text('800.0 mm'), findsOneWidget);
+    });
+
+    testWidgets('칩을 끄면 다 잘라도 접히지 않는다', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await openResult(tester);
+      await tester.tap(find.byKey(const Key('steel_fold_done')));
+      await tester.pumpAndSettle();
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('steel_result_fold_done'), false);
+      await tester.tap(find.text('800.0 mm'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('500.0 mm'));
+      await tester.pumpAndSettle();
+      expect(find.text('800.0 mm'), findsOneWidget);
+      expect(
+        prefs.getStringList('steel_result_folded_sp10'),
+        anyOf(isNull, isEmpty),
+      );
+    });
+
+    testWidgets('칩을 다시 켜면 이미 다 자른 규격을 바로 접는다', (tester) async {
+      SharedPreferences.setMockInitialValues({'steel_result_fold_done': false});
+      await openResult(tester);
+      await tester.tap(find.text('800.0 mm'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('500.0 mm'));
+      await tester.pumpAndSettle();
+      expect(find.text('800.0 mm'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('steel_fold_done')));
+      await tester.pumpAndSettle();
+      expect(find.text('800.0 mm'), findsNothing);
+      expect(find.text('1000.0 mm'), findsOneWidget);
+    });
+
     testWidgets('접어 둔 규격은 다시 열어도 접혀 있고, 입력 탭은 그대로다', (tester) async {
       SharedPreferences.setMockInitialValues({
         'steel_result_folded_sp10': ['앵글 40x40x3'],
