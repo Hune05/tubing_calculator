@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_gain_calibration_sheet.dart';
 
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
@@ -287,6 +288,29 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       }
       c.text = text;
     }
+  }
+
+  /// 한 번 꺾어 재 본 값으로 연신율을 잡는 단추.
+  /// 벤더나 관이 바뀌면 표 값이 안 맞는다. 재 본 값으로 바로 고쳐 쓴다.
+  Widget _calibrateButton() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton.icon(
+        key: const Key('gain_calibrate'),
+        onPressed: () => MobileGainCalibrationSheet.show(
+          context,
+          onApply: (v) {
+            _gainController.text = v.toStringAsFixed(1);
+            // 재 본 값이므로 AUTO(제원으로 계산)를 끄고 이 값을 쓴다.
+            _autoStates['gain'] = false;
+            if (mounted) setState(() {});
+            _saveData();
+          },
+        ),
+        icon: const Icon(Icons.straighten, size: 18),
+        label: const Text("한 번 꺾어 보고 잡기"),
+      ),
+    );
   }
 
   @override
@@ -1127,6 +1151,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                   key: 'gain',
                   helperText: "※ 늘어나는 양",
                 ),
+                _calibrateButton(),
                 _buildNumpadInputWithHelp(
                   "스프링백 보상 [°]",
                   "스프링백 보상 (Springback)",

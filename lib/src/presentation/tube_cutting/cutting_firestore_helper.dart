@@ -296,14 +296,17 @@ Future<void> deductCuttingProjectInventory({
     return;
   }
 
-  // 빼기 전에 불출로 이미 나가 있는 자재가 있으면 알려 준다(두 번 빼기 막기).
+  // 빼기 전에 불출로 이미 나가 있는 자재와, 창고에 모자란 자재를 알려 준다.
   final stock = await loadStockInfo();
   final takes = stockTakesFromMaterials(
     materials,
     barLengthByName: stock.barLengthByName,
     unitByName: stock.unitByName,
   );
-  final warning = doubleDeductWarning(takes, await loadOpenCheckouts());
+  final warning = [
+    shortStockWarning(takes, stock.qtyByName),
+    doubleDeductWarning(takes, await loadOpenCheckouts()),
+  ].where((w) => w.isNotEmpty).join('\n\n');
 
   if (!context.mounted) return;
   final confirmed = await showCuttingConfirmDialog(

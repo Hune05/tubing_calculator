@@ -89,3 +89,46 @@ double scaleTakeUp(double takeUp90, double radius, double angleDeg) {
   final fixed = takeUp90 - radius; // 신발이 먹는 고정분
   return radius * t + fixed;
 }
+
+/// 한 번 꺾어 재 본 값으로 실측 게인을 되짚는다.
+///
+/// 한 토막을 [cutLength]만큼 잘라 [angleDeg]로 한 번 꺾고, 꺾인 점(교차점)에서
+/// 양쪽 끝까지를 재서 [legA]·[legB]로 넣는다.
+/// 게인은 "도면 길이의 합에서 실제 자른 길이를 뺀 것"이다.
+///
+/// 🚀 [추가] 예전에는 게인을 표에서 베끼거나 눈대중으로 넣었다. 벤더와 관이
+/// 바뀌면 값이 달라지므로, 한 번 꺾어 재 본 값으로 바로 잡을 수 있게 한다.
+/// 돌려주는 값은 90° 기준으로 환산한 게인이라 그대로 제원 칸에 넣으면 된다.
+double gainFromMeasured({
+  required double legA,
+  required double legB,
+  required double cutLength,
+  required double angleDeg,
+}) {
+  if (angleDeg <= 0 || angleDeg >= 180) return 0.0;
+  final gainAtAngle = legA + legB - cutLength;
+  if (gainAtAngle <= 0) return 0.0;
+  if ((angleDeg - 90.0).abs() < 0.05) return gainAtAngle;
+
+  // 각도별 게인 비율을 거꾸로 풀어 90° 값으로 되돌린다.
+  final ratio = scaleMeasuredGain(1.0, angleDeg);
+  if (ratio <= 1e-9) return 0.0;
+  return gainAtAngle / ratio;
+}
+
+/// 한 번 꺾어 재 본 값으로 테이크업(90° 기준)을 되짚는다.
+/// [markToEnd]는 벤더 화살표를 맞췄던 자리에서 관 끝까지의 길이,
+/// [legOutside]는 꺾은 뒤 그 쪽 바깥면까지 잰 길이다.
+double takeUpFromMeasured({
+  required double legOutside,
+  required double markToEnd,
+  required double angleDeg,
+}) {
+  if (angleDeg <= 0 || angleDeg >= 180) return 0.0;
+  final takeUpAtAngle = legOutside - markToEnd;
+  if (takeUpAtAngle <= 0) return 0.0;
+  if ((angleDeg - 90.0).abs() < 0.05) return takeUpAtAngle;
+  final t = math.tan(angleDeg * math.pi / 360.0);
+  if (t <= 1e-9) return 0.0;
+  return takeUpAtAngle / t;
+}

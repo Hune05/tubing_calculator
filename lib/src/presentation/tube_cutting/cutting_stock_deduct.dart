@@ -92,10 +92,32 @@ class StockInfo {
   /// 자재 이름 → 세는 단위(본·m·EA 등).
   final Map<String, String> unitByName;
 
+  /// 자재 이름 → 지금 창고에 있는 수량.
+  final Map<String, int> qtyByName;
+
   const StockInfo({
     this.barLengthByName = const {},
     this.unitByName = const {},
+    this.qtyByName = const {},
   });
+}
+
+/// 뺄 자재 가운데 창고에 모자란 것을 알려 준다.
+/// 🚀 [고침] 예전에는 빼고 나서야 재고가 마이너스가 된 것을 알았다.
+/// 재단 계획을 짤 때 미리 보고 자재를 챙길 수 있게 한다.
+String shortStockWarning(List<StockTake> takes, Map<String, int> stockQty) {
+  final lines = <String>[];
+  for (final t in takes) {
+    final name = t.name.trim();
+    if (!stockQty.containsKey(name)) continue;
+    final have = stockQty[name] ?? 0;
+    if (have >= t.qty) continue;
+    lines.add("${t.name}: ${t.qty}${t.unit} 필요 · 창고에 $have${t.unit}");
+  }
+  if (lines.isEmpty) return '';
+  return "창고에 모자란 자재가 있습니다.\n"
+      "${lines.join('\n')}\n"
+      "먼저 챙겨 두십시오.";
 }
 
 /// 창고 재고에서 한 본 길이와 세는 단위를 한 번에 읽어 온다.
@@ -104,6 +126,7 @@ Future<StockInfo> loadStockInfo() async {
     final snap = await FirebaseFirestore.instance.collection('inventory').get();
     final bars = <String, int>{};
     final units = <String, String>{};
+    final qty = <String, int>{};
     for (final d in snap.docs) {
       final name = (d.data()['name'] as String?)?.trim() ?? '';
       if (name.isEmpty) continue;
@@ -111,8 +134,13 @@ Future<StockInfo> loadStockInfo() async {
       if (len > 0) bars[name] = len;
       final unit = (d.data()['unit'] as String?)?.trim() ?? '';
       if (unit.isNotEmpty) units[name] = unit;
+      qty[name] = (d.data()['qty'] as num?)?.toInt() ?? 0;
     }
-    return StockInfo(barLengthByName: bars, unitByName: units);
+    return StockInfo(
+      barLengthByName: bars,
+      unitByName: units,
+      qtyByName: qty,
+    );
   } catch (_) {
     return const StockInfo();
   }
