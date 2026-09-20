@@ -1200,6 +1200,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                   key: 'gain',
                   helperText: "※ 늘어나는 총 길이",
                 ),
+                _calibrateButton(),
                 _buildNumpadInputWithHelp(
                   "최소 직선 구간 [mm]",
                   "최소 물림 구간 (Minimum Straight)",
