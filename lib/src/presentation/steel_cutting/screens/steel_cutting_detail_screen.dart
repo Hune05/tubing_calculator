@@ -2416,10 +2416,18 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                       on: _sortByWeight,
                       onTap: _toggleSortWeight,
                     ),
+                  // 잘랐음 표시가 하나라도 있을 때만 지우는 단추를 둔다.
+                  if (_doneKeys.isNotEmpty)
+                    _buildResultChip(
+                      key: const Key('steel_clear_done'),
+                      icon: Icons.restart_alt_rounded,
+                      label: "잘랐음 지우기",
+                      on: false,
+                      onTap: _clearDone,
+                    ),
                 ],
               ),
             ),
-          if (lines.isNotEmpty) _buildResultSummary(lines),
           const SizedBox(height: 12),
           Expanded(
             child: Container(
@@ -2450,67 +2458,6 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  // 결과 목록 바로 위 고정 줄: 원자재 최소 본수, 남은 개수·길이, 잘랐음 지우기.
-  // 아래에 두면 오래 남는 스낵바(폰 설정에 따라 몇 분씩 남는다)에 가려서 위로 올렸다.
-  Widget _buildResultSummary(List<ResultLine> lines) {
-    final bars = minBarsNeeded(lines, _stockLength);
-    final rest = remainingToCut(lines, _doneKeys);
-    final pieces = lines.fold<int>(0, (s, l) => s + l.count);
-    final donePieces = pieces - rest.pieces;
-    return Container(
-      key: const Key('steel_result_summary'),
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: CuttingColors.primarySoft,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: CuttingColors.primary.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              [
-                if (bars > 0) "원자재 최소 $bars본",
-                // 다 자른 뒤에는 여기서 말하지 않는다 — 총계 카드가 "모두 잘랐습니다"로 이미 알려 준다.
-                if (rest.pieces > 0)
-                  "안 자른 ${rest.pieces}개 · ${fmtMm(rest.mm)}mm",
-              ].join("  ·  "),
-              maxLines: 2,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-                color: rest.pieces == 0
-                    ? CuttingColors.success
-                    : CuttingColors.primaryDark,
-              ),
-            ),
-          ),
-          if (donePieces > 0) ...[
-            const SizedBox(width: 6),
-            InkWell(
-              key: const Key('steel_clear_done'),
-              borderRadius: BorderRadius.circular(8),
-              onTap: _clearDone,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                child: Text(
-                  "잘랐음 지우기",
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    color: CuttingColors.primary,
-                  ),
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
