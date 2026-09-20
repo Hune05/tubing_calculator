@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:tubing_calculator/src/presentation/my_schedule/korean_holidays.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -335,6 +336,28 @@ void main() {
       expect(out.containsKey('createdAt'), false);
       expect(out.containsKey('updatedAt'), false);
       expect(out['title'], 't');
+    });
+  });
+
+  group('한국 공휴일 표', () {
+    test('2026년 주요 공휴일과 대체공휴일', () {
+      expect(holidayName(DateTime(2026, 1, 1)), '신정');
+      expect(holidayName(DateTime(2026, 2, 17)), '설날');
+      expect(holidayName(DateTime(2026, 3, 2)), '대체공휴일');
+      expect(holidayName(DateTime(2026, 6, 3)), '지방선거일');
+      expect(holidayName(DateTime(2026, 7, 17)), '제헌절');
+      expect(holidayName(DateTime(2026, 9, 25)), '추석');
+      expect(holidayName(DateTime(2026, 12, 25)), '성탄절');
+      expect(isKoreanHoliday(DateTime(2026, 9, 20)), false);
+      expect(holidayName(DateTime(2026, 9, 21)), '');
+    });
+
+    test('2027년까지 넣어 두었다', () {
+      expect(holidayName(DateTime(2027, 2, 7)), '설날');
+      expect(holidayName(DateTime(2027, 9, 15)), '추석');
+      expect(lastHolidayYear >= 2027, true);
+      // 표에 없는 해는 빈 값이라 달력에 아무 표시가 나오지 않는다.
+      expect(isKoreanHoliday(DateTime(2031, 1, 1)), false);
     });
   });
 }

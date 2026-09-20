@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'korean_holidays.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tzdata;
 
@@ -629,13 +630,37 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                             TextField(
                               controller: titleCtrl,
                               autofocus: docId == null,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: scheduleText,
+                              ),
                               decoration: InputDecoration(
                                 hintText: "일정 제목 (예: 거래처 미팅)",
                                 filled: true,
-                                fillColor: Colors.grey.shade100,
+                                fillColor: const Color(0xFFF7F8F9),
+                                hintStyle: const TextStyle(
+                                  color: Color(0xFF6B7684),
+                                  fontWeight: FontWeight.w500,
+                                ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide.none,
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFD1D6DB),
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFD1D6DB),
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(
+                                    color: scheduleTeal,
+                                    width: 1.6,
+                                  ),
                                 ),
                               ),
                             ),
@@ -644,6 +669,11 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                             TextField(
                               controller: placeCtrl,
                               textInputAction: TextInputAction.done,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: scheduleText,
+                              ),
                               decoration: InputDecoration(
                                 hintText: "장소 (선택) — 예: 중부발전",
                                 prefixIcon: const Icon(
@@ -662,10 +692,29 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                       _openMap(placeCtrl.text.trim()),
                                 ),
                                 filled: true,
-                                fillColor: Colors.grey.shade100,
+                                fillColor: const Color(0xFFF7F8F9),
+                                hintStyle: const TextStyle(
+                                  color: Color(0xFF6B7684),
+                                  fontWeight: FontWeight.w500,
+                                ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide.none,
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFD1D6DB),
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFD1D6DB),
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(
+                                    color: scheduleTeal,
+                                    width: 1.6,
+                                  ),
                                 ),
                               ),
                             ),
@@ -675,7 +724,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.grey,
+                                color: Color(0xFF6B7684),
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -723,7 +772,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.grey,
+                                color: Color(0xFF6B7684),
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -839,7 +888,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.grey,
+                                  color: Color(0xFF6B7684),
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -928,7 +977,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.grey,
+                                color: Color(0xFF6B7684),
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -959,7 +1008,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.grey,
+                                  color: Color(0xFF6B7684),
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -1424,10 +1473,29 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                               decoration: InputDecoration(
                                 hintText: "템플릿 이름 (예: 매달 정기 점검)",
                                 filled: true,
-                                fillColor: Colors.grey.shade100,
+                                fillColor: const Color(0xFFF7F8F9),
+                                hintStyle: const TextStyle(
+                                  color: Color(0xFF6B7684),
+                                  fontWeight: FontWeight.w500,
+                                ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide.none,
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFD1D6DB),
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFD1D6DB),
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(
+                                    color: scheduleTeal,
+                                    width: 1.6,
+                                  ),
                                 ),
                               ),
                             ),
@@ -2357,13 +2425,15 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   }) {
     final bool weekend =
         day.weekday == DateTime.saturday || day.weekday == DateTime.sunday;
+    // 공휴일은 일요일처럼 빨간 날로 보여 준다(표: korean_holidays.dart).
+    final bool holiday = isKoreanHoliday(day);
     final Color textColor = selected
         ? Colors.white
         : outside
         ? Colors.grey.shade400
         : today
         ? scheduleTeal
-        : (weekend ? scheduleDanger : scheduleText);
+        : ((weekend || holiday) ? scheduleDanger : scheduleText);
     return Align(
       alignment: Alignment.topCenter,
       child: Container(
@@ -3118,218 +3188,263 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: scheduleBg,
-      // 검색·입력 창에서 키보드가 올라와도 뒤의 달력 화면은 줄어들지 않게 한다(창이 스스로 피한다).
-      resizeToAvoidBottomInset: false,
-      appBar: AppBar(
-        backgroundColor: scheduleWhite,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: false,
-        title: const Text(
-          "내 일정 관리",
-          style: TextStyle(
-            color: scheduleText,
-            fontWeight: FontWeight.w800,
-            fontSize: 20,
-            letterSpacing: -0.5,
+    return WorkTheme(
+      child: Scaffold(
+        backgroundColor: scheduleBg,
+        // 검색·입력 창에서 키보드가 올라와도 뒤의 달력 화면은 줄어들지 않게 한다(창이 스스로 피한다).
+        resizeToAvoidBottomInset: false,
+        appBar: AppBar(
+          backgroundColor: scheduleWhite,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          centerTitle: false,
+          title: const Text(
+            "내 일정 관리",
+            style: TextStyle(
+              color: scheduleText,
+              fontWeight: FontWeight.w800,
+              fontSize: 20,
+              letterSpacing: -0.5,
+            ),
           ),
+          iconTheme: const IconThemeData(color: scheduleText),
+          actions: [
+            IconButton(
+              tooltip: "일정 검색",
+              icon: const Icon(Icons.search_rounded),
+              onPressed: _showSearchDialog,
+            ),
+            IconButton(
+              tooltip: "오늘로 이동",
+              icon: const Icon(Icons.today_rounded),
+              onPressed: () => setState(() {
+                _focusedDay = DateTime.now();
+                _selectedDay = DateTime.now();
+              }),
+            ),
+            PopupMenuButton<String>(
+              tooltip: "더보기",
+              onSelected: (v) {
+                if (v == 'template') {
+                  HapticFeedback.selectionClick();
+                  _showTemplateSheet();
+                }
+                if (v == 'refresh') {
+                  HapticFeedback.selectionClick();
+                  _loadProjects();
+                }
+                if (v == 'export') _exportPersonal();
+                if (v == 'import') _importPersonal();
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'template', child: Text("일정 세트 템플릿")),
+                PopupMenuItem(value: 'refresh', child: Text("프로젝트 일정 새로고침")),
+                PopupMenuItem(value: 'export', child: Text("내 일정 내보내기")),
+                PopupMenuItem(value: 'import', child: Text("내 일정 가져오기")),
+              ],
+            ),
+          ],
         ),
-        iconTheme: const IconThemeData(color: scheduleText),
-        actions: [
-          IconButton(
-            tooltip: "일정 검색",
-            icon: const Icon(Icons.search_rounded),
-            onPressed: _showSearchDialog,
-          ),
-          IconButton(
-            tooltip: "오늘로 이동",
-            icon: const Icon(Icons.today_rounded),
-            onPressed: () => setState(() {
-              _focusedDay = DateTime.now();
-              _selectedDay = DateTime.now();
-            }),
-          ),
-          PopupMenuButton<String>(
-            tooltip: "더보기",
-            onSelected: (v) {
-              if (v == 'template') {
-                HapticFeedback.selectionClick();
-                _showTemplateSheet();
-              }
-              if (v == 'refresh') {
-                HapticFeedback.selectionClick();
-                _loadProjects();
-              }
-              if (v == 'export') _exportPersonal();
-              if (v == 'import') _importPersonal();
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'template', child: Text("일정 세트 템플릿")),
-              PopupMenuItem(value: 'refresh', child: Text("프로젝트 일정 새로고침")),
-              PopupMenuItem(value: 'export', child: Text("내 일정 내보내기")),
-              PopupMenuItem(value: 'import', child: Text("내 일정 가져오기")),
-            ],
-          ),
-        ],
-      ),
-      body: _loadingProjects
-          ? const Center(child: CircularProgressIndicator(color: scheduleTeal))
-          : StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection(kPersonalSchedulesCollection)
-                  .where('owner', isEqualTo: _currentWorker)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                final List<_AgendaItem> personalItems = [];
-                if (snapshot.hasData) {
-                  for (final doc in snapshot.data!.docs) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    personalItems.addAll(_expandPersonalItem(doc.id, data));
+        body: _loadingProjects
+            ? const Center(
+                child: CircularProgressIndicator(color: scheduleTeal),
+              )
+            : StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection(kPersonalSchedulesCollection)
+                    .where('owner', isEqualTo: _currentWorker)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  final List<_AgendaItem> personalItems = [];
+                  if (snapshot.hasData) {
+                    for (final doc in snapshot.data!.docs) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      personalItems.addAll(_expandPersonalItem(doc.id, data));
+                    }
                   }
-                }
-                final allItems = _applyFilters([
-                  ..._projectAgendaItems(),
-                  ...personalItems,
-                ]);
+                  final allItems = _applyFilters([
+                    ..._projectAgendaItems(),
+                    ...personalItems,
+                  ]);
 
-                final Map<DateTime, List<_AgendaItem>> byDay = {};
-                for (final item in allItems) {
-                  byDay.putIfAbsent(_normalize(item.date), () => []).add(item);
-                }
-                for (final list in byDay.values) {
-                  list.sort((a, b) => a.date.compareTo(b.date));
-                }
+                  final Map<DateTime, List<_AgendaItem>> byDay = {};
+                  for (final item in allItems) {
+                    byDay
+                        .putIfAbsent(_normalize(item.date), () => [])
+                        .add(item);
+                  }
+                  for (final list in byDay.values) {
+                    list.sort((a, b) => a.date.compareTo(b.date));
+                  }
 
-                final selectedItems = byDay[_normalize(_selectedDay)] ?? [];
-                _lastItems = allItems;
-                _lastLite = [
-                  for (final it in allItems)
-                    LiteAgenda(
-                      key: it.key,
-                      date: it.date,
-                      hasTime: it.hasTime,
-                      title: it.title,
-                      isCompleted: it.isCompleted,
-                    ),
-                ];
-                _overlapKeys = overlappingKeys([
-                  for (final it in allItems)
-                    LiteAgenda(
-                      key: it.key,
-                      date: it.date,
-                      hasTime: it.hasTime,
-                      title: it.title,
-                      isCompleted: it.isCompleted,
-                    ),
-                ]);
-                final todayItems = byDay[_normalize(DateTime.now())] ?? [];
-                final String todayText = todaySummary([
-                  for (final it in todayItems)
-                    LiteAgenda(
-                      key: it.key,
-                      date: it.date,
-                      hasTime: it.hasTime,
-                      title: it.title,
-                      isCompleted: it.isCompleted,
-                    ),
-                ], DateTime.now());
+                  final selectedItems = byDay[_normalize(_selectedDay)] ?? [];
+                  _lastItems = allItems;
+                  _lastLite = [
+                    for (final it in allItems)
+                      LiteAgenda(
+                        key: it.key,
+                        date: it.date,
+                        hasTime: it.hasTime,
+                        title: it.title,
+                        isCompleted: it.isCompleted,
+                      ),
+                  ];
+                  _overlapKeys = overlappingKeys([
+                    for (final it in allItems)
+                      LiteAgenda(
+                        key: it.key,
+                        date: it.date,
+                        hasTime: it.hasTime,
+                        title: it.title,
+                        isCompleted: it.isCompleted,
+                      ),
+                  ]);
+                  final todayItems = byDay[_normalize(DateTime.now())] ?? [];
+                  final String todayText = todaySummary([
+                    for (final it in todayItems)
+                      LiteAgenda(
+                        key: it.key,
+                        date: it.date,
+                        hasTime: it.hasTime,
+                        title: it.title,
+                        isCompleted: it.isCompleted,
+                      ),
+                  ], DateTime.now());
 
-                return RefreshIndicator(
-                  color: scheduleTeal,
-                  onRefresh: _loadProjects,
-                  child: GestureDetector(
-                    // 🚀 [6번 강화] 일 보기일 때만 좌우 스와이프로 하루씩
-                    // 이동한다(월/주 보기는 달력 자체가 이미 스와이프로
-                    // 페이지 전환을 지원하므로 건드리지 않는다).
-                    onHorizontalDragEnd: _viewMode != _ViewMode.day
-                        ? null
-                        : (details) {
-                            final v = details.primaryVelocity ?? 0;
-                            if (v.abs() < 200) return;
-                            _shiftDay(v < 0 ? 1 : -1);
-                          },
-                    child: Column(
-                      children: [
-                        _buildTodaySummary(todayText),
-                        _buildViewModeToggle(),
-                        if (_viewMode == _ViewMode.timeline) ...[
-                          _buildProgressBar(byDay),
-                          _buildCategoryLegend(),
-                          _buildProjectFilterRow(),
-                          const Divider(height: 1, color: Color(0xFFE5E8EB)),
-                        ],
-                        Expanded(
-                          child: _viewMode == _ViewMode.timeline
-                              ? _buildTimeline(byDay)
-                              : ListView(
-                                  padding: const EdgeInsets.only(bottom: 100),
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  children: [
-                                    if (_viewMode == _ViewMode.day)
-                                      _buildDayHeader()
-                                    else
-                                      _buildCalendar(byDay),
-                                    _buildProgressBar(byDay),
-                                    _buildCategoryLegend(),
-                                    _buildProjectFilterRow(),
-                                    const Divider(
-                                      height: 1,
-                                      color: Color(0xFFE5E8EB),
-                                    ),
-                                    if (selectedItems.isEmpty) ...[
-                                      const SizedBox(height: 40),
-                                      Icon(
-                                        Icons.event_available_outlined,
-                                        size: 48,
-                                        color: Colors.grey.shade300,
+                  return RefreshIndicator(
+                    color: scheduleTeal,
+                    onRefresh: _loadProjects,
+                    child: GestureDetector(
+                      // 🚀 [6번 강화] 일 보기일 때만 좌우 스와이프로 하루씩
+                      // 이동한다(월/주 보기는 달력 자체가 이미 스와이프로
+                      // 페이지 전환을 지원하므로 건드리지 않는다).
+                      onHorizontalDragEnd: _viewMode != _ViewMode.day
+                          ? null
+                          : (details) {
+                              final v = details.primaryVelocity ?? 0;
+                              if (v.abs() < 200) return;
+                              _shiftDay(v < 0 ? 1 : -1);
+                            },
+                      child: Column(
+                        children: [
+                          _buildTodaySummary(todayText),
+                          _buildViewModeToggle(),
+                          if (_viewMode == _ViewMode.timeline) ...[
+                            _buildProgressBar(byDay),
+                            _buildCategoryLegend(),
+                            _buildProjectFilterRow(),
+                            const Divider(height: 1, color: Color(0xFFE5E8EB)),
+                          ],
+                          Expanded(
+                            child: _viewMode == _ViewMode.timeline
+                                ? _buildTimeline(byDay)
+                                : ListView(
+                                    padding: const EdgeInsets.only(bottom: 100),
+                                    physics:
+                                        const AlwaysScrollableScrollPhysics(),
+                                    children: [
+                                      if (_viewMode == _ViewMode.day)
+                                        _buildDayHeader()
+                                      else
+                                        _buildCalendar(byDay),
+                                      _buildProgressBar(byDay),
+                                      _buildCategoryLegend(),
+                                      _buildProjectFilterRow(),
+                                      const Divider(
+                                        height: 1,
+                                        color: Color(0xFFE5E8EB),
                                       ),
-                                      const SizedBox(height: 12),
-                                      const Center(
-                                        child: Text(
-                                          "이 날은 등록된 일정이 없습니다.",
-                                          style: TextStyle(
-                                            color: scheduleSubText,
-                                            fontWeight: FontWeight.bold,
+                                      if (holidayName(_selectedDay).isNotEmpty)
+                                        Container(
+                                          margin: const EdgeInsets.fromLTRB(
+                                            16,
+                                            12,
+                                            16,
+                                            0,
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: scheduleDanger.withValues(
+                                              alpha: 0.08,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              const Icon(
+                                                Icons.flag_rounded,
+                                                size: 16,
+                                                color: scheduleDanger,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                "${_selectedDay.month}월 ${_selectedDay.day}일 · ${holidayName(_selectedDay)}",
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: scheduleDanger,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                      ),
-                                    ] else
-                                      Padding(
-                                        padding: const EdgeInsets.fromLTRB(
-                                          16,
-                                          12,
-                                          16,
-                                          0,
+                                      if (selectedItems.isEmpty) ...[
+                                        const SizedBox(height: 40),
+                                        Icon(
+                                          Icons.event_available_outlined,
+                                          size: 48,
+                                          color: Colors.grey.shade300,
                                         ),
-                                        child: Column(
-                                          children: [
-                                            for (final it in selectedItems)
-                                              _buildAgendaCard(it),
-                                          ],
+                                        const SizedBox(height: 12),
+                                        const Center(
+                                          child: Text(
+                                            "이 날은 등록된 일정이 없습니다.",
+                                            style: TextStyle(
+                                              color: scheduleSubText,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                  ],
-                                ),
-                        ),
-                      ],
+                                      ] else
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                            16,
+                                            12,
+                                            16,
+                                            0,
+                                          ),
+                                          child: Column(
+                                            children: [
+                                              for (final it in selectedItems)
+                                                _buildAgendaCard(it),
+                                            ],
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          HapticFeedback.selectionClick();
-          _showAddPersonalSheet();
-        },
-        backgroundColor: scheduleTeal,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          "새 일정",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  );
+                },
+              ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () {
+            HapticFeedback.selectionClick();
+            _showAddPersonalSheet();
+          },
+          backgroundColor: scheduleTeal,
+          icon: const Icon(Icons.add, color: Colors.white),
+          label: const Text(
+            "새 일정",
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
         ),
       ),
     );
