@@ -5,6 +5,47 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // 컷팅에서 쓴 자재를 창고 재고에서 뺄 때의 셈. 화면과 떼어 놓아서 검사할 수 있게 한다.
 
+/// 자재 이름을 견주기 좋게 다듬는다.
+///
+/// 🚀 [고침] 컷팅 쪽 자재 이름은 "[제조사] 규격 이름"으로 붙여 만들고,
+/// 재고 쪽 이름은 자재 목록에서 들어온다. 빈칸이 하나 더 들어갔거나
+/// 따옴표 모양(" ” ″)만 달라도 "재고에 없는 자재"로 빠져 버렸다.
+/// 빈칸을 하나로 줄이고, 따옴표를 한 가지로 맞추고, 대소문자를 무시한다.
+String normalizeMaterialName(String name) {
+  return name
+      .replaceAll('\u201C', '"')
+      .replaceAll('\u201D', '"')
+      .replaceAll('\u2033', '"')
+      .replaceAll('\u2018', "'")
+      .replaceAll('\u2019', "'")
+      .replaceAll('\u2032', "'")
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim()
+      .toLowerCase();
+}
+
+/// 이름으로 재고 문서를 찾는 표를 만든다.
+/// 똑같은 이름을 먼저 보고, 없으면 다듬은 이름으로 한 번 더 본다.
+Map<String, T> materialLookup<T>(
+  Iterable<T> docs,
+  String Function(T) nameOf,
+) {
+  final out = <String, T>{};
+  for (final d in docs) {
+    final raw = nameOf(d).trim();
+    if (raw.isEmpty) continue;
+    out.putIfAbsent(raw, () => d);
+    out.putIfAbsent(normalizeMaterialName(raw), () => d);
+  }
+  return out;
+}
+
+/// 표에서 자재를 찾는다(똑같은 이름 → 다듬은 이름 차례로).
+T? findMaterial<T>(Map<String, T> lookup, String name) {
+  final raw = name.trim();
+  return lookup[raw] ?? lookup[normalizeMaterialName(raw)];
+}
+
 /// 뺄 자재 한 줄. 이름은 재고의 자재 이름과 같아야 찾을 수 있다.
 class StockTake {
   final String name; // 재고에서 찾을 이름 (예: [HY-LOK] 3/8" Union)
@@ -50,7 +91,7 @@ List<StockTake> stockTakesFromMaterials(
     final name = (m['db_name'] ?? m['name'] ?? '').toString().trim();
     if (name.isEmpty) continue;
 
-    final stockUnit = (unitByName?[name] ?? '').trim();
+    final stockUnit = (_pick(unitByName, name) ?? '').trim();
     final mm = ((m['qty_mm'] as num?) ?? 0).round();
 
     int qty;
@@ -62,7 +103,7 @@ List<StockTake> stockTakesFromMaterials(
       qty = _ceilDiv(mm, 1000);
       unit = 'm';
     } else {
-      qty = _ceilDiv(mm, barLengthByName?[name] ?? kTubeBarMm);
+      qty = _ceilDiv(mm, _pick(barLengthByName, name) ?? kTubeBarMm);
       unit = stockUnit.isEmpty ? '본' : stockUnit;
     }
     if (qty <= 0) continue;
@@ -77,6 +118,18 @@ List<StockTake> stockTakesFromMaterials(
     );
   }
   return out;
+}
+
+/// 이름이 조금 달라도 찾아 준다(빈칸·따옴표·대소문자).
+V? _pick<V>(Map<String, V>? map, String name) {
+  if (map == null || map.isEmpty) return null;
+  final direct = map[name.trim()];
+  if (direct != null) return direct;
+  final want = normalizeMaterialName(name);
+  for (final e in map.entries) {
+    if (normalizeMaterialName(e.key) == want) return e.value;
+  }
+  return null;
 }
 
 int _ceilDiv(int a, int b) {
@@ -106,11 +159,12 @@ class StockInfo {
 /// 🚀 [고침] 예전에는 빼고 나서야 재고가 마이너스가 된 것을 알았다.
 /// 재단 계획을 짤 때 미리 보고 자재를 챙길 수 있게 한다.
 String shortStockWarning(List<StockTake> takes, Map<String, int> stockQty) {
+  final lookup = materialLookup(stockQty.keys, (k) => k);
   final lines = <String>[];
   for (final t in takes) {
-    final name = t.name.trim();
-    if (!stockQty.containsKey(name)) continue;
-    final have = stockQty[name] ?? 0;
+    final key = findMaterial(lookup, t.name);
+    if (key == null) continue;
+    final have = stockQty[key] ?? 0;
     if (have >= t.qty) continue;
     lines.add("${t.name}: ${t.qty}${t.unit} 필요 · 창고에 $have${t.unit}");
   }
@@ -171,9 +225,11 @@ String doubleDeductWarning(
   List<StockTake> takes,
   Map<String, int> openCheckouts,
 ) {
+  final lookup = materialLookup(openCheckouts.keys, (k) => k);
   final lines = <String>[];
   for (final t in takes) {
-    final held = openCheckouts[t.name.trim()] ?? 0;
+    final key = findMaterial(lookup, t.name);
+    final held = key == null ? 0 : (openCheckouts[key] ?? 0);
     if (held > 0) lines.add("${t.name} $held${t.unit}");
   }
   if (lines.isEmpty) return '';
@@ -253,18 +309,16 @@ Future<void> undoStockTakes(
   }
 
   final all = await db.collection('inventory').get();
-  final byName = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
-  for (final d in all.docs) {
-    final n = (d.data()['name'] as String?)?.trim() ?? '';
-    if (n.isEmpty || byName.containsKey(n)) continue;
-    byName[n] = d;
-  }
+  final byName = materialLookup(
+    all.docs,
+    (d) => (d.data()['name'] as String?) ?? '',
+  );
 
   final batch = db.batch();
   var any = false;
   for (final take in takes) {
     if (take.qty <= 0) continue;
-    final doc = byName[take.name.trim()];
+    final doc = findMaterial(byName, take.name);
     if (doc == null) continue;
     batch.update(db.collection('inventory').doc(doc.id), {
       'qty': FieldValue.increment(take.qty),
@@ -330,17 +384,15 @@ Future<StockDeductResult> deductStockTakes(
   final all = await db.collection('inventory').get();
   final offline = all.metadata.isFromCache;
 
-  final byName = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
-  for (final d in all.docs) {
-    final n = (d.data()['name'] as String?)?.trim() ?? '';
-    if (n.isEmpty || byName.containsKey(n)) continue;
-    byName[n] = d;
-  }
+  final byName = materialLookup(
+    all.docs,
+    (d) => (d.data()['name'] as String?) ?? '',
+  );
 
   final batch = db.batch();
   for (final take in takes) {
     if (take.qty <= 0 || take.name.trim().isEmpty) continue;
-    final doc = byName[take.name.trim()];
+    final doc = findMaterial(byName, take.name);
     if (doc == null) {
       missing.add(take);
       continue;
