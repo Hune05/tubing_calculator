@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
+import 'package:tubing_calculator/src/core/utils/pipe_size.dart';
+import 'package:tubing_calculator/src/data/machine_specs.dart';
 
 // 🚀 PDF 및 공유 관련 임포트
 import 'package:pdf/pdf.dart';
@@ -1038,6 +1040,12 @@ class _MobileFabricationDetailScreenState
           child: MobilePipeVisualizer(
             bendList: _bendList,
             tailLength: _tailLength,
+            // 🚀 [고침] 보관함에 저장해 둔 도면을 열면 제원이 안 넘어가서
+            // 곡선부가 그려지지 않았다. 도면에 적힌 규격으로 관 굵기를 잡고,
+            // 반경·피팅 깊이는 지금 제원을 쓴다(도면에 제원은 안 남아 있다).
+            bendRadius: MachineSpecs().radius,
+            outerDiameter: pipeSizeToMm(_pipeSize),
+            fittingDepth: MachineSpecs().fittingDepth,
             initialStartDir: _startDir,
             startFit: _startFit,
             endFit: _endFit,
