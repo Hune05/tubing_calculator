@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tzdata;
 
@@ -120,6 +121,8 @@ class _AgendaItem {
   final String? projectName;
   final String? scheduleId;
   final String recurrence;
+  // 장소(예: 중부발전). 적어 두면 카드에서 눌러 지도로 찾는다.
+  final String place;
   // 기간 일정의 몇 번째 날인지(0부터)와 전체 일수 - 달력에 이어진 막대를
   // 그릴 때 시작/끝을 알아내는 데 쓴다.
   final int spanIndex;
@@ -147,6 +150,7 @@ class _AgendaItem {
     this.projectName,
     this.scheduleId,
     this.recurrence = 'none',
+    this.place = '',
     this.spanIndex = 0,
     this.spanTotal = 1,
     this.spanKey,
@@ -352,6 +356,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         ? data['title'] as String
         : '제목 없음';
     final bool hasTime = data['hasTime'] != false;
+    final String place = (data['place'] as String?)?.trim() ?? '';
     final Map<String, dynamic> completedMap = Map<String, dynamic>.from(
       data['completedOccurrences'] as Map? ?? {},
     );
@@ -387,6 +392,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
             isPersonal: true,
             personalDocId: docId,
             recurrence: recurrence,
+            place: place,
             spanIndex: i,
             spanTotal: totalDays,
             spanKey: docId,
@@ -404,6 +410,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           isPersonal: true,
           personalDocId: docId,
           recurrence: recurrence,
+          place: place,
         ),
       ];
     }
@@ -429,6 +436,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           isPersonal: true,
           personalDocId: docId,
           recurrence: recurrence,
+          place: place,
         ),
     ];
   }
@@ -536,6 +544,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     final titleCtrl = TextEditingController(
       text: existing?['title'] as String? ?? '',
     );
+    final placeCtrl = TextEditingController(
+      text: existing?['place'] as String? ?? '',
+    );
     String category = (existing?['category'] as String?) ?? '개인';
     DateTime baseDate = existing != null
         ? _asDateTime(existing['dateTime'])
@@ -620,6 +631,36 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                               autofocus: docId == null,
                               decoration: InputDecoration(
                                 hintText: "일정 제목 (예: 거래처 미팅)",
+                                filled: true,
+                                fillColor: Colors.grey.shade100,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            // 장소: 이름만 적어 두면 카드에서 눌러 지도로 찾는다(주소는 지도에서 본다).
+                            TextField(
+                              controller: placeCtrl,
+                              textInputAction: TextInputAction.done,
+                              decoration: InputDecoration(
+                                hintText: "장소 (선택) — 예: 중부발전",
+                                prefixIcon: const Icon(
+                                  Icons.place_outlined,
+                                  size: 20,
+                                  color: scheduleSubText,
+                                ),
+                                suffixIcon: IconButton(
+                                  tooltip: "지도에서 찾기",
+                                  icon: const Icon(
+                                    Icons.map_outlined,
+                                    size: 20,
+                                    color: scheduleTeal,
+                                  ),
+                                  onPressed: () =>
+                                      _openMap(placeCtrl.text.trim()),
+                                ),
                                 filled: true,
                                 fillColor: Colors.grey.shade100,
                                 border: OutlineInputBorder(
@@ -1010,6 +1051,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                   }
                                   final data = <String, dynamic>{
                                     'title': titleCtrl.text.trim(),
+                                    'place': placeCtrl.text.trim(),
                                     'category': category,
                                     'dateTime': combined.toIso8601String(),
                                     'hasTime': hasTime,
@@ -2347,6 +2389,39 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     );
   }
 
+  // 장소를 지도에서 찾는다. 구글 지도 앱이 있으면 앱으로, 없으면 브라우저로 열린다.
+  Future<void> _openMap(String place) async {
+    final String q = place.trim();
+    if (q.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("장소를 먼저 적으십시오.")));
+      }
+      return;
+    }
+    final Uri uri = Uri.parse(
+      "https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(q)}",
+    );
+    try {
+      final bool ok = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("지도를 열지 못했습니다.")));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("지도를 열지 못했습니다: $e")));
+      }
+    }
+  }
+
   // 날짜 칸에 그리는 일정 막대(색 + 제목).
   Widget _calendarBar(
     _AgendaItem e, {
@@ -2880,6 +2955,40 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                   runSpacing: 2,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
+                    if (item.place.isNotEmpty)
+                      InkWell(
+                        onTap: () => _openMap(item.place),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: scheduleTeal.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.place_rounded,
+                                size: 12,
+                                color: scheduleTeal,
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                item.place,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: scheduleTeal,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 6,
