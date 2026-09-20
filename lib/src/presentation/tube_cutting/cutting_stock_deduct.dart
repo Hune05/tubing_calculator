@@ -332,6 +332,7 @@ Future<void> undoStockTakes(
       'unit': (doc.data()['unit'] as String?) ?? take.unit,
       'worker_name': who,
       'project_name': projectName,
+      'job_name': projectName,
       'project_id': projectId,
       'device': device,
       'timestamp': FieldValue.serverTimestamp(),
@@ -414,6 +415,9 @@ Future<StockDeductResult> deductStockTakes(
       'unit': unit,
       'worker_name': who,
       'project_name': projectName,
+      // 작업 이름을 따로 남긴다. 'project_name'은 불출에서 "왜 썼는지"를
+      // 적는 데도 쓰이기 때문에, 작업별로 걸러 보려면 칸이 따로 있어야 한다.
+      'job_name': projectName,
       'project_id': projectId,
       'device': device,
       'timestamp': FieldValue.serverTimestamp(),

@@ -10,6 +10,22 @@ const Color slate300 = Color(0xFFCBD5E1); // 💡 이 줄이 추가되었습니�
 const Color slate100 = Color(0xFFF2F4F6);
 const Color pureWhite = Color(0xFFFFFFFF);
 
+/// 기록 한 줄이 어느 작업에서 나온 것인지. 작업 것이 아니면 빈 글.
+///
+/// 🚀 [고침] 예전에는 'project_name' 한 칸을 작업 이름과 "왜 썼는지"에
+/// 같이 써서, 칩에 "자재 목록에서 넣음" 같은 것까지 섞여 나왔다.
+/// 컷팅·형강에서 뺀 기록만 작업으로 본다(차감할 때 'job_name'을 남긴다.
+/// 그 칸이 없는 옛 기록은 무엇을 한 기록인지로 가린다).
+String jobNameOfLog(Map<String, dynamic> data) {
+  final job = (data['job_name'] ?? '').toString().trim();
+  if (job.isNotEmpty) return job;
+
+  final action = (data['action'] ?? '').toString();
+  const jobActions = ['컷팅 사용', '형강 재단', '차감 되돌림'];
+  if (!jobActions.contains(action)) return '';
+  return (data['project_name'] ?? '').toString().trim();
+}
+
 /// 자재 기록. 작업별로 걸러 볼 수 있다.
 ///
 /// 🚀 [추가] 예전에는 모든 기록이 한 줄로 쌓여서, "이 작업에 자재가 얼마나
@@ -85,10 +101,7 @@ class _MobileInventoryLogsPageState extends State<MobileInventoryLogsPage> {
           // 기록에 적힌 작업 이름을 모은다(최근 것부터, 너무 많으면 자른다).
           final jobs = <String>[];
           for (final d in all) {
-            final m = d.data() as Map<String, dynamic>;
-            final n = (m['project_name'] ?? m['reason'] ?? '')
-                .toString()
-                .trim();
+            final n = jobNameOfLog(d.data() as Map<String, dynamic>);
             if (n.isEmpty || jobs.contains(n)) continue;
             jobs.add(n);
             if (jobs.length >= 12) break;
@@ -96,17 +109,18 @@ class _MobileInventoryLogsPageState extends State<MobileInventoryLogsPage> {
 
           final logs = _picked.isEmpty
               ? all
-              : all.where((d) {
-                  final m = d.data() as Map<String, dynamic>;
-                  final n = (m['project_name'] ?? m['reason'] ?? '')
-                      .toString()
-                      .trim();
-                  return n == _picked;
-                }).toList();
+              : all
+                    .where(
+                      (d) =>
+                          jobNameOfLog(d.data() as Map<String, dynamic>) ==
+                          _picked,
+                    )
+                    .toList();
 
           return Column(
             children: [
-              if (jobs.isNotEmpty)
+              // 고른 작업이 있으면 칩이 없어도 "전체"로 돌아갈 수 있게 보여 준다.
+              if (jobs.isNotEmpty || _picked.isNotEmpty)
                 SizedBox(
                   key: const Key('logs_job_filter'),
                   height: 52,
@@ -117,6 +131,8 @@ class _MobileInventoryLogsPageState extends State<MobileInventoryLogsPage> {
                       _jobChip('전체', _picked.isEmpty, () {
                         setState(() => _picked = '');
                       }),
+                      if (_picked.isNotEmpty && !jobs.contains(_picked))
+                        _jobChip(_picked, true, () {}),
                       for (final j in jobs)
                         _jobChip(j, _picked == j, () {
                           setState(() => _picked = j);
