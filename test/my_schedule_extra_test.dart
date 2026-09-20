@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:tubing_calculator/src/presentation/my_schedule/kakao_place_search.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/korean_holidays.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -358,6 +359,41 @@ void main() {
       expect(lastHolidayYear >= 2027, true);
       // 표에 없는 해는 빈 값이라 달력에 아무 표시가 나오지 않는다.
       expect(isKoreanHoliday(DateTime(2031, 1, 1)), false);
+    });
+  });
+
+  group('카카오 장소 검색 읽기', () {
+    test('이름·도로명 주소·좌표를 뽑는다', () {
+      const body = '''
+{"documents":[
+ {"place_name":"한국중부발전","address_name":"충남 보령시 주교면 관창리 1","road_address_name":"충남 보령시 주교면 발전로 200","x":"126.5","y":"36.4","phone":"041-000-0000"},
+ {"place_name":"중부발전 서울지사","address_name":"서울 강남구 역삼동 1","road_address_name":"","x":"127.03","y":"37.5","phone":""}
+],"meta":{"total_count":2}}
+''';
+      final list = parseKakaoPlaces(body);
+      expect(list.length, 2);
+      expect(list.first.name, '한국중부발전');
+      // 도로명 주소가 있으면 그것을 쓴다.
+      expect(list.first.address, '충남 보령시 주교면 발전로 200');
+      expect(list.first.lat, 36.4);
+      expect(list.first.lng, 126.5);
+      // 도로명이 없으면 지번 주소로 채운다.
+      expect(list[1].address, '서울 강남구 역삼동 1');
+    });
+
+    test('빈 응답과 이름 없는 항목은 버린다', () {
+      expect(parseKakaoPlaces('{"documents":[]}'), isEmpty);
+      expect(parseKakaoPlaces('{"documents":[{"place_name":"  "}]}'), isEmpty);
+    });
+
+    test('키가 없으면 검색하지 않고 알려 준다', () async {
+      // 테스트에서는 --dart-define을 주지 않으므로 키가 없다.
+      expect(hasKakaoKey, false);
+      expect(await searchKakaoPlaces('  '), isEmpty);
+      expect(
+        () => searchKakaoPlaces('중부발전'),
+        throwsA(isA<KakaoSearchException>()),
+      );
     });
   });
 }

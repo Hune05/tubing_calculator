@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'kakao_place_search.dart';
 import 'korean_holidays.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tzdata;
@@ -124,6 +125,10 @@ class _AgendaItem {
   final String recurrence;
   // 장소(예: 중부발전). 적어 두면 카드에서 눌러 지도로 찾는다.
   final String place;
+  // 장소 검색으로 고른 주소와 좌표(손으로 적었으면 비어 있다).
+  final String placeAddress;
+  final double? placeLat;
+  final double? placeLng;
   // 기간 일정의 몇 번째 날인지(0부터)와 전체 일수 - 달력에 이어진 막대를
   // 그릴 때 시작/끝을 알아내는 데 쓴다.
   final int spanIndex;
@@ -152,6 +157,9 @@ class _AgendaItem {
     this.scheduleId,
     this.recurrence = 'none',
     this.place = '',
+    this.placeAddress = '',
+    this.placeLat,
+    this.placeLng,
     this.spanIndex = 0,
     this.spanTotal = 1,
     this.spanKey,
@@ -358,6 +366,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         : '제목 없음';
     final bool hasTime = data['hasTime'] != false;
     final String place = (data['place'] as String?)?.trim() ?? '';
+    final String placeAddress = (data['placeAddress'] as String?)?.trim() ?? '';
+    final double? placeLat = (data['placeLat'] as num?)?.toDouble();
+    final double? placeLng = (data['placeLng'] as num?)?.toDouble();
     final Map<String, dynamic> completedMap = Map<String, dynamic>.from(
       data['completedOccurrences'] as Map? ?? {},
     );
@@ -394,6 +405,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
             personalDocId: docId,
             recurrence: recurrence,
             place: place,
+            placeAddress: placeAddress,
+            placeLat: placeLat,
+            placeLng: placeLng,
             spanIndex: i,
             spanTotal: totalDays,
             spanKey: docId,
@@ -412,6 +426,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           personalDocId: docId,
           recurrence: recurrence,
           place: place,
+          placeAddress: placeAddress,
+          placeLat: placeLat,
+          placeLng: placeLng,
         ),
       ];
     }
@@ -438,6 +455,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           personalDocId: docId,
           recurrence: recurrence,
           place: place,
+          placeAddress: placeAddress,
+          placeLat: placeLat,
+          placeLng: placeLng,
         ),
     ];
   }
@@ -548,6 +568,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     final placeCtrl = TextEditingController(
       text: existing?['place'] as String? ?? '',
     );
+    String placeAddress = (existing?['placeAddress'] as String?)?.trim() ?? '';
+    double? placeLat = (existing?['placeLat'] as num?)?.toDouble();
+    double? placeLng = (existing?['placeLng'] as num?)?.toDouble();
     String category = (existing?['category'] as String?) ?? '개인';
     DateTime baseDate = existing != null
         ? _asDateTime(existing['dateTime'])
@@ -681,15 +704,43 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                   size: 20,
                                   color: scheduleSubText,
                                 ),
-                                suffixIcon: IconButton(
-                                  tooltip: "지도에서 찾기",
-                                  icon: const Icon(
-                                    Icons.map_outlined,
-                                    size: 20,
-                                    color: scheduleTeal,
-                                  ),
-                                  onPressed: () =>
-                                      _openMap(placeCtrl.text.trim()),
+                                suffixIcon: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      tooltip: "이름으로 찾아 주소 넣기",
+                                      icon: const Icon(
+                                        Icons.search_rounded,
+                                        size: 20,
+                                        color: scheduleTeal,
+                                      ),
+                                      onPressed: () async {
+                                        final picked = await _pickKakaoPlace(
+                                          placeCtrl.text.trim(),
+                                        );
+                                        if (picked == null) return;
+                                        setSheetState(() {
+                                          placeCtrl.text = picked.name;
+                                          placeAddress = picked.address;
+                                          placeLat = picked.lat;
+                                          placeLng = picked.lng;
+                                        });
+                                      },
+                                    ),
+                                    IconButton(
+                                      tooltip: "지도에서 보기",
+                                      icon: const Icon(
+                                        Icons.map_outlined,
+                                        size: 20,
+                                        color: scheduleTeal,
+                                      ),
+                                      onPressed: () => _openMap(
+                                        placeCtrl.text.trim(),
+                                        lat: placeLat,
+                                        lng: placeLng,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 filled: true,
                                 fillColor: const Color(0xFFF7F8F9),
@@ -718,6 +769,45 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                 ),
                               ),
                             ),
+                            if (placeAddress.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6, left: 6),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.subdirectory_arrow_right_rounded,
+                                      size: 14,
+                                      color: Color(0xFF6B7684),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        placeAddress,
+                                        maxLines: 2,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF6B7684),
+                                        ),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: "주소 지우기",
+                                      visualDensity: VisualDensity.compact,
+                                      icon: const Icon(
+                                        Icons.close_rounded,
+                                        size: 16,
+                                        color: Color(0xFF6B7684),
+                                      ),
+                                      onPressed: () => setSheetState(() {
+                                        placeAddress = '';
+                                        placeLat = null;
+                                        placeLng = null;
+                                      }),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             const SizedBox(height: 16),
                             const Text(
                               "종류",
@@ -1101,6 +1191,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                   final data = <String, dynamic>{
                                     'title': titleCtrl.text.trim(),
                                     'place': placeCtrl.text.trim(),
+                                    'placeAddress': placeAddress,
+                                    'placeLat': placeLat,
+                                    'placeLng': placeLng,
                                     'category': category,
                                     'dateTime': combined.toIso8601String(),
                                     'hasTime': hasTime,
@@ -2459,9 +2552,184 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     );
   }
 
+  // 이름으로 장소를 찾아 고른다(카카오 로컬). 고른 것의 이름·주소·좌표를 돌려준다.
+  Future<KakaoPlace?> _pickKakaoPlace(String initial) async {
+    final ctrl = TextEditingController(text: initial);
+    return showModalBottomSheet<KakaoPlace>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        List<KakaoPlace> results = const [];
+        bool loading = false;
+        String message = '';
+        return StatefulBuilder(
+          builder: (ctx, setSheet) {
+            Future<void> run() async {
+              final q = ctrl.text.trim();
+              if (q.isEmpty) return;
+              setSheet(() {
+                loading = true;
+                message = '';
+              });
+              try {
+                final found = await searchKakaoPlaces(q);
+                setSheet(() {
+                  results = found;
+                  loading = false;
+                  message = found.isEmpty
+                      ? "찾은 곳이 없습니다. 이름을 줄여서 다시 찾아 보십시오."
+                      : '';
+                });
+              } catch (e) {
+                setSheet(() {
+                  loading = false;
+                  results = const [];
+                  message = e.toString();
+                });
+              }
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  16,
+                  16,
+                  16 + MediaQuery.of(ctx).viewInsets.bottom,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "장소 찾기",
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: scheduleText,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      "회사·기관 이름을 적으십시오. 예: 중부발전",
+                      style: TextStyle(fontSize: 13, color: Color(0xFF6B7684)),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: ctrl,
+                            autofocus: true,
+                            textInputAction: TextInputAction.search,
+                            onSubmitted: (_) => run(),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: scheduleText,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: "장소 이름",
+                              filled: true,
+                              fillColor: const Color(0xFFF7F8F9),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFD1D6DB),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: scheduleTeal,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 16,
+                            ),
+                          ),
+                          onPressed: loading ? null : run,
+                          child: const Text(
+                            "찾기",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    if (loading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (message.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Text(
+                          message,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: scheduleDanger,
+                          ),
+                        ),
+                      )
+                    else if (results.isNotEmpty)
+                      Flexible(
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: results.length,
+                          separatorBuilder: (_, _) => const Divider(
+                            height: 1,
+                            color: Color(0xFFE5E8EB),
+                          ),
+                          itemBuilder: (_, i) {
+                            final r = results[i];
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                r.name,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: scheduleText,
+                                ),
+                              ),
+                              subtitle: Text(
+                                r.address.isEmpty ? "주소 없음" : r.address,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF6B7684),
+                                ),
+                              ),
+                              trailing: const Icon(
+                                Icons.chevron_right_rounded,
+                                color: Color(0xFF6B7684),
+                              ),
+                              onTap: () => Navigator.pop(ctx, r),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   // 장소를 지도에서 찾는다. 구글 지도 앱이 있으면 앱으로, 없으면 브라우저로 열린다.
-  Future<void> _openMap(String place) async {
-    final String q = place.trim();
+  Future<void> _openMap(String place, {double? lat, double? lng}) async {
+    final String q = lat != null && lng != null ? "$lat,$lng" : place.trim();
     if (q.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -3027,7 +3295,11 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                   children: [
                     if (item.place.isNotEmpty)
                       InkWell(
-                        onTap: () => _openMap(item.place),
+                        onTap: () => _openMap(
+                          item.place,
+                          lat: item.placeLat,
+                          lng: item.placeLng,
+                        ),
                         borderRadius: BorderRadius.circular(6),
                         child: Container(
                           padding: const EdgeInsets.symmetric(

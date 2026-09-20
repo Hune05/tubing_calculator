@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# 개인 키(카카오 REST 키 등) - 저장소에 올리지 않는다
+tool/keys.local.sh
