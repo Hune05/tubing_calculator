@@ -12,6 +12,7 @@ import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_leftover
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_leftovers.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/widgets/leftover_log_page.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/steel_custom_shapes.dart';
+import 'package:tubing_calculator/src/presentation/steel_cutting/steel_multi_input.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/steel_result_logic.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/steel_weight.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/widgets/steel_item_sheet.dart';
@@ -1228,6 +1229,255 @@ void main() {
       await tester.pumpAndSettle();
       expect(shared, copied);
       expect(find.textContaining('카카오톡을 찾지 못해'), findsOneWidget);
+    });
+  });
+
+  group('입력 고도화: 여러 길이·자주 쓰는 길이·요약 줄', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    test('여러 길이 읽기: 쉼표·줄바꿈·x·×·*·개·mm', () {
+      final p = parseMultiLengths('500x3, 800×2; 1200\n300 * 4개, 700mm x 2');
+      expect(p.bad, isEmpty);
+      expect(p.entries.map((e) => (e.length, e.qty)), [
+        (500.0, 3),
+        (800.0, 2),
+        (1200.0, 1),
+        (300.0, 4),
+        (700.0, 2),
+      ]);
+      expect(p.pieces, 12);
+      expect(p.totalMm, 1500 + 1600 + 1200 + 1200 + 1400);
+      expect(multiPreviewText(p), '5건 · 총 12개 · 6900mm');
+    });
+
+    test('여러 길이 읽기: 소수 길이, 못 읽는 값·0은 따로 알려 준다', () {
+      final p = parseMultiLengths('1200.5x2, abc, 0x3, 500x0, 600 x');
+      expect(p.entries.map((e) => (e.length, e.qty)), [(1200.5, 2)]);
+      expect(p.bad, ['abc', '0x3', '500x0', '600 x']);
+      expect(parseMultiLengths('  ').isEmpty, true);
+      expect(multiPreviewText(parseMultiLengths('')), '');
+    });
+
+    test('자주 쓰는 길이: 두 번 이상 쓴 것만, 많이 쓴 순서', () async {
+      expect(await loadTopSteelLengths(), isEmpty);
+      await bumpSteelLengthUse([500]);
+      expect(await loadTopSteelLengths(), isEmpty); // 한 번은 우연일 수 있다
+      await bumpSteelLengthUse([500, 800]);
+      await bumpSteelLengthUse([800, 800.5]);
+      await bumpSteelLengthUse([800]);
+      expect(await loadTopSteelLengths(), [800, 500]);
+      expect(await loadTopSteelLengths(n: 1), [800]);
+    });
+
+    test('자주 쓰는 길이는 최대 개수를 넘으면 적게 쓴 것부터 버린다', () async {
+      for (var i = 1; i <= kMaxSteelLengthFreq + 5; i++) {
+        await bumpSteelLengthUse([i * 10.0]);
+      }
+      await bumpSteelLengthUse([10]); // 10은 두 번
+      final top = await loadTopSteelLengths(n: 50);
+      expect(top.first, 10);
+    });
+
+    Future<List<SteelCutItem>> openSheet(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 4200);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      final saved = <SteelCutItem>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => showSteelItemSheet(context, onSave: saved.add),
+                child: const Text('열기'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('열기'));
+      await tester.pumpAndSettle();
+      return saved;
+    }
+
+    Future<void> pick(WidgetTester tester, String q, String label) async {
+      await tester.tap(find.text('탭해서 규격 선택'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, q);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label).first);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('한 번에 입력: 미리보기, 오류 표시, 모두 추가', (tester) async {
+      final saved = await openSheet(tester);
+      // 규격을 안 골랐으면 알려 준다
+      await tester.tap(find.byKey(const Key('steel_multi_toggle')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('steel_multi_field')),
+        '500x3, 800x2, 1200',
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Text>(find.byKey(const Key('steel_multi_preview'))).data,
+        '3건 · 총 6개 · 4300mm',
+      );
+      await tester.ensureVisible(find.byKey(const Key('steel_multi_add')));
+      await tester.tap(find.byKey(const Key('steel_multi_add')));
+      await tester.pumpAndSettle();
+      expect(find.text('규격을 선택해 주십시오.'), findsOneWidget);
+      expect(saved, isEmpty);
+
+      // 규격을 고르고 오류가 섞이면 추가 버튼이 꺼진다
+      await pick(tester, '40x40x3', '앵글 40x40x3');
+      await tester.enterText(
+        find.byKey(const Key('steel_multi_field')),
+        '500x3, abc',
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('steel_multi_bad')), findsOneWidget);
+      expect(
+        tester
+            .widget<OutlinedButton>(find.byKey(const Key('steel_multi_add')))
+            .onPressed,
+        isNull,
+      );
+
+      await tester.enterText(
+        find.byKey(const Key('steel_multi_field')),
+        '500x3, 800x2, 1200',
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('steel_multi_add')));
+      await tester.tap(find.byKey(const Key('steel_multi_add')));
+      await tester.pumpAndSettle();
+      expect(saved.length, 3);
+      expect(saved.map((e) => (e.shapeLabel, e.length, e.qty)), [
+        ('앵글 40x40x3', 500.0, 3),
+        ('앵글 40x40x3', 800.0, 2),
+        ('앵글 40x40x3', 1200.0, 1),
+      ]);
+      expect(saved.map((e) => e.id).toSet().length, 3);
+      // 입력칸은 비워지고 시트는 그대로 열려 있다
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('steel_multi_field')))
+            .controller!
+            .text,
+        '',
+      );
+      expect(find.text('절단 항목 추가'), findsOneWidget);
+    });
+
+    testWidgets('저장한 길이는 세어 두었다가 자주 쓰는 길이 칩으로 나온다', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        kSteelLengthFreqPrefsKey: '{"500":3,"800":2,"1200":1}',
+      });
+      await openSheet(tester);
+      expect(find.byKey(const Key('freq_len_500')), findsOneWidget);
+      expect(find.byKey(const Key('freq_len_800')), findsOneWidget);
+      expect(find.byKey(const Key('freq_len_1200')), findsNothing);
+      await tester.tap(find.byKey(const Key('freq_len_800')));
+      await tester.pump();
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('steel_length_field')))
+            .controller!
+            .text,
+        '800',
+      );
+      expect(
+        tester.widget<Text>(find.byKey(const Key('steel_item_preview'))).data,
+        '800mm × 1개 = 800mm',
+      );
+    });
+
+    testWidgets('항목을 저장하면 그 길이가 센다', (tester) async {
+      final saved = await openSheet(tester);
+      await pick(tester, '40x40x3', '앵글 40x40x3');
+      await tester.enterText(
+        find.byKey(const Key('steel_length_field')),
+        '500',
+      );
+      await tester.pump();
+      await tester.tap(find.text('추가하고 계속'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('steel_length_field')),
+        '500',
+      );
+      await tester.pump();
+      await tester.tap(find.text('추가하고 계속'));
+      await tester.pumpAndSettle();
+      expect(saved.length, 2);
+      expect(await loadTopSteelLengths(), [500]);
+    });
+
+    testWidgets('입력 탭 아래 요약 줄: 건수·개수·길이·무게, 세트를 곱한다', (tester) async {
+      tester.view.physicalSize = const Size(1080, 4000);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      SteelCuttingProject proj(int sets) => SteelCuttingProject(
+        id: 'sp8',
+        name: '루마',
+        createdAt: DateTime(2026, 9, 20),
+        setMultiplier: sets,
+        items: [
+          item('앵글 40x40x3', 500, 3, id: 'a'),
+          item('앵글 40x40x3', 800, 1, id: 'b'),
+          item('스트럿 41x41x2.5', 1000, 3, cat: 'STRUT', id: 'c'),
+        ],
+      );
+      await tester.pumpWidget(
+        MaterialApp(home: SteelCuttingDetailScreen(project: proj(1))),
+      );
+      await tester.pumpAndSettle();
+      expect(findTextContaining('항목 3건 · 총 7개'), findsOneWidget);
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('steel_input_summary_len')))
+            .data,
+        '5.30m',
+      );
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('steel_input_summary_kg')))
+            .data,
+        '약 12.0kg',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SteelCuttingDetailScreen(
+            key: const ValueKey('sets3'),
+            project: proj(3),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(findTextContaining('항목 3건 · 총 21개 (3세트)'), findsOneWidget);
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('steel_input_summary_len')))
+            .data,
+        '15.90m',
+      );
+    });
+
+    testWidgets('항목이 없으면 요약 줄이 없다', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SteelCuttingDetailScreen(
+            project: SteelCuttingProject(
+              id: 'e',
+              name: '루마',
+              createdAt: DateTime(2026, 9, 20),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('steel_input_summary')), findsNothing);
     });
   });
 }

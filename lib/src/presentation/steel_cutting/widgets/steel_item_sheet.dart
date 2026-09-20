@@ -7,6 +7,7 @@ import '../../tube_cutting/cutting_math.dart' show parseLengthInput, fmtMm;
 import '../../tube_cutting/cutting_theme.dart';
 import '../steel_custom_shapes.dart';
 import '../steel_cutting_favorites.dart';
+import '../steel_multi_input.dart';
 import '../steel_shape_icons.dart';
 import 'steel_shape_picker_sheet.dart';
 
@@ -49,6 +50,11 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
   int _addedCount = 0;
   List<SteelQuickPick> _favorites = [];
   List<SteelQuickPick> _recents = [];
+  // 자주 쓰는 길이(많이 넣은 순서, 두 번 이상 쓴 것만).
+  List<double> _topLengths = [];
+  // 한 줄로 여러 길이 입력.
+  late final TextEditingController _multiCtrl;
+  bool _multiOpen = false;
 
   bool get _isEditing => widget.existing != null;
 
@@ -71,7 +77,65 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
     // 즐겨찾기 별 아이콘이 길이 입력에 맞춰 즉시 켜지고/꺼지게.
     _lengthCtrl.addListener(() => setState(() {}));
     _qtyCtrl.addListener(() => setState(() {}));
-    if (!_isEditing) _loadQuickPicks();
+    _multiCtrl = TextEditingController();
+    _multiCtrl.addListener(() => setState(() {}));
+    if (!_isEditing) {
+      _loadQuickPicks();
+      _loadTopLengths();
+    }
+  }
+
+  Future<void> _loadTopLengths() async {
+    final top = await loadTopSteelLengths();
+    if (!mounted) return;
+    setState(() => _topLengths = top);
+  }
+
+  // 여러 길이를 한 번에 추가한다(고른 규격·비고를 모두에게 적용).
+  Future<void> _addMulti() async {
+    final shape = _shape;
+    if (shape == null) {
+      showCuttingSnack(context, "규격을 선택해 주십시오.", isError: true);
+      return;
+    }
+    final p = parseMultiLengths(_multiCtrl.text);
+    if (p.bad.isNotEmpty) {
+      showCuttingSnack(
+        context,
+        "읽을 수 없는 값이 있습니다: ${p.bad.join(', ')}",
+        isError: true,
+      );
+      return;
+    }
+    if (p.entries.isEmpty) {
+      showCuttingSnack(
+        context,
+        "길이를 적어 주십시오. 예: 500x3, 800x2, 1200",
+        isError: true,
+      );
+      return;
+    }
+    final note = _noteCtrl.text.trim();
+    for (final e in p.entries) {
+      widget.onSave(
+        SteelCutItem(
+          id: '${DateTime.now().millisecondsSinceEpoch}_${_addedCount++}',
+          category: shape.category,
+          shapeLabel: shape.label,
+          length: e.length,
+          qty: e.qty,
+          note: note,
+        ),
+      );
+    }
+    HapticFeedback.lightImpact();
+    bumpSteelLengthUse(p.entries.map((e) => e.length));
+    setState(() => _multiCtrl.clear());
+    showCuttingSnack(
+      context,
+      "'${shape.label}' ${p.entries.length}건(${p.pieces}개)을 추가했습니다.",
+    );
+    _loadTopLengths();
   }
 
   Future<void> _loadQuickPicks() async {
@@ -89,6 +153,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
     _lengthCtrl.dispose();
     _qtyCtrl.dispose();
     _noteCtrl.dispose();
+    _multiCtrl.dispose();
     super.dispose();
   }
 
@@ -208,6 +273,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
     );
     widget.onSave(item);
     HapticFeedback.lightImpact();
+    bumpSteelLengthUse([length]);
     // 직접 입력한 규격은 다음에 "내 규격"에서 고를 수 있게 적어 둔다.
     if (shape.category == 'CUSTOM') addCustomSteelShape(shape.label);
     saveRecentSteelItem(
@@ -577,6 +643,59 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
                     ),
                   ],
                 ),
+                // 자주 넣은 길이: 누르면 길이 칸에 들어간다.
+                if (_topLengths.isNotEmpty && !_isEditing)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          "자주 쓰는 길이",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        for (final v in _topLengths)
+                          InkWell(
+                            key: Key('freq_len_${fmtMm(v)}'),
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              _lengthCtrl.text = fmtMm(v);
+                              _lengthCtrl.selection = TextSelection.collapsed(
+                                offset: _lengthCtrl.text.length,
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: CuttingColors.primary,
+                                ),
+                              ),
+                              child: Text(
+                                fmtMm(v),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: CuttingColors.primaryDark,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 // 입력한 값으로 나오는 합계를 미리 보여 준다(길이 × 수량 = 합계).
                 if (_previewText != null)
                   Padding(
@@ -597,6 +716,31 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
                   hint: "예: A구역 하단 프레임",
                   controller: _noteCtrl,
                 ),
+                if (!_isEditing) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      key: const Key('steel_multi_toggle'),
+                      onPressed: () => setState(() => _multiOpen = !_multiOpen),
+                      style: TextButton.styleFrom(
+                        foregroundColor: CuttingColors.primaryDark,
+                        padding: EdgeInsets.zero,
+                      ),
+                      icon: Icon(
+                        _multiOpen
+                            ? Icons.expand_less_rounded
+                            : Icons.playlist_add_rounded,
+                        size: 20,
+                      ),
+                      label: const Text(
+                        "여러 길이 한 번에 입력",
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+                  if (_multiOpen) _buildMultiSection(),
+                ],
                 const SizedBox(height: 24),
                 Row(
                   children: [
@@ -652,6 +796,107 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // 같은 규격에 "500x3, 800x2, 1200"처럼 적어 한 번에 넣는다. 읽은 결과를 바로 아래에 보여 준다.
+  Widget _buildMultiSection() {
+    final p = parseMultiLengths(_multiCtrl.text);
+    final preview = multiPreviewText(p);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: CuttingColors.primarySoft.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "위에서 고른 규격에 아래 길이를 모두 추가합니다. 쉼표나 줄바꿈으로 나누고, 길이x개수로 적습니다.",
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: CuttingColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            key: const Key('steel_multi_field'),
+            controller: _multiCtrl,
+            minLines: 2,
+            maxLines: 5,
+            keyboardType: TextInputType.multiline,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: CuttingColors.textPrimary,
+            ),
+            decoration: InputDecoration(
+              hintText: "예: 500x3, 800x2, 1200",
+              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 15),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          if (p.bad.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                "읽을 수 없는 값: ${p.bad.join(', ')}",
+                key: const Key('steel_multi_bad'),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: CuttingColors.danger,
+                ),
+              ),
+            )
+          else if (preview.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                preview,
+                key: const Key('steel_multi_preview'),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: CuttingColors.primary,
+                ),
+              ),
+            ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              key: const Key('steel_multi_add'),
+              onPressed: p.entries.isNotEmpty && p.bad.isEmpty
+                  ? _addMulti
+                  : null,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: CuttingColors.primaryDark,
+                side: const BorderSide(
+                  color: CuttingColors.primary,
+                  width: 1.5,
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: Text(
+                p.entries.isEmpty ? "모두 추가" : "${p.entries.length}건 모두 추가",
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

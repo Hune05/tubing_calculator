@@ -840,6 +840,61 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                         )
                       : ListView(padding: EdgeInsets.zero, children: rows)),
           ),
+          if (_items.isNotEmpty) _buildInputSummary(),
+        ],
+      ),
+    );
+  }
+
+  // 입력 탭 맨 아래 고정 요약: 결과 탭으로 가지 않아도 총량이 보인다(세트 수를 곱한 값).
+  Widget _buildInputSummary() {
+    final lines = _resultLines();
+    final pieces = lines.fold<int>(0, (s, l) => s + l.count);
+    final mm = lines.fold<double>(0, (s, l) => s + l.totalMm);
+    final w = weightTotals(lines);
+    return Container(
+      key: const Key('steel_input_summary'),
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: CuttingColors.primarySoft.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: CuttingColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 2,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(
+            "항목 ${_items.length}건 · 총 $pieces개"
+            "${_setMultiplier > 1 ? ' ($_setMultiplier세트)' : ''}",
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: CuttingColors.textPrimary,
+            ),
+          ),
+          Text(
+            "${(mm / 1000).toStringAsFixed(2)}m",
+            key: const Key('steel_input_summary_len'),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              color: CuttingColors.primaryDark,
+            ),
+          ),
+          if (w.total != null)
+            Text(
+              "약 ${fmtKg(w.total!)}kg${w.unknownSpecs > 0 ? ' 이상' : ''}",
+              key: const Key('steel_input_summary_kg'),
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+                color: CuttingColors.primaryDark,
+              ),
+            ),
         ],
       ),
     );
