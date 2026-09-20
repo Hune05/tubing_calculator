@@ -5,8 +5,12 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'dart:async';
 
+import '../../tube_cutting/cutting_theme.dart'
+    show showCuttingConfirmDialog, showCuttingSnack;
+import '../material_catalog.dart' show materialCategoryLabel;
 import 'inventory_model.dart';
 import 'inventory_item_card.dart';
+import 'material_catalog_page.dart';
 import 'mobile_inventory_ocr.dart';
 
 part 'mobile_inventory_dialogs.dart';
@@ -29,8 +33,10 @@ class MobileInventoryPage extends StatefulWidget {
 }
 
 class _MobileInventoryPageState extends State<MobileInventoryPage> {
-  final PageController _pageController = PageController();
-  int _currentCategory = 0;
+  // 보고 있는 분류('ALL'이면 모두)와 찾는 글.
+  String _filter = 'ALL';
+  String _searchQuery = "";
+  final TextEditingController _searchController = TextEditingController();
 
   final CollectionReference _inventoryDb = FirebaseFirestore.instance
       .collection('inventory');
@@ -38,21 +44,31 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     'inventory_logs',
   );
 
-  // 🚀 전선관·후렉시블·부속을 앞에 넣었다(전선관 작업에서 제일 많이 쓴다).
-  final List<Map<String, dynamic>> _categories = [
-    {"id": "CONDUIT", "name": "전선관", "color": const Color(0xFF2F4858)},
-    {"id": "FLEX", "name": "후렉시블", "color": const Color(0xFF3B5E52)},
-    {"id": "ACC", "name": "부속·악세사리", "color": const Color(0xFF6B5344)},
-    {"id": "TUBE", "name": "튜브 (Tube)", "color": const Color(0xFF4A5D66)},
-    {
-      "id": "FITTING",
-      "name": "피팅류 (Fitting)",
-      "color": const Color(0xFF8A6345),
-    },
-    {"id": "VALVE", "name": "밸브류 (Valve)", "color": const Color(0xFF00606B)},
-    {"id": "FLANGE", "name": "가스켓 / 후렌지", "color": const Color(0xFF635666)},
-    {"id": "기타", "name": "기타 / 볼트", "color": const Color(0xFF3B5E52)},
+  // 분류. 이름은 material_catalog.dart에 있는 한글 이름을 쓰고, 색은 앱 색
+  // 하나로 맞췄다(예전에는 카테고리마다 갈색·자색으로 달랐다).
+  final List<Map<String, dynamic>> _categories = const [
+    {"id": "CONDUIT", "name": "전선관"},
+    {"id": "FLEX", "name": "후렉시블"},
+    {"id": "ACC", "name": "부속·악세사리"},
+    {"id": "TUBE", "name": "튜브"},
+    {"id": "FITTING", "name": "피팅"},
+    {"id": "VALVE", "name": "밸브"},
+    {"id": "FLANGE", "name": "가스켓·후렌지"},
+    {"id": "기타", "name": "기타"},
   ];
+
+  // 다이얼로그·전송 기록이 "지금 보고 있는 분류"를 쓴다. 전체를 보고 있으면
+  // 기타로 본다.
+  Map<String, dynamic> get _currentCategoryInfo => _categories.firstWhere(
+    (c) => c['id'] == _filter,
+    orElse: () => _categories.last,
+  );
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   final Map<String, ItemData> _localEdits = {};
   final Map<String, Map<String, dynamic>> _newLocalItems = {};
@@ -93,14 +109,13 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     }
   }
 
+  // 🚀 [정리] 예전에는 카테고리마다 한 장씩(8장) 좌우로 넘기는 구조였고 찾기가
+  // 없어서, 자재가 늘어나면 원하는 줄을 찾을 수 없었다. 한 목록으로 합치고
+  // 위쪽에 찾기와 분류 칩을 뒀다(자재 현황 화면과 같은 방식). 색도 카테고리마다
+  // 다르게 쓰던 것을 앱 색(청록) 하나로 맞췄다.
   @override
   Widget build(BuildContext context) {
-    var catInfo = _categories[_currentCategory];
-    var catColor = catInfo['color'] as Color;
-    var catId = catInfo['id'] as String;
-
     return Scaffold(
-      // 🌟 전체 배경을 하얗게 변경하여 미니멀함 강조
       backgroundColor: pureWhite,
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
@@ -108,383 +123,384 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
           bottom: false,
           child: Column(
             children: [
-              // 🌟 상단 헤더: 그림자를 제거하고 깔끔한 면으로 처리
-              Container(
-                height: 100, // 헤더 높이를 키워 시원한 여백 확보
-                width: double.infinity,
-                decoration: BoxDecoration(color: catColor),
-                child: Stack(
-                  children: [
-                    Center(
-                      child: Text(
-                        catInfo['name'],
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900, // 토스 스타일의 강력한 타이포
-                          color: Colors.white,
-                          letterSpacing: -0.5, // 자간을 줄여 세련됨 강조
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      right: 16,
-                      top: 0,
-                      bottom: 0,
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.add_circle_outline,
-                          color: Colors.white,
-                          size: 32,
-                        ),
-                        onPressed: () => _showAddNewItemDialog(catId),
-                        tooltip: "현장에서 신규 자재 추가",
-                      ),
-                    ),
-                    Positioned(
-                      left: 16,
-                      top: 0,
-                      bottom: 0,
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.arrow_back_ios,
-                          color: Colors.white,
-                        ),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // 🌟 카테고리 탭 표시기 (선택적)
-              // 현재 스와이프로 넘어가지만, 시각적인 인디케이터 역할을 합니다.
-              Container(
-                color: pureWhite,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(_categories.length, (index) {
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      height: 8,
-                      width: _currentCategory == index ? 24 : 8,
-                      decoration: BoxDecoration(
-                        color: _currentCategory == index ? catColor : slate100,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-
-              // 🌟 리스트 뷰 영역
-              Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  physics: const BouncingScrollPhysics(), // 부드러운 스크롤
-                  onPageChanged: (index) {
-                    HapticFeedback.selectionClick();
-                    setState(() => _currentCategory = index);
-                  },
-                  itemCount: _categories.length,
-                  itemBuilder: (context, index) {
-                    String currentCatId = _categories[index]['id'];
-
-                    return StreamBuilder<QuerySnapshot>(
-                      stream: _inventoryDb
-                          .where('category', isEqualTo: currentCatId)
-                          .snapshots(),
-                      builder: (context, snapshot) {
-                        if (!snapshot.hasData) {
-                          return const Center(
-                            child: CircularProgressIndicator(color: makitaTeal),
-                          );
-                        }
-
-                        var dbDocs = snapshot.data!.docs;
-                        var localNewDocs = _newLocalItems.entries
-                            .where((e) => e.value['category'] == currentCatId)
-                            .toList();
-                        int totalCount = dbDocs.length + localNewDocs.length;
-
-                        if (totalCount == 0) {
-                          return const Center(
-                            child: Text(
-                              "등록된 자재가 없습니다",
-                              style: TextStyle(
-                                color: slate600,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          );
-                        }
-
-                        return ListView.builder(
-                          physics: const BouncingScrollPhysics(),
-                          padding: const EdgeInsets.only(
-                            left: 24,
-                            right: 24,
-                            top: 8,
-                            bottom: 40, // 하단 여백 넉넉히
-                          ),
-                          itemCount: totalCount,
-                          itemBuilder: (context, i) {
-                            String docId;
-                            String itemName;
-                            ItemData displayData;
-                            bool isLocalNew = i >= dbDocs.length;
-
-                            if (!isLocalNew) {
-                              var doc = dbDocs[i];
-                              docId = doc.id;
-
-                              final dataMap =
-                                  doc.data() as Map<String, dynamic>?;
-                              itemName = dataMap?['name'] ?? '이름 없음';
-
-                              if (_localEdits.containsKey(docId)) {
-                                displayData = _localEdits[docId]!;
-                              } else {
-                                displayData = _createItemDataFromDoc(
-                                  dataMap ?? {},
-                                );
-                              }
-                            } else {
-                              var newDoc = localNewDocs[i - dbDocs.length];
-                              docId = newDoc.key;
-                              itemName = newDoc.value['name'] ?? '이름 없음';
-                              displayData =
-                                  _localEdits[docId] ??
-                                  _createItemDataFromDoc(newDoc.value);
-                            }
-
-                            // 🌟 아이템 카드 테마 설정 (그림자 제거, 은은한 테두리)
-                            Widget itemCard = InventoryItemCard(
-                              itemName: itemName,
-                              data: displayData,
-                              categoryIndex: index,
-                              themeColor: _categories[index]['color'],
-                              onUpdateQuantity: (delta) {
-                                HapticFeedback.lightImpact();
-                                setState(() {
-                                  if (!_localEdits.containsKey(docId) &&
-                                      !isLocalNew) {
-                                    _localEdits[docId] = _createItemDataFromDoc(
-                                      (dbDocs[i].data()
-                                              as Map<String, dynamic>?) ??
-                                          {},
-                                    );
-                                  }
-                                  int next =
-                                      (_localEdits[docId]?.qty ?? 0) + delta;
-                                  if (next >= 0) _localEdits[docId]!.qty = next;
-                                });
-                              },
-                              onQuantityTap: () => _showQuantityInputDialog(
-                                docId,
-                                itemName,
-                                displayData.qty,
-                              ),
-                              onExtraInfoTap: (infoType) =>
-                                  _showExtraInfoDialog(
-                                    docId,
-                                    displayData,
-                                    infoType,
-                                  ),
-                            );
-
-                            // 🌟 카드를 감싸는 영역 (여백 넉넉히)
-                            Widget wrappedCard = Theme(
-                              data: ThemeData.light().copyWith(
-                                cardColor: pureWhite,
-                                scaffoldBackgroundColor: pureWhite,
-                                colorScheme: const ColorScheme.light(
-                                  surface: pureWhite,
-                                ),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.only(
-                                  bottom: 16.0,
-                                ), // 카드 간 간격 확대
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: pureWhite,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: slate100,
-                                      width: 2,
-                                    ), // 은은한 테두리
-                                  ),
-                                  child: itemCard,
-                                ),
-                              ),
-                            );
-
-                            return GestureDetector(
-                              onLongPress: () {
-                                HapticFeedback.heavyImpact();
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    backgroundColor: pureWhite,
-                                    surfaceTintColor: Colors.transparent,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    title: const Text(
-                                      "항목 삭제",
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    content: Text(
-                                      isLocalNew
-                                          ? "'$itemName' 항목을 전송 목록에서 삭제하시겠습니까?"
-                                          : "'$itemName' 항목을 데이터베이스에서 완전히 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.",
-                                      style: const TextStyle(color: slate600),
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: const Text(
-                                          "취소",
-                                          style: TextStyle(
-                                            color: slate600,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                      ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.red.shade600,
-                                          elevation: 0,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                        ),
-                                        onPressed: () async {
-                                          Navigator.pop(context);
-
-                                          if (isLocalNew) {
-                                            setState(() {
-                                              _newLocalItems.remove(docId);
-                                              _localEdits.remove(docId);
-                                            });
-                                          } else {
-                                            try {
-                                              await _inventoryDb
-                                                  .doc(docId)
-                                                  .delete();
-                                              setState(() {
-                                                _localEdits.remove(docId);
-                                              });
-                                              await recordMobileLog(
-                                                itemName: itemName,
-                                                action: '완전 삭제',
-                                                qty: displayData.qty,
-                                              );
-                                            } catch (e) {
-                                              if (!context.mounted) return;
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    "삭제 중 오류가 발생했습니다",
-                                                  ),
-                                                ),
-                                              );
-                                              return;
-                                            }
-                                          }
-
-                                          if (!context.mounted) return;
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              content: Text("삭제했습니다"),
-                                              behavior:
-                                                  SnackBarBehavior.floating,
-                                            ),
-                                          );
-                                        },
-                                        child: const Text(
-                                          "삭제",
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                              child: wrappedCard,
-                            );
-                          },
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-
-              // 🌟 하단 고정 버튼 영역 (그림자 제거, 미니멀한 라인 추가)
-              SafeArea(
-                top: false,
-                child: Container(
-                  padding: const EdgeInsets.only(
-                    left: 24,
-                    right: 24,
-                    bottom: 24,
-                    top: 16,
-                  ),
-                  decoration: const BoxDecoration(
-                    color: pureWhite,
-                    border: Border(top: BorderSide(color: slate100, width: 1)),
-                  ),
-                  child: SizedBox(
-                    height: 60, // 버튼 높이 확대
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _syncToServer,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: catColor,
-                        elevation: 0, // 그림자 제거
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16), // 둥근 모서리
-                        ),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            LucideIcons.scale,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                          SizedBox(width: 10),
-                          Text(
-                            "자재 목록 서버 전송",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              _header(),
+              _searchBox(),
+              _categoryChips(),
+              if (_localEdits.isNotEmpty) _editedBar(),
+              Divider(height: 1, color: slate100),
+              Expanded(child: _auditList()),
+              _sendBar(),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _header() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back, color: slate900),
+            onPressed: () => Navigator.pop(context),
+          ),
+          const Expanded(
+            child: Text(
+              "재고조사",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: slate900,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: '자재 목록에서 재고에 넣기',
+            icon: const Icon(LucideIcons.listPlus, color: slate900),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const MaterialCatalogPage(),
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: '여기 없는 자재 직접 넣기',
+            icon: const Icon(Icons.add_circle_outline, color: slate900),
+            onPressed: () =>
+                _showAddNewItemDialog(_filter == 'ALL' ? '기타' : _filter),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _searchBox() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+      child: TextField(
+        controller: _searchController,
+        style: const TextStyle(
+          color: slate900,
+          fontWeight: FontWeight.w600,
+          fontSize: 16,
+        ),
+        onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+        decoration: InputDecoration(
+          hintText: "자재명, 규격, 위치 찾기",
+          hintStyle: TextStyle(color: slate600.withValues(alpha: 0.6)),
+          prefixIcon: const Icon(LucideIcons.search, color: slate600, size: 20),
+          suffixIcon: _searchQuery.isEmpty
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.cancel, color: slate600, size: 20),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = "");
+                  },
+                ),
+          filled: true,
+          fillColor: slate100,
+          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _categoryChips() {
+    final ids = ['ALL', for (final c in _categories) c['id'] as String];
+    return SizedBox(
+      height: 40,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        itemCount: ids.length,
+        itemBuilder: (context, i) {
+          final id = ids[i];
+          final on = _filter == id;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text(id == 'ALL' ? '전체' : materialCategoryLabel(id)),
+              labelStyle: TextStyle(
+                color: on ? pureWhite : slate600,
+                fontWeight: on ? FontWeight.w700 : FontWeight.w600,
+                fontSize: 14,
+              ),
+              selected: on,
+              selectedColor: makitaTeal,
+              backgroundColor: slate100,
+              showCheckmark: false,
+              side: BorderSide.none,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              onSelected: (_) => setState(() => _filter = id),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // 아직 서버에 올리지 않은 고친 내용을 몇 건인지 알려 주고, 한 번에 되돌린다.
+  Widget _editedBar() {
+    return Container(
+      width: double.infinity,
+      color: makitaTeal.withValues(alpha: 0.08),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              "고친 것 ${_localEdits.length}건. 아직 서버에 올리지 않았습니다.",
+              style: const TextStyle(
+                color: makitaTeal,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: _undoEdits,
+            child: const Text(
+              "되돌리기",
+              style: TextStyle(color: slate600, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _undoEdits() async {
+    final ok = await showCuttingConfirmDialog(
+      context,
+      title: "고친 것을 되돌립니까?",
+      message: "서버에 올리지 않은 ${_localEdits.length}건을 모두 되돌립니다.",
+      confirmLabel: "되돌립니다",
+      danger: true,
+    );
+    if (!ok) return;
+    setState(() {
+      _localEdits.clear();
+      _newLocalItems.clear();
+    });
+  }
+
+  Widget _auditList() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _inventoryDb.snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(
+            child: CircularProgressIndicator(color: makitaTeal),
+          );
+        }
+
+        // 서버에 있는 자재 + 이 화면에서 새로 적은 자재를 한 목록으로 합친다.
+        final dbDocs = snapshot.data!.docs.where(_matchesFilter).toList()
+          ..sort((a, b) {
+            final ma = a.data() as Map<String, dynamic>;
+            final mb = b.data() as Map<String, dynamic>;
+            final ca = (ma['category'] ?? '').toString();
+            final cb = (mb['category'] ?? '').toString();
+            if (ca != cb) return ca.compareTo(cb);
+            return (ma['name'] ?? '').toString().compareTo(
+              (mb['name'] ?? '').toString(),
+            );
+          });
+
+        final localNew = _newLocalItems.entries.where((e) {
+          final m = Map<String, dynamic>.from(e.value);
+          return _matchesMap(m);
+        }).toList();
+
+        final total = dbDocs.length + localNew.length;
+        if (total == 0) {
+          return Center(
+            child: Text(
+              _searchQuery.isEmpty ? "등록된 자재가 없습니다." : "찾는 자재가 없습니다.",
+              style: const TextStyle(
+                color: slate600,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+          itemCount: total,
+          itemBuilder: (context, i) {
+            final isLocalNew = i >= dbDocs.length;
+            final String docId;
+            final String itemName;
+            final ItemData displayData;
+
+            if (!isLocalNew) {
+              final doc = dbDocs[i];
+              docId = doc.id;
+              final m = doc.data() as Map<String, dynamic>?;
+              itemName = (m?['name'] ?? '이름 없음').toString();
+              displayData =
+                  _localEdits[docId] ?? _createItemDataFromDoc(m ?? {});
+            } else {
+              final e = localNew[i - dbDocs.length];
+              docId = e.key;
+              itemName = (e.value['name'] ?? '이름 없음').toString();
+              displayData =
+                  _localEdits[docId] ?? _createItemDataFromDoc(e.value);
+            }
+
+            final card = InventoryItemCard(
+              itemName: itemName,
+              data: displayData,
+              categoryIndex: 0,
+              themeColor: makitaTeal,
+              onUpdateQuantity: (delta) {
+                HapticFeedback.lightImpact();
+                setState(() {
+                  if (!_localEdits.containsKey(docId) && !isLocalNew) {
+                    final m = dbDocs.firstWhere((d) => d.id == docId).data();
+                    _localEdits[docId] = _createItemDataFromDoc(
+                      (m as Map<String, dynamic>?) ?? {},
+                    );
+                  }
+                  final next = (_localEdits[docId]?.qty ?? 0) + delta;
+                  if (next >= 0) _localEdits[docId]!.qty = next;
+                });
+              },
+              onQuantityTap: () =>
+                  _showQuantityInputDialog(docId, itemName, displayData.qty),
+              onExtraInfoTap: (infoType) =>
+                  _showExtraInfoDialog(docId, displayData, infoType),
+            );
+
+            return GestureDetector(
+              onLongPress: () => _askDelete(
+                docId: docId,
+                itemName: itemName,
+                isLocalNew: isLocalNew,
+                qty: displayData.qty,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: pureWhite,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: slate100, width: 2),
+                  ),
+                  child: Theme(
+                    data: ThemeData.light().copyWith(
+                      cardColor: pureWhite,
+                      scaffoldBackgroundColor: pureWhite,
+                      colorScheme: const ColorScheme.light(surface: pureWhite),
+                    ),
+                    child: card,
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  bool _matchesFilter(DocumentSnapshot doc) =>
+      _matchesMap((doc.data() as Map<String, dynamic>?) ?? {});
+
+  bool _matchesMap(Map<String, dynamic> m) {
+    if (_filter != 'ALL' && (m['category'] ?? '') != _filter) return false;
+    if (_searchQuery.isEmpty) return true;
+    final target =
+        "${m['name'] ?? ''} ${m['spec'] ?? m['size'] ?? ''} ${m['location'] ?? ''}"
+            .toLowerCase();
+    return target.contains(_searchQuery);
+  }
+
+  Future<void> _askDelete({
+    required String docId,
+    required String itemName,
+    required bool isLocalNew,
+    required int qty,
+  }) async {
+    HapticFeedback.heavyImpact();
+    final ok = await showCuttingConfirmDialog(
+      context,
+      title: isLocalNew ? "적어 둔 것을 지웁니까?" : "자재를 아주 지웁니까?",
+      message: isLocalNew
+          ? "$itemName을 올릴 목록에서 지웁니다."
+          : "$itemName을 창고 목록에서 아주 지웁니다. 되돌릴 수 없습니다.",
+      confirmLabel: "지웁니다",
+      danger: true,
+    );
+    if (!ok) return;
+
+    if (isLocalNew) {
+      setState(() {
+        _newLocalItems.remove(docId);
+        _localEdits.remove(docId);
+      });
+      return;
+    }
+
+    try {
+      await _inventoryDb.doc(docId).delete();
+      if (mounted) setState(() => _localEdits.remove(docId));
+      await recordMobileLog(itemName: itemName, action: '완전 삭제', qty: qty);
+      if (!mounted) return;
+      showCuttingSnack(context, "지웠습니다.");
+    } catch (_) {
+      if (!mounted) return;
+      showCuttingSnack(context, "지우지 못했습니다.", isError: true);
+    }
+  }
+
+  Widget _sendBar() {
+    final n = _localEdits.length;
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        decoration: const BoxDecoration(
+          color: pureWhite,
+          border: Border(top: BorderSide(color: slate100, width: 1)),
+        ),
+        child: SizedBox(
+          height: 60,
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: n == 0 ? null : _syncToServer,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: makitaTeal,
+              disabledBackgroundColor: slate100,
+              disabledForegroundColor: slate600,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: Text(
+              n == 0 ? "고친 것이 없습니다" : "고친 것 $n건 서버에 올리기",
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: n == 0 ? slate600 : Colors.white,
+              ),
+            ),
           ),
         ),
       ),

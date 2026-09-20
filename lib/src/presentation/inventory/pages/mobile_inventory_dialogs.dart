@@ -43,7 +43,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                   autofocus: true,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: _categories[_currentCategory]['color'],
+                    color: makitaTeal,
                     fontSize: 56,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -2,
@@ -93,7 +93,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                     flex: 2,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _categories[_currentCategory]['color'],
+                        backgroundColor: makitaTeal,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -443,8 +443,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                         flex: 2,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                _categories[_currentCategory]['color'],
+                            backgroundColor: makitaTeal,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             elevation: 0,
                             shape: RoundedRectangleBorder(
@@ -552,7 +551,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
 
             if (infoType == 'Maker') {
               titleText = "제조사 선택";
-              quickOptions = _categories[_currentCategory]['id'] == 'TUBE'
+              quickOptions = _currentCategoryInfo['id'] == 'TUBE'
                   ? ["TSK", "SANDVIK", "세아특수강", "코리녹스"]
                   : ["HY-LOK", "SWAGELOK", "PARKER"];
             } else if (infoType == 'Material') {
@@ -841,8 +840,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                         flex: 2,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                _categories[_currentCategory]['color'],
+                            backgroundColor: makitaTeal,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             elevation: 0,
                             shape: RoundedRectangleBorder(

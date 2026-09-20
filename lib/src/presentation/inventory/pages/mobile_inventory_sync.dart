@@ -157,8 +157,8 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
       "id": DateTime.now().millisecondsSinceEpoch.toString(),
       "time":
           "${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}",
-      "category": _categories[_currentCategory]['name'],
-      "color": _categories[_currentCategory]['color'],
+      "category": _currentCategoryInfo['name'],
+      "color": makitaTeal,
       "syncCount": _localEdits.length,
       "status": "syncing",
     };
