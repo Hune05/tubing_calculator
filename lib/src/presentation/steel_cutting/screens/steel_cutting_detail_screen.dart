@@ -88,6 +88,13 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   }
 
   String get _doneKey => 'steel_done_${widget.project.id}';
+  // 남는 토막을 저장한 때의 결과 줄 모양(줄 열쇠를 이은 글). 지금 줄과 같으면 "이 결과의 토막은 이미 저장함".
+  String get _leftoverKey => 'steel_leftover_saved_${widget.project.id}';
+  String _leftoverSavedSig = '';
+
+  String get _linesSig => _resultLines().map((l) => l.key).join('|');
+  bool get _leftoversSaved =>
+      _leftoverSavedSig.isNotEmpty && _leftoverSavedSig == _linesSig;
 
   @override
   void initState() {
@@ -105,8 +112,12 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     try {
       final p = await SharedPreferences.getInstance();
       final saved = p.getStringList(_doneKey) ?? const <String>[];
+      final sig = p.getString(_leftoverKey) ?? '';
       if (!mounted) return;
-      setState(() => _doneKeys.addAll(saved));
+      setState(() {
+        _doneKeys.addAll(saved);
+        _leftoverSavedSig = sig;
+      });
       _pruneDone();
     } catch (_) {}
   }
@@ -304,6 +315,20 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     );
   }
 
+  // 재단 최적화에서 "잘랐습니다"를 눌러 남는 토막을 저장했을 때: 결과의 모든 줄을 "잘랐음"으로 맞추고, 이 결과의
+  // 토막은 저장했다고 적어 둔다(항목이나 세트를 바꾸면 저절로 "아직 저장 안 함"으로 돌아간다).
+  void _onLeftoversSaved() {
+    if (!mounted) return;
+    setState(() {
+      _doneKeys.addAll(_resultLines().map((l) => l.key));
+      _leftoverSavedSig = _linesSig;
+    });
+    _saveDone();
+    SharedPreferences.getInstance()
+        .then((p) => p.setString(_leftoverKey, _leftoverSavedSig))
+        .catchError((_) => false);
+  }
+
   Future<void> _showOptimization() async {
     await showCuttingOptimizationSheet(
       context,
@@ -311,6 +336,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       initialStockLength: _stockLength,
       kerf: _bladeKerf,
       mixPrefsKey: kSteelMixPrefsKey,
+      onLeftoversSaved: _onLeftoversSaved,
       title: "재단 최적화 (원자재 소요 계산)",
       onStockLengthChanged: (v) {
         setState(() => _stockLength = v);
@@ -1069,6 +1095,11 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                 onToggle: _toggleDone,
                 setMultiplier: _setMultiplier,
                 specHeaders: true,
+                allDoneText: _leftoversSaved
+                    ? "모두 잘랐습니다. 남는 토막도 저장했습니다."
+                    : "모두 잘랐습니다.",
+                allDoneActionLabel: _leftoversSaved ? null : "남는 토막 저장",
+                onAllDoneAction: _showOptimization,
                 specWeights: weights.bySpec,
                 unknownWeightSpecs: weights.unknownSpecs,
                 emptyMessage: "절단 항목을 먼저 추가하십시오.",

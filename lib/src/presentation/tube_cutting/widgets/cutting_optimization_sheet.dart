@@ -33,6 +33,8 @@ Future<void> showCuttingOptimizationSheet(
   ValueChanged<double>? onStockLengthChanged,
   // 여러 길이 섞어 쓰기 설정을 저장할 곳. 없으면 저장하지 않는다.
   String? mixPrefsKey,
+  // "잘랐습니다(남은 토막 저장)"를 눌러 저장이 끝난 뒤 부른다(호출한 화면이 결과의 "잘랐음" 표시를 맞추는 데 쓴다).
+  VoidCallback? onLeftoversSaved,
 }) async {
   final Map<String, List<double>> groups =
       (groupedPieces != null && groupedPieces.isNotEmpty)
@@ -370,6 +372,7 @@ Future<void> showCuttingOptimizationSheet(
                 added: added,
               );
               await saveLeftovers(leftovers);
+              onLeftoversSaved?.call();
               setSheetState(() => leftoversSaved = true);
               if (ctx.mounted) {
                 showCuttingSnack(

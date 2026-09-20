@@ -380,4 +380,152 @@ void main() {
       expect(find.text('아직 변경 기록이 없습니다.'), findsOneWidget);
     });
   });
+
+  group('프로젝트 무게·형태 설명', () {
+    SteelCuttingProject p(List<SteelCutItem> items, {int sets = 1}) =>
+        SteelCuttingProject(
+          id: 'x',
+          name: 'x',
+          createdAt: DateTime(2026, 9, 20),
+          setMultiplier: sets,
+          items: items,
+        );
+
+    test('목록 줄 무게: 세트를 곱하고, 모르는 규격이 있으면 이상', () {
+      expect(
+        steelProjectWeightText(p([item('앵글 40x40x3', 1000, 2)])),
+        ' · 약 3.7kg',
+      );
+      expect(
+        steelProjectWeightText(p([item('앵글 40x40x3', 1000, 2)], sets: 3)),
+        ' · 약 11.0kg',
+      );
+      expect(
+        steelProjectWeightText(
+          p([item('앵글 40x40x3', 1000, 2), item('가나다', 500, 1, cat: 'CUSTOM')]),
+        ),
+        ' · 약 3.7kg 이상',
+      );
+      expect(
+        steelProjectWeightText(p([item('가나다', 500, 1, cat: 'CUSTOM')])),
+        '',
+      );
+      expect(steelProjectWeightText(p(const [])), '');
+    });
+
+    test('찬넬 형태 설명: 경량은 립 없음, 열간압연·앵글은 빈 글자, 립C는 립 있음', () {
+      expect(steelShapeNote('찬넬 40x20x1.6'), '립 없는 ㄷ형 (립 있으면 립C형강)');
+      expect(steelShapeNote('찬넬 200x75x3.2'), '립 없는 ㄷ형 (립 있으면 립C형강)');
+      expect(steelShapeNote('찬넬 100x50x5'), '');
+      expect(steelShapeNote('앵글 40x40x3'), '');
+      expect(steelShapeNote('립C형강 100x50x20x2.3'), '립 있는 C형');
+    });
+
+    testWidgets('규격 선택창에 찬넬 형태 설명이 보인다', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(1080, 3200);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => SteelShapePickerSheet.show(context),
+                child: const Text('열기'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('열기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('찬넬').first);
+      await tester.pumpAndSettle();
+      expect(findText('찬넬 · 립 없는 ㄷ형 (립 있으면 립C형강)'), findsWidgets);
+    });
+  });
+
+  group('모두 잘랐음과 남는 토막 저장', () {
+    SteelCuttingProject proj() => SteelCuttingProject(
+      id: 'sp3',
+      name: '루마',
+      createdAt: DateTime(2026, 9, 20),
+      items: [item('앵글 40x40x3', 500, 2, id: 'a')],
+    );
+
+    Future<void> open(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 4000);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(home: SteelCuttingDetailScreen(project: proj())),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+    }
+
+    String progress(WidgetTester tester) =>
+        tester.widget<Text>(find.byKey(const Key('result_progress'))).data!;
+
+    testWidgets('전부 잘랐으면 튜브용 "저장하십시오" 대신 토막 안내와 버튼', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'steel_done_sp3': ['steel:앵글 40x40x3:500.0:2'],
+      });
+      await open(tester);
+      expect(progress(tester), '모두 잘랐습니다.');
+      expect(find.byKey(const Key('result_done_action')), findsOneWidget);
+      // 다 자르지 않았으면 진행 글과 버튼이 없다.
+    });
+
+    testWidgets('전부 자르지 않았으면 진행 글만', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await open(tester);
+      expect(progress(tester), '잘랐음 0/2개');
+      expect(find.byKey(const Key('result_done_action')), findsNothing);
+    });
+
+    testWidgets('버튼으로 재단 최적화를 열어 저장하면 안내가 바뀌고 저장 표시가 남는다', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'steel_done_sp3': ['steel:앵글 40x40x3:500.0:2'],
+      });
+      await open(tester);
+      await tester.tap(find.byKey(const Key('result_done_action')));
+      await tester.pumpAndSettle();
+      expect(find.text('재단 최적화 (원자재 소요 계산)'), findsOneWidget);
+      final save = find.text('잘랐습니다 (남는 토막 저장)');
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      // 창을 닫는다.
+      await tester.tapAt(const Offset(180, 20));
+      await tester.pumpAndSettle();
+      expect(progress(tester), '모두 잘랐습니다. 남는 토막도 저장했습니다.');
+      expect(find.byKey(const Key('result_done_action')), findsNothing);
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getString('steel_leftover_saved_sp3'),
+        'steel:앵글 40x40x3:500.0:2',
+      );
+    });
+
+    testWidgets('재단 최적화에서 잘랐습니다를 누르면 결과의 모든 줄이 잘랐음이 된다', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await open(tester);
+      await tester.tap(find.byKey(const Key('steel_btn_optimize')));
+      await tester.pumpAndSettle();
+      final save = find.text('잘랐습니다 (남는 토막 저장)');
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(180, 20));
+      await tester.pumpAndSettle();
+      expect(progress(tester), '모두 잘랐습니다. 남는 토막도 저장했습니다.');
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getStringList('steel_done_sp3'), [
+        'steel:앵글 40x40x3:500.0:2',
+      ]);
+    });
+  });
 }

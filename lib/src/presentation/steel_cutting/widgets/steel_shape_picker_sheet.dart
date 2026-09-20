@@ -4,6 +4,7 @@ import '../../../data/models/steel_shape_db.dart';
 import '../../tube_cutting/cutting_theme.dart';
 import '../steel_custom_shapes.dart';
 import '../steel_shape_icons.dart';
+import '../steel_weight.dart';
 
 // 🚀 [형강 컷팅 신규] 부속 검색 팝업(SmartFittingSelectorSheet)과 같은
 // 형식(흰 배경 + 원형 아이콘 헤더 + 검색 + 카테고리 칩 + 목록 + 커스텀
@@ -343,7 +344,11 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
                                 color: CuttingColors.primary,
                               ),
                               subtitle: Text(
-                                SteelShapeDB.categoryLabel(item.category),
+                                [
+                                  SteelShapeDB.categoryLabel(item.category),
+                                  if (steelShapeNote(item.label).isNotEmpty)
+                                    steelShapeNote(item.label),
+                                ].join(' · '),
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey.shade500,

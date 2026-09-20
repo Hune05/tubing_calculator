@@ -27,6 +27,11 @@ class CuttingResultView extends StatelessWidget {
   final Map<String, double> specWeights;
   // 위 무게를 모르는 규격 수(총 중량에서 빠진 규격을 알려 준다).
   final int unknownWeightSpecs;
+  // 모두 잘랐을 때 진행 줄에 보일 글(없으면 튜브용 "저장하십시오"). 저장 버튼이 없는 화면은 자기 글을 넘긴다.
+  final String? allDoneText;
+  // 모두 잘랐을 때 진행 줄 아래에 누를 수 있는 버튼(이름과 동작). 둘 다 있을 때만 보인다.
+  final String? allDoneActionLabel;
+  final VoidCallback? onAllDoneAction;
 
   const CuttingResultView({
     super.key,
@@ -44,6 +49,9 @@ class CuttingResultView extends StatelessWidget {
     this.specHeaders = false,
     this.specWeights = const {},
     this.unknownWeightSpecs = 0,
+    this.allDoneText,
+    this.allDoneActionLabel,
+    this.onAllDoneAction,
   });
 
   @override
@@ -74,6 +82,9 @@ class CuttingResultView extends StatelessWidget {
               ? null
               : specWeights.values.fold<double>(0, (a, b) => a + b),
           unknownWeightSpecs: unknownWeightSpecs,
+          allDoneText: allDoneText,
+          allDoneActionLabel: allDoneActionLabel,
+          onAllDoneAction: onAllDoneAction,
         ),
         const SizedBox(height: 10),
         for (var i = 0; i < lines.length; i++) ...[
@@ -113,6 +124,9 @@ class _Header extends StatelessWidget {
   final int unknownSpecLines;
   final double? totalWeightKg;
   final int unknownWeightSpecs;
+  final String? allDoneText;
+  final String? allDoneActionLabel;
+  final VoidCallback? onAllDoneAction;
 
   const _Header({
     required this.summary,
@@ -124,6 +138,9 @@ class _Header extends StatelessWidget {
     this.unknownSpecLines = 0,
     this.totalWeightKg,
     this.unknownWeightSpecs = 0,
+    this.allDoneText,
+    this.allDoneActionLabel,
+    this.onAllDoneAction,
   });
 
   @override
@@ -344,10 +361,10 @@ class _Header extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               s.allDone
-                  ? '모두 잘랐습니다. 저장하십시오.'
+                  ? (allDoneText ?? '모두 잘랐습니다. 저장하십시오.')
                   : '잘랐음 ${s.donePieces}/${s.totalPieces}개',
               key: const Key('result_progress'),
-              maxLines: 1,
+              maxLines: allDoneText == null ? 1 : 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 12,
@@ -358,6 +375,25 @@ class _Header extends StatelessWidget {
               ),
             ),
           ],
+          if (s.allDone &&
+              allDoneActionLabel != null &&
+              onAllDoneAction != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: OutlinedButton(
+                key: const Key('result_done_action'),
+                onPressed: onAllDoneAction,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: CuttingColors.primaryDark,
+                  side: const BorderSide(color: CuttingColors.primary),
+                  minimumSize: const Size(0, 40),
+                ),
+                child: Text(
+                  allDoneActionLabel!,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
           if (warning.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(

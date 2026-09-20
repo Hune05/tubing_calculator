@@ -1,5 +1,8 @@
 import 'dart:math' as math;
 
+import '../../data/models/steel_cutting_project_model.dart';
+import '../tube_cutting/cutting_math.dart' show fmtKg;
+
 export '../tube_cutting/cutting_math.dart' show fmtKg;
 
 // 형강 이론 중량(kg/m). 규격 이름만으로 계산하는 참고값이라 실제 저울 무게와 조금 다를 수 있다
@@ -158,4 +161,39 @@ double? steelKgPerM(String shapeLabel) {
 double? steelWeightKg(String shapeLabel, double lengthMm) {
   final u = steelKgPerM(shapeLabel);
   return u == null ? null : u * lengthMm / 1000;
+}
+
+/// 프로젝트 목록 줄 끝에 붙는 무게 글(" · 약 12.0kg"). 세트 수를 곱하고, 무게를 모르는 규격이 섞여 있으면
+/// 그만큼 더 나가니 "이상"을 붙인다. 아무것도 모르면 빈 글자.
+String steelProjectWeightText(SteelCuttingProject project) {
+  var kg = 0.0;
+  var known = 0;
+  var unknown = 0;
+  for (final i in project.items) {
+    final w = steelWeightKg(i.shapeLabel, i.length * i.qty);
+    if (w == null) {
+      unknown++;
+    } else {
+      kg += w * project.setMultiplier;
+      known++;
+    }
+  }
+  if (known == 0) return '';
+  return ' · 약 ${fmtKg(kg)}kg${unknown > 0 ? ' 이상' : ''}';
+}
+
+/// 규격 선택창에 붙이는 형태 설명. 립(입술)이 있는지 없는지가 무게에 크게 영향을 준다.
+/// 목록의 경량 찬넬(두께 3.2 이하)은 립 없는 ㄷ형, 립C형강은 립 있는 C형이다. 해당 없으면 빈 글자.
+String steelShapeNote(String shapeLabel) {
+  final label = shapeLabel.trim();
+  if (label.startsWith('립C형강 ')) return '립 있는 C형';
+  if (label.startsWith('찬넬 ')) {
+    final size = label.substring(3).trim().toLowerCase();
+    if (_rolledChannelKgPerM.containsKey(size)) return '';
+    final n = _nums(size);
+    if (n != null && n.length == 3 && n[2] <= 3.2) {
+      return '립 없는 ㄷ형 (립 있으면 립C형강)';
+    }
+  }
+  return '';
 }

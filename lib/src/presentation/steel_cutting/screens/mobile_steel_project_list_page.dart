@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../../data/models/steel_cutting_project_model.dart';
 import '../../tube_cutting/cutting_theme.dart';
+import '../steel_weight.dart';
 import 'steel_cutting_detail_screen.dart';
 
 // 🚀 [형강 컷팅 신규] 튜브 컷팅 작업 목록(mobile_cutting_project_list_page.dart)과
@@ -457,7 +458,8 @@ class MobileSteelProjectListPage extends StatelessWidget {
                               const SizedBox(height: 4),
                               Text(
                                 "항목 ${project.items.length}건 · 총 길이 "
-                                "${(project.totalLength / 1000).toStringAsFixed(1)}m",
+                                "${(project.totalLength / 1000).toStringAsFixed(1)}m"
+                                "${steelProjectWeightText(project)}",
                                 style: const TextStyle(
                                   color: CuttingColors.textSecondary,
                                   fontSize: 13,
