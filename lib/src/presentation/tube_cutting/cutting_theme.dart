@@ -326,3 +326,56 @@ class PendingDeductionBadge extends StatelessWidget {
     );
   }
 }
+
+/// 컷팅 화면을 감싸서 기본 위젯(팝업 메뉴·다이얼로그·날짜 선택 …)까지 밝은 색으로 맞춘다.
+/// 앱 전체 테마는 어두운 테마(main.dart)라서, 감싸지 않으면 ⋮ 메뉴와 기본 창만 검게 나온다.
+/// 앱 전체 테마는 건드리지 않고 이 화면들만 바꾼다("내 작업 일지"의 WorkTheme과 같은 방식).
+class CuttingTheme extends StatelessWidget {
+  final Widget child;
+  const CuttingTheme({super.key, required this.child});
+
+  static ThemeData of(BuildContext context) {
+    final base = ThemeData.light(useMaterial3: true);
+    return base.copyWith(
+      scaffoldBackgroundColor: CuttingColors.background,
+      colorScheme: base.colorScheme.copyWith(
+        primary: CuttingColors.primary,
+        surface: CuttingColors.surface,
+        error: CuttingColors.danger,
+      ),
+      dialogTheme: const DialogThemeData(
+        backgroundColor: CuttingColors.surface,
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: TextStyle(
+          color: CuttingColors.textPrimary,
+          fontSize: 17,
+          fontWeight: FontWeight.w800,
+        ),
+        contentTextStyle: TextStyle(
+          color: CuttingColors.textPrimary,
+          fontSize: 14,
+        ),
+      ),
+      popupMenuTheme: const PopupMenuThemeData(
+        color: CuttingColors.surface,
+        surfaceTintColor: Colors.transparent,
+        textStyle: TextStyle(
+          color: CuttingColors.textPrimary,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: CuttingColors.surface,
+        surfaceTintColor: Colors.transparent,
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: CuttingColors.primary),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      Theme(data: of(context), child: child);
+}

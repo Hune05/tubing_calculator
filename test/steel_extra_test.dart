@@ -159,7 +159,7 @@ void main() {
       expect(findTextContaining('스트럿 41x41x2.5  약 7.8kg'), findsOneWidget);
       expect(
         tester.widget<Text>(find.byKey(const Key('result_weight'))).data,
-        '총 중량 약 12.0kg',
+        '총 무게 약 12.0kg',
       );
     });
 
@@ -167,7 +167,7 @@ void main() {
       await open(tester, proj(sets: 3));
       expect(
         tester.widget<Text>(find.byKey(const Key('result_weight'))).data,
-        '총 중량 약 36.1kg',
+        '총 무게 약 36.1kg',
       );
     });
   });
@@ -1734,6 +1734,100 @@ void main() {
       expect(findTextContaining('항목이 둘 이상이어야'), findsOneWidget);
     });
 
+    test('원자재 최소 본수: 규격마다 따로 올림해서 더한다', () {
+      final lines = buildSteelResultLines([
+        item('앵글 40x40x3', 2000, 4, id: 'a'), // 8000mm → 6000 기준 2본
+        item('스트럿 41x41x2.5', 1000, 1, cat: 'STRUT', id: 'c'), // 1000mm → 1본
+      ], 1);
+      expect(minBarsNeeded(lines, 6000), 3);
+      expect(minBarsNeeded(lines, 9000), 2); // 규격이 달라 한 본을 같이 못 쓴다
+      expect(minBarsNeeded(lines, 0), 0);
+      expect(minBarsNeeded(const [], 6000), 0);
+    });
+
+    test('남은 개수·길이: 잘랐음으로 표시하지 않은 줄만 센다', () {
+      final lines = buildSteelResultLines([
+        item('앵글 40x40x3', 500, 2, id: 'a'),
+        item('앵글 40x40x3', 800, 1, id: 'b'),
+      ], 1);
+      expect(remainingToCut(lines, {}), (pieces: 3, mm: 1800.0));
+      expect(remainingToCut(lines, {lines.first.key}).pieces, 2);
+      expect(remainingToCut(lines, lines.map((l) => l.key).toSet()), (
+        pieces: 0,
+        mm: 0.0,
+      ));
+    });
+
+    testWidgets('결과 탭 아래 줄: 최소 본수·남은 양, 잘랐음 지우기', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await open(tester, proj());
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('steel_result_summary')), findsOneWidget);
+      // 앵글 2300mm(1본) + 스트럿 3000mm(1본) = 최소 2본, 남은 6개 · 5300mm
+      expect(findTextContaining('최소 2본'), findsOneWidget);
+      expect(findTextContaining('남은 7개'), findsOneWidget);
+      expect(find.byKey(const Key('steel_clear_done')), findsNothing);
+      await tester.tap(find.text('800.0 mm'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('steel_clear_done')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('steel_clear_done')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('지우기'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('steel_clear_done')), findsNothing);
+      expect(findTextContaining('남은 7개'), findsOneWidget);
+    });
+
+    testWidgets('자른 줄 감추기 칩', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await open(tester, proj());
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('800.0 mm'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('steel_hide_done')));
+      await tester.pumpAndSettle();
+      expect(find.text('800.0 mm'), findsNothing); // 자른 줄은 감춘다
+      expect(find.text('500.0 mm'), findsOneWidget);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('steel_result_hide_done'), true);
+      await tester.tap(find.byKey(const Key('steel_hide_done')));
+      await tester.pumpAndSettle();
+      expect(find.text('800.0 mm'), findsOneWidget);
+    });
+
+    testWidgets('이 규격만 보기와 전체 보기', (tester) async {
+      await open(tester, proj());
+      await tester.tap(find.byKey(const Key('steel_group_menu_앵글 40x40x3')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('이 규격만 보기'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('steel_spec_filter')), findsOneWidget);
+      expect(find.byKey(const Key('steel_item_c')), findsNothing);
+      expect(find.byKey(const Key('steel_item_a')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('steel_spec_filter_clear')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('steel_item_c')), findsOneWidget);
+    });
+
+    testWidgets('여러 항목 고르기: 고른 것만 지운다', (tester) async {
+      await open(tester, proj());
+      await tester.tap(find.byKey(const Key('steel_group_menu_앵글 40x40x3')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('여러 항목 고르기'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('steel_pick_a')), findsOneWidget);
+      expect(find.byKey(const Key('steel_pick_b')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('steel_pick_b')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('steel_pick_delete')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('steel_item_b')), findsNothing);
+      expect(find.byKey(const Key('steel_item_a')), findsOneWidget);
+      expect(find.byKey(const Key('steel_item_c')), findsOneWidget);
+    });
+
     test('순서 바꾸기: 그 규격 자리에만 새 순서로 넣는다', () {
       final items = [
         item('앵글 40x40x3', 500, 1, id: 'a'),
@@ -1786,7 +1880,7 @@ void main() {
         ),
       );
       expect(find.byKey(const Key('steel_over_banner')), findsOneWidget);
-      expect(findTextContaining('6000mm)보다 긴 항목이 1건'), findsOneWidget);
+      expect(findTextContaining('6000mm)보다 긴 항목 1건'), findsOneWidget);
       expect(find.byKey(const Key('steel_over_a')), findsOneWidget);
       expect(find.byKey(const Key('steel_over_b')), findsNothing);
     });
@@ -1815,7 +1909,7 @@ void main() {
       await tester.tap(find.text('취소'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('steel_over_banner')), findsOneWidget);
-      expect(findTextContaining('6000mm)보다 긴 항목이 1건'), findsOneWidget);
+      expect(findTextContaining('6000mm)보다 긴 항목 1건'), findsOneWidget);
     });
 
     testWidgets('긴 항목이 없으면 경고가 없다', (tester) async {

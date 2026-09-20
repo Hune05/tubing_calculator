@@ -208,3 +208,31 @@ String buildSteelInstructionText({
   }
   return b.toString().trimRight();
 }
+
+// 원자재가 적어도 몇 본 필요한가. 규격이 다르면 한 본을 같이 쓸 수 없으니 규격별로 (그 규격 총 길이 ÷
+// 원자재 길이)를 올림해서 더한다. 톱날 손실과 자투리는 넣지 않은 "적어도 이만큼"이다(실제 배치는 재단
+// 최적화가 한다).
+int minBarsNeeded(List<ResultLine> lines, double stockLength) {
+  if (stockLength <= 0) return 0;
+  var bars = 0;
+  for (final s in shapeSubtotals(lines)) {
+    if (s.mm <= 0) continue;
+    bars += (s.mm / stockLength).ceil();
+  }
+  return bars;
+}
+
+// 아직 "잘랐음"으로 표시하지 않은 줄의 개수와 길이(결과 탭 아래 줄에 쓴다).
+({int pieces, double mm}) remainingToCut(
+  List<ResultLine> lines,
+  Set<String> done,
+) {
+  var pieces = 0;
+  var mm = 0.0;
+  for (final l in lines) {
+    if (done.contains(l.key)) continue;
+    pieces += l.count;
+    mm += l.totalMm;
+  }
+  return (pieces: pieces, mm: mm);
+}

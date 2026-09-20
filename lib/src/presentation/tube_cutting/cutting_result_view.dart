@@ -36,6 +36,8 @@ class CuttingResultView extends StatelessWidget {
   final Set<String> collapsedSpecs;
   // 규격 머리글을 눌렀을 때 부를 동작. 이것을 넘겨야 접기가 켜진다(넘기지 않으면 지금처럼 늘 펴 둔다).
   final ValueChanged<String>? onToggleSpec;
+  // 켜면 "잘랐음"으로 표시한 줄은 감춘다(남은 것만 본다). 규격 머리글은 그대로 둔다.
+  final bool hideDoneLines;
 
   const CuttingResultView({
     super.key,
@@ -58,6 +60,7 @@ class CuttingResultView extends StatelessWidget {
     this.onAllDoneAction,
     this.collapsedSpecs = const {},
     this.onToggleSpec,
+    this.hideDoneLines = false,
   });
 
   // 그 규격을 지금 접어 두었는지(규격 머리글을 쓰고, 접기를 켰을 때만).
@@ -109,7 +112,8 @@ class CuttingResultView extends StatelessWidget {
                   ? null
                   : () => onToggleSpec!(lines[i].spec),
             ),
-          if (!_folded(lines[i].spec)) ...[
+          if (!_folded(lines[i].spec) &&
+              !(hideDoneLines && done.contains(lines[i].key))) ...[
             _Row(
               line: lines[i],
               isDone: done.contains(lines[i].key),
@@ -329,8 +333,8 @@ class _Header extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
-                '총 중량 약 ${fmtKg(totalWeightKg!)}kg'
-                '${unknownWeightSpecs > 0 ? ' (중량을 모르는 규격 $unknownWeightSpecs종 제외)' : ''}',
+                '총 무게 약 ${fmtKg(totalWeightKg!)}kg'
+                '${unknownWeightSpecs > 0 ? ' (무게를 모르는 규격 $unknownWeightSpecs종 제외)' : ''}',
                 key: const Key('result_weight'),
                 style: const TextStyle(
                   fontSize: 13,

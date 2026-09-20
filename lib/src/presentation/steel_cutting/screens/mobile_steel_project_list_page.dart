@@ -325,185 +325,189 @@ class MobileSteelProjectListPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: CuttingColors.surface,
-      appBar: AppBar(
+    return CuttingTheme(
+      child: Scaffold(
         backgroundColor: CuttingColors.surface,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: false,
-        title: const Text(
-          "형강 컷팅 (찬넬/앵글)",
-          style: TextStyle(
-            color: CuttingColors.textPrimary,
-            fontWeight: FontWeight.w800,
-            fontSize: 20,
-            letterSpacing: -0.5,
+        appBar: AppBar(
+          backgroundColor: CuttingColors.surface,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          centerTitle: false,
+          title: const Text(
+            "형강 컷팅 (찬넬/앵글)",
+            style: TextStyle(
+              color: CuttingColors.textPrimary,
+              fontWeight: FontWeight.w800,
+              fontSize: 20,
+              letterSpacing: -0.5,
+            ),
           ),
+          iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
         ),
-        iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection(kSteelCuttingProjectsCollection)
-            .orderBy('createdAt', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  "작업 목록을 불러오지 못했습니다.\n${snapshot.error}",
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: CuttingColors.textSecondary),
-                ),
-              ),
-            );
-          }
-
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: CuttingColors.primary),
-            );
-          }
-
-          final docs = snapshot.data?.docs ?? [];
-
-          if (docs.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.view_week_rounded,
-                      size: 48,
-                      color: Colors.grey.shade300,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      "등록된 형강 컷팅 작업이 없습니다.",
-                      style: TextStyle(
-                        color: CuttingColors.textSecondary,
-                        fontSize: 15,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      "우측 하단 + 버튼으로 새 작업을 만들어 보십시오.",
-                      style: TextStyle(
-                        color: CuttingColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          return ListView.builder(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final doc = docs[index];
-              final data = doc.data() as Map<String, dynamic>;
-              final project = SteelCuttingProject.fromMap(doc.id, data);
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: InkWell(
-                  onTap: () => _openProject(context, project),
-                  onLongPress: () =>
-                      _showItemActions(context, doc.id, project.name),
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: CuttingColors.background,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: CuttingColors.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.view_week_rounded,
-                            color: CuttingColors.primary,
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                project.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: CuttingColors.textPrimary,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                "항목 ${project.items.length}건 · 총 길이 "
-                                "${(project.totalLength / 1000).toStringAsFixed(1)}m",
-                                style: const TextStyle(
-                                  color: CuttingColors.textSecondary,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              if (steelProjectWeightText(project).isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 2),
-                                  child: Text(
-                                    steelProjectWeightText(project),
-                                    key: Key(
-                                      'steel_project_weight_${project.id}',
-                                    ),
-                                    style: const TextStyle(
-                                      color: CuttingColors.primaryDark,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const Icon(
-                          Icons.chevron_right_rounded,
-                          color: CuttingColors.textSecondary,
-                        ),
-                      ],
-                    ),
+        body: StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection(kSteelCuttingProjectsCollection)
+              .orderBy('createdAt', descending: true)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    "작업 목록을 불러오지 못했습니다.\n${snapshot.error}",
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: CuttingColors.textSecondary),
                   ),
                 ),
               );
-            },
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _createProject(context),
-        backgroundColor: CuttingColors.primary,
-        icon: const Icon(Icons.add, color: CuttingColors.surface),
-        label: const Text(
-          "새 작업 생성",
-          style: TextStyle(
-            color: CuttingColors.surface,
-            fontWeight: FontWeight.bold,
+            }
+
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: CuttingColors.primary),
+              );
+            }
+
+            final docs = snapshot.data?.docs ?? [];
+
+            if (docs.isEmpty) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.view_week_rounded,
+                        size: 48,
+                        color: Colors.grey.shade300,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        "등록된 형강 컷팅 작업이 없습니다.",
+                        style: TextStyle(
+                          color: CuttingColors.textSecondary,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        "우측 하단 + 버튼으로 새 작업을 만들어 보십시오.",
+                        style: TextStyle(
+                          color: CuttingColors.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            return ListView.builder(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+              itemCount: docs.length,
+              itemBuilder: (context, index) {
+                final doc = docs[index];
+                final data = doc.data() as Map<String, dynamic>;
+                final project = SteelCuttingProject.fromMap(doc.id, data);
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: InkWell(
+                    onTap: () => _openProject(context, project),
+                    onLongPress: () =>
+                        _showItemActions(context, doc.id, project.name),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: CuttingColors.background,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: CuttingColors.primary.withValues(
+                                alpha: 0.1,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.view_week_rounded,
+                              color: CuttingColors.primary,
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  project.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: CuttingColors.textPrimary,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  "항목 ${project.items.length}건 · 총 길이 "
+                                  "${(project.totalLength / 1000).toStringAsFixed(1)}m",
+                                  style: const TextStyle(
+                                    color: CuttingColors.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                if (steelProjectWeightText(project).isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      steelProjectWeightText(project),
+                                      key: Key(
+                                        'steel_project_weight_${project.id}',
+                                      ),
+                                      style: const TextStyle(
+                                        color: CuttingColors.primaryDark,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            color: CuttingColors.textSecondary,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => _createProject(context),
+          backgroundColor: CuttingColors.primary,
+          icon: const Icon(Icons.add, color: CuttingColors.surface),
+          label: const Text(
+            "새 작업 생성",
+            style: TextStyle(
+              color: CuttingColors.surface,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ),

@@ -122,6 +122,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     _loadIconsUsed();
     _loadSortWeight();
     _loadFoldDone();
+    _loadHideDone();
     _loadCollapsed();
     _loadMixMax();
   }
@@ -228,6 +229,9 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   // 다 자른 규격을 접어 둘지(기본 켬). 튜브 컷팅과 따로 두지 않고 형강 결과 탭에서만 쓴다.
   static const String _kFoldDoneKey = 'steel_result_fold_done';
   bool _foldDone = true;
+  // 잘랐음으로 표시한 줄을 감출지(기본 끔 — 처음에는 전체를 보는 편이 안전하다).
+  static const String _kHideDoneKey = 'steel_result_hide_done';
+  bool _hideDone = false;
 
   List<ResultLine> _resultLines() {
     final lines = buildSteelResultLines(_items, _setMultiplier);
@@ -286,6 +290,46 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     } catch (_) {}
   }
 
+  Future<void> _loadHideDone() async {
+    try {
+      final on =
+          (await SharedPreferences.getInstance()).getBool(_kHideDoneKey) ??
+          false;
+      if (mounted && on) setState(() => _hideDone = true);
+    } catch (_) {}
+  }
+
+  void _toggleHideDone() {
+    HapticFeedback.selectionClick();
+    setState(() => _hideDone = !_hideDone);
+    SharedPreferences.getInstance()
+        .then((p) => p.setBool(_kHideDoneKey, _hideDone))
+        .catchError((_) => false);
+  }
+
+  // 잘랐음 표시를 한꺼번에 지운다(같은 작업을 다시 자를 때).
+  Future<void> _clearDone() async {
+    final ok = await showCuttingConfirmDialog(
+      context,
+      title: "잘랐음 지우기",
+      message: "${_doneKeys.length}줄의 잘랐음 표시를 지웁니다. 절단 항목은 그대로입니다.",
+      confirmLabel: "지우기",
+      icon: Icons.restart_alt_rounded,
+    );
+    if (!ok || !mounted) return;
+    setState(() {
+      _doneKeys.clear();
+      _resultFolded.clear();
+    });
+    await _saveDone();
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setStringList(_resultFoldedKey, const []);
+    } catch (_) {}
+    if (!mounted) return;
+    showCuttingSnack(context, "잘랐음 표시를 지웠습니다.");
+  }
+
   void _toggleFoldDone() {
     HapticFeedback.selectionClick();
     setState(() => _foldDone = !_foldDone);
@@ -314,9 +358,16 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     super.dispose();
   }
 
+  // 한 규격만 보기(묶음 ⋮ 메뉴에서 켠다). 빈 글자면 전체.
+  String _specFilter = '';
+
   List<SteelCutItem> get _filteredItems {
-    if (_categoryFilter == '전체') return _items;
-    return _items
+    var out = _items;
+    if (_specFilter.isNotEmpty) {
+      out = out.where((i) => i.shapeLabel == _specFilter).toList();
+    }
+    if (_categoryFilter == '전체') return out;
+    return out
         .where((i) => SteelShapeDB.categoryLabel(i.category) == _categoryFilter)
         .toList();
   }
@@ -359,21 +410,24 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   // 남기는 변경 기록. 되돌리기(실행 취소)로 다시 사라지는 항목까지
   // 기록하면 노이즈만 늘어나므로, 사용자가 의도적으로 한 정방향 동작만
   // 남기고 실행 취소 자체는 별도로 기록하지 않는다.
+  // 변경 기록 남기기. 기록이 실패해도 항목 저장까지 망치지 않도록 여기서 삼킨다(기록은 참고용이다).
   Future<void> _logChange(String action, SteelCutItem item) async {
-    await _docRef
-        .collection(kSteelChangeLogSubcollection)
-        .add(
-          SteelChangeLogEntry(
-            id: '',
-            action: action,
-            category: item.category,
-            shapeLabel: item.shapeLabel,
-            length: item.length,
-            qty: item.qty,
-            note: item.note,
-            timestamp: DateTime.now(),
-          ).toMap(),
-        );
+    try {
+      await _docRef
+          .collection(kSteelChangeLogSubcollection)
+          .add(
+            SteelChangeLogEntry(
+              id: '',
+              action: action,
+              category: item.category,
+              shapeLabel: item.shapeLabel,
+              length: item.length,
+              qty: item.qty,
+              note: item.note,
+              timestamp: DateTime.now(),
+            ).toMap(),
+          );
+    } catch (_) {}
   }
 
   // 🚀 [규격별 분리] 앵글과 찬넬처럼 서로 다른 규격은 같은 원자재(본)에서
@@ -873,43 +927,45 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   // 짚은 게 바로 이 화면이었다.
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: CuttingColors.background,
-      appBar: AppBar(
-        backgroundColor: CuttingColors.primary,
-        foregroundColor: CuttingColors.surface,
-        elevation: 0,
-        title: Text(
-          "프로젝트: ${widget.project.name}",
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+    return CuttingTheme(
+      child: Scaffold(
+        backgroundColor: CuttingColors.background,
+        appBar: AppBar(
+          backgroundColor: CuttingColors.primary,
+          foregroundColor: CuttingColors.surface,
+          elevation: 0,
+          title: Text(
+            "프로젝트: ${widget.project.name}",
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+          ),
+          actions: [
+            IconButton(
+              tooltip: "변경 기록",
+              icon: const Icon(Icons.history_rounded),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        SteelCuttingHistoryPage(project: widget.project),
+                  ),
+                );
+              },
+            ),
+            IconButton(
+              tooltip: "톱날 손실(커프) 설정",
+              icon: const Icon(Icons.content_cut_rounded),
+              onPressed: _showKerfDialog,
+            ),
+          ],
         ),
-        actions: [
-          IconButton(
-            tooltip: "변경 기록",
-            icon: const Icon(Icons.history_rounded),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      SteelCuttingHistoryPage(project: widget.project),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            tooltip: "톱날 손실(커프) 설정",
-            icon: const Icon(Icons.content_cut_rounded),
-            onPressed: _showKerfDialog,
-          ),
-        ],
-      ),
-      body: Builder(
-        builder: (context) {
-          final bool isWide = MediaQuery.of(context).size.shortestSide >= 600;
-          return isWide ? _buildWideBody() : _buildNarrowBody();
-        },
+        body: Builder(
+          builder: (context) {
+            final bool isWide = MediaQuery.of(context).size.shortestSide >= 600;
+            return isWide ? _buildWideBody() : _buildNarrowBody();
+          },
+        ),
       ),
     );
   }
@@ -966,6 +1022,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     final over = overLengthItems(_items, _maxStock);
     final mergeGroups = findMergeGroups(_items);
     final rows = <Widget>[
+      if (_specFilter.isNotEmpty) _buildSpecFilterBanner(),
       if (over.isNotEmpty) _buildOverBanner(over.length),
       if (mergeGroups.isNotEmpty) _buildMergeBanner(mergeGroups.length),
       for (final shape in shapeOrder) ...[
@@ -1211,11 +1268,23 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
               if (v == 'change') _changeGroupShape(shape);
               if (v == 'copy') _copyGroup(shape);
               if (v == 'order') _reorderGroup(shape);
+              if (v == 'only') {
+                setState(() => _specFilter = _specFilter == shape ? '' : shape);
+              }
+              if (v == 'pick') _pickItemsInGroup(shape);
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'change', child: Text('규격 바꾸기 (길이 그대로)')),
-              PopupMenuItem(value: 'copy', child: Text('다른 규격으로 복제')),
-              PopupMenuItem(value: 'order', child: Text('순서 바꾸기')),
+            itemBuilder: (_) => [
+              const PopupMenuItem(
+                value: 'change',
+                child: Text('규격 바꾸기 (길이 그대로)'),
+              ),
+              const PopupMenuItem(value: 'copy', child: Text('다른 규격으로 복제')),
+              const PopupMenuItem(value: 'order', child: Text('순서 바꾸기')),
+              const PopupMenuItem(value: 'pick', child: Text('여러 항목 고르기')),
+              PopupMenuItem(
+                value: 'only',
+                child: Text(_specFilter == shape ? '전체 규격 보기' : '이 규격만 보기'),
+              ),
             ],
           ),
         ],
@@ -1239,14 +1308,13 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "원자재(${fmtMm(_maxStock)}mm)보다 긴 항목이 $count건 있습니다. 재단 최적화 배치에서 빠집니다. 항목 길이를 고치거나 원자재 길이를 바꾸십시오.",
+            "원자재(${fmtMm(_maxStock)}mm)보다 긴 항목 $count건 — 배치에서 빠집니다.",
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w800,
               color: CuttingColors.danger,
             ),
           ),
-          const SizedBox(height: 4),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton.icon(
@@ -1418,6 +1486,240 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     }
     if (!mounted) return;
     showCuttingSnack(context, "길이를 ${fmtMm(v)}mm로 고쳤습니다.");
+  }
+
+  // 끝까지 기다리지 않는 자리에서 쓰는 저장(실패하면 알려만 준다).
+  void _saveItems() {
+    _persistItems().catchError((e) {
+      if (mounted) showCuttingSnack(context, "저장하지 못했습니다: $e", isError: true);
+    });
+  }
+
+  // 묶음에서 여러 항목을 골라 한꺼번에 지우거나 규격을 바꾼다(⋮ 메뉴 → 여러 항목 고르기).
+  Future<void> _pickItemsInGroup(String shape) async {
+    final group = _items.where((e) => e.shapeLabel == shape).toList();
+    if (group.isEmpty) return;
+    final picked = <String>{};
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: CuttingColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    cuttingDialogIcon(Icons.checklist_rounded),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "여러 항목 고르기",
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: CuttingColors.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            shape,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      key: const Key('steel_pick_all'),
+                      onPressed: () => setSheet(() {
+                        if (picked.length == group.length) {
+                          picked.clear();
+                        } else {
+                          picked
+                            ..clear()
+                            ..addAll(group.map((e) => e.id));
+                        }
+                      }),
+                      child: Text(
+                        picked.length == group.length ? "모두 지우기" : "모두 고르기",
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (final it in group)
+                        CheckboxListTile(
+                          key: Key('steel_pick_${it.id}'),
+                          value: picked.contains(it.id),
+                          dense: true,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          activeColor: CuttingColors.primary,
+                          onChanged: (v) => setSheet(() {
+                            if (v == true) {
+                              picked.add(it.id);
+                            } else {
+                              picked.remove(it.id);
+                            }
+                          }),
+                          title: Text(
+                            "${fmtMm(it.length)} mm · ${it.qty}개"
+                            "${it.note.isEmpty ? '' : ' · ${it.note}'}",
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: CuttingColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        key: const Key('steel_pick_change'),
+                        onPressed: picked.isEmpty
+                            ? null
+                            : () => Navigator.pop(ctx, 'change'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: CuttingColors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: Text("규격 바꾸기 (${picked.length})"),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        key: const Key('steel_pick_delete'),
+                        onPressed: picked.isEmpty
+                            ? null
+                            : () => Navigator.pop(ctx, 'delete'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: CuttingColors.danger,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: Text(
+                          "지우기 (${picked.length})",
+                          style: const TextStyle(color: CuttingColors.surface),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (action == null || picked.isEmpty || !mounted) return;
+    final before = List<SteelCutItem>.of(_items);
+    final targets = _items.where((e) => picked.contains(e.id)).toList();
+    if (action == 'delete') {
+      setState(() => _items.removeWhere((e) => picked.contains(e.id)));
+      _saveItems();
+      for (final i in targets) {
+        _logChange('DELETE', i);
+      }
+      showCuttingUndoSnack(
+        context,
+        "'$shape' ${targets.length}건을 지웠습니다.",
+        onUndo: () {
+          setState(() => _items = before);
+          _saveItems();
+        },
+      );
+      return;
+    }
+    final to = await pickSteelShape(context);
+    if (to == null || !mounted) return;
+    if (to.label == shape) {
+      showCuttingSnack(context, "같은 규격입니다.", isError: true);
+      return;
+    }
+    final next = [
+      for (final i in _items)
+        if (picked.contains(i.id))
+          SteelCutItem(
+            id: i.id,
+            category: to.category,
+            shapeLabel: to.label,
+            length: i.length,
+            qty: i.qty,
+            note: i.note,
+          )
+        else
+          i,
+    ];
+    setState(() => _items = next);
+    _saveItems();
+    for (final i in next.where((e) => picked.contains(e.id))) {
+      _logChange('EDIT', i);
+    }
+    showCuttingUndoSnack(
+      context,
+      "${targets.length}건을 '${to.label}' 규격으로 바꿨습니다.",
+      onUndo: () {
+        setState(() => _items = before);
+        _saveItems();
+      },
+    );
+  }
+
+  // 한 규격만 보고 있을 때 위에 뜨는 줄(전체로 돌아가는 단추).
+  Widget _buildSpecFilterBanner() {
+    return Container(
+      key: const Key('steel_spec_filter'),
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+      decoration: BoxDecoration(
+        color: CuttingColors.primarySoft,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              "'$_specFilter'만 보고 있습니다.",
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: CuttingColors.primaryDark,
+              ),
+            ),
+          ),
+          TextButton(
+            key: const Key('steel_spec_filter_clear'),
+            onPressed: () => setState(() => _specFilter = ''),
+            child: const Text("전체 보기"),
+          ),
+        ],
+      ),
+    );
   }
 
   // 한 규격 묶음의 항목을 끌어서 자를 순서대로 놓는다(⋮ 메뉴 → 순서 바꾸기).
@@ -2028,31 +2330,37 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
               _buildSetStepper(),
             ],
           ),
-          if (shapeSubtotals(lines).length > 1)
+          if (lines.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                runSpacing: 6,
                 children: [
-                  Flexible(
-                    child: _buildResultChip(
+                  if (shapeSubtotals(lines).length > 1)
+                    _buildResultChip(
                       key: const Key('steel_fold_done'),
                       icon: Icons.unfold_less_rounded,
                       label: "다 자른 규격 접기",
                       on: _foldDone,
                       onTap: _toggleFoldDone,
                     ),
+                  _buildResultChip(
+                    key: const Key('steel_hide_done'),
+                    icon: Icons.visibility_off_rounded,
+                    label: "자른 줄 감추기",
+                    on: _hideDone,
+                    onTap: _toggleHideDone,
                   ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: _buildResultChip(
+                  if (shapeSubtotals(lines).length > 1)
+                    _buildResultChip(
                       key: const Key('steel_sort_weight'),
                       icon: Icons.swap_vert_rounded,
                       label: "무게 큰 규격부터",
                       on: _sortByWeight,
                       onTap: _toggleSortWeight,
                     ),
-                  ),
                 ],
               ),
             ),
@@ -2082,15 +2390,77 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                 emptyMessage: "절단 항목을 먼저 추가하십시오.",
                 collapsedSpecs: _resultFolded,
                 onToggleSpec: _toggleResultFold,
+                hideDoneLines: _hideDone,
               ),
             ),
           ),
+          if (lines.isNotEmpty) _buildResultSummary(lines),
         ],
       ),
     );
   }
 
-  // 결과 탭 제목줄 아래의 켜고 끄는 칩(다 자른 규격 접기 · 무게 큰 규격부터).
+  // 결과 탭 맨 아래 고정 줄: 원자재 최소 본수, 남은 개수·길이, 잘랐음 지우기(입력 탭 요약 줄과 짝).
+  Widget _buildResultSummary(List<ResultLine> lines) {
+    final bars = minBarsNeeded(lines, _stockLength);
+    final rest = remainingToCut(lines, _doneKeys);
+    final pieces = lines.fold<int>(0, (s, l) => s + l.count);
+    final donePieces = pieces - rest.pieces;
+    return Container(
+      key: const Key('steel_result_summary'),
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: CuttingColors.primarySoft,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: CuttingColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              [
+                if (bars > 0) "원자재(${fmtMm(_stockLength)}mm) 최소 $bars본",
+                rest.pieces == 0
+                    ? "모두 잘랐습니다"
+                    : "남은 ${rest.pieces}개 · ${fmtMm(rest.mm)}mm",
+              ].join("  ·  "),
+              maxLines: 2,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+                color: rest.pieces == 0
+                    ? CuttingColors.success
+                    : CuttingColors.primaryDark,
+              ),
+            ),
+          ),
+          if (donePieces > 0) ...[
+            const SizedBox(width: 6),
+            InkWell(
+              key: const Key('steel_clear_done'),
+              borderRadius: BorderRadius.circular(8),
+              onTap: _clearDone,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Text(
+                  "잘랐음 지우기",
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    color: CuttingColors.primary,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // 결과 탭 제목줄 아래의 켜고 끄는 칩(다 자른 규격 접기 · 자른 줄 감추기 · 무게 큰 규격부터).
   Widget _buildResultChip({
     required Key key,
     required IconData icon,

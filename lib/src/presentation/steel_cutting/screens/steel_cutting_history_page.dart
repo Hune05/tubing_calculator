@@ -20,55 +20,57 @@ class SteelCuttingHistoryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: CuttingColors.surface,
-      appBar: AppBar(
+    return CuttingTheme(
+      child: Scaffold(
         backgroundColor: CuttingColors.surface,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
-        title: Text(
-          "변경 기록 · ${project.name}",
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: CuttingColors.textPrimary,
-            fontWeight: FontWeight.w800,
-            fontSize: 17,
+        appBar: AppBar(
+          backgroundColor: CuttingColors.surface,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
+          title: Text(
+            "변경 기록 · ${project.name}",
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: CuttingColors.textPrimary,
+              fontWeight: FontWeight.w800,
+              fontSize: 17,
+            ),
           ),
         ),
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection(kSteelCuttingProjectsCollection)
-            .doc(project.id)
-            .collection(kSteelChangeLogSubcollection)
-            .orderBy('timestamp', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                "기록을 불러오지 못했습니다.\n${snapshot.error}",
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: CuttingColors.textSecondary),
-              ),
-            );
-          }
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: CuttingColors.primary),
-            );
-          }
-          final entries = (snapshot.data?.docs ?? [])
-              .map(
-                (d) => SteelChangeLogEntry.fromMap(
-                  d.id,
-                  d.data() as Map<String, dynamic>,
+        body: StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection(kSteelCuttingProjectsCollection)
+              .doc(project.id)
+              .collection(kSteelChangeLogSubcollection)
+              .orderBy('timestamp', descending: true)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(
+                child: Text(
+                  "기록을 불러오지 못했습니다.\n${snapshot.error}",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: CuttingColors.textSecondary),
                 ),
-              )
-              .toList();
-          return SteelHistoryView(entries: entries);
-        },
+              );
+            }
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: CuttingColors.primary),
+              );
+            }
+            final entries = (snapshot.data?.docs ?? [])
+                .map(
+                  (d) => SteelChangeLogEntry.fromMap(
+                    d.id,
+                    d.data() as Map<String, dynamic>,
+                  ),
+                )
+                .toList();
+            return SteelHistoryView(entries: entries);
+          },
+        ),
       ),
     );
   }
