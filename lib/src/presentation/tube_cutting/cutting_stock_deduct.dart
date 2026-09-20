@@ -200,44 +200,6 @@ Future<StockInfo> loadStockInfo() async {
   }
 }
 
-/// 아직 반납하지 않은 불출 수량을 자재 이름별로 읽어 온다.
-/// 🚀 [고침] 창고에서 불출로 이미 빼 간 자재를 컷팅에서 또 빼면 재고가
-/// 두 번 줄어든다. 빼기 전에 이 목록을 보여 주고 사람이 판단하게 한다.
-Future<Map<String, int>> loadOpenCheckouts() async {
-  try {
-    final snap = await FirebaseFirestore.instance.collection('checkouts').get();
-    final out = <String, int>{};
-    for (final d in snap.docs) {
-      final name = (d.data()['itemName'] as String?)?.trim() ?? '';
-      final qty = (d.data()['checkoutQty'] as num?)?.toInt() ?? 0;
-      if (name.isEmpty || qty <= 0) continue;
-      out[name] = (out[name] ?? 0) + qty;
-    }
-    return out;
-  } catch (_) {
-    return const {};
-  }
-}
-
-/// 뺄 자재 가운데 아직 불출 중인 것만 골라 알림 글을 만든다.
-/// 불출 중인 것이 없으면 빈 글을 돌려준다.
-String doubleDeductWarning(
-  List<StockTake> takes,
-  Map<String, int> openCheckouts,
-) {
-  final lookup = materialLookup(openCheckouts.keys, (k) => k);
-  final lines = <String>[];
-  for (final t in takes) {
-    final key = findMaterial(lookup, t.name);
-    final held = key == null ? 0 : (openCheckouts[key] ?? 0);
-    if (held > 0) lines.add("${t.name} $held${t.unit}");
-  }
-  if (lines.isEmpty) return '';
-  return "아래 자재는 불출로 이미 나가 있습니다.\n"
-      "${lines.join('\n')}\n"
-      "그 자재로 자른 것이면 여기서 또 빼면 재고가 두 번 줍니다.";
-}
-
 /// 차감 결과. 뺀 것과, 재고에 없어서 못 뺀 것을 나눠 알려 준다.
 class StockDeductResult {
   final List<StockTake> done; // 뺀 자재
@@ -356,7 +318,7 @@ Future<void> undoStockTakes(
 /// 자재 이름으로 창고 재고를 찾아 수량을 뺀다. 이름이 맞는 자재가 없으면
 /// 그대로 두고 [StockDeductResult.missing]에 담아 돌려준다(예전에는 수량이
 /// 음수인 자재를 새로 만들어 버려서 재고가 엉켰다).
-/// 뺄 때마다 자재 기록에 불출로 남긴다.
+/// 뺄 때마다 자재 기록에 나간 것으로 남긴다.
 Future<StockDeductResult> deductStockTakes(
   List<StockTake> takes, {
   required String projectName,
@@ -415,8 +377,8 @@ Future<StockDeductResult> deductStockTakes(
       'unit': unit,
       'worker_name': who,
       'project_name': projectName,
-      // 작업 이름을 따로 남긴다. 'project_name'은 불출에서 "왜 썼는지"를
-      // 적는 데도 쓰이기 때문에, 작업별로 걸러 보려면 칸이 따로 있어야 한다.
+      // 작업 이름을 따로 남긴다. 'project_name'은 예전 기록에서 "왜 썼는지"를
+      // 적는 데도 쓰여서, 작업별로 걸러 보려면 칸이 따로 있어야 한다.
       'job_name': projectName,
       'project_id': projectId,
       'device': device,

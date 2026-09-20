@@ -650,7 +650,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 ),
                 _buildMenuButton(
                   context: context,
-                  title: "자재 현황 (불출 / 반납)",
+                  title: "자재 현황",
                   subtitle: "지금 재고 확인 및 현장 자재 입출고 처리",
                   icon: Icons.inventory_2_outlined,
                   iconColor: slate900,

@@ -23,7 +23,7 @@ extension _InventoryDialogsExt on _InventoryPageState {
             ),
             const SizedBox(width: 8),
             Text(
-              isDispatch ? "자재 불출 (-)" : "자재 입고 (+)",
+              isDispatch ? "자재 빼기 (-)" : "자재 넣기 (+)",
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
@@ -211,7 +211,7 @@ extension _InventoryDialogsExt on _InventoryPageState {
               }
             },
             child: Text(
-              isDispatch ? "불출 완료" : "입고 완료",
+              isDispatch ? "뺐습니다" : "넣었습니다",
               style: const TextStyle(
                 color: pureWhite,
                 fontWeight: FontWeight.bold,

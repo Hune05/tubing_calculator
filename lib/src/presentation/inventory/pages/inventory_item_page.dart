@@ -5,12 +5,13 @@ import 'package:flutter/services.dart';
 import '../../tube_cutting/cutting_pending_banner.dart';
 import '../../tube_cutting/cutting_theme.dart';
 import '../material_catalog.dart';
-import 'inventory_view_logic.dart';
 import 'material_catalog_store.dart';
-import 'mobile_inventory_checkout_page.dart';
 
-/// 자재 한 종을 한 장에 모아 보는 화면. 재고·규격·보관 위치·내 불출·최근 기록을
-/// 한 곳에서 보고, 여기서 바로 불출·반납·수량 고치기를 한다.
+/// 자재 한 종을 한 장에 모아 보는 화면. 재고·규격·보관 위치·최근 기록을
+/// 한 곳에서 보고, 여기서 바로 수량을 고친다.
+///
+/// 🚀 [고침] 혼자 쓰는 앱이라 불출·반납은 같은 일을 두 번 하게 만들었다.
+/// 재고 수량은 재고조사에서 맞춘다.
 /// (예전에는 보는 화면[자재 현황]과 고치는 화면[자재 통합 관리]이 갈려 있어서
 ///  같은 자재를 두 군데서 따로 봐야 했다.)
 class InventoryItemPage extends StatelessWidget {
@@ -197,53 +198,7 @@ class _Body extends StatelessWidget {
                     ),
                   ),
                 ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: CuttingColors.primary,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: _qty <= 0 ? null : () => _go(context, true),
-                      child: const Text(
-                        "불출",
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: CuttingColors.primaryDark,
-                        side: const BorderSide(color: CuttingColors.primary),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: () => _go(context, false),
-                      child: const Text(
-                        "반납",
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+
             ],
           ),
         ),
@@ -274,15 +229,6 @@ class _Body extends StatelessWidget {
           "프로젝트",
           (data['projectName'] ?? '').toString(),
           'projectName',
-        ),
-
-        const SizedBox(height: 24),
-        _sectionTitle("내 불출"),
-        _MyCheckouts(
-          itemName: _name,
-          docId: docId,
-          workerName: workerName,
-          unit: _unit,
         ),
 
         const SizedBox(height: 24),
@@ -356,22 +302,6 @@ class _Body extends StatelessWidget {
               color: CuttingColors.textSecondary,
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  void _go(BuildContext context, bool isCheckout) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MobileInventoryCheckoutPage(
-          docId: docId,
-          itemName: _name,
-          currentQty: _qty,
-          unit: _unit,
-          isCheckout: isCheckout,
-          workerName: workerName,
         ),
       ),
     );
@@ -523,104 +453,6 @@ class _Body extends StatelessWidget {
 }
 
 /// 이 자재를 내가 가져간 내역. 여기서 바로 반납한다.
-class _MyCheckouts extends StatelessWidget {
-  final String itemName;
-  final String docId;
-  final String workerName;
-  final String unit;
-
-  const _MyCheckouts({
-    required this.itemName,
-    required this.docId,
-    required this.workerName,
-    required this.unit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('checkouts')
-          .where('itemId', isEqualTo: docId)
-          .snapshots(),
-      builder: (context, snap) {
-        if (!snap.hasData) return const SizedBox(height: 8);
-        final mine = [
-          for (final d in snap.data!.docs)
-            if (isSameWorker(workerName, d.data()['workerName'] as String?)) d,
-        ];
-        if (mine.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Text(
-              "가져간 것이 없습니다.",
-              style: TextStyle(
-                color: CuttingColors.textSecondary,
-                fontSize: 14,
-              ),
-            ),
-          );
-        }
-        return Column(
-          children: [
-            for (final d in mine)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        "${(d.data()['checkoutQty'] as num?)?.toInt() ?? 0}$unit"
-                        " · ${(d.data()['reason'] ?? '사유 없음')}",
-                        style: const TextStyle(
-                          color: CuttingColors.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: CuttingColors.primaryDark,
-                        side: const BorderSide(color: CuttingColors.border),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      onPressed: () {
-                        HapticFeedback.lightImpact();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => MobileInventoryCheckoutPage(
-                              docId: docId,
-                              itemName: itemName,
-                              currentQty:
-                                  (d.data()['checkoutQty'] as num?)?.toInt() ??
-                                  0,
-                              unit: unit,
-                              isCheckout: false,
-                              workerName: workerName,
-                              checkoutDocId: d.id,
-                              checkoutReason: (d.data()['reason'] ?? '')
-                                  .toString(),
-                            ),
-                          ),
-                        );
-                      },
-                      child: const Text("반납/소진"),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-/// 이 자재의 최근 움직임 다섯 줄.
 class _RecentLogs extends StatelessWidget {
   final String itemName;
 

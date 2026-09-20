@@ -11,7 +11,6 @@ import 'inventory_item_page.dart';
 import 'inventory_view_logic.dart';
 import 'material_catalog_page.dart';
 import 'mobile_inventory_logs_page.dart';
-import 'mobile_inventory_checkout_page.dart';
 
 // 🎨 토스 스타일 색상 팔레트
 const Color makitaTeal = Color(0xFF007580);
@@ -69,8 +68,6 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
 
   final CollectionReference _inventoryDb = FirebaseFirestore.instance
       .collection('inventory');
-  final CollectionReference _checkoutsDb = FirebaseFirestore.instance
-      .collection('checkouts');
 
   // 칩에 보이는 글은 한글, 자재에 저장된 분류는 영문 아이디다
   // (material_catalog.dart에 둘을 짝지어 뒀다).
@@ -136,30 +133,14 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
             ),
             const SizedBox(width: 8),
           ],
-          bottom: const TabBar(
-            labelColor: slate900,
-            unselectedLabelColor: slate600,
-            indicatorColor: slate900,
-            indicatorWeight: 3,
-            labelStyle: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-            unselectedLabelStyle: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 16,
-            ),
-            dividerColor: slate100, // 탭바 하단 옅은 선
-            tabs: [
-              Tab(text: "자재 찾기"), // 문구 심플하게 변경
-              Tab(text: "내 불출 목록"),
-            ],
-          ),
         ),
+        // 🚀 [고침] 혼자 쓰는 앱이라 불출·반납은 같은 일을 두 번 하게 만들었다.
+        // "내 불출 목록" 칸을 없애고 자재 찾기만 남긴다. 재고 수량은
+        // 재고조사에서 맞춘다.
         // 키보드 내리기 적용
         body: GestureDetector(
           onTap: () => FocusScope.of(context).unfocus(),
-          child: TabBarView(
-            physics: const BouncingScrollPhysics(),
-            children: [_buildAllInventoryTab(), _buildMyCheckoutsTab()],
-          ),
+          child: _buildAllInventoryTab(),
         ),
       ),
     );
@@ -585,47 +566,6 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 16),
-
-                // 2. 조용하지만 명확한 액션 버튼
-                ElevatedButton(
-                  onPressed: canCheckout
-                      ? () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => MobileInventoryCheckoutPage(
-                                docId: doc.id,
-                                itemName: itemName,
-                                currentQty: qty,
-                                unit: unit,
-                                isCheckout: true,
-                                workerName: widget.workerName,
-                              ),
-                            ),
-                          );
-                        }
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: slate100, // 튀지 않는 배경색
-                    foregroundColor: slate900,
-                    disabledBackgroundColor: slate100.withValues(alpha: 0.5),
-                    disabledForegroundColor: slate600.withValues(alpha: 0.5),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                    minimumSize: Size.zero,
-                  ),
-                  child: const Text(
-                    "불출",
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-                  ),
-                ),
               ],
             ),
           ),
@@ -813,179 +753,4 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
     );
   }
 
-  // ==========================================
-  // 탭 2: 내 불출 목록
-  // ==========================================
-  Widget _buildMyCheckoutsTab() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _checkoutsDb.snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(color: slate300),
-          );
-        }
-
-        final mine = <DocumentSnapshot>[];
-        if (snapshot.hasData) {
-          for (final d in snapshot.data!.docs) {
-            final m = d.data() as Map<String, dynamic>?;
-            if (isSameWorker(widget.workerName, m?['workerName'] as String?)) {
-              mine.add(d);
-            }
-          }
-        }
-
-        if (!snapshot.hasData || mine.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(LucideIcons.checkCircle2, size: 64, color: slate100),
-                const SizedBox(height: 16),
-                const Text(
-                  "가져간 자재가 없습니다.",
-                  style: TextStyle(
-                    color: slate600,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        var docs = mine.toList();
-        docs.sort((a, b) {
-          var aData = a.data() as Map<String, dynamic>;
-          var bData = b.data() as Map<String, dynamic>;
-          Timestamp? tA = aData['timestamp'] as Timestamp?;
-          Timestamp? tB = bData['timestamp'] as Timestamp?;
-          if (tA == null && tB == null) return 0;
-          if (tA == null) return -1;
-          if (tB == null) return 1;
-          return tB.compareTo(tA);
-        });
-
-        return ListView.separated(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.only(top: 16, bottom: 80),
-          itemCount: docs.length,
-          separatorBuilder: (context, index) =>
-              Divider(height: 1, color: slate100, indent: 24, endIndent: 24),
-          itemBuilder: (context, index) {
-            final doc = docs[index];
-            final data = doc.data() as Map<String, dynamic>;
-
-            String itemId = data['itemId'] ?? '';
-            String itemName = data['itemName'] ?? '이름 없음';
-            int qty = data['checkoutQty'] ?? 0;
-            String unit = data['unit'] ?? 'EA';
-            String reason = data['reason'] ?? '사유 없음';
-            String who = (data['workerName'] ?? '').toString().trim();
-            if (who.isNotEmpty && who != widget.workerName) {
-              reason = "$reason · $who";
-            }
-
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          itemName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 18,
-                            color: slate900,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Text(
-                              "불출 $qty$unit",
-                              style: const TextStyle(
-                                color: makitaTeal,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 8.0),
-                              child: Text(
-                                "•",
-                                style: TextStyle(color: slate300),
-                              ),
-                            ),
-                            Expanded(
-                              child: Text(
-                                reason,
-                                style: const TextStyle(
-                                  color: slate600,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => MobileInventoryCheckoutPage(
-                            docId: itemId,
-                            itemName: itemName,
-                            currentQty: qty,
-                            unit: unit,
-                            isCheckout: false,
-                            workerName: widget.workerName,
-                            checkoutDocId: doc.id,
-                            checkoutReason: reason,
-                          ),
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: slate100, // 튀지 않는 배경
-                      foregroundColor: slate900,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      minimumSize: Size.zero,
-                    ),
-                    child: const Text(
-                      "반납/소진",
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
 }

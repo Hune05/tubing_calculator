@@ -19,16 +19,6 @@ String inventorySpecAndPlace(Map<String, dynamic> data) {
   return parts.join('  |  ');
 }
 
-/// 불출한 사람이 나인지. "차재훈"과 "생산팀 차재훈"처럼 이름이 달라져도
-/// 내 것으로 본다. 예전에는 이름이 딱 같은 것만 걸러서, 프로필 이름을 바꾼
-/// 뒤에 불출한 자재가 목록에서 사라지고 반납할 길이 없었다.
-bool isSameWorker(String mine, String? theirs) {
-  final a = mine.replaceAll(' ', '');
-  final b = (theirs ?? '').replaceAll(' ', '');
-  if (a.isEmpty || b.isEmpty) return true;
-  return a == b || a.contains(b) || b.contains(a);
-}
-
 /// 재고가 최소 수량 아래로 내려갔는지. 최소 수량을 안 적어 둔 자재는 따지지 않는다.
 /// (최소 수량은 "이만큼은 늘 있어야 한다"는 뜻이라, 그 수량까지 내려오면 모자란 것으로 본다.)
 bool isShortStock(Map<String, dynamic> data) {

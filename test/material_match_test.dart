@@ -97,17 +97,12 @@ void main() {
     });
   });
 
-  group('모자란 자재·불출 알림도 이름이 조금 달라도 본다', () {
+  group('모자란 자재 알림도 이름이 조금 달라도 본다', () {
     const take = StockTake(name: '[HY-LOK] 3/8” Union', qty: 5, unit: 'EA');
 
     test('모자란 것을 알아본다', () {
       final msg = shortStockWarning([take], {'[HY-LOK] 3/8" Union': 2});
       expect(msg, contains('창고에 2EA'));
-    });
-
-    test('불출 중인 것을 알아본다', () {
-      final msg = doubleDeductWarning([take], {'[HY-LOK] 3/8" Union': 3});
-      expect(msg, contains('3EA'));
     });
   });
 }

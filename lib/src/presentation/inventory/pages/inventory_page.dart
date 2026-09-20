@@ -224,7 +224,7 @@ class _InventoryPageState extends State<InventoryPage> {
                                         context,
                                       ).showSnackBar(
                                         const SnackBar(
-                                          content: Text("불출할 자재를 먼저 선택해 주십시오."),
+                                          content: Text("뺄 자재를 먼저 고르십시오."),
                                         ),
                                       );
                                     }
@@ -234,7 +234,7 @@ class _InventoryPageState extends State<InventoryPage> {
                                       item: _selectedItemData!,
                                     ),
                               child: const Text(
-                                "자재 불출 (-)",
+                                "자재 빼기 (-)",
                                 style: TextStyle(
                                   color: pureWhite,
                                   fontWeight: FontWeight.bold,

@@ -31,30 +31,6 @@ void main() {
     });
   });
 
-  group('내 불출 목록 사람 맞추기', () {
-    test('이름이 같으면 내 것', () {
-      expect(isSameWorker('차재훈', '차재훈'), isTrue);
-    });
-
-    test('팀 이름이 붙어도 내 것', () {
-      expect(isSameWorker('차재훈', '생산팀 차재훈'), isTrue);
-      expect(isSameWorker('생산팀 차재훈', '차재훈'), isTrue);
-    });
-
-    test('띄어쓰기만 다른 것도 내 것', () {
-      expect(isSameWorker('생산팀차재훈', '생산팀 차재훈'), isTrue);
-    });
-
-    test('남의 이름은 아니다', () {
-      expect(isSameWorker('차재훈', '홍길동'), isFalse);
-    });
-
-    test('이름이 비어 있으면 감추지 않는다', () {
-      expect(isSameWorker('차재훈', null), isTrue);
-      expect(isSameWorker('', '홍길동'), isTrue);
-    });
-  });
-
   group('모자란 자재', () {
     test('최소 수량까지 내려오면 모자란 것으로 본다', () {
       expect(isShortStock({'qty': 1, 'minQty': 1}), isTrue);
