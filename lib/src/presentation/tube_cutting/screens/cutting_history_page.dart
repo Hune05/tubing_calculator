@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../../../core/utils/pdf_fonts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -84,13 +85,10 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
     }
     try {
       final data = buildRecordExport(_records);
-      final fontData = await rootBundle.load(
-        'assets/fonts/NotoSansKR-VariableFont_wght.ttf',
-      );
-      final font = pw.Font.ttf(fontData);
-      final pdf = pw.Document(
-        theme: pw.ThemeData.withFont(base: font, bold: font),
-      );
+      final pdfFonts = await loadKoreanPdfFonts();
+      final font = pdfFonts.regular;
+      final fontBold = pdfFonts.bold;
+      final pdf = pw.Document(theme: pdfFonts.theme);
       final now = DateTime.now();
       final dateStr =
           "${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')}";
@@ -100,7 +98,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
             data: rows,
             headerStyle: pw.TextStyle(
               fontWeight: pw.FontWeight.bold,
-              font: font,
+              font: fontBold,
             ),
             cellStyle: pw.TextStyle(font: font, fontSize: 10),
             headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),

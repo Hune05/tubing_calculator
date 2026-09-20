@@ -78,3 +78,9 @@ flutter:
     - family: NotoSansKR
       fonts:
         - asset: assets/fonts/NotoSansKR-VariableFont_wght.ttf
+
+  # PDF에 쓰는 한글 글꼴(보통·굵게). 굵기별로 따로 만든 파일이라 PDF에서 글씨가 제 굵기로 나온다.
+  assets:
+    - assets/fonts/NotoSansKR-Regular.ttf
+    - assets/fonts/NotoSansKR-Bold.ttf
+    - assets/fonts/OFL-NotoSansKR.txt

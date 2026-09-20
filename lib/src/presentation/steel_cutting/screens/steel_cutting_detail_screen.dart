@@ -1,8 +1,9 @@
 import 'dart:io';
 
+import '../../../core/utils/pdf_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle, HapticFeedback;
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -243,13 +244,10 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     }
 
     try {
-      final fontData = await rootBundle.load(
-        'assets/fonts/NotoSansKR-VariableFont_wght.ttf',
-      );
-      final koreanFont = pw.Font.ttf(fontData);
-      final pdf = pw.Document(
-        theme: pw.ThemeData.withFont(base: koreanFont, bold: koreanFont),
-      );
+      final pdfFonts = await loadKoreanPdfFonts();
+      final koreanFont = pdfFonts.regular;
+      final koreanBold = pdfFonts.bold;
+      final pdf = pw.Document(theme: pdfFonts.theme);
 
       final now = DateTime.now();
       final dateStr =
@@ -323,7 +321,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
               data: itemRows,
               headerStyle: pw.TextStyle(
                 fontWeight: pw.FontWeight.bold,
-                font: koreanFont,
+                font: koreanBold,
               ),
               cellStyle: pw.TextStyle(font: koreanFont),
               headerDecoration: const pw.BoxDecoration(
@@ -356,7 +354,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                 style: pw.TextStyle(
                   fontSize: 12,
                   fontWeight: pw.FontWeight.bold,
-                  font: koreanFont,
+                  font: koreanBold,
                 ),
               ),
               pw.SizedBox(height: 6),
@@ -378,7 +376,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                     .toList(),
                 headerStyle: pw.TextStyle(
                   fontWeight: pw.FontWeight.bold,
-                  font: koreanFont,
+                  font: koreanBold,
                 ),
                 cellStyle: pw.TextStyle(font: koreanFont),
                 headerDecoration: const pw.BoxDecoration(

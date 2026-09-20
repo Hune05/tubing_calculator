@@ -1,9 +1,9 @@
 import 'dart:convert';
+import '../../../core/utils/pdf_fonts.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart' show PdfColor, PdfColors;
 import 'package:pdf/widgets.dart' as pw;
@@ -338,13 +338,8 @@ Future<Uint8List> buildReportPdfBytes(
       logoImg = pw.MemoryImage(base64Decode(logoSrc));
     } catch (_) {}
   }
-  final fontData = await rootBundle.load(
-    'assets/fonts/NotoSansKR-VariableFont_wght.ttf',
-  );
-  final ttf = pw.Font.ttf(fontData);
-  final pdf = pw.Document(
-    theme: pw.ThemeData.withFont(base: ttf, bold: ttf),
-  );
+  final pdfFonts = await loadKoreanPdfFonts();
+  final pdf = pw.Document(theme: pdfFonts.theme);
   pdf.addPage(
     pw.MultiPage(
       build: (ctx) => [

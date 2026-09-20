@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle, HapticFeedback;
+import '../../../core/utils/pdf_fonts.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'dart:convert';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,6 +16,7 @@ import '../../../data/models/smart_fitting_db.dart';
 import '../widgets/smart_fitting_selector_sheet.dart';
 import 'cutting_history_page.dart';
 import '../widgets/cutting_optimization_sheet.dart';
+import '../cutting_diagram_pdf.dart';
 import '../cutting_diagram_view.dart';
 import '../cutting_leftovers.dart'
     show loadLeftovers, loadMixLengths, kTubeMixPrefsKey;
@@ -267,13 +269,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     }
 
     try {
-      final fontData = await rootBundle.load(
-        'assets/fonts/NotoSansKR-VariableFont_wght.ttf',
-      );
-      final koreanFont = pw.Font.ttf(fontData);
-      final pdf = pw.Document(
-        theme: pw.ThemeData.withFont(base: koreanFont, bold: koreanFont),
-      );
+      final pdfFonts = await loadKoreanPdfFonts();
+      final koreanFont = pdfFonts.regular;
+      final koreanBold = pdfFonts.bold;
+      final pdf = pw.Document(theme: pdfFonts.theme);
 
       final now = DateTime.now();
       final dateStr =
@@ -321,6 +320,21 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       final leftovers = await loadLeftovers();
       final mixLengths = await loadMixLengths();
       final groups = _collectRequiredPiecesByTubeSize();
+      // 라인 모양(배치도)을 지시서에도 그려 넣는다.
+      final diagramData = _diagramData();
+      final List<pw.Widget> diagramWidgets = [
+        pw.SizedBox(height: 20),
+        pw.Text(
+          "배치도",
+          style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.SizedBox(height: 8),
+        ...buildDiagramPdfWidgets(
+          points: diagramData.$1,
+          segments: diagramData.$2,
+          setMultiplier: _setMultiplier,
+        ),
+      ];
       final List<pw.Widget> planWidgets = [];
       for (final e in groups.entries) {
         final groupLeftovers = [
@@ -357,7 +371,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               data: planRows(r),
               headerStyle: pw.TextStyle(
                 fontWeight: pw.FontWeight.bold,
-                font: koreanFont,
+                font: koreanBold,
               ),
               cellStyle: pw.TextStyle(font: koreanFont),
               headerDecoration: const pw.BoxDecoration(
@@ -394,7 +408,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               data: rows,
               headerStyle: pw.TextStyle(
                 fontWeight: pw.FontWeight.bold,
-                font: koreanFont,
+                font: koreanBold,
               ),
               cellStyle: pw.TextStyle(font: koreanFont),
               headerDecoration: const pw.BoxDecoration(
@@ -414,6 +428,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                 ),
               ),
             ),
+            ...diagramWidgets,
             ...planWidgets,
           ],
         ),
@@ -428,6 +443,52 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       await Share.shareXFiles([
         XFile(file.path),
       ], text: "${widget.project.name} 컷팅 지시서입니다.");
+    } catch (e) {
+      if (!mounted) return;
+      showCuttingSnack(context, "내보내기 실패: $e", isError: true);
+    }
+  }
+
+  // 배치도만 한 장짜리 PDF로 만들어 공유한다(현장에 라인 모양을 보여 줄 때).
+  Future<void> _exportDiagramPdf() async {
+    final data = _diagramData();
+    if (!data.$2.any((s) => s.hasLength)) {
+      showCuttingSnack(context, "내보낼 치수가 없습니다. 먼저 치수를 입력하십시오.", isError: true);
+      return;
+    }
+    try {
+      final pdfFonts = await loadKoreanPdfFonts();
+      final pdf = pw.Document(theme: pdfFonts.theme);
+      final now = DateTime.now();
+      final dateStr =
+          "${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')}";
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          build: (context) => [
+            pw.Text(
+              "배치도",
+              style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold),
+            ),
+            pw.SizedBox(height: 6),
+            pw.Text("프로젝트: ${widget.project.name}    작성일: $dateStr"),
+            pw.SizedBox(height: 14),
+            ...buildDiagramPdfWidgets(
+              points: data.$1,
+              segments: data.$2,
+              setMultiplier: _setMultiplier,
+            ),
+          ],
+        ),
+      );
+      final output = await getTemporaryDirectory();
+      final file = File("${output.path}/${widget.project.name}_배치도.pdf");
+      await file.writeAsBytes(await pdf.save());
+      if (!mounted) return;
+      // ignore: deprecated_member_use
+      await Share.shareXFiles([
+        XFile(file.path),
+      ], text: "${widget.project.name} 배치도입니다.");
     } catch (e) {
       if (!mounted) return;
       showCuttingSnack(context, "내보내기 실패: $e", isError: true);
@@ -2401,15 +2462,26 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "1. 배치도",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              color: textPrimary,
-            ),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  "1. 배치도",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: textPrimary,
+                  ),
+                ),
+              ),
+              IconButton(
+                key: const Key('diagram_share'),
+                tooltip: "배치도 PDF로 공유",
+                icon: const Icon(Icons.ios_share_rounded, color: makitaTeal),
+                onPressed: _exportDiagramPdf,
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
           Text(
             "지점을 누르면 입력 화면에서 바로 고칠 수 있습니다",
             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),

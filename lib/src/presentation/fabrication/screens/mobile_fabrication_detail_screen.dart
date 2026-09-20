@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/pdf_fonts.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'dart:convert';
@@ -194,9 +195,7 @@ class _MobileFabricationDetailScreenState
   // 형상이 원본과 미묘하게 달라지는 원인이 됐다. 소수점 둘째 자리까지
   // 보존한다 (디코더는 이미 double.tryParse라 그대로 호환됨).
   String _formatCompressed(double v) {
-    return v == v.roundToDouble()
-        ? v.round().toString()
-        : v.toStringAsFixed(2);
+    return v == v.roundToDouble() ? v.round().toString() : v.toStringAsFixed(2);
   }
 
   String _compressBendData(List<Map<String, dynamic>> bends) {
@@ -234,10 +233,8 @@ class _MobileFabricationDetailScreenState
         pdfIsoImage = pw.MemoryImage(isoImageBytes);
       }
 
-      final fontData = await rootBundle.load(
-        'assets/fonts/NotoSansKR-VariableFont_wght.ttf',
-      );
-      final ttf = pw.Font.ttf(fontData);
+      final pdfFonts = await loadKoreanPdfFonts();
+      final ttf = pdfFonts.regular;
 
       final pdf = pw.Document(
         theme: pw.ThemeData.withFont(
