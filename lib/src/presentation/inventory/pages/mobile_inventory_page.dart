@@ -49,6 +49,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
   // 하나로 맞췄다(예전에는 카테고리마다 갈색·자색으로 달랐다).
   final List<Map<String, dynamic>> _categories = const [
     {"id": "CONDUIT", "name": "전선관"},
+    {"id": "STEEL", "name": "형강"},
     {"id": "FLEX", "name": "후렉시블"},
     {"id": "ACC", "name": "부속"},
     {"id": "TUBE", "name": "튜브"},

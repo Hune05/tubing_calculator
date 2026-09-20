@@ -498,6 +498,18 @@ void main() {
       expect(find.byKey(const Key('result_done_action')), findsNothing);
     });
 
+    testWidgets('재단 계획 창에 재고에서 빼기 단추가 있다', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await open(tester);
+      await tester.tap(find.byKey(const Key('steel_btn_optimize')));
+      await tester.pumpAndSettle();
+      final btn = find.byKey(const Key('stock_deduct'));
+      expect(btn, findsOneWidget);
+      await tester.ensureVisible(btn);
+      expect(find.text('재고에서 빼기'), findsOneWidget);
+      // 누르지는 않는다 — 실제 창고 재고를 건드리는 동작이다.
+    });
+
     testWidgets('재단 계획 창에서 저장하면 저장 표시가 남는다', (tester) async {
       SharedPreferences.setMockInitialValues({
         'steel_done_sp3': ['steel:앵글 40x40x3:500.0:2'],

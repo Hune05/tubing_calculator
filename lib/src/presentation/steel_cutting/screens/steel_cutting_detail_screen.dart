@@ -21,6 +21,7 @@ import '../../tube_cutting/cutting_leftovers.dart';
 import '../../tube_cutting/cutting_math.dart' show fmtMm;
 import '../../tube_cutting/cutting_optimizer.dart';
 import '../../tube_cutting/cutting_pending_banner.dart';
+import '../../tube_cutting/cutting_stock_deduct.dart';
 import '../../tube_cutting/cutting_plan_rows.dart';
 import '../../tube_cutting/cutting_result_logic.dart';
 import '../../tube_cutting/cutting_result_view.dart';
@@ -727,12 +728,50 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       leftoversAlreadySaved: _leftoversSaved,
       leftoverLogSource: '형강 컷팅 · ${widget.project.name}',
       title: "재단 계획 (원자재 몇 본 드는지)",
+      onDeductStock: _deductStock,
       onStockLengthChanged: (v) {
         setState(() => _stockLength = v);
         _persistStockLength(v);
       },
     );
     _loadMixMax();
+  }
+
+  /// 재단 계획 창에서 "재고에서 빼기"를 눌렀을 때. 규격별 새 원자재 본수를 받아
+  /// 창고 재고에서 뺀다. 재고는 자재 이름으로 찾으므로, 자재 목록에 있는 형강
+  /// 이름(예: 찬넬 75x40x5)과 규격 이름이 같아야 찾힌다.
+  Future<bool> _deductStock(Map<String, int> barsBySpec) async {
+    final takes = <StockTake>[
+      for (final e in barsBySpec.entries)
+        if (e.value > 0 && e.key.trim().isNotEmpty)
+          StockTake(name: e.key.trim(), qty: e.value, unit: '본'),
+    ];
+    if (takes.isEmpty) return false;
+
+    final lines = [for (final t in takes) "${t.name} ${t.qty}본"].join('\n');
+    final ok = await showCuttingConfirmDialog(
+      context,
+      title: "재고에서 빼겠습니까?",
+      message: "$lines\n\n창고 재고에서 위 수량을 빼고 자재 기록에 남깁니다.",
+      confirmLabel: "빼기",
+      icon: Icons.inventory_2_outlined,
+    );
+    if (!ok) return false;
+
+    try {
+      final result = await deductStockTakes(
+        takes,
+        projectName: '형강 컷팅 · ${widget.project.name}',
+        action: '형강 재단',
+      );
+      if (!mounted) return result.done.isNotEmpty;
+      showCuttingSnack(context, result.message, isError: !result.allDone);
+      return result.done.isNotEmpty;
+    } catch (_) {
+      if (!mounted) return false;
+      showCuttingSnack(context, "재고에서 빼지 못했습니다.", isError: true);
+      return false;
+    }
   }
 
   Future<void> _sharePdf(Uint8List bytes, String fileName) async {

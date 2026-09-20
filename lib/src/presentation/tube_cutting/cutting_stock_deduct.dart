@@ -1,3 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 // 컷팅에서 쓴 자재를 창고 재고에서 뺄 때의 셈. 화면과 떼어 놓아서 검사할 수 있게 한다.
 
 /// 뺄 자재 한 줄. 이름은 재고의 자재 이름과 같아야 찾을 수 있다.
@@ -70,4 +73,67 @@ class StockDeductResult {
     return "자재 ${done.length}건을 차감했습니다."
         " ${missing.length}건은 재고에 없어 그대로 뒀습니다.";
   }
+}
+
+// ── 재고에서 실제로 빼는 부분 (형강·튜브가 같이 쓴다) ──
+
+/// 자재 이름으로 창고 재고를 찾아 수량을 뺀다. 이름이 맞는 자재가 없으면
+/// 그대로 두고 [StockDeductResult.missing]에 담아 돌려준다(예전에는 수량이
+/// 음수인 자재를 새로 만들어 버려서 재고가 엉켰다).
+/// 뺄 때마다 자재 기록에 불출로 남긴다.
+Future<StockDeductResult> deductStockTakes(
+  List<StockTake> takes, {
+  required String projectName,
+  String worker = '',
+  String device = 'Mobile',
+  String action = '컷팅 사용',
+}) async {
+  final db = FirebaseFirestore.instance;
+
+  var who = worker.trim();
+  if (who.isEmpty) {
+    try {
+      final p = await SharedPreferences.getInstance();
+      who = p.getString('user_real_name') ?? '';
+    } catch (_) {}
+  }
+
+  final done = <StockTake>[];
+  final missing = <StockTake>[];
+  final batch = db.batch();
+
+  for (final take in takes) {
+    if (take.qty <= 0 || take.name.trim().isEmpty) continue;
+    final snap = await db
+        .collection('inventory')
+        .where('name', isEqualTo: take.name)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) {
+      missing.add(take);
+      continue;
+    }
+    final doc = snap.docs.first;
+    final unit = (doc.data()['unit'] as String?) ?? take.unit;
+
+    batch.update(db.collection('inventory').doc(doc.id), {
+      'qty': FieldValue.increment(-take.qty),
+      'lastUpdated': FieldValue.serverTimestamp(),
+    });
+    batch.set(db.collection('inventory_logs').doc(), {
+      'material_name': take.name,
+      'type': 'OUT',
+      'action': action,
+      'qty': take.qty,
+      'unit': unit,
+      'worker_name': who,
+      'project_name': projectName,
+      'device': device,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+    done.add(take);
+  }
+
+  await batch.commit();
+  return StockDeductResult(done: done, missing: missing);
 }

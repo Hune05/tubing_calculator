@@ -8,11 +8,13 @@
 // 둘 다 서버 'material_catalog'에 담기고, 화면에서 이름·규격을 고치고 빼고
 // 더할 수 있다.
 
+import '../../data/models/steel_shape_db.dart';
 import 'material_catalog_vendor.dart';
 
 /// 자재 분류. 화면 칩과 카탈로그가 같은 이름을 쓰게 한 곳에 모아 둔다.
 const Map<String, String> kMaterialCategoryLabels = {
   'CONDUIT': '전선관',
+  'STEEL': '형강',
   'FLEX': '후렉시블',
   'ACC': '부속',
   'TUBE': '튜브',
@@ -144,6 +146,7 @@ List<CatalogItem> vendorMaterialCatalog() {
 /// 서버에 심을 목록 전체(업체 자료 + 앱이 적어 둔 것).
 List<CatalogItem> allMaterialCatalog() => [
   ...vendorMaterialCatalog(),
+  ...steelMaterialCatalog(),
   ...builtinMaterialCatalog(),
 ];
 
@@ -163,3 +166,37 @@ List<String> mergeMakers(List<String> remembered) {
   }
   return out;
 }
+
+// ── 형강: 앱 안에 있는 규격표를 자재 목록으로 옮긴다 ──
+// 형강 컷팅에서 쓰는 규격표(steel_shape_db.dart)를 그대로 쓴다. 이름이 같아야
+// 컷팅에서 쓴 자재를 재고에서 찾아 뺄 수 있다(재고는 이름으로 찾는다).
+
+/// 형강 자재 목록. 이름은 규격표의 이름 그대로(예: 찬넬 75x40x5), 단위는 본.
+List<CatalogItem> steelMaterialCatalog() {
+  final out = <CatalogItem>[];
+  var order = 900000;
+  for (final s in SteelShapeDB.all) {
+    // 규격은 이름에서 종류를 뗀 나머지(예: 찬넬 75x40x5 → 75x40x5).
+    final kindName = SteelShapeDB.categoryLabel(s.category);
+    var spec = s.label;
+    if (spec.startsWith(kindName)) {
+      spec = spec.substring(kindName.length).trim();
+    }
+    out.add(
+      CatalogItem(
+        id: 'steel_${s.id}',
+        name: s.label,
+        category: 'STEEL',
+        spec: spec,
+        kind: kindName,
+        unit: '본',
+        order: order += 10,
+        source: kSteelCatalogSource,
+      ),
+    );
+  }
+  return out;
+}
+
+/// 형강 자재가 어디서 왔는지.
+const String kSteelCatalogSource = '앱 규격표';

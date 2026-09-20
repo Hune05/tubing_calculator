@@ -57,6 +57,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
     "ALL",
     kLeftoverCategory,
     "CONDUIT",
+    "STEEL",
     "FLEX",
     "ACC",
     "TUBE",

@@ -44,6 +44,9 @@ Future<void> showCuttingOptimizationSheet(
   bool leftoversAlreadySaved = false,
   // 잔재 기록에 적을 작업 이름("튜브 컷팅 · 루마" 등).
   String leftoverLogSource = '',
+  // 새 원자재를 창고 재고에서 뺄 수 있는 화면(형강)에서만 넘긴다. 규격별 본수를
+  // 받아서 빼고, 뺐으면 true를 돌려준다.
+  Future<bool> Function(Map<String, int> barsBySpec)? onDeductStock,
 }) async {
   final Map<String, List<double>> groups =
       (groupedPieces != null && groupedPieces.isNotEmpty)
@@ -64,6 +67,8 @@ Future<void> showCuttingOptimizationSheet(
   if (!context.mounted) return;
   bool useLeftovers = true;
   bool leftoversSaved = leftoversAlreadySaved;
+  // 이번 계산의 새 원자재를 재고에서 뺐는지(같은 것을 두 번 빼지 않게).
+  bool stockDeducted = false;
   // 이 창에서 저장하기 직전의 잔재 목록(되돌리기용). 저장하지 않았거나 되돌린 뒤에는 null.
   List<Leftover>? savedFrom;
   // 방금 저장하면서 적은 잔재 기록의 id(되돌리기에서 그 기록을 지운다).
@@ -142,6 +147,7 @@ Future<void> showCuttingOptimizationSheet(
           setSheetState(() {
             stockNow = parsed;
             leftoversSaved = false;
+            stockDeducted = false;
             results = compute(parsed);
           });
           onStockLengthChanged?.call(parsed);
@@ -163,6 +169,8 @@ Future<void> showCuttingOptimizationSheet(
                   mixSel.add(value);
                 }
                 leftoversSaved = false;
+                stockDeducted = false;
+                stockDeducted = false;
                 results = compute(stockNow);
               });
               saveMix();
@@ -185,6 +193,12 @@ Future<void> showCuttingOptimizationSheet(
             ),
           );
         }
+
+        // 규격별 새 원자재 본수(재고에서 뺄 때 쓴다).
+        final Map<String, int> barsBySpec = {
+          for (final e in results.entries)
+            if (e.value.barCount > 0) e.key: e.value.barCount,
+        };
 
         final int totalBarCount = results.values.fold(
           0,
@@ -299,6 +313,8 @@ Future<void> showCuttingOptimizationSheet(
                   setSheetState(() {
                     mix = v;
                     leftoversSaved = false;
+                    stockDeducted = false;
+                    stockDeducted = false;
                     results = compute(stockNow);
                   });
                   saveMix();
@@ -363,9 +379,14 @@ Future<void> showCuttingOptimizationSheet(
             ),
             savedBars: results.values.fold(0, (sum, r) => sum + r.savedBars),
             saved: leftoversSaved,
+            barsBySpec: barsBySpec,
+            stockDeducted: stockDeducted,
+            onDeductStock: onDeductStock,
+            onStockDeducted: () => setSheetState(() => stockDeducted = true),
             onToggle: (v) => setSheetState(() {
               useLeftovers = v;
               leftoversSaved = false;
+              stockDeducted = false;
               results = compute(stockNow);
             }),
             onSave: () async {
@@ -411,6 +432,8 @@ Future<void> showCuttingOptimizationSheet(
                     onLeftoversSaveUndone?.call();
                     setSheetState(() {
                       leftoversSaved = false;
+                      stockDeducted = false;
+                      stockDeducted = false;
                       results = compute(stockNow);
                     });
                     if (ctx.mounted) {
@@ -431,6 +454,8 @@ Future<void> showCuttingOptimizationSheet(
                 await saveLeftovers(leftovers);
                 setSheetState(() {
                   leftoversSaved = false;
+                  stockDeducted = false;
+                  stockDeducted = false;
                   results = compute(stockNow);
                 });
               }
@@ -819,6 +844,11 @@ Widget _buildLeftoverCard({
   required VoidCallback onManage,
   VoidCallback? onUndo,
   VoidCallback? onLog,
+  // 새 원자재를 재고에서 뺄 수 있는 화면에서만 넘긴다.
+  Map<String, int> barsBySpec = const {},
+  bool stockDeducted = false,
+  Future<bool> Function(Map<String, int> barsBySpec)? onDeductStock,
+  VoidCallback? onStockDeducted,
 }) {
   return Builder(
     builder: (context) => _tealTheme(
@@ -892,6 +922,32 @@ Widget _buildLeftoverCard({
                     onPressed: onSave,
                     child: const Text("잘랐습니다 (잔재 저장)"),
                   ),
+                if (onDeductStock != null)
+                  if (stockDeducted)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 12,
+                      ),
+                      child: Text(
+                        "재고에서 뺐습니다",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: CuttingColors.success,
+                        ),
+                      ),
+                    )
+                  else
+                    OutlinedButton(
+                      key: const Key('stock_deduct'),
+                      onPressed: barsBySpec.isEmpty
+                          ? null
+                          : () async {
+                              final ok = await onDeductStock(barsBySpec);
+                              if (ok) onStockDeducted?.call();
+                            },
+                      child: const Text("재고에서 빼기"),
+                    ),
                 TextButton(onPressed: onManage, child: const Text("잔재 관리")),
                 if (onLog != null)
                   TextButton(
