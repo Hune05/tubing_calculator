@@ -13,8 +13,10 @@ String _fmtWhen(DateTime t) =>
 class LeftoverLogPage extends StatelessWidget {
   // 테스트에서 저장소 없이 그릴 수 있게 기록을 직접 넘길 수도 있다. 없으면 폰에서 읽는다.
   final List<LeftoverLogEntry>? entries;
+  // "최근 7일" 같은 기간 기준 시각(테스트용). 없으면 지금.
+  final DateTime? now;
 
-  const LeftoverLogPage({super.key, this.entries});
+  const LeftoverLogPage({super.key, this.entries, this.now});
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +37,7 @@ class LeftoverLogPage extends StatelessWidget {
         ),
       ),
       body: entries != null
-          ? _LogList(entries: entries!)
+          ? _LogList(entries: entries!, now: now)
           : FutureBuilder<List<LeftoverLogEntry>>(
               future: loadLeftoverLog(),
               builder: (context, snap) {
@@ -46,20 +48,55 @@ class LeftoverLogPage extends StatelessWidget {
                     ),
                   );
                 }
-                return _LogList(entries: snap.data!);
+                return _LogList(entries: snap.data!, now: now);
               },
             ),
     );
   }
 }
 
-class _LogList extends StatelessWidget {
+class _LogList extends StatefulWidget {
   final List<LeftoverLogEntry> entries;
-  const _LogList({required this.entries});
+  final DateTime? now;
+  const _LogList({required this.entries, this.now});
+
+  @override
+  State<_LogList> createState() => _LogListState();
+}
+
+class _LogListState extends State<_LogList> {
+  int? _days; // null이면 전체 기간
+  String? _label; // null이면 전체 규격
+
+  Widget _chip(Key key, String text, bool selected, VoidCallback onTap) =>
+      Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: Material(
+          color: selected ? CuttingColors.primary : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            key: key,
+            borderRadius: BorderRadius.circular(8),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: selected ? Colors.white : Colors.grey.shade700,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
-    if (entries.isEmpty) {
+    final all = widget.entries;
+    if (all.isEmpty) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
@@ -71,6 +108,77 @@ class _LogList extends StatelessWidget {
         ),
       );
     }
+    final labels = leftoverLogLabels(all);
+    final activeLabel = labels.contains(_label) ? _label : null;
+    final entries = filterLeftoverLog(
+      all,
+      days: _days,
+      label: activeLabel,
+      now: widget.now,
+    );
+    final filters = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final d in const <int?>[null, 7, 30])
+                  _chip(
+                    Key('log_days_${d ?? 'all'}'),
+                    d == null ? '전체 기간' : '최근 ${d}일',
+                    _days == d,
+                    () => setState(() => _days = d),
+                  ),
+              ],
+            ),
+          ),
+          if (labels.length > 1) ...[
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _chip(
+                    const Key('log_label_all'),
+                    '전체 규격',
+                    activeLabel == null,
+                    () => setState(() => _label = null),
+                  ),
+                  for (final l in labels)
+                    _chip(
+                      Key('log_label_$l'),
+                      l.isEmpty ? '규격 미지정' : l,
+                      activeLabel == l,
+                      () => setState(() => _label = l),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+    final Widget body = entries.isEmpty
+        ? const Center(
+            child: Text(
+              "이 조건에 맞는 기록이 없습니다.",
+              key: Key('leftover_log_none'),
+              style: TextStyle(color: CuttingColors.textSecondary),
+            ),
+          )
+        : _cards(entries);
+    return Column(
+      children: [
+        filters,
+        Expanded(child: body),
+      ],
+    );
+  }
+
+  Widget _cards(List<LeftoverLogEntry> entries) {
     return ListView.separated(
       key: const Key('leftover_log_list'),
       padding: const EdgeInsets.all(16),

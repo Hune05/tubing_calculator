@@ -117,8 +117,8 @@ double? steelKgPerM(String shapeLabel) {
     case '립C형강':
       final n = _nums(size);
       if (n == null || n.length != 4) return null;
-      // 높이x폭x립xt: 웹 + 플랜지 2 + 립 2, 모서리 4곳은 겹치니 뺀다.
-      return fromArea(n[3] * (n[0] + 2 * n[1] + 2 * n[2] - 4 * n[3]));
+      // 높이x폭x립xt: KS D 3530의 단위중량식 t×(H+2B+2C−6.574t)×0.00785(모서리 둥글림 반영).
+      return fromArea(n[3] * (n[0] + 2 * n[1] + 2 * n[2] - 6.574 * n[3]));
     case '스트럿':
       final n = _nums(size);
       if (n == null || n.length != 3) return null;

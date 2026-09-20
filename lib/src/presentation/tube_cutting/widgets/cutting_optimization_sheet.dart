@@ -947,6 +947,18 @@ Future<List<Leftover>?> _manageLeftovers(
                     "${kMinLeftoverMm.toStringAsFixed(0)}mm보다 짧은 잔재는 남겨 두지 않습니다.",
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
+                  if (list.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      "전체 ${list.length}개 · 합계 ${list.fold<double>(0, (s, l) => s + l.length).toStringAsFixed(0)}mm · 규격 ${groupLeftoversByLabel(list).length}종",
+                      key: const Key('leftover_total'),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: CuttingColors.primaryDark,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   Flexible(
                     child: list.isEmpty

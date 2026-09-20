@@ -596,14 +596,67 @@ void main() {
       expect(find.text('잘랐습니다 (잔재 저장)'), findsOneWidget);
     });
 
-    test('립C형강 6종은 모두 무게가 계산된다(직접 입력한 립C도)', () {
+    test('립C형강 규격은 41종이고 모두 무게가 계산되며 옛 규격 이름은 그대로다', () {
       final lip = SteelShapeDB.byCategory('LIPC');
-      expect(lip.length, 6);
+      expect(lip.length, 41);
+      expect(lip.map((e) => e.label).toSet().length, 41);
       for (final s in lip) {
         expect(steelKgPerM(s.label), isNotNull, reason: s.label);
       }
-      // 직접 입력: 2.0×(100+2×50+2×20−4×2)=464mm² → 3.64kg/m
-      expect(steelKgPerM('립C형강 100x50x20x2.0')!, closeTo(3.64, 0.01));
+      // 예전부터 있던 여섯 규격(저장된 항목·즐겨찾기가 이 이름을 쓴다)
+      for (final v in [
+        '100x50x20x2.3',
+        '100x50x20x3.2',
+        '125x50x20x2.3',
+        '150x50x20x2.3',
+        '150x65x20x3.2',
+        '200x75x20x3.2',
+      ]) {
+        expect(lip.any((e) => e.label == '립C형강 $v'), true, reason: v);
+        expect(lip.any((e) => e.id == 'lipc_$v'), true, reason: v);
+      }
+    });
+
+    test('립C 무게식이 시판 규격표(미주철근철강·부현철강) 값과 1% 안쪽으로 맞는다', () {
+      const catalog = {
+        '60x30x10x1.6': 1.63,
+        '60x30x10x1.8': 1.81,
+        '60x30x10x2.0': 1.99,
+        '60x30x10x2.3': 2.25,
+        '75x45x15x1.6': 2.32,
+        '75x45x15x1.8': 2.59,
+        '75x45x15x2.0': 2.86,
+        '75x45x15x2.1': 2.99,
+        '75x45x15x2.3': 3.25,
+        '100x50x20x1.6': 2.88,
+        '100x50x20x1.8': 3.22,
+        '100x50x20x2.0': 3.56,
+        '100x50x20x2.1': 3.73,
+        '100x50x20x2.3': 4.06,
+        '100x50x20x2.6': 4.55,
+        '100x50x20x3.0': 5.19,
+        '100x50x20x3.2': 5.50,
+        '125x50x20x2.0': 3.95,
+        '125x50x20x2.1': 4.14,
+        '125x50x20x3.0': 5.78,
+        '125x50x20x3.2': 6.13,
+        '150x50x20x2.1': 4.55,
+        '150x50x20x3.0': 6.37,
+        '150x50x20x3.2': 6.76,
+        '150x65x20x3.0': 7.07,
+        '150x65x20x3.2': 7.51,
+        '150x65x20x4.5': 10.30,
+        '150x75x25x3.0': 7.78,
+        '150x75x25x3.2': 8.27,
+        '200x75x20x5.0': 14.0,
+        '200x75x25x3.0': 8.96,
+        '200x75x25x4.5': 13.1,
+        '250x80x20x4.5': 14.9,
+      };
+      for (final e in catalog.entries) {
+        final kg = steelKgPerM('립C형강 ${e.key}')!;
+        expect((kg - e.value).abs() / e.value, lessThan(0.01), reason: e.key);
+      }
     });
 
     testWidgets('되돌리기: 방금 저장한 잔재와 잘랐음 표시를 저장 전으로', (tester) async {
@@ -936,6 +989,98 @@ void main() {
         find.byKey(const Key('leftover_group_스트럿 41x41x2.5')),
         findsOneWidget,
       );
+      expect(
+        tester.widget<Text>(find.byKey(const Key('leftover_total'))).data,
+        '전체 3개 · 합계 4500mm · 규격 2종',
+      );
+    });
+  });
+
+  group('잔재 기록 걸러내기', () {
+    final now = DateTime(2026, 9, 30, 12);
+    final entries = [
+      LeftoverLogEntry(
+        id: '3',
+        at: DateTime(2026, 9, 29, 10),
+        source: '형강 컷팅 · 루마',
+        used: const [Leftover('앵글 40x40x3', 3000)],
+        added: const [
+          Leftover('앵글 40x40x3', 5400),
+          Leftover('스트럿 41x41x2.5', 5000),
+        ],
+      ),
+      LeftoverLogEntry(
+        id: '2',
+        at: DateTime(2026, 9, 15, 10),
+        source: '튜브 컷팅 · H2',
+        used: const [],
+        added: const [Leftover('튜브 1/2"', 800)],
+      ),
+      LeftoverLogEntry(
+        id: '1',
+        at: DateTime(2026, 7, 1, 10),
+        source: '형강 컷팅 · 루마',
+        used: const [],
+        added: const [Leftover('앵글 40x40x3', 2000)],
+      ),
+    ];
+
+    test('기간: 최근 7일·30일만', () {
+      expect(filterLeftoverLog(entries, now: now).length, 3);
+      expect(filterLeftoverLog(entries, days: 30, now: now).map((e) => e.id), [
+        '3',
+        '2',
+      ]);
+      expect(filterLeftoverLog(entries, days: 7, now: now).map((e) => e.id), [
+        '3',
+      ]);
+    });
+
+    test('규격: 그 규격의 잔재만 남기고 없는 기록은 뺀다', () {
+      final r = filterLeftoverLog(entries, label: '앵글 40x40x3', now: now);
+      expect(r.map((e) => e.id), ['3', '1']);
+      expect(r.first.used.length, 1);
+      expect(r.first.added.map((l) => l.length), [5400]); // 스트럿은 빠진다
+      final both = filterLeftoverLog(
+        entries,
+        days: 30,
+        label: '튜브 1/2"',
+        now: now,
+      );
+      expect(both.map((e) => e.id), ['2']);
+      expect(leftoverLogLabels(entries), [
+        '앵글 40x40x3',
+        '스트럿 41x41x2.5',
+        '튜브 1/2"',
+      ]);
+    });
+
+    testWidgets('기록 화면 칩으로 기간과 규격을 고른다', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LeftoverLogPage(entries: entries, now: now),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('leftover_log_list')), findsOneWidget);
+      expect(find.text('9월 15일(화) 10:00'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('log_days_7')));
+      await tester.pumpAndSettle();
+      expect(find.text('9월 15일(화) 10:00'), findsNothing);
+      expect(find.text('9월 29일(화) 10:00'), findsOneWidget);
+      // 규격 칩: 튜브만 → 최근 7일엔 없음 안내
+      final tube = find.byKey(const Key('log_label_튜브 1/2"'));
+      await tester.ensureVisible(tube);
+      await tester.tap(tube);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('leftover_log_none')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('log_days_all')));
+      await tester.pumpAndSettle();
+      expect(find.text('9월 15일(화) 10:00'), findsOneWidget);
+      expect(find.text('9월 29일(화) 10:00'), findsNothing);
     });
   });
 }

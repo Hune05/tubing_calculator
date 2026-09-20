@@ -106,6 +106,57 @@ Future<void> removeLeftoverLog(String id) async {
   await _save(list);
 }
 
+// 기록에 나온 규격들(최신 기록부터 처음 나온 순서).
+List<String> leftoverLogLabels(List<LeftoverLogEntry> entries) {
+  final out = <String>[];
+  for (final e in entries) {
+    for (final l in [...e.used, ...e.added]) {
+      if (!out.contains(l.label)) out.add(l.label);
+    }
+  }
+  return out;
+}
+
+// 최근 [days]일 안의 기록만, 규격 [label]이 있으면 그 규격의 잔재만 남긴다(둘 다 null이면 그대로).
+// 고른 규격이 하나도 없는 기록은 뺀다.
+List<LeftoverLogEntry> filterLeftoverLog(
+  List<LeftoverLogEntry> entries, {
+  int? days,
+  String? label,
+  DateTime? now,
+}) {
+  final since = days == null
+      ? null
+      : (now ?? DateTime.now()).subtract(Duration(days: days));
+  final out = <LeftoverLogEntry>[];
+  for (final e in entries) {
+    if (since != null && e.at.isBefore(since)) continue;
+    if (label == null) {
+      out.add(e);
+      continue;
+    }
+    final used = [
+      for (final l in e.used)
+        if (l.label == label) l,
+    ];
+    final added = [
+      for (final l in e.added)
+        if (l.label == label) l,
+    ];
+    if (used.isEmpty && added.isEmpty) continue;
+    out.add(
+      LeftoverLogEntry(
+        id: e.id,
+        at: e.at,
+        source: e.source,
+        used: used,
+        added: added,
+      ),
+    );
+  }
+  return out;
+}
+
 // 같은 규격·길이를 "5400mm × 2"처럼 묶어 규격별로 적는다. 빈 목록이면 "없음".
 String describeLeftovers(List<Leftover> list) {
   if (list.isEmpty) return '없음';
