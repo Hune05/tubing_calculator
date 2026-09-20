@@ -2267,6 +2267,10 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   // 않는 것끼리 같은 줄을 재사용하는 식으로 줄 번호를 미리 정한다.
   // 줄은 최대 3개까지만 막대로 그리고, 넘치는 건 아래 점으로 표시된다.
   static const int _kMaxBarLanes = 3;
+  // 날짜 칸 안의 일정 막대: 날짜 동그라미 아래에서 시작해 한 줄씩 아래로 쌓는다.
+  static const double _kCellRowTop = 28;
+  static const double _kCellRowH = 16;
+  static const double _kCellBarH = 15;
 
   Map<String, int> _assignBarLanes(Map<DateTime, List<_AgendaItem>> byDay) {
     final Map<String, DateTime> starts = {};
@@ -2321,9 +2325,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     return Align(
       alignment: Alignment.topCenter,
       child: Container(
-        margin: const EdgeInsets.only(top: 4),
-        width: 28,
-        height: 28,
+        margin: const EdgeInsets.only(top: 3),
+        width: 24,
+        height: 24,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected
@@ -2334,7 +2338,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         child: Text(
           '${day.day}',
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: (selected || today) ? FontWeight.bold : FontWeight.w500,
             color: textColor,
           ),
@@ -2343,17 +2347,39 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     );
   }
 
-  Widget _dotRow(List<_AgendaItem> dots) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: dots.take(3).map((e) {
-        return Container(
-          width: 5,
-          height: 5,
-          margin: const EdgeInsets.symmetric(horizontal: 1),
-          decoration: BoxDecoration(color: e.color, shape: BoxShape.circle),
-        );
-      }).toList(),
+  // 날짜 칸에 그리는 일정 막대(색 + 제목). [cont]는 지난 주에서 이어지는 막대.
+  Widget _calendarBar(
+    _AgendaItem e, {
+    bool cont = false,
+    bool roundLeft = true,
+    bool roundRight = true,
+  }) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: e.color,
+        borderRadius: BorderRadius.horizontal(
+          left: Radius.circular(roundLeft ? 4 : 0),
+          right: Radius.circular(roundRight ? 4 : 0),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(left: 4, right: 2),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            cont ? "◀ ${e.baseTitle}" : e.baseTitle,
+            maxLines: 1,
+            overflow: TextOverflow.clip,
+            softWrap: false,
+            style: const TextStyle(
+              fontSize: 11,
+              height: 1.15,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -2368,7 +2394,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         lastDay: DateTime.utc(2035, 12, 31),
         focusedDay: _focusedDay,
         calendarFormat: _calendarFormat,
-        rowHeight: 84,
+        rowHeight: 76,
         startingDayOfWeek: StartingDayOfWeek.sunday,
         selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
         eventLoader: (day) => byDay[_normalize(day)] ?? [],
@@ -2414,33 +2440,67 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
             selected: true,
             today: isSameDay(day, DateTime.now()),
           ),
+          // 날짜 칸에 일정을 "제목이 보이는 막대"로 그린다. 기간 일정(2일 이상)은 여러 칸을 잇는 한
+          // 덩어리로, 하루 일정도 같은 모양의 막대로 그린다(예전에는 점만 찍어서 무슨 일정인지 알 수
+          // 없었다). 칸에 ${_kMaxBarLanes}줄까지 넣고 넘치는 개수는 날짜 옆에 "+N"으로 알린다.
           markerBuilder: (context, day, events) {
             if (events.isEmpty) return null;
-            final bars = events
-                .where(
-                  (e) =>
-                      e.spanTotal > 1 &&
-                      e.spanKey != null &&
-                      (barLanes[e.spanKey] ?? 0) < _kMaxBarLanes,
-                )
-                .toList();
-            final dots = events.where((e) => !bars.contains(e)).toList();
             // 일요일=0 … 토요일=6 (달력이 일요일 시작이라 주 경계 계산용)
             final int dayIdx = day.weekday % 7;
+            final spans = <_AgendaItem>[];
+            final singles = <_AgendaItem>[];
+            for (final e in events) {
+              final bool isSpan = e.spanTotal > 1 && e.spanKey != null;
+              if (isSpan &&
+                  (barLanes[e.spanKey] ?? _kMaxBarLanes) < _kMaxBarLanes) {
+                spans.add(e);
+              } else {
+                singles.add(e);
+              }
+            }
+            // 줄 번호 → 그 줄에 놓을 일정. 기간 일정은 며칠에 걸쳐 같은 줄을 써야 이어져 보이므로
+            // 미리 정한 줄을 그대로 쓰고, 하루 일정은 남은 줄을 위에서부터 채운다.
+            final Map<int, _AgendaItem> rowOf = {};
+            for (final e in spans) {
+              rowOf[barLanes[e.spanKey]!] = e;
+            }
+            final placed = <_AgendaItem>[];
+            for (final e in singles) {
+              int? free;
+              for (var r = 0; r < _kMaxBarLanes; r++) {
+                if (!rowOf.containsKey(r)) {
+                  free = r;
+                  break;
+                }
+              }
+              if (free == null) break;
+              rowOf[free] = e;
+              placed.add(e);
+            }
+            final int hidden = events.length - spans.length - placed.length;
             return LayoutBuilder(
               builder: (context, box) {
                 final double cellW = box.maxWidth;
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    // 🚀 막대는 "구간의 첫 칸"(기간 첫날 또는 그 주의 일요일)에서
-                    // 그 주 끝(또는 종료일)까지 한 덩어리로 그려서 제목을 쓴다.
-                    // 뒤 칸들이 자기 막대를 또 그리면 제목이 덮이므로, 그 칸들은
-                    // 이 일정의 막대를 그리지 않는다.
-                    for (final e in bars)
-                      if (e.spanIndex == 0 || dayIdx == 0)
+                    for (final row in rowOf.entries)
+                      if (!(row.value.spanTotal > 1 &&
+                          row.value.spanKey != null))
+                        // 하루 일정: 그 칸 안에만 그린다.
+                        Positioned(
+                          left: 3,
+                          width: cellW - 6,
+                          top: _kCellRowTop + row.key * _kCellRowH,
+                          height: _kCellBarH,
+                          child: _calendarBar(row.value, cont: false),
+                        )
+                      else if (row.value.spanIndex == 0 || dayIdx == 0)
+                        // 기간 일정: 구간의 첫 칸(기간 첫날 또는 그 주의 일요일)에서 그 주 끝까지
+                        // 한 덩어리로 그려서 제목을 쓴다. 뒤 칸들은 같은 막대를 다시 그리지 않는다.
                         Builder(
                           builder: (_) {
+                            final e = row.value;
                             final int remaining = e.spanTotal - e.spanIndex;
                             final int n = remaining < (7 - dayIdx)
                                 ? remaining
@@ -2453,44 +2513,29 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                   cellW * n -
                                   (roundLeft ? 3 : 0) -
                                   (roundRight ? 3 : 0),
-                              bottom: 2 + (barLanes[e.spanKey] ?? 0) * 14.0,
-                              height: 12,
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: e.color,
-                                  borderRadius: BorderRadius.horizontal(
-                                    left: Radius.circular(roundLeft ? 4 : 0),
-                                    right: Radius.circular(roundRight ? 4 : 0),
-                                  ),
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.only(left: 4),
-                                  child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(
-                                      e.baseTitle,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.clip,
-                                      softWrap: false,
-                                      style: const TextStyle(
-                                        fontSize: 9,
-                                        height: 1.0,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
+                              top: _kCellRowTop + row.key * _kCellRowH,
+                              height: _kCellBarH,
+                              child: _calendarBar(
+                                e,
+                                cont: !roundLeft,
+                                roundLeft: roundLeft,
+                                roundRight: roundRight,
                               ),
                             );
                           },
                         ),
-                    if (dots.isNotEmpty)
+                    if (hidden > 0)
                       Positioned(
-                        bottom: 2 + _kMaxBarLanes * 14.0,
-                        left: 0,
-                        right: 0,
-                        child: Center(child: _dotRow(dots)),
+                        top: 4,
+                        right: 2,
+                        child: Text(
+                          "+$hidden",
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
                       ),
                   ],
                 );
@@ -3086,52 +3131,64 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                       children: [
                         _buildTodaySummary(todayText),
                         _buildViewModeToggle(),
-                        if (_viewMode == _ViewMode.day)
-                          _buildDayHeader()
-                        else if (_viewMode != _ViewMode.timeline)
-                          _buildCalendar(byDay),
-                        _buildProgressBar(byDay),
-                        _buildCategoryLegend(),
-                        _buildProjectFilterRow(),
-                        const Divider(height: 1, color: Color(0xFFE5E8EB)),
+                        if (_viewMode == _ViewMode.timeline) ...[
+                          _buildProgressBar(byDay),
+                          _buildCategoryLegend(),
+                          _buildProjectFilterRow(),
+                          const Divider(height: 1, color: Color(0xFFE5E8EB)),
+                        ],
                         Expanded(
                           child: _viewMode == _ViewMode.timeline
                               ? _buildTimeline(byDay)
-                              : selectedItems.isEmpty
-                              ? ListView(
+                              : ListView(
+                                  padding: const EdgeInsets.only(bottom: 100),
                                   physics:
                                       const AlwaysScrollableScrollPhysics(),
                                   children: [
-                                    const SizedBox(height: 60),
-                                    Icon(
-                                      Icons.event_available_outlined,
-                                      size: 48,
-                                      color: Colors.grey.shade300,
+                                    if (_viewMode == _ViewMode.day)
+                                      _buildDayHeader()
+                                    else
+                                      _buildCalendar(byDay),
+                                    _buildProgressBar(byDay),
+                                    _buildCategoryLegend(),
+                                    _buildProjectFilterRow(),
+                                    const Divider(
+                                      height: 1,
+                                      color: Color(0xFFE5E8EB),
                                     ),
-                                    const SizedBox(height: 12),
-                                    const Center(
-                                      child: Text(
-                                        "이 날은 등록된 일정이 없습니다.",
-                                        style: TextStyle(
-                                          color: scheduleSubText,
-                                          fontWeight: FontWeight.bold,
+                                    if (selectedItems.isEmpty) ...[
+                                      const SizedBox(height: 40),
+                                      Icon(
+                                        Icons.event_available_outlined,
+                                        size: 48,
+                                        color: Colors.grey.shade300,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      const Center(
+                                        child: Text(
+                                          "이 날은 등록된 일정이 없습니다.",
+                                          style: TextStyle(
+                                            color: scheduleSubText,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
                                       ),
-                                    ),
+                                    ] else
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(
+                                          16,
+                                          12,
+                                          16,
+                                          0,
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            for (final it in selectedItems)
+                                              _buildAgendaCard(it),
+                                          ],
+                                        ),
+                                      ),
                                   ],
-                                )
-                              : ListView.builder(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    12,
-                                    16,
-                                    100,
-                                  ),
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  itemCount: selectedItems.length,
-                                  itemBuilder: (context, i) =>
-                                      _buildAgendaCard(selectedItems[i]),
                                 ),
                         ),
                       ],
