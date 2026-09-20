@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_gain_calibration_sheet.dart';
+import 'package:tubing_calculator/src/data/machine_spec_sets.dart';
 
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
@@ -163,6 +164,9 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
   Future<void> _saveData() async {
     FocusScope.of(context).unfocus();
 
+    // 지금 제원을 이 벤더·규격 조합으로 적어 둔다(다음에 돌아오면 그대로 꺼낸다).
+    await saveMachineSpecSet(_specKey, _currentSpecSet());
+
     final c = AppSettingsController();
     c.isInch = _isInch;
     c.useHaptic = _useHaptic;
@@ -222,7 +226,68 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
   }
 
   // 🚀 [수정] isInitialLoad 파라미터는 실제로 아무 곳에서도 사용되지 않던 죽은 코드라 제거함
+  /// 지금 고른 벤더·규격 조합의 이름표.
+  String get _specKey => machineSpecKey(
+    benderBrand: _benderBrand,
+    benderType: _benderType,
+    tubeSize: _currentOD,
+  );
+
+  /// 지금 화면에 들어 있는 제원을 묶음으로 만든다.
+  MachineSpecSet _currentSpecSet() => MachineSpecSet(
+    bendRadius: double.tryParse(_rController.text) ?? 0,
+    takeUp: double.tryParse(_takeUpController.text) ?? 0,
+    gain: double.tryParse(_gainController.text) ?? 0,
+    springback: double.tryParse(_springbackController.text) ?? 0,
+    minStraight: double.tryParse(_minStraightController.text) ?? 0,
+    benderOffset: double.tryParse(_benderOffsetController.text) ?? 0,
+    fittingDepth: double.tryParse(_fittingDepthController.text) ?? 0,
+    markThickness: double.tryParse(_markThicknessController.text) ?? 0,
+    offsetShrink: double.tryParse(_offsetShrinkController.text) ?? 0,
+    cutMargin: double.tryParse(_cutMarginController.text) ?? 0,
+    autoFields: {
+      for (final e in _autoStates.entries)
+        if (e.value) e.key,
+    },
+  );
+
+  /// 적어 둔 제원 묶음이 있으면 그대로 꺼내 넣는다.
+  /// 🚀 [고침] 예전에는 규격이나 벤더를 바꾸면 손으로 맞춰 둔 값이 날아가고
+  /// 제원표 값으로 덮였다. 그 조합으로 돌아오면 넣어 뒀던 값이 그대로 나온다.
+  Future<bool> _applySavedSpecSet() async {
+    final saved = await loadMachineSpecSet(_specKey);
+    if (saved == null || !mounted) return false;
+    setState(() {
+      _rController.text = _num(saved.bendRadius);
+      _takeUpController.text = _num(saved.takeUp);
+      _gainController.text = _num(saved.gain);
+      _springbackController.text = _num(saved.springback);
+      _minStraightController.text = _num(saved.minStraight);
+      _benderOffsetController.text = _num(saved.benderOffset);
+      _fittingDepthController.text = _num(saved.fittingDepth);
+      _markThicknessController.text = _num(saved.markThickness);
+      _offsetShrinkController.text = _num(saved.offsetShrink);
+      _cutMarginController.text = _num(saved.cutMargin);
+      for (final k in _autoStates.keys.toList()) {
+        _autoStates[k] = saved.autoFields.contains(k);
+      }
+    });
+    return true;
+  }
+
+  String _num(double v) => v == 0 ? "" : _trimZero(v);
+  String _trimZero(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(1) : v.toString();
+
   void _onSpecsChanged() {
+    // 이 조합으로 넣어 둔 제원이 있으면 그것부터 꺼낸다.
+    _applySavedSpecSet().then((found) {
+      if (found) return;
+      _fillFromStandardSpecs();
+    });
+  }
+
+  void _fillFromStandardSpecs() {
     final specs = SettingsController.getStandardSpecs(_benderBrand, _currentOD);
     setState(() {
       // 🚀 [수정] specs가 null(해당 브랜드/규격 조합의 표준 제원이 없는 경우)이면

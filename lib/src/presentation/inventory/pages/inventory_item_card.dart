@@ -16,6 +16,11 @@ class InventoryItemCard extends StatefulWidget {
   final VoidCallback onQuantityTap;
   final Function(String infoType) onExtraInfoTap;
 
+  /// 지난 재고조사 뒤로 얼마나 드나들었는지(비우면 안 보인다).
+  /// 🚀 [추가] 현장에서는 일단 가져다 쓰고 재고조사 때 수량을 맞춘다.
+  /// 셀 때 "기록상 얼마나 나갔는지"를 옆에 두면 맞추기가 쉽다.
+  final String usedNote;
+
   const InventoryItemCard({
     super.key,
     required this.itemName,
@@ -25,6 +30,7 @@ class InventoryItemCard extends StatefulWidget {
     required this.onUpdateQuantity,
     required this.onQuantityTap,
     required this.onExtraInfoTap,
+    this.usedNote = '',
   });
 
   @override
@@ -83,13 +89,32 @@ class _InventoryItemCardState extends State<InventoryItemCard> {
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: Text(
-                            widget.itemName,
-                            style: const TextStyle(
-                              color: slate900,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                widget.itemName,
+                                style: const TextStyle(
+                                  color: slate900,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              if (widget.usedNote.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 3),
+                                  child: Text(
+                                    widget.usedNote,
+                                    key: const Key('card_used_note'),
+                                    style: TextStyle(
+                                      color: widget.themeColor,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       ],

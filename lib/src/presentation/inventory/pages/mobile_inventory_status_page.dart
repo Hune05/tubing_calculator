@@ -41,10 +41,31 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
   String _selectedCategory = "ALL";
   // 켜면 최소 수량 아래로 내려간 자재만 본다.
   bool _shortOnly = false;
+  // 🚀 [추가] 재고 줄에 그 규격 잔재를 같이 보여 준다. 예전에는 잔재를
+  // 따로 골라 봐야 해서, "새로 뺄까 잔재로 될까"를 한눈에 못 봤다.
+  Map<String, LeftoverSummary> _leftoverBySpec = const {};
+
   // 잔재 칸을 보고 있을 때 서버에서 읽어 둔 잔재.
   List<Leftover>? _leftovers;
   bool _leftoversLoading = false;
   final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // 재고 줄에 잔재를 같이 보여 주려고 화면을 열 때 한 번 읽어 둔다.
+    _loadLeftoverSummary();
+  }
+
+  Future<void> _loadLeftoverSummary() async {
+    try {
+      final list = await loadLeftovers();
+      if (!mounted) return;
+      setState(() => _leftoverBySpec = leftoverSummaryBySpec(list));
+    } catch (_) {
+      // 못 읽어도 재고 보기는 그대로 된다.
+    }
+  }
 
   final CollectionReference _inventoryDb = FirebaseFirestore.instance
       .collection('inventory');
@@ -304,11 +325,18 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                       );
                     }
 
+                    // 🚀 [고침] 잔재가 있어도 그 규격이 자재로 등록돼 있지
+                    // 않으면 아무 데도 안 보였다(형강 잔재가 그렇다).
+                    // 재고에 없는 잔재는 목록 끝에 따로 붙여 준다.
+                    final leftoverOnly = _leftoverOnlyRows(snapshot.data!.docs);
+
                     return Column(
                       children: [
                         PendingWritesBanner(count: pending),
                         if (shortCount > 0) _shortBar(shortCount),
-                        Expanded(child: _inventoryList(filteredDocs)),
+                        Expanded(
+                          child: _inventoryList(filteredDocs, leftoverOnly),
+                        ),
                       ],
                     );
                   },
@@ -358,14 +386,110 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
     );
   }
 
-  Widget _inventoryList(List<DocumentSnapshot> filteredDocs) {
+  /// 재고에 등록된 자재와 짝이 없는 잔재 규격들.
+  /// 검색 중이거나 다른 칸을 보고 있을 때는 보여 주지 않는다.
+  List<MapEntry<String, LeftoverSummary>> _leftoverOnlyRows(
+    List<DocumentSnapshot> allDocs,
+  ) {
+    if (_leftoverBySpec.isEmpty) return const [];
+    if (_selectedCategory != "ALL" || _searchQuery.isNotEmpty) return const [];
+    if (_shortOnly) return const [];
+
+    final matched = <String>{};
+    for (final d in allDocs) {
+      final data = d.data() as Map<String, dynamic>?;
+      final name = (data?['name'] ?? '').toString();
+      for (final e in _leftoverBySpec.entries) {
+        if (leftoverFor(name, {e.key: e.value}) != null) matched.add(e.key);
+      }
+    }
+    return [
+      for (final e in _leftoverBySpec.entries)
+        if (!matched.contains(e.key)) e,
+    ];
+  }
+
+  /// 재고에는 없고 잔재만 있는 규격 한 줄.
+  Widget _leftoverOnlyRow(String spec, LeftoverSummary s) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  spec,
+                  style: const TextStyle(
+                    color: slate900,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: slate100,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        "자재 목록에 없음",
+                        style: TextStyle(
+                          color: slate600,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        s.short,
+                        key: const Key('leftover_only_row'),
+                        style: const TextStyle(
+                          color: makitaTeal,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _inventoryList(
+    List<DocumentSnapshot> filteredDocs, [
+    List<MapEntry<String, LeftoverSummary>> leftoverOnly = const [],
+  ]) {
     return ListView.separated(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 80),
-      itemCount: filteredDocs.length,
+      itemCount: filteredDocs.length + leftoverOnly.length,
       separatorBuilder: (context, index) =>
           Divider(height: 1, color: slate100, indent: 24, endIndent: 24),
       itemBuilder: (context, index) {
+        if (index >= filteredDocs.length) {
+          final e = leftoverOnly[index - filteredDocs.length];
+          return _leftoverOnlyRow(
+            e.value.label.isEmpty ? e.key : e.value.label,
+            e.value,
+          );
+        }
         final doc = filteredDocs[index];
         final data = doc.data() as Map<String, dynamic>;
 
@@ -446,6 +570,18 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                           ),
                         ],
                       ),
+                      if (leftoverFor(itemName, _leftoverBySpec) != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          leftoverFor(itemName, _leftoverBySpec)!.short,
+                          key: const Key('row_leftover'),
+                          style: const TextStyle(
+                            color: makitaTeal,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -512,6 +648,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
       if (!mounted) return;
       setState(() {
         _leftovers = list;
+        _leftoverBySpec = leftoverSummaryBySpec(list);
         _leftoversLoading = false;
       });
     } catch (_) {

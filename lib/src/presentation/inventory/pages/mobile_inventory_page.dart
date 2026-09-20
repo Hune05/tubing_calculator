@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'dart:async';
+import 'package:tubing_calculator/src/presentation/inventory/pages/usage_since_count.dart';
 
 import '../../tube_cutting/cutting_pending_banner.dart';
 import '../../tube_cutting/cutting_theme.dart'
@@ -67,12 +68,40 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
   );
 
   @override
+  void initState() {
+    super.initState();
+    _loadUsage();
+  }
+
+  /// 기록을 읽어 자재별로 지난 재고조사 뒤 드나듦을 센다.
+  Future<void> _loadUsage() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('inventory_logs')
+          .orderBy('timestamp', descending: true)
+          .limit(400)
+          .get();
+      if (!mounted) return;
+      setState(() {
+        _usage = usageSinceLastCount([
+          for (final d in snap.docs) d.data(),
+        ]);
+      });
+    } catch (_) {
+      // 못 읽어도 재고조사는 그대로 된다.
+    }
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
 
   final Map<String, ItemData> _localEdits = {};
+
+  /// 지난 재고조사 뒤로 자재가 얼마나 드나들었는지(자재 이름별).
+  Map<String, UsageSinceCount> _usage = const {};
   final Map<String, Map<String, dynamic>> _newLocalItems = {};
   final List<Map<String, dynamic>> _historyLogs = [];
 
@@ -393,6 +422,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
         final card = InventoryItemCard(
           itemName: itemName,
           data: displayData,
+          usedNote: _usage[itemName.trim()]?.note ?? '',
           categoryIndex: 0,
           themeColor: makitaTeal,
           onUpdateQuantity: (delta) {

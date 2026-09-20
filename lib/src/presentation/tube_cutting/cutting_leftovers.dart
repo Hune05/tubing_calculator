@@ -176,3 +176,76 @@ Future<List<double>> loadMixLengths([String key = kTubeMixPrefsKey]) async {
       if (double.tryParse(v) != null && double.parse(v) > 0) double.parse(v),
   ];
 }
+
+/// 규격별 잔재 요약(몇 개 · 합쳐 몇 mm · 가장 긴 것).
+class LeftoverSummary {
+  final int count;
+  final double totalMm;
+  final double longestMm;
+
+  /// 화면에 보여 줄 규격 이름(다듬기 전 그대로).
+  final String label;
+
+  const LeftoverSummary({
+    required this.count,
+    required this.totalMm,
+    required this.longestMm,
+    this.label = '',
+  });
+
+  /// 자재 줄에 한 줄로 붙일 글.
+  String get short =>
+      "잔재 $count개 · 가장 긴 것 ${longestMm.round()}mm";
+}
+
+/// 잔재를 규격별로 묶는다. 열쇠는 규격 이름을 다듬은 것.
+///
+/// 🚀 [추가] 예전에는 잔재를 따로 골라 봐야 했다. 재고를 보면서 "이 규격에
+/// 쓸 만한 잔재가 있나"를 같이 보려고 묶어 둔다.
+Map<String, LeftoverSummary> leftoverSummaryBySpec(List<Leftover> all) {
+  final byKey = <String, List<double>>{};
+  final labels = <String, String>{};
+  for (final l in all) {
+    final key = leftoverSpecKey(l.label);
+    if (key.isEmpty || l.length <= 0) continue;
+    (byKey[key] ??= <double>[]).add(l.length);
+    labels.putIfAbsent(key, () => l.label.trim());
+  }
+  return {
+    for (final e in byKey.entries)
+      e.key: LeftoverSummary(
+        count: e.value.length,
+        totalMm: e.value.fold(0.0, (a, b) => a + b),
+        longestMm: e.value.fold(0.0, (a, b) => b > a ? b : a),
+        label: labels[e.key] ?? e.key,
+      ),
+  };
+}
+
+/// 규격 이름을 견주기 좋게 다듬는다(빈칸·따옴표·대소문자).
+String leftoverSpecKey(String label) {
+  return label
+      .replaceAll('“', '"')
+      .replaceAll('”', '"')
+      .replaceAll('″', '"')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim()
+      .toLowerCase();
+}
+
+/// 자재 이름에 맞는 잔재 요약을 찾는다.
+/// 자재 이름이 "튜브 3/8"" 처럼 규격을 담고 있으면 그대로 맞고,
+/// 규격이 이름 안에 들어 있기만 해도(예: "찬넬 75x40x5") 찾아 준다.
+LeftoverSummary? leftoverFor(
+  String materialName,
+  Map<String, LeftoverSummary> bySpec,
+) {
+  final name = leftoverSpecKey(materialName);
+  if (name.isEmpty) return null;
+  final direct = bySpec[name];
+  if (direct != null) return direct;
+  for (final e in bySpec.entries) {
+    if (e.key.isNotEmpty && name.contains(e.key)) return e.value;
+  }
+  return null;
+}
