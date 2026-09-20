@@ -10,12 +10,12 @@ import 'package:tubing_calculator/src/presentation/tube_cutting/widgets/cutting_
 
 import 'helpers_text.dart';
 
-// 컷팅 계산기: 절단 길이 계산, 원자재 배치(남은 토막·촘촘한 배치 포함), 남은 토막 저장.
+// 컷팅 계산기: 절단 길이 계산, 원자재 배치(잔재·촘촘한 배치 포함), 잔재 저장.
 List<double> allPieces(CuttingOptimizationResult r) => [
   for (final b in [...r.bars, ...r.leftoverBars]) ...b.pieces,
 ];
 
-// 결과가 실제로 가능한 배치인지: 각 원자재/토막에 조각+톱날 손실이 다 들어가는가.
+// 결과가 실제로 가능한 배치인지: 각 원자재/잔재에 조각+톱날 손실이 다 들어가는가.
 void expectValid(
   CuttingOptimizationResult r,
   List<double> input, {
@@ -100,7 +100,7 @@ void main() {
       expect(r.totalStock, 0);
     });
 
-    test('토막을 넘겨도 원자재 기준 수치는 새 원자재만 센다', () {
+    test('잔재를 넘겨도 원자재 기준 수치는 새 원자재만 센다', () {
       final r = optimizeCutting(
         pieces: [1000, 4000],
         stockLength: 6000,
@@ -150,8 +150,8 @@ void main() {
     });
   });
 
-  group('남은 토막', () {
-    test('들어가는 토막 중 가장 꼭 맞는 곳에 먼저 넣는다', () {
+  group('잔재', () {
+    test('들어가는 잔재 중 가장 꼭 맞는 곳에 먼저 넣는다', () {
       final r = optimizeCutting(
         pieces: [900],
         stockLength: 6000,
@@ -161,7 +161,7 @@ void main() {
       expect(r.leftoverBars.single.stockLength, 950);
     });
 
-    test('토막에 안 들어가는 조각은 새 원자재로 간다', () {
+    test('잔재에 안 들어가는 조각은 새 원자재로 간다', () {
       final r = optimizeCutting(
         pieces: [5000, 800],
         stockLength: 6000,
@@ -171,7 +171,7 @@ void main() {
       expect(r.bars.single.pieces, [5000]);
     });
 
-    test('토막에서도 톱날 손실을 뺀다', () {
+    test('잔재에서도 톱날 손실을 뺀다', () {
       final r = optimizeCutting(
         pieces: [1000],
         stockLength: 6000,
@@ -182,7 +182,7 @@ void main() {
       expect(r.barCount, 1);
     });
 
-    test('쓰지 않은 토막은 결과에 나오지 않는다', () {
+    test('쓰지 않은 잔재는 결과에 나오지 않는다', () {
       final r = optimizeCutting(
         pieces: [500],
         stockLength: 6000,
@@ -191,7 +191,7 @@ void main() {
       expect(r.leftoverBars.length, 1);
     });
 
-    test('남는 토막은 톱날 손실을 뺀 길이이고 짧은 것은 제외한다', () {
+    test('잔재는 톱날 손실을 뺀 길이이고 짧은 것은 제외한다', () {
       final r = optimizeCutting(
         pieces: [5000, 5000],
         stockLength: 6000,
@@ -203,7 +203,7 @@ void main() {
       expect(short.keepableScraps(), isEmpty); // 200mm는 300 미만
     });
 
-    test('쓴 토막의 남은 부분도 다시 남길 수 있다', () {
+    test('쓴 잔재의 남은 부분도 다시 남길 수 있다', () {
       final r = optimizeCutting(
         pieces: [500],
         stockLength: 6000,
@@ -213,7 +213,7 @@ void main() {
     });
   });
 
-  group('남은 토막 저장', () {
+  group('잔재 저장', () {
     setUp(() => SharedPreferences.setMockInitialValues({}));
 
     test('저장하고 다시 읽으면 그대로', () async {
@@ -232,7 +232,7 @@ void main() {
       expect(await loadLeftovers(), [const Leftover('튜브', 500)]);
     });
 
-    test('쓴 토막은 개수만큼만 빼고 새 토막을 더한다', () {
+    test('쓴 잔재는 개수만큼만 빼고 새 잔재를 더한다', () {
       const a = Leftover('', 800);
       final out = applyLeftoverChange(
         [a, a, const Leftover('', 500)],
@@ -273,7 +273,7 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('잘랐다고 누르면 남는 토막이 저장되고 다음에 먼저 쓴다', (tester) async {
+    testWidgets('잘랐다고 누르면 잔재가 저장되고 다음에 먼저 쓴다', (tester) async {
       await open(tester);
       expect(find.text('필요 원자재'), findsOneWidget);
       await tester.tap(find.textContaining('잘랐습니다'));
@@ -284,16 +284,16 @@ void main() {
         const Leftover('', 1000),
       ]);
 
-      // 다시 열면 토막 2개가 있고, 900짜리 조각 둘은 토막에 들어간다.
+      // 다시 열면 잔재 2개가 있고, 900짜리 조각 둘은 잔재에 들어간다.
       await tester.tap(find.byIcon(Icons.close_rounded));
       await tester.pumpAndSettle();
       await open(tester, pieces: [900, 900]);
-      expect(find.textContaining('남은 토막 먼저 쓰기 (2개)'), findsOneWidget);
-      expect(find.textContaining('토막 2개를 씁니다'), findsOneWidget);
+      expect(find.textContaining('잔재 먼저 쓰기 (2개)'), findsOneWidget);
+      expect(find.textContaining('잔재 2개를 씁니다'), findsOneWidget);
       expect(find.text('0본'), findsOneWidget);
     });
 
-    testWidgets('토막 먼저 쓰기를 끄면 새 원자재로 계산한다', (tester) async {
+    testWidgets('잔재 먼저 쓰기를 끄면 새 원자재로 계산한다', (tester) async {
       SharedPreferences.setMockInitialValues({
         kLeftoversPrefsKey: ['1000\u001F'],
       });
@@ -304,12 +304,12 @@ void main() {
       expect(find.text('1본'), findsOneWidget);
     });
 
-    testWidgets('남은 토막 관리에서 지우고 더할 수 있다', (tester) async {
+    testWidgets('잔재 관리에서 지우고 더할 수 있다', (tester) async {
       SharedPreferences.setMockInitialValues({
         kLeftoversPrefsKey: ['1000\u001F'],
       });
       await open(tester, pieces: [900]);
-      await tester.tap(find.text('남은 토막 관리'));
+      await tester.tap(find.text('잔재 관리'));
       await tester.pumpAndSettle();
       expect(find.textContaining('규격 미지정  1000mm'), findsOneWidget);
       await tester.tap(find.byIcon(Icons.delete_outline));

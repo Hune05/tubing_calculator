@@ -11,7 +11,7 @@ const String kSteelMixPrefsKey = 'cutting_mix_lengths_steel_v1';
 
 String _one(double v) => v.toStringAsFixed(1);
 
-// 항목 → 결과 줄. 규격은 처음 나온 순서, 한 규격 안에서는 긴 것부터(긴 것을 먼저 자르면 남는 토막을 알기 쉽다).
+// 항목 → 결과 줄. 규격은 처음 나온 순서, 한 규격 안에서는 긴 것부터(긴 것을 먼저 자르면 잔재를 알기 쉽다).
 List<ResultLine> buildSteelResultLines(List<SteelCutItem> items, int sets) {
   final set = sets < 1 ? 1 : sets;
   final shapeOrder = <String>[];
@@ -65,6 +65,26 @@ class _Acc {
   int items = 0;
   final List<String> notes = [];
   _Acc(this.length);
+}
+
+// 규격을 무게가 큰 것부터 다시 늘어놓는다(무거운 자재부터 옮기고 자르기 위해). 무게를 모르는 규격은 뒤로,
+// 무게가 같거나 모르는 것끼리는 원래 순서를 지킨다. 한 규격 안의 줄 순서는 그대로다.
+List<ResultLine> sortLinesByWeight(List<ResultLine> lines) {
+  final subs = shapeSubtotals(lines);
+  final order = [for (var i = 0; i < subs.length; i++) i];
+  order.sort((a, b) {
+    final wa = subs[a].weightKg, wb = subs[b].weightKg;
+    if (wa == null && wb == null) return a.compareTo(b);
+    if (wa == null) return 1;
+    if (wb == null) return -1;
+    final c = wb.compareTo(wa);
+    return c != 0 ? c : a.compareTo(b);
+  });
+  return [
+    for (final i in order)
+      for (final l in lines)
+        if (l.spec == subs[i].shape) l,
+  ];
 }
 
 // 규격 하나의 소계(결과 목록에서 규격 머리글에 쓴다).

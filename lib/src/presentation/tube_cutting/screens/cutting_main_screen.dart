@@ -288,12 +288,38 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 규격 조합 최적화를 재사용하기 위해서다. 이 화면은 "필요한 절단 길이
   // 목록"을 뽑아서 넘기고, 원자재 기준 길이가 바뀌면 기존처럼
   // SharedPreferences에 저장하는 역할만 담당한다.
+  // 재단 최적화에서 "잘랐습니다"(잔재 저장)를 눌렀을 때: 결과의 모든 줄을 "잘랐음"으로 맞춘다.
+  // 기록으로 남기는 것은 결과 탭의 "저장하기"다. 창에서 저장을 되돌리면 표시도 저장 전으로 돌린다.
+  Set<String>? _doneBeforeLeftoverSave;
+
+  void _onLeftoversSaved() {
+    if (!mounted) return;
+    setState(() {
+      _doneBeforeLeftoverSave = {..._doneKeys};
+      _doneKeys.addAll(_resultLines().map((l) => l.key));
+    });
+    _saveDraftState();
+  }
+
+  void _onLeftoversSaveUndone() {
+    if (!mounted) return;
+    setState(() {
+      _doneKeys
+        ..clear()
+        ..addAll(_doneBeforeLeftoverSave ?? const <String>{});
+      _doneBeforeLeftoverSave = null;
+    });
+    _saveDraftState();
+  }
+
   Future<void> _showOptimizationDialog() async {
     await showCuttingOptimizationSheet(
       context,
       groupedPieces: _collectRequiredPiecesByTubeSize(),
       initialStockLength: _stockLength,
       mixPrefsKey: kTubeMixPrefsKey,
+      onLeftoversSaved: _onLeftoversSaved,
+      onLeftoversSaveUndone: _onLeftoversSaveUndone,
       kerf: _bladeKerf,
       onStockLengthChanged: (parsed) {
         setState(() => _stockLength = parsed);
@@ -417,7 +443,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               ),
             ], rows: fittingOrders.length);
 
-      // 원자재 배치: 재단 최적화 화면과 같은 방식(저장해 둔 남은 토막 먼저 사용)으로 계산해서
+      // 원자재 배치: 재단 최적화 화면과 같은 방식(저장해 둔 잔재 먼저 사용)으로 계산해서
       // 어느 원자재에서 어떤 길이를 자를지까지 지시서에 넣는다.
       final leftovers = await loadLeftovers();
       final mixLengths = await loadMixLengths();

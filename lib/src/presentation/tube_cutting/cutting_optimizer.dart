@@ -4,7 +4,7 @@
 // 목록과 원자재(스톡) 길이를 받아, 최대한 적은 본수로 배치하는 계산을 한다.
 //
 // 배치는 세 단계로 한다.
-//  1) 남은 토막(이전에 자르고 남겨 둔 것)이 있으면 거기에 먼저 넣는다.
+//  1) 잔재(이전에 자르고 남겨 둔 것)이 있으면 거기에 먼저 넣는다.
 //  2) 나머지는 긴 것부터 넣는 방법(FFD)과 가장 꼭 맞는 곳에 넣는 방법(BFD) 중
 //     본수가 적은 쪽을 고른다.
 //  3) 그래도 이론상 최소 본수보다 많고 조각이 많지 않으면(_kMaxExactPieces개
@@ -13,7 +13,7 @@
 class StockBarPlan {
   final List<double> pieces = [];
   final double stockLength;
-  // 새 원자재가 아니라 남은 토막에서 나온 배치인지.
+  // 새 원자재가 아니라 잔재에서 나온 배치인지.
   final bool isLeftover;
 
   StockBarPlan(this.stockLength, {this.isLeftover = false});
@@ -29,7 +29,7 @@ class StockBarPlan {
 class CuttingOptimizationResult {
   // 새 원자재에서 나온 배치. 본수·로스·사용률은 모두 이것만 센다.
   final List<StockBarPlan> bars;
-  // 남은 토막에서 나온 배치(조각이 하나라도 들어간 것만).
+  // 잔재에서 나온 배치(조각이 하나라도 들어간 것만).
   final List<StockBarPlan> leftoverBars;
   final double stockLength;
   final double kerf;
@@ -52,7 +52,7 @@ class CuttingOptimizationResult {
   // 여러 길이를 섞어 쓰면 본마다 길이가 다르니 각 본의 길이를 더한다.
   double get totalStock => bars.fold(0.0, (sum, b) => sum + b.stockLength);
 
-  // 이 계산대로 자르고 나면 [minLength] 이상 남는 토막들의 길이.
+  // 이 계산대로 자르고 나면 [minLength] 이상 잔재들의 길이.
   List<double> keepableScraps({double minLength = kMinLeftoverMm}) {
     final out = <double>[];
     for (final b in [...bars, ...leftoverBars]) {
@@ -63,7 +63,7 @@ class CuttingOptimizationResult {
   }
 }
 
-// 이보다 짧은 토막은 쓸 데가 없다고 보고 남겨 두지 않는다.
+// 이보다 짧은 잔재는 쓸 데가 없다고 보고 남겨 두지 않는다.
 const double kMinLeftoverMm = 300;
 
 /// 원자재 길이가 여러 가지([stockLengths])일 때: 가장 긴 원자재로 배치한 뒤 각 본을
@@ -136,7 +136,7 @@ const int _kExactNodeLimit = 200000;
 /// [kerf]는 절단 1회당 톱날 손실 - 원자재 안에서 조각을 하나 잘라낼 때마다
 /// 그만큼 더 소모되는 것으로 보수적으로 계산한다(실제로는 마지막 조각엔
 /// 손실이 없을 수도 있지만, 부족한 것보다 여유 있게 잡는 게 현장에 안전하다).
-/// [leftovers]는 남아 있는 토막 길이들(같은 규격만 넘긴다).
+/// [leftovers]는 남아 있는 잔재 길이들(같은 규격만 넘긴다).
 CuttingOptimizationResult optimizeCutting({
   required List<double> pieces,
   required double stockLength,
@@ -156,7 +156,7 @@ CuttingOptimizationResult optimizeCutting({
 
   final sorted = [...valid]..sort((a, b) => b.compareTo(a));
 
-  // 1) 남은 토막: 들어가는 곳 중 가장 꼭 맞는 곳에 넣는다.
+  // 1) 잔재: 들어가는 곳 중 가장 꼭 맞는 곳에 넣는다.
   final leftoverPlans = ([
     ...leftovers.where((l) => l > 0),
   ]..sort()).map((l) => StockBarPlan(l, isLeftover: true)).toList();

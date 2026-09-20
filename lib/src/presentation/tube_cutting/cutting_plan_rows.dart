@@ -25,12 +25,12 @@ String piecesText(List<double> pieces) {
 
 const List<String> kPlanHeaders = ['원자재', '자를 길이(mm)', '사용(mm)', '남는 길이(mm)'];
 
-// 남은 토막이 먼저, 새 원자재가 그다음. 남는 길이는 톱날 손실을 뺀 값이다.
+// 잔재가 먼저, 새 원자재가 그다음. 남는 길이는 톱날 손실을 뺀 값이다.
 List<List<String>> planRows(CuttingOptimizationResult r) {
   final rows = <List<String>>[];
   for (final b in r.leftoverBars) {
     rows.add([
-      '남은 토막 ${_mm(b.stockLength)}',
+      '잔재 ${_mm(b.stockLength)}',
       piecesText(b.pieces),
       _mm(b.usedLength),
       _mm(b.remainderWithKerf(r.kerf)),
@@ -68,7 +68,7 @@ String planSummary(CuttingOptimizationResult r) {
       : '새 원자재 ${r.barCount}본(${barLengthsText(r.bars)})';
   final left = r.leftoverBars.isEmpty
       ? ''
-      : ', 남은 토막 ${r.leftoverBars.length}개 사용';
+      : ', 잔재 ${r.leftoverBars.length}개 사용';
   return '$head$left';
 }
 

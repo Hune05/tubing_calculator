@@ -448,7 +448,7 @@ void main() {
     });
   });
 
-  group('모두 잘랐음과 남는 토막 저장', () {
+  group('모두 잘랐음과 잔재 저장', () {
     SteelCuttingProject proj() => SteelCuttingProject(
       id: 'sp3',
       name: '루마',
@@ -471,7 +471,7 @@ void main() {
     String progress(WidgetTester tester) =>
         tester.widget<Text>(find.byKey(const Key('result_progress'))).data!;
 
-    testWidgets('전부 잘랐으면 튜브용 "저장하십시오" 대신 토막 안내와 버튼', (tester) async {
+    testWidgets('전부 잘랐으면 튜브용 "저장하십시오" 대신 잔재 안내와 버튼', (tester) async {
       SharedPreferences.setMockInitialValues({
         'steel_done_sp3': ['steel:앵글 40x40x3:500.0:2'],
       });
@@ -496,14 +496,14 @@ void main() {
       await tester.tap(find.byKey(const Key('result_done_action')));
       await tester.pumpAndSettle();
       expect(find.text('재단 최적화 (원자재 소요 계산)'), findsOneWidget);
-      final save = find.text('잘랐습니다 (남는 토막 저장)');
+      final save = find.text('잘랐습니다 (잔재 저장)');
       await tester.ensureVisible(save);
       await tester.tap(save);
       await tester.pumpAndSettle();
       // 창을 닫는다.
       await tester.tapAt(const Offset(180, 20));
       await tester.pumpAndSettle();
-      expect(progress(tester), '모두 잘랐습니다. 남는 토막도 저장했습니다.');
+      expect(progress(tester), '모두 잘랐습니다. 잔재도 저장했습니다.');
       expect(find.byKey(const Key('result_done_action')), findsNothing);
       final prefs = await SharedPreferences.getInstance();
       expect(
@@ -517,13 +517,13 @@ void main() {
       await open(tester);
       await tester.tap(find.byKey(const Key('steel_btn_optimize')));
       await tester.pumpAndSettle();
-      final save = find.text('잘랐습니다 (남는 토막 저장)');
+      final save = find.text('잘랐습니다 (잔재 저장)');
       await tester.ensureVisible(save);
       await tester.tap(save);
       await tester.pumpAndSettle();
       await tester.tapAt(const Offset(180, 20));
       await tester.pumpAndSettle();
-      expect(progress(tester), '모두 잘랐습니다. 남는 토막도 저장했습니다.');
+      expect(progress(tester), '모두 잘랐습니다. 잔재도 저장했습니다.');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getStringList('steel_done_sp3'), [
         'steel:앵글 40x40x3:500.0:2',
@@ -531,7 +531,7 @@ void main() {
     });
   });
 
-  group('아이콘 줄·토막 중복 저장·립C 규격', () {
+  group('아이콘 줄·잔재 중복 저장·립C 규격', () {
     SteelCuttingProject proj() => SteelCuttingProject(
       id: 'sp4',
       name: '루마',
@@ -583,7 +583,7 @@ void main() {
       await tester.tap(find.byKey(const Key('steel_btn_optimize')));
       await tester.pumpAndSettle();
       expect(find.text('저장했습니다'), findsOneWidget);
-      expect(find.text('잘랐습니다 (남는 토막 저장)'), findsNothing);
+      expect(find.text('잘랐습니다 (잔재 저장)'), findsNothing);
     });
 
     testWidgets('저장하지 않은 결과는 저장 버튼이 있다', (tester) async {
@@ -591,7 +591,7 @@ void main() {
       await open(tester);
       await tester.tap(find.byKey(const Key('steel_btn_optimize')));
       await tester.pumpAndSettle();
-      expect(find.text('잘랐습니다 (남는 토막 저장)'), findsOneWidget);
+      expect(find.text('잘랐습니다 (잔재 저장)'), findsOneWidget);
     });
 
     test('립C형강 6종은 모두 무게가 계산된다(직접 입력한 립C도)', () {
@@ -604,12 +604,12 @@ void main() {
       expect(steelKgPerM('립C형강 100x50x20x2.0')!, closeTo(3.64, 0.01));
     });
 
-    testWidgets('되돌리기: 방금 저장한 토막과 잘랐음 표시를 저장 전으로', (tester) async {
+    testWidgets('되돌리기: 방금 저장한 잔재와 잘랐음 표시를 저장 전으로', (tester) async {
       SharedPreferences.setMockInitialValues({});
       await open(tester);
       await tester.tap(find.byKey(const Key('steel_btn_optimize')));
       await tester.pumpAndSettle();
-      final save = find.text('잘랐습니다 (남는 토막 저장)');
+      final save = find.text('잘랐습니다 (잔재 저장)');
       await tester.ensureVisible(save);
       await tester.tap(save);
       await tester.pumpAndSettle();
@@ -620,7 +620,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(await loadLeftovers(), isEmpty);
       // 저장 버튼이 다시 나온다
-      expect(find.text('잘랐습니다 (남는 토막 저장)'), findsOneWidget);
+      expect(find.text('잘랐습니다 (잔재 저장)'), findsOneWidget);
       await tester.tapAt(const Offset(180, 20));
       await tester.pumpAndSettle();
       final progress = tester
@@ -675,6 +675,89 @@ void main() {
           reason: k,
         );
       }
+    });
+  });
+
+  group('무게순 보기', () {
+    test('무게가 큰 규격부터, 모르는 규격은 뒤로, 규격 안의 줄 순서는 그대로', () {
+      final lines = buildSteelResultLines([
+        item('내 규격 하나', 500, 1, cat: 'CUSTOM', id: 'u'),
+        item('앵글 40x40x3', 500, 3, id: 'a1'),
+        item('앵글 40x40x3', 800, 1, id: 'a2'),
+        item('스트럿 41x41x2.5', 1000, 3, cat: 'STRUT', id: 's'),
+      ], 1);
+      // 앵글 2300mm=4.2kg, 스트럿 3000mm=7.8kg
+      final sorted = sortLinesByWeight(lines);
+      expect(sorted.map((l) => l.spec).toSet().toList(), [
+        '스트럿 41x41x2.5',
+        '앵글 40x40x3',
+        '내 규격 하나',
+      ]);
+      // 앵글 안에서는 긴 것부터(원래 순서)
+      final angle = sorted.where((l) => l.spec == '앵글 40x40x3').toList();
+      expect(angle.map((l) => l.cutMm), [800, 500]);
+      expect(sorted.length, lines.length);
+    });
+
+    test('규격이 하나면 그대로', () {
+      final lines = buildSteelResultLines([item('앵글 40x40x3', 500, 2)], 1);
+      expect(
+        sortLinesByWeight(lines).map((l) => l.key),
+        lines.map((l) => l.key),
+      );
+    });
+
+    testWidgets('버튼을 누르면 무거운 규격이 위로 오고 기억한다', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(1080, 4000);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      final p = SteelCuttingProject(
+        id: 'sp5',
+        name: '루마',
+        createdAt: DateTime(2026, 9, 20),
+        items: [
+          item('앵글 40x40x3', 500, 3, id: 'a'),
+          item('스트럿 41x41x2.5', 1000, 3, cat: 'STRUT', id: 'c'),
+        ],
+      );
+      await tester.pumpWidget(
+        MaterialApp(home: SteelCuttingDetailScreen(project: p)),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+      double y(String spec) =>
+          tester.getTopLeft(find.byKey(Key('spec_header_$spec'))).dy;
+      expect(y('앵글 40x40x3') < y('스트럿 41x41x2.5'), true);
+      await tester.tap(find.byKey(const Key('steel_sort_weight')));
+      await tester.pumpAndSettle();
+      expect(y('스트럿 41x41x2.5') < y('앵글 40x40x3'), true);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('steel_result_sort_weight'), true);
+      await tester.tap(find.byKey(const Key('steel_sort_weight')));
+      await tester.pumpAndSettle();
+      expect(y('앵글 40x40x3') < y('스트럿 41x41x2.5'), true);
+    });
+
+    testWidgets('규격이 하나뿐이면 정렬 버튼이 없다', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(1080, 4000);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      final p = SteelCuttingProject(
+        id: 'sp6',
+        name: '루마',
+        createdAt: DateTime(2026, 9, 20),
+        items: [item('앵글 40x40x3', 500, 3, id: 'a')],
+      );
+      await tester.pumpWidget(
+        MaterialApp(home: SteelCuttingDetailScreen(project: p)),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('steel_sort_weight')), findsNothing);
     });
   });
 }

@@ -1,7 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-// 원자재를 자르고 남은 토막을 기기에 적어 둔다. 다음 재단 계산에서 이 토막부터
-// 먼저 쓰도록 하기 위해서다. 토막은 규격(예: "튜브 1/2\"")별로 따로 센다 —
+// 원자재를 자르고 잔재를 기기에 적어 둔다. 다음 재단 계산에서 이 잔재부터
+// 먼저 쓰도록 하기 위해서다. 잔재는 규격(예: "튜브 1/2\"")별로 따로 센다 —
 // 규격이 다르면 서로 대신 쓸 수 없다.
 
 const String kLeftoversPrefsKey = 'cutting_leftovers_v1';
@@ -43,7 +43,7 @@ Future<void> saveLeftovers(List<Leftover> all) async {
   await p.setStringList(kLeftoversPrefsKey, [for (final l in all) l.encode()]);
 }
 
-// 이번 계산에서 쓴 토막([used])을 빼고 새로 남는 토막([added])을 더한다.
+// 이번 계산에서 쓴 잔재([used])를 빼고 새 잔재([added])를 더한다.
 // 같은 길이가 여러 개면 쓴 개수만큼만 뺀다.
 List<Leftover> applyLeftoverChange(
   List<Leftover> current, {

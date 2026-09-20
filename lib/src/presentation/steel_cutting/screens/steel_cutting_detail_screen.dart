@@ -90,7 +90,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   }
 
   String get _doneKey => 'steel_done_${widget.project.id}';
-  // 남는 토막을 저장한 때의 결과 줄 모양(줄 열쇠를 이은 글). 지금 줄과 같으면 "이 결과의 토막은 이미 저장함".
+  // 잔재를 저장한 때의 결과 줄 모양(줄 열쇠를 이은 글). 지금 줄과 같으면 "이 결과의 잔재는 이미 저장함".
   String get _leftoverKey => 'steel_leftover_saved_${widget.project.id}';
   String _leftoverSavedSig = '';
 
@@ -108,6 +108,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     _loadBladeKerf();
     _loadDone();
     _loadIconsUsed();
+    _loadSortWeight();
   }
 
   Future<void> _loadDone() async {
@@ -160,8 +161,31 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         .catchError((_) => false);
   }
 
-  List<ResultLine> _resultLines() =>
-      buildSteelResultLines(_items, _setMultiplier);
+  // 결과를 무게가 큰 규격부터 보여 줄지(이 폰에 기억한다).
+  static const String _kSortWeightKey = 'steel_result_sort_weight';
+  bool _sortByWeight = false;
+
+  List<ResultLine> _resultLines() {
+    final lines = buildSteelResultLines(_items, _setMultiplier);
+    return _sortByWeight ? sortLinesByWeight(lines) : lines;
+  }
+
+  Future<void> _loadSortWeight() async {
+    try {
+      final on =
+          (await SharedPreferences.getInstance()).getBool(_kSortWeightKey) ??
+          false;
+      if (mounted && on) setState(() => _sortByWeight = true);
+    } catch (_) {}
+  }
+
+  void _toggleSortWeight() {
+    HapticFeedback.selectionClick();
+    setState(() => _sortByWeight = !_sortByWeight);
+    SharedPreferences.getInstance()
+        .then((p) => p.setBool(_kSortWeightKey, _sortByWeight))
+        .catchError((_) => false);
+  }
 
   void _toggleDone(String key) {
     HapticFeedback.selectionClick();
@@ -317,8 +341,8 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     );
   }
 
-  // 재단 최적화에서 "잘랐습니다"를 눌러 남는 토막을 저장했을 때: 결과의 모든 줄을 "잘랐음"으로 맞추고, 이 결과의
-  // 토막은 저장했다고 적어 둔다(항목이나 세트를 바꾸면 저절로 "아직 저장 안 함"으로 돌아간다).
+  // 재단 최적화에서 "잘랐습니다"를 눌러 잔재를 저장했을 때: 결과의 모든 줄을 "잘랐음"으로 맞추고, 이 결과의
+  // 잔재는 저장했다고 적어 둔다(항목이나 세트를 바꾸면 저절로 "아직 저장 안 함"으로 돌아간다).
   // 저장 직전의 "잘랐음" 표시(되돌리기용).
   Set<String>? _doneBeforeSave;
 
@@ -385,7 +409,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     }
   }
 
-  // 지시서 PDF: 자를 길이 표(1개 길이 × 개수 = 합계) + 규격별 원자재 배치. 남은 토막과 여러 길이 섞어 쓰기
+  // 지시서 PDF: 자를 길이 표(1개 길이 × 개수 = 합계) + 규격별 원자재 배치. 잔재와 여러 길이 섞어 쓰기
   // 설정도 재단 최적화 화면과 같게 반영한다.
   Future<void> _exportInstructionSheet() async {
     final lines = _resultLines();
@@ -456,7 +480,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       }
       final grandTotal = lines.fold(0.0, (a, l) => a + l.totalMm);
 
-      // 2) 규격별 원자재 배치(남은 토막·섞어 쓰기 반영).
+      // 2) 규격별 원자재 배치(잔재·섞어 쓰기 반영).
       final leftovers = await loadLeftovers();
       final mixLengths = await loadMixLengths(kSteelMixPrefsKey);
       final piecesByShape = _collectPiecesByShape();
@@ -1122,6 +1146,53 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
               _buildSetStepper(),
             ],
           ),
+          if (shapeSubtotals(lines).length > 1)
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: InkWell(
+                  key: const Key('steel_sort_weight'),
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: _toggleSortWeight,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _sortByWeight
+                          ? CuttingColors.primary
+                          : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.swap_vert_rounded,
+                          size: 16,
+                          color: _sortByWeight
+                              ? Colors.white
+                              : Colors.grey.shade700,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          "무게 큰 규격부터",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: _sortByWeight
+                                ? Colors.white
+                                : Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           const SizedBox(height: 12),
           Expanded(
             child: Container(
@@ -1139,9 +1210,9 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                 setMultiplier: _setMultiplier,
                 specHeaders: true,
                 allDoneText: _leftoversSaved
-                    ? "모두 잘랐습니다. 남는 토막도 저장했습니다."
+                    ? "모두 잘랐습니다. 잔재도 저장했습니다."
                     : "모두 잘랐습니다.",
-                allDoneActionLabel: _leftoversSaved ? null : "남는 토막 저장",
+                allDoneActionLabel: _leftoversSaved ? null : "잔재 저장",
                 onAllDoneAction: _showOptimization,
                 specWeights: weights.bySpec,
                 unknownWeightSpecs: weights.unknownSpecs,

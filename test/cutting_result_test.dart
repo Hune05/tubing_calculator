@@ -426,6 +426,47 @@ Union Cross 1/2" × 2''');
       expect(draft['doneKeys'], isEmpty);
     });
 
+    testWidgets('재단 최적화에서 잔재를 저장하면 잘랐음 표시가 맞춰지고, 되돌리면 원래대로', (tester) async {
+      tester.view.physicalSize = const Size(1080, 4000);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      await open(tester);
+      await fill(tester, ['600', '900']);
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+      expect(find.text('잘랐음 0/2개'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('result_btn_optimize')));
+      await tester.pumpAndSettle();
+      final save = find.text('잘랐습니다 (잔재 저장)');
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(180, 20)); // 창 닫기
+      await tester.pumpAndSettle();
+      expect(find.textContaining('모두 잘랐습니다'), findsOneWidget);
+      final prefs = await SharedPreferences.getInstance();
+      final draft = jsonDecode(
+        prefs.getString('cutting_draft_standalone_absolute_fixed_key')!,
+      );
+      expect((draft['doneKeys'] as List).length, 2);
+
+      // 같은 창에서 되돌리면 표시도 저장 전(0개)으로.
+      await tester.tap(find.byKey(const Key('result_btn_optimize')));
+      await tester.pumpAndSettle();
+      final save2 = find.text('잘랐습니다 (잔재 저장)');
+      await tester.ensureVisible(save2);
+      await tester.tap(save2);
+      await tester.pumpAndSettle();
+      final undo = find.byKey(const Key('leftover_undo'));
+      await tester.ensureVisible(undo);
+      await tester.tap(undo);
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(180, 20));
+      await tester.pumpAndSettle();
+      // 두 번째 저장 직전에는 이미 2개가 표시된 상태였으므로 그 상태로 돌아간다.
+      expect(find.textContaining('모두 잘랐습니다'), findsOneWidget);
+    });
+
     testWidgets('간섭·못 읽는 구간은 목록에서 빼고 이유를 알려 준다', (tester) async {
       await open(tester);
       await fill(tester, ['600', '12a', '-']);

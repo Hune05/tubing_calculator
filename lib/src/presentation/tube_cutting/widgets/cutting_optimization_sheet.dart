@@ -33,12 +33,12 @@ Future<void> showCuttingOptimizationSheet(
   ValueChanged<double>? onStockLengthChanged,
   // 여러 길이 섞어 쓰기 설정을 저장할 곳. 없으면 저장하지 않는다.
   String? mixPrefsKey,
-  // "잘랐습니다(남은 토막 저장)"를 눌러 저장이 끝난 뒤 부른다(호출한 화면이 결과의 "잘랐음" 표시를 맞추는 데 쓴다).
+  // "잘랐습니다(잔재 저장)"를 눌러 저장이 끝난 뒤 부른다(호출한 화면이 결과의 "잘랐음" 표시를 맞추는 데 쓴다).
   VoidCallback? onLeftoversSaved,
   // 같은 창에서 방금 한 저장을 "되돌리기"로 취소했을 때 부른다(호출한 화면이 잘랐음 표시를 원래대로 돌리는 데 쓴다).
   VoidCallback? onLeftoversSaveUndone,
-  // 이 결과의 남는 토막을 이미 저장했으면 true — 저장 버튼 자리에 "저장했습니다"를 보여 같은 컷팅을 두 번 저장하지 않게 한다.
-  // (기준 길이·토막 사용 설정을 바꿔 다시 계산하면 다른 컷팅이 되므로 다시 저장할 수 있다.)
+  // 이 결과의 잔재를 이미 저장했으면 true — 저장 버튼 자리에 "저장했습니다"를 보여 같은 컷팅을 두 번 저장하지 않게 한다.
+  // (기준 길이·잔재 사용 설정을 바꿔 다시 계산하면 다른 컷팅이 되므로 다시 저장할 수 있다.)
   bool leftoversAlreadySaved = false,
 }) async {
   final Map<String, List<double>> groups =
@@ -55,12 +55,12 @@ Future<void> showCuttingOptimizationSheet(
   final ctrl = TextEditingController(
     text: initialStockLength.toStringAsFixed(0),
   );
-  // 남은 토막(이전에 자르고 남겨 둔 것). 켜 두면 같은 규격의 토막부터 먼저 쓴다.
+  // 잔재(이전에 자르고 남겨 둔 것). 켜 두면 같은 규격의 잔재부터 먼저 쓴다.
   var leftovers = await loadLeftovers();
   if (!context.mounted) return;
   bool useLeftovers = true;
   bool leftoversSaved = leftoversAlreadySaved;
-  // 이 창에서 저장하기 직전의 토막 목록(되돌리기용). 저장하지 않았거나 되돌린 뒤에는 null.
+  // 이 창에서 저장하기 직전의 잔재 목록(되돌리기용). 저장하지 않았거나 되돌린 뒤에는 null.
   List<Leftover>? savedFrom;
   double stockNow = initialStockLength;
 
@@ -385,7 +385,7 @@ Future<void> showCuttingOptimizationSheet(
               if (ctx.mounted) {
                 showCuttingSnack(
                   ctx,
-                  "남은 토막을 저장했습니다. 이번에 쓴 토막 ${used.length}개는 빼고, 새로 남은 토막 ${added.length}개를 더했습니다.",
+                  "잔재를 저장했습니다. 이번에 쓴 잔재 ${used.length}개는 빼고, 새 잔재 ${added.length}개를 더했습니다.",
                 );
               }
             },
@@ -708,7 +708,7 @@ Widget _buildOptBarCard(
                 shape: BoxShape.circle,
               ),
               child: Text(
-                bar.isLeftover ? "토" : "${index + 1}",
+                bar.isLeftover ? "잔" : "${index + 1}",
                 style: const TextStyle(
                   color: CuttingColors.surface,
                   fontWeight: FontWeight.w900,
@@ -748,7 +748,7 @@ Widget _buildOptBarCard(
             Flexible(
               child: Text(
                 bar.isLeftover
-                    ? "남은 토막 ${bar.stockLength.toStringAsFixed(0)}mm · 사용 ${bar.usedLength.toStringAsFixed(0)}mm"
+                    ? "잔재 ${bar.stockLength.toStringAsFixed(0)}mm · 사용 ${bar.usedLength.toStringAsFixed(0)}mm"
                     : showLength
                     ? "${bar.stockLength.toStringAsFixed(0)}mm 원자재 · 사용 ${bar.usedLength.toStringAsFixed(0)}mm"
                     : "사용 ${bar.usedLength.toStringAsFixed(0)}mm",
@@ -770,7 +770,7 @@ Widget _buildOptBarCard(
   );
 }
 
-// 남은 토막 카드: 쓸지 말지, 이번 계산대로 잘랐을 때 저장, 목록 관리.
+// 잔재 카드: 쓸지 말지, 이번 계산대로 잘랐을 때 저장, 목록 관리.
 // 이 앱 기본 색(보라)이 아니라 컷팅 화면의 틸 색으로 버튼이 보이게 한다.
 Widget _tealTheme(BuildContext context, Widget child) {
   final t = Theme.of(context);
@@ -833,7 +833,7 @@ Widget _buildLeftoverCard({
                 contentPadding: EdgeInsets.zero,
                 dense: true,
                 title: Text(
-                  "남은 토막 먼저 쓰기 (${leftovers.length}개)",
+                  "잔재 먼저 쓰기 (${leftovers.length}개)",
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
@@ -841,7 +841,7 @@ Widget _buildLeftoverCard({
                 ),
                 subtitle: Text(
                   useLeftovers
-                      ? "이번 계산에서 토막 $usedCount개를 씁니다."
+                      ? "이번 계산에서 잔재 $usedCount개를 씁니다."
                       : "꺼 두어서 새 원자재만으로 계산합니다.",
                   style: const TextStyle(fontSize: 11),
                 ),
@@ -873,9 +873,9 @@ Widget _buildLeftoverCard({
                 ] else
                   OutlinedButton(
                     onPressed: onSave,
-                    child: const Text("잘랐습니다 (남는 토막 저장)"),
+                    child: const Text("잘랐습니다 (잔재 저장)"),
                   ),
-                TextButton(onPressed: onManage, child: const Text("남은 토막 관리")),
+                TextButton(onPressed: onManage, child: const Text("잔재 관리")),
               ],
             ),
           ],
@@ -885,7 +885,7 @@ Widget _buildLeftoverCard({
   );
 }
 
-// 남은 토막 목록을 보고, 지우거나 직접 더한다. 바꾼 목록을 돌려주고, 닫기만 하면 null.
+// 잔재 목록을 보고, 지우거나 직접 더한다. 바꾼 목록을 돌려주고, 닫기만 하면 null.
 Future<List<Leftover>?> _manageLeftovers(
   BuildContext context,
   List<Leftover> current,
@@ -916,12 +916,12 @@ Future<List<Leftover>?> _manageLeftovers(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    "남은 토막",
+                    "잔재",
                     style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    "${kMinLeftoverMm.toStringAsFixed(0)}mm보다 짧은 토막은 남겨 두지 않습니다.",
+                    "${kMinLeftoverMm.toStringAsFixed(0)}mm보다 짧은 잔재는 남겨 두지 않습니다.",
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                   const SizedBox(height: 12),
@@ -929,7 +929,7 @@ Future<List<Leftover>?> _manageLeftovers(
                     child: list.isEmpty
                         ? const Padding(
                             padding: EdgeInsets.symmetric(vertical: 16),
-                            child: Text("저장된 토막이 없습니다."),
+                            child: Text("저장된 잔재가 없습니다."),
                           )
                         : ListView(
                             shrinkWrap: true,

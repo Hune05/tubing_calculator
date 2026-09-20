@@ -22,16 +22,16 @@ void main() {
     expect(planSummary(r), '새 원자재 1본(6000mm)');
   });
 
-  test('남은 토막이 먼저 나오고 요약에 개수가 들어간다', () {
+  test('잔재가 먼저 나오고 요약에 개수가 들어간다', () {
     final r = optimizeCutting(
       pieces: [900, 5000],
       stockLength: 6000,
       leftovers: [1000],
     );
     final rows = planRows(r);
-    expect(rows.first, ['남은 토막 1000', '900', '900', '100']);
+    expect(rows.first, ['잔재 1000', '900', '900', '100']);
     expect(rows.last.first, '1번 (6000)');
-    expect(planSummary(r), '새 원자재 1본(6000mm), 남은 토막 1개 사용');
+    expect(planSummary(r), '새 원자재 1본(6000mm), 잔재 1개 사용');
   });
 
   test('표에 나온 조각을 모두 더하면 입력과 같다', () {
