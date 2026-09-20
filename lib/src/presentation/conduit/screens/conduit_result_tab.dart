@@ -1,10 +1,10 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 // 🚀 매니저 임포트: 전선관 전용 매니저
 import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_viewer_tab.dart';
+import 'package:tubing_calculator/src/presentation/conduit/conduit_marking_logic.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
 
 final ValueNotifier<Map<String, dynamic>> globalMarkingState = ValueNotifier({
@@ -62,243 +62,6 @@ class _ConduitResultTabState extends State<ConduitResultTab>
   // ==========================================
   // 📐 [수학 알고리즘 보정] 임의 각도 게인(Gain) 연산
   // ==========================================
-  double _calculateGainForAngle(double angle, double gain90) {
-    if (angle <= 0 || gain90 <= 0) return 0.0;
-    // 부동소수점 오차 방지: 90도 근처면 정확히 90도 게인 반환
-    if ((angle - 90.0).abs() < 0.1) return gain90;
-
-    // 기하학적 배관 절약분 이론 공식에 따른 각도별 비례 연산
-    // Gain(θ) / Gain(90) = [2 * tan(θ/2) - (π * θ / 180)] / [2 - π/2]
-    double radHalf = (angle / 2.0) * (math.pi / 180.0);
-    double radFull = angle * (math.pi / 180.0);
-    double numerator = 2.0 * math.tan(radHalf) - radFull;
-    double denominator = 2.0 - (math.pi / 2.0); // 약 0.42920367
-
-    if (denominator == 0) return 0.0;
-    return gain90 * (numerator / denominator);
-  }
-
-  // ==========================================
-  // 🚀 [라우터] 설정값에 따라 계산기 분리
-  // ==========================================
-  List<Map<String, dynamic>> _calculateMarkings(
-    List<Map<String, dynamic>> bendList,
-    Map<String, dynamic> settings,
-  ) {
-    String benderType = settings['benderType'] ?? 'hand';
-
-    if (benderType == 'ram') {
-      return _calculateRamMarkings(bendList, settings);
-    } else if (benderType == 'chicago') {
-      return _calculateChicagoMarkings(bendList, settings);
-    } else {
-      return _calculateHandMarkings(bendList, settings);
-    }
-  }
-
-  // ------------------------------------------
-  // 🧮 1. 수동 벤더(Hand) - TakeUp & Gain 보정
-  // ------------------------------------------
-  List<Map<String, dynamic>> _calculateHandMarkings(
-    List<Map<String, dynamic>> bendList,
-    Map<String, dynamic> settings,
-  ) {
-    List<Map<String, dynamic>> markings = [];
-    double currentTapeMark = 0.0;
-
-    double takeUp = settings['takeUp'] ?? 152.0;
-    double couplingDepth = settings['couplingDepth'] ?? 20.0;
-    bool applySpringback = settings['applySpringback'] ?? true;
-    double springbackVal = settings['springback'] ?? 3.0;
-
-    for (int i = 0; i < bendList.length; i++) {
-      var bend = bendList[i];
-      double len = (bend['length'] as num).toDouble();
-      double angle = (bend['angle'] as num).toDouble();
-
-      // 스프링백 보정
-      double targetAngle = angle;
-      if (applySpringback && angle > 0) {
-        targetAngle += springbackVal;
-      }
-
-      bool isFirst = (i == 0);
-      String note = '';
-      double offset = len;
-
-      // 줄자 마킹 위치 계산 (총 자재 길이와 무관한 화살표 마킹 전용)
-      if (isFirst) {
-        if (angle > 0) {
-          offset -= takeUp;
-          note += '테이크업(-${takeUp.round()}mm) ';
-        }
-        if (_useCoupling) {
-          offset -= couplingDepth;
-          note += '커플링(-${couplingDepth.round()}mm) ';
-        }
-        if (note.isEmpty) {
-          note = angle == 0.0 ? '직관 시작' : '첫 벤딩점';
-        }
-        currentTapeMark = offset;
-      } else {
-        double gap = len;
-        currentTapeMark += gap;
-        offset = gap;
-        note = angle == 0.0 ? '직관 연장' : '간격 누적 (+${gap.round()}mm)';
-      }
-
-      markings.add({
-        ...bend,
-        'mark': currentTapeMark,
-        'gap': offset,
-        'note': note.trim(),
-        'benderType': 'hand',
-        'targetAngle': targetAngle,
-      });
-    }
-    return markings;
-  }
-
-  // ------------------------------------------
-  // 🧮 2. 유압식(Ram) - 3점 벤딩 비선형 공식 적용
-  // ------------------------------------------
-  List<Map<String, dynamic>> _calculateRamMarkings(
-    List<Map<String, dynamic>> bendList,
-    Map<String, dynamic> settings,
-  ) {
-    List<Map<String, dynamic>> markings = [];
-    double currentTapeMark = 0.0;
-
-    double setback = settings['setback'] ?? 0.0;
-    double baseRamTravel = settings['ramTravel'] ?? 0.0;
-    double couplingDepth = settings['couplingDepth'] ?? 20.0;
-    bool applySpringback = settings['applySpringback'] ?? true;
-    double springbackVal = settings['springback'] ?? 3.0;
-
-    for (int i = 0; i < bendList.length; i++) {
-      var bend = bendList[i];
-      double len = (bend['length'] as num).toDouble();
-      double angle = (bend['angle'] as num).toDouble();
-
-      double targetAngle = angle;
-      if (applySpringback && angle > 0) {
-        targetAngle += springbackVal;
-      }
-
-      bool isFirst = (i == 0);
-      String note = '';
-      double offset = len;
-
-      // 🚀 [보정] 유압 실린더 비선형 삼각함수 이동 거리 연산: Stroke ∝ sin(θ / 2)
-      double ramTravelForBend = 0.0;
-      if (angle > 0 && baseRamTravel > 0) {
-        double radTargetHalf = (targetAngle / 2.0) * (math.pi / 180.0);
-        double rad45 = 45.0 * (math.pi / 180.0);
-        ramTravelForBend =
-            baseRamTravel * (math.sin(radTargetHalf) / math.sin(rad45));
-      }
-
-      if (isFirst) {
-        if (angle > 0) {
-          offset -= setback;
-          note += '셋백(-${setback.round()}mm) ';
-        }
-        if (_useCoupling) {
-          offset -= couplingDepth;
-          note += '커플링(-${couplingDepth.round()}mm) ';
-        }
-        if (note.isEmpty) {
-          note = angle == 0.0 ? '직관 시작' : '첫 벤딩점';
-        }
-        currentTapeMark = offset;
-      } else {
-        double gap = len;
-        currentTapeMark += gap;
-        offset = gap;
-        note = angle == 0.0 ? '직관 연장' : '간격 누적 (+${gap.round()}mm)';
-      }
-
-      markings.add({
-        ...bend,
-        'mark': currentTapeMark,
-        'gap': offset,
-        'note': note.trim(),
-        'benderType': 'ram',
-        'ramTravel': ramTravelForBend,
-        'targetAngle': targetAngle,
-      });
-    }
-    return markings;
-  }
-
-  // ------------------------------------------
-  // 🧮 3. 시카고식(Chicago) - 반올림 보정
-  // ------------------------------------------
-  List<Map<String, dynamic>> _calculateChicagoMarkings(
-    List<Map<String, dynamic>> bendList,
-    Map<String, dynamic> settings,
-  ) {
-    List<Map<String, dynamic>> markings = [];
-    double currentTapeMark = 0.0;
-
-    double couplingDepth = settings['couplingDepth'] ?? 20.0;
-    double degPerNotch = settings['degPerNotch'] ?? 2.5;
-    double takeUp = settings['takeUp'] ?? 0.0;
-    bool applySpringback = settings['applySpringback'] ?? true;
-    double springbackVal = settings['springback'] ?? 3.0;
-
-    for (int i = 0; i < bendList.length; i++) {
-      var bend = bendList[i];
-      double len = (bend['length'] as num).toDouble();
-      double angle = (bend['angle'] as num).toDouble();
-
-      double targetAngle = angle;
-      if (applySpringback && angle > 0) {
-        targetAngle += springbackVal;
-      }
-
-      bool isFirst = (i == 0);
-      String note = '';
-      double offset = len;
-
-      // 🚀 [보정] 과도한 꺾임(Over-bending) 방지를 위해 ceil 대신 round 적용
-      int notches = angle > 0 ? (targetAngle / degPerNotch).round() : 0;
-
-      if (isFirst) {
-        // 🚀 [버그 수정] 시카고식도 슈에 감아 구부리는 구조라 수동 벤더의
-        // 테이크업과 동일한 여유 길이 차감이 필요함 (이전엔 누락되어 있었음).
-        if (angle > 0) {
-          offset -= takeUp;
-          note += '테이크업(-${takeUp.round()}mm) ';
-        }
-        if (_useCoupling) {
-          offset -= couplingDepth;
-          note += '커플링(-${couplingDepth.round()}mm) ';
-        }
-        if (note.isEmpty) {
-          note = angle == 0.0 ? '직관 시작' : '첫 벤딩점';
-        }
-        currentTapeMark = offset;
-      } else {
-        double gap = len;
-        currentTapeMark += gap;
-        offset = gap;
-        note = angle == 0.0 ? '직관 연장' : '간격 누적 (+${gap.round()}mm)';
-      }
-
-      markings.add({
-        ...bend,
-        'mark': currentTapeMark,
-        'gap': offset,
-        'note': note.trim(),
-        'benderType': 'chicago',
-        'notches': notches,
-        'targetAngle': targetAngle,
-      });
-    }
-    return markings;
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -314,7 +77,11 @@ class _ConduitResultTabState extends State<ConduitResultTab>
         final String benderType = currentSettings['benderType'] ?? 'hand';
         final double gain90 = currentSettings['gain'] ?? 0.0;
 
-        final markings = _calculateMarkings(bendList, currentSettings);
+        final markings = calculateConduitMarkings(
+          bendList,
+          currentSettings,
+          useCoupling: _useCoupling,
+        );
 
         // 🚀 [핵심 보정] 총 절단 길이 독립 연산 (테이크업 이중 차감 원천 차단)
         double totalLengthSum = 0.0;
@@ -324,7 +91,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
           double angle = (bend['angle'] as num).toDouble();
           totalLengthSum += len;
           if (angle > 0) {
-            totalGainDeduction += _calculateGainForAngle(angle, gain90);
+            totalGainDeduction += conduitGainForAngle(angle, gain90);
           }
         }
 
@@ -474,9 +241,12 @@ class _ConduitResultTabState extends State<ConduitResultTab>
       extraWidget: (!isStraight)
           ? _buildExtraInfoBox(
               icon: Icons.vertical_align_top_rounded,
-              label: "실린더 푸시량:",
+              // 🚀 [고침] 유압 램은 관 굵기·받침 간격에 따라 실제로 밀어야 하는
+              // 양이 달라진다. 이 값은 sin(각/2) 비율로 잡은 어림값이므로,
+              // 값 옆에 어림값이라고 적어 한 번 재 보고 쓰게 한다.
+              label: "실린더 푸시량(어림):",
               valueText: ramTravel > 0
-                  ? "${ramTravel.toStringAsFixed(1)} mm"
+                  ? "${ramTravel.toStringAsFixed(1)} mm · 첫 개는 재 보십시오"
                   : "설정 입력 필요",
               themeColor: ramBlue,
             )

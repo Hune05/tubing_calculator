@@ -70,3 +70,22 @@ double realBendAllowance({
   );
   return (2 * sb) - gain;
 }
+
+/// 각도별 테이크업(전선관 수동·시카고 벤더).
+///
+/// 테이크업은 "꺾이는 점까지의 거리"를 "벤더 화살표를 맞출 자리"로 바꾸는 값이다.
+/// 벤더 표에는 보통 90° 값 하나만 적혀 있는데, 그 값은
+/// `테이크업90 = 반경 + 신발이 먹는 고정분` 이다. 각도가 달라지면 반경 쪽만
+/// `반경·tan(각/2)`로 줄고 고정분은 그대로다.
+///
+/// 🚀 [고침] 예전에는 45°든 90°든 90° 테이크업을 그대로 빼서, 완만한 각에서
+/// 첫 마킹이 크게 앞으로 밀렸다.
+/// [radius]는 굽힘 중심선 반경(CLR). 모르면(0 이하) 반경 쪽만 있다고 보고
+/// tan 비율로 줄인다.
+double scaleTakeUp(double takeUp90, double radius, double angleDeg) {
+  if (angleDeg <= 0 || takeUp90 <= 0) return 0.0;
+  final t = math.tan(angleDeg * math.pi / 360.0);
+  if (radius <= 0 || radius >= takeUp90) return takeUp90 * t;
+  final fixed = takeUp90 - radius; // 신발이 먹는 고정분
+  return radius * t + fixed;
+}
