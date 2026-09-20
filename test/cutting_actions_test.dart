@@ -68,11 +68,11 @@ void main() {
       expect(pressed, ['재단 최적화', 'PDF 공유', '카톡 보내기', '글 복사']);
     });
 
-    testWidgets('누르는 영역이 44dp 이상이고 서로 간격이 있다', (tester) async {
+    testWidgets('누르는 영역은 36dp(맨손으로 쓰는 폰이라 작게)이고 서로 간격이 있다', (tester) async {
       await show(tester);
       final a = tester.getRect(find.byKey(const Key('btn_재단 최적화')));
       final b = tester.getRect(find.byKey(const Key('btn_PDF 공유')));
-      expect(a.width >= 44 && a.height >= 44, true);
+      expect(a.width == 36 && a.height == 36, true);
       expect(b.left - a.right >= 3 - 0.01, true);
     });
 

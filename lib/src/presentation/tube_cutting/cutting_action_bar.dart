@@ -132,7 +132,7 @@ class _CutBarPainter extends CustomPainter {
 }
 
 // ── 결과 탭 제목줄 오른쪽에 두는 아이콘 버튼 줄 ──
-// 아이콘마다 44dp 이상의 누르는 영역, 길게 누르면 이름이 뜬다(tooltip). 처음 쓰는 동안에는
+// 아이콘마다 36dp 누르는 영역(작게 두어 제목줄 자리를 아낀다), 길게 누르면 이름이 뜬다(tooltip). 처음 쓰는 동안에는
 // 아이콘 아래에 이름을 작게 보여 주다가 한 번이라도 쓰면 사라진다([showLabels]).
 class CutActionSpec {
   final Key key;
@@ -162,7 +162,7 @@ class CutActionBar extends StatelessWidget {
     this.onToggleLabels,
   });
 
-  static const double target = 46; // 누르는 영역(장갑 낀 손도 누를 수 있게)
+  static const double target = 36; // 누르는 영역(맨손으로 누르는 폰이라 작게)
 
   @override
   Widget build(BuildContext context) {
@@ -179,14 +179,14 @@ class CutActionBar extends StatelessWidget {
                 customBorder: const CircleBorder(),
                 onTap: onToggleLabels,
                 child: SizedBox(
-                  width: 26,
+                  width: 22,
                   height: target,
                   child: Center(
                     child: Icon(
                       showLabels
                           ? Icons.close_rounded
                           : Icons.help_outline_rounded,
-                      size: 20,
+                      size: 16,
                       color: CuttingColors.textSecondary,
                     ),
                   ),
@@ -220,7 +220,7 @@ class CutActionBar extends StatelessWidget {
                 ),
                 if (showLabels)
                   SizedBox(
-                    width: target + 3,
+                    width: 44,
                     child: Text(
                       a.label,
                       key: Key('action_label_${a.label}'),

@@ -394,17 +394,17 @@ void main() {
     test('목록 줄 무게: 세트를 곱하고, 모르는 규격이 있으면 이상', () {
       expect(
         steelProjectWeightText(p([item('앵글 40x40x3', 1000, 2)])),
-        ' · 약 3.7kg',
+        '약 3.7kg',
       );
       expect(
         steelProjectWeightText(p([item('앵글 40x40x3', 1000, 2)], sets: 3)),
-        ' · 약 11.0kg',
+        '약 11.0kg',
       );
       expect(
         steelProjectWeightText(
           p([item('앵글 40x40x3', 1000, 2), item('가나다', 500, 1, cat: 'CUSTOM')]),
         ),
-        ' · 약 3.7kg 이상',
+        '약 3.7kg 이상',
       );
       expect(
         steelProjectWeightText(p([item('가나다', 500, 1, cat: 'CUSTOM')])),
@@ -526,6 +526,81 @@ void main() {
       expect(prefs.getStringList('steel_done_sp3'), [
         'steel:앵글 40x40x3:500.0:2',
       ]);
+    });
+  });
+
+  group('아이콘 줄·토막 중복 저장·립C 규격', () {
+    SteelCuttingProject proj() => SteelCuttingProject(
+      id: 'sp4',
+      name: '루마',
+      createdAt: DateTime(2026, 9, 20),
+      items: [item('앵글 40x40x3', 500, 2, id: 'a')],
+    );
+
+    Future<void> open(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 4000);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(home: SteelCuttingDetailScreen(project: proj())),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('아이콘 버튼은 36dp로 작고 카톡도 노란색이 아니다', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await open(tester);
+      for (final k in [
+        'steel_btn_optimize',
+        'steel_btn_export',
+        'steel_btn_kakao',
+        'steel_btn_copy',
+      ]) {
+        expect(
+          tester.getSize(find.byKey(Key(k))),
+          const Size(36, 36),
+          reason: k,
+        );
+      }
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is Material && w.color == const Color(0xFFFEE500),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('이미 저장한 결과는 재단 최적화에서 저장 버튼 대신 "저장했습니다"', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'steel_done_sp4': ['steel:앵글 40x40x3:500.0:2'],
+        'steel_leftover_saved_sp4': 'steel:앵글 40x40x3:500.0:2',
+      });
+      await open(tester);
+      await tester.tap(find.byKey(const Key('steel_btn_optimize')));
+      await tester.pumpAndSettle();
+      expect(find.text('저장했습니다'), findsOneWidget);
+      expect(find.text('잘랐습니다 (남는 토막 저장)'), findsNothing);
+    });
+
+    testWidgets('저장하지 않은 결과는 저장 버튼이 있다', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await open(tester);
+      await tester.tap(find.byKey(const Key('steel_btn_optimize')));
+      await tester.pumpAndSettle();
+      expect(find.text('잘랐습니다 (남는 토막 저장)'), findsOneWidget);
+    });
+
+    test('립C형강 규격이 늘었고 모두 무게가 계산된다', () {
+      final lip = SteelShapeDB.byCategory('LIPC');
+      expect(lip.length, 10);
+      expect(lip.any((s) => s.label == '립C형강 100x50x20x2.0'), true);
+      // 2.0×(100+2×50+2×20−4×2)=464mm² → 3.64kg/m
+      expect(steelKgPerM('립C형강 100x50x20x2.0')!, closeTo(3.64, 0.01));
+      for (final s in lip) {
+        expect(steelKgPerM(s.label), isNotNull, reason: s.label);
+      }
     });
   });
 }

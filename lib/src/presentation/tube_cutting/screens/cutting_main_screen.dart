@@ -2852,7 +2852,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                   CutActionSpec(
                     key: const Key('result_btn_optimize'),
                     label: "재단 최적화",
-                    icon: const CutBarIcon(size: 26),
+                    icon: const CutBarIcon(size: 21),
                     onPressed: () {
                       _markIconsUsed();
                       _showOptimizationDialog();
@@ -2863,7 +2863,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                     label: "PDF 공유",
                     icon: const Icon(
                       Icons.picture_as_pdf_rounded,
-                      size: 24,
+                      size: 19,
                       color: makitaTeal,
                     ),
                     onPressed: () {
@@ -2874,11 +2874,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                   CutActionSpec(
                     key: const Key('result_btn_kakao'),
                     label: "카톡 보내기",
-                    background: const Color(0xFFFEE500),
                     icon: const Icon(
                       Icons.chat_bubble_rounded,
-                      size: 24,
-                      color: Color(0xFF3A1D1D),
+                      size: 19,
+                      color: makitaTeal,
                     ),
                     onPressed: () {
                       _markIconsUsed();
@@ -2890,7 +2889,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                     label: "글 복사",
                     icon: const Icon(
                       Icons.copy_rounded,
-                      size: 24,
+                      size: 19,
                       color: makitaTeal,
                     ),
                     onPressed: () {

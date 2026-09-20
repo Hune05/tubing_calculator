@@ -458,13 +458,27 @@ class MobileSteelProjectListPage extends StatelessWidget {
                               const SizedBox(height: 4),
                               Text(
                                 "항목 ${project.items.length}건 · 총 길이 "
-                                "${(project.totalLength / 1000).toStringAsFixed(1)}m"
-                                "${steelProjectWeightText(project)}",
+                                "${(project.totalLength / 1000).toStringAsFixed(1)}m",
                                 style: const TextStyle(
                                   color: CuttingColors.textSecondary,
                                   fontSize: 13,
                                 ),
                               ),
+                              if (steelProjectWeightText(project).isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text(
+                                    steelProjectWeightText(project),
+                                    key: Key(
+                                      'steel_project_weight_${project.id}',
+                                    ),
+                                    style: const TextStyle(
+                                      color: CuttingColors.primaryDark,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                         ),

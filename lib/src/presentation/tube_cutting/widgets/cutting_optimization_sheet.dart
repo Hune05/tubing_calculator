@@ -35,6 +35,9 @@ Future<void> showCuttingOptimizationSheet(
   String? mixPrefsKey,
   // "잘랐습니다(남은 토막 저장)"를 눌러 저장이 끝난 뒤 부른다(호출한 화면이 결과의 "잘랐음" 표시를 맞추는 데 쓴다).
   VoidCallback? onLeftoversSaved,
+  // 이 결과의 남는 토막을 이미 저장했으면 true — 저장 버튼 자리에 "저장했습니다"를 보여 같은 컷팅을 두 번 저장하지 않게 한다.
+  // (기준 길이·토막 사용 설정을 바꿔 다시 계산하면 다른 컷팅이 되므로 다시 저장할 수 있다.)
+  bool leftoversAlreadySaved = false,
 }) async {
   final Map<String, List<double>> groups =
       (groupedPieces != null && groupedPieces.isNotEmpty)
@@ -54,7 +57,7 @@ Future<void> showCuttingOptimizationSheet(
   var leftovers = await loadLeftovers();
   if (!context.mounted) return;
   bool useLeftovers = true;
-  bool leftoversSaved = false;
+  bool leftoversSaved = leftoversAlreadySaved;
   double stockNow = initialStockLength;
 
   // 여러 길이 섞어 쓰기: 켜면 고른 길이들만 섞어서 계산한다(위 기준 길이는 쓰지 않는다).

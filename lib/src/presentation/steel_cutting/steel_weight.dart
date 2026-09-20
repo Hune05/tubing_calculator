@@ -163,7 +163,7 @@ double? steelWeightKg(String shapeLabel, double lengthMm) {
   return u == null ? null : u * lengthMm / 1000;
 }
 
-/// 프로젝트 목록 줄 끝에 붙는 무게 글(" · 약 12.0kg"). 세트 수를 곱하고, 무게를 모르는 규격이 섞여 있으면
+/// 프로젝트 목록 줄에 보이는 무게 글("약 12.0kg"). 세트 수를 곱하고, 무게를 모르는 규격이 섞여 있으면
 /// 그만큼 더 나가니 "이상"을 붙인다. 아무것도 모르면 빈 글자.
 String steelProjectWeightText(SteelCuttingProject project) {
   var kg = 0.0;
@@ -179,7 +179,7 @@ String steelProjectWeightText(SteelCuttingProject project) {
     }
   }
   if (known == 0) return '';
-  return ' · 약 ${fmtKg(kg)}kg${unknown > 0 ? ' 이상' : ''}';
+  return '약 ${fmtKg(kg)}kg${unknown > 0 ? ' 이상' : ''}';
 }
 
 /// 규격 선택창에 붙이는 형태 설명. 립(입술)이 있는지 없는지가 무게에 크게 영향을 준다.

@@ -337,6 +337,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       kerf: _bladeKerf,
       mixPrefsKey: kSteelMixPrefsKey,
       onLeftoversSaved: _onLeftoversSaved,
+      leftoversAlreadySaved: _leftoversSaved,
       title: "재단 최적화 (원자재 소요 계산)",
       onStockLengthChanged: (v) {
         setState(() => _stockLength = v);
@@ -1001,7 +1002,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                   CutActionSpec(
                     key: const Key('steel_btn_optimize'),
                     label: "재단 최적화",
-                    icon: const CutBarIcon(size: 26),
+                    icon: const CutBarIcon(size: 21),
                     onPressed: () {
                       _markIconsUsed();
                       if (_items.isEmpty) {
@@ -1020,7 +1021,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                     label: "PDF 공유",
                     icon: const Icon(
                       Icons.picture_as_pdf_rounded,
-                      size: 24,
+                      size: 19,
                       color: CuttingColors.primary,
                     ),
                     onPressed: () {
@@ -1031,11 +1032,10 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                   CutActionSpec(
                     key: const Key('steel_btn_kakao'),
                     label: "카톡 보내기",
-                    background: const Color(0xFFFEE500),
                     icon: const Icon(
                       Icons.chat_bubble_rounded,
-                      size: 24,
-                      color: Color(0xFF3A1D1D),
+                      size: 19,
+                      color: CuttingColors.primary,
                     ),
                     onPressed: () {
                       _markIconsUsed();
@@ -1047,7 +1047,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                     label: "글 복사",
                     icon: const Icon(
                       Icons.copy_rounded,
-                      size: 24,
+                      size: 19,
                       color: CuttingColors.primary,
                     ),
                     onPressed: () {
