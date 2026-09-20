@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'cutting_math.dart' show fmtKg;
 import 'cutting_result_logic.dart';
 import 'cutting_theme.dart';
 
@@ -22,6 +23,10 @@ class CuttingResultView extends StatelessWidget {
   final VoidCallback? onPickSpec;
   // 규격이 바뀔 때마다 규격 이름과 소계를 머리글로 보여 준다(형강처럼 규격이 많을 때). 켜면 줄마다 규격 칩은 뺀다.
   final bool specHeaders;
+  // 규격별 이론 중량(kg, 세트 곱함). 규격 머리글과 총계 카드에 "약 …kg"로 보여 준다(비면 표시 안 함).
+  final Map<String, double> specWeights;
+  // 위 무게를 모르는 규격 수(총 중량에서 빠진 규격을 알려 준다).
+  final int unknownWeightSpecs;
 
   const CuttingResultView({
     super.key,
@@ -37,6 +42,8 @@ class CuttingResultView extends StatelessWidget {
     this.tubeSpec = '',
     this.onPickSpec,
     this.specHeaders = false,
+    this.specWeights = const {},
+    this.unknownWeightSpecs = 0,
   });
 
   @override
@@ -63,6 +70,10 @@ class CuttingResultView extends StatelessWidget {
           tubeSpec: tubeSpec,
           onPickSpec: onPickSpec,
           unknownSpecLines: unknownSpecLineCount(lines),
+          totalWeightKg: specWeights.isEmpty
+              ? null
+              : specWeights.values.fold<double>(0, (a, b) => a + b),
+          unknownWeightSpecs: unknownWeightSpecs,
         ),
         const SizedBox(height: 10),
         for (var i = 0; i < lines.length; i++) ...[
@@ -71,6 +82,7 @@ class CuttingResultView extends StatelessWidget {
               spec: lines[i].spec,
               lines: lines.where((e) => e.spec == lines[i].spec).toList(),
               done: done,
+              weightKg: specWeights[lines[i].spec],
             ),
           _Row(
             line: lines[i],
@@ -99,6 +111,8 @@ class _Header extends StatelessWidget {
   final String tubeSpec;
   final VoidCallback? onPickSpec;
   final int unknownSpecLines;
+  final double? totalWeightKg;
+  final int unknownWeightSpecs;
 
   const _Header({
     required this.summary,
@@ -108,6 +122,8 @@ class _Header extends StatelessWidget {
     this.tubeSpec = '',
     this.onPickSpec,
     this.unknownSpecLines = 0,
+    this.totalWeightKg,
+    this.unknownWeightSpecs = 0,
   });
 
   @override
@@ -276,6 +292,20 @@ class _Header extends StatelessWidget {
               ),
             ],
           ),
+          if (totalWeightKg != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                '총 중량 약 ${fmtKg(totalWeightKg!)}kg'
+                '${unknownWeightSpecs > 0 ? ' (중량을 모르는 규격 $unknownWeightSpecs종 제외)' : ''}',
+                key: const Key('result_weight'),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: CuttingColors.primaryDark,
+                ),
+              ),
+            ),
           // 규격이 둘 이상이면 규격별 합계를 보여 준다(자를 튜브가 달라서 따로 준비해야 한다).
           if (specs.length > 1 ||
               (specs.length == 1 && specs.first.spec.isNotEmpty))
@@ -525,11 +555,13 @@ class _SpecHeader extends StatelessWidget {
   final String spec;
   final List<ResultLine> lines;
   final Set<String> done;
+  final double? weightKg;
 
   const _SpecHeader({
     required this.spec,
     required this.lines,
     required this.done,
+    this.weightKg,
   });
 
   @override
@@ -543,14 +575,29 @@ class _SpecHeader extends StatelessWidget {
       if (done.contains(l.key)) donePieces += l.count;
     }
     final allDone = pieces > 0 && donePieces == pieces;
+    final weightText = weightKg == null ? '' : '약 ${fmtKg(weightKg!)}kg';
     return Padding(
       padding: const EdgeInsets.only(top: 10, bottom: 6, left: 2),
       child: Row(
         key: Key('spec_header_$spec'),
         children: [
           Expanded(
-            child: Text(
-              spec.isEmpty ? '규격 미지정' : spec,
+            // 이름 뒤에 작은 글씨로 무게를 붙인다(좁으면 뒤가 잘려도 오른쪽 개수·길이는 그대로 보인다).
+            child: Text.rich(
+              TextSpan(
+                text: spec.isEmpty ? '규격 미지정' : spec,
+                children: [
+                  if (weightText.isNotEmpty)
+                    TextSpan(
+                      text: '  $weightText',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: CuttingColors.primaryDark,
+                      ),
+                    ),
+                ],
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(

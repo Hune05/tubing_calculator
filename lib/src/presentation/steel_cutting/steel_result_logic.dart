@@ -1,6 +1,7 @@
 import '../../data/models/steel_cutting_project_model.dart';
-import '../tube_cutting/cutting_math.dart' show fmtMm;
+import '../tube_cutting/cutting_math.dart' show fmtKg, fmtMm;
 import '../tube_cutting/cutting_result_logic.dart';
+import 'steel_weight.dart';
 
 // 형강 컷팅 "결과" 탭의 계산(화면과 분리해서 테스트로 지킨다). 튜브 컷팅의 결과 목록(ResultLine)을
 // 그대로 쓰되, 줄은 "같은 규격·같은 길이"끼리 묶는다(항목이 여러 개여도 자르는 사람에게는 같은 일이다).
@@ -73,6 +74,32 @@ class ShapeSubtotal {
   final int pieces; // 개수(세트 곱함)
   final double mm; // 길이 합계(세트 곱함)
   const ShapeSubtotal(this.shape, this.kinds, this.pieces, this.mm);
+
+  // 이론 중량(kg, 세트 곱함). 규격 이름을 못 알아보면 null.
+  double? get weightKg => steelWeightKg(shape, mm);
+}
+
+// 규격별 무게 합계와 전체(모르는 규격은 뺀다). 아무 규격도 모르면 total은 null.
+class WeightTotals {
+  final Map<String, double> bySpec;
+  final double? total;
+  final int unknownSpecs;
+  const WeightTotals(this.bySpec, this.total, this.unknownSpecs);
+}
+
+WeightTotals weightTotals(List<ResultLine> lines) {
+  final by = <String, double>{};
+  var unknown = 0;
+  for (final s in shapeSubtotals(lines)) {
+    final w = s.weightKg;
+    if (w == null) {
+      unknown++;
+    } else {
+      by[s.shape] = w;
+    }
+  }
+  final total = by.isEmpty ? null : by.values.fold<double>(0, (a, b) => a + b);
+  return WeightTotals(by, total, unknown);
 }
 
 List<ShapeSubtotal> shapeSubtotals(List<ResultLine> lines) {
@@ -116,6 +143,7 @@ String buildSteelInstructionText({
   }
   var pieces = 0;
   var mm = 0.0;
+  final weights = weightTotals(lines);
   for (final sub in shapeSubtotals(lines)) {
     b.writeln('■ ${sub.shape}');
     for (final l in lines.where((x) => x.spec == sub.shape)) {
@@ -123,7 +151,11 @@ String buildSteelInstructionText({
       final note = l.detail.isEmpty ? '' : ' - ${l.detail}';
       b.writeln('${fmtMm(l.cutMm)}mm × ${l.count}개$how$note');
     }
-    b.writeln('  소계 ${_one(sub.mm)}mm (${sub.pieces}개)');
+    final w = sub.weightKg;
+    b.writeln(
+      '  소계 ${_one(sub.mm)}mm (${sub.pieces}개)'
+      '${w == null ? '' : ' · 약 ${fmtKg(w)}kg'}',
+    );
     pieces += sub.pieces;
     mm += sub.mm;
   }
@@ -133,5 +165,11 @@ String buildSteelInstructionText({
         ? '합계 1세트 ${_one(mm / set)}mm × $set세트 = ${_one(mm)}mm (총 $pieces개)'
         : '합계 ${_one(mm)}mm (총 $pieces개)',
   );
+  if (weights.total != null) {
+    b.writeln(
+      '총 중량 약 ${fmtKg(weights.total!)}kg (이론값'
+      '${weights.unknownSpecs > 0 ? ', 중량을 모르는 규격 ${weights.unknownSpecs}종 제외' : ''})',
+    );
+  }
   return b.toString().trimRight();
 }

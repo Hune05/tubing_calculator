@@ -54,6 +54,10 @@ String fmtMm(double v) => (v - v.roundToDouble()).abs() < 0.05
     ? '${v.round()}'
     : v.toStringAsFixed(1);
 
+// 화면·글에 쓰는 무게(kg) 표기. 100kg 미만은 소수 한 자리, 이상은 정수.
+String fmtKg(double kg) =>
+    kg >= 100 ? kg.toStringAsFixed(0) : kg.toStringAsFixed(1);
+
 String cutBreakdownText({
   required double c2cMm,
   required double startDeduction,

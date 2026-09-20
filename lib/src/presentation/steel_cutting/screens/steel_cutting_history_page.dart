@@ -13,19 +13,102 @@ const List<String> _kWeekdaysKo = ['월', '화', '수', '목', '금', '토', '�
 // 추가/수정/삭제/복제할 때마다 자동으로 쌓이는 변경 기록이라 - 개별
 // 기록을 지우는 기능은 없다(로그를 사후에 편집하면 이력으로서의
 // 의미가 없어지므로).
-class SteelCuttingHistoryPage extends StatefulWidget {
+class SteelCuttingHistoryPage extends StatelessWidget {
   final SteelCuttingProject project;
 
   const SteelCuttingHistoryPage({super.key, required this.project});
 
   @override
-  State<SteelCuttingHistoryPage> createState() =>
-      _SteelCuttingHistoryPageState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: CuttingColors.surface,
+      appBar: AppBar(
+        backgroundColor: CuttingColors.surface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
+        title: Text(
+          "변경 기록 · ${project.name}",
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: CuttingColors.textPrimary,
+            fontWeight: FontWeight.w800,
+            fontSize: 17,
+          ),
+        ),
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection(kSteelCuttingProjectsCollection)
+            .doc(project.id)
+            .collection(kSteelChangeLogSubcollection)
+            .orderBy('timestamp', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Text(
+                "기록을 불러오지 못했습니다.\n${snapshot.error}",
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: CuttingColors.textSecondary),
+              ),
+            );
+          }
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(color: CuttingColors.primary),
+            );
+          }
+          final entries = (snapshot.data?.docs ?? [])
+              .map(
+                (d) => SteelChangeLogEntry.fromMap(
+                  d.id,
+                  d.data() as Map<String, dynamic>,
+                ),
+              )
+              .toList();
+          return SteelHistoryView(entries: entries);
+        },
+      ),
+    );
+  }
 }
 
-class _SteelCuttingHistoryPageState extends State<SteelCuttingHistoryPage> {
+// 기록에 나온 규격들(오래된 기록부터 처음 나온 순서). 목록은 최신순으로 들어오므로 거꾸로 훑는다.
+List<String> steelHistoryShapes(List<SteelChangeLogEntry> entries) {
+  final seen = <String>[];
+  for (final e in entries.reversed) {
+    if (!seen.contains(e.shapeLabel)) seen.add(e.shapeLabel);
+  }
+  return seen;
+}
+
+// 규격 하나만 남긴다(null이면 전부).
+List<SteelChangeLogEntry> filterSteelHistory(
+  List<SteelChangeLogEntry> entries,
+  String? shape,
+) => shape == null
+    ? entries
+    : [
+        for (final e in entries)
+          if (e.shapeLabel == shape) e,
+      ];
+
+// 기록 화면 본체(규격 칩 + 날짜 넘기기 + 하루 목록). 서버에서 받은 기록을 넘겨 받아 그리기만 한다.
+class SteelHistoryView extends StatefulWidget {
+  final List<SteelChangeLogEntry> entries;
+
+  const SteelHistoryView({super.key, required this.entries});
+
+  @override
+  State<SteelHistoryView> createState() => _SteelHistoryViewState();
+}
+
+class _SteelHistoryViewState extends State<SteelHistoryView> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  // 규격 하나만 보기(null이면 전부).
+  String? _shapeFilter;
 
   @override
   void dispose() {
@@ -75,119 +158,127 @@ class _SteelCuttingHistoryPageState extends State<SteelCuttingHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: CuttingColors.surface,
-      appBar: AppBar(
-        backgroundColor: CuttingColors.surface,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
-        title: Text(
-          "변경 기록 · ${widget.project.name}",
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: CuttingColors.textPrimary,
-            fontWeight: FontWeight.w800,
-            fontSize: 17,
-          ),
-        ),
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection(kSteelCuttingProjectsCollection)
-            .doc(widget.project.id)
-            .collection(kSteelChangeLogSubcollection)
-            .orderBy('timestamp', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                "기록을 불러오지 못했습니다.\n${snapshot.error}",
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: CuttingColors.textSecondary),
-              ),
-            );
-          }
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: CuttingColors.primary),
-            );
-          }
-
-          final docs = snapshot.data?.docs ?? [];
-          if (docs.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.history_rounded, size: 48, color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text(
-                      "아직 변경 기록이 없습니다.",
-                      style: TextStyle(
-                        color: CuttingColors.textSecondary,
-                        fontSize: 15,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      "항목을 추가/수정/삭제하면 여기에 자동으로 남습니다.",
-                      style: TextStyle(
-                        color: CuttingColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          final entries = docs
-              .map(
-                (d) => SteelChangeLogEntry.fromMap(
-                  d.id,
-                  d.data() as Map<String, dynamic>,
-                ),
-              )
-              .toList();
-
-          final Map<DateTime, List<SteelChangeLogEntry>> grouped = {};
-          for (final e in entries) {
-            final day = DateTime(
-              e.timestamp.year,
-              e.timestamp.month,
-              e.timestamp.day,
-            );
-            grouped.putIfAbsent(day, () => []).add(e);
-          }
-          final days = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
-
-          if (_currentPage >= days.length) {
-            _currentPage = 0;
-          }
-
-          return Column(
+    final all = widget.entries;
+    if (all.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _buildDayNavigator(days),
-              Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: days.length,
-                  onPageChanged: (i) => setState(() => _currentPage = i),
-                  itemBuilder: (context, i) {
-                    final day = days[i];
-                    final dayEntries = grouped[day]!;
-                    return _buildDayList(day, dayEntries);
-                  },
+              Icon(Icons.history_rounded, size: 48, color: Colors.grey),
+              SizedBox(height: 16),
+              Text(
+                "아직 변경 기록이 없습니다.",
+                style: TextStyle(
+                  color: CuttingColors.textSecondary,
+                  fontSize: 15,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                "항목을 추가/수정/삭제하면 여기에 자동으로 남습니다.",
+                style: TextStyle(
+                  color: CuttingColors.textSecondary,
+                  fontSize: 13,
                 ),
               ),
             ],
-          );
-        },
+          ),
+        ),
+      );
+    }
+
+    final shapes = steelHistoryShapes(all);
+    // 고른 규격의 기록이 없어졌으면 전체로 돌아간다.
+    final String? activeFilter = shapes.contains(_shapeFilter)
+        ? _shapeFilter
+        : null;
+    _shapeFilter = activeFilter;
+    final entries = filterSteelHistory(all, activeFilter);
+
+    final Map<DateTime, List<SteelChangeLogEntry>> grouped = {};
+    for (final e in entries) {
+      final day = DateTime(
+        e.timestamp.year,
+        e.timestamp.month,
+        e.timestamp.day,
+      );
+      grouped.putIfAbsent(day, () => []).add(e);
+    }
+    final days = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    if (_currentPage >= days.length) {
+      _currentPage = 0;
+    }
+
+    return Column(
+      children: [
+        if (shapes.length > 1) _buildShapeFilter(shapes, activeFilter),
+        _buildDayNavigator(days),
+        Expanded(
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: days.length,
+            onPageChanged: (i) => setState(() => _currentPage = i),
+            itemBuilder: (context, i) {
+              final day = days[i];
+              final dayEntries = grouped[day]!;
+              return _buildDayList(day, dayEntries);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 규격이 둘 이상이면 위쪽에 "전체 · 앵글 40x40x3 · 찬넬 …" 칩을 둔다(하나 누르면 그 규격 기록만 보인다).
+  Widget _buildShapeFilter(List<String> shapes, String? active) {
+    Widget chip(String label, String? value) {
+      final selected = active == value;
+      return Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: Material(
+          color: selected ? CuttingColors.primary : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            key: Key('steel_history_shape_${value ?? 'all'}'),
+            borderRadius: BorderRadius.circular(8),
+            onTap: () {
+              setState(() {
+                _shapeFilter = value;
+                _currentPage = 0;
+              });
+              if (_pageController.hasClients) _pageController.jumpToPage(0);
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: selected ? Colors.white : Colors.grey.shade700,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+      decoration: const BoxDecoration(
+        color: CuttingColors.surface,
+        border: Border(bottom: BorderSide(color: CuttingColors.border)),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [chip('전체', null), for (final s in shapes) chip(s, s)],
+        ),
       ),
     );
   }

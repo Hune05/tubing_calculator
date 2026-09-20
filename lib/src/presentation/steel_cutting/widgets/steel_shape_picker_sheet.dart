@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../data/models/steel_shape_db.dart';
 import '../../tube_cutting/cutting_theme.dart';
+import '../steel_custom_shapes.dart';
 import '../steel_shape_icons.dart';
 
 // 🚀 [형강 컷팅 신규] 부속 검색 팝업(SmartFittingSelectorSheet)과 같은
@@ -29,11 +30,29 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
   String _searchQuery = '';
   String _categoryFilter = '전체';
   final TextEditingController _searchController = TextEditingController();
+  // 직접 입력해서 저장해 둔 "내 규격" 이름들(최근에 쓴 것이 앞).
+  List<String> _custom = [];
 
-  // 칩: 전체 + DB의 종류 전부(칩이 많아 옆으로 밀어서 본다).
-  static final List<String> _categories = [
+  static const String _kMine = '내 규격';
+
+  @override
+  void initState() {
+    super.initState();
+    loadCustomSteelShapes().then((v) {
+      if (mounted) setState(() => _custom = v);
+    });
+  }
+
+  // 칩: 전체 + (있으면) 내 규격 + DB의 종류 전부(칩이 많아 옆으로 밀어서 본다).
+  List<String> get _categories => [
     '전체',
+    if (_custom.isNotEmpty) _kMine,
     ...SteelShapeDB.categories.map((c) => c.label),
+  ];
+
+  List<SteelShapeItem> get _customItems => [
+    for (final label in _custom)
+      SteelShapeItem(id: 'custom_$label', category: 'CUSTOM', label: label),
   ];
 
   @override
@@ -43,8 +62,10 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
   }
 
   List<SteelShapeItem> get _filtered {
-    Iterable<SteelShapeItem> list = SteelShapeDB.all;
-    if (_categoryFilter != '전체') {
+    Iterable<SteelShapeItem> list = [..._customItems, ...SteelShapeDB.all];
+    if (_categoryFilter == _kMine) {
+      list = _customItems;
+    } else if (_categoryFilter != '전체') {
       final id = SteelShapeDB.categories
           .firstWhere((c) => c.label == _categoryFilter)
           .id;
@@ -57,15 +78,71 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
           .toLowerCase()
           .replaceAll(RegExp(r'[\s*×·,]+'), 'x')
           .replaceAll(RegExp(r'x+'), 'x');
+      // "C찬넬"은 찬넬과 립C형강 둘 다 가리키는 현장 말이다.
+      final cMatch = RegExp(r'^c\s*찬넬\s*(.*)$').firstMatch(q);
       final nq = norm(q);
-      list = list.where(
-        (s) =>
-            s.label.toLowerCase().contains(q) ||
+      final cRest = cMatch == null ? '' : norm(cMatch.group(1)!);
+      list = list.where((s) {
+        if (cMatch != null &&
+            (s.category == 'CHANNEL' || s.category == 'LIPC')) {
+          // 찬넬 종류 안에서 뒤에 붙인 치수로 더 거른다("C찬넬 100").
+          final nl = norm(s.label);
+          if (cRest.isEmpty || nl.contains(cRest) || nl.contains('x$cRest')) {
+            return true;
+          }
+        }
+        return s.label.toLowerCase().contains(q) ||
             norm(s.label).contains(nq) ||
-            SteelShapeDB.categoryLabel(s.category).contains(q),
-      );
+            SteelShapeDB.categoryLabel(s.category).contains(q);
+      });
     }
     return list.toList();
+  }
+
+  Future<void> _confirmRemove(String label) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: CuttingColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          "'$label'을(를) 내 규격에서 지우겠습니까?",
+          style: const TextStyle(
+            fontWeight: FontWeight.w800,
+            color: CuttingColors.textPrimary,
+            fontSize: 16,
+          ),
+        ),
+        content: const Text(
+          "이미 넣은 항목은 그대로 남습니다.",
+          style: TextStyle(color: CuttingColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("취소", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            key: const Key('custom_remove_confirm'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: CuttingColors.danger,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              "지우기",
+              style: TextStyle(color: CuttingColors.surface),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final left = await removeCustomSteelShape(label);
+    if (!mounted) return;
+    setState(() {
+      _custom = left;
+      if (_custom.isEmpty && _categoryFilter == _kMine) _categoryFilter = '전체';
+    });
   }
 
   Widget _buildCategoryChip(String label) {
@@ -279,6 +356,18 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
                                   color: CuttingColors.textPrimary,
                                 ),
                               ),
+                              trailing: item.category == 'CUSTOM'
+                                  ? IconButton(
+                                      key: Key('custom_remove_${item.label}'),
+                                      tooltip: '내 규격에서 지우기',
+                                      icon: Icon(
+                                        Icons.close_rounded,
+                                        color: Colors.grey.shade500,
+                                      ),
+                                      onPressed: () =>
+                                          _confirmRemove(item.label),
+                                    )
+                                  : null,
                               onTap: () => Navigator.pop(context, item),
                             );
                           },

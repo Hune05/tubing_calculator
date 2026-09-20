@@ -24,6 +24,7 @@ import '../../tube_cutting/cutting_result_view.dart';
 import '../../tube_cutting/cutting_theme.dart';
 import '../../tube_cutting/widgets/cutting_optimization_sheet.dart';
 import '../steel_result_logic.dart';
+import '../steel_weight.dart';
 import '../steel_shape_icons.dart';
 import '../widgets/steel_item_sheet.dart';
 import 'steel_cutting_history_page.dart';
@@ -359,12 +360,15 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       // 1) 자를 길이 표 — 규격마다 소계 줄을 넣는다.
       final bool showHow = _setMultiplier > 1;
       final subs = shapeSubtotals(lines);
+      final weights = weightTotals(lines);
+      final bool weightKnown = weights.total != null;
       final headers = [
         "규격",
         "1개 길이(mm)",
         "개수",
         if (showHow) "개수 구성",
         "합계 길이(mm)",
+        if (weightKnown) "중량(kg)",
         "비고",
       ];
       final rows = <List<String>>[];
@@ -376,6 +380,10 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             "${l.count}",
             if (showHow) "${l.baseCount}개 × ${l.sets}세트",
             fmtMm(l.totalMm),
+            if (weightKnown)
+              steelWeightKg(l.spec, l.totalMm) == null
+                  ? "-"
+                  : "약 ${fmtKg(steelWeightKg(l.spec, l.totalMm)!)}",
             l.detail,
           ]);
         }
@@ -477,6 +485,16 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                 ),
               ),
             ),
+            if (weightKnown)
+              pw.Align(
+                alignment: pw.Alignment.centerRight,
+                child: pw.Text(
+                  "총 중량: 약 ${fmtKg(weights.total!)} kg (이론값"
+                  "${weights.unknownSpecs > 0 ? ', 중량을 모르는 규격 ${weights.unknownSpecs}종 제외' : ''}"
+                  ", 실제와 다를 수 있음)",
+                  style: const pw.TextStyle(fontSize: 10),
+                ),
+              ),
             pw.SizedBox(height: 20),
             pw.Text(
               "2. 원자재별 배치 (재단 최적화, 총 $totalBars본 - 규격별로 각각 계산됨)",
@@ -922,6 +940,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   // 결과 창: 제목줄 아이콘(재단 최적화·PDF·카톡·글 복사) + 세트 수 + 규격별로 묶은 자를 길이 목록.
   Widget _buildResultPane() {
     final lines = _resultLines();
+    final weights = weightTotals(lines);
     return Container(
       color: Colors.grey.shade50,
       padding: const EdgeInsets.all(24.0),
@@ -1050,6 +1069,8 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                 onToggle: _toggleDone,
                 setMultiplier: _setMultiplier,
                 specHeaders: true,
+                specWeights: weights.bySpec,
+                unknownWeightSpecs: weights.unknownSpecs,
                 emptyMessage: "절단 항목을 먼저 추가하십시오.",
               ),
             ),

@@ -5,6 +5,7 @@ import '../../../data/models/steel_cutting_project_model.dart';
 import '../../../data/models/steel_shape_db.dart';
 import '../../tube_cutting/cutting_math.dart' show parseLengthInput, fmtMm;
 import '../../tube_cutting/cutting_theme.dart';
+import '../steel_custom_shapes.dart';
 import '../steel_cutting_favorites.dart';
 import '../steel_shape_icons.dart';
 import 'steel_shape_picker_sheet.dart';
@@ -137,7 +138,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
           controller: ctrl,
           autofocus: true,
           decoration: InputDecoration(
-            hintText: "예: 50x25x2 각파이프",
+            hintText: "예: 앵글 50x50x6 (이 형식이면 중량도 계산)",
             filled: true,
             fillColor: Colors.grey.shade100,
             border: OutlineInputBorder(
@@ -207,6 +208,8 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
     );
     widget.onSave(item);
     HapticFeedback.lightImpact();
+    // 직접 입력한 규격은 다음에 "내 규격"에서 고를 수 있게 적어 둔다.
+    if (shape.category == 'CUSTOM') addCustomSteelShape(shape.label);
     saveRecentSteelItem(
       SteelQuickPick(
         category: shape.category,
