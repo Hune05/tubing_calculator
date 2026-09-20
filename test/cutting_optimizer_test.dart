@@ -311,7 +311,8 @@ void main() {
       await open(tester, pieces: [900]);
       await tester.tap(find.text('잔재 관리'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('규격 미지정  1000mm'), findsOneWidget);
+      expect(find.textContaining('규격 미지정  ·  1개 · 합계 1000mm'), findsOneWidget);
+      expect(find.text('1000mm'), findsOneWidget);
       await tester.tap(find.byIcon(Icons.delete_outline));
       await tester.pump();
       await tester.enterText(find.byType(TextField).last, '1500');

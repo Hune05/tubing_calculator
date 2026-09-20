@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../cutting_leftover_log.dart';
 import '../cutting_leftovers.dart';
 import '../cutting_optimizer.dart';
 import '../cutting_theme.dart';
+import 'leftover_log_page.dart';
 
 // 🚀 [형강 컷팅 신규 기능 대비 리팩터링] 원래 이 "재단 최적화" 시트는
 // CuttingMainScreen 안에 300줄 가까이 박혀 있어서, 튜브 라인이 아니라
@@ -40,6 +42,8 @@ Future<void> showCuttingOptimizationSheet(
   // 이 결과의 잔재를 이미 저장했으면 true — 저장 버튼 자리에 "저장했습니다"를 보여 같은 컷팅을 두 번 저장하지 않게 한다.
   // (기준 길이·잔재 사용 설정을 바꿔 다시 계산하면 다른 컷팅이 되므로 다시 저장할 수 있다.)
   bool leftoversAlreadySaved = false,
+  // 잔재 기록에 적을 작업 이름("튜브 컷팅 · 루마" 등).
+  String leftoverLogSource = '',
 }) async {
   final Map<String, List<double>> groups =
       (groupedPieces != null && groupedPieces.isNotEmpty)
@@ -62,6 +66,8 @@ Future<void> showCuttingOptimizationSheet(
   bool leftoversSaved = leftoversAlreadySaved;
   // 이 창에서 저장하기 직전의 잔재 목록(되돌리기용). 저장하지 않았거나 되돌린 뒤에는 null.
   List<Leftover>? savedFrom;
+  // 방금 저장하면서 적은 잔재 기록의 id(되돌리기에서 그 기록을 지운다).
+  String? lastLogId;
   double stockNow = initialStockLength;
 
   // 여러 길이 섞어 쓰기: 켜면 고른 길이들만 섞어서 계산한다(위 기준 길이는 쓰지 않는다).
@@ -380,6 +386,11 @@ Future<void> showCuttingOptimizationSheet(
                 added: added,
               );
               await saveLeftovers(leftovers);
+              lastLogId = await appendLeftoverLog(
+                source: leftoverLogSource,
+                used: used,
+                added: added,
+              );
               onLeftoversSaved?.call();
               setSheetState(() => leftoversSaved = true);
               if (ctx.mounted) {
@@ -395,6 +406,8 @@ Future<void> showCuttingOptimizationSheet(
                     leftovers = savedFrom!;
                     savedFrom = null;
                     await saveLeftovers(leftovers);
+                    if (lastLogId != null) await removeLeftoverLog(lastLogId!);
+                    lastLogId = null;
                     onLeftoversSaveUndone?.call();
                     setSheetState(() {
                       leftoversSaved = false;
@@ -404,6 +417,9 @@ Future<void> showCuttingOptimizationSheet(
                       showCuttingSnack(ctx, "저장을 되돌렸습니다.");
                     }
                   },
+            onLog: () => Navigator.of(
+              ctx,
+            ).push(MaterialPageRoute(builder: (_) => const LeftoverLogPage())),
             onManage: () async {
               final changed = await _manageLeftovers(
                 ctx,
@@ -802,6 +818,7 @@ Widget _buildLeftoverCard({
   required VoidCallback onSave,
   required VoidCallback onManage,
   VoidCallback? onUndo,
+  VoidCallback? onLog,
 }) {
   return Builder(
     builder: (context) => _tealTheme(
@@ -876,6 +893,12 @@ Widget _buildLeftoverCard({
                     child: const Text("잘랐습니다 (잔재 저장)"),
                   ),
                 TextButton(onPressed: onManage, child: const Text("잔재 관리")),
+                if (onLog != null)
+                  TextButton(
+                    key: const Key('leftover_log_open'),
+                    onPressed: onLog,
+                    child: const Text("잔재 기록"),
+                  ),
               ],
             ),
           ],
@@ -934,22 +957,36 @@ Future<List<Leftover>?> _manageLeftovers(
                         : ListView(
                             shrinkWrap: true,
                             children: [
-                              for (int i = 0; i < list.length; i++)
-                                ListTile(
-                                  dense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                  title: Text(
-                                    "${list[i].label.isEmpty ? '규격 미지정' : list[i].label}  ${list[i].length.toStringAsFixed(0)}mm",
-                                  ),
-                                  trailing: IconButton(
-                                    icon: const Icon(Icons.delete_outline),
-                                    tooltip: "삭제",
-                                    onPressed: () => setD(() {
-                                      list.removeAt(i);
-                                      changed = true;
-                                    }),
+                              // 규격별로 묶고, 규격 안에서는 긴 잔재부터.
+                              for (final g in groupLeftoversByLabel(list)) ...[
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    "${g.label.isEmpty ? '규격 미지정' : g.label}  ·  ${g.indices.length}개 · 합계 ${g.totalMm.toStringAsFixed(0)}mm",
+                                    key: Key('leftover_group_${g.label}'),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w900,
+                                    ),
                                   ),
                                 ),
+                                for (final i in g.indices)
+                                  ListTile(
+                                    dense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                    title: Text(
+                                      "${list[i].length.toStringAsFixed(0)}mm",
+                                    ),
+                                    trailing: IconButton(
+                                      icon: const Icon(Icons.delete_outline),
+                                      tooltip: "삭제",
+                                      onPressed: () => setD(() {
+                                        list.removeAt(i);
+                                        changed = true;
+                                      }),
+                                    ),
+                                  ),
+                              ],
                             ],
                           ),
                   ),

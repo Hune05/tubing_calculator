@@ -320,6 +320,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       mixPrefsKey: kTubeMixPrefsKey,
       onLeftoversSaved: _onLeftoversSaved,
       onLeftoversSaveUndone: _onLeftoversSaveUndone,
+      leftoverLogSource: '튜브 컷팅 · ${widget.project.name}',
       kerf: _bladeKerf,
       onStockLengthChanged: (parsed) {
         setState(() => _stockLength = parsed);

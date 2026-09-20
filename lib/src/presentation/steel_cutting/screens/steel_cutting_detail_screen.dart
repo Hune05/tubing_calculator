@@ -386,6 +386,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       onLeftoversSaved: _onLeftoversSaved,
       onLeftoversSaveUndone: _onLeftoversSaveUndone,
       leftoversAlreadySaved: _leftoversSaved,
+      leftoverLogSource: '형강 컷팅 · ${widget.project.name}',
       title: "재단 최적화 (원자재 소요 계산)",
       onStockLengthChanged: (v) {
         setState(() => _stockLength = v);

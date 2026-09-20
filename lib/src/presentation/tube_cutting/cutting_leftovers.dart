@@ -43,6 +43,33 @@ Future<void> saveLeftovers(List<Leftover> all) async {
   await p.setStringList(kLeftoversPrefsKey, [for (final l in all) l.encode()]);
 }
 
+// 잔재 목록을 규격별로 묶는다(화면에서 규격마다 머리글을 두려고). 규격은 처음 나온 순서, 같은 규격 안에서는
+// 긴 잔재부터. [indices]는 원래 목록에서의 위치라서 지울 때 그대로 쓴다.
+class LeftoverGroup {
+  final String label;
+  final List<int> indices;
+  final double totalMm;
+  const LeftoverGroup(this.label, this.indices, this.totalMm);
+}
+
+List<LeftoverGroup> groupLeftoversByLabel(List<Leftover> list) {
+  final order = <String>[];
+  final idx = <String, List<int>>{};
+  for (var i = 0; i < list.length; i++) {
+    final l = list[i].label;
+    if (!idx.containsKey(l)) order.add(l);
+    idx.putIfAbsent(l, () => []).add(i);
+  }
+  return [
+    for (final l in order)
+      LeftoverGroup(
+        l,
+        (idx[l]!..sort((a, b) => list[b].length.compareTo(list[a].length))),
+        idx[l]!.fold(0.0, (s, i) => s + list[i].length),
+      ),
+  ];
+}
+
 // 이번 계산에서 쓴 잔재([used])를 빼고 새 잔재([added])를 더한다.
 // 같은 길이가 여러 개면 쓴 개수만큼만 뺀다.
 List<Leftover> applyLeftoverChange(

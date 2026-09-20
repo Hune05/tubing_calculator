@@ -6,7 +6,9 @@ import 'package:tubing_calculator/src/data/models/steel_shape_db.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_cutting_detail_screen.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_cutting_history_page.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_pdf_preview_page.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_leftover_log.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_leftovers.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/widgets/leftover_log_page.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/steel_custom_shapes.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/steel_result_logic.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/steel_weight.dart';
@@ -758,6 +760,182 @@ void main() {
       await tester.tap(find.text('결과'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('steel_sort_weight')), findsNothing);
+    });
+  });
+
+  group('잔재 기록·규격별 잔재', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    test('기록: 최신이 앞, 쓴 것·새로 생긴 것이 없으면 적지 않는다', () async {
+      expect(
+        await appendLeftoverLog(source: 'x', used: const [], added: const []),
+        isNull,
+      );
+      final a = await appendLeftoverLog(
+        source: '형강 컷팅 · 루마',
+        used: const [Leftover('앵글 40x40x3', 3000)],
+        added: const [Leftover('앵글 40x40x3', 5400)],
+        now: DateTime(2026, 9, 20, 9),
+      );
+      await appendLeftoverLog(
+        source: '튜브 컷팅 · H2',
+        used: const [],
+        added: const [Leftover('튜브 1/2"', 800)],
+        now: DateTime(2026, 9, 21, 10, 30),
+      );
+      final log = await loadLeftoverLog();
+      expect(log.length, 2);
+      expect(log.first.source, '튜브 컷팅 · H2');
+      expect(log.last.used.single.length, 3000);
+      await removeLeftoverLog(a!);
+      expect((await loadLeftoverLog()).map((e) => e.source), ['튜브 컷팅 · H2']);
+    });
+
+    test('기록은 최근 100건만 남긴다', () async {
+      for (var i = 0; i < kMaxLeftoverLog + 5; i++) {
+        await appendLeftoverLog(
+          source: 'n$i',
+          used: const [],
+          added: [Leftover('a', 300.0 + i)],
+          now: DateTime(2026, 1, 1).add(Duration(minutes: i)),
+        );
+      }
+      final log = await loadLeftoverLog();
+      expect(log.length, kMaxLeftoverLog);
+      expect(log.first.source, 'n${kMaxLeftoverLog + 4}');
+    });
+
+    test('기록 글: 같은 길이는 × 개수로 묶고 규격별로 적는다', () {
+      expect(describeLeftovers(const []), '없음');
+      expect(
+        describeLeftovers(const [
+          Leftover('앵글 40x40x3', 5400),
+          Leftover('앵글 40x40x3', 5400),
+          Leftover('앵글 40x40x3', 3000),
+          Leftover('스트럿 41x41x2.5', 5000),
+        ]),
+        '앵글 40x40x3 5400mm × 2, 3000mm / 스트럿 41x41x2.5 5000mm',
+      );
+    });
+
+    test('규격별 묶기: 규격은 처음 나온 순서, 안에서는 긴 것부터, 위치를 알려 준다', () {
+      final list = const [
+        Leftover('앵글', 1000),
+        Leftover('스트럿', 500),
+        Leftover('앵글', 3000),
+        Leftover('스트럿', 900),
+      ];
+      final g = groupLeftoversByLabel(list);
+      expect(g.map((e) => e.label), ['앵글', '스트럿']);
+      expect(g[0].indices, [2, 0]);
+      expect(g[0].totalMm, 4000);
+      expect(g[1].indices, [3, 1]);
+      expect(groupLeftoversByLabel(const []), isEmpty);
+    });
+
+    testWidgets('잔재 기록 화면: 카드에 쓴 잔재·새 잔재, 없으면 안내', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LeftoverLogPage(
+            entries: [
+              LeftoverLogEntry(
+                id: '1',
+                at: DateTime(2026, 9, 20, 9, 5),
+                source: '형강 컷팅 · 루마',
+                used: const [Leftover('앵글 40x40x3', 3000)],
+                added: const [Leftover('앵글 40x40x3', 5400)],
+              ),
+            ],
+          ),
+        ),
+      );
+      expect(find.text('잔재 기록'), findsOneWidget);
+      expect(find.text('9월 20일(일) 09:05'), findsOneWidget);
+      expect(find.text('형강 컷팅 · 루마'), findsOneWidget);
+      expect(find.text('앵글 40x40x3 3000mm'), findsOneWidget);
+      expect(find.text('앵글 40x40x3 5400mm'), findsOneWidget);
+      await tester.pumpWidget(
+        const MaterialApp(home: LeftoverLogPage(entries: [])),
+      );
+      expect(findTextContaining('아직 잔재 기록이 없습니다'), findsOneWidget);
+    });
+
+    SteelCuttingProject proj() => SteelCuttingProject(
+      id: 'sp7',
+      name: '루마',
+      createdAt: DateTime(2026, 9, 20),
+      items: [item('앵글 40x40x3', 500, 2, id: 'a')],
+    );
+
+    Future<void> openOptimize(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 4000);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(home: SteelCuttingDetailScreen(project: proj())),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('steel_btn_optimize')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('저장하면 기록이 남고 되돌리면 기록도 지워지며, 기록 버튼으로 볼 수 있다', (tester) async {
+      await openOptimize(tester);
+      final save = find.text('잘랐습니다 (잔재 저장)');
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      var log = await loadLeftoverLog();
+      expect(log.length, 1);
+      expect(log.single.source, '형강 컷팅 · 루마');
+      expect(log.single.added.single.label, '앵글 40x40x3');
+
+      // 기록 화면
+      final open = find.byKey(const Key('leftover_log_open'));
+      await tester.ensureVisible(open);
+      await tester.tap(open);
+      await tester.pumpAndSettle();
+      expect(find.text('형강 컷팅 · 루마'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      final undo = find.byKey(const Key('leftover_undo'));
+      await tester.ensureVisible(undo);
+      await tester.tap(undo);
+      await tester.pumpAndSettle();
+      log = await loadLeftoverLog();
+      expect(log, isEmpty);
+    });
+
+    testWidgets('잔재 관리 창은 규격별 머리글로 묶는다', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        kLeftoversPrefsKey: [
+          const Leftover('앵글 40x40x3', 1000).encode(),
+          const Leftover('스트럿 41x41x2.5', 500).encode(),
+          const Leftover('앵글 40x40x3', 3000).encode(),
+        ],
+      });
+      await openOptimize(tester);
+      final manage = find.text('잔재 관리');
+      await tester.ensureVisible(manage);
+      await tester.tap(manage);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('leftover_group_앵글 40x40x3')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('leftover_group_앵글 40x40x3')))
+            .data,
+        contains('2개 · 합계 4000mm'),
+      );
+      expect(
+        find.byKey(const Key('leftover_group_스트럿 41x41x2.5')),
+        findsOneWidget,
+      );
     });
   });
 }
