@@ -15,27 +15,56 @@ import 'cutting_theme.dart';
 /// 누적한다. 데스크톱 ProjectManagementPage가 project['materials']에 쌓는
 /// 방식과 완전히 동일한 구조(db_name 기준 병합)를 써서, 같은 재고 차감
 /// 로직을 재사용할 수 있게 한다.
+/// 튜브 자재를 재고에서 찾을 이름. 규격을 넣어야 3/8"와 1/2"가 따로 빠진다.
+/// 🚀 [고침] 예전에는 규격과 상관없이 모두 'TUBE (기본)' 한 이름으로 쌓여서
+/// 규격별 재고 관리가 아예 안 됐다.
+String tubeMaterialName(String tubeSize) {
+  final s = tubeSize.trim();
+  if (s.isEmpty) return '튜브 (규격 미지정)';
+  return '튜브 $s';
+}
+
+/// 예전에 쌓인 이름(재고를 찾을 때 옛 이름도 같이 본다).
+const String kLegacyTubeMaterialName = 'TUBE (기본)';
+
 List<Map<String, dynamic>> mergeMaterialsUsage(
   List<dynamic> currentMaterials,
   double tubeLengthMm,
-  List<Map<String, dynamic>> fittingsList,
-) {
+  List<Map<String, dynamic>> fittingsList, {
+  String tubeSize = '',
+  // 규격이 섞인 작업이면 규격별 길이를 넘긴다(이쪽이 우선).
+  Map<String, double>? tubeLengthBySize,
+}) {
   final List<Map<String, dynamic>> materials = currentMaterials
       .map((m) => Map<String, dynamic>.from(m as Map))
       .toList();
 
-  if (tubeLengthMm > 0) {
-    final tubeIdx = materials.indexWhere((m) => m['type'] == 'TUBE');
-    if (tubeIdx >= 0) {
-      materials[tubeIdx]['qty_mm'] =
-          (materials[tubeIdx]['qty_mm'] as num? ?? 0) + tubeLengthMm;
+  void addTube(String size, double mm) {
+    if (mm <= 0) return;
+    final name = tubeMaterialName(size);
+    var idx = materials.indexWhere(
+      (m) => m['type'] == 'TUBE' && (m['db_name'] ?? '') == name,
+    );
+    // 규격을 모르면 예전처럼 튜브 줄 하나에 쌓는다(옛 자료와 이어진다).
+    if (idx < 0 && size.trim().isEmpty) {
+      idx = materials.indexWhere((m) => m['type'] == 'TUBE');
+    }
+    if (idx >= 0) {
+      materials[idx]['qty_mm'] = (materials[idx]['qty_mm'] as num? ?? 0) + mm;
     } else {
       materials.add({
-        'db_name': 'TUBE (기본)',
+        'db_name': name,
         'type': 'TUBE',
-        'qty_mm': tubeLengthMm,
+        'spec': size,
+        'qty_mm': mm,
       });
     }
+  }
+
+  if (tubeLengthBySize != null && tubeLengthBySize.isNotEmpty) {
+    tubeLengthBySize.forEach(addTube);
+  } else {
+    addTube(tubeSize, tubeLengthMm);
   }
 
   for (final newFit in fittingsList) {
@@ -66,22 +95,35 @@ List<Map<String, dynamic>> mergeMaterialsUsage(
 List<Map<String, dynamic>> subtractMaterialsUsage(
   List<dynamic> currentMaterials,
   double tubeLengthMm,
-  List<Map<String, dynamic>> fittingsList,
-) {
+  List<Map<String, dynamic>> fittingsList, {
+  String tubeSize = '',
+  Map<String, double>? tubeLengthBySize,
+}) {
   final List<Map<String, dynamic>> materials = currentMaterials
       .map((m) => Map<String, dynamic>.from(m as Map))
       .toList();
 
-  if (tubeLengthMm > 0) {
-    final tubeIdx = materials.indexWhere((m) => m['type'] == 'TUBE');
-    if (tubeIdx >= 0) {
-      final left = (materials[tubeIdx]['qty_mm'] as num? ?? 0) - tubeLengthMm;
-      if (left <= 1e-6) {
-        materials.removeAt(tubeIdx);
-      } else {
-        materials[tubeIdx]['qty_mm'] = left;
-      }
+  void takeTube(String size, double mm) {
+    if (mm <= 0) return;
+    final name = tubeMaterialName(size);
+    var idx = materials.indexWhere(
+      (m) => m['type'] == 'TUBE' && (m['db_name'] ?? '') == name,
+    );
+    // 옛 자료는 규격 없이 한 줄로 쌓여 있다.
+    idx = idx >= 0 ? idx : materials.indexWhere((m) => m['type'] == 'TUBE');
+    if (idx < 0) return;
+    final left = (materials[idx]['qty_mm'] as num? ?? 0) - mm;
+    if (left <= 1e-6) {
+      materials.removeAt(idx);
+    } else {
+      materials[idx]['qty_mm'] = left;
     }
+  }
+
+  if (tubeLengthBySize != null && tubeLengthBySize.isNotEmpty) {
+    tubeLengthBySize.forEach(takeTube);
+  } else {
+    takeTube(tubeSize, tubeLengthMm);
   }
 
   for (final fit in fittingsList) {
@@ -115,10 +157,17 @@ Future<void> saveCuttingSession({
 
   final snap = await docRef.get();
   final existingMaterials = (snap.data()?['materials'] as List?) ?? [];
+  // 기록에 적힌 규격별로 나눠서 쌓는다(한 작업에 3/8"와 1/2"가 섞일 수 있다).
+  final bySize = <String, double>{};
+  for (final r in cutRecords) {
+    final size = r.tubeSize.trim();
+    bySize[size] = (bySize[size] ?? 0) + r.cutLength * r.multiplier;
+  }
   final mergedMaterials = mergeMaterialsUsage(
     existingMaterials,
     totalTubeLength,
     fittingsList,
+    tubeLengthBySize: bySize.isEmpty ? null : bySize,
   );
 
   await docRef.update({
@@ -267,71 +316,35 @@ Future<void> deductCuttingProjectInventory({
   );
 
   try {
-    // 🚀 [고침] 예전에는 이름이 딱 맞는 재고가 없으면 수량이 음수인 자재를
-    // 새로 만들어 버렸다("임시 등록 (확인 필요)"). 그러면 창고에 없는 자재가
-    // −3본처럼 남아 재고가 엉킨다. 지금은 못 찾은 것은 그대로 두고 몇 건인지
-    // 알려 준다. 칸 이름(spec·minQty)과 기록 모양도 자재 화면과 맞췄다.
-    final takes = stockTakesFromMaterials(materials);
-    final done = <StockTake>[];
-    final missing = <StockTake>[];
-    final batch = db.batch();
-
-    for (final take in takes) {
-      final invSnap = await db
-          .collection('inventory')
-          .where('name', isEqualTo: take.name)
-          .limit(1)
-          .get();
-
-      if (invSnap.docs.isEmpty) {
-        missing.add(take);
-        continue;
-      }
-
-      final doc = invSnap.docs.first;
-      final data = doc.data();
-      final unit = (data['unit'] as String?) ?? take.unit;
-
-      batch.update(db.collection('inventory').doc(doc.id), {
-        'qty': FieldValue.increment(-take.qty),
-        'lastUpdated': FieldValue.serverTimestamp(),
-      });
-
-      // 자재 기록은 불출과 같은 모양으로 남긴다(자재 화면에서 그대로 읽힌다).
-      batch.set(db.collection('inventory_logs').doc(), {
-        'material_name': take.name,
-        'type': 'OUT',
-        'action': '컷팅 사용',
-        'qty': take.qty,
-        'unit': unit,
-        'worker_name': who,
-        'project_name': projectName,
-        'device': 'Mobile',
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-
-      done.add(take);
-    }
+    // 🚀 [고침] 예전에는 여기에 차감 셈이 따로 한 벌 더 있었다(자재 목록 화면과
+    // 형강 화면까지 세 벌). 한 곳만 고치면 나머지가 어긋나므로 공용 함수
+    // deductStockTakes 하나로 모았다. 재고에 없는 자재를 음수로 새로 만들지
+    // 않고, 통신이 안 될 때 "재고에 없다"고 잘라 말하지 않는 것도 여기 들어 있다.
+    final barLengths = await loadBarLengths();
+    final takes = stockTakesFromMaterials(
+      materials,
+      barLengthByName: barLengths,
+    );
+    final result = await deductStockTakes(
+      takes,
+      projectName: projectName,
+      worker: who,
+      projectId: projectId,
+    );
 
     // 뺀 것만 지운다. 못 찾은 것은 남겨 둬서, 자재를 넣은 뒤 다시 뺄 수 있게 한다.
-    if (missing.isEmpty) {
-      batch.update(docRef, {'materials': []});
-    } else {
-      batch.update(docRef, {
-        'materials': [
-          for (final raw in materials)
-            if (raw is Map &&
-                missing.any(
-                  (m) => m.name == (raw['db_name'] ?? raw['name'] ?? ''),
-                ))
-              raw,
-        ],
-      });
-    }
+    final leftNames = {for (final m in result.missing) m.name};
+    await docRef.update({
+      'materials': [
+        for (final raw in materials)
+          if (raw is Map &&
+              leftNames.contains(
+                (raw['db_name'] ?? raw['name'] ?? '').toString().trim(),
+              ))
+            raw,
+      ],
+    }).timeout(const Duration(seconds: 8), onTimeout: () {});
 
-    await batch.commit();
-
-    final result = StockDeductResult(done: done, missing: missing);
     if (context.mounted) Navigator.pop(context);
     if (context.mounted) {
       showCuttingSnack(context, result.message, isError: !result.allDone);

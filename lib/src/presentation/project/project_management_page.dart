@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_stock_deduct.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,7 +26,6 @@ class ProjectManagementPage extends StatefulWidget {
 
 class _ProjectManagementPageState extends State<ProjectManagementPage> {
   int? _expandedIndex;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
   final ImagePicker _picker = ImagePicker();
 
   final WorkProjectRepository _projectRepo = WorkProjectRepository();
@@ -1096,55 +1094,46 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
 
     try {
       final materials = project['materials'] as List<dynamic>;
-      // 🚀 [버그 수정] 여러 건의 Firestore 쓰기를 하나의 배치로 묶어 원자적으로 처리합니다.
-      // (기존에는 자재 하나씩 개별적으로 await 하다가 중간에 실패하면 일부만 차감된 채
-      //  isDeducted가 false로 남아, 재시도 시 이미 차감된 자재가 중복으로 또 차감되는 문제가 있었습니다.)
-      final batch = _db.batch();
-      // 🚀 [고침] 예전에는 이름이 딱 맞는 재고가 없으면 수량이 음수인 자재를
-      // 새로 만들어 버려서(임시 등록) 창고에 없는 자재가 −3본처럼 남았다.
-      // 지금은 못 찾은 것은 그대로 두고 몇 건인지 알려 준다. 기록도 자재 화면과
-      // 같은 모양(불출·수량)으로 남긴다.
-      final takes = stockTakesFromMaterials(materials);
-      final missing = <StockTake>[];
-      for (final take in takes) {
-        final snapshot = await _db
-            .collection('inventory')
-            .where('name', isEqualTo: take.name)
-            .limit(1)
-            .get();
-        if (snapshot.docs.isEmpty) {
-          missing.add(take);
-          continue;
-        }
-        final doc = snapshot.docs.first;
-        final unit = (doc.data()['unit'] as String?) ?? take.unit;
-        batch.update(_db.collection('inventory').doc(doc.id), {
-          'qty': FieldValue.increment(-take.qty),
-          'lastUpdated': FieldValue.serverTimestamp(),
-        });
-        batch.set(_db.collection('inventory_logs').doc(), {
-          "material_name": take.name,
-          "type": "OUT",
-          "action": "컷팅 사용",
-          "qty": take.qty,
-          "unit": unit,
-          "project_name": project['name'],
-          "device": "PC",
-          "timestamp": FieldValue.serverTimestamp(),
-        });
-      }
-      await batch.commit();
-
+      // 🚀 [고침] 차감 셈이 화면마다 따로 한 벌씩 있었다(여기·컷팅 목록·형강).
+      // 한 곳만 고치면 나머지가 어긋나므로 공용 함수 하나로 모았다.
+      // 재고에 없는 자재를 음수로 새로 만들지 않고, 통신이 안 될 때
+      // "재고에 없다"고 잘라 말하지 않는 것도 그 함수에 들어 있다.
+      final barLengths = await loadBarLengths();
+      final takes = stockTakesFromMaterials(
+        materials,
+        barLengthByName: barLengths,
+      );
+      final result = await deductStockTakes(
+        takes,
+        projectName: (project['name'] ?? '').toString(),
+        device: 'PC',
+      );
       if (mounted) Navigator.pop(context);
+
+      // 🚀 [고침] 예전에는 못 찾은 자재가 있어도 "완료"라고만 하고 차감함으로
+      // 표시해 버려서, 자재를 나중에 넣고 다시 누르면 이미 뺀 것까지 또 빠졌다.
+      // 뺀 자재는 목록에서 지우고, 못 찾은 것만 남겨 둔다.
+      final leftNames = {for (final m in result.missing) m.name};
+      final left = [
+        for (final raw in materials)
+          if (raw is Map &&
+              leftNames.contains(
+                (raw['db_name'] ?? raw['name'] ?? '').toString().trim(),
+              ))
+            raw,
+      ];
       setState(() {
-        projects[index]['isDeducted'] = true;
+        projects[index]['materials'] = left;
+        projects[index]['isDeducted'] = left.isEmpty;
         _saveData();
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text("✅ 재고 차감 및 출고 기록 완료!"),
-            backgroundColor: Colors.green.shade700,
+            content: Text(result.message),
+            backgroundColor: result.allDone
+                ? Colors.green.shade700
+                : Colors.orange.shade800,
           ),
         );
       }

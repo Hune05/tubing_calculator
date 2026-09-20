@@ -111,6 +111,10 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   // 잔재를 저장한 때의 결과 줄 모양(줄 열쇠를 이은 글). 지금 줄과 같으면 "이 결과의 잔재는 이미 저장함".
   String get _leftoverKey => 'steel_leftover_saved_${widget.project.id}';
   String _leftoverSavedSig = '';
+  // 재고에서 뺀 원자재 본수를 적어 둔다. 재단 계획 창을 닫았다 다시 열어도
+  // 같은 본수를 두 번 빼지 않게 막는다.
+  String get _stockDeductKey => 'steel_stock_deducted_${widget.project.id}';
+  String _stockDeductedSig = '';
 
   String get _linesSig => _resultLines().map((l) => l.key).join('|');
   bool get _leftoversSaved =>
@@ -199,10 +203,12 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       final p = await SharedPreferences.getInstance();
       final saved = p.getStringList(_doneKey) ?? const <String>[];
       final sig = p.getString(_leftoverKey) ?? '';
+      final deducted = p.getString(_stockDeductKey) ?? '';
       if (!mounted) return;
       setState(() {
         _doneKeys.addAll(saved);
         _leftoverSavedSig = sig;
+        _stockDeductedSig = deducted;
       });
       _pruneDone();
       await _autoRestartIfFinished();
@@ -726,6 +732,13 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       onLeftoversSaved: _onLeftoversSaved,
       onLeftoversSaveUndone: _onLeftoversSaveUndone,
       leftoversAlreadySaved: _leftoversSaved,
+      deductedBarsSig: _stockDeductedSig,
+      onStockDeducted: (sig) {
+        _stockDeductedSig = sig;
+        SharedPreferences.getInstance()
+            .then((p) => p.setString(_stockDeductKey, sig))
+            .catchError((_) => false);
+      },
       leftoverLogSource: '형강 컷팅 · ${widget.project.name}',
       title: "재단 계획 (원자재 몇 본 드는지)",
       onDeductStock: _deductStock,
@@ -763,6 +776,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         takes,
         projectName: '형강 컷팅 · ${widget.project.name}',
         action: '형강 재단',
+        projectId: widget.project.id,
       );
       if (!mounted) return result.done.isNotEmpty;
       showCuttingSnack(context, result.message, isError: !result.allDone);

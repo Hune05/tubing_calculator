@@ -97,6 +97,8 @@ class _Body extends StatelessWidget {
   String get _unit => (data['unit'] ?? 'EA').toString();
   int get _qty => (data['qty'] as num?)?.toInt() ?? 0;
   int get _minQty => (data['minQty'] as num?)?.toInt() ?? 0;
+  // 원자재 한 본의 길이(mm). 컷팅에서 몇 본 드는지 셀 때 쓴다(비었으면 6000).
+  int get _barLengthMm => (data['barLengthMm'] as num?)?.toInt() ?? 0;
 
   DocumentReference<Map<String, dynamic>> get _ref =>
       FirebaseFirestore.instance.collection(kInventoryCollection).doc(docId);
@@ -259,6 +261,14 @@ class _Body extends StatelessWidget {
         _row(context, "재질", (data['material'] ?? '').toString(), 'material'),
         _row(context, "단위", _unit, 'unit'),
         _row(context, "최소 수량", _minQty == 0 ? '' : '$_minQty', 'minQty'),
+        // 본으로 세는 자재만. 컷팅에서 "몇 본 드는지"를 이 길이로 나눠 센다.
+        if (_unit.trim() == '본')
+          _row(
+            context,
+            "한 본 길이(mm)",
+            _barLengthMm == 0 ? '' : '$_barLengthMm',
+            'barLengthMm',
+          ),
         _row(
           context,
           "프로젝트",
@@ -374,7 +384,7 @@ class _Body extends StatelessWidget {
     String field,
   ) async {
     final ctrl = TextEditingController(text: value);
-    final isNumber = field == 'minQty';
+    final isNumber = field == 'minQty' || field == 'barLengthMm';
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -383,7 +393,11 @@ class _Body extends StatelessWidget {
           controller: ctrl,
           autofocus: true,
           keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-          decoration: InputDecoration(labelText: label, isDense: true),
+          decoration: InputDecoration(
+            labelText: label,
+            isDense: true,
+            helperText: field == 'barLengthMm' ? "비워 두면 6000mm로 봅니다." : null,
+          ),
         ),
         actions: [
           TextButton(

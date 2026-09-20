@@ -510,6 +510,28 @@ void main() {
       // 누르지는 않는다 — 실제 창고 재고를 건드리는 동작이다.
     });
 
+    testWidgets('이미 뺀 본수면 창을 다시 열어도 "뺐습니다"로 나온다', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'steel_stock_deducted_sp3': '앵글 40x40x3=1',
+      });
+      await open(tester);
+      await tester.tap(find.byKey(const Key('steel_btn_optimize')));
+      await tester.pumpAndSettle();
+      // 같은 본수를 두 번 빼지 못하게 단추 대신 "뺐습니다"가 보인다.
+      expect(find.byKey(const Key('stock_deduct')), findsNothing);
+      expect(find.text('재고에서 뺐습니다'), findsOneWidget);
+    });
+
+    testWidgets('본수가 다르면 다시 뺄 수 있다', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'steel_stock_deducted_sp3': '앵글 40x40x3=9',
+      });
+      await open(tester);
+      await tester.tap(find.byKey(const Key('steel_btn_optimize')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('stock_deduct')), findsOneWidget);
+    });
+
     testWidgets('재단 계획 창에서 저장하면 저장 표시가 남는다', (tester) async {
       SharedPreferences.setMockInitialValues({
         'steel_done_sp3': ['steel:앵글 40x40x3:500.0:2'],

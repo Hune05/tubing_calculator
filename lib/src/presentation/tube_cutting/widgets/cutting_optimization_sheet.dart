@@ -47,6 +47,11 @@ Future<void> showCuttingOptimizationSheet(
   // 새 원자재를 창고 재고에서 뺄 수 있는 화면(형강)에서만 넘긴다. 규격별 본수를
   // 받아서 빼고, 뺐으면 true를 돌려준다.
   Future<bool> Function(Map<String, int> barsBySpec)? onDeductStock,
+  // 지난번에 재고에서 뺀 본수의 모양. 지금 계산한 본수와 같으면 "뺐습니다"로
+  // 보여서 창을 닫았다 다시 열어도 같은 것을 두 번 빼지 않게 한다.
+  String deductedBarsSig = '',
+  // 뺐을 때 그 본수 모양을 화면에 돌려준다(화면이 폰에 적어 둔다).
+  void Function(String sig)? onStockDeducted,
 }) async {
   final Map<String, List<double>> groups =
       (groupedPieces != null && groupedPieces.isNotEmpty)
@@ -59,6 +64,12 @@ Future<void> showCuttingOptimizationSheet(
     return;
   }
 
+  // 규격별 본수를 한 줄 글로 만든다(견주기용).
+  String barsSigOf(Map<String, int> m) {
+    final keys = m.keys.toList()..sort();
+    return [for (final k in keys) if (m[k]! > 0) '$k=${m[k]}'].join(';');
+  }
+
   final ctrl = TextEditingController(
     text: initialStockLength.toStringAsFixed(0),
   );
@@ -68,7 +79,9 @@ Future<void> showCuttingOptimizationSheet(
   bool useLeftovers = true;
   bool leftoversSaved = leftoversAlreadySaved;
   // 이번 계산의 새 원자재를 재고에서 뺐는지(같은 것을 두 번 빼지 않게).
-  bool stockDeducted = false;
+  // 뺀 본수 자체를 적어 두고 견준다. 기준 길이·섞어 쓰기를 바꿔 본수가 달라지면
+  // 다시 뺄 수 있고, 같은 본수면 창을 다시 열어도 "뺐습니다"로 나온다.
+  String deductedSig = deductedBarsSig;
   // 이 창에서 저장하기 직전의 잔재 목록(되돌리기용). 저장하지 않았거나 되돌린 뒤에는 null.
   List<Leftover>? savedFrom;
   // 방금 저장하면서 적은 잔재 기록의 id(되돌리기에서 그 기록을 지운다).
@@ -147,7 +160,6 @@ Future<void> showCuttingOptimizationSheet(
           setSheetState(() {
             stockNow = parsed;
             leftoversSaved = false;
-            stockDeducted = false;
             results = compute(parsed);
           });
           onStockLengthChanged?.call(parsed);
@@ -169,8 +181,6 @@ Future<void> showCuttingOptimizationSheet(
                   mixSel.add(value);
                 }
                 leftoversSaved = false;
-                stockDeducted = false;
-                stockDeducted = false;
                 results = compute(stockNow);
               });
               saveMix();
@@ -313,8 +323,6 @@ Future<void> showCuttingOptimizationSheet(
                   setSheetState(() {
                     mix = v;
                     leftoversSaved = false;
-                    stockDeducted = false;
-                    stockDeducted = false;
                     results = compute(stockNow);
                   });
                   saveMix();
@@ -380,13 +388,17 @@ Future<void> showCuttingOptimizationSheet(
             savedBars: results.values.fold(0, (sum, r) => sum + r.savedBars),
             saved: leftoversSaved,
             barsBySpec: barsBySpec,
-            stockDeducted: stockDeducted,
+            stockDeducted:
+                deductedSig.isNotEmpty && deductedSig == barsSigOf(barsBySpec),
             onDeductStock: onDeductStock,
-            onStockDeducted: () => setSheetState(() => stockDeducted = true),
+            onStockDeducted: () {
+              final sig = barsSigOf(barsBySpec);
+              setSheetState(() => deductedSig = sig);
+              onStockDeducted?.call(sig);
+            },
             onToggle: (v) => setSheetState(() {
               useLeftovers = v;
               leftoversSaved = false;
-              stockDeducted = false;
               results = compute(stockNow);
             }),
             onSave: () async {
@@ -432,8 +444,6 @@ Future<void> showCuttingOptimizationSheet(
                     onLeftoversSaveUndone?.call();
                     setSheetState(() {
                       leftoversSaved = false;
-                      stockDeducted = false;
-                      stockDeducted = false;
                       results = compute(stockNow);
                     });
                     if (ctx.mounted) {
@@ -454,8 +464,6 @@ Future<void> showCuttingOptimizationSheet(
                 await saveLeftovers(leftovers);
                 setSheetState(() {
                   leftoversSaved = false;
-                  stockDeducted = false;
-                  stockDeducted = false;
                   results = compute(stockNow);
                 });
               }
