@@ -464,6 +464,7 @@ class _CalculatorPageState extends State<CalculatorPage>
                     MobilePipeVisualizer(
                       bendList: widget.bendList,
                       bendRadius: BendDataManager().radius,
+                      fittingDepth: BendDataManager().fittingDepth,
                       outerDiameter: AppSettingsController().isInch
                           ? AppSettingsController().tubeOD * 25.4
                           : AppSettingsController().tubeOD,

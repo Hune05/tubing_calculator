@@ -26,6 +26,9 @@ class MobilePipeVisualizer extends StatefulWidget {
   /// 관 바깥지름. 실제 형상으로 그릴 때 관 굵기를 이만큼 그린다.
   final double outerDiameter;
 
+  /// 피팅에 관이 들어가는 깊이. 실제 형상으로 그릴 때 이 길이만큼 피팅을 그린다.
+  final double fittingDepth;
+
   const MobilePipeVisualizer({
     super.key,
     required this.bendList,
@@ -39,6 +42,7 @@ class MobilePipeVisualizer extends StatefulWidget {
     this.totalCutLength = 0.0,
     this.bendRadius = 0.0,
     this.outerDiameter = 0.0,
+    this.fittingDepth = 0.0,
   });
 
   @override
@@ -58,9 +62,9 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
   double _panY = 0.0;
 
   /// 실제 비율로 그릴지. 켜면 길이를 있는 그대로, 모서리는 반경만큼 둥글게,
-  /// 관 굵기도 바깥지름대로 그린다. 끄면 예전처럼 짧은 구간도 보이게 줄여
-  /// 그린다(긴 배관에서 짧은 마디가 안 보이는 것을 막으려고 남겨 둔다).
-  bool _realScale = false;
+  /// 관 굵기도 바깥지름대로 그린다. 끄면 짧은 구간도 보이게 줄여 그린다
+  /// (긴 배관에 아주 짧은 마디가 섞였을 때 쓴다).
+  bool _realScale = true;
 
   bool _isFlippedX = false;
   bool _isFlippedY = false;
@@ -167,6 +171,7 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
                 realScale: _realScale,
                 bendRadius: widget.bendRadius,
                 outerDiameter: widget.outerDiameter,
+                fittingDepth: widget.fittingDepth,
               ),
             ),
           ),
@@ -406,13 +411,28 @@ abstract class MobileRenderable {
   );
 }
 
+/// 관 끝에 끼우는 피팅.
+///
+/// 🚀 [고침] 예전에는 굵기·길이를 못 박아 놓고 끝을 둥글게 그려서, 실제
+/// 비율로 볼 때 관보다 뭉툭한 덩어리가 붙은 것처럼 보였다. 관 굵기에 맞춰
+/// 몸통과 너트를 나눠 그리고, 끝을 각지게 잘라 실제 피팅처럼 보이게 한다.
 class MobileFittingRenderable implements MobileRenderable {
+  /// p1은 관 끝, p2는 피팅이 관을 무는 안쪽 끝.
   final Offset p1, p2;
   @override
   final double z;
   final bool isLightMode;
 
-  MobileFittingRenderable(this.p1, this.p2, this.z, {this.isLightMode = false});
+  /// 이 화면에서 관을 그리는 굵기(픽셀). 피팅은 관보다 굵다.
+  final double pipeWidth;
+
+  MobileFittingRenderable(
+    this.p1,
+    this.p2,
+    this.z, {
+    this.isLightMode = false,
+    this.pipeWidth = 6.0,
+  });
 
   @override
   void draw(
@@ -421,21 +441,34 @@ class MobileFittingRenderable implements MobileRenderable {
     Paint highlightPaint,
     Paint outlinePaint,
   ) {
-    double sf = isLightMode ? 1.2 : 1.0;
-    final fitPaint = Paint()
-      ..color = isLightMode ? Colors.blueGrey.shade300 : const Color(0xFF90A4AE)
-      ..strokeWidth = 14.0 * sf
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    // 몸통은 관보다 조금 굵고, 너트는 그보다 더 굵다.
+    final double body = (pipeWidth * 1.5).clamp(6.0, 60.0);
+    final double nut = (pipeWidth * 2.0).clamp(8.0, 72.0);
 
-    final fitOutline = Paint()
-      ..color = isLightMode ? Colors.black87 : Colors.black54
-      ..strokeWidth = 18.0 * sf
+    Paint stroke(double w, Color c) => Paint()
+      ..color = c
+      ..strokeWidth = w
       ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+      ..strokeCap = StrokeCap.butt;
 
-    canvas.drawLine(p1, p2, fitOutline);
-    canvas.drawLine(p1, p2, fitPaint);
+    final Color edge = isLightMode ? Colors.black87 : Colors.black54;
+    final Color metal = isLightMode
+        ? Colors.blueGrey.shade300
+        : const Color(0xFF90A4AE);
+    final Color metalLight = isLightMode
+        ? Colors.blueGrey.shade200
+        : const Color(0xFFB0BEC5);
+
+    // 몸통.
+    canvas.drawLine(p1, p2, stroke(body + 2.0, edge));
+    canvas.drawLine(p1, p2, stroke(body, metal));
+
+    // 너트: 관 끝에서 조금 들어간 자리에 짧게 두른다.
+    final d = p2 - p1;
+    final a = p1 + d * 0.18;
+    final b = p1 + d * 0.52;
+    canvas.drawLine(a, b, stroke(nut + 2.0, edge));
+    canvas.drawLine(a, b, stroke(nut, metalLight));
   }
 }
 
@@ -713,6 +746,7 @@ class MobileIsoPipePainter extends CustomPainter {
   final bool realScale;
   final double bendRadius;
   final double outerDiameter;
+  final double fittingDepth;
 
   MobileIsoPipePainter({
     required this.bendList,
@@ -732,6 +766,7 @@ class MobileIsoPipePainter extends CustomPainter {
     this.realScale = false,
     this.bendRadius = 0.0,
     this.outerDiameter = 0.0,
+    this.fittingDepth = 0.0,
   });
 
   double _getVisualLength(double realLength) {
@@ -820,6 +855,13 @@ class MobileIsoPipePainter extends CustomPainter {
       );
     }
 
+    // 🚀 [고침] 관 굵기를 늘 6픽셀로 그려서, 3/8"든 1"든 같은 굵기로 보였다.
+    // "실제 비율"을 켜면 바깥지름대로 그린다(화면에서 너무 가늘거나 굵어지지
+    // 않게 3~40픽셀 안으로 둔다).
+    final double pipeWidth = (realScale && outerDiameter > 0)
+        ? (outerDiameter * scale).clamp(3.0, 40.0)
+        : 6.0 * sf;
+
     List<MobileRenderable> renderQueue = [];
     List<MobileLabelRenderable> labelQueue = [];
 
@@ -897,7 +939,13 @@ class MobileIsoPipePainter extends CustomPainter {
       );
     }
 
-    double fitVisualLen = 20.0;
+    // 🚀 [고침] 피팅 길이를 20(모델 단위)으로 못 박아 놔서, 실제 비율로 보면
+    // 관에 비해 우스울 만큼 짧거나 길었다. 실제 비율일 때는 피팅에 관이
+    // 들어가는 깊이만큼 그리고, 화면에서 너무 작아지지 않게 아래를 받쳐 둔다.
+    final double minOnScreen = 14.0 / scale;
+    final double fitVisualLen = (realScale && fittingDepth > 0)
+        ? math.max(fittingDepth, minOnScreen)
+        : 20.0;
     if (pts3D.length > 1) {
       if (startFit) {
         vmath.Vector3 dir = (pts3D[1] - pts3D[0])..normalize();
@@ -914,6 +962,7 @@ class MobileIsoPipePainter extends CustomPainter {
             to2D(projEnd),
             ((projStart.z + projEnd.z) / 2) - 0.1,
             isLightMode: isLightMode,
+            pipeWidth: pipeWidth,
           ),
         );
       }
@@ -934,6 +983,7 @@ class MobileIsoPipePainter extends CustomPainter {
             to2D(projEnd),
             ((projStart.z + projEnd.z) / 2) - 0.1,
             isLightMode: isLightMode,
+            pipeWidth: pipeWidth,
           ),
         );
       }
@@ -980,13 +1030,6 @@ class MobileIsoPipePainter extends CustomPainter {
 
     renderQueue.sort((a, b) => b.z.compareTo(a.z));
     labelQueue.sort((a, b) => b.z.compareTo(a.z));
-
-    // 🚀 [고침] 관 굵기를 늘 6픽셀로 그려서, 3/8"든 1"든 같은 굵기로 보였다.
-    // "실제 비율"을 켜면 바깥지름대로 그린다(화면에서 너무 가늘거나 굵어지지
-    // 않게 3~40픽셀 안으로 둔다).
-    final double pipeWidth = (realScale && outerDiameter > 0)
-        ? (outerDiameter * scale).clamp(3.0, 40.0)
-        : 6.0 * sf;
 
     final pipePaint = Paint()
       ..color = isLightMode ? const Color(0xFF455A64) : const Color(0xFF607D8B)

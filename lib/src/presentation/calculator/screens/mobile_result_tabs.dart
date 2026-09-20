@@ -930,6 +930,7 @@ class _MobileViewerTabState extends State<MobileViewerTab>
                         // 실제 비율로 그릴 때 쓸 제원.
                         bendRadius: dataManager.radius,
                         outerDiameter: _odMm(),
+                        fittingDepth: dataManager.fittingDepth,
                       ),
               ),
             ],
