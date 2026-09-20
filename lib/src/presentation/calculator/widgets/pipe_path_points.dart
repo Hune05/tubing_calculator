@@ -125,12 +125,28 @@ PipeDrawPath pipeDrawPath(
   ];
 
   final visTail = tail > 0 ? L(tail) : 0.0;
-  final path = buildBendPath(
+  final start = directionForName(startDir);
+
+  // 🚀 [고침] 앞뒤 셋백보다 짧은 구간(90°를 바로 이어 넣은 경우)이 하나라도
+  // 있으면, 휘기 시작하는 자리가 지나온 자리보다 뒤에 있어 선이 되돌아가며
+  // 형상이 꼬였다. 그런 형상은 어차피 그대로는 만들 수 없으므로, 그림은
+  // 각진 모서리로 개략만 보여 준다(만들 수 없다는 것은 마킹 화면이 알려 준다).
+  var path = buildBendPath(
     segs,
     radius: radius,
-    startDirection: directionForName(startDir),
+    startDirection: start,
     tail: visTail,
   );
+  var effRadius = radius;
+  if (radius > 0 && path.bends.any((b) => b.straightBefore < 0)) {
+    effRadius = 0.0;
+    path = buildBendPath(
+      segs,
+      radius: 0,
+      startDirection: start,
+      tail: visTail,
+    );
+  }
 
   final points = <vm.Vector3>[vm.Vector3.zero()];
   final owner = <int>[];
@@ -160,6 +176,21 @@ PipeDrawPath pipeDrawPath(
     }
 
     final b = path.bends[bi];
+
+    // 🚀 [고침] 앞뒤 셋백보다 짧은 구간(90°를 바로 이어 넣은 경우)은
+    // 휘기 시작하는 자리가 지나온 자리보다 뒤에 있다. 그대로 그리면 선이
+    // 뒤로 가서 형상이 꼬였다. 이런 구간은 각진 모서리로 개략만 보여 준다
+    // (만들 수 없는 형상이라는 것은 마킹 화면이 따로 알려 준다).
+    if (b.straightBefore < 0) {
+      runs.add(
+        PipeStraightRun(bendIndex: i, a: cursor.clone(), b: b.corner.clone()),
+      );
+      lineTo(b.corner, i);
+      cursor = b.corner.clone();
+      bi++;
+      continue;
+    }
+
     // 휘기 시작하는 자리까지는 곧게.
     runs.add(
       PipeStraightRun(bendIndex: i, a: cursor.clone(), b: b.tangentIn.clone()),
@@ -167,11 +198,11 @@ PipeDrawPath pipeDrawPath(
     lineTo(b.tangentIn, i);
 
     // 휘는 자리는 호로.
-    if (radius > 0 && b.setback > 0) {
+    if (effRadius > 0 && b.setback > 0) {
       final axis = b.dirBefore.cross(b.dirAfter);
       if (axis.length2 > 1e-12) {
         final n = axis.normalized();
-        final center = b.tangentIn + n.cross(b.dirBefore) * radius;
+        final center = b.tangentIn + n.cross(b.dirBefore) * effRadius;
         final v = b.tangentIn - center;
         final total = b.angle * math.pi / 180.0;
         final steps = arcSteps < 2 ? 2 : arcSteps;
