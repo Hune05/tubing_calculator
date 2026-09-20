@@ -741,6 +741,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             .catchError((_) => false);
       },
       leftoverLogSource: '형강 컷팅 · ${widget.project.name}',
+      jobLogName: '형강 컷팅 · ${widget.project.name}',
       title: "재단 계획 (원자재 몇 본 드는지)",
       onDeductStock: _deductStock,
       onStockLengthChanged: (v) {

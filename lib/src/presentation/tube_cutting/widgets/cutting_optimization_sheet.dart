@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_logs_page.dart';
 
 import '../cutting_leftover_log.dart';
 import '../cutting_leftovers.dart';
@@ -54,6 +55,8 @@ Future<void> showCuttingOptimizationSheet(
   void Function(String sig)? onStockDeducted,
   // 잘못 뺐을 때 도로 넣는다. 돌려놓았으면 true.
   Future<bool> Function(Map<String, int> barsBySpec)? onUndoDeductStock,
+  // 이 작업에 쓴 자재 기록을 볼 때 걸러 쓸 작업 이름(비우면 단추를 안 보인다).
+  String jobLogName = '',
 }) async {
   final Map<String, List<double>> groups =
       (groupedPieces != null && groupedPieces.isNotEmpty)
@@ -398,6 +401,7 @@ Future<void> showCuttingOptimizationSheet(
               setSheetState(() => deductedSig = sig);
               onStockDeducted?.call(sig);
             },
+            jobLogName: jobLogName,
             onUndoDeductStock: onUndoDeductStock == null
                 ? null
                 : () async {
@@ -869,6 +873,7 @@ Widget _buildLeftoverCard({
   Future<bool> Function(Map<String, int> barsBySpec)? onDeductStock,
   VoidCallback? onStockDeducted,
   VoidCallback? onUndoDeductStock,
+  String jobLogName = '',
 }) {
   return Builder(
     builder: (context) => _tealTheme(
@@ -974,6 +979,17 @@ Widget _buildLeftoverCard({
                             },
                       child: const Text("재고에서 빼기"),
                     ),
+                if (jobLogName.isNotEmpty)
+                  TextButton(
+                    key: const Key('job_material_log'),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            MobileInventoryLogsPage(projectName: jobLogName),
+                      ),
+                    ),
+                    child: const Text("이 작업 자재 기록"),
+                  ),
                 TextButton(onPressed: onManage, child: const Text("잔재 관리")),
                 if (onLog != null)
                   TextButton(
