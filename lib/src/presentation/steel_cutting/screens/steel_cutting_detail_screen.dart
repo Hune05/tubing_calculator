@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -24,6 +25,7 @@ import '../../tube_cutting/cutting_result_logic.dart';
 import '../../tube_cutting/cutting_result_view.dart';
 import '../../tube_cutting/cutting_theme.dart';
 import '../../tube_cutting/widgets/cutting_optimization_sheet.dart';
+import '../steel_group_ops.dart';
 import '../steel_result_logic.dart';
 import '../steel_weight.dart';
 import '../steel_shape_icons.dart';
@@ -60,6 +62,13 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   static const String _kIconsUsedKey = 'cutting_result_icons_used';
   bool _iconsUsed = true;
   bool _labelsPinned = false;
+  // 접어 둔 규격 묶음(프로젝트마다 이 폰에 기억한다).
+  final Set<String> _collapsed = {};
+  String get _collapsedKey => 'steel_collapsed_${widget.project.id}';
+  // 재단 최적화에서 "여러 길이 섞어 쓰기"로 고른 가장 긴 원자재(0이면 안 씀). 긴 항목 경고 기준에 쓴다.
+  double _mixMax = 0;
+  // 카드에서 개수를 바꾸면 화면은 바로 고치고, 저장(과 변경 기록)은 손을 뗀 뒤 한 번만 한다.
+  final Map<String, Timer> _qtyTimers = {};
 
   // 🚀 [튜브 컷팅에 준한 페이지 구성] 튜브 컷팅 계산기와 같은 방식으로
   // 넓은 화면(태블릿/폴더블 펼침)에서는 입력/결과를 좌우 2단으로 동시에
@@ -109,7 +118,38 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     _loadDone();
     _loadIconsUsed();
     _loadSortWeight();
+    _loadCollapsed();
+    _loadMixMax();
   }
+
+  Future<void> _loadCollapsed() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final saved = p.getStringList(_collapsedKey) ?? const <String>[];
+      if (mounted && saved.isNotEmpty) setState(() => _collapsed.addAll(saved));
+    } catch (_) {}
+  }
+
+  void _toggleCollapse(String shape) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (!_collapsed.remove(shape)) _collapsed.add(shape);
+    });
+    SharedPreferences.getInstance()
+        .then((p) => p.setStringList(_collapsedKey, _collapsed.toList()))
+        .catchError((_) => false);
+  }
+
+  Future<void> _loadMixMax() async {
+    try {
+      final mix = await loadMixLengths(kSteelMixPrefsKey);
+      final m = mix.isEmpty ? 0.0 : mix.reduce((a, b) => a > b ? a : b);
+      if (mounted && m != _mixMax) setState(() => _mixMax = m);
+    } catch (_) {}
+  }
+
+  // 긴 항목 경고에 쓰는 원자재 길이: 기준 길이와 섞어 쓰기 길이 중 가장 긴 것.
+  double get _maxStock => _stockLength > _mixMax ? _stockLength : _mixMax;
 
   Future<void> _loadDone() async {
     try {
@@ -197,6 +237,17 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
 
   @override
   void dispose() {
+    if (_qtyTimers.isNotEmpty) {
+      for (final t in _qtyTimers.values) {
+        t.cancel();
+      }
+      _qtyTimers.clear();
+      try {
+        _docRef
+            .update({'items': _items.map((e) => e.toMap()).toList()})
+            .catchError((_) {});
+      } catch (_) {}
+    }
     _tabController.dispose();
     super.dispose();
   }
@@ -326,6 +377,124 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     );
   }
 
+  // ── 카드에서 바로 개수 바꾸기 ──
+  void _bumpQty(SteelCutItem item, int delta) {
+    final idx = _items.indexWhere((e) => e.id == item.id);
+    if (idx < 0) return;
+    final cur = _items[idx];
+    final next = (cur.qty + delta).clamp(1, 9999);
+    if (next == cur.qty) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _items[idx] = SteelCutItem(
+        id: cur.id,
+        category: cur.category,
+        shapeLabel: cur.shapeLabel,
+        length: cur.length,
+        qty: next,
+        note: cur.note,
+      );
+    });
+    _qtyTimers[cur.id]?.cancel();
+    _qtyTimers[cur.id] = Timer(const Duration(milliseconds: 800), () {
+      _flushQty(cur.id);
+    });
+  }
+
+  Future<void> _flushQty(String id) async {
+    _qtyTimers.remove(id);
+    final idx = _items.indexWhere((e) => e.id == id);
+    if (idx < 0) return;
+    final item = _items[idx];
+    try {
+      await _persistItems();
+      await _logChange('EDIT', item);
+    } catch (e) {
+      if (!mounted) return;
+      showCuttingSnack(context, "저장하지 못했습니다: $e", isError: true);
+    }
+  }
+
+  // ── 규격 묶음 작업(머리글의 ⋮ 메뉴) ──
+  Future<void> _changeGroupShape(String shape) async {
+    final to = await pickSteelShape(context);
+    if (to == null || !mounted) return;
+    if (to.label == shape) {
+      showCuttingSnack(context, "같은 규격입니다.", isError: true);
+      return;
+    }
+    final before = List<SteelCutItem>.of(_items);
+    final next = changeShapeOfGroup(_items, shape, to);
+    final changed = [
+      for (final i in next)
+        if (i.shapeLabel == to.label &&
+            before.any((b) => b.id == i.id && b.shapeLabel == shape))
+          i,
+    ];
+    setState(() => _items = next);
+    _persistItems();
+    for (final i in changed) {
+      _logChange('EDIT', i);
+    }
+    showCuttingUndoSnack(
+      context,
+      "'$shape' ${changed.length}건을 '${to.label}'(으)로 바꿨습니다.",
+      onUndo: () {
+        setState(() => _items = before);
+        _persistItems();
+      },
+    );
+  }
+
+  Future<void> _copyGroup(String shape) async {
+    final to = await pickSteelShape(context);
+    if (to == null || !mounted) return;
+    final copies = duplicateGroupTo(
+      _items,
+      shape,
+      to,
+      idPrefix: '${DateTime.now().millisecondsSinceEpoch}_grp',
+    );
+    if (copies.isEmpty) return;
+    setState(() => _items.addAll(copies));
+    _persistItems();
+    for (final c in copies) {
+      _logChange('DUPLICATE', c);
+    }
+    final ids = {for (final c in copies) c.id};
+    showCuttingUndoSnack(
+      context,
+      "'$shape' ${copies.length}건을 '${to.label}'에 복제했습니다.",
+      onUndo: () {
+        setState(() => _items.removeWhere((e) => ids.contains(e.id)));
+        _persistItems();
+      },
+    );
+  }
+
+  // ── 같은 규격·같은 길이 합치기 ──
+  void _mergeAll() {
+    final r = mergeSameItems(_items);
+    if (r.removed.isEmpty) return;
+    final before = List<SteelCutItem>.of(_items);
+    setState(() => _items = r.items);
+    _persistItems();
+    for (final k in r.kept) {
+      _logChange('EDIT', k);
+    }
+    for (final d in r.removed) {
+      _logChange('DELETE', d);
+    }
+    showCuttingUndoSnack(
+      context,
+      "${r.removed.length + r.kept.length}건을 ${r.kept.length}건으로 합쳤습니다.",
+      onUndo: () {
+        setState(() => _items = before);
+        _persistItems();
+      },
+    );
+  }
+
   void _deleteItem(SteelCutItem item) {
     final index = _items.indexOf(item);
     setState(() => _items.removeWhere((e) => e.id == item.id));
@@ -393,6 +562,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         _persistStockLength(v);
       },
     );
+    _loadMixMax();
   }
 
   Future<void> _sharePdf(Uint8List bytes, String fileName) async {
@@ -731,10 +901,15 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       if (!byShape.containsKey(it.shapeLabel)) shapeOrder.add(it.shapeLabel);
       byShape.putIfAbsent(it.shapeLabel, () => []).add(it);
     }
+    final over = overLengthItems(_items, _maxStock);
+    final mergeGroups = findMergeGroups(_items);
     final rows = <Widget>[
+      if (over.isNotEmpty) _buildOverBanner(over.length),
+      if (mergeGroups.isNotEmpty) _buildMergeBanner(mergeGroups.length),
       for (final shape in shapeOrder) ...[
         _buildShapeHeader(shape, byShape[shape]!),
-        for (final it in byShape[shape]!) _buildItemCard(it),
+        if (!_collapsed.contains(shape))
+          for (final it in byShape[shape]!) _buildItemCard(it),
       ],
     ];
 
@@ -900,42 +1075,172 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     );
   }
 
-  // 규격 머리글: 종류 아이콘 + 규격 이름 + "3건 · 1250mm".
+  // 규격 머리글: 눌러서 접고 펴는 종류 아이콘 + 규격 이름 + "3건 · 1250mm" + ⋮ 메뉴(규격 바꾸기·다른 규격으로 복제).
   Widget _buildShapeHeader(String shape, List<SteelCutItem> items) {
     final mm = items.fold(0.0, (a, i) => a + i.totalLength);
+    final folded = _collapsed.contains(shape);
     return Padding(
       key: Key('steel_group_$shape'),
-      padding: const EdgeInsets.only(top: 6, bottom: 6, left: 2),
+      padding: const EdgeInsets.only(top: 2, bottom: 2),
       child: Row(
         children: [
-          Icon(
-            iconForSteel(items.first.category),
-            size: 18,
-            color: CuttingColors.primary,
-          ),
-          const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              shape,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w900,
-                color: CuttingColors.textPrimary,
+            child: InkWell(
+              key: Key('steel_group_toggle_$shape'),
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => _toggleCollapse(shape),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+                child: Row(
+                  children: [
+                    Icon(
+                      folded
+                          ? Icons.chevron_right_rounded
+                          : Icons.expand_more_rounded,
+                      size: 20,
+                      color: CuttingColors.textSecondary,
+                    ),
+                    Icon(
+                      iconForSteel(items.first.category),
+                      size: 18,
+                      color: CuttingColors.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        shape,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          color: CuttingColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        "${items.length}건 · ${fmtMm(mm)}mm",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: CuttingColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          Text(
-            "${items.length}건 · ${fmtMm(mm)}mm",
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
+          PopupMenuButton<String>(
+            key: Key('steel_group_menu_$shape'),
+            tooltip: '규격 묶음 작업',
+            icon: const Icon(
+              Icons.more_vert_rounded,
+              size: 20,
               color: CuttingColors.textSecondary,
+            ),
+            padding: EdgeInsets.zero,
+            onSelected: (v) {
+              if (v == 'change') _changeGroupShape(shape);
+              if (v == 'copy') _copyGroup(shape);
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'change', child: Text('규격 바꾸기 (길이 그대로)')),
+              PopupMenuItem(value: 'copy', child: Text('다른 규격으로 복제')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 원자재(6000mm 등)보다 긴 항목이 있을 때: 배치에서 빠지므로 미리 알린다.
+  Widget _buildOverBanner(int count) {
+    return Container(
+      key: const Key('steel_over_banner'),
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: CuttingColors.danger.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: CuttingColors.danger.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        "원자재(${fmtMm(_maxStock)}mm)보다 긴 항목이 $count건 있습니다. 재단 최적화 배치에서 빠집니다. 길이나 원자재 기준 길이를 확인하십시오.",
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+          color: CuttingColors.danger,
+        ),
+      ),
+    );
+  }
+
+  // 같은 규격·같은 길이가 여러 건으로 나뉘어 있을 때 합치기를 권한다(결과는 어차피 합쳐 계산되지만 목록이 깔끔해진다).
+  Widget _buildMergeBanner(int groups) {
+    return Container(
+      key: const Key('steel_merge_banner'),
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+      decoration: BoxDecoration(
+        color: CuttingColors.primarySoft.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              "같은 규격·같은 길이가 나뉜 항목이 $groups묶음 있습니다.",
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: CuttingColors.primaryDark,
+              ),
+            ),
+          ),
+          TextButton(
+            key: const Key('steel_merge_all'),
+            onPressed: _mergeAll,
+            style: TextButton.styleFrom(
+              foregroundColor: CuttingColors.primaryDark,
+            ),
+            child: const Text(
+              "합치기",
+              style: TextStyle(fontWeight: FontWeight.w900),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // 카드의 개수 −/+ 버튼(맨손으로 누르는 폰이라 34dp, 복제 버튼과 간격을 둔다).
+  Widget _qtyButton(Key key, IconData icon, VoidCallback? onTap) {
+    return Material(
+      color: onTap == null ? Colors.grey.shade100 : CuttingColors.primarySoft,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        key: key,
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: SizedBox(
+          width: 34,
+          height: 34,
+          child: Icon(
+            icon,
+            size: 20,
+            color: onTap == null
+                ? Colors.grey.shade400
+                : CuttingColors.primaryDark,
+          ),
+        ),
       ),
     );
   }
@@ -982,6 +1287,16 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                           fontSize: 18,
                         ),
                       ),
+                      if (item.length > _maxStock && _maxStock > 0)
+                        Text(
+                          "원자재보다 깁니다",
+                          key: Key('steel_over_${item.id}'),
+                          style: const TextStyle(
+                            color: CuttingColors.danger,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
                       if (item.note.isNotEmpty)
                         Text(
                           item.note,
@@ -998,14 +1313,34 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(
-                      "× ${item.qty}개",
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: CuttingColors.textPrimary,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _qtyButton(
+                          Key('qty_dec_${item.id}'),
+                          Icons.remove_rounded,
+                          item.qty > 1 ? () => _bumpQty(item, -1) : null,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          child: Text(
+                            "${item.qty}개",
+                            key: Key('qty_text_${item.id}'),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              color: CuttingColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        _qtyButton(
+                          Key('qty_inc_${item.id}'),
+                          Icons.add_rounded,
+                          () => _bumpQty(item, 1),
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: 2),
                     Text(
                       "= ${fmtMm(item.totalLength)} mm",
                       style: const TextStyle(
@@ -1016,6 +1351,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                     ),
                   ],
                 ),
+                const SizedBox(width: 8),
                 InkWell(
                   borderRadius: BorderRadius.circular(8),
                   onTap: () => _duplicateItem(item),

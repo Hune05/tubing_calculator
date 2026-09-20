@@ -12,6 +12,7 @@ import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_leftover
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_leftovers.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/widgets/leftover_log_page.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/steel_custom_shapes.dart';
+import 'package:tubing_calculator/src/presentation/steel_cutting/steel_group_ops.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/steel_multi_input.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/steel_result_logic.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/steel_weight.dart';
@@ -1478,6 +1479,248 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('steel_input_summary')), findsNothing);
+    });
+  });
+
+  group('묶음 작업·긴 항목 경고·합치기', () {
+    SteelShapeItem shape(String label, String cat) =>
+        SteelShapeItem(id: label, category: cat, label: label);
+
+    test('규격 바꾸기: 그 묶음만 바뀌고 길이·개수·id·순서는 그대로', () {
+      final items = [
+        item('앵글 40x40x3', 500, 2, id: 'a'),
+        item('스트럿 41x41x2.5', 1000, 3, cat: 'STRUT', id: 'b'),
+        item('앵글 40x40x3', 800, 1, id: 'c'),
+      ];
+      final r = changeShapeOfGroup(
+        items,
+        '앵글 40x40x3',
+        shape('앵글 50x50x5', 'ANGLE'),
+      );
+      expect(r.map((e) => e.id), ['a', 'b', 'c']);
+      expect(r.map((e) => e.shapeLabel), [
+        '앵글 50x50x5',
+        '스트럿 41x41x2.5',
+        '앵글 50x50x5',
+      ]);
+      expect(r.map((e) => e.length), [500, 1000, 800]);
+      expect(r.map((e) => e.qty), [2, 3, 1]);
+      expect(items.first.shapeLabel, '앵글 40x40x3');
+    });
+
+    test('다른 규격으로 복제: 새 id, 길이·개수 그대로', () {
+      final items = [
+        item('앵글 40x40x3', 500, 2, id: 'a'),
+        item('스트럿 41x41x2.5', 1000, 3, cat: 'STRUT', id: 'b'),
+        item('앵글 40x40x3', 800, 1, id: 'c'),
+      ];
+      final c = duplicateGroupTo(
+        items,
+        '앵글 40x40x3',
+        shape('찬넬 75x40x5', 'CHANNEL'),
+        idPrefix: 'g',
+      );
+      expect(c.map((e) => e.id), ['g_0', 'g_1']);
+      expect(c.map((e) => (e.shapeLabel, e.length, e.qty)), [
+        ('찬넬 75x40x5', 500.0, 2),
+        ('찬넬 75x40x5', 800.0, 1),
+      ]);
+      expect(c.every((e) => e.category == 'CHANNEL'), true);
+      expect(
+        duplicateGroupTo(items, '없는 규격', shape('x', 'X'), idPrefix: 'g'),
+        isEmpty,
+      );
+    });
+
+    test('합치기: 같은 규격·같은 길이만, 개수 합산, 자리 유지', () {
+      final items = [
+        item('앵글 40x40x3', 500, 2, id: 'a'),
+        item('스트럿 41x41x2.5', 500, 1, cat: 'STRUT', id: 'b'),
+        item('앵글 40x40x3', 500, 3, id: 'c'),
+        item('앵글 40x40x3', 800, 1, id: 'd'),
+        item('앵글 40x40x3', 500.04, 1, id: 'e'),
+      ];
+      expect(findMergeGroups(items).length, 1);
+      expect(findMergeGroups(items).single.ids, ['a', 'c', 'e']);
+      final r = mergeSameItems(items);
+      expect(r.items.map((e) => e.id), ['a', 'b', 'd']);
+      expect(r.items.first.qty, 6);
+      expect(r.kept.single.id, 'a');
+      expect(r.removed.map((e) => e.id), ['c', 'e']);
+      final none = mergeSameItems([item('앵글 40x40x3', 500, 2, id: 'a')]);
+      expect(none.removed, isEmpty);
+      expect(none.items.length, 1);
+    });
+
+    test('합치기: 비고는 겹치지 않게 이어 붙인다', () {
+      SteelCutItem n(String id, String note) => SteelCutItem(
+        id: id,
+        category: 'ANGLE',
+        shapeLabel: '앵글 40x40x3',
+        length: 500,
+        qty: 1,
+        note: note,
+      );
+      final r = mergeSameItems([n('a', 'A구역'), n('b', 'B구역'), n('c', 'A구역')]);
+      expect(r.items.single.note, 'A구역 · B구역');
+      expect(r.items.single.qty, 3);
+    });
+
+    test('긴 항목: 원자재보다 긴 것만', () {
+      final items = [
+        item('앵글 40x40x3', 6000, 1, id: 'a'),
+        item('앵글 40x40x3', 6001, 1, id: 'b'),
+        item('앵글 40x40x3', 9000, 1, id: 'c'),
+      ];
+      expect(overLengthItems(items, 6000).map((e) => e.id), ['b', 'c']);
+      expect(overLengthItems(items, 9000), isEmpty);
+      expect(overLengthItems(items, 0), isEmpty);
+    });
+
+    SteelCuttingProject proj({
+      List<SteelCutItem>? items,
+      double stock = 6000,
+    }) => SteelCuttingProject(
+      id: 'sp9',
+      name: '루마',
+      createdAt: DateTime(2026, 9, 20),
+      stockLength: stock,
+      items:
+          items ??
+          [
+            item('앵글 40x40x3', 500, 3, id: 'a'),
+            item('앵글 40x40x3', 800, 1, id: 'b'),
+            item('스트럿 41x41x2.5', 1000, 3, cat: 'STRUT', id: 'c'),
+          ],
+    );
+
+    Future<void> open(WidgetTester tester, SteelCuttingProject p) async {
+      tester.view.physicalSize = const Size(1080, 4000);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(home: SteelCuttingDetailScreen(project: p)),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    testWidgets('머리글을 누르면 그 묶음의 카드가 접히고 기억한다', (tester) async {
+      await open(tester, proj());
+      expect(find.byKey(const Key('steel_item_a')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('steel_group_toggle_앵글 40x40x3')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('steel_item_a')), findsNothing);
+      expect(find.byKey(const Key('steel_item_b')), findsNothing);
+      expect(find.byKey(const Key('steel_item_c')), findsOneWidget);
+      expect(findTextContaining('2건 · 2300mm'), findsOneWidget);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getStringList('steel_collapsed_sp9'), ['앵글 40x40x3']);
+      await tester.tap(find.byKey(const Key('steel_group_toggle_앵글 40x40x3')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('steel_item_a')), findsOneWidget);
+    });
+
+    testWidgets('접어 둔 묶음은 다시 열어도 접혀 있다', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'steel_collapsed_sp9': ['스트럿 41x41x2.5'],
+      });
+      await open(tester, proj());
+      expect(find.byKey(const Key('steel_item_c')), findsNothing);
+      expect(find.byKey(const Key('steel_item_a')), findsOneWidget);
+    });
+
+    testWidgets('머리글 ⋮ 메뉴에 규격 바꾸기와 다른 규격으로 복제가 있다', (tester) async {
+      await open(tester, proj());
+      await tester.tap(find.byKey(const Key('steel_group_menu_앵글 40x40x3')));
+      await tester.pumpAndSettle();
+      expect(find.text('규격 바꾸기 (길이 그대로)'), findsOneWidget);
+      expect(find.text('다른 규격으로 복제'), findsOneWidget);
+    });
+
+    testWidgets('원자재보다 긴 항목은 위에 경고, 카드에 표시', (tester) async {
+      await open(
+        tester,
+        proj(
+          items: [
+            item('앵글 40x40x3', 6500, 1, id: 'a'),
+            item('앵글 40x40x3', 800, 1, id: 'b'),
+          ],
+        ),
+      );
+      expect(find.byKey(const Key('steel_over_banner')), findsOneWidget);
+      expect(findTextContaining('6000mm)보다 긴 항목이 1건'), findsOneWidget);
+      expect(find.byKey(const Key('steel_over_a')), findsOneWidget);
+      expect(find.byKey(const Key('steel_over_b')), findsNothing);
+    });
+
+    testWidgets('긴 항목이 없으면 경고가 없다', (tester) async {
+      await open(tester, proj());
+      expect(find.byKey(const Key('steel_over_banner')), findsNothing);
+    });
+
+    testWidgets('같은 규격·길이가 나뉘어 있으면 합치기 안내', (tester) async {
+      await open(
+        tester,
+        proj(
+          items: [
+            item('앵글 40x40x3', 500, 2, id: 'a'),
+            item('앵글 40x40x3', 500, 3, id: 'b'),
+          ],
+        ),
+      );
+      expect(find.byKey(const Key('steel_merge_banner')), findsOneWidget);
+      expect(findTextContaining('1묶음'), findsOneWidget);
+    });
+
+    testWidgets('카드의 −/+: 화면은 바로 바뀌고 1 아래로는 내려가지 않는다', (tester) async {
+      await open(tester, proj());
+      String qty(String id) =>
+          tester.widget<Text>(find.byKey(Key('qty_text_$id'))).data!;
+      expect(qty('a'), '3개');
+      await tester.tap(find.byKey(const Key('qty_inc_a')));
+      await tester.pump();
+      expect(qty('a'), '4개');
+      await tester.tap(find.byKey(const Key('qty_dec_a')));
+      await tester.tap(find.byKey(const Key('qty_dec_a')));
+      await tester.pump();
+      expect(qty('a'), '2개');
+      expect(qty('b'), '1개');
+      await tester.tap(find.byKey(const Key('qty_dec_b')));
+      await tester.pump();
+      expect(qty('b'), '1개');
+      // 요약 줄도 따라 바뀐다: 2 + 1 + 3 = 6개
+      expect(findTextContaining('총 6개'), findsOneWidget);
+      // 손을 뗀 뒤에 저장이 한 번 일어난다(테스트에는 저장소가 없어 실패 알림이 뜬다)
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+      expect(findTextContaining('저장하지 못했습니다'), findsOneWidget);
+    });
+
+    testWidgets('글자를 크게 키워도 카드가 넘치지 않는다', (tester) async {
+      tester.view.physicalSize = const Size(1080, 4000);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(1.5)),
+            child: child!,
+          ),
+          home: SteelCuttingDetailScreen(
+            project: proj(
+              items: [
+                item('앵글 40x40x3', 6500, 12, id: 'a'),
+                item('앵글 40x40x3', 6500, 1, id: 'b'),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
     });
   });
 }

@@ -176,63 +176,8 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
     }
   }
 
-  Future<String?> _promptCustomShapeLabel() {
-    final ctrl = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: CuttingColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            cuttingDialogIcon(Icons.edit_note_rounded),
-            const SizedBox(width: 14),
-            const Expanded(
-              child: Text(
-                "규격 직접 입력",
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: CuttingColors.textPrimary,
-                  fontSize: 17,
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: "예: 앵글 50x50x6 (이 형식이면 중량도 계산)",
-            filled: true,
-            fillColor: Colors.grey.shade100,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none,
-            ),
-          ),
-          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
-        ),
-        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("취소", style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: CuttingColors.primary,
-            ),
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text(
-              "확인",
-              style: TextStyle(color: CuttingColors.surface),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Future<String?> _promptCustomShapeLabel() =>
+      promptCustomSteelShapeLabel(context);
 
   void _submit({required bool keepOpen}) {
     final shape = _shape;
@@ -959,4 +904,77 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
       ],
     );
   }
+}
+
+// 규격 선택창을 열고, "직접 입력"을 고르면 이름을 묻는다. 취소하면 null.
+Future<SteelShapeItem?> pickSteelShape(BuildContext context) async {
+  final picked = await SteelShapePickerSheet.show(context);
+  if (picked == null) return null;
+  if (picked.id != kCustomSteelShapeRequestId) return picked;
+  if (!context.mounted) return null;
+  final label = await promptCustomSteelShapeLabel(context);
+  if (label == null || label.trim().isEmpty) return null;
+  return SteelShapeItem(
+    id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+    category: 'CUSTOM',
+    label: label.trim(),
+  );
+}
+
+Future<String?> promptCustomSteelShapeLabel(BuildContext context) {
+  final ctrl = TextEditingController();
+  return showDialog<String>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: CuttingColors.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Row(
+        children: [
+          cuttingDialogIcon(Icons.edit_note_rounded),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Text(
+              "규격 직접 입력",
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: CuttingColors.textPrimary,
+                fontSize: 17,
+              ),
+            ),
+          ),
+        ],
+      ),
+      content: TextField(
+        controller: ctrl,
+        autofocus: true,
+        decoration: InputDecoration(
+          hintText: "예: 앵글 50x50x6 (이 형식이면 중량도 계산)",
+          filled: true,
+          fillColor: Colors.grey.shade100,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide.none,
+          ),
+        ),
+        onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+      ),
+      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text("취소", style: TextStyle(color: Colors.grey)),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: CuttingColors.primary,
+          ),
+          onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+          child: const Text(
+            "확인",
+            style: TextStyle(color: CuttingColors.surface),
+          ),
+        ),
+      ],
+    ),
+  );
 }

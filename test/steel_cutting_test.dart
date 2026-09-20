@@ -526,7 +526,7 @@ void main() {
       );
       expect(findText('3건 · 2300mm'), findsOneWidget); // 앵글 500×2 + 500 + 800
       expect(find.text('800 mm'), findsOneWidget);
-      expect(find.text('× 3개'), findsWidgets);
+      expect(find.text('3개'), findsWidgets);
       // 종류 칩: 전체 + 앵글 + 스트럿(있는 것만)
       expect(find.text('전체'), findsOneWidget);
       expect(find.text('앵글'), findsOneWidget);
