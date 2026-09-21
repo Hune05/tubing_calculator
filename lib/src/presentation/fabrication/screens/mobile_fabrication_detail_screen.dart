@@ -21,6 +21,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_pipe_visualizer.dart';
 import 'package:tubing_calculator/src/core/database/database_helper.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
+import 'package:tubing_calculator/src/presentation/calculator/tube_marking_rules.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/step_mark_card.dart';
 
 const Color makitaTeal = Color(0xFF007580);
@@ -144,14 +145,18 @@ class _MobileFabricationDetailScreenState
       userGain90: specs.gain90,
       springbackDeg: specs.springback,
     );
+    final fitted = tubeFittedLengths(
+      _bendList,
+      startFit: _startFit,
+      endFit: _endFit,
+      fittingDepth: specs.fittingDepth,
+      tail: _tailLength,
+    );
     final instructions = <BendInstruction>[];
     for (int i = 0; i < _bendList.length; i++) {
-      double l = (_bendList[i]['length'] as num?)?.toDouble() ?? 0.0;
-      if (i == 0 && _startFit) l += specs.fittingDepth;
-      if (i == _bendList.length - 1 && _endFit) l += specs.fittingDepth;
       instructions.add(
         BendInstruction(
-          length: l,
+          length: fitted.lengths[i],
           angle: (_bendList[i]['angle'] as num?)?.toDouble() ?? 0.0,
           rotation: (_bendList[i]['rotation'] as num?)?.toDouble() ?? 0.0,
         ),
@@ -162,7 +167,7 @@ class _MobileFabricationDetailScreenState
       steps = engine.calculate(
         instructions,
         specs.benderOffset,
-        tail: _tailLength,
+        tail: fitted.tail,
       )['steps'];
     } catch (e) {
       debugPrint("마킹 셈 실패: $e");

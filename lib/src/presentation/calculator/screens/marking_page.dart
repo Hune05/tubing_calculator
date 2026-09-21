@@ -140,16 +140,18 @@ class _MarkingPageState extends State<MarkingPage> {
               springbackDeg: dataManager.springback,
             );
 
+            final fitted = tubeFittedLengths(
+              bendList,
+              startFit: _includeStartFitting,
+              endFit: _includeEndFitting,
+              fittingDepth: fittingDepth,
+              tail: _tailLength,
+            );
             List<BendInstruction> instructions = [];
             for (int i = 0; i < bendList.length; i++) {
-              double l = bendList[i]['length']!.toDouble();
-              if (i == 0 && _includeStartFitting) l += fittingDepth;
-              if (i == bendList.length - 1 && _includeEndFitting) {
-                l += fittingDepth;
-              }
               instructions.add(
                 BendInstruction(
-                  length: l,
+                  length: fitted.lengths[i],
                   angle: bendList[i]['angle']!.toDouble(),
                   rotation: bendList[i]['rotation']!.toDouble(),
                 ),
@@ -163,7 +165,7 @@ class _MarkingPageState extends State<MarkingPage> {
               result = engine.calculate(
                 instructions,
                 dataManager.benderOffset,
-                tail: _tailLength,
+                tail: fitted.tail,
               );
             } catch (e) {
               return Center(

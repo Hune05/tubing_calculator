@@ -73,16 +73,18 @@ FieldMarkingData computeTubeFieldData({String startDir = "RIGHT"}) {
     springbackDeg: dataManager.springback,
   );
 
+  final fitted = tubeFittedLengths(
+    bendList,
+    startFit: dataManager.startFit,
+    endFit: dataManager.endFit,
+    fittingDepth: dataManager.fittingDepth,
+    tail: dataManager.tail,
+  );
   final List<BendInstruction> instructions = [];
   for (int i = 0; i < bendList.length; i++) {
-    double l = (bendList[i]['length'] as num?)?.toDouble() ?? 0.0;
-    if (i == 0 && dataManager.startFit) l += dataManager.fittingDepth;
-    if (i == bendList.length - 1 && dataManager.endFit) {
-      l += dataManager.fittingDepth;
-    }
     instructions.add(
       BendInstruction(
-        length: l,
+        length: fitted.lengths[i],
         angle: (bendList[i]['angle'] as num?)?.toDouble() ?? 0.0,
         rotation: (bendList[i]['rotation'] as num?)?.toDouble() ?? 0.0,
       ),
@@ -94,7 +96,7 @@ FieldMarkingData computeTubeFieldData({String startDir = "RIGHT"}) {
     result = engine.calculate(
       instructions,
       dataManager.benderOffset,
-      tail: dataManager.tail,
+      tail: fitted.tail,
     );
   } catch (e) {
     return FieldMarkingData(
@@ -247,18 +249,18 @@ class _MobileResultTabState extends State<MobileResultTab>
           springbackDeg: dataManager.springback,
         );
 
+        final fitted = tubeFittedLengths(
+          bendList,
+          startFit: _includeStartFitting,
+          endFit: _includeEndFitting,
+          fittingDepth: fittingDepth,
+          tail: _tailLength,
+        );
         List<BendInstruction> instructions = [];
         for (int i = 0; i < bendList.length; i++) {
-          double l = (bendList[i]['length'] as num?)?.toDouble() ?? 0.0;
-          if (i == 0 && _includeStartFitting) {
-            l += fittingDepth;
-          }
-          if (i == bendList.length - 1 && _includeEndFitting) {
-            l += fittingDepth;
-          }
           instructions.add(
             BendInstruction(
-              length: l,
+              length: fitted.lengths[i],
               angle: (bendList[i]['angle'] as num?)?.toDouble() ?? 0.0,
               rotation: (bendList[i]['rotation'] as num?)?.toDouble() ?? 0.0,
             ),
@@ -275,7 +277,7 @@ class _MobileResultTabState extends State<MobileResultTab>
           result = engine.calculate(
             instructions,
             dataManager.benderOffset,
-            tail: _tailLength,
+            tail: fitted.tail,
           );
         } catch (e) {
           calcError = e.toString();
@@ -346,7 +348,9 @@ class _MobileResultTabState extends State<MobileResultTab>
 
           double appliedFit = 0.0;
           if (i == 0 && _includeStartFitting) appliedFit += fittingDepth;
-          if (i == bendList.length - 1 && _includeEndFitting) {
+          if (i == bendList.length - 1 &&
+              _includeEndFitting &&
+              !fitted.endFitOnTail) {
             appliedFit += fittingDepth;
           }
 

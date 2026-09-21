@@ -23,3 +23,31 @@ double straightAfterLastBend(List<StepResult> steps, double pureCutLength) {
   }
   return 0.0;
 }
+
+/// 피팅 깊이를 붙인 뒤 엔진에 넘길 구간 길이와 꼬리.
+///
+/// 시작 피팅은 첫 구간에 붙인다. 끝 피팅은 관 끝에 붙는데, 꼬리가 있으면
+/// 관 끝은 꼬리 끝이므로 꼬리에 붙인다(꼬리가 없으면 마지막 구간에).
+/// 🚀 [고침] 예전에는 꼬리가 있어도 마지막 구간에 붙여서 마지막 벤드 마킹이
+/// 피팅 깊이만큼 늦게 찍혔다(R100·500 90°·꼬리 300·깊이 20: 400 → 420).
+({List<double> lengths, double tail, bool endFitOnTail}) tubeFittedLengths(
+  List<Map<String, dynamic>> bendList, {
+  required bool startFit,
+  required bool endFit,
+  required double fittingDepth,
+  required double tail,
+}) {
+  final lengths = [
+    for (final b in bendList) (b['length'] as num?)?.toDouble() ?? 0.0,
+  ];
+  final bool onTail = endFit && tail > 0;
+  if (lengths.isNotEmpty) {
+    if (startFit) lengths[0] += fittingDepth;
+    if (endFit && !onTail) lengths[lengths.length - 1] += fittingDepth;
+  }
+  return (
+    lengths: lengths,
+    tail: onTail ? tail + fittingDepth : tail,
+    endFitOnTail: onTail,
+  );
+}
