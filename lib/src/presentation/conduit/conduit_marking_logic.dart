@@ -214,3 +214,25 @@ double conduitTotalCut(
   }
   return sum - gains + _num(settings, 'bladeKerf', 0.0);
 }
+
+/// 90°로 한 번 꺾어 잰 값으로 이 벤더의 테이크업·게인(90°)을 잡는다.
+///
+/// - [cut] 자른 길이
+/// - [mark] 관 끝에서 화살표를 맞춘 마킹 자리
+/// - [stub] 꺾은 뒤 그 관 끝에서 꺾인 관 바깥면(등)까지(스텁 높이)
+/// - [otherLeg] 반대쪽 끝에서 꺾인 관 바깥면(등)까지
+///
+/// 테이크업 = 스텁 − 마킹 자리, 게인 = 두 다리 합 − 자른 길이.
+/// 제조사 표 값도 바깥면 기준으로 잰 값이라 같은 셈이다. 못 잡으면 null.
+({double takeUp, double gain})? conduitCalibration({
+  required double cut,
+  required double mark,
+  required double stub,
+  required double otherLeg,
+}) {
+  if (cut <= 0 || mark <= 0 || stub <= 0 || otherLeg <= 0) return null;
+  final takeUp = stub - mark;
+  final gain = stub + otherLeg - cut;
+  if (takeUp <= 0 || gain < 0) return null;
+  return (takeUp: takeUp, gain: gain);
+}

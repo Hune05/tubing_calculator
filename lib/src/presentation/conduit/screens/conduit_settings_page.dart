@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tubing_calculator/src/data/conduit_spec_sets.dart';
 import 'package:tubing_calculator/src/data/models/bender_spec_data.dart';
+import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_calibration_sheet.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
@@ -721,8 +722,43 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             helpText: "벤더 슈가 그리는 곡선의 반지름입니다.",
           ),
         ]),
+        _buildCalibrateButton(),
         ..._buildCommonCorrection(unit),
       ],
+    );
+  }
+
+  /// 90°로 한 번 꺾어 잰 값으로 테이크업·게인을 잡는 단추(수동·시카고).
+  Widget _buildCalibrateButton() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          key: const Key('conduit_calibrate'),
+          style: TextButton.styleFrom(
+            foregroundColor: makitaTeal,
+            textStyle: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+            ),
+          ),
+          onPressed: () => ConduitCalibrationSheet.show(
+            context,
+            currentTakeUp: double.tryParse(_takeUpController.text) ?? 0,
+            currentGain: double.tryParse(_gainController.text) ?? 0,
+            onApply: (takeUp, gain) {
+              setState(() {
+                _takeUpController.text = takeUp.toString();
+                _gainController.text = gain.toString();
+              });
+              _saveSettings();
+            },
+          ),
+          icon: const Icon(Icons.straighten, size: 18),
+          label: const Text("한 번 꺾어 보고 잡기"),
+        ),
+      ),
     );
   }
 
@@ -919,6 +955,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
           ),
           _buildInputRow("슈 중심선 반경 (CLR)", _clrController, suffix: unit),
         ]),
+        _buildCalibrateButton(),
         ..._buildCommonCorrection(unit),
       ],
     );
