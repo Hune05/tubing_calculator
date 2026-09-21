@@ -34,6 +34,30 @@ DiagramSegment ok(double c2c, {double sd = 0, double ed = 0}) => DiagramSegment(
 );
 
 void main() {
+  test('구간 상태: 절단 0 이하면 간섭(결과 탭과 같게)', () {
+    expect(
+      segmentStateFor(text: '', unreadable: false, cutMm: 0),
+      SegmentState.empty,
+    );
+    expect(
+      segmentStateFor(text: '12a0', unreadable: true, cutMm: 0),
+      SegmentState.unreadable,
+    );
+    // 공제 6+6에 12를 넣으면 절단 0. 예전에는 정상으로 보아 1구간 0.0mm가 잡혔다.
+    expect(
+      segmentStateFor(text: '12', unreadable: false, cutMm: 0),
+      SegmentState.interference,
+    );
+    expect(
+      segmentStateFor(text: '10', unreadable: false, cutMm: -2),
+      SegmentState.interference,
+    );
+    expect(
+      segmentStateFor(text: '600', unreadable: false, cutMm: 588),
+      SegmentState.ok,
+    );
+  });
+
   group('선 길이·누적 위치 계산', () {
     test('가장 긴 구간이 최대, 없으면 최소 높이', () {
       expect(segmentHeight(1000, 1000), 128);
