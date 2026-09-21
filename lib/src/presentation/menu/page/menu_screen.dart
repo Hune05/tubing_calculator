@@ -5,8 +5,7 @@ import 'dart:convert';
 import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/electric_bending_workspace.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/electric_marking_page.dart';
-import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart';
-import 'package:tubing_calculator/src/presentation/my_work_logs/pages/tablet_layout_board_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_project_list_page.dart';
 
 // 💡 슬레이트 컬러 정의 (눈이 편안한 짙은 회색 톤)
 const Color makitaTeal = Color(0xFF007580);
@@ -365,17 +364,12 @@ class MenuScreen extends StatelessWidget {
           subtitle: '캐비닛 중판 레이아웃 스케치',
           iconColor: makitaTeal,
           onTap: () {
-            // shortestSide로 판단: width>600이어도 가로모드 폰처럼
-            // 세로 폭(shortestSide)이 좁으면 모바일(바텀시트형) UI가 더
-            // 적합하므로, 진짜 태블릿급 화면일 때만 패널형 UI를 연다.
-            final bool isTabletSize =
-                MediaQuery.of(context).size.shortestSide >= 600;
+            // 폰 메뉴와 똑같이 저장된 배치도 목록부터 연다(예전엔 태블릿
+            // 메뉴만 빈 도면이 바로 열려서 저장한 배치도를 다시 열 수 없었다).
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => isTabletSize
-                    ? const TabletLayoutBoardPage()
-                    : const MobileLayoutBoardPage(),
+                builder: (context) => const LayoutBoardProjectListPage(),
               ),
             );
           },

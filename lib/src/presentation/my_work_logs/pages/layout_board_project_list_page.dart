@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart';
-import 'package:tubing_calculator/src/presentation/my_work_logs/pages/responsive_layout_board_page.dart';
 
 const String kLayoutsCollection = 'layouts';
 
@@ -42,7 +41,7 @@ class LayoutBoardProjectListPage extends StatelessWidget {
     HapticFeedback.lightImpact();
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const ResponsiveLayoutBoardPage()),
+      MaterialPageRoute(builder: (_) => const LayoutBoardPage()),
     );
   }
 
@@ -50,9 +49,7 @@ class LayoutBoardProjectListPage extends StatelessWidget {
     HapticFeedback.lightImpact();
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => ResponsiveLayoutBoardPage(projectId: docId),
-      ),
+      MaterialPageRoute(builder: (_) => LayoutBoardPage(projectId: docId)),
     );
   }
 

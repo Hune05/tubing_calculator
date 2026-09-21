@@ -32,7 +32,8 @@ import 'package:tubing_calculator/src/presentation/my_schedule/mobile_my_schedul
 import 'package:tubing_calculator/src/presentation/menu/page/home_menu_router.dart';
 import 'package:tubing_calculator/src/presentation/menu/page/mobile_loading_screen.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_only_screen.dart';
-import 'package:tubing_calculator/src/presentation/my_work_logs/pages/responsive_layout_board_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart'
+    show LayoutBoardPage;
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/weekly_report_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/report_tools.dart'
     show
@@ -362,8 +363,7 @@ class _DeepLinkHandlerState extends State<DeepLinkHandler> {
       if (mounted) {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (context) =>
-                ResponsiveLayoutBoardPage(projectId: projectId),
+            builder: (context) => LayoutBoardPage(projectId: projectId),
           ),
         );
       }
