@@ -63,3 +63,16 @@ bool isKoreanHoliday(DateTime day) => holidayName(day).isNotEmpty;
 int get lastHolidayYear => kKoreanHolidays.keys
     .map((k) => int.parse(k.substring(0, 4)))
     .fold(0, (a, b) => a > b ? a : b);
+
+// 공휴일 표를 새로 넣어야 할 때 알림 점검 화면에 보여 줄 글. 괜찮으면 빈 글자.
+// 표의 마지막 해 12월부터 알려 준다(해가 바뀌면 달력의 빨간 날이 조용히 사라지므로).
+String holidayTableNotice(DateTime now) {
+  final last = lastHolidayYear;
+  if (now.year > last) {
+    return "공휴일 표가 $last년까지만 들어 있어 ${now.year}년 달력에는 공휴일이 표시되지 않습니다. 새 해 공휴일을 넣어야 합니다.";
+  }
+  if (now.year == last && now.month == 12) {
+    return "공휴일 표가 $last년까지만 들어 있습니다. 내년 공휴일을 넣어야 합니다.";
+  }
+  return '';
+}

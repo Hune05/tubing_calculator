@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/report_tools.dart';
+import '../../my_schedule/korean_holidays.dart' show holidayTableNotice;
 import '../../my_schedule/schedule_reminders.dart';
 import '../widgets/korean_text.dart';
 
@@ -37,6 +38,8 @@ class NotificationCheckPage extends StatefulWidget {
   final Future<({int expected, int scheduled})?> Function()?
   personalStatusLoader;
   final Future<int> Function()? personalRescheduler;
+  // 공휴일 표 안내를 볼 "지금"(테스트에서 바꿔 끼운다).
+  final DateTime? nowForTest;
   const NotificationCheckPage({
     super.key,
     this.logs = const [],
@@ -50,6 +53,7 @@ class NotificationCheckPage extends StatefulWidget {
     this.scheduleTest,
     this.personalStatusLoader,
     this.personalRescheduler,
+    this.nowForTest,
   });
 
   @override
@@ -523,6 +527,35 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     ];
   }
 
+  // 공휴일 표가 곧 끝나거나 이미 끝났으면 알려 주는 줄.
+  List<Widget> _holidayRows() {
+    final note = holidayTableNotice(widget.nowForTest ?? DateTime.now());
+    if (note.isEmpty) return const [];
+    const color = Color(0xFFE5484D);
+    return [
+      Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.event_busy_rounded, size: 18, color: color),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                keepWords(note),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
   // 개인 일정(내 일정 관리) 알림 예약 상태 줄.
   List<Widget> _personalRows() {
     final p = _personal;
@@ -769,6 +802,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
               ),
             ..._morningRows(),
             ..._personalRows(),
+            ..._holidayRows(),
             if (_lastSync != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
