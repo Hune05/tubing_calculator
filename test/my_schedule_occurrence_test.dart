@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_logic.dart';
 
 void main() {
+  recurrenceGroup();
   shiftGroup();
   reminderGroup();
   group('반복 일정 회차 완료 표시', () {
@@ -173,6 +174,48 @@ void shiftGroup() {
         ),
         isNull,
       );
+    });
+  });
+}
+
+void recurrenceGroup() {
+  group('오래된 반복 일정도 화면 범위 끝까지 나온다', () {
+    test('2020년 매주 일정, 2025~2028 범위', () {
+      final r = recurrenceDates(
+        DateTime(2020, 1, 6, 9),
+        'weekly',
+        rangeStart: DateTime(2025, 1, 1),
+        rangeEnd: DateTime(2028, 12, 31, 23, 59),
+      );
+      // 2025-01-06(월)부터 2028-12-25(월)까지 매주.
+      expect(r.first, DateTime(2025, 1, 6, 9));
+      expect(r.last, DateTime(2028, 12, 25, 9));
+      expect(r.length, 208);
+    });
+
+    test('2000년 매달 31일 일정은 범위 안에서 말일로 맞춘다', () {
+      final r = recurrenceDates(
+        DateTime(2000, 1, 31, 9),
+        'monthly',
+        rangeStart: DateTime(2025, 1, 1),
+        rangeEnd: DateTime(2025, 3, 31, 23, 59),
+      );
+      expect(r, [
+        DateTime(2025, 1, 31, 9),
+        DateTime(2025, 2, 28, 9),
+        DateTime(2025, 3, 31, 9),
+      ]);
+    });
+
+    test('시작일이 범위 안이면 시작일부터', () {
+      final r = recurrenceDates(
+        DateTime(2025, 1, 6, 9),
+        'weekly',
+        rangeStart: DateTime(2025, 1, 1),
+        rangeEnd: DateTime(2025, 1, 31),
+      );
+      expect(r.first, DateTime(2025, 1, 6, 9));
+      expect(r.length, 4);
     });
   });
 }

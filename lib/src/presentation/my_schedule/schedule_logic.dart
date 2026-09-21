@@ -28,7 +28,21 @@ List<DateTime> recurrenceDates(
 }) {
   if (recurrence != 'weekly' && recurrence != 'monthly') return [base];
   final out = <DateTime>[];
-  for (var n = 0; n < maxCount; n++) {
+  // 범위 앞의 회차는 세지 않고 건너뛴다(오래된 반복 일정도 [maxCount]가 범위 안에서만 쓰이게).
+  var n0 = 0;
+  if (rangeStart.isAfter(base)) {
+    if (recurrence == 'weekly') {
+      n0 = rangeStart.difference(base).inDays ~/ 7 - 1;
+    } else {
+      n0 =
+          (rangeStart.year - base.year) * 12 +
+          rangeStart.month -
+          base.month -
+          1;
+    }
+    if (n0 < 0) n0 = 0;
+  }
+  for (var n = n0; n < n0 + maxCount; n++) {
     final d = recurrence == 'weekly'
         ? base.add(Duration(days: 7 * n))
         : addMonthsClamped(base, n);
