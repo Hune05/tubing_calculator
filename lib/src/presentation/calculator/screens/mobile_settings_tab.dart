@@ -142,17 +142,22 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           _fittingDepthController.text = c.fittingDepth.toString();
         }
       });
-      _onSpecsChanged();
-
-      MobileBendDataManager().updateMachineSpecs(
-        takeUp90: double.tryParse(_takeUpController.text) ?? 0.0,
-        fittingDepth: double.tryParse(_fittingDepthController.text) ?? 0.0,
-        gain90: double.tryParse(_gainController.text) ?? 0.0,
-        radius: double.tryParse(_rController.text) ?? 0.0,
-        benderOffset: double.tryParse(_benderOffsetController.text) ?? 0.0,
-        springback: double.tryParse(_springbackController.text) ?? 0.0,
-        cutMargin: double.tryParse(_cutMarginController.text) ?? 0.0,
-      );
+      // 🚀 [고침] 자동(AUTO) 칸은 제원 묶음·제원표에서 나중에 채워진다. 예전에는
+      // 채우기를 기다리지 않고 바로 제원에 넣어서, 빈칸이 0으로 저장됐다.
+      // 튜브 계산기를 열기만 해도(이 탭이 같이 만들어진다) 반경·피팅 깊이가
+      // 0이 되어 셋백 없이 마킹했다. 다 채운 뒤에 넣고, 빈칸은 덮지 않는다.
+      _onSpecsChanged().then((_) {
+        if (!mounted) return;
+        MobileBendDataManager().updateMachineSpecs(
+          takeUp90: double.tryParse(_takeUpController.text),
+          fittingDepth: double.tryParse(_fittingDepthController.text),
+          gain90: double.tryParse(_gainController.text),
+          radius: double.tryParse(_rController.text),
+          benderOffset: double.tryParse(_benderOffsetController.text),
+          springback: double.tryParse(_springbackController.text),
+          cutMargin: double.tryParse(_cutMarginController.text),
+        );
+      });
     }
   }
 
@@ -279,12 +284,11 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
   String _trimZero(double v) =>
       v == v.roundToDouble() ? v.toStringAsFixed(1) : v.toString();
 
-  void _onSpecsChanged() {
+  Future<void> _onSpecsChanged() async {
     // 이 조합으로 넣어 둔 제원이 있으면 그것부터 꺼낸다.
-    _applySavedSpecSet().then((found) {
-      if (found) return;
-      _fillFromStandardSpecs();
-    });
+    final found = await _applySavedSpecSet();
+    if (found || !mounted) return;
+    _fillFromStandardSpecs();
   }
 
   void _fillFromStandardSpecs() {
