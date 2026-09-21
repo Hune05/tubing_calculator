@@ -284,3 +284,17 @@ DateTime? shiftedEndDate({
   if (days <= 0) return null;
   return DateTime(ns.year, ns.month, ns.day + days);
 }
+
+/// 기간 일정을 달력에 펼칠 때의 최대 일수. 프로젝트 일정 편집의 종료일 선택(시작일 + 730일)과 맞춘다.
+const int kMaxSpanDays = 731;
+
+/// [start]~[end](날짜만 본다) 기간 일정이 달력에 차지하는 일수. 종료일이 없거나 시작보다 앞서면 1,
+/// [kMaxSpanDays]를 넘으면 잘못 넣은 값으로 보고 1.
+int spanDayCount(DateTime start, DateTime? end) {
+  if (end == null) return 1;
+  final s = _dayOnly(start);
+  final e = _dayOnly(end);
+  if (e.isBefore(s)) return 1;
+  final days = (e.difference(s).inHours / 24).round() + 1;
+  return days > kMaxSpanDays ? 1 : days;
+}

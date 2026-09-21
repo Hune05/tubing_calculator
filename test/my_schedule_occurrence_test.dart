@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_logic.dart';
 
 void main() {
+  spanGroup();
   recurrenceGroup();
   shiftGroup();
   reminderGroup();
@@ -216,6 +217,24 @@ void recurrenceGroup() {
       );
       expect(r.first, DateTime(2025, 1, 6, 9));
       expect(r.length, 4);
+    });
+  });
+}
+
+void spanGroup() {
+  group('기간 일정 일수', () {
+    test('반년짜리 시공 기간도 달력에 펼친다', () {
+      expect(spanDayCount(DateTime(2026, 9, 1, 8), DateTime(2027, 3, 1)), 182);
+    });
+    test('편집에서 고를 수 있는 가장 긴 기간(시작 + 730일)까지 펼친다', () {
+      final s = DateTime(2026, 9, 1);
+      expect(spanDayCount(s, s.add(const Duration(days: 730))), 731);
+      expect(spanDayCount(s, s.add(const Duration(days: 731))), 1);
+    });
+    test('종료일이 없거나 시작보다 앞서면 하루', () {
+      expect(spanDayCount(DateTime(2026, 9, 3), null), 1);
+      expect(spanDayCount(DateTime(2026, 9, 3), DateTime(2026, 9, 1)), 1);
+      expect(spanDayCount(DateTime(2026, 9, 3, 14), DateTime(2026, 9, 5)), 3);
     });
   });
 }

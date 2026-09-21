@@ -315,13 +315,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         final DateTime? rawEnd = s['endDate'] != null
             ? _asDateTime(s['endDate'])
             : null;
-        final DateTime endDay = rawEnd != null
-            ? DateTime(rawEnd.year, rawEnd.month, rawEnd.day)
-            : startDay;
-        int totalDays = endDay.isBefore(startDay)
-            ? 1
-            : (endDay.difference(startDay).inHours / 24).round() + 1;
-        if (totalDays > 120) totalDays = 1;
+        // 편집에서 고를 수 있는 기간(730일)까지 펼친다.
+        final int totalDays = spanDayCount(startDay, rawEnd);
         for (int i = 0; i < totalDays; i++) {
           items.add(
             _AgendaItem(
@@ -384,13 +379,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       final DateTime? rawEnd = data['endDate'] != null
           ? _asDateTime(data['endDate'])
           : null;
-      final DateTime endDay = rawEnd != null
-          ? DateTime(rawEnd.year, rawEnd.month, rawEnd.day)
-          : startDay;
-      final int totalDays = endDay.isBefore(startDay)
-          ? 1
-          : (endDay.difference(startDay).inHours / 24).round() + 1;
-      if (totalDays > 1 && totalDays <= 120) {
+      final int totalDays = spanDayCount(startDay, rawEnd);
+      if (totalDays > 1) {
         return List.generate(totalDays, (i) {
           final DateTime day = DateTime(
             startDay.year,
