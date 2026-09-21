@@ -654,8 +654,52 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             helpText: "벤더 슈가 그리는 곡선의 반지름입니다.",
           ),
         ]),
+        ..._buildCommonCorrection(unit),
       ],
     );
+  }
+
+  /// 세 벤더가 같이 쓰는 보정 칸.
+  /// 🚀 [고침] 예전에는 스프링백은 유압에만, 수축량 스위치는 시카고에만 있었고
+  /// 커플링 깊이·톱날 두께는 어디에도 없었다. 값은 셈에 쓰이는데 고칠 곳이
+  /// 없어서, 수동 벤더에서는 "21° (실제 24°)"의 스프링백 3°를 바꿀 수 없었다.
+  List<Widget> _buildCommonCorrection(String unit) {
+    return [
+      _buildSectionTitle("공통 보정"),
+      _buildSettingsCard([
+        _buildSwitchRow(
+          "스프링백 보정",
+          _applySpringback,
+          helpText:
+              "금속관은 꺾은 뒤 조금 펴집니다. 켜면 마킹 화면에 \"실제로 꺾을 각도\"를 이만큼 더해서 보여 줍니다. 마킹 자리는 바뀌지 않습니다.",
+          (v) {
+            setState(() => _applySpringback = v);
+          },
+        ),
+        if (_applySpringback) _buildInputRow("스프링백 각도", _springbackController),
+        _buildSwitchRow(
+          "수축량(Shrink) 자동 공제",
+          _applyShrink,
+          helpText:
+              "켜면 오프셋·새들 계산기의 1번 마킹을 \"시작 거리 + 축소값\" 자리에 찍습니다(현장 셈법). 끄면 시작 거리 그대로 찍습니다.",
+          (v) {
+            setState(() => _applyShrink = v);
+          },
+        ),
+        _buildInputRow(
+          "커플링 깊이",
+          _couplingDepthController,
+          suffix: unit,
+          helpText: "마킹 화면에서 \"체결\"을 고르면 관 끝이 커플링에 이만큼 들어간다고 보고 마킹을 당깁니다.",
+        ),
+        _buildInputRow(
+          "톱날 두께",
+          _bladeKerfController,
+          suffix: unit,
+          helpText: "자를 때 톱날에 먹히는 두께입니다. 총 절단 길이에 더합니다.",
+        ),
+      ]),
+    ];
   }
 
   Widget _buildRamSettingsView() {
@@ -726,19 +770,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
           ),
           _buildInputRow("슈 중심선 반경 (CLR)", _clrController, suffix: unit),
         ]),
-        _buildSectionTitle("보정 설정"),
-        _buildSettingsCard([
-          _buildSwitchRow(
-            "스프링백(Springback) 자동 계산",
-            _applySpringback,
-            helpText: "금속관은 꺾은 후 탄성으로 살짝 펴집니다. 목표 각도 도달 시 살짝 더 꺾도록 계산기에 반영합니다.",
-            (v) {
-              setState(() => _applySpringback = v);
-            },
-          ),
-          if (_applySpringback)
-            _buildInputRow("스프링백 보정 (°)", _springbackController),
-        ]),
+        ..._buildCommonCorrection(unit),
       ],
     );
   }
@@ -820,18 +852,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
           ),
           _buildInputRow("슈 중심선 반경 (CLR)", _clrController, suffix: unit),
         ]),
-        _buildSectionTitle("공통 보정"),
-        _buildSettingsCard([
-          _buildSwitchRow(
-            "수축량(Shrink) 자동 공제",
-            _applyShrink,
-            helpText:
-                "켜면 오프셋·새들 계산기의 1번 마킹을 \"시작 거리 + 축소값\" 자리에 찍습니다(현장 셈법). 끄면 시작 거리 그대로 찍습니다.",
-            (v) {
-              setState(() => _applyShrink = v);
-            },
-          ),
-        ]),
+        ..._buildCommonCorrection(unit),
       ],
     );
   }
@@ -879,15 +900,19 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
   }
 
   Widget _buildLabelWithHelp(String label, String? helpText) {
+    // 🚀 [고침] 이름이 한 줄로 고정되어, 폰(폭 344)에서 이름이 긴 칸은 오른쪽
+    // 입력칸·스위치와 합쳐 넘쳤다(최대 161px). 길면 두 줄로 내려가게 한다.
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: slate800,
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: slate800,
+            ),
           ),
         ),
         if (helpText != null) ...[
@@ -919,19 +944,36 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
       title: _buildLabelWithHelp(label, helpText),
-      trailing: DropdownButton<String>(
-        value: safeValue,
-        underline: const SizedBox(),
-        icon: const Icon(Icons.keyboard_arrow_down, color: slate600),
-        style: const TextStyle(
-          fontSize: 15,
-          color: makitaTeal,
-          fontWeight: FontWeight.bold,
+      // 좁은 화면에서 긴 값(제조사 이름 등)이 줄을 통째로 차지하지 않게 폭을 묶는다.
+      trailing: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 150),
+        child: DropdownButton<String>(
+          value: safeValue,
+          isExpanded: true,
+          underline: const SizedBox(),
+          icon: const Icon(Icons.keyboard_arrow_down, color: slate600),
+          style: const TextStyle(
+            fontSize: 15,
+            color: makitaTeal,
+            fontWeight: FontWeight.bold,
+          ),
+          selectedItemBuilder: (context) => [
+            for (final e in items)
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(e, overflow: TextOverflow.ellipsis, maxLines: 1),
+              ),
+          ],
+          items: items
+              .map(
+                (e) => DropdownMenuItem(
+                  value: e,
+                  child: Text(e, overflow: TextOverflow.ellipsis, maxLines: 1),
+                ),
+              )
+              .toList(),
+          onChanged: onChanged,
         ),
-        items: items
-            .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-            .toList(),
-        onChanged: onChanged,
       ),
     );
   }

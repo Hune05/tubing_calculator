@@ -73,9 +73,12 @@ void main() {
       await pump(tester, const ConduitInputTab());
       await tester.tap(find.text('길이: 195.3mm'));
       await tester.pump();
-      expect(find.text('3번 줄 고치는 중'), findsOneWidget);
       expect(find.text('수정'), findsOneWidget);
-      expect(find.text('21° 벤딩'), findsWidgets);
+      // 21°는 튜브처럼 "직관+각도" 칸에 들어간다.
+      final angleField = find.byWidgetPredicate(
+        (w) => w is TextField && w.controller?.text == '21',
+      );
+      expect(angleField, findsOneWidget);
 
       // 길이를 바꿔 넣고 수정.
       final field = find.byWidgetPredicate(
@@ -101,10 +104,32 @@ void main() {
       await pump(tester, const ConduitInputTab());
       await tester.tap(find.text('길이: 150.0mm'));
       await tester.pump();
-      await tester.tap(find.text('취소'));
+      await tester.ensureVisible(find.byIcon(Icons.close));
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.close));
       await tester.pump();
       expect(find.text('추가'), findsOneWidget);
       expect(ConduitDataManager().bendList[0]['length'], 150.0);
+    });
+  });
+
+  group('전선관 배관 형태', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      ConduitDataManager().bendList.clear();
+    });
+
+    testWidgets('튜브처럼 세 칸(90° 벤딩·직관+각도·0° 직관)이다', (tester) async {
+      await pump(tester, const ConduitInputTab());
+      expect(find.text('90° 벤딩'), findsOneWidget);
+      expect(find.text('직관+각도'), findsOneWidget);
+      expect(find.text('0° 직관'), findsOneWidget);
+      // 직관이 기본이라 방향 칸은 안 보인다.
+      expect(find.text('진행 방향 (6축)'), findsNothing);
+      await tester.tap(find.text('90° 벤딩'));
+      await tester.pump();
+      expect(find.text('진행 방향 (6축)'), findsOneWidget);
+      expect(find.text('FRONT'), findsOneWidget);
     });
   });
 
