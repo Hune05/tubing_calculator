@@ -26,12 +26,14 @@ class SteelPdfPreviewPage extends StatelessWidget {
   final Uint8List bytes;
   final String fileName;
   final Future<void> Function() onShare;
+  final String title;
 
   const SteelPdfPreviewPage({
     super.key,
     required this.bytes,
     required this.fileName,
     required this.onShare,
+    this.title = "지시서 미리보기",
   });
 
   @override
@@ -44,9 +46,9 @@ class SteelPdfPreviewPage extends StatelessWidget {
           elevation: 0,
           scrolledUnderElevation: 0,
           iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
-          title: const Text(
-            "지시서 미리보기",
-            style: TextStyle(
+          title: Text(
+            title,
+            style: const TextStyle(
               color: CuttingColors.textPrimary,
               fontWeight: FontWeight.w800,
               fontSize: 17,

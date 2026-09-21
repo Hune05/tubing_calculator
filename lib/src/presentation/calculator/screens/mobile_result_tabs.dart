@@ -8,6 +8,7 @@ import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/presentation/calculator/bend_check.dart';
 import 'package:tubing_calculator/src/presentation/field/field_marking.dart';
+import 'package:tubing_calculator/src/presentation/field/marking_sheet_pdf.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_pipe_visualizer.dart';
@@ -25,6 +26,31 @@ const Color pureWhite = Color(0xFFFFFFFF);
 double _odMm() {
   final s = AppSettingsController();
   return s.isInch ? s.tubeOD * 25.4 : s.tubeOD;
+}
+
+/// 마킹지(PDF)에 적을 튜브 장비 제원.
+List<(String, String)> tubeMarkingSheetSpecs() {
+  final s = AppSettingsController();
+  final m = MobileBendDataManager();
+  String n(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
+  final size = s.isInch ? '${n(s.tubeOD)}"' : '${n(s.tubeOD)}mm';
+  return [
+    ("벤더", "${s.benderBrand} ${s.benderType}"),
+    ("규격", size),
+    ("반경 R", "${n(m.radius)} mm"),
+    ("게인(90°)", "${n(m.gain90)} mm"),
+    ("스프링백", "${n(m.springback)}°"),
+    (
+      "피팅 깊이",
+      m.startFit || m.endFit
+          ? "${n(m.fittingDepth)} mm (${[if (m.startFit) "시작", if (m.endFit) "끝"].join("·")})"
+          : "넣지 않음",
+    ),
+    if (m.tail > 0) ("꼬리", "${n(m.tail)} mm"),
+    if (m.benderOffset != 0) ("벤더 원점", "${n(m.benderOffset)} mm"),
+    if (m.cutMargin > 0) ("톱날 손실", "${n(m.cutMargin)} mm"),
+  ];
 }
 
 /// 현장 탭(가로 줄자 화면)에 넘길 마킹 자료.
@@ -459,6 +485,44 @@ class _MobileResultTabState extends State<MobileResultTab>
                           icon: const Icon(Icons.save_alt_rounded, size: 18),
                           label: const Text(
                             "도면 저장",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          key: const Key('tube_marking_sheet'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: slate900,
+                            side: const BorderSide(color: slate900),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                          ),
+                          onPressed: bendList.isEmpty
+                              ? null
+                              : () => openMarkingSheet(
+                                  context,
+                                  title: "튜브 벤딩 마킹지",
+                                  fileBase: "튜브_마킹지",
+                                  data: computeTubeFieldData(
+                                    startDir: widget.startDir,
+                                  ),
+                                  specs: tubeMarkingSheetSpecs(),
+                                  inputs: bendList,
+                                ),
+                          icon: const Icon(
+                            Icons.picture_as_pdf_outlined,
+                            size: 18,
+                          ),
+                          label: const Text(
+                            "마킹지",
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 14,

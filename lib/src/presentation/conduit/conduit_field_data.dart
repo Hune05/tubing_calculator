@@ -81,3 +81,28 @@ FieldMarkingData computeConduitFieldData() {
     warnings: check.warnings,
   );
 }
+
+/// 마킹지(PDF)에 적을 전선관 장비 제원.
+List<(String, String)> conduitMarkingSheetSpecs(Map<String, dynamic> s) {
+  double d(String k) => (s[k] as num?)?.toDouble() ?? 0.0;
+  String n(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
+  const types = {'hand': '수동', 'ram': '유압', 'chicago': '시카고'};
+  final type = s['benderType']?.toString() ?? 'hand';
+  return [
+    ('벤더', '${types[type] ?? type} · ${s['manufacturer'] ?? ''}'),
+    ('규격', '${s['conduitType'] ?? ''} ${s['conduitSize'] ?? ''}'),
+    if (type == 'ram')
+      ('셋백(90°)', '${n(d('setback'))} mm')
+    else
+      ('테이크업(90°)', '${n(d('takeUp'))} mm'),
+    ('게인(90°)', '${n(d('gain'))} mm'),
+    ('CLR', '${n(d('clr'))} mm'),
+    ('스프링백', (s['applySpringback'] ?? true) ? '${n(d('springback'))}°' : '안 씀'),
+    (
+      '커플링',
+      conduitUseCoupling.value ? '체결 ${n(d('couplingDepth'))} mm' : '미체결',
+    ),
+    if (d('bladeKerf') > 0) ('톱날 두께', '${n(d('bladeKerf'))} mm'),
+  ];
+}

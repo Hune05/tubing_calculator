@@ -6,6 +6,7 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warni
 import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/conduit/conduit_field_data.dart';
 import 'package:tubing_calculator/src/presentation/field/field_marking_screen.dart';
+import 'package:tubing_calculator/src/presentation/field/marking_sheet_pdf.dart';
 import 'package:tubing_calculator/src/presentation/conduit/conduit_marking_logic.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
 
@@ -138,6 +139,23 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                   ),
                   centerTitle: false,
                   actions: [
+                    if (markings.isNotEmpty)
+                      IconButton(
+                        key: const Key('conduit_marking_sheet'),
+                        icon: const Icon(
+                          Icons.picture_as_pdf_outlined,
+                          color: slate900,
+                        ),
+                        tooltip: "마킹지(PDF)",
+                        onPressed: () => openMarkingSheet(
+                          context,
+                          title: "전선관 벤딩 마킹지",
+                          fileBase: "전선관_마킹지",
+                          data: computeConduitFieldData(),
+                          specs: conduitMarkingSheetSpecs(currentSettings),
+                          inputs: bendList,
+                        ),
+                      ),
                     if (markings.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
