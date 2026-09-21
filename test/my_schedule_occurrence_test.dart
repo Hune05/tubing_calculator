@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_logic.dart';
 
 void main() {
+  sheetGroup();
   pickerGroup();
   coverGroup();
   spanGroup();
@@ -278,5 +279,18 @@ void pickerGroup() {
       clampPickerInitial(DateTime(2026, 10, 1), today, last),
       DateTime(2026, 10, 1),
     );
+  });
+}
+
+void sheetGroup() {
+  test('제목이 비면 까닭을 알려 준다', () {
+    expect(scheduleTitleError('  '), '제목을 입력하십시오.');
+    expect(scheduleTitleError('거래처 미팅'), isNull);
+  });
+
+  test('고른 장소 이름을 바꾸면 옛 주소·좌표를 버린다', () {
+    expect(shouldForgetPickedPlace('A 발전소', 'B 사무소'), true);
+    expect(shouldForgetPickedPlace('A 발전소', ' A 발전소 '), false);
+    expect(shouldForgetPickedPlace('', 'B 사무소'), false);
   });
 }

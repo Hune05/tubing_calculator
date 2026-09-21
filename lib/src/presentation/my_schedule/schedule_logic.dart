@@ -328,3 +328,12 @@ DateTime clampPickerInitial(DateTime initial, DateTime first, DateTime last) {
   if (initial.isAfter(last)) return last;
   return initial;
 }
+
+/// 일정 제목 칸 검사. 비어 있으면 까닭을 돌려준다.
+String? scheduleTitleError(String text) =>
+    text.trim().isEmpty ? '제목을 입력하십시오.' : null;
+
+/// 장소를 지도 검색으로 고른 뒤([pickedName]) 칸의 글이 [now]로 바뀌었으면 고른 주소·좌표를 버려야 하는지.
+/// 고른 장소가 없으면(빈 글자) 버릴 것도 없다.
+bool shouldForgetPickedPlace(String pickedName, String now) =>
+    pickedName.trim().isNotEmpty && now.trim() != pickedName.trim();

@@ -546,6 +546,11 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     String placeAddress = (existing?['placeAddress'] as String?)?.trim() ?? '';
     double? placeLat = (existing?['placeLat'] as num?)?.toDouble();
     double? placeLng = (existing?['placeLng'] as num?)?.toDouble();
+    // 지도 검색으로 고른 장소 이름. 칸의 글이 이것과 달라지면 옛 주소·좌표를 버린다.
+    String pickedPlaceName = placeAddress.isNotEmpty || placeLat != null
+        ? placeCtrl.text.trim()
+        : '';
+    String? titleError;
     String category = (existing?['category'] as String?) ?? '개인';
     DateTime baseDate = existing != null
         ? _asDateTime(existing['dateTime'])
@@ -628,6 +633,11 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                             TextField(
                               controller: titleCtrl,
                               autofocus: docId == null,
+                              onChanged: (_) {
+                                if (titleError != null) {
+                                  setSheetState(() => titleError = null);
+                                }
+                              },
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -635,6 +645,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                               ),
                               decoration: InputDecoration(
                                 hintText: "일정 제목 (예: 거래처 미팅)",
+                                errorText: titleError,
                                 filled: true,
                                 fillColor: const Color(0xFFF7F8F9),
                                 hintStyle: const TextStyle(
@@ -667,6 +678,20 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                             TextField(
                               controller: placeCtrl,
                               textInputAction: TextInputAction.done,
+                              onChanged: (v) {
+                                if (!shouldForgetPickedPlace(
+                                  pickedPlaceName,
+                                  v,
+                                )) {
+                                  return;
+                                }
+                                setSheetState(() {
+                                  pickedPlaceName = '';
+                                  placeAddress = '';
+                                  placeLat = null;
+                                  placeLng = null;
+                                });
+                              },
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -696,6 +721,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                         if (picked == null) return;
                                         setSheetState(() {
                                           placeCtrl.text = picked.name;
+                                          pickedPlaceName = picked.name;
                                           placeAddress = picked.address;
                                           placeLat = picked.lat;
                                           placeLng = picked.lng;
@@ -1126,7 +1152,14 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                               width: double.infinity,
                               child: ElevatedButton(
                                 onPressed: () async {
-                                  if (titleCtrl.text.trim().isEmpty) return;
+                                  final err = scheduleTitleError(
+                                    titleCtrl.text,
+                                  );
+                                  if (err != null) {
+                                    // 아무 말 없이 멈추지 않고 제목 칸 아래에 까닭을 보여 준다.
+                                    setSheetState(() => titleError = err);
+                                    return;
+                                  }
                                   final DateTime combined = hasTime
                                       ? DateTime(
                                           baseDate.year,
