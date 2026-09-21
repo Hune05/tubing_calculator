@@ -140,12 +140,7 @@ PipeDrawPath pipeDrawPath(
   var effRadius = radius;
   if (radius > 0 && path.bends.any((b) => b.straightBefore < 0)) {
     effRadius = 0.0;
-    path = buildBendPath(
-      segs,
-      radius: 0,
-      startDirection: start,
-      tail: visTail,
-    );
+    path = buildBendPath(segs, radius: 0, startDirection: start, tail: visTail);
   }
 
   final points = <vm.Vector3>[vm.Vector3.zero()];

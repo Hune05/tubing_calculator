@@ -83,9 +83,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
           .get();
       if (!mounted) return;
       setState(() {
-        _usage = usageSinceLastCount([
-          for (final d in snap.docs) d.data(),
-        ]);
+        _usage = usageSinceLastCount([for (final d in snap.docs) d.data()]);
       });
     } catch (_) {
       // 못 읽어도 재고조사는 그대로 된다.

@@ -26,10 +26,7 @@ String normalizeMaterialName(String name) {
 
 /// 이름으로 재고 문서를 찾는 표를 만든다.
 /// 똑같은 이름을 먼저 보고, 없으면 다듬은 이름으로 한 번 더 본다.
-Map<String, T> materialLookup<T>(
-  Iterable<T> docs,
-  String Function(T) nameOf,
-) {
+Map<String, T> materialLookup<T>(Iterable<T> docs, String Function(T) nameOf) {
   final out = <String, T>{};
   for (final d in docs) {
     final raw = nameOf(d).trim();
@@ -190,11 +187,7 @@ Future<StockInfo> loadStockInfo() async {
       if (unit.isNotEmpty) units[name] = unit;
       qty[name] = (d.data()['qty'] as num?)?.toInt() ?? 0;
     }
-    return StockInfo(
-      barLengthByName: bars,
-      unitByName: units,
-      qtyByName: qty,
-    );
+    return StockInfo(barLengthByName: bars, unitByName: units, qtyByName: qty);
   } catch (_) {
     return const StockInfo();
   }
@@ -306,10 +299,7 @@ Future<void> undoStockTakes(
   if (all.metadata.isFromCache) {
     unawaited(batch.commit().catchError((_) {}));
   } else {
-    await batch.commit().timeout(
-      const Duration(seconds: 8),
-      onTimeout: () {},
-    );
+    await batch.commit().timeout(const Duration(seconds: 8), onTimeout: () {});
   }
 }
 
@@ -401,10 +391,7 @@ Future<StockDeductResult> deductStockTakes(
   if (offline) {
     unawaited(batch.commit().catchError((_) {}));
   } else {
-    await batch.commit().timeout(
-      const Duration(seconds: 8),
-      onTimeout: () {},
-    );
+    await batch.commit().timeout(const Duration(seconds: 8), onTimeout: () {});
   }
   return StockDeductResult(
     done: done,

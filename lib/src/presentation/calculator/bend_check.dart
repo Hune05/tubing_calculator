@@ -112,8 +112,10 @@ BendCheck checkBends(
       // 공간 기하가 본 것(짧은 구간·못 꺾는 방향·쓸 수 없는 방향값).
       // 엔진이 이미 말한 것과 겹치면 한 번만 보여 준다.
       ...pathWarnings.where((w) => !kept.contains(w)),
-      ...selfInterferenceWarnings(path, outerDiameter: outerDiameter)
-          .map(renumber),
+      ...selfInterferenceWarnings(
+        path,
+        outerDiameter: outerDiameter,
+      ).map(renumber),
     ],
     rollByIndex: {
       for (final b in path.bends)

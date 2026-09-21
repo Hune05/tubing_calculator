@@ -89,8 +89,7 @@ String machineSpecKey({
   required String benderType,
   required String tubeSize,
 }) {
-  String n(String v) =>
-      v.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
+  String n(String v) => v.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
   return '${n(benderBrand)}|${n(benderType)}|${n(tubeSize)}';
 }
 

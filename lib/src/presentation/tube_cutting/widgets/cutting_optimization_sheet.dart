@@ -72,7 +72,10 @@ Future<void> showCuttingOptimizationSheet(
   // 규격별 본수를 한 줄 글로 만든다(견주기용).
   String barsSigOf(Map<String, int> m) {
     final keys = m.keys.toList()..sort();
-    return [for (final k in keys) if (m[k]! > 0) '$k=${m[k]}'].join(';');
+    return [
+      for (final k in keys)
+        if (m[k]! > 0) '$k=${m[k]}',
+    ].join(';');
   }
 
   final ctrl = TextEditingController(

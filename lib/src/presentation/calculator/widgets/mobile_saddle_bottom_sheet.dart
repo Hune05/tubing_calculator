@@ -198,7 +198,11 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     // 🚀 [고침] 1번 마킹이 "시작 거리 + 더할 축소값" 자리에 오도록 한다.
     final double startDistance =
         double.tryParse(_startDistanceCtrl.text) ?? 0.0;
-    final double firstLen = _firstLength(startDistance, sideAngle, roundedShrink);
+    final double firstLen = _firstLength(
+      startDistance,
+      sideAngle,
+      roundedShrink,
+    );
 
     widget.onAddBend(firstLen, sideAngle, _selectedRotation!);
     widget.onAddBend(roundedTravel, a3, oppRot);
@@ -206,9 +210,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          _addedMessage(startDistance, roundedShrink),
-        ),
+        content: Text(_addedMessage(startDistance, roundedShrink)),
         backgroundColor: makitaTeal,
       ),
     );
@@ -336,9 +338,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          _addedMessage(startDistance4, roundedShrink),
-        ),
+        content: Text(_addedMessage(startDistance4, roundedShrink)),
         backgroundColor: makitaTeal,
       ),
     );

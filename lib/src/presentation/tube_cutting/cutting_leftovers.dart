@@ -194,8 +194,7 @@ class LeftoverSummary {
   });
 
   /// 자재 줄에 한 줄로 붙일 글.
-  String get short =>
-      "잔재 $count개 · 가장 긴 것 ${longestMm.round()}mm";
+  String get short => "잔재 $count개 · 가장 긴 것 ${longestMm.round()}mm";
 }
 
 /// 잔재를 규격별로 묶는다. 열쇠는 규격 이름을 다듬은 것.

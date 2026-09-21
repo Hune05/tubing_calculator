@@ -752,5 +752,4 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
       ],
     );
   }
-
 }

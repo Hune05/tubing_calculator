@@ -60,8 +60,11 @@ class BendSheetSpecs {
 
   /// 첫 구간 길이(꺾이는 점까지). 마킹 화면이 [markOffset]을 도로 빼므로
   /// 마킹은 정확히 [firstMark] 자리에 찍힌다.
-  double firstLength(double startDistance, double angle, double geometricShrink) =>
-      firstMark(startDistance, geometricShrink) + markOffset(angle);
+  double firstLength(
+    double startDistance,
+    double angle,
+    double geometricShrink,
+  ) => firstMark(startDistance, geometricShrink) + markOffset(angle);
 
   /// 튜브 계산기용. 마킹 화면과 같은 제원 한 벌([MachineSpecs])을 본다.
   static Future<BendSheetSpecs> tube() async {

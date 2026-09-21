@@ -947,9 +947,7 @@ class MobileIsoPipePainter extends CustomPainter {
         for (int k = i; k <= j; k++) {
           zSum += projectedPts[k].z;
         }
-        renderQueue.add(
-          MobilePolylineRenderable(pts, zSum / (j - i + 1)),
-        );
+        renderQueue.add(MobilePolylineRenderable(pts, zSum / (j - i + 1)));
         i = j;
         continue;
       }

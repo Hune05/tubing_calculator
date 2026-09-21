@@ -345,16 +345,18 @@ Future<void> deductCuttingProjectInventory({
 
     // 뺀 것만 지운다. 못 찾은 것은 남겨 둬서, 자재를 넣은 뒤 다시 뺄 수 있게 한다.
     final leftNames = {for (final m in result.missing) m.name};
-    await docRef.update({
-      'materials': [
-        for (final raw in materials)
-          if (raw is Map &&
-              leftNames.contains(
-                (raw['db_name'] ?? raw['name'] ?? '').toString().trim(),
-              ))
-            raw,
-      ],
-    }).timeout(const Duration(seconds: 8), onTimeout: () {});
+    await docRef
+        .update({
+          'materials': [
+            for (final raw in materials)
+              if (raw is Map &&
+                  leftNames.contains(
+                    (raw['db_name'] ?? raw['name'] ?? '').toString().trim(),
+                  ))
+                raw,
+          ],
+        })
+        .timeout(const Duration(seconds: 8), onTimeout: () {});
 
     if (context.mounted) Navigator.pop(context);
     if (context.mounted) {
