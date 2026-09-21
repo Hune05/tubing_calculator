@@ -1373,39 +1373,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
               ),
             ),
             if (isUrgent && !isCompleted && !isRejected)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 20,
-                ),
-                decoration: BoxDecoration(
-                  color: warningRed.withValues(alpha: 0.08),
-                  borderRadius: const BorderRadius.vertical(
-                    bottom: Radius.circular(20),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      LucideIcons.alertCircle,
-                      size: 16,
-                      color: warningRed,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      dDayInfo!['text'] == "D-Day"
-                          ? "오늘 입고 예정입니다. 수령 상태를 확인해 주십시오!"
-                          : "입고가 지연되고 있습니다. 관리자 확인 필요!",
-                      style: const TextStyle(
-                        color: warningRed,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              OrderDueNotice(isToday: dDayInfo!['text'] == "D-Day"),
             if (isRejected && order.rejectReason != null)
               Container(
                 width: double.infinity,
@@ -2535,6 +2503,47 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+}
+
+// 발주 카드 아래의 입고 알림 줄(오늘 입고 / 입고 지연). 폰 폭에서 글이 넘치지 않게 여러 줄로 감싼다.
+class OrderDueNotice extends StatelessWidget {
+  const OrderDueNotice({super.key, required this.isToday});
+
+  final bool isToday;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+      decoration: BoxDecoration(
+        color: warningRed.withValues(alpha: 0.08),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(LucideIcons.alertCircle, size: 16, color: warningRed),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              isToday
+                  ? "오늘 입고 예정입니다. 수령 상태를 확인하십시오."
+                  : "입고가 지연되고 있습니다. 관리자에게 확인하십시오.",
+              style: const TextStyle(
+                color: warningRed,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
