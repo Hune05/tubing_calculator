@@ -70,14 +70,14 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
     // 화면 자체의 AppBar/BottomNavigationBar가 계속 떠 있어서, 그만큼
     // 세로 공간이 줄어들며 내용이 잘려 보였다. 전선관 계산기와 동일하게
     // 이 탭일 때만 둘 다 숨긴다.
-    final bool isFieldTab = _currentIndex == 2; // '현장' 탭
+    final bool isFieldTab = _currentIndex == 3; // '현장' 탭
 
     // 머리 막대가 없어져 위쪽이 밝으므로 시계·배터리 글자를 어둡게.
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
         // 보관함 탭은 흰 바탕이라 맨 위(상태 표시줄 밑)도 흰색으로 맞춘다.
-        backgroundColor: !isWide && _currentIndex == 4 ? pureWhite : slate100,
+        backgroundColor: !isWide && _currentIndex == 2 ? pureWhite : slate100,
         // 전선관 계산기처럼 청록 머리 막대 없이 각 탭이 제 제목을 단다.
         // 현장 탭은 화면 끝까지 쓰므로 위 여백을 두지 않는다(모양은 그대로 두어
         // 탭을 옮겨도 입력하던 내용이 사라지지 않게).
@@ -138,23 +138,23 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
                                 isWide: true,
                               ),
                               _buildNavItem(
+                                Icons.folder_rounded,
+                                Icons.folder_outlined,
+                                "보관함",
+                                1,
+                                isWide: true,
+                              ),
+                              _buildNavItem(
                                 Icons.architecture_rounded,
                                 Icons.architecture_outlined,
                                 "현장",
-                                1,
+                                2,
                                 isWide: true,
                               ),
                               _buildNavItem(
                                 Icons.view_in_ar_rounded,
                                 Icons.view_in_ar_outlined,
                                 "아이소",
-                                2,
-                                isWide: true,
-                              ),
-                              _buildNavItem(
-                                Icons.folder_rounded,
-                                Icons.folder_outlined,
-                                "보관함",
                                 3,
                                 isWide: true,
                               ),
@@ -182,23 +182,23 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
                                 isWide: false,
                               ),
                               _buildNavItem(
+                                Icons.folder_rounded,
+                                Icons.folder_outlined,
+                                "보관함",
+                                2,
+                                isWide: false,
+                              ),
+                              _buildNavItem(
                                 Icons.architecture_rounded,
                                 Icons.architecture_outlined,
                                 "현장",
-                                2,
+                                3,
                                 isWide: false,
                               ),
                               _buildNavItem(
                                 Icons.view_in_ar_rounded,
                                 Icons.view_in_ar_outlined,
                                 "아이소",
-                                3,
-                                isWide: false,
-                              ),
-                              _buildNavItem(
-                                Icons.folder_rounded,
-                                Icons.folder_outlined,
-                                "보관함",
                                 4,
                                 isWide: false,
                               ),
@@ -243,8 +243,9 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
     );
   }
 
-  // 🚀 좁은 화면 인덱스(0입력/1마킹/2현장/3아이소/4보관함/5설정, 6개) <->
-  // 넓은 화면 인덱스(0입력+마킹/1현장/2아이소/3보관함/4설정, 5개) 매핑.
+  // 🚀 좁은 화면 인덱스(0입력/1마킹/2보관함/3현장/4아이소/5설정, 6개) <->
+  // 넓은 화면 인덱스(0입력+마킹/1보관함/2현장/3아이소/4설정, 5개) 매핑.
+  // 탭 순서는 전선관 계산기와 같다.
   // 넓은 화면에선 입력과 마킹을 한 탭에서 나란히 보여주므로 탭 개수가
   // 하나 줄어든다.
   int _wideIndexFor(int narrowIndex) {
@@ -266,7 +267,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
     ]),
     compute: () => computeTubeFieldData(startDir: _startDir),
     onCloseTab: _goToMarkingTab,
-    isActive: _currentIndex == 2,
+    isActive: _currentIndex == 3,
   );
 
   Widget _buildNarrowBody() {
@@ -276,12 +277,12 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
       children: [
         const MobileInputTab(),
         MobileResultTab(startDir: _startDir),
+        MobileHistoryTab(onLoaded: _onDrawingLoaded),
         _buildFieldTab(),
         MobileViewerTab(
           startDir: _startDir,
           onStartDirChanged: (val) => setState(() => _startDir = val),
         ),
-        MobileHistoryTab(onLoaded: _onDrawingLoaded),
         const MobileSettingsTab(),
       ],
     );
@@ -311,12 +312,12 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
             Expanded(flex: 6, child: MobileResultTab(startDir: _startDir)),
           ],
         ),
+        MobileHistoryTab(onLoaded: _onDrawingLoaded),
         _buildFieldTab(),
         MobileViewerTab(
           startDir: _startDir,
           onStartDirChanged: (val) => setState(() => _startDir = val),
         ),
-        MobileHistoryTab(onLoaded: _onDrawingLoaded),
         const MobileSettingsTab(),
       ],
     );
