@@ -1996,9 +1996,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               : (point.fitting.id != "none"
                     ? point.fitting.tubeOD
                     : nextFitting.tubeOD),
-          // 쉼표(1200,5) 등으로 쓴 값도 읽은 값 그대로 남긴다.
-          originalLength:
-              parseLengthInput(point.c2cController.text).value ?? 0.0,
+          // 기록 화면은 이 값을 mm로 보여 준다. 🚀 [고침] 예전에는 입력 단위
+          // 숫자를 그대로 남겨서 인치로 100을 넣으면 '측정 100.0mm'로 보였다.
+          // 쉼표(1200,5)로 쓴 값도 계산과 같이 읽은 mm 값이다.
+          originalLength: point.c2cMm,
           startFitting: point.fitting.id == "none" ? "직관" : point.fitting.name,
           endFitting: nextFitting.id == "none" ? "직관" : nextFitting.name,
           cutLength: point.calculatedCut,
