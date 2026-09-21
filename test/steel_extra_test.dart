@@ -435,6 +435,20 @@ void main() {
       expect(steelProjectWeightText(p(const [])), '');
     });
 
+    test('목록 무게도 결과 탭처럼 0개·음수 항목은 빼고 세트는 1 이상으로 센다', () {
+      // 앵글 50x50x6 = 4.43kg/m. 1000mm 2개만 센다.
+      expect(
+        steelProjectWeightText(
+          p([
+            item('앵글 50x50x6', 1000, 2),
+            item('앵글 50x50x6', 1000, -1),
+            item('앵글 50x50x6', -500, 3),
+          ], sets: 0),
+        ),
+        '약 8.9kg',
+      );
+    });
+
     test('찬넬 형태 설명: 경량은 립 없음, 열간압연·앵글은 빈 글자, 립C는 립 있음', () {
       expect(steelShapeNote('찬넬 40x20x1.6'), '립 없는 ㄷ형 (립 있으면 립C형강)');
       expect(steelShapeNote('찬넬 200x75x3.2'), '립 없는 ㄷ형 (립 있으면 립C형강)');

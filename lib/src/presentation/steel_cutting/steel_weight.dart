@@ -201,12 +201,15 @@ String steelProjectWeightText(SteelCuttingProject project) {
   var kg = 0.0;
   var known = 0;
   var unknown = 0;
+  // 결과 탭(buildSteelResultLines)과 같게: 길이·수량이 0 이하인 항목은 빼고, 세트는 1 이상으로 본다.
+  final sets = project.setMultiplier < 1 ? 1 : project.setMultiplier;
   for (final i in project.items) {
+    if (i.length <= 0 || i.qty <= 0) continue;
     final w = steelWeightKg(i.shapeLabel, i.length * i.qty);
     if (w == null) {
       unknown++;
     } else {
-      kg += w * project.setMultiplier;
+      kg += w * sets;
       known++;
     }
   }
