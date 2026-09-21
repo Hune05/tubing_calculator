@@ -49,6 +49,16 @@ void main() {
       expect(steelKgPerM('찬넬 300x90x10'), 43.8);
     });
 
+    test('규격을 ×·X·*·띄어쓰기로 적어도 같은 표를 찾는다', () {
+      expect(steelKgPerM('찬넬 100×50×5'), 9.36);
+      expect(steelKgPerM('찬넬 100X50X5'), 9.36);
+      expect(steelKgPerM('찬넬 100 x 50 x 5'), 9.36);
+      expect(steelKgPerM('앵글 40×40×3'), 1.83);
+      expect(steelKgPerM('강관 25a'), 2.43);
+      expect(steelShapeNote('찬넬 100×50×5'), '');
+      expect(steelShapeNote('찬넬 100×50×3.2'), '립 없는 ㄷ형 (립 있으면 립C형강)');
+    });
+
     test('계산식 결과가 표와 3% 안쪽으로 맞는다(직접 입력한 앵글도 계산된다)', () {
       // 표에 없는 "앵글 50x50x6": 6×(100−6)×0.00785 = 4.43(표 4.43).
       expect(steelKgPerM('앵글 50x50x6')!, closeTo(4.43, 0.05));

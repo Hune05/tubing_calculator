@@ -94,6 +94,12 @@ const Map<String, double> _rodPitch = {
   'M20': 2.5,
 };
 
+// 표를 찾는 키: 소문자로, ×·*는 x로, 띄어쓰기는 뺀다(직접 적은 규격도 표에서 찾게).
+String _tableKey(String size) => size
+    .toLowerCase()
+    .replaceAll(RegExp(r'[×*]'), 'x')
+    .replaceAll(RegExp(r'\s+'), '');
+
 List<double>? _nums(String size) {
   final parts = size.split(RegExp(r'[xX×*]'));
   final out = <double>[];
@@ -121,7 +127,7 @@ double? steelKgPerM(String shapeLabel) {
 
   switch (kind) {
     case '앵글':
-      final table = _angleKgPerM[size.toLowerCase()];
+      final table = _angleKgPerM[_tableKey(size)];
       if (table != null) return table;
       final n = _nums(size);
       if (n == null || n.length != 3) return null;
@@ -131,7 +137,7 @@ double? steelKgPerM(String shapeLabel) {
       if (n == null || n.length != 3) return null;
       return fromArea(n[2] * (n[0] + n[1] - n[2]));
     case '찬넬':
-      final table = _rolledChannelKgPerM[size.toLowerCase()];
+      final table = _rolledChannelKgPerM[_tableKey(size)];
       if (table != null) return table;
       final n = _nums(size);
       if (n == null || n.length != 3) return null;
@@ -160,7 +166,7 @@ double? steelKgPerM(String shapeLabel) {
         2 * n[2] * (n[0] + n[1] - 2 * n[2]) - 2.575 * n[2] * n[2],
       );
     case '강관':
-      final m = RegExp(r'^(\d+A)').firstMatch(size);
+      final m = RegExp(r'^(\d+A)').firstMatch(size.toUpperCase());
       if (m == null) return null;
       return _sgpKgPerM[m.group(1)];
     case '환봉':
@@ -215,7 +221,7 @@ String steelShapeNote(String shapeLabel) {
   if (label.startsWith('립C형강 ')) return '립 있는 C형';
   if (label.startsWith('찬넬 ')) {
     final size = label.substring(3).trim().toLowerCase();
-    if (_rolledChannelKgPerM.containsKey(size)) return '';
+    if (_rolledChannelKgPerM.containsKey(_tableKey(size))) return '';
     final n = _nums(size);
     if (n != null && n.length == 3 && n[2] <= 3.2) {
       return '립 없는 ㄷ형 (립 있으면 립C형강)';
