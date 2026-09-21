@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -188,7 +189,7 @@ class _MobileInventoryLogsPageState extends State<MobileInventoryLogsPage> {
 
                       String displayAction = "작업";
                       Color actionColor = slate600;
-                      IconData actionIcon = Icons.info_outline;
+                      Object actionIcon = Icons.info_outline;
                       String displayQtyPrefix = "";
 
                       // 1. 신규 등록 및 실사 조정인지 먼저 확인 (가장 우선순위)
@@ -200,14 +201,14 @@ class _MobileInventoryLogsPageState extends State<MobileInventoryLogsPage> {
                             ((data['qty'] as num?)?.toInt() ?? 0) == 0;
                         displayAction = justAdded ? "자재 등록" : "신규 등록";
                         actionColor = Colors.blue.shade600;
-                        actionIcon = LucideIcons.boxSelect;
+                        actionIcon = AppGlyph.stockNew;
                         displayQtyPrefix = justAdded ? "" : "+";
                       } else if (rawAction.contains('실사') ||
                           rawAction.contains('수정') ||
                           rawAction.contains('조정')) {
                         displayAction = "재고 실사 (수정)";
                         actionColor = slate900;
-                        actionIcon = LucideIcons.clipboardEdit;
+                        actionIcon = AppGlyph.stockAudit;
                         displayQtyPrefix =
                             "="; // 실사는 증감이 아니라 '해당 수량으로 맞춤'의 의미가 강함
                       } else if (rawAction.contains('삭제')) {
@@ -222,14 +223,14 @@ class _MobileInventoryLogsPageState extends State<MobileInventoryLogsPage> {
                           rawAction.contains('불출')) {
                         displayAction = "불출 (출고)";
                         actionColor = Colors.orange.shade700;
-                        actionIcon = LucideIcons.arrowUpRight;
+                        actionIcon = AppGlyph.stockOut;
                         displayQtyPrefix = "-";
                       } else if (rawType == 'IN' ||
                           rawAction.contains('입고') ||
                           rawAction.contains('반납')) {
                         displayAction = "반납 (입고)";
                         actionColor = makitaTeal;
-                        actionIcon = LucideIcons.arrowDownLeft;
+                        actionIcon = AppGlyph.stockIn;
                         displayQtyPrefix = "+";
                       }
 
@@ -255,7 +256,7 @@ class _MobileInventoryLogsPageState extends State<MobileInventoryLogsPage> {
                                 color: actionColor.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
                               ),
-                              child: Icon(
+                              child: anyIcon(
                                 actionIcon,
                                 color: actionColor,
                                 size: 20,

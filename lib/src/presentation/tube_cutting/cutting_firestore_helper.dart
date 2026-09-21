@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -316,7 +317,7 @@ Future<void> deductCuttingProjectInventory({
         : "'$projectName'에서 쓴 자재 ${materials.length}건을 창고 재고에서 뺍니다."
               "\n\n$warning",
     confirmLabel: "차감하기",
-    icon: Icons.inventory_2_outlined,
+    icon: AppGlyph.stockOut,
   );
   if (!confirmed) return;
 

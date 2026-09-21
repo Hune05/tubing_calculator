@@ -83,7 +83,62 @@ enum AppGlyph {
 
   /// 평행·축소: 나란히 가는 오프셋 두 줄.
   parallel,
+
+  // ── 현장 탭 위 막대 ──
+  /// 누적: 0점에서 잰 치수선 셋.
+  fieldCumulative,
+
+  /// 간격: 이어 잰 치수선.
+  fieldGap,
+
+  /// 햇빛: 반쯤 채운 해(밝게 보기).
+  fieldSun,
+
+  /// 한 단계씩: 번호 동그라미 셋.
+  fieldSteps,
+
+  // ── 튜브 컷팅: 부속 ──
+  fitElbow,
+  fitTee,
+  fitCross,
+  fitValve,
+  fitReducer,
+  fitBulkhead,
+  fitCap,
+  fitUnion,
+  fitAdapter,
+
+  /// 그 밖의 부속: 육각 너트.
+  fitOther,
+
+  /// 원자재(관 묶음 단면).
+  rawBars,
+
+  // ── 형강 단면 ──
+  stAngle,
+  stUnequal,
+  stChannel,
+  stLipC,
+  stStrut,
+  stFlat,
+  stSquare,
+  stRound,
+  stBar,
+  stRod,
+  stBeam,
+
+  // ── 자재 입출고 ──
+  stockIn,
+  stockOut,
+  stockAudit,
+  stockReturn,
+  stockNew,
 }
+
+/// 기본 아이콘(IconData)과 직접 그린 아이콘(AppGlyph)을 같은 자리에 쓸 때.
+Widget anyIcon(Object icon, {double? size, Color? color}) => icon is AppGlyph
+    ? AppIcon(icon, size: size == null ? null : size + 2, color: color)
+    : Icon(icon as IconData, size: size, color: color);
 
 class AppIcon extends StatelessWidget {
   final AppGlyph glyph;
@@ -183,6 +238,61 @@ class _AppIconPainter extends CustomPainter {
       }
       path.lineTo(pts.last.dx, pts.last.dy);
       return path;
+    }
+
+    // 부속에 붙는 관(더 굵게).
+    final thick = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.2
+      ..strokeCap = StrokeCap.butt
+      ..strokeJoin = StrokeJoin.round;
+
+    // 가로 화살촉(dir 1: 오른쪽, -1: 왼쪽).
+    void arrowHead(Offset tip, double dir) {
+      canvas.drawPath(
+        poly([
+          tip.dx - dir * 1.8, tip.dy - 1.6, tip.dx, tip.dy, //
+          tip.dx - dir * 1.8, tip.dy + 1.6,
+        ], close: false),
+        line..strokeWidth = 1.4,
+      );
+      line.strokeWidth = 1.8;
+    }
+
+    // 세로 화살촉(dir 1: 아래, -1: 위).
+    void arrowHeadV(Offset tip, double dir) {
+      canvas.drawPath(
+        poly([
+          tip.dx - 2.6, tip.dy - dir * 2.6, tip.dx, tip.dy, //
+          tip.dx + 2.6, tip.dy - dir * 2.6,
+        ], close: false),
+        line,
+      );
+    }
+
+    Path hexagon(Offset c, double r) {
+      final path = Path();
+      for (int i = 0; i < 6; i++) {
+        final a = math.pi / 6 + i * math.pi / 3;
+        final p = c + Offset(r * math.cos(a), r * math.sin(a));
+        i == 0 ? path.moveTo(p.dx, p.dy) : path.lineTo(p.dx, p.dy);
+      }
+      return path..close();
+    }
+
+    // 형강 단면(옅게 채우고 테두리).
+    void section(List<double> xy) {
+      final p = poly(xy);
+      canvas.drawPath(p, soft);
+      canvas.drawPath(p, line);
+    }
+
+    // 자재 상자.
+    void box({double right = 20}) {
+      rr(4, 11, right - 4, 10, 1.4, soft);
+      rr(4, 11, right - 4, 10, 1.4);
+      l(4, 14.2, right, 14.2);
     }
 
     switch (glyph) {
@@ -541,6 +651,257 @@ class _AppIconPainter extends CustomPainter {
               ..strokeCap = StrokeCap.round,
           );
         }
+      // ── 현장 탭 위 막대 ──
+      case AppGlyph.fieldCumulative:
+        l(3, 4, 3, 20);
+        for (final (y, x) in [(7.0, 10.0), (12.0, 15.5), (17.0, 21.0)]) {
+          l(3, y, x, y);
+          l(x, y - 2, x, y + 2);
+        }
+
+      case AppGlyph.fieldGap:
+        l(3, 12, 21, 12);
+        for (final x in [3.0, 9.0, 15.0, 21.0]) {
+          l(x, 8, x, 16);
+        }
+        for (final (a, b) in [(3.0, 9.0), (9.0, 15.0), (15.0, 21.0)]) {
+          arrowHead(Offset(a + 1.2, 12), -1);
+          arrowHead(Offset(b - 1.2, 12), 1);
+        }
+
+      case AppGlyph.fieldSun:
+        canvas.drawArc(
+          Rect.fromCircle(center: const Offset(12, 12), radius: 4.4),
+          math.pi / 2,
+          math.pi,
+          true,
+          fill,
+        );
+        canvas.drawCircle(const Offset(12, 12), 4.4, line);
+        for (int i = 0; i < 8; i++) {
+          final a = i * math.pi / 4;
+          l(
+            12 + 7.0 * math.cos(a),
+            12 + 7.0 * math.sin(a),
+            12 + 9.4 * math.cos(a),
+            12 + 9.4 * math.sin(a),
+          );
+        }
+
+      case AppGlyph.fieldSteps:
+        l(7.6, 12, 9.4, 12);
+        l(14.6, 12, 16.4, 12);
+        canvas.drawCircle(const Offset(4.8, 12), 2.8, fill);
+        canvas.drawCircle(const Offset(12, 12), 2.8, line);
+        canvas.drawCircle(const Offset(19.2, 12), 2.8, line);
+
+      // ── 부속 ──
+      case AppGlyph.fitElbow:
+        canvas.drawPath(
+          bent(const [Offset(3, 7), Offset(16.5, 7), Offset(16.5, 21)], 5.5),
+          thick,
+        );
+        rr(2.2, 4.2, 3.2, 5.6, 0.8, fill);
+        rr(13.7, 18.4, 5.6, 3.2, 0.8, fill);
+
+      case AppGlyph.fitTee:
+        l(3, 15, 21, 15, thick);
+        l(12, 15, 12, 4, thick);
+        rr(2.2, 12.2, 3.2, 5.6, 0.8, fill);
+        rr(18.6, 12.2, 3.2, 5.6, 0.8, fill);
+        rr(9.2, 2.6, 5.6, 3.2, 0.8, fill);
+
+      case AppGlyph.fitCross:
+        l(3, 12, 21, 12, thick);
+        l(12, 3, 12, 21, thick);
+        rr(2.2, 9.2, 3.2, 5.6, 0.8, fill);
+        rr(18.6, 9.2, 3.2, 5.6, 0.8, fill);
+        rr(9.2, 2.2, 5.6, 3.2, 0.8, fill);
+        rr(9.2, 18.6, 5.6, 3.2, 0.8, fill);
+
+      case AppGlyph.fitValve:
+        l(2.5, 15.5, 21.5, 15.5, thick);
+        final bow = poly([6.5, 11.5, 12, 15.5, 6.5, 19.5]);
+        final bow2 = poly([17.5, 11.5, 12, 15.5, 17.5, 19.5]);
+        for (final b in [bow, bow2]) {
+          canvas.drawPath(b, Paint()..color = Colors.white);
+          canvas.drawPath(b, soft);
+          canvas.drawPath(b, line);
+        }
+        l(12, 15.5, 12, 6);
+        l(7.5, 5, 16.5, 5, line..strokeWidth = 2.4);
+        line.strokeWidth = 1.8;
+
+      case AppGlyph.fitReducer:
+        final red = poly([
+          2.5, 7, 9.5, 7, 14.5, 10.2, 21.5, 10.2, //
+          21.5, 13.8, 14.5, 13.8, 9.5, 17, 2.5, 17,
+        ]);
+        canvas.drawPath(red, soft);
+        canvas.drawPath(red, line);
+
+      case AppGlyph.fitBulkhead:
+        rr(10.4, 2.6, 3.2, 18.8, 0.6, soft);
+        rr(10.4, 2.6, 3.2, 18.8, 0.6);
+        l(2.5, 12, 21.5, 12, thick);
+        rr(6.6, 8.6, 3.0, 6.8, 0.6, fill);
+        rr(14.4, 8.6, 3.0, 6.8, 0.6, fill);
+
+      case AppGlyph.fitCap:
+        l(2.5, 12, 12, 12, thick);
+        rr(12, 7, 8, 10, 2.4, soft);
+        rr(12, 7, 8, 10, 2.4);
+
+      case AppGlyph.fitUnion:
+        l(2.5, 12, 21.5, 12, thick);
+        final hex = hexagon(const Offset(12, 12), 6.2);
+        canvas.drawPath(hex, Paint()..color = Colors.white);
+        canvas.drawPath(hex, soft);
+        canvas.drawPath(hex, line);
+        l(12, 6.6, 12, 17.4);
+
+      case AppGlyph.fitAdapter:
+        l(2.5, 12, 10, 12, thick);
+        rr(10, 7.6, 5.2, 8.8, 1, soft);
+        rr(10, 7.6, 5.2, 8.8, 1);
+        rr(15.2, 9.6, 6.4, 4.8, 0.6);
+        for (final x in [16.8, 18.6, 20.4]) {
+          l(x, 9.6, x - 0.8, 14.4, line..strokeWidth = 1.2);
+        }
+        line.strokeWidth = 1.8;
+
+      case AppGlyph.fitOther:
+        final hex = hexagon(const Offset(12, 12), 8.4);
+        canvas.drawPath(hex, soft);
+        canvas.drawPath(hex, line);
+        canvas.drawCircle(const Offset(12, 12), 3.6, line);
+
+      case AppGlyph.rawBars:
+        for (final c in const [
+          Offset(8, 15.6),
+          Offset(16, 15.6),
+          Offset(12, 8.6),
+        ]) {
+          canvas.drawCircle(c, 4.0, soft);
+          canvas.drawCircle(c, 4.0, line);
+          canvas.drawCircle(c, 1.5, line);
+        }
+
+      // ── 형강 단면 ──
+      case AppGlyph.stAngle:
+        section([5, 4, 9, 4, 9, 16, 20, 16, 20, 20, 5, 20]);
+      case AppGlyph.stUnequal:
+        section([5, 4, 8.6, 4, 8.6, 16.6, 15, 16.6, 15, 20, 5, 20]);
+      case AppGlyph.stChannel:
+        section([
+          18,
+          4,
+          5,
+          4,
+          5,
+          20,
+          18,
+          20,
+          18,
+          16.8,
+          8.6,
+          16.8,
+          8.6,
+          7.2,
+          18,
+          7.2,
+        ]);
+      case AppGlyph.stLipC:
+        section([
+          18, 4, 5, 4, 5, 20, 18, 20, 18, 15.4, 15.4, 15.4, 15.4, 17.2, //
+          7.8, 17.2, 7.8, 6.8, 15.4, 6.8, 15.4, 8.6, 18, 8.6,
+        ]);
+      case AppGlyph.stStrut:
+        section([
+          4, 6, 9, 6, 9, 9, 7, 9, 7, 17, 17, 17, 17, 9, 15, 9, 15, 6, //
+          20, 6, 20, 20, 4, 20,
+        ]);
+      case AppGlyph.stFlat:
+        rr(3, 9.4, 18, 5.2, 0.8, soft);
+        rr(3, 9.4, 18, 5.2, 0.8);
+      case AppGlyph.stSquare:
+        rr(4, 4, 16, 16, 2.2, soft);
+        rr(4, 4, 16, 16, 2.2);
+        rr(7.6, 7.6, 8.8, 8.8, 1, Paint()..color = Colors.white);
+        rr(7.6, 7.6, 8.8, 8.8, 1);
+      case AppGlyph.stRound:
+        canvas.drawCircle(const Offset(12, 12), 8.2, soft);
+        canvas.drawCircle(const Offset(12, 12), 8.2, line);
+        canvas.drawCircle(
+          const Offset(12, 12),
+          5.2,
+          Paint()..color = Colors.white,
+        );
+        canvas.drawCircle(const Offset(12, 12), 5.2, line);
+      case AppGlyph.stBar:
+        canvas.drawCircle(
+          const Offset(12, 12),
+          8.2,
+          Paint()..color = color.withValues(alpha: filled ? 0.4 : 0.0),
+        );
+        canvas.drawCircle(const Offset(12, 12), 8.2, line);
+      case AppGlyph.stRod:
+        rr(2.5, 9.2, 19, 5.6, 1, soft);
+        rr(2.5, 9.2, 19, 5.6, 1);
+        for (double x = 5.2; x < 21; x += 2.6) {
+          l(x, 9.2, x - 1.4, 14.8, line..strokeWidth = 1.2);
+        }
+        line.strokeWidth = 1.8;
+      case AppGlyph.stBeam:
+        section([
+          4, 4, 20, 4, 20, 7.2, 13.6, 7.2, 13.6, 16.8, 20, 16.8, 20, 20, //
+          4, 20, 4, 16.8, 10.4, 16.8, 10.4, 7.2, 4, 7.2,
+        ]);
+
+      // ── 자재 입출고 ──
+      case AppGlyph.stockIn:
+        box();
+        l(12, 2.4, 12, 9.4);
+        arrowHeadV(const Offset(12, 9.6), 1);
+      case AppGlyph.stockOut:
+        box();
+        l(12, 9.6, 12, 2.6);
+        arrowHeadV(const Offset(12, 2.4), -1);
+      case AppGlyph.stockAudit:
+        box(right: 15.2);
+        canvas.drawCircle(
+          const Offset(18, 7),
+          4.4,
+          Paint()..color = Colors.white,
+        );
+        canvas.drawCircle(const Offset(18, 7), 4.4, line);
+        canvas.drawPath(
+          poly([15.8, 7.1, 17.4, 8.7, 20.3, 5.6], close: false),
+          line,
+        );
+      case AppGlyph.stockReturn:
+        box();
+        final back = Path()
+          ..moveTo(17, 8.6)
+          ..lineTo(17, 5.6)
+          ..arcToPoint(
+            const Offset(8.6, 5.6),
+            radius: const Radius.circular(4.2),
+            clockwise: false,
+          )
+          ..lineTo(8.6, 8.6);
+        canvas.drawPath(back, line);
+        arrowHeadV(const Offset(8.6, 9.2), 1);
+      case AppGlyph.stockNew:
+        box(right: 15.2);
+        canvas.drawCircle(
+          const Offset(18, 7),
+          4.4,
+          Paint()..color = Colors.white,
+        );
+        canvas.drawCircle(const Offset(18, 7), 4.4, line);
+        l(18, 4.8, 18, 9.2);
+        l(15.8, 7, 20.2, 7);
     }
     canvas.restore();
   }

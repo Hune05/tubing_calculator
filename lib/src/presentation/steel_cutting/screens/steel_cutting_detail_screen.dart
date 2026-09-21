@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -1105,7 +1106,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             ),
             IconButton(
               tooltip: "톱날 손실(커프) 설정",
-              icon: const Icon(Icons.content_cut_rounded),
+              icon: const AppIcon(AppGlyph.tubeCut),
               onPressed: _showKerfDialog,
             ),
           ],
@@ -1370,7 +1371,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                       size: 20,
                       color: CuttingColors.textSecondary,
                     ),
-                    Icon(
+                    anyIcon(
                       iconForSteel(items.first.category),
                       size: 18,
                       color: CuttingColors.primary,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 
 import '../../../data/models/steel_shape_db.dart';
 import '../../tube_cutting/cutting_theme.dart';
@@ -227,7 +228,7 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
                   padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
                   child: Row(
                     children: [
-                      cuttingDialogIcon(Icons.view_week_rounded),
+                      cuttingDialogIcon(AppGlyph.stChannel),
                       const SizedBox(width: 14),
                       const Expanded(
                         child: Text(
@@ -339,7 +340,7 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
                           itemBuilder: (context, i) {
                             final item = results[i];
                             return ListTile(
-                              leading: Icon(
+                              leading: anyIcon(
                                 iconForSteel(item.category),
                                 color: CuttingColors.primary,
                               ),

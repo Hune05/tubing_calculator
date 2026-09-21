@@ -716,24 +716,24 @@ extension InventoryTabsExt on _InventoryPageState {
 
                   String type = log['type'] ?? 'OUT';
                   Color iconColor;
-                  IconData icon;
+                  Object icon;
                   String sign = "";
 
                   if (type == 'IN') {
                     iconColor = makitaTeal;
-                    icon = LucideIcons.packagePlus;
+                    icon = AppGlyph.stockIn;
                     sign = "+";
                   } else if (type == 'OUT') {
                     iconColor = Colors.orange.shade800;
-                    icon = LucideIcons.truck;
+                    icon = AppGlyph.stockOut;
                     sign = "-";
                   } else if (type == 'AUDIT') {
                     iconColor = slate900;
-                    icon = LucideIcons.scale;
+                    icon = AppGlyph.stockAudit;
                     sign = log['sign'] ?? "";
                   } else {
                     iconColor = Colors.blueAccent;
-                    icon = LucideIcons.cornerDownLeft;
+                    icon = AppGlyph.stockReturn;
                     sign = "+";
                   }
 
@@ -744,7 +744,7 @@ extension InventoryTabsExt on _InventoryPageState {
                     ),
                     leading: CircleAvatar(
                       backgroundColor: iconColor.withValues(alpha: 0.1),
-                      child: Icon(icon, color: iconColor, size: 20),
+                      child: anyIcon(icon, color: iconColor, size: 20),
                     ),
                     title: Text(
                       log['material_name'] ?? '알 수 없는 자재',

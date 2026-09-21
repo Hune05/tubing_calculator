@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -56,8 +57,8 @@ class MobileSteelProjectListPage extends StatelessWidget {
                     color: CuttingColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Icon(
-                    Icons.view_week_rounded,
+                  child: const AppIcon(
+                    AppGlyph.stChannel,
                     color: CuttingColors.primary,
                     size: 26,
                   ),
@@ -380,8 +381,8 @@ class MobileSteelProjectListPage extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.view_week_rounded,
+                      AppIcon(
+                        AppGlyph.stChannel,
                         size: 48,
                         color: Colors.grey.shade300,
                       ),
@@ -445,8 +446,8 @@ class MobileSteelProjectListPage extends StatelessWidget {
                               ),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(
-                              Icons.view_week_rounded,
+                            child: const AppIcon(
+                              AppGlyph.stChannel,
                               color: CuttingColors.primary,
                               size: 22,
                             ),

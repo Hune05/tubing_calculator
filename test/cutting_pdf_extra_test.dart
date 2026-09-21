@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -13,7 +13,7 @@ DiagramPoint none() => const DiagramPoint(
   isNone: true,
   name: '직관',
   tubeOD: '',
-  icon: Icons.remove,
+  icon: AppGlyph.fitOther,
 );
 
 DiagramSegment ok(double c2c) =>

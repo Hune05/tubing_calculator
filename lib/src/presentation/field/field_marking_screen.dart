@@ -455,14 +455,14 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             children: [
               _toolButton(
                 key: const Key('field_cumulative'),
-                icon: Icons.straighten,
+                icon: AppGlyph.fieldCumulative,
                 label: '누적',
                 selected: !_showGap,
                 onTap: () => _setShowGap(false),
               ),
               _toolButton(
                 key: const Key('field_gap'),
-                icon: Icons.compare_arrows_rounded,
+                icon: AppGlyph.fieldGap,
                 label: '간격',
                 selected: _showGap,
                 onTap: () => _setShowGap(true),
@@ -471,7 +471,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           ),
           _toolButton(
             key: const Key('field_contrast_toggle'),
-            icon: _highContrast ? Icons.wb_sunny : Icons.wb_sunny_outlined,
+            icon: AppGlyph.fieldSun,
             label: '햇빛',
             selected: _highContrast,
             onTap: () {
@@ -488,7 +488,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           ),
           _toolButton(
             key: const Key('field_mode_toggle'),
-            icon: Icons.format_list_numbered_rounded,
+            icon: AppGlyph.fieldSteps,
             label: '한 단계',
             selected: _stepMode,
             onTap: _toggleMode,
@@ -515,7 +515,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   /// 위쪽 막대의 단추 하나. 모두 같은 크기(아이콘 + 짧은 이름)로 맞춘다.
   Widget _toolButton({
     required Key key,
-    required IconData icon,
+    required Object icon,
     required String label,
     required bool selected,
     required VoidCallback onTap,
@@ -540,7 +540,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(icon, size: 21, color: fg),
+                  anyIcon(icon, size: 21, color: fg),
                   const SizedBox(height: 2),
                   Text(
                     label,

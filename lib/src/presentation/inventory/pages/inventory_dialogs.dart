@@ -17,8 +17,8 @@ extension _InventoryDialogsExt on _InventoryPageState {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         title: Row(
           children: [
-            Icon(
-              isDispatch ? LucideIcons.truck : LucideIcons.packagePlus,
+            anyIcon(
+              isDispatch ? AppGlyph.stockOut : AppGlyph.stockIn,
               color: isDispatch ? Colors.orange.shade800 : makitaTeal,
             ),
             const SizedBox(width: 8),
@@ -238,7 +238,7 @@ extension _InventoryDialogsExt on _InventoryPageState {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           title: const Row(
             children: [
-              Icon(LucideIcons.cornerDownLeft, color: makitaTeal),
+              AppIcon(AppGlyph.stockReturn, color: makitaTeal),
               SizedBox(width: 8),
               Text(
                 "자재 창고 반납",
@@ -826,7 +826,7 @@ extension _InventoryDialogsExt on _InventoryPageState {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         title: const Row(
           children: [
-            Icon(LucideIcons.scale, color: slate900),
+            AppIcon(AppGlyph.stockAudit, color: slate900),
             SizedBox(width: 8),
             Text(
               "재고 임의 수정",

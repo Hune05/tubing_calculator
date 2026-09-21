@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 
 import '../../data/models/fitting_item.dart';
 import 'cutting_math.dart';
@@ -15,28 +16,28 @@ enum SegmentState { empty, unreadable, ok, interference }
 
 // 부속 이름·분류로 배치도 점 안에 넣을 아이콘을 고른다(영어·한글 이름 모두).
 // 순서가 중요하다 — "Union Elbow"는 유니온이 아니라 엘보로, "Elbow Adapter"도 엘보로 본다.
-IconData iconForFitting(String name, String category) {
+AppGlyph iconForFitting(String name, String category) {
   final t = '${name.toLowerCase()} ${category.toLowerCase()}';
   bool has(List<String> keys) => keys.any(t.contains);
-  if (has(['elbow', '엘보', '90도', '45도'])) return Icons.turn_right_rounded;
-  if (has(['tee', '티자', 't자', '티'])) return Icons.call_split_rounded;
-  if (has(['cross', '십자'])) return Icons.add_rounded;
-  if (has(['valve', '밸브'])) return Icons.tune_rounded;
-  if (has(['reduc', '레듀', '리듀'])) return Icons.unfold_less_rounded;
-  if (has(['bulkhead', '벌크헤드'])) return Icons.view_sidebar_rounded;
-  if (has(['plug', 'cap', '플러그', '캡'])) return Icons.stop_rounded;
-  if (has(['union', '유니온'])) return Icons.link_rounded;
+  if (has(['elbow', '엘보', '90도', '45도'])) return AppGlyph.fitElbow;
+  if (has(['tee', '티자', 't자', '티'])) return AppGlyph.fitTee;
+  if (has(['cross', '십자'])) return AppGlyph.fitCross;
+  if (has(['valve', '밸브'])) return AppGlyph.fitValve;
+  if (has(['reduc', '레듀', '리듀'])) return AppGlyph.fitReducer;
+  if (has(['bulkhead', '벌크헤드'])) return AppGlyph.fitBulkhead;
+  if (has(['plug', 'cap', '플러그', '캡'])) return AppGlyph.fitCap;
+  if (has(['union', '유니온'])) return AppGlyph.fitUnion;
   if (has(['adapter', 'connector', '어댑터', '커넥터', '니플'])) {
-    return Icons.cable_rounded;
+    return AppGlyph.fitAdapter;
   }
-  return Icons.settings_rounded;
+  return AppGlyph.fitOther;
 }
 
 class DiagramPoint {
   final bool isNone; // 부속 없이 직관으로 이어지는 지점
   final String name;
   final String tubeOD;
-  final IconData icon;
+  final AppGlyph icon;
 
   const DiagramPoint({
     required this.isNone,
@@ -392,7 +393,7 @@ class CuttingDiagramView extends StatelessWidget {
                 color: Colors.grey.shade400,
               ),
             )
-          : Icon(p.icon, size: 18, color: Colors.white),
+          : AppIcon(p.icon, size: 20, color: Colors.white, filled: false),
     );
   }
 

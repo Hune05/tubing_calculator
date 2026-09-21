@@ -1,31 +1,32 @@
-import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 
 // 형강 종류(카테고리)마다 아이콘을 하나씩 정한다. 목록·선택창·항목 카드가 모두 이 함수를 쓴다.
-IconData iconForSteel(String category) {
+// 🚀 [바꿈] 기본 아이콘을 빌려 쓰던 것(H빔 = 글자 H 등)을 단면 그림으로.
+AppGlyph iconForSteel(String category) {
   switch (category) {
     case 'ANGLE':
-      return Icons.square_foot_rounded;
+      return AppGlyph.stAngle;
     case 'UNEQUAL':
-      return Icons.square_foot_outlined;
+      return AppGlyph.stUnequal;
     case 'CHANNEL':
-      return Icons.view_week_rounded;
+      return AppGlyph.stChannel;
     case 'LIPC':
-      return Icons.view_week_outlined;
+      return AppGlyph.stLipC;
     case 'STRUT':
-      return Icons.horizontal_split_rounded;
+      return AppGlyph.stStrut;
     case 'FLAT':
-      return Icons.horizontal_rule_rounded;
+      return AppGlyph.stFlat;
     case 'SQUARE':
-      return Icons.crop_square_rounded;
+      return AppGlyph.stSquare;
     case 'ROUND':
-      return Icons.circle_outlined;
+      return AppGlyph.stRound;
     case 'BAR':
-      return Icons.circle;
+      return AppGlyph.stBar;
     case 'ROD':
-      return Icons.linear_scale_rounded;
+      return AppGlyph.stRod;
     case 'BEAM':
-      return Icons.h_mobiledata_rounded;
+      return AppGlyph.stBeam;
     default:
-      return Icons.edit_note_rounded;
+      return AppGlyph.stChannel;
   }
 }

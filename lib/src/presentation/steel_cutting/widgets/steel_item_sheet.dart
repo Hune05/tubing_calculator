@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 
 import '../../../data/models/steel_cutting_project_model.dart';
@@ -508,7 +509,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
                       ),
                       child: Row(
                         children: [
-                          Icon(
+                          anyIcon(
                             _shape == null
                                 ? Icons.search
                                 : iconForSteel(_shape!.category),

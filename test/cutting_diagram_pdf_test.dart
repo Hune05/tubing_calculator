@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -16,11 +17,11 @@ DiagramPoint none() => const DiagramPoint(
   isNone: true,
   name: '직관',
   tubeOD: '',
-  icon: Icons.remove,
+  icon: AppGlyph.fitOther,
 );
 
 DiagramPoint fit(String name) =>
-    DiagramPoint(isNone: false, name: name, tubeOD: '1/2"', icon: Icons.link);
+    DiagramPoint(isNone: false, name: name, tubeOD: '1/2"', icon: AppGlyph.fitUnion);
 
 DiagramSegment ok(double c2c, {double sd = 0, double ed = 0}) => DiagramSegment(
   state: SegmentState.ok,

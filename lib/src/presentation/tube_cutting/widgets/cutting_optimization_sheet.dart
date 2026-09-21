@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_logs_page.dart';
@@ -341,7 +342,7 @@ Future<void> showCuttingOptimizationSheet(
             Row(
               children: [
                 _buildOptStat(
-                  Icons.inventory_2_outlined,
+                  AppGlyph.rawBars,
                   isGroupedView ? "전체 필요 원자재" : "필요 원자재",
                   "$totalBarCount본",
                 ),
@@ -633,12 +634,7 @@ Future<void> showCuttingOptimizationSheet(
   );
 }
 
-Widget _buildOptStat(
-  IconData icon,
-  String label,
-  String value, {
-  Color? accent,
-}) {
+Widget _buildOptStat(Object icon, String label, String value, {Color? accent}) {
   final Color c = accent ?? CuttingColors.primary;
   return Expanded(
     child: Container(
@@ -649,7 +645,7 @@ Widget _buildOptStat(
       ),
       child: Column(
         children: [
-          Icon(icon, color: c, size: 18),
+          anyIcon(icon, color: c, size: 18),
           const SizedBox(height: 6),
           Text(
             value,
@@ -708,7 +704,7 @@ Widget _buildGroupSummaryHeader(String label, CuttingOptimizationResult r) {
           spacing: 14,
           runSpacing: 4,
           children: [
-            _miniStat(Icons.inventory_2_outlined, "${r.barCount}본"),
+            _miniStat(AppGlyph.rawBars, "${r.barCount}본"),
             _miniStat(
               Icons.delete_sweep_outlined,
               "로스 ${r.totalWaste.toStringAsFixed(0)}mm",
@@ -725,12 +721,12 @@ Widget _buildGroupSummaryHeader(String label, CuttingOptimizationResult r) {
   );
 }
 
-Widget _miniStat(IconData icon, String text, {Color? color}) {
+Widget _miniStat(Object icon, String text, {Color? color}) {
   final Color c = color ?? CuttingColors.primaryDark;
   return Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Icon(icon, size: 13, color: c),
+      anyIcon(icon, size: 13, color: c),
       const SizedBox(width: 4),
       Text(
         text,

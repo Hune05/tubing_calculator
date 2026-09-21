@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
@@ -14,11 +15,11 @@ DiagramPoint none() => const DiagramPoint(
   isNone: true,
   name: '직관',
   tubeOD: '',
-  icon: Icons.remove,
+  icon: AppGlyph.fitOther,
 );
 
 DiagramPoint fit(String name, {String od = '1/2"'}) =>
-    DiagramPoint(isNone: false, name: name, tubeOD: od, icon: Icons.link);
+    DiagramPoint(isNone: false, name: name, tubeOD: od, icon: AppGlyph.fitUnion);
 
 DiagramSegment ok(double c2c, {double sd = 0, double ed = 0}) => DiagramSegment(
   state: SegmentState.ok,
@@ -264,32 +265,32 @@ void main() {
   });
 
   group('부속 아이콘', () {
-    IconData ic(String n, [String c = '']) => iconForFitting(n, c);
+    AppGlyph ic(String n, [String c = '']) => iconForFitting(n, c);
 
     test('앱에 들어 있는 부속 이름마다 맞는 아이콘', () {
-      expect(ic('Union Elbow (90도)', 'Union'), Icons.turn_right_rounded);
-      expect(ic('Elbow Adapter', 'Adapter'), Icons.turn_right_rounded);
-      expect(ic('Union Tee (T자)', 'Union'), Icons.call_split_rounded);
-      expect(ic('Union Cross (십자)', 'Union'), Icons.add_rounded);
-      expect(ic('Ball Valve', 'Valve'), Icons.tune_rounded);
-      expect(ic('Needle Valve', 'Valve'), Icons.tune_rounded);
-      expect(ic('Check Valve', 'Valve'), Icons.tune_rounded);
-      expect(ic('Reducing Union', 'Union'), Icons.unfold_less_rounded);
-      expect(ic('Bulkhead Union', 'Union'), Icons.view_sidebar_rounded);
-      expect(ic('Straight Union (일자)', 'Union'), Icons.link_rounded);
-      expect(ic('Male Connector', 'Connector'), Icons.cable_rounded);
-      expect(ic('Female Adapter', 'Adapter'), Icons.cable_rounded);
-      expect(ic('Tube Adapter', 'Adapter'), Icons.cable_rounded);
+      expect(ic('Union Elbow (90도)', 'Union'), AppGlyph.fitElbow);
+      expect(ic('Elbow Adapter', 'Adapter'), AppGlyph.fitElbow);
+      expect(ic('Union Tee (T자)', 'Union'), AppGlyph.fitTee);
+      expect(ic('Union Cross (십자)', 'Union'), AppGlyph.fitCross);
+      expect(ic('Ball Valve', 'Valve'), AppGlyph.fitValve);
+      expect(ic('Needle Valve', 'Valve'), AppGlyph.fitValve);
+      expect(ic('Check Valve', 'Valve'), AppGlyph.fitValve);
+      expect(ic('Reducing Union', 'Union'), AppGlyph.fitReducer);
+      expect(ic('Bulkhead Union', 'Union'), AppGlyph.fitBulkhead);
+      expect(ic('Straight Union (일자)', 'Union'), AppGlyph.fitUnion);
+      expect(ic('Male Connector', 'Connector'), AppGlyph.fitAdapter);
+      expect(ic('Female Adapter', 'Adapter'), AppGlyph.fitAdapter);
+      expect(ic('Tube Adapter', 'Adapter'), AppGlyph.fitAdapter);
     });
 
     test('직접 입력한 한글 이름도 알아본다', () {
-      expect(ic('볼밸브', 'CUSTOM'), Icons.tune_rounded);
-      expect(ic('유니온', 'CUSTOM'), Icons.link_rounded);
-      expect(ic('엘보', 'CUSTOM'), Icons.turn_right_rounded);
-      expect(ic('티', 'CUSTOM'), Icons.call_split_rounded);
-      expect(ic('니플', 'CUSTOM'), Icons.cable_rounded);
-      expect(ic('플러그', 'CUSTOM'), Icons.stop_rounded);
-      expect(ic('용접 소켓', 'CUSTOM'), Icons.settings_rounded);
+      expect(ic('볼밸브', 'CUSTOM'), AppGlyph.fitValve);
+      expect(ic('유니온', 'CUSTOM'), AppGlyph.fitUnion);
+      expect(ic('엘보', 'CUSTOM'), AppGlyph.fitElbow);
+      expect(ic('티', 'CUSTOM'), AppGlyph.fitTee);
+      expect(ic('니플', 'CUSTOM'), AppGlyph.fitAdapter);
+      expect(ic('플러그', 'CUSTOM'), AppGlyph.fitCap);
+      expect(ic('용접 소켓', 'CUSTOM'), AppGlyph.fitOther);
     });
   });
 

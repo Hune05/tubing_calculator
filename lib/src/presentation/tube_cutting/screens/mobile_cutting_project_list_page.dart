@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -62,8 +63,8 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                     color: CuttingColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Icon(
-                    Icons.content_cut_rounded,
+                  child: const AppIcon(
+                    AppGlyph.tubeCut,
                     color: CuttingColors.primary,
                     size: 26,
                   ),
@@ -242,8 +243,8 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                 },
               ),
               ListTile(
-                leading: const Icon(
-                  Icons.inventory_2_outlined,
+                leading: const AppIcon(
+                  AppGlyph.stockOut,
                   color: CuttingColors.primary,
                 ),
                 title: const Text(
@@ -444,8 +445,8 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.content_cut_rounded,
+                      AppIcon(
+                        AppGlyph.tubeCut,
                         size: 48,
                         color: Colors.grey.shade300,
                       ),
@@ -515,8 +516,8 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                               ),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(
-                              Icons.content_cut_rounded,
+                            child: const AppIcon(
+                              AppGlyph.tubeCut,
                               color: CuttingColors.primary,
                               size: 22,
                             ),

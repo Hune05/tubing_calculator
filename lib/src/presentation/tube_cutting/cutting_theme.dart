@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 
 // 🚀 [UI 고도화] 컷팅 계산기 관련 화면(계산기 본문·모바일/태블릿 작업
 // 목록·기록·다이얼로그)이 저마다 tossBlue/makitaTeal/slate900/textPrimary
@@ -27,7 +28,7 @@ class CuttingColors {
 }
 
 /// 다이얼로그 상단에 반복해서 쓰는 "동그란 배경 + 아이콘" 헤더.
-Widget cuttingDialogIcon(IconData icon, {Color? color}) {
+Widget cuttingDialogIcon(Object icon, {Color? color}) {
   final c = color ?? CuttingColors.primary;
   return Container(
     width: 52,
@@ -37,7 +38,7 @@ Widget cuttingDialogIcon(IconData icon, {Color? color}) {
       color: c.withValues(alpha: 0.1),
       borderRadius: BorderRadius.circular(16),
     ),
-    child: Icon(icon, color: c, size: 26),
+    child: anyIcon(icon, color: c, size: 26),
   );
 }
 
@@ -52,7 +53,7 @@ Future<bool> showCuttingConfirmDialog(
   String confirmLabel = "확인",
   String cancelLabel = "취소",
   bool danger = false,
-  IconData icon = Icons.help_outline_rounded,
+  Object icon = Icons.help_outline_rounded,
 }) async {
   final Color accent = danger ? CuttingColors.danger : CuttingColors.primary;
   final result = await showDialog<bool>(
@@ -213,7 +214,7 @@ Future<double?> showBladeKerfDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: Row(
         children: [
-          cuttingDialogIcon(Icons.content_cut_rounded),
+          cuttingDialogIcon(AppGlyph.tubeCut),
           const SizedBox(width: 14),
           const Expanded(
             child: Text(
@@ -307,8 +308,8 @@ class PendingDeductionBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.inventory_2_outlined,
+          const AppIcon(
+            AppGlyph.stockOut,
             size: 12,
             color: CuttingColors.warning,
           ),

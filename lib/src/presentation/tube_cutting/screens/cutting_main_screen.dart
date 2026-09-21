@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import '../../../core/utils/pdf_fonts.dart';
 import 'package:flutter/services.dart'
     show Clipboard, ClipboardData, HapticFeedback;
@@ -1717,7 +1718,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                   children: [
                     Row(
                       children: [
-                        cuttingDialogIcon(Icons.extension_rounded),
+                        cuttingDialogIcon(AppGlyph.fitOther),
                         const SizedBox(width: 14),
                         Expanded(
                           child: Text(
@@ -2215,7 +2216,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           actions: [
             IconButton(
               tooltip: "톱날 손실(커프) 설정",
-              icon: const Icon(Icons.content_cut_rounded),
+              icon: const AppIcon(AppGlyph.tubeCut),
               onPressed: _showBladeKerfDialog,
             ),
             IconButton(
