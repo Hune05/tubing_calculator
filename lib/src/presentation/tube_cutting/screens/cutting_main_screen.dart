@@ -2777,12 +2777,11 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     final segs = <DiagramSegment>[];
     for (int i = 0; i < _points.length - 1; i++) {
       final p = _points[i];
-      final text = p.c2cController.text.trim();
-      final SegmentState state = text.isEmpty
-          ? SegmentState.empty
-          : p.unreadable
-          ? SegmentState.unreadable
-          : (p.calculatedCut < 0 ? SegmentState.interference : SegmentState.ok);
+      final SegmentState state = segmentStateFor(
+        text: p.c2cController.text,
+        unreadable: p.unreadable,
+        cutMm: p.calculatedCut,
+      );
       segs.add(
         DiagramSegment(
           state: state,

@@ -18,8 +18,12 @@ DiagramPoint none() => const DiagramPoint(
   icon: AppGlyph.fitOther,
 );
 
-DiagramPoint fit(String name, {String od = '1/2"'}) =>
-    DiagramPoint(isNone: false, name: name, tubeOD: od, icon: AppGlyph.fitUnion);
+DiagramPoint fit(String name, {String od = '1/2"'}) => DiagramPoint(
+  isNone: false,
+  name: name,
+  tubeOD: od,
+  icon: AppGlyph.fitUnion,
+);
 
 DiagramSegment ok(double c2c, {double sd = 0, double ed = 0}) => DiagramSegment(
   state: SegmentState.ok,

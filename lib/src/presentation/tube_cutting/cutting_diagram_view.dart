@@ -14,6 +14,19 @@ import 'cutting_theme.dart';
 
 enum SegmentState { empty, unreadable, ok, interference }
 
+/// 입력 칸 하나를 배치도 구간 상태로. 결과 탭과 같게, 절단 길이가 0 이하이면
+/// 자를 것이 없으므로 간섭으로 본다.
+/// 🚀 [고침] 예전에는 0mm이면 정상으로 보아 배치도에 '1구간 0.0mm'가 잡혔다.
+SegmentState segmentStateFor({
+  required String text,
+  required bool unreadable,
+  required double cutMm,
+}) {
+  if (text.trim().isEmpty) return SegmentState.empty;
+  if (unreadable) return SegmentState.unreadable;
+  return cutMm <= 0 ? SegmentState.interference : SegmentState.ok;
+}
+
 // 부속 이름·분류로 배치도 점 안에 넣을 아이콘을 고른다(영어·한글 이름 모두).
 // 순서가 중요하다 — "Union Elbow"는 유니온이 아니라 엘보로, "Elbow Adapter"도 엘보로 본다.
 AppGlyph iconForFitting(String name, String category) {
