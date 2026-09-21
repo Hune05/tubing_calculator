@@ -151,7 +151,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
             if (fittings.isNotEmpty) ...[
               pw.SizedBox(height: 14),
               pw.Text(
-                "사용한 피팅",
+                "사용한 부속",
                 style: pw.TextStyle(
                   fontSize: 13,
                   fontWeight: pw.FontWeight.bold,

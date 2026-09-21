@@ -1032,7 +1032,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             if (totalOversized > 0) ...[
               pw.SizedBox(height: 8),
               pw.Text(
-                "원자재보다 긴 항목 총 $totalOversized건은 배치에서 제외됨 - 원자재 기준 길이를 확인하십시오.",
+                "원자재보다 긴 항목 $totalOversized건은 배치에서 뺐습니다. 원자재 기준 길이를 확인하십시오.",
                 style: const pw.TextStyle(fontSize: 10, color: PdfColors.red),
               ),
             ],
@@ -1105,7 +1105,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
               },
             ),
             IconButton(
-              tooltip: "톱날 손실(커프) 설정",
+              tooltip: "톱날 손실 설정",
               icon: const AppIcon(AppGlyph.tubeCut),
               onPressed: _showKerfDialog,
             ),

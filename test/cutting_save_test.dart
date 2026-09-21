@@ -260,7 +260,7 @@ void main() {
       await tester.tap(find.text('저장'));
       await tester.pumpAndSettle();
       expect(find.text('실행 취소'), findsNothing);
-      expect(find.textContaining('작업 완료'), findsOneWidget);
+      expect(find.textContaining('를 저장했습니다.'), findsOneWidget);
     });
 
     testWidgets('저장 뒤 새로 입력한 값이 있으면 되돌리기 전에 한 번 더 묻는다', (tester) async {

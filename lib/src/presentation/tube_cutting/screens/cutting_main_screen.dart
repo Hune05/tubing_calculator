@@ -2132,10 +2132,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     });
 
     final kerfNote = plan.kerfLossMm > 0
-        ? " (커프 손실 +${plan.kerfLossMm.toStringAsFixed(1)}mm 포함)"
+        ? " (톱날 손실 ${plan.kerfLossMm.toStringAsFixed(1)}mm 포함)"
         : "";
     final msg =
-        "튜브 총 ${plan.finalTotalMm.toStringAsFixed(1)}mm$kerfNote 및 피팅 ${plan.fittingCount}개 작업 완료!";
+        "튜브 총 ${plan.finalTotalMm.toStringAsFixed(1)}mm$kerfNote와 부속 ${plan.fittingCount}개를 저장했습니다.";
     if (canUndo) {
       final messenger = ScaffoldMessenger.of(context);
       _undoMessenger = messenger;
@@ -2256,7 +2256,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           ),
           actions: [
             IconButton(
-              tooltip: "톱날 손실(커프) 설정",
+              tooltip: "톱날 손실 설정",
               icon: const AppIcon(AppGlyph.tubeCut),
               onPressed: _showBladeKerfDialog,
             ),
@@ -3664,7 +3664,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          "간섭 발생! 입력값이 양쪽 피팅 공제값의 합보다 작습니다.",
+                          "간섭: 입력값이 양쪽 부속 공제값의 합보다 작습니다.",
                           style: TextStyle(
                             color: Colors.red.shade700,
                             fontSize: 12,

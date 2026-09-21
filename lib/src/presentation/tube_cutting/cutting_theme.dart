@@ -218,7 +218,7 @@ Future<double?> showBladeKerfDialog(
           const SizedBox(width: 14),
           const Expanded(
             child: Text(
-              "톱날 손실(커프) 설정",
+              "톱날 손실 설정",
               style: TextStyle(
                 fontWeight: FontWeight.w800,
                 color: CuttingColors.textPrimary,

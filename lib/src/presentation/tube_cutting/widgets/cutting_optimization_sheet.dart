@@ -367,14 +367,14 @@ Future<void> showCuttingOptimizationSheet(
             if (isGroupedView) ...[
               const SizedBox(height: 4),
               Text(
-                "규격별 상세 수치는 아래 각 섹션에서 확인하십시오.",
+                "규격별 값은 아래에 규격마다 따로 나옵니다.",
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
               ),
             ],
             if (totalOversized > 0) ...[
               const SizedBox(height: 10),
               Text(
-                "⚠ 원자재보다 긴 구간 $totalOversized개는 계산에서 제외됨",
+                "원자재보다 긴 구간 $totalOversized개는 계산에서 뺐습니다.",
                 style: const TextStyle(
                   color: CuttingColors.danger,
                   fontSize: 12,
