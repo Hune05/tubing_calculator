@@ -227,6 +227,18 @@ void main() {
       expect(find.textContaining('3번 구간'), findsOneWidget);
     });
 
+    testWidgets('5자리 넘는 마킹 값도 말풍선이 넘치지 않는다', (tester) async {
+      final big = FieldMarkingData(
+        totalCut: 10000000,
+        marks: const [
+          FieldMark(number: 1, position: 56796, angle: 90, rotation: 0),
+          FieldMark(number: 2, position: 10000000, angle: 45, rotation: 180),
+        ],
+      );
+      final errors = await pumpScreen(tester, big);
+      expect(errors, isEmpty);
+    });
+
     testWidgets('긴 관(6m)·짧은 화면에서도 넘치지 않는다', (tester) async {
       final long = FieldMarkingData(
         totalCut: 6000,

@@ -703,14 +703,20 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             children: [
               const AppIcon(AppGlyph.tubeCut, size: 17, color: _ink),
               const SizedBox(width: 4),
-              Text(
-                _showGap
-                    ? '+${fieldStepGap(_data, FieldStep.cut(l.position)).round()}'
-                    : l.position.round().toString(),
-                style: const TextStyle(
-                  color: _ink,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
+              // 자릿수가 많으면 말풍선 폭에 맞게 줄인다(예전에는 넘쳤다).
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    _showGap
+                        ? '+${fieldStepGap(_data, FieldStep.cut(l.position)).round()}'
+                        : l.position.round().toString(),
+                    style: const TextStyle(
+                      color: _ink,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -766,12 +772,19 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             children: [
               _numberBadge(m.number, done: done, small: true),
               const SizedBox(width: 5),
-              Text(
-                _showGap ? '+${m.gap.round()}' : l.position.round().toString(),
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: _ink,
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    _showGap
+                        ? '+${m.gap.round()}'
+                        : l.position.round().toString(),
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: _ink,
+                    ),
+                  ),
                 ),
               ),
             ],
