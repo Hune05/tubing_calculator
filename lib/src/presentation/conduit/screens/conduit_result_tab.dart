@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/calc_tag.dart';
 import 'package:flutter/services.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
 
@@ -130,12 +131,15 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                   backgroundColor: slate100,
                   elevation: 0,
                   systemOverlayStyle: SystemUiOverlayStyle.dark,
-                  title: const Text(
-                    "마킹 가이드",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: slate900,
+                  title: const TitleWithTag(
+                    kind: CalcKind.conduit,
+                    title: Text(
+                      "마킹 가이드",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: slate900,
+                      ),
                     ),
                   ),
                   centerTitle: false,
@@ -187,6 +191,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                                 builder: (_) => FieldMarkingScreen(
                                   listenable: conduitFieldListenable(),
                                   compute: computeConduitFieldData,
+                                  kind: CalcKind.conduit,
                                 ),
                               ),
                             );

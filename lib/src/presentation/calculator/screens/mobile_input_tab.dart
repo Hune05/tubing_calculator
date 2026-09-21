@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/calc_tag.dart';
 
 import '../../../core/engine/bend_path.dart';
 import 'package:flutter/services.dart';
@@ -511,12 +512,15 @@ class _MobileInputTabState extends State<MobileInputTab>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const [
-                Text(
-                  "튜브 배관 설계",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    color: slate900,
+                TitleWithTag(
+                  kind: CalcKind.tube,
+                  title: Text(
+                    "튜브 배관 설계",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: slate900,
+                    ),
                   ),
                 ),
                 SizedBox(height: 4),

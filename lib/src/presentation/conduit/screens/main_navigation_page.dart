@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/calc_tag.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' as vmath;
@@ -244,6 +245,7 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
     compute: computeConduitFieldData,
     onCloseTab: _goToMarkingTab,
     isActive: _selectedIndex == 3,
+    kind: CalcKind.conduit,
   );
 
   Widget _buildNarrowBody() {
@@ -334,13 +336,25 @@ class ConduitViewerTab extends StatelessWidget {
         return Scaffold(
           backgroundColor: const Color(0xFF151B22),
           body: SafeArea(
-            child: ConduitIsoVisualizer(
-              bendList: bendList,
-              totalCutLength: totalCut,
-              isLightMode: false,
-              bendRadius: clr,
-              outerDiameter: od,
-              fittingDepth: coupling,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: ConduitIsoVisualizer(
+                    bendList: bendList,
+                    totalCutLength: totalCut,
+                    isLightMode: false,
+                    bendRadius: clr,
+                    outerDiameter: od,
+                    fittingDepth: coupling,
+                  ),
+                ),
+                // 어느 계산기인지(시작 방향 칸 밑).
+                const Positioned(
+                  top: 64,
+                  left: 16,
+                  child: CalcTag.conduit(onDark: true),
+                ),
+              ],
             ),
           ),
         );

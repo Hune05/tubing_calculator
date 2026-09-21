@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/calc_tag.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_gain_calibration_sheet.dart';
 import 'package:tubing_calculator/src/data/machine_spec_sets.dart';
 
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/presentation/settings/controllers/settings_controller.dart';
-import 'package:tubing_calculator/src/presentation/settings/widgets/settings_widgets.dart';
 import 'package:tubing_calculator/src/core/utils/fitting_data.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 
@@ -13,6 +13,14 @@ const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
 const Color slate600 = Color(0xFF475569);
 const Color pureWhite = Color(0xFFFFFFFF);
+const Color _slate200 = Color(0xFFE2E8F0);
+
+/// 설정 줄 이름 글씨(전선관 설정과 같게).
+const TextStyle _rowLabelStyle = TextStyle(
+  fontSize: 15,
+  fontWeight: FontWeight.w600,
+  color: Color(0xFF1E293B),
+);
 const Color toolGripBlack = Color(0xFF222222);
 const Color slate100 = Color(0xFFF1F5F9);
 
@@ -366,6 +374,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       alignment: Alignment.centerLeft,
       child: TextButton.icon(
         key: const Key('gain_calibrate'),
+        style: TextButton.styleFrom(foregroundColor: makitaTeal),
         onPressed: () => MobileGainCalibrationSheet.show(
           context,
           onApply: (v) {
@@ -420,14 +429,9 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: slate600,
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        // 🚀 [바꿈] 이제 모든 줄이 _row 안(Expanded, 폭이 정해진 곳)에서만
+        // 쓰이므로 길면 두 줄로 내려가게 Flexible로 감싼다.
+        Flexible(child: Text(label, style: _rowLabelStyle)),
         const SizedBox(width: 4),
         InkWell(
           onTap: () {
@@ -488,7 +492,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             child: Icon(
               Icons.help_outline,
               size: 16,
-              color: Colors.blueGrey.shade400,
+              color: slate600.withValues(alpha: 0.6),
             ),
           ),
         ),
@@ -506,52 +510,52 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     String Function(String)? displayMapper,
     required String helperText,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildLabelWithHelp(context, label, helpTitle, helpContent),
-        const SizedBox(height: 6),
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade300),
+    String show(String e) => displayMapper != null ? displayMapper(e) : e;
+    return _row(
+      _buildLabelWithHelp(context, label, helpTitle, helpContent),
+      // 좁은 화면에서 긴 값이 줄을 통째로 차지하지 않게 폭을 묶는다.
+      ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 170),
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          underline: const SizedBox(),
+          icon: const Icon(Icons.keyboard_arrow_down, color: slate600),
+          style: const TextStyle(
+            fontSize: 15,
+            color: makitaTeal,
+            fontWeight: FontWeight.bold,
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              isExpanded: true,
-              value: value,
-              items: items.map((item) {
-                return DropdownMenuItem<String>(
-                  value: item,
-                  child: Text(
-                    displayMapper != null ? displayMapper(item) : item,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
+          selectedItemBuilder: (context) => [
+            for (final e in items)
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  show(e),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+          ],
+          items: [
+            for (final e in items)
+              DropdownMenuItem<String>(
+                value: e,
+                child: Text(
+                  show(e),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: slate900,
                   ),
-                );
-              }).toList(),
-              onChanged: onChanged,
-            ),
-          ),
+                ),
+              ),
+          ],
+          onChanged: onChanged,
         ),
-        const SizedBox(height: 6),
-        Text(
-          helperText,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.blueGrey[700],
-            fontWeight: FontWeight.w600,
-            height: 1.4,
-            letterSpacing: -0.5,
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -563,32 +567,151 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     String? key,
     String? helperText,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildLabelWithHelp(context, label, helpTitle, helpContent),
-        const SizedBox(height: 6),
-        MakitaNumericInput(
-          label: "", // 라벨을 위에서 따로 그렸으므로 빈 문자열 전달
-          controller: controller,
-          helperText: helperText,
-          isAutoMode: key != null ? _autoStates[key] : null,
-          onModeChanged: key != null
-              ? (isAuto) {
-                  setState(() => _autoStates[key] = isAuto);
-                  if (isAuto) {
-                    _onSpecsChanged();
-                  }
-                }
-              : null,
-          onTap: () {
-            if (key == null || _autoStates[key] != true) {
-              MakitaNumpad.show(context, controller: controller, title: label);
-            }
-          },
-        ),
-      ],
+    final (name, unit) = _splitUnit(label);
+    final bool? auto = key != null ? _autoStates[key] : null;
+    final bool locked = auto == true;
+    return _row(
+      _buildLabelWithHelp(context, name, helpTitle, helpContent),
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (auto != null) ...[
+            // AUTO: 제원으로 셈한 값(잠김) / MAN: 손으로 넣은 값.
+            InkWell(
+              key: ValueKey('auto_$key'),
+              borderRadius: BorderRadius.circular(6),
+              onTap: () {
+                final bool isAuto = !auto;
+                setState(() => _autoStates[key!] = isAuto);
+                if (isAuto) _onSpecsChanged();
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: auto ? makitaTeal : slate100,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: auto ? makitaTeal : _slate200),
+                ),
+                child: Text(
+                  auto ? "AUTO" : "MAN",
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    color: auto ? pureWhite : slate600,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          GestureDetector(
+            onTap: locked
+                ? null
+                : () => MakitaNumpad.show(
+                    context,
+                    controller: controller,
+                    title: label,
+                  ),
+            child: AbsorbPointer(
+              child: SizedBox(
+                width: 76,
+                child: TextField(
+                  controller: controller,
+                  textAlign: TextAlign.end,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: locked ? slate600 : makitaTeal,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 30,
+            child: Text(
+              unit.isEmpty ? "" : " $unit",
+              style: const TextStyle(
+                color: slate600,
+                fontWeight: FontWeight.w500,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
+  }
+
+  // ==========================================
+  // 🚀 전선관 설정 화면과 같은 모양: 흰 묶음 상자 안에 한 줄씩
+  // (왼쪽 이름·?, 오른쪽 청록 값). 값·저장·AUTO 동작은 그대로다.
+  // ==========================================
+
+  /// 묶음 제목(상자 위).
+  Widget _sectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+          color: slate900,
+        ),
+      ),
+    );
+  }
+
+  /// 흰 묶음 상자. 줄 사이에 가는 선.
+  Widget _settingsCard(List<Widget> rows) {
+    final visible = rows.where((w) {
+      return !(w is SizedBox && w.width == 0 && w.height == 0);
+    }).toList();
+    return Container(
+      decoration: BoxDecoration(
+        color: pureWhite,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _slate200),
+      ),
+      child: Column(
+        children: [
+          for (int i = 0; i < visible.length; i++) ...[
+            if (i > 0) const Divider(height: 1, thickness: 1, color: slate100),
+            visible[i],
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 한 줄 틀: 왼쪽 이름, 오른쪽 값.
+  Widget _row(Widget label, Widget trailing) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44),
+        child: Row(
+          children: [
+            Expanded(child: label),
+            const SizedBox(width: 8),
+            trailing,
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// "두께 (WT) [mm]" → ("두께 (WT)", "mm")
+  (String, String) _splitUnit(String label) {
+    final m = RegExp(r'^(.*?)\s*\[(.+)\]$').firstMatch(label);
+    if (m == null) return (label, '');
+    return (m.group(1)!, m.group(2)!);
   }
 
   @override
@@ -596,10 +719,32 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     super.build(context);
     return Column(
       children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          decoration: const BoxDecoration(
+            color: pureWhite,
+            border: Border(bottom: BorderSide(color: _slate200)),
+          ),
+          child: const Align(
+            alignment: Alignment.centerLeft,
+            child: TitleWithTag(
+              kind: CalcKind.tube,
+              title: Text(
+                '장비 세팅 가이드',
+                style: TextStyle(
+                  color: slate900,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+          ),
+        ),
         Expanded(
           child: SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -611,29 +756,26 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           ),
         ),
         Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: pureWhite,
-            border: Border(top: BorderSide(color: Colors.grey.shade300)),
-          ),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          color: slate100,
           child: SafeArea(
             top: false,
             child: SizedBox(
               width: double.infinity,
-              height: 56,
-              child: ElevatedButton.icon(
+              height: 54,
+              child: ElevatedButton(
                 onPressed: _saveData,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: makitaTeal,
                   foregroundColor: pureWhite,
+                  elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                icon: const Icon(Icons.save),
-                label: const Text(
+                child: const Text(
                   "설정 저장 및 적용",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -882,57 +1024,23 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
   }
 
   Widget _buildLockedMeasurementMode() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "측정 기준 (Fixed Mode)",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-            color: Colors.black87,
+    return _row(
+      const Text("측정 기준", style: _rowLabelStyle),
+      const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.lock_outline, size: 15, color: slate600),
+          SizedBox(width: 4),
+          Text(
+            "C-to-C 고정",
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: slate600,
+            ),
           ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.lock_outline, size: 16, color: makitaTeal),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "C-to-C 고정",
-                      style: TextStyle(
-                        color: toolGripBlack,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      "가상 센터라인 기준",
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.blueGrey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -941,44 +1049,33 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     bool value,
     ValueChanged<bool> onChanged,
   ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          SettingLabel(text: label),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: Colors.white,
-            activeTrackColor: makitaTeal,
-          ),
-        ],
+    return _row(
+      Text(label, style: _rowLabelStyle),
+      Switch(
+        value: value,
+        onChanged: onChanged,
+        activeThumbColor: Colors.white,
+        activeTrackColor: makitaTeal,
       ),
     );
   }
 
   Widget _buildUnitToggle() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: Row(
-        children: [
-          const SettingLabel(text: "측정 단위 (Unit)"),
-          const Spacer(),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.grey[300]!),
-            ),
-            child: Row(
-              children: [
-                _buildUnitBtn("mm", !_isInch),
-                _buildUnitBtn("inch", _isInch),
-              ],
-            ),
-          ),
-        ],
+    return _row(
+      const Text("측정 단위", style: _rowLabelStyle),
+      Container(
+        decoration: BoxDecoration(
+          color: slate100,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: _slate200),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildUnitBtn("mm", !_isInch),
+            _buildUnitBtn("inch", _isInch),
+          ],
+        ),
       ),
     );
   }
@@ -1020,368 +1117,283 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     );
   }
 
-  // 🚀 [수정] 데스크톱 스타일 2칼럼(TwoColumnRow)을 억지로 좁은 폰/폴더블
-  // 화면에 우겨넣다 보니 라벨이 조금만 길어도 RenderFlex 오버플로우가
-  // 반복적으로 발생했다. 모바일에 맞게 필드 하나가 화면 전체 폭을 쓰는
-  // 세로 한 줄 배치로 다시 짠다 - 그러면 폭이 부족해서 넘치는 이 종류의
-  // 문제 자체가 구조적으로 생기지 않는다.
-  Widget _stackedFields(List<Widget> fields) {
-    final visible = fields.where((w) {
-      return !(w is SizedBox && w.width == 0 && w.height == 0);
-    }).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (int i = 0; i < visible.length; i++) ...[
-          if (i > 0) const SizedBox(height: 16),
-          visible[i],
-        ],
-      ],
-    );
-  }
-
   List<Widget> _buildLeftInputSettingsGroup() {
     return [
-      SettingSection(
-        title: "1. 튜브 기본 제원",
-        icon: Icons.architecture,
-        child: Column(
-          children: [
-            _buildUnitToggle(),
-            const SizedBox(height: 8),
-            _stackedFields([
-              _buildDropdownWithAdvancedHelper(
-                label: "외경 (OD) [$_unit]",
-                helpTitle: "외경 (OD: Outside Diameter)",
-                helpContent:
-                    "파이프의 바깥쪽 지름을 의미합니다.\n튜빙에서 가장 중요한 기준이 되며, 기계의 다이(Die)와 피팅 사이즈를 결정하는 핵심 치수입니다.",
-                value: _currentOD,
-                items: _odList,
-                onChanged: (val) {
-                  setState(() => _currentOD = val!);
-                  _onSpecsChanged();
-                },
-                displayMapper: (item) =>
-                    SettingsController.getDisplayOD(item, _isInch),
-                helperText: "※ 배관의 바깥쪽 지름",
-              ),
-              _buildNumpadInputWithHelp(
-                "두께 (WT) [$_unit]",
-                "두께 (WT: Wall Thickness)",
-                "파이프 벽의 두께입니다.\n두께가 다르면 연신율(파이프가 늘어나는 정도)이 달라지므로 정밀한 계산을 위해 입력이 필요합니다.",
-                _wtController,
-                helperText: "※ 배관 벽의 두께",
-              ),
-            ]),
-            const SizedBox(height: 12),
-            _stackedFields([
-              _buildDropdownWithAdvancedHelper(
-                label: "튜브 재질",
-                helpTitle: "튜브 재질",
-                helpContent:
-                    "파이프의 소재입니다.\nSUS(스텐), Copper(구리), Carbon(탄소강) 등 재질에 따라 탄성(스프링백)이 다르기 때문에 벤딩 후 튕겨나오는 각도를 보정할 때 참고합니다.",
-                value: _tubeMaterial,
-                items: const ["SUS", "Copper", "Carbon", "Aluminum"],
-                onChanged: (val) => setState(() => _tubeMaterial = val!),
-                helperText: "※ 재질별 특성",
-              ),
-              _buildDropdownWithAdvancedHelper(
-                label: "피팅 타입",
-                helpTitle: "피팅 타입",
-                helpContent:
-                    "파이프를 연결하는 부속의 종류입니다.\nTwin Ferrule(스웨즈락 등) 방식은 튜브가 부속 안으로 일정 깊이만큼 삽입되어야 하므로 이를 계산에 반영합니다.",
-                value: _fittingType,
-                items: const ["Twin Ferrule", "Bite Type", "Flare"],
-                onChanged: (val) {
-                  setState(() => _fittingType = val!);
-                  _onSpecsChanged();
-                },
-                helperText: "※ 삽입 깊이 기준",
-              ),
-            ]),
-          ],
+      _sectionTitle("튜브 기본 제원"),
+      _settingsCard([
+        _buildUnitToggle(),
+        _buildDropdownWithAdvancedHelper(
+          label: "외경 (OD) [$_unit]",
+          helpTitle: "외경 (OD: Outside Diameter)",
+          helpContent:
+              "파이프의 바깥쪽 지름을 의미합니다.\n튜빙에서 가장 중요한 기준이 되며, 기계의 다이(Die)와 피팅 사이즈를 결정하는 핵심 치수입니다.",
+          value: _currentOD,
+          items: _odList,
+          onChanged: (val) {
+            setState(() => _currentOD = val!);
+            _onSpecsChanged();
+          },
+          displayMapper: (item) =>
+              SettingsController.getDisplayOD(item, _isInch),
+          helperText: "※ 배관의 바깥쪽 지름",
         ),
-      ),
-      SettingSection(
-        title: "2. 배관 조립 및 마킹 기준",
-        icon: Icons.straighten,
-        child: Column(
-          children: [
-            _stackedFields([
-              _buildLockedMeasurementMode(),
-              _buildDropdownWithAdvancedHelper(
-                label: "기본 회전",
-                helpTitle: "기본 회전 방향",
-                helpContent:
-                    "도면을 그릴 때 기본으로 적용될 파이프의 회전 방향입니다. CW(시계방향) 또는 CCW(반시계)를 설정합니다.",
-                value: _defaultRotation,
-                items: const ["CW (시계방향)", "CCW (반시계)"],
-                onChanged: (val) => setState(() => _defaultRotation = val!),
-                helperText: "※ 도면 기준 방향",
-              ),
-            ]),
-            const SizedBox(height: 12),
-            _stackedFields([
-              _buildNumpadInputWithHelp(
-                "피팅 삽입 깊이 [mm]",
-                "피팅 삽입 깊이 (Insertion Depth)",
-                "파이프 끝이 피팅(부속) 안으로 완전히 삽입되어야 하는 길이입니다.\n이 값을 정확히 입력해야 벤딩 후 피팅을 조립했을 때 전체 기장(C-C)이 짧아지는 불량(누설)을 막을 수 있습니다.\n[AUTO] 모드 시 규격에 맞춰 자동 입력됩니다.",
-                _fittingDepthController,
-                key: 'fittingDepth',
-                helperText: "※ 전체 체결 기준",
-              ),
-              _isElectric
-                  ? const SizedBox.shrink()
-                  : _buildDropdownWithAdvancedHelper(
-                      label: "마커 정렬",
-                      helpTitle: "마커 정렬 기준",
-                      helpContent:
-                          "벤더기에 파이프를 고정할 때, 그은 선(마킹)을 어디에 맞출지 결정합니다.\n보통 0(기본/Center)을 기준으로 맞춥니다.",
-                      value: _benderMark,
-                      items: const [
-                        "0 (기본/다양한 각도)",
-                        "L (90도 정방향)",
-                        "R (90도 역방향)",
-                      ],
-                      onChanged: (val) => setState(() => _benderMark = val!),
-                      helperText: "• 0: 기본\n• L/R: 90도 전용",
-                    ),
-            ]),
-          ],
+        _buildNumpadInputWithHelp(
+          "두께 (WT) [$_unit]",
+          "두께 (WT: Wall Thickness)",
+          "파이프 벽의 두께입니다.\n두께가 다르면 연신율(파이프가 늘어나는 정도)이 달라지므로 정밀한 계산을 위해 입력이 필요합니다.",
+          _wtController,
+          helperText: "※ 배관 벽의 두께",
         ),
-      ),
-      SettingSection(
-        title: "3. 벤더 장비 제원",
-        icon: Icons.build,
-        child: Column(
-          children: [
-            _stackedFields([
-              _buildDropdownWithAdvancedHelper(
-                label: "벤더 브랜드",
-                helpTitle: "벤더 브랜드",
-                helpContent:
-                    "사용 중인 벤더 기기의 브랜드입니다.\n브랜드마다 기계의 크기와 반경(Radius)이 다르기 때문에, 이를 선택하면 [AUTO] 모드에서 자동으로 맞는 값을 불러옵니다.",
-                value: _benderBrand,
-                items: const [
-                  "Swagelok",
-                  "Hy-Lok",
-                  "Parker",
-                  "Ridgid",
-                  "TRACTO-TECHNIK",
-                  "Other",
-                ],
-                onChanged: (val) {
-                  setState(() => _benderBrand = val!);
-                  _onSpecsChanged();
-                },
-                helperText: "※ 브랜드별 가이드",
-              ),
-              _buildDropdownWithAdvancedHelper(
-                label: "장비 타입 선택",
-                helpTitle: "장비 타입 (수동/전동)",
-                helpContent:
-                    "손으로 꺾는 수동(Hand) 벤더인지, 기계가 꺾어주는 전동(Electric) 벤더인지 선택합니다.\n타입에 따라 연신율이나 입력 기준이 달라집니다.",
-                value: _benderType,
-                items: const ["수동 (Hand)", "전동 (Electric)"],
-                onChanged: (val) {
-                  setState(() => _benderType = val!);
-                  _onSpecsChanged();
-                },
-                helperText: "※ 수동/전동 가이드",
-              ),
-            ]),
-            const SizedBox(height: 16),
-            if (_isElectric) ...[
-              _stackedFields([
-                _buildNumpadInputWithHelp(
-                  "금형 반경 (CLR) [mm]",
-                  "금형 반경 (Center Line Radius)",
-                  "파이프를 둥글게 꺾어주는 다이(금형)의 중심 반경입니다.\n이 값이 클수록 파이프가 완만하게 꺾이고, 연신율(늘어나는 길이) 계산의 핵심이 됩니다.",
-                  _rController,
-                  key: 'radius',
-                  helperText: "※ 다이 R값",
-                ),
-                _buildNumpadInputWithHelp(
-                  "클램프 물림 길이 [mm]",
-                  "클램프 물림 길이 (최소 직선 구간)",
-                  "전동 벤더가 파이프를 단단히 잡고 꺾기 위해 필요한 최소한의 직관(일자) 길이입니다.\n이 길이보다 짧게 벤딩을 시도하면 기계에 물리지 않아 작업이 불가능합니다.",
-                  _minStraightController,
-                  key: 'minStraight',
-                  helperText: "※ 최소 구간",
-                ),
-              ]),
-              const SizedBox(height: 12),
-              _stackedFields([
-                _buildNumpadInputWithHelp(
-                  "연신율 (Gain) [mm]",
-                  "연신율 (Gain)",
-                  "파이프가 곡선으로 꺾이면서 바깥쪽으로 늘어나는 총 길이입니다.\n전체 자를 길이를 이 값만큼 빼주어야 치수 불량이 안 납니다.\n[AUTO] 시 기계 제원 기반으로 계산됩니다.",
-                  _gainController,
-                  key: 'gain',
-                  helperText: "※ 늘어나는 양",
-                ),
-                _calibrateButton(),
-                _buildNumpadInputWithHelp(
-                  "스프링백 보상 [°]",
-                  "스프링백 보상 (Springback)",
-                  "파이프를 90도로 꺾어도 금속의 탄성 때문에 원래대로 살짝 튕겨 돌아옵니다.\nSUS 파이프 기준 보통 1~3도 정도를 더 꺾어주도록 보정하는 값입니다.",
-                  _springbackController,
-                  helperText: "※ 보통 1~3° 입력",
-                ),
-              ]),
-              const SizedBox(height: 12),
-              _stackedFields([
-                _buildNumpadInputWithHelp(
-                  "장비 원점 오프셋 [mm]",
-                  "장비 원점 오프셋",
-                  "기계의 클램프 끝에서 실제 벤딩이 시작되는 0점까지의 물리적인 거리 오차입니다.",
-                  _benderOffsetController,
-                  key: 'offset',
-                  helperText: "※ 클램프 끝 ~ 다이 0점",
-                ),
-              ]),
-            ] else ...[
-              _stackedFields([
-                _buildNumpadInputWithHelp(
-                  "벤드 반경 (R) [mm]",
-                  "벤드 반경 (Radius)",
-                  "수동 벤더 다이(둥근 롤러)의 중심에서 파이프 중심선까지의 반경입니다.\n이 값으로 연신율과 축소량을 계산합니다.",
-                  _rController,
-                  key: 'radius',
-                  helperText: "※ 다이 중심 ~ 튜브 중심",
-                ),
-                _buildNumpadInputWithHelp(
-                  "테이크업 [mm]",
-                  "테이크업 (Take-Up)",
-                  "수동 벤딩 시 90도로 꺾을 때 뒤로 후진해야 하는 거리(보정치)입니다.\n이 치수만큼 빼고 마킹해야 정확한 위치에서 꺾입니다.",
-                  _takeUpController,
-                  key: 'takeUp',
-                  helperText: "※ 차감 보정치",
-                ),
-              ]),
-              const SizedBox(height: 12),
-              _stackedFields([
-                _buildNumpadInputWithHelp(
-                  "연신율 (Gain) [mm]",
-                  "연신율 (Gain)",
-                  "파이프가 곡선으로 꺾이면서 바깥쪽으로 늘어나는 총 길이입니다.\n전체 자를 길이를 이 값만큼 빼주어야 치수 불량이 안 납니다.\n[AUTO] 시 기계 제원 기반으로 자동 계산됩니다.",
-                  _gainController,
-                  key: 'gain',
-                  helperText: "※ 늘어나는 총 길이",
-                ),
-                _calibrateButton(),
-                _buildNumpadInputWithHelp(
-                  "최소 직선 구간 [mm]",
-                  "최소 물림 구간 (Minimum Straight)",
-                  "벤더기의 후크(고리)가 파이프를 단단히 물어주기 위해 확보되어야 하는 최소한의 직관 길이입니다.\n연속 벤딩 시 이 길이보다 짧으면 기계에 파이프가 걸려 안 꺾입니다.",
-                  _minStraightController,
-                  key: 'minStraight',
-                  helperText: "※ 벤더 후크 물림 최소장",
-                ),
-              ]),
-              const SizedBox(height: 12),
-              _stackedFields([
-                _buildNumpadInputWithHelp(
-                  "기준선 오프셋 [mm]",
-                  "기준선 오프셋",
-                  "기계의 0점 마크와 파이프에 그은 선이 정확히 일치하지 않는 기계적/물리적 오차를 교정하는 값입니다.",
-                  _benderOffsetController,
-                  key: 'offset',
-                  helperText: "※ 다이 0점과 실제 시작점",
-                ),
-                _buildNumpadInputWithHelp(
-                  "스프링백 [°]",
-                  "스프링백 보상 (Springback)",
-                  "파이프를 원하는 각도만큼 꺾어도 탄성으로 다시 펴지는 성질을 보상하는 각도입니다.",
-                  _springbackController,
-                  helperText: "※ 탄성 복원 각도 보정치",
-                ),
-              ]),
-            ],
-          ],
+        _buildDropdownWithAdvancedHelper(
+          label: "튜브 재질",
+          helpTitle: "튜브 재질",
+          helpContent:
+              "파이프의 소재입니다.\nSUS(스텐), Copper(구리), Carbon(탄소강) 등 재질에 따라 탄성(스프링백)이 다르기 때문에 벤딩 후 튕겨나오는 각도를 보정할 때 참고합니다.",
+          value: _tubeMaterial,
+          items: const ["SUS", "Copper", "Carbon", "Aluminum"],
+          onChanged: (val) => setState(() => _tubeMaterial = val!),
+          helperText: "※ 재질별 특성",
         ),
-      ),
-      SettingSection(
-        title: "4. 오차 보정 및 앱 설정",
-        icon: Icons.settings_suggest,
-        child: Column(
-          children: [
-            if (!_isElectric) ...[
-              _stackedFields([
-                _buildNumpadInputWithHelp(
-                  "마킹선 두께 [mm]",
-                  "마킹선 두께 보정",
-                  "네임펜이나 마커로 파이프에 선을 그을 때, 선의 두께(약 1~2mm) 때문에 생기는 미세 오차를 보정합니다.",
-                  _markThicknessController,
-                  helperText: "※ 마커 펜촉 미세 보정",
-                ),
-                _buildNumpadInputWithHelp(
-                  "오프셋 축소 [mm]",
-                  "오프셋 축소 (간섭 회피 여유)",
-                  "연속 S자 벤딩(오프셋)을 할 때, 파이프를 반대로 뒤집어 기계에 넣으면 기존에 꺾인 부위가 기계 몸통(바디/슈)에 닿아 안 들어가는 경우가 생깁니다.\n이를 피하기 위해 빗변 기장을 강제로 살짝 밀어주는 여유 길이입니다.",
-                  _offsetShrinkController,
-                  helperText: "※ 간섭 회피용 여유 축소값",
-                ),
-              ]),
-              const Divider(color: Colors.black12, height: 24),
-            ],
-            _stackedFields([
-              _buildNumpadInputWithHelp(
-                "톱날 손실(커프) [mm]",
-                "톱날 손실(커프) 보정",
-                "쇠톱이나 절단기로 파이프를 자를 때 톱날 두께만큼 소재가 갈려 없어집니다.\n원자재에서 여러 구간을 잘라 쓸 때 이만큼을 더 확보해두어야 마지막 구간 길이가 부족해지지 않습니다.",
-                _cutMarginController,
-                helperText: "※ 절단면당 손실량",
-              ),
-            ]),
-            const Divider(color: Colors.black12, height: 24),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // 🚀 [수정] _buildLabelWithHelp는 내부에 Flexible을 안 쓰므로
-                  // (unbounded Row에서 크래시 방지), 이 자리처럼 폭을
-                  // 줄여야 할 필요가 있으면 호출부에서 Expanded로 감싼다.
-                  Expanded(
-                    child: _buildLabelWithHelp(
-                      context,
-                      "물림 길이(간섭) 경고",
-                      "물림 길이 경고 (초보자 권장)",
-                      "파이프 길이가 기계의 '최소 물림 구간'보다 짧게 입력되면 경고창을 띄워 불량을 막아줍니다.\n\n"
-                          "경고창이 귀찮거나, 편법으로 아슬아슬하게 물려서 벤딩을 진행하는 숙련자(고인물)는 이 스위치를 끄고 쾌속으로 작업할 수 있습니다.",
-                    ),
-                  ),
-                  Switch(
-                    value: _warnShoeInterference,
-                    onChanged: (val) =>
-                        setState(() => _warnShoeInterference = val),
-                    activeThumbColor: Colors.white,
-                    activeTrackColor: makitaTeal,
-                  ),
-                ],
-              ),
-            ),
-            _buildSwitchRow(
-              "진동 피드백 (Haptic)",
-              _useHaptic,
-              (val) => setState(() => _useHaptic = val),
-            ),
-            _buildSwitchRow(
-              "기록 자동 저장 (History)",
-              _saveHistory,
-              (val) => setState(() => _saveHistory = val),
-            ),
-            // 🚀 [수정] 토글 즉시 AppSettingsController를 통해서만 wakelock을
-            // 적용한다 (다른 화면이 제멋대로 enable()을 부르지 않으므로,
-            // 여기서 끄면 계산기 화면에 들어가도 다시 켜지지 않는다).
-            _buildSwitchRow("화면 꺼짐 방지", _keepScreenOn, (val) {
-              setState(() => _keepScreenOn = val);
-              AppSettingsController().setKeepScreenOn(val);
-            }),
-          ],
+        _buildDropdownWithAdvancedHelper(
+          label: "피팅 타입",
+          helpTitle: "피팅 타입",
+          helpContent:
+              "파이프를 연결하는 부속의 종류입니다.\nTwin Ferrule(스웨즈락 등) 방식은 튜브가 부속 안으로 일정 깊이만큼 삽입되어야 하므로 이를 계산에 반영합니다.",
+          value: _fittingType,
+          items: const ["Twin Ferrule", "Bite Type", "Flare"],
+          onChanged: (val) {
+            setState(() => _fittingType = val!);
+            _onSpecsChanged();
+          },
+          helperText: "※ 삽입 깊이 기준",
         ),
-      ),
+      ]),
+      _sectionTitle("배관 조립 및 마킹 기준"),
+      _settingsCard([
+        _buildLockedMeasurementMode(),
+        _buildDropdownWithAdvancedHelper(
+          label: "기본 회전",
+          helpTitle: "기본 회전 방향",
+          helpContent:
+              "도면을 그릴 때 기본으로 적용될 파이프의 회전 방향입니다. CW(시계방향) 또는 CCW(반시계)를 설정합니다.",
+          value: _defaultRotation,
+          items: const ["CW (시계방향)", "CCW (반시계)"],
+          onChanged: (val) => setState(() => _defaultRotation = val!),
+          helperText: "※ 도면 기준 방향",
+        ),
+        _buildNumpadInputWithHelp(
+          "피팅 삽입 깊이 [mm]",
+          "피팅 삽입 깊이 (Insertion Depth)",
+          "파이프 끝이 피팅(부속) 안으로 완전히 삽입되어야 하는 길이입니다.\n이 값을 정확히 입력해야 벤딩 후 피팅을 조립했을 때 전체 기장(C-C)이 짧아지는 불량(누설)을 막을 수 있습니다.\n[AUTO] 모드 시 규격에 맞춰 자동 입력됩니다.",
+          _fittingDepthController,
+          key: 'fittingDepth',
+          helperText: "※ 전체 체결 기준",
+        ),
+        _isElectric
+            ? const SizedBox.shrink()
+            : _buildDropdownWithAdvancedHelper(
+                label: "마커 정렬",
+                helpTitle: "마커 정렬 기준",
+                helpContent:
+                    "벤더기에 파이프를 고정할 때, 그은 선(마킹)을 어디에 맞출지 결정합니다.\n보통 0(기본/Center)을 기준으로 맞춥니다.",
+                value: _benderMark,
+                items: const ["0 (기본/다양한 각도)", "L (90도 정방향)", "R (90도 역방향)"],
+                onChanged: (val) => setState(() => _benderMark = val!),
+                helperText: "• 0: 기본\n• L/R: 90도 전용",
+              ),
+      ]),
+      _sectionTitle("벤더 장비 제원"),
+      _settingsCard([
+        _buildDropdownWithAdvancedHelper(
+          label: "벤더 브랜드",
+          helpTitle: "벤더 브랜드",
+          helpContent:
+              "사용 중인 벤더 기기의 브랜드입니다.\n브랜드마다 기계의 크기와 반경(Radius)이 다르기 때문에, 이를 선택하면 [AUTO] 모드에서 자동으로 맞는 값을 불러옵니다.",
+          value: _benderBrand,
+          items: const [
+            "Swagelok",
+            "Hy-Lok",
+            "Parker",
+            "Ridgid",
+            "TRACTO-TECHNIK",
+            "Other",
+          ],
+          onChanged: (val) {
+            setState(() => _benderBrand = val!);
+            _onSpecsChanged();
+          },
+          helperText: "※ 브랜드별 가이드",
+        ),
+        _buildDropdownWithAdvancedHelper(
+          label: "장비 타입",
+          helpTitle: "장비 타입 (수동/전동)",
+          helpContent:
+              "손으로 꺾는 수동(Hand) 벤더인지, 기계가 꺾어주는 전동(Electric) 벤더인지 선택합니다.\n타입에 따라 연신율이나 입력 기준이 달라집니다.",
+          value: _benderType,
+          items: const ["수동 (Hand)", "전동 (Electric)"],
+          onChanged: (val) {
+            setState(() => _benderType = val!);
+            _onSpecsChanged();
+          },
+          helperText: "※ 수동/전동 가이드",
+        ),
+      ]),
+      _sectionTitle(_isElectric ? "제원 수치 (전동)" : "제원 수치 (수동)"),
+      if (_isElectric)
+        _settingsCard([
+          _buildNumpadInputWithHelp(
+            "금형 반경 (CLR) [mm]",
+            "금형 반경 (Center Line Radius)",
+            "파이프를 둥글게 꺾어주는 다이(금형)의 중심 반경입니다.\n이 값이 클수록 파이프가 완만하게 꺾이고, 연신율(늘어나는 길이) 계산의 핵심이 됩니다.",
+            _rController,
+            key: 'radius',
+            helperText: "※ 다이 R값",
+          ),
+          _buildNumpadInputWithHelp(
+            "클램프 물림 길이 [mm]",
+            "클램프 물림 길이 (최소 직선 구간)",
+            "전동 벤더가 파이프를 단단히 잡고 꺾기 위해 필요한 최소한의 직관(일자) 길이입니다.\n이 길이보다 짧게 벤딩을 시도하면 기계에 물리지 않아 작업이 불가능합니다.",
+            _minStraightController,
+            key: 'minStraight',
+            helperText: "※ 최소 구간",
+          ),
+          _buildNumpadInputWithHelp(
+            "연신율 (Gain) [mm]",
+            "연신율 (Gain)",
+            "파이프가 곡선으로 꺾이면서 바깥쪽으로 늘어나는 총 길이입니다.\n전체 자를 길이를 이 값만큼 빼주어야 치수 불량이 안 납니다.\n[AUTO] 시 기계 제원 기반으로 계산됩니다.",
+            _gainController,
+            key: 'gain',
+            helperText: "※ 늘어나는 양",
+          ),
+          _buildNumpadInputWithHelp(
+            "스프링백 보상 [°]",
+            "스프링백 보상 (Springback)",
+            "파이프를 90도로 꺾어도 금속의 탄성 때문에 원래대로 살짝 튕겨 돌아옵니다.\nSUS 파이프 기준 보통 1~3도 정도를 더 꺾어주도록 보정하는 값입니다.",
+            _springbackController,
+            helperText: "※ 보통 1~3° 입력",
+          ),
+          _buildNumpadInputWithHelp(
+            "장비 원점 오프셋 [mm]",
+            "장비 원점 오프셋",
+            "기계의 클램프 끝에서 실제 벤딩이 시작되는 0점까지의 물리적인 거리 오차입니다.",
+            _benderOffsetController,
+            key: 'offset',
+            helperText: "※ 클램프 끝 ~ 다이 0점",
+          ),
+        ])
+      else
+        _settingsCard([
+          _buildNumpadInputWithHelp(
+            "벤드 반경 (R) [mm]",
+            "벤드 반경 (Radius)",
+            "수동 벤더 다이(둥근 롤러)의 중심에서 파이프 중심선까지의 반경입니다.\n이 값으로 연신율과 축소량을 계산합니다.",
+            _rController,
+            key: 'radius',
+            helperText: "※ 다이 중심 ~ 튜브 중심",
+          ),
+          _buildNumpadInputWithHelp(
+            "테이크업 [mm]",
+            "테이크업 (Take-Up)",
+            "수동 벤딩 시 90도로 꺾을 때 뒤로 후진해야 하는 거리(보정치)입니다.\n이 치수만큼 빼고 마킹해야 정확한 위치에서 꺾입니다.",
+            _takeUpController,
+            key: 'takeUp',
+            helperText: "※ 차감 보정치",
+          ),
+          _buildNumpadInputWithHelp(
+            "연신율 (Gain) [mm]",
+            "연신율 (Gain)",
+            "파이프가 곡선으로 꺾이면서 바깥쪽으로 늘어나는 총 길이입니다.\n전체 자를 길이를 이 값만큼 빼주어야 치수 불량이 안 납니다.\n[AUTO] 시 기계 제원 기반으로 자동 계산됩니다.",
+            _gainController,
+            key: 'gain',
+            helperText: "※ 늘어나는 총 길이",
+          ),
+          _buildNumpadInputWithHelp(
+            "최소 직선 구간 [mm]",
+            "최소 물림 구간 (Minimum Straight)",
+            "벤더기의 후크(고리)가 파이프를 단단히 물어주기 위해 확보되어야 하는 최소한의 직관 길이입니다.\n연속 벤딩 시 이 길이보다 짧으면 기계에 파이프가 걸려 안 꺾입니다.",
+            _minStraightController,
+            key: 'minStraight',
+            helperText: "※ 벤더 후크 물림 최소장",
+          ),
+          _buildNumpadInputWithHelp(
+            "기준선 오프셋 [mm]",
+            "기준선 오프셋",
+            "기계의 0점 마크와 파이프에 그은 선이 정확히 일치하지 않는 기계적/물리적 오차를 교정하는 값입니다.",
+            _benderOffsetController,
+            key: 'offset',
+            helperText: "※ 다이 0점과 실제 시작점",
+          ),
+          _buildNumpadInputWithHelp(
+            "스프링백 [°]",
+            "스프링백 보상 (Springback)",
+            "파이프를 원하는 각도만큼 꺾어도 탄성으로 다시 펴지는 성질을 보상하는 각도입니다.",
+            _springbackController,
+            helperText: "※ 탄성 복원 각도 보정치",
+          ),
+        ]),
+      // 전선관 설정의 "한 번 꺾어 보고 잡기"와 같은 자리(상자 밑).
+      _calibrateButton(),
+      _sectionTitle("오차 보정"),
+      _settingsCard([
+        if (!_isElectric) ...[
+          _buildNumpadInputWithHelp(
+            "마킹선 두께 [mm]",
+            "마킹선 두께 보정",
+            "네임펜이나 마커로 파이프에 선을 그을 때, 선의 두께(약 1~2mm) 때문에 생기는 미세 오차를 보정합니다.",
+            _markThicknessController,
+            helperText: "※ 마커 펜촉 미세 보정",
+          ),
+          _buildNumpadInputWithHelp(
+            "오프셋 축소 [mm]",
+            "오프셋 축소 (간섭 회피 여유)",
+            "연속 S자 벤딩(오프셋)을 할 때, 파이프를 반대로 뒤집어 기계에 넣으면 기존에 꺾인 부위가 기계 몸통(바디/슈)에 닿아 안 들어가는 경우가 생깁니다.\n이를 피하기 위해 빗변 기장을 강제로 살짝 밀어주는 여유 길이입니다.",
+            _offsetShrinkController,
+            helperText: "※ 간섭 회피용 여유 축소값",
+          ),
+        ],
+        _buildNumpadInputWithHelp(
+          "톱날 손실(커프) [mm]",
+          "톱날 손실(커프) 보정",
+          "쇠톱이나 절단기로 파이프를 자를 때 톱날 두께만큼 소재가 갈려 없어집니다.\n원자재에서 여러 구간을 잘라 쓸 때 이만큼을 더 확보해두어야 마지막 구간 길이가 부족해지지 않습니다.",
+          _cutMarginController,
+          helperText: "※ 절단면당 손실량",
+        ),
+      ]),
+      _sectionTitle("앱 설정"),
+      _settingsCard([
+        _row(
+          _buildLabelWithHelp(
+            context,
+            "물림 길이(간섭) 경고",
+            "물림 길이 경고 (초보자 권장)",
+            "파이프 길이가 기계의 '최소 물림 구간'보다 짧게 입력되면 경고창을 띄워 불량을 막아줍니다.\n\n"
+                "경고창이 귀찮거나, 편법으로 아슬아슬하게 물려서 벤딩을 진행하는 숙련자(고인물)는 이 스위치를 끄고 쾌속으로 작업할 수 있습니다.",
+          ),
+          Switch(
+            value: _warnShoeInterference,
+            onChanged: (val) => setState(() => _warnShoeInterference = val),
+            activeThumbColor: Colors.white,
+            activeTrackColor: makitaTeal,
+          ),
+        ),
+        _buildSwitchRow(
+          "진동 피드백 (Haptic)",
+          _useHaptic,
+          (val) => setState(() => _useHaptic = val),
+        ),
+        _buildSwitchRow(
+          "기록 자동 저장 (History)",
+          _saveHistory,
+          (val) => setState(() => _saveHistory = val),
+        ),
+        // 🚀 [수정] 토글 즉시 AppSettingsController를 통해서만 wakelock을
+        // 적용한다 (다른 화면이 제멋대로 enable()을 부르지 않으므로,
+        // 여기서 끄면 계산기 화면에 들어가도 다시 켜지지 않는다).
+        _buildSwitchRow("화면 꺼짐 방지", _keepScreenOn, (val) {
+          setState(() => _keepScreenOn = val);
+          AppSettingsController().setKeepScreenOn(val);
+        }),
+      ]),
     ];
   }
 
@@ -1417,14 +1429,16 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 size: 28,
               ),
               const SizedBox(width: 8),
-              Text(
-                isSwagelok
-                    ? "Swagelok 전동기 가이드 (MS-BTB)"
-                    : "TRACTO-TECHNIK 전동기 가이드 (TB20D)",
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
-                  color: Colors.orange.shade900,
+              Expanded(
+                child: Text(
+                  isSwagelok
+                      ? "Swagelok 전동기 가이드 (MS-BTB)"
+                      : "TRACTO-TECHNIK 전동기 가이드 (TB20D)",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                    color: Colors.orange.shade900,
+                  ),
                 ),
               ),
             ],
@@ -1766,12 +1780,14 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             children: [
               Icon(Icons.calculate, color: Colors.blueGrey.shade800, size: 20),
               const SizedBox(width: 8),
-              Text(
-                "📐 연신율(Gain) 산출 공식 및 실무 적용",
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 14,
-                  color: Colors.blueGrey.shade900,
+              Expanded(
+                child: Text(
+                  "📐 연신율(Gain) 산출 공식 및 실무 적용",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                    color: Colors.blueGrey.shade900,
+                  ),
                 ),
               ),
             ],
@@ -1823,12 +1839,14 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             children: [
               Icon(Icons.call_split, color: Colors.orange.shade800, size: 20),
               const SizedBox(width: 8),
-              Text(
-                "공통 오프셋 (Offset) 벤딩 배수표",
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 14,
-                  color: Colors.orange.shade900,
+              Expanded(
+                child: Text(
+                  "공통 오프셋 (Offset) 벤딩 배수표",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                    color: Colors.orange.shade900,
+                  ),
                 ),
               ),
             ],
@@ -1938,12 +1956,14 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             children: [
               Icon(Icons.construction, color: makitaTeal, size: 28),
               SizedBox(width: 8),
-              Text(
-                "수동 벤더 실무 조작 가이드",
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 18,
-                  color: makitaTeal,
+              Expanded(
+                child: Text(
+                  "수동 벤더 실무 조작 가이드",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
+                    color: makitaTeal,
+                  ),
                 ),
               ),
             ],
@@ -2049,12 +2069,14 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 size: 20,
               ),
               SizedBox(width: 8),
-              Text(
-                "측정 기준 안내 및 보정표",
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 14,
-                  color: Colors.redAccent,
+              Expanded(
+                child: Text(
+                  "측정 기준 안내 및 보정표",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                    color: Colors.redAccent,
+                  ),
                 ),
               ),
             ],
@@ -2143,12 +2165,14 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             children: [
               Icon(Icons.call_split, color: makitaTeal, size: 20),
               SizedBox(width: 8),
-              Text(
-                "오프셋 (Offset) 벤딩 계산표",
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 14,
-                  color: makitaTeal,
+              Expanded(
+                child: Text(
+                  "오프셋 (Offset) 벤딩 계산표",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                    color: makitaTeal,
+                  ),
                 ),
               ),
             ],
@@ -2263,12 +2287,14 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 size: 24,
               ),
               const SizedBox(width: 8),
-              Text(
-                "배관 실무 꿀단지 참고표",
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
-                  color: Colors.blueGrey.shade900,
+              Expanded(
+                child: Text(
+                  "배관 실무 꿀단지 참고표",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                    color: Colors.blueGrey.shade900,
+                  ),
                 ),
               ),
             ],

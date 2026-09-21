@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/calc_tag.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -427,12 +428,15 @@ class _MobileResultTabState extends State<MobileResultTab>
                 elevation: 0,
                 automaticallyImplyLeading: false,
                 systemOverlayStyle: SystemUiOverlayStyle.dark,
-                title: const Text(
-                  "마킹 가이드",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    color: slate900,
+                title: const TitleWithTag(
+                  kind: CalcKind.tube,
+                  title: Text(
+                    "마킹 가이드",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: slate900,
+                    ),
                   ),
                 ),
                 centerTitle: false,
@@ -782,14 +786,19 @@ class _MobileViewerTabState extends State<MobileViewerTab>
                   children: [
                     Icon(Icons.threed_rotation, color: makitaTeal, size: 20),
                     SizedBox(width: 10),
-                    Text(
-                      "ISO 3D 도면 뷰어 (드래그하여 회전)",
-                      style: TextStyle(
-                        color: slate900,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: Text(
+                        "ISO 3D 도면 뷰어 (드래그하여 회전)",
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: slate900,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
+                    SizedBox(width: 8),
+                    CalcTag.tube(),
                   ],
                 ),
               ),
@@ -942,13 +951,16 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
             padding: const EdgeInsets.fromLTRB(24, 28, 24, 12),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text(
-                "보관된 도면 $total개",
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: slate900,
-                  letterSpacing: -0.5,
+              child: TitleWithTag(
+                kind: CalcKind.tube,
+                title: Text(
+                  "보관된 도면 $total개",
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: slate900,
+                    letterSpacing: -0.5,
+                  ),
                 ),
               ),
             ),

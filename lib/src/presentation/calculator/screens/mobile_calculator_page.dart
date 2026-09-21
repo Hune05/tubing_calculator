@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/calc_tag.dart';
 import 'package:flutter/services.dart';
 
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
@@ -267,6 +268,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
     compute: () => computeTubeFieldData(startDir: _startDir),
     onCloseTab: _goToMarkingTab,
     isActive: _currentIndex == 3,
+    kind: CalcKind.tube,
   );
 
   Widget _buildNarrowBody() {
