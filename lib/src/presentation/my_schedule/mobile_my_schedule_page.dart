@@ -450,8 +450,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           hasTime: hasTime,
           title: title,
           category: category,
-          isCompleted:
-              completedMap[_normalize(cursor).toIso8601String()] == true,
+          isCompleted: isOccurrenceCompleted(completedMap, cursor),
           isPersonal: true,
           personalDocId: docId,
           recurrence: recurrence,
@@ -484,9 +483,12 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       if (item.recurrence == 'none') {
         await docRef.update({'isCompleted': !item.isCompleted});
       } else {
-        final occKey = _normalize(item.date).toIso8601String();
+        // 키에 점이 들어 있어서 칸 목록(FieldPath)으로 넘긴다. 완료를 풀 때는 예전 중첩 모양도 지운다.
         await docRef.update({
-          'completedOccurrences.$occKey': !item.isCompleted,
+          FieldPath(occurrenceFieldPath(item.date)): !item.isCompleted,
+          if (item.isCompleted)
+            FieldPath(legacyOccurrenceFieldPath(item.date)):
+                FieldValue.delete(),
         });
       }
     } else {
@@ -3778,8 +3780,7 @@ Future<int> fetchTodayScheduleCount(String currentWorker) async {
         }
       } else {
         if (recurrenceOccursOn(base, recurrence, today)) {
-          final occKey = today.toIso8601String();
-          if (completedMap[occKey] != true) count++;
+          if (!isOccurrenceCompleted(completedMap, today)) count++;
         }
       }
     }

@@ -53,6 +53,36 @@ bool recurrenceOccursOn(DateTime base, String recurrence, DateTime day) {
   return d == b;
 }
 
+/// 반복 일정 회차의 완료 표시 키. 날짜만 본다(예: '2026-09-25T00:00:00.000').
+String occurrenceKey(DateTime day) =>
+    DateTime(day.year, day.month, day.day).toIso8601String();
+
+/// 회차 완료 표시를 저장할 필드 경로(칸 목록). 키에 점이 들어 있어서 'a.b' 문자열 경로로 쓰면
+/// 서버가 점마다 쪼개 중첩으로 넣는다. 그래서 칸 목록(FieldPath)으로 넘긴다.
+List<String> occurrenceFieldPath(DateTime day) => [
+  'completedOccurrences',
+  occurrenceKey(day),
+];
+
+/// 예전 코드가 점으로 쪼개 넣은 중첩 모양의 경로({'2026-09-25T00:00:00': {'000': true}}).
+/// 완료를 풀 때 이 모양도 같이 지운다.
+List<String> legacyOccurrenceFieldPath(DateTime day) => [
+  'completedOccurrences',
+  occurrenceKey(day).split('.').first,
+];
+
+/// [completed](문서의 completedOccurrences)에서 [day] 회차가 완료로 표시됐는지.
+/// 예전에 중첩 모양으로 들어간 표시도 같이 인정한다.
+bool isOccurrenceCompleted(Map? completed, DateTime day) {
+  if (completed == null) return false;
+  final key = occurrenceKey(day);
+  if (completed[key] == true) return true;
+  final dot = key.indexOf('.');
+  if (dot < 0) return false;
+  final legacy = completed[key.substring(0, dot)];
+  return legacy is Map && legacy[key.substring(dot + 1)] == true;
+}
+
 /// 일정 알림을 울릴 시각. 알림이 필요 없으면 null.
 /// - [minutesBefore]가 0 이하이거나 시간이 없는 일정(종일)이면 알림 없음.
 /// - 반복 일정은 지금 이후의 가장 가까운 회차 기준으로 맞춘다.
