@@ -19,7 +19,8 @@ const String kWorkProjectsCollection = 'my_projects';
 // 그 프로젝트 문서 하나만 다시 쓴다 - 화면은 여전히 Map을 그대로
 // 주고받고, 저장 시점만 비동기(Firestore)로 바뀐 셈이다.
 class WorkProjectRepository {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // 처음 쓸 때 가져온다(테스트에서 이 저장소를 흉내 낸 것을 만들 때 Firebase가 없어도 되게).
+  late final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   // 서버에 아직 반영되지 않은 저장 개수. Firestore는 오프라인에서도 로컬에 먼저
   // 쓰고 연결되면 자동으로 올리는데, 서버 확인이 올 때까지 이 값이 1 이상이라

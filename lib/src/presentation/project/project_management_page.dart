@@ -18,7 +18,10 @@ import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_
     as manual;
 
 class ProjectManagementPage extends StatefulWidget {
-  const ProjectManagementPage({super.key});
+  const ProjectManagementPage({super.key, this.repository});
+
+  // 테스트에서 서버 대신 쓸 저장소. 없으면 실제 저장소를 쓴다.
+  final WorkProjectRepository? repository;
 
   @override
   State<ProjectManagementPage> createState() => _ProjectManagementPageState();
@@ -28,7 +31,8 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
   int? _expandedIndex;
   final ImagePicker _picker = ImagePicker();
 
-  final WorkProjectRepository _projectRepo = WorkProjectRepository();
+  late final WorkProjectRepository _projectRepo =
+      widget.repository ?? WorkProjectRepository();
   List<Map<String, dynamic>> projects = [];
   bool _isLoadingProjects = true;
 
@@ -53,16 +57,11 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
     }
   }
 
-  // 🚀 [수정] "내 프로젝트"가 로컬(Hive) 저장에서 Firestore로 이전되면서,
-  // 리스트 전체를 통째로 다시 쓰던 방식 대신 지금 화면에 있는 프로젝트를
-  // 각각 자기 문서로 다시 쓰는 방식으로 바뀌었다. 호출부(13곳)를 전부
-  // 고치는 대신, 이 메서드 하나만 "현재 projects 리스트를 전부 다시
-  // 저장"하도록 바꿔서 기존 호출부는 그대로 두었다 - 프로젝트 개수가
-  // 몇 안 되는 개인용 앱이라 매번 전체를 다시 쓰는 비용은 무시할 만하다.
-  void _saveData() {
-    for (final project in projects) {
-      _projectRepo.upsertProject(project);
-    }
+  // 바뀐 프로젝트 하나만 저장한다. 예전에는 화면을 열 때 불러온 프로젝트 전부를
+  // 다시 써서, 그 사이 다른 폰에서 넣은 일지·일정이 다른 프로젝트에서 지워질 수 있었다.
+  void _saveData(int index) {
+    if (index < 0 || index >= projects.length) return;
+    _projectRepo.upsertProject(projects[index]);
   }
 
   Future<String?> _pickImageSource() async {
@@ -164,8 +163,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
     );
 
     if (confirm == true) {
-      // 🚀 _saveData()는 "지금 남아있는 프로젝트들"만 다시 쓰기 때문에,
-      // 삭제된 프로젝트의 Firestore 문서는 따로 지워줘야 한다.
+      // 삭제한 프로젝트의 문서만 지운다(남은 프로젝트는 다시 쓰지 않는다).
       final deletedId = projects[index]['id']?.toString();
       setState(() {
         projects.removeAt(index);
@@ -174,7 +172,6 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
         } else if (_expandedIndex != null && _expandedIndex! > index) {
           _expandedIndex = _expandedIndex! - 1;
         }
-        _saveData();
       });
       if (deletedId != null) {
         _projectRepo.deleteProject(deletedId);
@@ -336,7 +333,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                     projects[index]['status'] = currentProgress >= 1.0
                         ? 'COMPLETED'
                         : 'ONGOING';
-                    _saveData();
+                    _saveData(index);
                   });
                   Navigator.pop(ctx);
                 },
@@ -399,7 +396,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
             onPressed: () {
               setState(() {
                 projects[projectIndex]['revision'] = revCtrl.text.trim();
-                _saveData();
+                _saveData(projectIndex);
               });
               Navigator.pop(ctx);
             },
@@ -610,7 +607,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                             : null,
                         "image_paths": List.from(attachedImages),
                       });
-                      _saveData();
+                      _saveData(projectIndex);
                     });
                     Navigator.pop(ctx);
                   } else {
@@ -972,7 +969,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                         } else {
                           targetList.insert(0, newReport);
                         }
-                        _saveData();
+                        _saveData(projectIndex);
                       });
                       Navigator.pop(ctx);
                     } else {
@@ -1043,7 +1040,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
     if (confirm == true) {
       setState(() {
         projects[projectIndex]['daily_reports'].removeAt(reportIndex);
-        _saveData();
+        _saveData(projectIndex);
       });
     }
   }
@@ -1127,7 +1124,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
       setState(() {
         projects[index]['materials'] = left;
         projects[index]['isDeducted'] = left.isEmpty;
-        _saveData();
+        _saveData(index);
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1315,7 +1312,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                             "daily_reports": [],
                             "punch_lists": [],
                           });
-                          _saveData();
+                          _saveData(0);
                         });
                         Navigator.pop(context);
                       }
@@ -1559,7 +1556,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                   onDeductInventory: () => _deductMaterialsFromInventory(index),
                   onStateUpdate: () {
                     setState(() {});
-                    _saveData();
+                    _saveData(index);
                   },
                   onViewDailyReportDetail: (reportIdx) {
                     final report = project['daily_reports'][reportIdx];
@@ -1594,7 +1591,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                         project['id'].toString().trim().isEmpty) {
                       project['id'] = DateTime.now().millisecondsSinceEpoch
                           .toString();
-                      _saveData();
+                      _saveData(index);
                     }
 
                     final prefs = await SharedPreferences.getInstance();
@@ -1667,7 +1664,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
 
                                     projects[index]['materials'] =
                                         currentMaterials;
-                                    _saveData();
+                                    _saveData(index);
                                   });
                                 },
                           ),
@@ -1735,7 +1732,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
 
                                     projects[index]['materials'] =
                                         currentMaterials;
-                                    _saveData();
+                                    _saveData(index);
                                   });
                                 },
                           ),
