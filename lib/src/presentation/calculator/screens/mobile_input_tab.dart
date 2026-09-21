@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/presentation/calculator/segment_length_check.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/engine/bend_path.dart';
@@ -76,14 +77,6 @@ class _MobileInputTabState extends State<MobileInputTab>
   }
 
   // 파이프 외경(OD)에 따른 피팅 조립 최소 안전 직관 거리
-  double _getMinFittingStraight(double od) {
-    if (od <= 6.35) return 21.0; // 1/4"
-    if (od <= 9.52) return 24.0; // 3/8"
-    if (od <= 12.7) return 30.0; // 1/2"
-    if (od <= 19.05) return 32.0; // 3/4"
-    return 38.0; // 1" 이상
-  }
-
   void _addSegment() {
     double length = double.tryParse(_lengthController.text) ?? 0.0;
 
@@ -184,12 +177,19 @@ class _MobileInputTabState extends State<MobileInputTab>
       }
     }
 
-    // 기계 간섭 & 누설 위험 이중 검사 로직
-    double minFittingStraight = _getMinFittingStraight(settings.tubeOD);
-
-    bool isShoeInterference =
-        settings.warnShoeInterference && length < settings.minStraight;
-    bool isLeakRisk = length < minFittingStraight;
+    // 기계 간섭 & 누설 위험 이중 검사 로직.
+    // 앞에 이어진 직관은 합쳐서 보고, 누설은 관 끝에서만 본다.
+    final lengthCheck = checkSegmentLength(
+      existing: MobileBendDataManager().bendList,
+      length: length,
+      angle: _selectedAngle,
+      tubeOdMm: settings.isInch ? settings.tubeOD * 25.4 : settings.tubeOD,
+      minStraight: settings.minStraight,
+      warnShoeInterference: settings.warnShoeInterference,
+    );
+    final double minFittingStraight = lengthCheck.minFittingStraight;
+    final bool isShoeInterference = lengthCheck.shoeInterference;
+    final bool isLeakRisk = lengthCheck.leakRisk;
 
     // 만약 둘 중 하나라도 위험 요소가 발견되면 복합 경고창을 띄움
     if (isShoeInterference || isLeakRisk) {
@@ -219,7 +219,9 @@ class _MobileInputTabState extends State<MobileInputTab>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "입력하신 길이(${length.toStringAsFixed(1)}mm)가 너무 짧아 현장에서 문제가 발생할 수 있습니다.\n",
+                lengthCheck.merged
+                    ? "앞 직관과 이어서 곧은 길이가 ${lengthCheck.run.toStringAsFixed(1)}mm뿐이라 현장에서 문제가 생길 수 있습니다.\n"
+                    : "입력하신 길이(${length.toStringAsFixed(1)}mm)가 너무 짧아 현장에서 문제가 생길 수 있습니다.\n",
                 style: const TextStyle(color: slate900, fontSize: 13),
               ),
               if (isShoeInterference) ...[
