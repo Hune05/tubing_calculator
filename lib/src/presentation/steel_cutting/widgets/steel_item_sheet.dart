@@ -228,6 +228,11 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
       showCuttingSnack(context, "수량을 정확히 입력해 주십시오.", isError: true);
       return;
     }
+    // 여러 길이 입력·± 단추와 같은 한계. 너무 많으면 재단 계획·PDF 계산이 매우 느려진다.
+    if (qty > 9999) {
+      showCuttingSnack(context, "수량은 9999개까지 적을 수 있습니다.", isError: true);
+      return;
+    }
 
     final item = SteelCutItem(
       id:

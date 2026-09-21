@@ -321,6 +321,46 @@ void main() {
       expect(saved.single.length, 1200.5);
     });
 
+    testWidgets('한 건 입력의 수량도 9999개까지만 받는다', (tester) async {
+      tester.view.physicalSize = const Size(1080, 3200);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      final saved = <SteelCutItem>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => showSteelItemSheet(
+                  context,
+                  existing: item('앵글 40x40x3', 1200, 2, id: 'a'),
+                  onSave: saved.add,
+                ),
+                child: const Text('열기'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('열기'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('steel_qty_field')),
+        '1000000',
+      );
+      await tester.pump();
+      await tester.tap(find.text('저장'));
+      await tester.pump();
+      expect(saved, isEmpty);
+      expect(find.text('수량은 9999개까지 적을 수 있습니다.'), findsOneWidget);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('steel_qty_field')), '9999');
+      await tester.pump();
+      await tester.tap(find.text('저장'));
+      await tester.pumpAndSettle();
+      expect(saved.single.qty, 9999);
+    });
+
     testWidgets('직접 입력해서 항목을 추가하면 내 규격에 저장된다', (tester) async {
       tester.view.physicalSize = const Size(1080, 3200);
       tester.view.devicePixelRatio = 3.0;
