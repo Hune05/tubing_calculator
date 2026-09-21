@@ -3246,7 +3246,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     HapticFeedback.selectionClick();
     final oldUnit = _lengthUnit;
     final List<double?> mmValues = _points.map((p) {
-      final raw = double.tryParse(p.c2cController.text);
+      // 계산과 같은 규칙으로 읽는다('1,500' = 1500, '1200,5' = 1200.5).
+      final raw = parseLengthInput(p.c2cController.text).value;
       if (raw == null) return null;
       return oldUnit == 'in' ? raw * kInchToMm : raw;
     }).toList();
@@ -3304,7 +3305,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // "이전 구간과 동일" 복사, 엔터로 다음 칸 자동 이동, 규격 불일치/짧은
   // 절단 길이 주의 안내를 한데 모았다.
   void _stepLength(int index, double delta) {
-    final current = double.tryParse(_points[index].c2cController.text) ?? 0.0;
+    final current =
+        parseLengthInput(_points[index].c2cController.text).value ?? 0.0;
     final next = (current + delta).clamp(0.0, double.infinity);
     setState(() {
       _points[index].c2cController.text = _formatLocalLength(next);

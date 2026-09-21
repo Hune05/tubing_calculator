@@ -150,6 +150,30 @@ void main() {
       expect(find.byKey(const Key('set_plus')).evaluate(), isEmpty);
     });
 
+    testWidgets('쉼표로 쓴 길이도 단위를 바꾸면 같은 길이로 환산된다', (tester) async {
+      await open(tester);
+      await tester.enterText(lengthField(0), '1,500');
+      await tester.pump();
+      expect(find.text('절단 1500.0mm'), findsOneWidget);
+      await tester.tap(find.text('in'));
+      await tester.pump();
+      // 예전에는 글자가 '1,500' 그대로 남아 1500in(38100mm)로 셈했다.
+      expect(find.text('절단 1500.0mm'), findsOneWidget);
+      expect(find.text('절단 38100.0mm'), findsNothing);
+      await tester.tap(find.text('mm'));
+      await tester.pump();
+      expect(find.text('절단 1500.0mm'), findsOneWidget);
+    });
+
+    testWidgets('± 단추가 쉼표로 쓴 길이를 0으로 보지 않는다', (tester) async {
+      await open(tester);
+      await tester.enterText(lengthField(0), '1200,5');
+      await tester.pump();
+      await tester.tap(find.text('+10').first);
+      await tester.pump();
+      expect(find.text('절단 1210.5mm'), findsOneWidget);
+    });
+
     testWidgets('읽을 수 없는 글자는 알려 주고 계산에서 뺀다', (tester) async {
       await open(tester);
       await tester.enterText(lengthField(0), '12a0');
