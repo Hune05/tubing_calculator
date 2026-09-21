@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/calc_tag.dart';
 import 'package:flutter/services.dart';
 import 'package:tubing_calculator/src/data/conduit_drawings.dart';
 import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
@@ -311,16 +310,13 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
               mainAxisAlignment: MainAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,
               children: [
-                TitleWithTag(
-                  kind: CalcKind.conduit,
-                  title: Text(
-                    "보관된 도면 ${_savedDrawings.length}개",
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: slate900,
-                      letterSpacing: -0.5,
-                    ),
+                Text(
+                  "보관된 도면 ${_savedDrawings.length}개",
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: slate900,
+                    letterSpacing: -0.5,
                   ),
                 ),
               ],

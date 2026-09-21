@@ -1,5 +1,5 @@
 // 튜브 설정 탭을 전선관 모양(한 줄씩, 오른쪽 값)으로 바꾼 뒤:
-// 좁은 폰·가로에서 넘치지 않고, 이름표("튜브")가 붙고, AUTO 칸은 잠겨 있는지.
+// 좁은 폰·가로에서 넘치지 않고, AUTO 칸은 눌러 바꿀 수 있는지.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -52,7 +52,7 @@ void main() {
     });
   }
 
-  testWidgets('제목에 "튜브" 이름표, 묶음 제목, AUTO 칸은 눌러도 숫자판이 안 뜬다', (tester) async {
+  testWidgets('제목·묶음 제목, AUTO 칸은 눌러 MAN으로 바뀐다', (tester) async {
     await open(tester, const Size(420, 3000));
     await tester.drag(
       find.byType(SingleChildScrollView).first,
@@ -60,7 +60,6 @@ void main() {
     );
     await tester.pump();
     expect(find.text('장비 세팅 가이드'), findsOneWidget);
-    expect(find.byKey(const ValueKey('calc_tag_tube')), findsOneWidget);
     expect(find.text('튜브 기본 제원'), findsOneWidget);
     expect(find.text('제원 수치 (수동)'), findsOneWidget);
 

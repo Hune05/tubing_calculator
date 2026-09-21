@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/calc_tag.dart';
 import 'package:flutter/services.dart';
 
 // 새롭게 만든 전선관 전용 데이터 매니저 임포트 (경로를 맞게 수정해 주세요)
@@ -144,15 +143,12 @@ class _ConduitInputTabState extends State<ConduitInputTab>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const [
-                TitleWithTag(
-                  kind: CalcKind.conduit,
-                  title: Text(
-                    "전선관 배관 설계",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: slate900,
-                    ),
+                Text(
+                  "전선관 배관 설계",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: slate900,
                   ),
                 ),
                 SizedBox(height: 4),

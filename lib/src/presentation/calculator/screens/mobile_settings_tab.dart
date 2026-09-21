@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/calc_tag.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_gain_calibration_sheet.dart';
 import 'package:tubing_calculator/src/data/machine_spec_sets.dart';
 
@@ -511,8 +510,10 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     required String helperText,
   }) {
     String show(String e) => displayMapper != null ? displayMapper(e) : e;
+    // 값(1/2" 등)에 단위가 이미 보이므로 이름에서 [inch]·[mm]는 뺀다.
+    final (name, _) = _splitUnit(label);
     return _row(
-      _buildLabelWithHelp(context, label, helpTitle, helpContent),
+      _buildLabelWithHelp(context, name, helpTitle, helpContent),
       // 좁은 화면에서 긴 값이 줄을 통째로 차지하지 않게 폭을 묶는다.
       ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 170),
@@ -618,10 +619,13 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 child: TextField(
                   controller: controller,
                   textAlign: TextAlign.end,
+                  // 값이 비어 있으면 흐린 0(비어 있으면 셈에서 0으로 쓴다).
                   decoration: const InputDecoration(
                     border: InputBorder.none,
                     isDense: true,
                     contentPadding: EdgeInsets.symmetric(vertical: 8),
+                    hintText: "0",
+                    hintStyle: TextStyle(color: Color(0xFF94A3B8)),
                   ),
                   style: TextStyle(
                     fontSize: 16,
@@ -728,15 +732,12 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           ),
           child: const Align(
             alignment: Alignment.centerLeft,
-            child: TitleWithTag(
-              kind: CalcKind.tube,
-              title: Text(
-                '장비 세팅 가이드',
-                style: TextStyle(
-                  color: slate900,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                ),
+            child: Text(
+              '장비 세팅 가이드',
+              style: TextStyle(
+                color: slate900,
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
               ),
             ),
           ),

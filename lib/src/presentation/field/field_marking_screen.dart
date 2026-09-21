@@ -10,7 +10,6 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/calc_tag.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -42,16 +41,12 @@ class FieldMarkingScreen extends StatefulWidget {
   /// 뒤로가기를 가로챈다.
   final bool isActive;
 
-  /// 어느 계산기인지(위 막대 맨 앞 이름표). 없으면 달지 않는다.
-  final CalcKind? kind;
-
   const FieldMarkingScreen({
     super.key,
     required this.listenable,
     required this.compute,
     this.onCloseTab,
     this.isActive = true,
-    this.kind,
   });
 
   @override
@@ -369,10 +364,6 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       ),
       child: Row(
         children: [
-          if (widget.kind != null) ...[
-            CalcTag(widget.kind!),
-            const SizedBox(width: 12),
-          ],
           Text.rich(
             TextSpan(
               children: [

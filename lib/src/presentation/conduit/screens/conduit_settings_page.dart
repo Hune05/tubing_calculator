@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/calc_tag.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -458,15 +457,12 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
       child: Scaffold(
         backgroundColor: slate100,
         appBar: AppBar(
-          title: const TitleWithTag(
-            kind: CalcKind.conduit,
-            title: Text(
-              '장비 세팅 가이드',
-              style: TextStyle(
-                color: slate900,
-                fontWeight: FontWeight.w800,
-                fontSize: 18,
-              ),
+          title: const Text(
+            '장비 세팅 가이드',
+            style: TextStyle(
+              color: slate900,
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
             ),
           ),
           backgroundColor: pureWhite,
