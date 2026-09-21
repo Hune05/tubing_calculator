@@ -494,6 +494,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         });
       }
     } else {
+      if (item.projectId == null || item.scheduleId == null) return;
       final projectIndex = _projects.indexWhere(
         (p) => p['id']?.toString() == item.projectId,
       );
@@ -511,7 +512,12 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       schedules[idx]['isCompleted'] = !item.isCompleted;
       project['schedules'] = schedules;
       setState(() => _projects[projectIndex] = project);
-      await _projectRepo.upsertProject(project);
+      // 화면을 연 시점의 사본으로 문서 전체를 덮어쓰지 않고, 저장 직전에 다시 읽어 일정 완료만 바꾼다.
+      await _projectRepo.setScheduleCompleted(
+        item.projectId!,
+        item.scheduleId!,
+        !item.isCompleted,
+      );
     }
   }
 

@@ -5,6 +5,24 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 const String kWorkProjectsCollection = 'my_projects';
 
+// [schedules](프로젝트 문서의 일정 목록)에서 id가 [scheduleId]인 일정의 완료 표시를 [done]으로 바꾼
+// 새 목록. 그 일정이 없으면 null(아무것도 쓰지 않게).
+List<Map<String, dynamic>>? scheduleListWithCompleted(
+  Object? schedules,
+  String scheduleId,
+  bool done,
+) {
+  if (schedules is! List) return null;
+  final list = [
+    for (final e in schedules)
+      if (e is Map) Map<String, dynamic>.from(e),
+  ];
+  final idx = list.indexWhere((s) => s['id']?.toString() == scheduleId);
+  if (idx < 0) return null;
+  list[idx]['isCompleted'] = done;
+  return list;
+}
+
 // 🚀 [추가] "내 프로젝트"(모바일 WorkLogMainScreen + 데스크톱
 // ProjectManagementPage가 공유하던 기능)를 기기 로컬(Hive) 저장에서
 // Firestore(클라우드) 저장으로 이전한다.
@@ -58,6 +76,30 @@ class WorkProjectRepository {
     pendingWrites.value++;
     try {
       await _col.doc(id).set(data);
+    } finally {
+      pendingWrites.value--;
+    }
+  }
+
+  // 프로젝트 일정 하나의 완료 표시만 바꾼다. 저장하기 직전에 문서를 다시 읽어 schedules 칸만
+  // 고쳐 쓰므로, 화면을 연 뒤 다른 폰에서 넣은 일지·이슈·일정이 지워지지 않는다.
+  // 문서나 일정을 찾지 못하면 아무것도 쓰지 않는다.
+  Future<void> setScheduleCompleted(
+    String projectId,
+    String scheduleId,
+    bool done,
+  ) async {
+    final ref = _col.doc(projectId);
+    final snap = await ref.get();
+    final updated = scheduleListWithCompleted(
+      snap.data()?['schedules'],
+      scheduleId,
+      done,
+    );
+    if (updated == null) return;
+    pendingWrites.value++;
+    try {
+      await ref.update({'schedules': updated});
     } finally {
       pendingWrites.value--;
     }
