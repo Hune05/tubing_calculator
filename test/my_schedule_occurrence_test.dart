@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_logic.dart';
 
 void main() {
+  shiftGroup();
   reminderGroup();
   group('반복 일정 회차 완료 표시', () {
     final day = DateTime(2026, 9, 25, 14, 30);
@@ -119,6 +120,59 @@ void reminderGroup() {
       expect(monthlyReminderKeepsDay(DateTime(2026, 1, 1, 0, 10), 30), false);
       expect(monthlyReminderKeepsDay(DateTime(2026, 1, 29, 9), 30), false);
       expect(monthlyReminderKeepsDay(DateTime(2026, 1, 28, 9), 30), true);
+    });
+  });
+}
+
+void shiftGroup() {
+  group('시작일을 옮기면 기간을 그대로 두고 종료일도 옮긴다', () {
+    test('3일 기간', () {
+      expect(
+        shiftedEndDate(
+          oldStart: DateTime(2026, 9, 22, 14),
+          oldEnd: DateTime(2026, 9, 24),
+          newStart: DateTime(2026, 9, 30, 14),
+        ),
+        DateTime(2026, 10, 2),
+      );
+    });
+
+    test('종료일이 없으면 그대로 없다', () {
+      expect(
+        shiftedEndDate(
+          oldStart: DateTime(2026, 9, 22),
+          oldEnd: null,
+          newStart: DateTime(2026, 9, 30),
+        ),
+        isNull,
+      );
+    });
+
+    test('시작일을 모르거나 기간이 이상하면 새 시작일 앞의 종료일은 버린다', () {
+      expect(
+        shiftedEndDate(
+          oldStart: null,
+          oldEnd: DateTime(2026, 9, 24),
+          newStart: DateTime(2026, 9, 30),
+        ),
+        isNull,
+      );
+      expect(
+        shiftedEndDate(
+          oldStart: null,
+          oldEnd: DateTime(2026, 10, 5),
+          newStart: DateTime(2026, 9, 30),
+        ),
+        DateTime(2026, 10, 5),
+      );
+      expect(
+        shiftedEndDate(
+          oldStart: DateTime(2026, 9, 25),
+          oldEnd: DateTime(2026, 9, 24),
+          newStart: DateTime(2026, 9, 30),
+        ),
+        isNull,
+      );
     });
   });
 }

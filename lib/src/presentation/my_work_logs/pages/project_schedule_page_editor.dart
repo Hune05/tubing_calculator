@@ -201,8 +201,11 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                                   pickedDate.year,
                                   pickedDate.month,
                                   pickedDate.day,
-                                  pickedTime?.hour ?? 9,
-                                  pickedTime?.minute ?? 0,
+                                  // 시간 창을 취소하면 원래 시각을 둔다(새 일정이면 9:00).
+                                  pickedTime?.hour ??
+                                      (dateTime != null ? base.hour : 9),
+                                  pickedTime?.minute ??
+                                      (dateTime != null ? base.minute : 0),
                                 );
 
                                 // 🚀 검사일정/납기일을 "수정"하면서 날짜가 실제로
@@ -231,6 +234,12 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                                 }
 
                                 setModalState(() {
+                                  // 기간 일정이면 기간(일수)을 그대로 두고 종료일도 같이 옮긴다.
+                                  endDate = shiftedEndDate(
+                                    oldStart: dateTime,
+                                    oldEnd: endDate,
+                                    newStart: newDateTime,
+                                  );
                                   dateTime = newDateTime;
                                   // 🚀 날짜를 받았다는 건 입고일이 확정됐다는
                                   // 뜻이니, "자재 요청"이었다면 여기서 바로

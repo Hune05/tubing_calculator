@@ -3,6 +3,8 @@ import '../widgets/korean_text.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:tubing_calculator/src/core/common_widgets/makita_time_picker.dart';
+import 'package:tubing_calculator/src/presentation/my_schedule/schedule_logic.dart'
+    show shiftedEndDate;
 
 part 'project_schedule_page_editor.dart';
 part 'project_schedule_page_calendar.dart';

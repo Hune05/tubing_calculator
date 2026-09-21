@@ -250,3 +250,23 @@ String todaySummary(List<LiteAgenda> todayItems, DateTime now) {
   final n = upcoming.first;
   return '$base · 다음 ${_hm(n.date)} ${n.title}';
 }
+
+DateTime _dayOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+/// 기간 일정의 시작일을 [newStart]로 옮길 때의 새 종료일(날짜만).
+/// 원래 기간(일수)을 그대로 두고 종료일도 같이 옮긴다. 종료일이 없으면 null.
+/// 원래 시작일을 모르면 종료일이 새 시작일보다 앞설 때만 버린다.
+DateTime? shiftedEndDate({
+  required DateTime? oldStart,
+  required DateTime? oldEnd,
+  required DateTime newStart,
+}) {
+  if (oldEnd == null) return null;
+  final ns = _dayOnly(newStart);
+  if (oldStart == null) {
+    return _dayOnly(oldEnd).isAfter(ns) ? _dayOnly(oldEnd) : null;
+  }
+  final days = _dayOnly(oldEnd).difference(_dayOnly(oldStart)).inDays;
+  if (days <= 0) return null;
+  return DateTime(ns.year, ns.month, ns.day + days);
+}
