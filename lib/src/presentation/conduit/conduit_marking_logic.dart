@@ -153,53 +153,20 @@ List<Map<String, dynamic>> calculateConduitMarkings(
 
 /// 마킹 탭 위에 띄울 형상 점검(짧은 구간·못 꺾는 방향·관끼리 닿음).
 ///
-/// 튜브 마킹 화면과 같은 점검([checkBends])을 CLR로 돌린다. 다만 직관(0°)은
-/// 다음 구간에 합쳐서 본다. 직관 150 다음에 7mm짜리 21° 구간이 와도 한 줄로
-/// 이어진 관이라 꺾을 수 있는데, 구간을 따로 보면 "곧은 부분 -14mm"로 잡혔다.
-/// 경고 글의 구간 번호는 입력 목록 번호로 되돌려 적는다.
+/// 튜브 마킹 화면과 같은 점검([checkBends])을 CLR로 돌린다. 직관은 다음
+/// 구간에 합쳐서 보므로, 직관 뒤의 짧은 구간을 "만들 수 없다"고 하지 않는다.
 BendCheck conduitBendCheck(
   List<Map<String, dynamic>> bendList,
   Map<String, dynamic> settings, {
   String startDir = 'RIGHT',
 }) {
-  final merged = <Map<String, dynamic>>[];
-  final origNo = <int>[]; // 합친 목록 번호(0부터) → 입력 목록 번호(1부터)
-  double carry = 0.0;
-  for (int i = 0; i < bendList.length; i++) {
-    final len = (bendList[i]['length'] as num?)?.toDouble() ?? 0.0;
-    final angle = (bendList[i]['angle'] as num?)?.toDouble() ?? 0.0;
-    final isLast = i == bendList.length - 1;
-    if (angle <= 0 && !isLast) {
-      carry += len;
-      continue;
-    }
-    merged.add({...bendList[i], 'length': len + carry});
-    origNo.add(i + 1);
-    carry = 0.0;
-  }
-
-  final check = checkBends(
-    merged,
+  return checkBends(
+    bendList,
     radius: _num(settings, 'clr', 0.0),
     startDir: startDir,
     outerDiameter: conduitOuterDiameterMm(
       settings['conduitSize']?.toString() ?? '',
     ),
-  );
-
-  final numbered = RegExp(r'(\d+)번 구간');
-  String renumber(String w) => w.replaceAllMapped(numbered, (m) {
-    final n = int.parse(m.group(1)!);
-    final orig = (n >= 1 && n <= origNo.length) ? origNo[n - 1] : n;
-    return '$orig번 구간';
-  });
-
-  return BendCheck(
-    warnings: [for (final w in check.warnings) renumber(w)],
-    rollByIndex: {
-      for (final e in check.rollByIndex.entries)
-        if (e.key >= 0 && e.key < origNo.length) origNo[e.key] - 1: e.value,
-    },
   );
 }
 
