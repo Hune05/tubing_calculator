@@ -239,13 +239,11 @@ extension _DailyReportPhotos on _DailyReportPageState {
 
   Future<void> _openSketch() async {
     HapticFeedback.lightImpact();
-    final bool isTabletSize = MediaQuery.of(context).size.shortestSide >= 600;
+    // 배치도 화면은 하나다. 화면 폭에 맞는 모양은 그 화면이 알아서 고른다.
     final String? capturedPath = await Navigator.push<String>(
       context,
       MaterialPageRoute(
-        builder: (context) => isTabletSize
-            ? const TabletLayoutBoardPage(attachToReport: true)
-            : const MobileLayoutBoardPage(attachToReport: true),
+        builder: (context) => const LayoutBoardPage(attachToReport: true),
       ),
     );
     if (capturedPath != null && mounted) {

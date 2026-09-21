@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart'
     as mob;
-import 'package:tubing_calculator/src/presentation/my_work_logs/pages/tablet_layout_board_page.dart'
+// 폰·태블릿 화면을 하나로 합친 뒤에도 예전 비교 테스트를 그대로 두려고 같은 파일을 두 이름으로 읽는다.
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart'
     as tab;
 
 // 배치도의 안내선·모눈 그리기 결과를 지킨다. 화면에 그린 그림의 픽셀을 그대로 비교한다.
@@ -212,4 +213,4 @@ void dimensionTests() {
   });
 }
 
-const int dimensionHash = 1632631539;
+const int dimensionHash = 83402877;

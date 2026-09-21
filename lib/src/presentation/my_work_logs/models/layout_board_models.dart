@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:flutter/material.dart';
 
 // 🚀 배치도(모바일·태블릿 두 화면)가 함께 쓰는 데이터 모양과 치수 계산.
@@ -219,4 +220,115 @@ class PlacedDimension {
     final double x = (r1.center.dx + r2.center.dx) / 2;
     return (p1: Offset(x, y1), p2: Offset(x, y2), distance: (y1 - y2).abs());
   }
+}
+
+// ---------------------------------------------------------
+// 3. 서버(layouts 모음)에 저장하는 칸과 불러오기
+// ---------------------------------------------------------
+// 저장된 배치도의 칸 이름은 절대 바꾸거나 빼지 않는다. 예전에 저장한 배치도가
+// 그대로 열려야 하기 때문이다(test/layout_board_compat_test.dart가 지킨다).
+// 새 칸을 더할 때는 여기에만 더하고, 읽을 때는 그 칸이 없어도 되게 만든다.
+
+/// layouts 문서에 저장하는 칸(저장 시각 칸은 서버 시각이라 부르는 쪽에서 붙인다).
+Map<String, dynamic> layoutSaveFields({
+  required String projectId,
+  required String projectName,
+  required double panelWidth,
+  required double panelHeight,
+  required List<PlacedItem> items,
+  required List<PlacedDimension> dimensions,
+  required String? backgroundImagePath,
+  required double backgroundOpacity,
+}) => {
+  'projectId': projectId,
+  'projectName': projectName,
+  'panelWidth': panelWidth,
+  'panelHeight': panelHeight,
+  'items': items.map((e) => e.toJson()).toList(),
+  'dimensions': dimensions.map((e) => e.toJson()).toList(),
+  'backgroundImagePath': backgroundImagePath,
+  'backgroundOpacity': backgroundOpacity,
+};
+
+/// 저장된 문서(또는 임시 저장·템플릿)의 items 칸을 모듈 목록으로 읽는다. 칸이 없으면 빈 목록.
+List<PlacedItem> layoutItemsFromData(Map<String, dynamic> data) =>
+    ((data['items'] as List?) ?? const [])
+        .map((e) => PlacedItem.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+
+/// 저장된 문서의 dimensions 칸을 치수선 목록으로 읽는다. 칸이 없으면 빈 목록.
+List<PlacedDimension> layoutDimensionsFromData(Map<String, dynamic> data) =>
+    ((data['dimensions'] as List?) ?? const [])
+        .map(
+          (e) => PlacedDimension.fromJson(Map<String, dynamic>.from(e as Map)),
+        )
+        .toList();
+
+// ---------------------------------------------------------
+// 4. 만든 사람 칸(목록에 내 배치도만 보이게)
+// ---------------------------------------------------------
+// 예전 배치도에는 만든 사람 칸이 없다. 그래서 새 칸 두 개(ownerUid, ownerName)는
+// 새 문서를 처음 저장할 때만 붙이고, 칸이 없는 예전 배치도는 누구 목록에나 예전처럼 보인다.
+// 남이 만든 예전 배치도를 고쳐 저장해도 칸을 붙이지 않는다(붙이면 그 사람 목록에서 사라진다).
+
+/// 만든 사람 칸 이름. 이미 있는 칸 이름과 겹치지 않는다.
+const String kLayoutOwnerUidField = 'ownerUid';
+const String kLayoutOwnerNameField = 'ownerName';
+
+/// 지금 앱을 쓰는 사람. uid는 로그인(인증)했을 때만, name은 프로필 이름.
+class LayoutOwner {
+  final String? uid;
+  final String? name;
+  const LayoutOwner({this.uid, this.name});
+
+  bool get isEmpty =>
+      (uid == null || uid!.isEmpty) && (name == null || name!.isEmpty);
+}
+
+/// 새 문서를 저장할 때 덧붙이는 만든 사람 칸. 아는 것이 없으면 빈 맵.
+Map<String, dynamic> layoutOwnerFields(LayoutOwner me) => {
+  if (me.uid != null && me.uid!.isNotEmpty) kLayoutOwnerUidField: me.uid,
+  if (me.name != null && me.name!.isNotEmpty) kLayoutOwnerNameField: me.name,
+};
+
+/// 목록에 이 배치도를 보여 줄지.
+/// - 만든 사람 칸이 없는 예전 배치도: 보여 준다.
+/// - uid가 양쪽에 다 있으면 uid로 비교한다.
+/// - 아니면 이름이 양쪽에 다 있을 때 이름으로 비교한다.
+/// - 비교할 것이 없으면(로그인도 이름도 없음) 예전처럼 보여 준다.
+bool layoutVisibleTo(Map<String, dynamic> data, LayoutOwner me) {
+  final String docUid = (data[kLayoutOwnerUidField] as String?)?.trim() ?? '';
+  final String docName = (data[kLayoutOwnerNameField] as String?)?.trim() ?? '';
+  if (docUid.isEmpty && docName.isEmpty) return true;
+  final String myUid = me.uid?.trim() ?? '';
+  final String myName = me.name?.trim() ?? '';
+  if (docUid.isNotEmpty && myUid.isNotEmpty) return docUid == myUid;
+  if (docName.isNotEmpty && myName.isNotEmpty) return docName == myName;
+  return true;
+}
+
+/// 문서가 마지막으로 고쳐진 때(updatedAt, 없으면 createdAt). 둘 다 없으면 1970년.
+DateTime layoutEditedAt(Map<String, dynamic> data) {
+  final Object? ts = data['updatedAt'] ?? data['createdAt'];
+  if (ts is Timestamp) return ts.toDate();
+  if (ts is DateTime) return ts;
+  return DateTime.fromMillisecondsSinceEpoch(0);
+}
+
+/// "다른 도면에서 가져오기"에 보여 줄 도면. 목록 화면과 같은 규칙으로 내 배치도만,
+/// 지금 열어 둔 도면은 빼고, 최근 고친 순으로 늘어놓는다.
+List<T> layoutImportCandidates<T>(
+  Iterable<T> docs, {
+  required LayoutOwner me,
+  required String? currentId,
+  required Map<String, dynamic> Function(T) dataOf,
+  required String Function(T) idOf,
+}) {
+  final list = docs
+      .where((d) => idOf(d) != currentId && layoutVisibleTo(dataOf(d), me))
+      .toList();
+  list.sort(
+    (a, b) => layoutEditedAt(dataOf(b)).compareTo(layoutEditedAt(dataOf(a))),
+  );
+  return list;
 }

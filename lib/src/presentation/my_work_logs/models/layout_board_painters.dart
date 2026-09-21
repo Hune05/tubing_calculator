@@ -371,12 +371,19 @@ class DimensionPainter extends CustomPainter {
         ),
       );
 
-      // 🚀 [신규] 메모가 있으면 선 아래쪽에 작게 표시.
+      // 메모는 치수 글자와 겹치지 않게 선의 반대쪽에 그린다
+      // (치수 글자는 drawCadDimensionLine이 선 한쪽으로 15 띄워 그린다).
       if (dim.note != null && dim.note!.trim().isNotEmpty) {
         final Offset mid = Offset(
           (endpoints.p1.dx + endpoints.p2.dx) / 2,
           (endpoints.p1.dy + endpoints.p2.dy) / 2,
         );
+        final double ddx = endpoints.p2.dx - endpoints.p1.dx;
+        final double ddy = endpoints.p2.dy - endpoints.p1.dy;
+        final double dlen = math.sqrt(ddx * ddx + ddy * ddy);
+        final Offset away = dlen == 0
+            ? const Offset(0, -1)
+            : Offset(ddy / dlen, -ddx / dlen);
         final noteSpan = TextSpan(
           text: dim.note,
           style: const TextStyle(
@@ -390,9 +397,24 @@ class DimensionPainter extends CustomPainter {
           text: noteSpan,
           textDirection: TextDirection.ltr,
         )..layout();
+        final Offset noteCenter = mid + away * 15;
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(
+              center: noteCenter,
+              width: notePainter.width + 8,
+              height: notePainter.height + 4,
+            ),
+            const Radius.circular(3),
+          ),
+          Paint()..color = const Color(0xE6FFFFFF),
+        );
         notePainter.paint(
           canvas,
-          Offset(mid.dx - notePainter.width / 2, mid.dy + 12),
+          Offset(
+            noteCenter.dx - notePainter.width / 2,
+            noteCenter.dy - notePainter.height / 2,
+          ),
         );
       }
     }

@@ -3,7 +3,8 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart'
     as mob;
-import 'package:tubing_calculator/src/presentation/my_work_logs/pages/tablet_layout_board_page.dart'
+// 폰·태블릿 화면을 하나로 합친 뒤에도 예전 비교 테스트를 그대로 두려고 같은 파일을 두 이름으로 읽는다.
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart'
     as tab;
 
 // 배치도(모바일/태블릿 두 화면)가 같이 쓰는 데이터 모양과 치수 계산을 지킨다.
