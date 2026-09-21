@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
 
 // 🚀 매니저 임포트: 전선관 전용 매니저
@@ -242,7 +243,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
     return _buildBaseDashboard(
       totalCut: totalCut,
       title: "총 절단 길이 (수동 벤더)",
-      icon: Icons.content_cut_rounded,
+      icon: AppGlyph.benderHand,
       themeColor: makitaTeal,
       deductionLabel: "설정된 테이크업",
       deductionValue: settings['takeUp'] ?? 0.0,
@@ -265,7 +266,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
     return _buildBaseDashboard(
       totalCut: totalCut,
       title: "총 절단 길이 (유압식)",
-      icon: Icons.vertical_align_top_rounded,
+      icon: AppGlyph.benderRam,
       themeColor: ramBlue,
       deductionLabel: "설정된 셋백(Setback)",
       deductionValue: settings['setback'] ?? 0.0,
@@ -283,7 +284,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
       themeColor: ramBlue,
       extraWidget: (!isStraight)
           ? _buildExtraInfoBox(
-              icon: Icons.vertical_align_top_rounded,
+              icon: AppGlyph.benderRam,
               // 🚀 [고침] 유압 램은 관 굵기·받침 간격에 따라 실제로 밀어야 하는
               // 양이 달라진다. 이 값은 sin(각/2) 비율로 잡은 어림값이므로,
               // 값 옆에 어림값이라고 적어 한 번 재 보고 쓰게 한다.
@@ -307,7 +308,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
     return _buildBaseDashboard(
       totalCut: totalCut,
       title: "총 절단 길이 (시카고식)",
-      icon: Icons.settings_backup_restore_rounded,
+      icon: AppGlyph.benderChicago,
       themeColor: chicagoPurple,
       deductionLabel: "설정된 테이크업",
       deductionValue: settings['takeUp'] ?? 0.0,
@@ -325,7 +326,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
       themeColor: chicagoPurple,
       extraWidget: (!isStraight)
           ? _buildExtraInfoBox(
-              icon: Icons.grid_goldenratio_rounded,
+              icon: AppGlyph.benderChicago,
               label: "기어/노치 진행:",
               valueText: notches > 0 ? "$notches 칸 이동" : "설정 입력 필요",
               themeColor: chicagoPurple,
@@ -340,7 +341,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
   Widget _buildBaseDashboard({
     required double totalCut,
     required String title,
-    required IconData icon,
+    required Object icon,
     required Color themeColor,
     required String deductionLabel,
     required double deductionValue,
@@ -372,7 +373,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                   color: themeColor,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, color: pureWhite, size: 12),
+                child: anyIcon(icon, color: pureWhite, size: 12),
               ),
               const SizedBox(width: 8),
               Text(
@@ -678,7 +679,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
   }
 
   Widget _buildExtraInfoBox({
-    required IconData icon,
+    required Object icon,
     required String label,
     required String valueText,
     required Color themeColor,
@@ -693,7 +694,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
       ),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: themeColor),
+          anyIcon(icon, size: 16, color: themeColor),
           const SizedBox(width: 6),
           Text(
             label,

@@ -133,6 +133,16 @@ enum AppGlyph {
   stockAudit,
   stockReturn,
   stockNew,
+
+  // ── 전선관 벤더 종류 ──
+  /// 수동 벤더: 슈(반달) 아래로 관이 감기고 긴 손잡이.
+  benderHand,
+
+  /// 유압식 벤더: 양쪽 핀 사이에서 실린더가 관을 밀어 올린다.
+  benderRam,
+
+  /// 시카고식 벤더: 톱니(노치) 바퀴 + 레버.
+  benderChicago,
 }
 
 /// 기본 아이콘(IconData)과 직접 그린 아이콘(AppGlyph)을 같은 자리에 쓸 때.
@@ -910,6 +920,57 @@ class _AppIconPainter extends CustomPainter {
         canvas.drawCircle(const Offset(18, 7), 4.4, line);
         l(18, 4.8, 18, 9.2);
         l(15.8, 7, 20.2, 7);
+
+      // ── 전선관 벤더 종류 ──
+      case AppGlyph.benderHand:
+        // 관이 슈 아래를 지나 왼쪽으로 감겨 올라간다. 손잡이는 오른쪽 위.
+        canvas.drawCircle(const Offset(10, 13.4), 5.6, soft);
+        canvas.drawCircle(const Offset(10, 13.4), 5.6, line);
+        l(10, 13.4, 20.8, 3.2, thick);
+        canvas.drawCircle(const Offset(10, 13.4), 1.5, fill);
+        final wrap = Path()
+          ..moveTo(21.5, 20.6)
+          ..lineTo(10, 20.6)
+          ..arcToPoint(
+            const Offset(2.8, 13.4),
+            radius: const Radius.circular(7.2),
+          )
+          ..lineTo(2.8, 6);
+        canvas.drawPath(wrap, pipe);
+
+      case AppGlyph.benderRam:
+        // 양 끝은 핀이 잡고, 가운데를 실린더가 밀어 올린다.
+        canvas.drawPath(
+          bent(const [Offset(2, 12), Offset(12, 5.4), Offset(22, 12)], 8),
+          pipe,
+        );
+        for (final x in const [4.2, 19.8]) {
+          canvas.drawCircle(Offset(x, 7.6), 1.5, Paint()..color = Colors.white);
+          canvas.drawCircle(Offset(x, 7.6), 1.5, line..strokeWidth = 1.4);
+        }
+        line.strokeWidth = 1.8;
+        l(12, 15.2, 12, 9.4);
+        arrowHeadV(const Offset(12, 9), -1);
+        rr(5, 15.2, 14, 5.8, 1.4, soft);
+        rr(5, 15.2, 14, 5.8, 1.4);
+
+      case AppGlyph.benderChicago:
+        const cc = Offset(10, 14);
+        canvas.drawCircle(cc, 6.2, soft);
+        canvas.drawCircle(cc, 6.2, line);
+        for (int i = 0; i < 10; i++) {
+          final a = i * math.pi / 5;
+          l(
+            cc.dx + 6.2 * math.cos(a),
+            cc.dy + 6.2 * math.sin(a),
+            cc.dx + 8.2 * math.cos(a),
+            cc.dy + 8.2 * math.sin(a),
+            line..strokeWidth = 1.4,
+          );
+        }
+        line.strokeWidth = 1.8;
+        l(10, 14, 21, 3, thick);
+        canvas.drawCircle(cc, 1.6, fill);
     }
     canvas.restore();
   }

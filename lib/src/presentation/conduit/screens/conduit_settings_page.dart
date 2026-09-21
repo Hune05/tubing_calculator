@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tubing_calculator/src/data/conduit_spec_sets.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:tubing_calculator/src/data/models/bender_spec_data.dart';
 import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_calibration_sheet.dart';
 
@@ -577,15 +578,60 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
                 items: const [
                   DropdownMenuItem(
                     value: 'hand',
-                    child: Text("수동 벤더 (Hand Bender)"),
+                    child: Row(
+                      children: [
+                        AppIcon(
+                          AppGlyph.benderHand,
+                          size: 22,
+                          color: makitaTeal,
+                        ),
+                        SizedBox(width: 10),
+                        Flexible(
+                          child: Text(
+                            "수동 벤더 (Hand Bender)",
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   DropdownMenuItem(
                     value: 'ram',
-                    child: Text("유압식 벤더 (Ram Bender)"),
+                    child: Row(
+                      children: [
+                        AppIcon(
+                          AppGlyph.benderRam,
+                          size: 22,
+                          color: makitaTeal,
+                        ),
+                        SizedBox(width: 10),
+                        Flexible(
+                          child: Text(
+                            "유압식 벤더 (Ram Bender)",
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   DropdownMenuItem(
                     value: 'chicago',
-                    child: Text("시카고식 벤더 (Chicago Bender)"),
+                    child: Row(
+                      children: [
+                        AppIcon(
+                          AppGlyph.benderChicago,
+                          size: 22,
+                          color: makitaTeal,
+                        ),
+                        SizedBox(width: 10),
+                        Flexible(
+                          child: Text(
+                            "시카고식 벤더 (Chicago Bender)",
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
                 onChanged: (val) {
