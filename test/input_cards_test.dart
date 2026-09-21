@@ -148,7 +148,7 @@ void main() {
     testWidgets('왼쪽으로 밀면 지워지고 되돌릴 수 있다', (tester) async {
       await pump(tester, const MobileInputTab());
       expect(find.byIcon(Icons.close), findsNothing);
-      await tester.drag(find.text('길이: 300.0 mm'), const Offset(-600, 0));
+      await tester.drag(find.text('길이: 300.0mm'), const Offset(-600, 0));
       await tester.pumpAndSettle();
       expect(MobileBendDataManager().bendList.length, 1);
       await tester.tap(find.text('되돌리기'));

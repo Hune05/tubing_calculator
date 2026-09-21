@@ -76,8 +76,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
-        // 보관함 탭은 흰 바탕이라 맨 위(상태 표시줄 밑)도 흰색으로 맞춘다.
-        backgroundColor: !isWide && _currentIndex == 2 ? pureWhite : slate100,
+        backgroundColor: slate100,
         // 전선관 계산기처럼 청록 머리 막대 없이 각 탭이 제 제목을 단다.
         // 현장 탭은 화면 끝까지 쓰므로 위 여백을 두지 않는다(모양은 그대로 두어
         // 탭을 옮겨도 입력하던 내용이 사라지지 않게).

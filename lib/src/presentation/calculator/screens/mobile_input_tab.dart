@@ -23,6 +23,7 @@ const Color slate900 = Color(0xFF0F172A);
 const Color slate600 = Color(0xFF475569);
 const Color slate100 = Color(0xFFF1F5F9);
 const Color pureWhite = Color(0xFFFFFFFF);
+const Color _slate800 = Color(0xFF1E293B);
 
 class MobileInputTab extends StatefulWidget {
   const MobileInputTab({super.key});
@@ -498,6 +499,87 @@ class _MobileInputTabState extends State<MobileInputTab>
     );
   }
 
+  /// 전선관 입력 탭과 같은 머리: 제목·부제, 구간 개수, ↶↷, 모두 지우기.
+  Widget _buildHeader(int count) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  "튜브 배관 설계",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: slate900,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  "총 조립 구간",
+                  style: TextStyle(
+                    color: slate600,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                "$count",
+                style: const TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w900,
+                  color: makitaTeal,
+                  height: 1.0,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Text(
+                "개",
+                style: TextStyle(color: slate600, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(width: 4),
+              UndoRedoButtons(
+                history: MobileBendDataManager(),
+                onChanged: () {
+                  if (_editingIndex != null) _cancelEdit();
+                },
+              ),
+              if (count > 0)
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    key: const Key('tube_clear_all'),
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: _clearAll,
+                    child: Padding(
+                      padding: const EdgeInsets.all(6.0),
+                      child: Icon(
+                        Icons.delete_sweep_rounded,
+                        color: slate600.withValues(alpha: 0.8),
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSpecialMenuBtn(String title, IconData icon, VoidCallback onTap) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -573,46 +655,8 @@ class _MobileInputTabState extends State<MobileInputTab>
                 color: slate100,
                 child: Column(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      color: pureWhite,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            "배관 라인 리스트",
-                            style: TextStyle(
-                              color: slate900,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          const Spacer(),
-                          UndoRedoButtons(
-                            history: MobileBendDataManager(),
-                            onChanged: () {
-                              if (_editingIndex != null) _cancelEdit();
-                            },
-                          ),
-                          const SizedBox(width: 4),
-                          if (bendList.isNotEmpty)
-                            InkWell(
-                              onTap: _clearAll,
-                              child: const Text(
-                                "전체 삭제",
-                                style: TextStyle(
-                                  color: Colors.redAccent,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
+                    // 전선관 입력 탭과 같은 머리.
+                    _buildHeader(bendList.length),
                     Expanded(
                       child: bendList.isEmpty
                           ? const Center(
@@ -623,7 +667,11 @@ class _MobileInputTabState extends State<MobileInputTab>
                               ),
                             )
                           : ReorderableListView.builder(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              physics: const BouncingScrollPhysics(),
                               itemCount: bendList.length,
                               // 🚀 [추가] 전선관처럼 꾹 눌러 끌어서 순서를 바꾼다.
                               onReorder: _reorderSegment,
@@ -634,10 +682,15 @@ class _MobileInputTabState extends State<MobileInputTab>
                                 double rotValue =
                                     (item['rotation'] as num?)?.toDouble() ??
                                     0.0;
-                                String dirLabel = _directions.firstWhere(
-                                  (d) => d['val'] == rotValue,
-                                  orElse: () => {"label": "N/A"},
-                                )['label'];
+                                // "UP (위)" → "UP" (전선관 카드와 같은 표시).
+                                String dirLabel =
+                                    (_directions.firstWhere(
+                                              (d) => d['val'] == rotValue,
+                                              orElse: () => {"label": "N/A"},
+                                            )['label']
+                                            as String)
+                                        .split(' (')
+                                        .first;
                                 IconData dirIcon = _directions.firstWhere(
                                   (d) => d['val'] == rotValue,
                                   orElse: () => {"icon": Icons.help},
@@ -648,32 +701,40 @@ class _MobileInputTabState extends State<MobileInputTab>
                                 return Dismissible(
                                   key: ObjectKey(item),
                                   direction: DismissDirection.endToStart,
-                                  background: swipeDeleteBackground(),
+                                  background: swipeDeleteBackground(
+                                    radius: 16,
+                                    bottomMargin: 12,
+                                  ),
                                   onDismissed: (_) => _removeSegment(index),
                                   child: Container(
-                                    margin: const EdgeInsets.only(bottom: 8),
+                                    margin: const EdgeInsets.only(bottom: 12),
                                     decoration: BoxDecoration(
                                       color: isEditingThis
                                           ? Colors.orange.shade50
                                           : pureWhite,
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: isEditingThis
-                                            ? Colors.orange.shade400
-                                            : Colors.grey.shade300,
-                                        width: isEditingThis ? 2 : 1,
-                                      ),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: isEditingThis
+                                          ? Border.all(
+                                              color: Colors.orange.shade400,
+                                              width: 2,
+                                            )
+                                          : null,
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withValues(
+                                          color: slate900.withValues(
                                             alpha: 0.02,
                                           ),
-                                          blurRadius: 4,
+                                          blurRadius: 8,
                                           offset: const Offset(0, 2),
                                         ),
                                       ],
                                     ),
                                     child: ListTile(
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 4,
+                                          ),
                                       onTap: () {
                                         HapticFeedback.lightImpact();
                                         setState(() {
@@ -705,47 +766,78 @@ class _MobileInputTabState extends State<MobileInputTab>
                                                     ?.toDouble();
                                         });
                                       },
-                                      leading: CircleAvatar(
-                                        backgroundColor: isStraight
-                                            ? Colors.grey.shade200
-                                            : makitaTeal.withValues(alpha: 0.1),
-                                        child: Icon(
-                                          isStraight
-                                              ? Icons.straighten
-                                              : dirIcon,
-                                          color: isStraight
-                                              ? slate600
-                                              : makitaTeal,
-                                        ),
-                                      ),
-                                      title: Text(
-                                        isStraight
-                                            ? "직관 (Straight)"
-                                            : "${(item['angle'] as num?)?.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '')}° 벤딩 ($dirLabel)",
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: isStraight
-                                              ? slate600
-                                              : slate900,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      subtitle: Text(
-                                        "길이: ${item['length']} mm",
-                                        style: const TextStyle(
-                                          color: makitaTeal,
-                                          fontWeight: FontWeight.w900,
-                                          fontFamily: 'monospace',
-                                        ),
-                                      ),
-                                      trailing: ReorderableDragStartListener(
+                                      leading: ReorderableDragStartListener(
                                         index: index,
                                         child: Icon(
                                           Icons.drag_indicator_rounded,
                                           color: slate600.withValues(
-                                            alpha: 0.35,
+                                            alpha: 0.3,
                                           ),
                                         ),
+                                      ),
+                                      title: Row(
+                                        children: [
+                                          CircleAvatar(
+                                            backgroundColor: isStraight
+                                                ? slate100
+                                                : makitaTeal.withValues(
+                                                    alpha: 0.1,
+                                                  ),
+                                            child: Icon(
+                                              isStraight
+                                                  ? Icons.straighten
+                                                  : dirIcon,
+                                              color: isStraight
+                                                  ? slate600
+                                                  : makitaTeal,
+                                              size: 20,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  isStraight
+                                                      ? "직관 연장"
+                                                      : "${(item['angle'] as num?)?.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '')}° 벤딩",
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w900,
+                                                    fontSize: 15,
+                                                    color: slate900,
+                                                  ),
+                                                ),
+                                                Wrap(
+                                                  spacing: 8,
+                                                  runSpacing: 2,
+                                                  children: [
+                                                    Text(
+                                                      "길이: ${item['length']}mm",
+                                                      style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 13,
+                                                        color: makitaTeal,
+                                                      ),
+                                                    ),
+                                                    if (!isStraight)
+                                                      Text(
+                                                        "방향: $dirLabel",
+                                                        style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          fontSize: 13,
+                                                          color: slate600,
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
@@ -1153,31 +1245,26 @@ class _MobileInputTabState extends State<MobileInputTab>
                             const SizedBox(height: 16),
                             SizedBox(
                               width: double.infinity,
-                              height: 48,
                               child: OutlinedButton.icon(
                                 onPressed: _showSpecialBendingMenu,
-                                style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(
-                                    color: makitaTeal,
-                                    width: 1.5,
-                                  ),
-                                  foregroundColor: makitaTeal,
-                                  backgroundColor: makitaTeal.withValues(
-                                    alpha: 0.05,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
                                 icon: const Icon(
-                                  Icons.auto_awesome_mosaic,
-                                  size: 20,
+                                  Icons.build_circle,
+                                  color: _slate800,
                                 ),
                                 label: const Text(
-                                  "특수 벤딩 (오프셋 / 새들) 계산기",
+                                  "특수 벤딩 툴 (오프셋/새들 등)",
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 14,
+                                    color: _slate800,
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
+                                  side: const BorderSide(color: slate600),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
                               ),

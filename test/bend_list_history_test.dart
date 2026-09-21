@@ -163,7 +163,7 @@ void main() {
       m.clearHistory();
       await pump(tester, const MobileInputTab());
 
-      await tester.drag(find.text('길이: 300.0 mm'), const Offset(-600, 0));
+      await tester.drag(find.text('길이: 300.0mm'), const Offset(-600, 0));
       await tester.pumpAndSettle();
       await tester.tap(find.text('되돌리기'));
       await tester.pumpAndSettle();

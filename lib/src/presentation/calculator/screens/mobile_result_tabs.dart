@@ -10,6 +10,7 @@ import 'package:tubing_calculator/src/presentation/calculator/bend_check.dart';
 import 'package:tubing_calculator/src/presentation/field/field_marking.dart';
 import 'package:tubing_calculator/src/presentation/field/marking_sheet_pdf.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/app_dialog.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_pipe_visualizer.dart';
 import 'package:tubing_calculator/src/core/database/database_helper.dart';
@@ -21,6 +22,7 @@ const Color slate600 = Color(0xFF475569);
 const Color slate100 = Color(0xFFF1F5F9);
 const Color slate50 = Color(0xFFF8FAFC);
 const Color slate200 = Color(0xFFE2E8F0);
+const Color _slate400 = Color(0xFF94A3B8);
 const Color pureWhite = Color(0xFFFFFFFF);
 
 /// 관 바깥지름을 mm로. 설정이 인치면 바꿔 준다.
@@ -1183,18 +1185,38 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
       });
     }
 
-    return Container(
-      color: pureWhite,
+    final int total = _groupedHistory.values.fold(0, (n, l) => n + l.length);
+
+    // 🚀 전선관 보관함과 같은 모양: 큰 제목 "보관된 도면 N개", 폴더 제목 줄,
+    // 흰 카드(도면 이름·날짜·×, 총 재단 길이·규격, 단추). 검색과 폴더
+    // 접기·펴기, 누르면 도면 보기는 그대로 둔다.
+    return ColoredBox(
+      color: slate100,
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                "보관된 도면 $total개",
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: slate900,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: '프로젝트명 또는 경로 검색...',
-                hintStyle: TextStyle(color: slate600.withValues(alpha: 0.5)),
-                prefixIcon: const Icon(Icons.search, color: slate900),
+                hintStyle: TextStyle(color: slate600.withValues(alpha: 0.6)),
+                prefixIcon: const Icon(Icons.search, color: slate600),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.cancel, color: slate600),
@@ -1205,7 +1227,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                       )
                     : null,
                 filled: true,
-                fillColor: slate50,
+                fillColor: pureWhite,
                 contentPadding: const EdgeInsets.symmetric(vertical: 0),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -1222,29 +1244,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                     child: CircularProgressIndicator(color: makitaTeal),
                   )
                 : filteredGroupedHistory.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.folder_open_rounded,
-                          size: 64,
-                          color: slate600.withValues(alpha: 0.2),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _searchQuery.isNotEmpty
-                              ? '검색 결과가 없습니다.'
-                              : '저장된 도면이 없습니다.',
-                          style: TextStyle(
-                            color: slate600.withValues(alpha: 0.6),
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
+                ? _buildEmptyState()
                 : RefreshIndicator(
                     // 🚀 [수정] 당겨서 새로고침할 땐 전체 스피너로 바꾸지 않고 조용히 갱신
                     onRefresh: () => _refreshHistory(showFullLoader: false),
@@ -1254,14 +1254,12 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                       physics: const AlwaysScrollableScrollPhysics(),
                       keyboardDismissBehavior:
                           ScrollViewKeyboardDismissBehavior.onDrag,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
                       itemCount: filteredGroupedHistory.keys.length,
                       itemBuilder: (context, index) {
-                        String folderName = filteredGroupedHistory.keys
+                        final String folderName = filteredGroupedHistory.keys
                             .elementAt(index);
-                        List<Map<String, dynamic>> folderItems =
-                            filteredGroupedHistory[folderName]!;
-
+                        final folderItems = filteredGroupedHistory[folderName]!;
                         return Theme(
                           // 🚀 [수정] 폴더 이름 기준 key를 줘서, 검색으로 목록 순서/개수가
                           // 바뀌어도 ExpansionTile의 펼침 상태가 엉뚱한 폴더에 붙지 않게 함
@@ -1269,232 +1267,23 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                           data: Theme.of(
                             context,
                           ).copyWith(dividerColor: Colors.transparent),
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 16),
-                            decoration: BoxDecoration(
-                              color: slate50,
-                              borderRadius: BorderRadius.circular(16),
+                          child: ExpansionTile(
+                            initiallyExpanded:
+                                index == 0 || _searchQuery.isNotEmpty,
+                            iconColor: slate600,
+                            collapsedIconColor: slate600,
+                            shape: const Border(),
+                            collapsedShape: const Border(),
+                            tilePadding: const EdgeInsets.fromLTRB(4, 12, 4, 0),
+                            childrenPadding: EdgeInsets.zero,
+                            title: _buildFolderTitle(
+                              folderName,
+                              folderItems.length,
                             ),
-                            child: ExpansionTile(
-                              initiallyExpanded:
-                                  index == 0 || _searchQuery.isNotEmpty,
-                              iconColor: slate900,
-                              collapsedIconColor: slate600,
-                              tilePadding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 4,
-                              ),
-                              leading: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: const BoxDecoration(
-                                  color: pureWhite,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.folder_rounded,
-                                  color: makitaTeal,
-                                  size: 20,
-                                ),
-                              ),
-                              title: Text(
-                                "$folderName (${folderItems.length})",
-                                style: const TextStyle(
-                                  color: slate900,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              children: folderItems.map((item) {
-                                String rawPtoP = item['p_to_p'] ?? '{}';
-                                String fromTo = "경로 미상";
-                                try {
-                                  var pData = jsonDecode(rawPtoP);
-                                  fromTo = "${pData['from']} ➔ ${pData['to']}";
-                                } catch (_) {}
-                                double cutRaw =
-                                    double.tryParse(
-                                      item['total_length'].toString(),
-                                    ) ??
-                                    0.0;
-                                int cutDisplay = cutRaw.round();
-
-                                return Container(
-                                  margin: const EdgeInsets.only(
-                                    left: 16,
-                                    right: 16,
-                                    bottom: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: pureWhite,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: ListTile(
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 4,
-                                    ),
-                                    onTap: () async {
-                                      final result = await Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              MobileFabricationDetailScreen(
-                                                itemData: item,
-                                              ),
-                                        ),
-                                      );
-                                      if (!context.mounted) {
-                                        return;
-                                      }
-                                      if (result is Map &&
-                                          result['loaded'] == true) {
-                                        widget.onLoaded?.call(
-                                          result['startDir']?.toString() ??
-                                              'RIGHT',
-                                        );
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            backgroundColor: makitaTeal,
-                                            behavior: SnackBarBehavior.floating,
-                                            content: Text(
-                                              "도면을 불러왔습니다. 입력 탭의 ↶로 되돌릴 수 있습니다.",
-                                              style: TextStyle(
-                                                color: pureWhite,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                      // 🚀 [수정] 상세화면에서 돌아올 때는 조용히 갱신
-                                      _refreshHistory(showFullLoader: false);
-                                    },
-                                    title: Text(
-                                      fromTo,
-                                      style: const TextStyle(
-                                        color: slate900,
-                                        fontWeight: FontWeight.w900,
-                                        fontSize: 15,
-                                      ),
-                                    ),
-                                    subtitle: Padding(
-                                      padding: const EdgeInsets.only(top: 6),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              const Icon(
-                                                Icons.straighten,
-                                                size: 14,
-                                                color: slate600,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                "Cut: $cutDisplay mm",
-                                                style: const TextStyle(
-                                                  color: makitaTeal,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 13,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Text(
-                                                "Size: ${item['pipe_size']}",
-                                                style: const TextStyle(
-                                                  color: slate600,
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 13,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            // 🚀 [수정] substring(0,10) 크래시 방지
-                                            "날짜: ${_safeDatePrefix(item['date'])}",
-                                            style: TextStyle(
-                                              color: slate600.withValues(
-                                                alpha: 0.5,
-                                              ),
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    trailing: IconButton(
-                                      icon: Icon(
-                                        Icons.delete_outline_rounded,
-                                        color: Colors.red.shade300,
-                                      ),
-                                      onPressed: () async {
-                                        bool? confirm = await showDialog(
-                                          context: context,
-                                          builder: (ctx) => AlertDialog(
-                                            backgroundColor: pureWhite,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(16),
-                                            ),
-                                            title: const Text(
-                                              "삭제 확인",
-                                              style: TextStyle(
-                                                color: slate900,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            content: const Text(
-                                              "이 도면을 보관함에서 영구 삭제하시겠습니까?",
-                                              style: TextStyle(color: slate600),
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(ctx, false),
-                                                child: const Text(
-                                                  "취소",
-                                                  style: TextStyle(
-                                                    color: slate600,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(ctx, true),
-                                                child: Text(
-                                                  "삭제",
-                                                  style: TextStyle(
-                                                    color: Colors.red.shade600,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                        if (confirm == true) {
-                                          await DatabaseHelper.instance
-                                              .deleteHistory(item['id']);
-                                          if (!context.mounted) {
-                                            return;
-                                          }
-                                          // 🚀 [수정] 삭제 후에도 조용히 갱신
-                                          _refreshHistory(
-                                            showFullLoader: false,
-                                          );
-                                        }
-                                      },
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
+                            children: [
+                              for (final item in folderItems)
+                                _buildDrawingCard(item),
+                            ],
                           ),
                         );
                       },
@@ -1504,5 +1293,294 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
         ],
       ),
     );
+  }
+
+  /// 폴더 제목 줄(전선관 보관함과 같은 모양).
+  Widget _buildFolderTitle(String name, int count) {
+    return Row(
+      children: [
+        const Icon(Icons.folder_rounded, color: _slate400, size: 22),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: slate900,
+              letterSpacing: -0.5,
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: slate200,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            "$count",
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: slate600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 도면 카드(전선관 보관함 카드와 같은 모양).
+  Widget _buildDrawingCard(Map<String, dynamic> item) {
+    String fromTo = "경로 미상";
+    try {
+      final pData = jsonDecode(item['p_to_p'] ?? '{}');
+      fromTo = "${pData['from']} ➔ ${pData['to']}";
+    } catch (_) {}
+    final int cut = (double.tryParse(item['total_length'].toString()) ?? 0.0)
+        .round();
+
+    return GestureDetector(
+      onTap: () => _openDetail(item),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: pureWhite,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: slate900.withValues(alpha: 0.03),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: slate50,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(
+                    Icons.architecture_rounded,
+                    color: makitaTeal,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 4),
+                      Text(
+                        fromTo,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: slate900,
+                          height: 1.3,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        // 🚀 [수정] substring(0,10) 크래시 방지
+                        _safeDatePrefix(item['date']),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: slate600,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    key: ValueKey('tube_history_delete_${item['id']}'),
+                    borderRadius: BorderRadius.circular(50),
+                    onTap: () => _confirmDelete(item),
+                    child: const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Icon(
+                        Icons.close_rounded,
+                        color: _slate400,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(child: _buildInfoChip("총 재단 길이", "$cut mm")),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildInfoChip("규격", "${item['pipe_size'] ?? '-'}"),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => _openDetail(item),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: slate100,
+                  foregroundColor: slate900,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text(
+                  "도면 보기",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoChip(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: slate50,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: slate600,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: slate900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: pureWhite,
+            ),
+            child: const Icon(
+              Icons.folder_off_rounded,
+              size: 48,
+              color: slate200,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            _searchQuery.isNotEmpty ? "검색 결과가 없습니다" : "보관된 도면이 없습니다",
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 20,
+              color: slate900,
+              letterSpacing: -0.5,
+            ),
+          ),
+          if (_searchQuery.isEmpty) ...[
+            const SizedBox(height: 8),
+            const Text(
+              "마킹 탭에서 작업 결과를 저장해 보십시오.",
+              style: TextStyle(
+                color: slate600,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 도면 보기 화면을 연다. 거기서 "계산기로 불러오기"를 했으면 입력 탭으로.
+  Future<void> _openDetail(Map<String, dynamic> item) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MobileFabricationDetailScreen(itemData: item),
+      ),
+    );
+    if (!mounted) return;
+    if (result is Map && result['loaded'] == true) {
+      widget.onLoaded?.call(result['startDir']?.toString() ?? 'RIGHT');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: makitaTeal,
+          behavior: SnackBarBehavior.floating,
+          content: Text(
+            "도면을 불러왔습니다. 입력 탭의 ↶로 되돌릴 수 있습니다.",
+            style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
+          ),
+        ),
+      );
+    }
+    // 🚀 [수정] 상세화면에서 돌아올 때는 조용히 갱신
+    _refreshHistory(showFullLoader: false);
+  }
+
+  Future<void> _confirmDelete(Map<String, dynamic> item) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AppDialog(
+        title: "삭제 확인",
+        okText: "삭제",
+        onCancel: () => Navigator.pop(ctx, false),
+        onOk: () => Navigator.pop(ctx, true),
+        content: AppDialog.message("이 도면을 보관함에서 영구 삭제하시겠습니까?"),
+      ),
+    );
+    if (confirm != true) return;
+    await DatabaseHelper.instance.deleteHistory(item['id']);
+    if (!mounted) return;
+    // 🚀 [수정] 삭제 후에도 조용히 갱신
+    _refreshHistory(showFullLoader: false);
   }
 }
