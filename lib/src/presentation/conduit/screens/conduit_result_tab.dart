@@ -387,31 +387,36 @@ class _ConduitResultTabState extends State<ConduitResultTab>
             ],
           ),
           const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                "${totalCut.round()}",
-                style: const TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.w900,
-                  color: slate900,
-                  letterSpacing: -1,
-                  height: 1.0,
-                  fontFamily: 'monospace',
+          // 아주 큰 값이면 줄여서 카드 안에 보인다(넘치지 않게).
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  "${totalCut.round()}",
+                  style: const TextStyle(
+                    fontSize: 36,
+                    fontWeight: FontWeight.w900,
+                    color: slate900,
+                    letterSpacing: -1,
+                    height: 1.0,
+                    fontFamily: 'monospace',
+                  ),
                 ),
-              ),
-              const SizedBox(width: 4),
-              const Text(
-                "mm",
-                style: TextStyle(
-                  fontSize: 14,
-                  color: slate600,
-                  fontWeight: FontWeight.bold,
+                const SizedBox(width: 4),
+                const Text(
+                  "mm",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: slate600,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
@@ -420,29 +425,36 @@ class _ConduitResultTabState extends State<ConduitResultTab>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    deductionLabel,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: slate600,
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      deductionLabel,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: slate600,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "${deductionValue.round()} mm",
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                      color: slate900,
+                    const SizedBox(height: 4),
+                    Text(
+                      "${deductionValue.round()} mm",
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: slate900,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              Container(width: 1, height: 24, color: slate200),
+              Container(
+                width: 1,
+                height: 24,
+                color: slate200,
+                margin: const EdgeInsets.symmetric(horizontal: 6),
+              ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -480,6 +492,10 @@ class _ConduitResultTabState extends State<ConduitResultTab>
       ),
     );
   }
+
+  /// 입력 탭과 같게: 정수면 정수로, 아니면 소수 한 자리로(22.5° → '22.5').
+  String _fmtAngle(double a) =>
+      a == a.roundToDouble() ? a.toStringAsFixed(0) : a.toStringAsFixed(1);
 
   Widget _buildBaseMarkingCard({
     required int index,
@@ -562,16 +578,21 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          isStraight
-                              ? "직관 연장 마킹"
-                              : "${angle.toInt()}° 벤딩 (실제 ${targetAngle.toStringAsFixed(1)}°)",
-                          style: const TextStyle(
-                            color: slate600,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
+                        // 🚀 [고침] 좁은 폭에서 방향 상자와 함께 넘쳤다.
+                        // 22.5°를 '22°'로 잘라 보이던 것도 고쳤다.
+                        Flexible(
+                          child: Text(
+                            isStraight
+                                ? "직관 연장 마킹"
+                                : "${_fmtAngle(angle)}° 벤딩 (실제 ${targetAngle.toStringAsFixed(1)}°)",
+                            style: const TextStyle(
+                              color: slate600,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 6),
                         if (!isStraight)
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -608,6 +629,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                     ),
                     const SizedBox(height: 12),
                     Container(
+                      width: double.infinity,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
                         vertical: 10,
@@ -616,30 +638,34 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                         color: slate100,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            "${mark.round()}",
-                            style: const TextStyle(
-                              fontSize: 30,
-                              fontWeight: FontWeight.w900,
-                              color: slate900,
-                              fontFamily: 'monospace',
-                              letterSpacing: -1,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              "${mark.round()}",
+                              style: const TextStyle(
+                                fontSize: 30,
+                                fontWeight: FontWeight.w900,
+                                color: slate900,
+                                fontFamily: 'monospace',
+                                letterSpacing: -1,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Text(
-                            "mm",
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: slate600,
+                            const SizedBox(width: 4),
+                            const Text(
+                              "mm",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: slate600,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                     if (note.isNotEmpty) ...[
@@ -696,12 +722,14 @@ class _ConduitResultTabState extends State<ConduitResultTab>
         children: [
           anyIcon(icon, size: 16, color: themeColor),
           const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: themeColor,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: themeColor,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           const SizedBox(width: 6),
