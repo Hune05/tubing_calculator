@@ -518,38 +518,12 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   ) => schedulePersonalReminder(docId, data);
 
   Future<void> _deletePersonalItem(String docId) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: scheduleWhite,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          "일정 삭제",
-          style: TextStyle(color: scheduleText, fontWeight: FontWeight.bold),
-        ),
-        content: const Text(
-          "이 개인 일정을 삭제하시겠습니까? 되돌릴 수 없습니다.",
-          style: TextStyle(color: scheduleSubText),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("취소", style: TextStyle(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              "삭제",
-              style: TextStyle(
-                color: scheduleDanger,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
+    final confirmed = await confirmScheduleDelete(
+      context,
+      title: "일정 삭제",
+      message: "이 개인 일정을 삭제하시겠습니까? 되돌릴 수 없습니다.",
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     await flutterLocalNotificationsPlugin.cancel(id: personalNotifId(docId));
     await FirebaseFirestore.instance
         .collection(kPersonalSchedulesCollection)
@@ -1401,6 +1375,14 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                       size: 20,
                                     ),
                                     onPressed: () async {
+                                      // 옆의 적용 단추를 누르려다 잘못 눌러도 바로 지워지지 않게 한 번 묻는다.
+                                      final ok = await confirmScheduleDelete(
+                                        context,
+                                        title: "템플릿 삭제",
+                                        message:
+                                            "'$name' 템플릿을 삭제하시겠습니까? 되돌릴 수 없습니다.",
+                                      );
+                                      if (!ok) return;
                                       await doc.reference.delete();
                                     },
                                   ),
@@ -3741,6 +3723,46 @@ DateTime? _looseDate(dynamic v) {
   if (v is DateTime) return v;
   if (v is String) return DateTime.tryParse(v);
   return null;
+}
+
+// 지우기 전에 묻는 창. [삭제]를 누르면 true.
+Future<bool> confirmScheduleDelete(
+  BuildContext context, {
+  required String title,
+  required String message,
+}) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: scheduleWhite,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: scheduleText,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      content: Text(message, style: const TextStyle(color: scheduleSubText)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text("취소", style: TextStyle(color: Colors.grey)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text(
+            "삭제",
+            style: TextStyle(
+              color: scheduleDanger,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+  return confirmed == true;
 }
 
 Future<int> fetchTodayScheduleCount(String currentWorker) async {
