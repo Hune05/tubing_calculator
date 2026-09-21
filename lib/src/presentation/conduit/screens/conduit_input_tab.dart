@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
 
 // 특수 바텀시트 경로는 기존 공용 위젯 폴더를 그대로 씁니다.
+import 'package:tubing_calculator/src/presentation/calculator/widgets/app_dialog.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_sheet_specs.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_offset_bottom_sheet.dart';
@@ -202,10 +203,10 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                   color: Colors.transparent,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(8),
-                    onTap: () {
-                      HapticFeedback.heavyImpact();
-                      manager.clearBends();
-                    },
+                    // 🚀 [고침] 누르자마자 다 지웠고, 고치던 줄 번호도 남아서
+                    // 아래 '수정'이 조용히 아무 일도 안 했다. 먼저 묻고,
+                    // 지우면 고치기도 그만둔다(↶로 되돌릴 수 있다).
+                    onTap: () => _confirmClear(manager),
                     child: Padding(
                       padding: const EdgeInsets.all(6.0),
                       child: Icon(
@@ -457,6 +458,25 @@ class _ConduitInputTabState extends State<ConduitInputTab>
           ? len.toStringAsFixed(0)
           : len.toString();
     });
+  }
+
+  Future<void> _confirmClear(ConduitDataManager manager) async {
+    HapticFeedback.heavyImpact();
+    final bool? ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AppDialog(
+        title: "전체 지우기",
+        okText: "지우기",
+        onCancel: () => Navigator.pop(ctx, false),
+        onOk: () => Navigator.pop(ctx, true),
+        content: AppDialog.message(
+          "배관 목록 ${manager.bendList.length}줄을 모두 지우겠습니까?\n(위의 ↶로 되돌릴 수 있습니다)",
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    if (_editingIndex != null) _cancelEdit();
+    manager.clearBends();
   }
 
   void _cancelEdit() {
