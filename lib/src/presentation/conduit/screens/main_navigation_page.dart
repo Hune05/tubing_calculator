@@ -68,6 +68,16 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
   // _wideIndexFor로 변환한다.
   int _selectedIndex = 0;
 
+  // 🚀 [고침] 좁은 화면과 넓은 화면은 탭을 놓는 자리(부모)가 달라서, 폴드를
+  // 펼치거나 접으면 탭들이 새로 만들어져 입력 중인 칸과 저장 안 한 설정이
+  // 날아갔다. 탭마다 열쇠를 붙여 같은 상태를 옮겨 쓴다.
+  final GlobalKey _inputKey = GlobalKey(debugLabel: 'conduit_input');
+  final GlobalKey _resultKey = GlobalKey(debugLabel: 'conduit_result');
+  final GlobalKey _historyKey = GlobalKey(debugLabel: 'conduit_history');
+  final GlobalKey _fieldKey = GlobalKey(debugLabel: 'conduit_field');
+  final GlobalKey _viewerKey = GlobalKey(debugLabel: 'conduit_viewer');
+  final GlobalKey _settingsKey = GlobalKey(debugLabel: 'conduit_settings');
+
   bool _isWide(BuildContext context) =>
       MediaQuery.of(context).size.shortestSide >= 600;
 
@@ -232,6 +242,7 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
 
   /// 현장 탭(가로 줄자 화면). 튜브와 같은 화면을 쓴다.
   Widget _buildFieldTab() => FieldMarkingScreen(
+    key: _fieldKey,
     listenable: conduitFieldListenable(),
     compute: computeConduitFieldData,
     onCloseTab: _goToMarkingTab,
@@ -242,12 +253,12 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
     return IndexedStack(
       index: _selectedIndex,
       children: [
-        const ConduitInputTab(), // 0. 입력
-        const ConduitResultTab(), // 1. 마킹
-        ConduitHistoryTab(onLoaded: _goToInputTab), // 2. 보관함
+        ConduitInputTab(key: _inputKey), // 0. 입력
+        ConduitResultTab(key: _resultKey), // 1. 마킹
+        ConduitHistoryTab(key: _historyKey, onLoaded: _goToInputTab), // 2
         _buildFieldTab(), // 3. 현장
-        const ConduitViewerTab(), // 4. 아이소
-        const ConduitSettingsPage(), // 5. 설정
+        ConduitViewerTab(key: _viewerKey), // 4. 아이소
+        ConduitSettingsPage(key: _settingsKey), // 5. 설정
       ],
     );
   }
@@ -261,16 +272,16 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
         // 오른쪽 마킹 결과가 즉시 갱신된다.
         Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: const [
-            Expanded(flex: 5, child: ConduitInputTab()),
-            VerticalDivider(width: 1, color: slate100),
-            Expanded(flex: 6, child: ConduitResultTab()),
+          children: [
+            Expanded(flex: 5, child: ConduitInputTab(key: _inputKey)),
+            const VerticalDivider(width: 1, color: slate100),
+            Expanded(flex: 6, child: ConduitResultTab(key: _resultKey)),
           ],
         ),
-        ConduitHistoryTab(onLoaded: _goToInputTab),
+        ConduitHistoryTab(key: _historyKey, onLoaded: _goToInputTab),
         _buildFieldTab(),
-        const ConduitViewerTab(),
-        const ConduitSettingsPage(),
+        ConduitViewerTab(key: _viewerKey),
+        ConduitSettingsPage(key: _settingsKey),
       ],
     );
   }
