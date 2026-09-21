@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/data/models/bend_list_history.dart';
 
-class ConduitDataManager extends ChangeNotifier {
+class ConduitDataManager extends ChangeNotifier with BendListHistory {
   // 1. 싱글톤 패턴: 전선관 탭 전역에서 단 하나의 인스턴스만 사용
   static final ConduitDataManager _instance = ConduitDataManager._internal();
 
@@ -23,13 +24,22 @@ class ConduitDataManager extends ChangeNotifier {
     _saveData(); // 기기에 즉시 저장
   }
 
+  @override
+  List<Map<String, dynamic>> get historyTarget => bendList;
+  @override
+  set historyTarget(List<Map<String, dynamic>> v) => bendList = v;
+  @override
+  void persistHistoryTarget() => _saveData();
+
   // --- 기존 기능들 ---
   void addBend(Map<String, dynamic> bend) {
+    recordHistory();
     bendList.add(bend);
     _updateAndSave();
   }
 
   void addMultipleBends(List<Map<String, dynamic>> bends) {
+    recordHistory();
     bendList.addAll(bends);
     _updateAndSave();
   }
@@ -37,22 +47,28 @@ class ConduitDataManager extends ChangeNotifier {
   /// 카드를 눌러 고친 값으로 바꾼다.
   void updateBend(int index, Map<String, dynamic> bend) {
     if (index < 0 || index >= bendList.length) return;
+    recordHistory();
     bendList[index] = bend;
     _updateAndSave();
   }
 
   /// 지운 줄을 되돌릴 때 원래 자리에 다시 넣는다.
   void insertBend(int index, Map<String, dynamic> bend) {
+    recordHistory();
     bendList.insert(index.clamp(0, bendList.length), bend);
     _updateAndSave();
   }
 
   void removeBend(int index) {
+    if (index < 0 || index >= bendList.length) return;
+    recordHistory();
     bendList.removeAt(index);
     _updateAndSave();
   }
 
   void clearBends() {
+    if (bendList.isEmpty) return;
+    recordHistory();
     bendList.clear();
     _updateAndSave();
   }
@@ -60,6 +76,8 @@ class ConduitDataManager extends ChangeNotifier {
   // 드래그 앤 드롭으로 순서를 변경할 때 저장하기 위한 로직
   void reorderBends(int oldIndex, int newIndex) {
     if (newIndex > oldIndex) newIndex -= 1;
+    if (newIndex == oldIndex) return;
+    recordHistory();
     final item = bendList.removeAt(oldIndex);
     bendList.insert(newIndex, item);
     _updateAndSave();

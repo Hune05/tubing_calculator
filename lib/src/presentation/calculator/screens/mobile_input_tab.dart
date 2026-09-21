@@ -8,6 +8,7 @@ import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/calculator/segment_length_check.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/swipe_delete.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/undo_redo_buttons.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_rolling_offset_bottom_sheet.dart';
@@ -340,6 +341,7 @@ class _MobileInputTabState extends State<MobileInputTab>
     if (index < 0 || index >= list.length) return;
     final removed = Map<String, dynamic>.from(list[index]);
     MobileBendDataManager().removeBend(index);
+    final depthAfter = MobileBendDataManager().undoDepth;
     setState(() {
       if (_editingIndex == index) {
         _cancelEdit();
@@ -351,7 +353,13 @@ class _MobileInputTabState extends State<MobileInputTab>
       context,
       number: index + 1,
       onUndo: () {
-        MobileBendDataManager().insertBend(index, removed);
+        final m = MobileBendDataManager();
+        // 그새 다른 일이 없었으면 되돌리기 한 단계와 같게(다시 하기가 이어진다).
+        if (m.undoDepth == depthAfter) {
+          m.undo();
+        } else {
+          m.insertBend(index, removed);
+        }
         if (_editingIndex != null && _editingIndex! >= index && mounted) {
           setState(() => _editingIndex = _editingIndex! + 1);
         }
@@ -582,6 +590,14 @@ class _MobileInputTabState extends State<MobileInputTab>
                               fontSize: 14,
                             ),
                           ),
+                          const Spacer(),
+                          UndoRedoButtons(
+                            history: MobileBendDataManager(),
+                            onChanged: () {
+                              if (_editingIndex != null) _cancelEdit();
+                            },
+                          ),
+                          const SizedBox(width: 4),
                           if (bendList.isNotEmpty)
                             InkWell(
                               onTap: _clearAll,

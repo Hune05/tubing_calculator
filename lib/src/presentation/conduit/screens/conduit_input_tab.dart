@@ -12,6 +12,7 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_rol
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_saddle_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_parallel_shrink_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/swipe_delete.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/undo_redo_buttons.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
 
 const Color makitaTeal = Color(0xFF007580);
@@ -137,27 +138,30 @@ class _ConduitInputTabState extends State<ConduitInputTab>
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text(
-                "전선관 배관 설계",
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: slate900,
+          // 좁은 화면에서는 제목이 줄바꿈된다(오른쪽 단추 자리를 먼저 준다).
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  "전선관 배관 설계",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: slate900,
+                  ),
                 ),
-              ),
-              SizedBox(height: 4),
-              Text(
-                "총 조립 구간",
-                style: TextStyle(
-                  color: slate600,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
+                SizedBox(height: 4),
+                Text(
+                  "총 조립 구간",
+                  style: TextStyle(
+                    color: slate600,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -177,7 +181,13 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                 "개",
                 style: TextStyle(color: slate600, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 4),
+              UndoRedoButtons(
+                history: manager,
+                onChanged: () {
+                  if (_editingIndex != null) _cancelEdit();
+                },
+              ),
               if (count > 0)
                 Material(
                   color: Colors.transparent,
@@ -441,6 +451,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
     HapticFeedback.mediumImpact();
     final removed = manager.bendList[index];
     manager.removeBend(index);
+    final depthAfter = manager.undoDepth;
     if (_editingIndex == index) {
       _cancelEdit();
     } else {
@@ -450,7 +461,12 @@ class _ConduitInputTabState extends State<ConduitInputTab>
       context,
       number: index + 1,
       onUndo: () {
-        manager.insertBend(index, removed);
+        // 그새 다른 일이 없었으면 되돌리기 한 단계와 같게(다시 하기가 이어진다).
+        if (manager.undoDepth == depthAfter) {
+          manager.undo();
+        } else {
+          manager.insertBend(index, removed);
+        }
         if (_editingIndex != null && _editingIndex! >= index && mounted) {
           setState(() => _editingIndex = _editingIndex! + 1);
         }

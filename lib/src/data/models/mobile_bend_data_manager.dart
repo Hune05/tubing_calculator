@@ -2,12 +2,13 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/data/machine_specs.dart';
+import 'package:tubing_calculator/src/data/models/bend_list_history.dart';
 
 /// 폰 화면이 쓰는 벤드 목록 보관함.
 /// 제원(반경·게인·테이크업 등)은 [MachineSpecs] 한 벌을 태블릿·PC 화면과
 /// 같이 본다 — 예전에는 따로 들고 있어서 한쪽에서 고친 제원이 다른 쪽
 /// 마킹에 반영되지 않았다.
-class MobileBendDataManager extends ChangeNotifier {
+class MobileBendDataManager extends ChangeNotifier with BendListHistory {
   static final MobileBendDataManager _instance =
       MobileBendDataManager._internal();
   factory MobileBendDataManager() => _instance;
@@ -185,13 +186,22 @@ class MobileBendDataManager extends ChangeNotifier {
     await prefs.setDouble('offsetTravel', _offsetTravel);
   }
 
+  @override
+  List<Map<String, dynamic>> get historyTarget => bendList;
+  @override
+  set historyTarget(List<Map<String, dynamic>> v) => bendList = v;
+  @override
+  void persistHistoryTarget() => _saveCurrentState();
+
   void addBend(Map<String, dynamic> bend) {
+    recordHistory();
     bendList.add(Map<String, dynamic>.from(bend));
     _saveCurrentState();
     notifyListeners();
   }
 
   void addMultipleBends(List<Map<String, dynamic>> newBends) {
+    recordHistory();
     bendList.addAll(newBends.map((e) => Map<String, dynamic>.from(e)));
     _saveCurrentState();
     notifyListeners();
@@ -199,6 +209,7 @@ class MobileBendDataManager extends ChangeNotifier {
 
   void updateBend(int index, Map<String, dynamic> bend) {
     if (index >= 0 && index < bendList.length) {
+      recordHistory();
       bendList[index] = Map<String, dynamic>.from(bend);
       _saveCurrentState();
       notifyListeners();
@@ -207,6 +218,7 @@ class MobileBendDataManager extends ChangeNotifier {
 
   /// 지운 줄을 되돌릴 때 원래 자리에 다시 넣는다.
   void insertBend(int index, Map<String, dynamic> bend) {
+    recordHistory();
     final at = index.clamp(0, bendList.length);
     bendList.insert(at, Map<String, dynamic>.from(bend));
     _saveCurrentState();
@@ -214,6 +226,8 @@ class MobileBendDataManager extends ChangeNotifier {
   }
 
   void clearBends() {
+    if (bendList.isEmpty) return;
+    recordHistory();
     bendList.clear();
     _saveCurrentState();
     notifyListeners();
@@ -221,6 +235,7 @@ class MobileBendDataManager extends ChangeNotifier {
 
   void removeBend(int index) {
     if (index >= 0 && index < bendList.length) {
+      recordHistory();
       bendList.removeAt(index);
       _saveCurrentState();
       notifyListeners();
@@ -230,6 +245,7 @@ class MobileBendDataManager extends ChangeNotifier {
   void reorderBend(int oldIndex, int newIndex) {
     if (oldIndex < 0 || oldIndex >= bendList.length) return;
 
+    recordHistory();
     final item = bendList.removeAt(oldIndex);
     // 🚀 [수정] 제거 후 길이를 기준으로 clamp - 호출자가 Flutter의
     // ReorderableListView 특유의 "oldIndex<newIndex면 newIndex-1" 보정을
