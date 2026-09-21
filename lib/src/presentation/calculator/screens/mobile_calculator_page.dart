@@ -261,10 +261,18 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
           startDir: _startDir,
           onStartDirChanged: (val) => setState(() => _startDir = val),
         ),
-        const MobileHistoryTab(),
+        MobileHistoryTab(onLoaded: _onDrawingLoaded),
         const MobileSettingsTab(),
       ],
     );
+  }
+
+  /// 보관함 도면을 불러왔을 때: 시작 방향을 맞추고 입력 탭으로.
+  void _onDrawingLoaded(String startDir) {
+    setState(() {
+      _startDir = startDir;
+      _currentIndex = 0;
+    });
   }
 
   Widget _buildWideBody() {
@@ -288,7 +296,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
           startDir: _startDir,
           onStartDirChanged: (val) => setState(() => _startDir = val),
         ),
-        const MobileHistoryTab(),
+        MobileHistoryTab(onLoaded: _onDrawingLoaded),
         const MobileSettingsTab(),
       ],
     );

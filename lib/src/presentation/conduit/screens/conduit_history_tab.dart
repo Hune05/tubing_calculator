@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tubing_calculator/src/data/conduit_drawings.dart';
+import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
+
+/// 보관함에 새로 저장하면 올린다(보관함 탭이 다시 읽는다).
+final ValueNotifier<int> conduitDrawingsRevision = ValueNotifier(0);
 
 // 🎨 프리미엄 컬러 팔레트
 const Color makitaTeal = Color(0xFF007580);
@@ -14,55 +19,74 @@ const Color pureWhite = Color(0xFFFFFFFF);
 const Color warningRed = Color(0xFFF04438);
 
 class ConduitHistoryTab extends StatefulWidget {
-  const ConduitHistoryTab({super.key});
+  /// 불러온 뒤(입력 탭으로 옮길 때 쓴다).
+  final VoidCallback? onLoaded;
+
+  const ConduitHistoryTab({super.key, this.onLoaded});
 
   @override
   State<ConduitHistoryTab> createState() => _ConduitHistoryTabState();
 }
 
 class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
-  // 🚀 폴더명(folderName) 데이터 추가
-  final List<Map<String, dynamic>> _savedDrawings = [
-    {
-      "id": "1",
-      "folderName": "A구역 메인라인", // 📁 그룹화 기준
-      "title": "A구역 메인 트레이 배관 (오프셋)",
-      "date": "2024-05-24 14:30",
-      "totalCut": 1850,
-      "segmentCount": 3,
-    },
-    {
-      "id": "2",
-      "folderName": "EPS실 내부",
-      "title": "EPS실 벽체 통과 (3점 새들)",
-      "date": "2024-05-23 09:15",
-      "totalCut": 2100,
-      "segmentCount": 5,
-    },
-    {
-      "id": "3",
-      "folderName": "A구역 메인라인",
-      "title": "서브 트레이 연결부 (90도 벤딩)",
-      "date": "2024-05-25 10:00",
-      "totalCut": 1200,
-      "segmentCount": 2,
-    },
-  ];
+  // 폰에 저장된 도면(화면이 쓰는 모양으로 바꿔 둔다).
+  List<Map<String, dynamic>> _savedDrawings = [];
+  Map<String, ConduitDrawing> _byId = {};
 
-  // 🚀 index 대신 고유 id를 사용하여 삭제 (그룹화 상태에서 안전함)
-  void _deleteHistory(String id) {
-    HapticFeedback.mediumImpact();
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+    conduitDrawingsRevision.addListener(_reload);
+  }
+
+  @override
+  void dispose() {
+    conduitDrawingsRevision.removeListener(_reload);
+    super.dispose();
+  }
+
+  Future<void> _reload() async {
+    final list = await loadConduitDrawings();
+    if (!mounted) return;
     setState(() {
-      _savedDrawings.removeWhere((item) => item['id'] == id);
+      _byId = {for (final d in list) d.id: d};
+      _savedDrawings = [
+        for (final d in list)
+          {
+            'id': d.id,
+            'folderName': d.folderName,
+            'title': d.title,
+            'date': d.date,
+            'totalCut': d.totalCut.round(),
+            'segmentCount': d.segmentCount,
+          },
+      ];
     });
+  }
+
+  void _deleteHistory(String id) async {
+    HapticFeedback.mediumImpact();
+    final removed = _byId[id];
+    await deleteConduitDrawing(id);
+    await _reload();
+    if (!mounted || removed == null) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text(
-          "도면이 삭제되었습니다.",
-          style: TextStyle(fontWeight: FontWeight.bold),
+        content: Text(
+          "'${removed.title}' 도면을 지웠습니다.",
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        action: SnackBarAction(
+          label: "되돌리기",
+          onPressed: () async {
+            await restoreConduitDrawing(removed);
+            await _reload();
+          },
+        ),
       ),
     );
   }
@@ -87,7 +111,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
           ),
         ),
         content: Text(
-          "'${targetItem['title']}'\n데이터를 현재 작업창으로 불러오시겠습니까?",
+          "'${targetItem['title']}'을(를) 불러오면 지금 입력 목록이 이 도면으로 바뀝니다.\n(입력 탭의 ↶로 되돌릴 수 있습니다)",
           style: const TextStyle(color: slate600, fontSize: 15, height: 1.5),
         ),
         actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -119,11 +143,20 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.pop(ctx);
+                    final drawing = _byId[id];
+                    if (drawing == null) return;
+                    // 🚀 [고침] 예전에는 알림만 띄우고 목록에 넣지 않았다.
+                    ConduitDataManager().replaceAll(drawing.bends);
+                    widget.onLoaded?.call();
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: const Text(
-                          "도면을 성공적으로 불러왔습니다.",
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          "도면을 불러왔습니다. 입력 탭의 ↶로 되돌릴 수 있습니다.",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: pureWhite,
+                          ),
                         ),
                         behavior: SnackBarBehavior.floating,
                         backgroundColor: makitaTeal,

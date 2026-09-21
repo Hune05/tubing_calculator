@@ -7,6 +7,7 @@ import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/conduit/conduit_field_data.dart';
 import 'package:tubing_calculator/src/presentation/field/field_marking_screen.dart';
 import 'package:tubing_calculator/src/presentation/field/marking_sheet_pdf.dart';
+import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_save_dialog.dart';
 import 'package:tubing_calculator/src/presentation/conduit/conduit_marking_logic.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
 
@@ -139,6 +140,21 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                   ),
                   centerTitle: false,
                   actions: [
+                    if (markings.isNotEmpty)
+                      IconButton(
+                        key: const Key('conduit_save_drawing'),
+                        icon: const Icon(
+                          Icons.save_alt_rounded,
+                          color: slate900,
+                        ),
+                        tooltip: "보관함에 저장",
+                        onPressed: () => showConduitSaveDialog(
+                          context,
+                          bends: bendList,
+                          totalCut: totalCut,
+                          settings: currentSettings,
+                        ),
+                      ),
                     if (markings.isNotEmpty)
                       IconButton(
                         key: const Key('conduit_marking_sheet'),

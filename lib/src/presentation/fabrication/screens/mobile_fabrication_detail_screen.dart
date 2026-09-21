@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/app_dialog.dart';
 import '../../../core/utils/pdf_fonts.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -115,6 +118,45 @@ class _MobileFabricationDetailScreenState
     } catch (e) {
       debugPrint("데이터 파싱 에러: $e");
     }
+  }
+
+  /// 이 도면을 벤딩 마킹 계산기 입력 목록으로 불러온다.
+  /// 🚀 [추가] 예전에는 보관함 도면을 보기만 할 수 있고 다시 고쳐 쓸 수 없었다.
+  /// 목록은 입력 탭의 ↶로 되돌릴 수 있다. 피팅·꼬리·시작 방향도 저장 때로 맞춘다.
+  Future<void> _loadToCalculator() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AppDialog(
+        title: "계산기로 불러오기",
+        okText: "불러오기",
+        onCancel: () => Navigator.pop(ctx, false),
+        onOk: () => Navigator.pop(ctx, true),
+        content: AppDialog.message(
+          "'$_fromTo'을(를) 불러오면 지금 입력 목록이 이 도면으로 바뀝니다.\n"
+          "시작·끝 피팅과 꼬리 길이도 저장할 때 값으로 맞춥니다.\n"
+          "(입력 탭의 ↶로 목록을 되돌릴 수 있습니다)",
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final m = MobileBendDataManager();
+    m.replaceAll([
+      for (final b in _bendList)
+        {
+          'length': (b['length'] as num?)?.toDouble() ?? 0.0,
+          'angle': (b['angle'] as num?)?.toDouble() ?? 0.0,
+          'rotation': (b['rotation'] as num?)?.toDouble() ?? 0.0,
+        },
+    ]);
+    m.startFit = _startFit;
+    m.endFit = _endFit;
+    m.tail = _tailLength;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('mobile_saved_start_dir', _startDir);
+    } catch (_) {}
+    if (!mounted) return;
+    Navigator.of(context).pop({'loaded': true, 'startDir': _startDir});
   }
 
   String _getDirectionText(double rot) {
@@ -885,6 +927,12 @@ class _MobileFabricationDetailScreenState
               icon: const Icon(Icons.edit_note, size: 28),
               tooltip: "도면 정보 수정",
               onPressed: _editInfo,
+            ),
+            IconButton(
+              key: const Key('load_to_calculator'),
+              icon: const Icon(Icons.file_open_outlined, size: 24),
+              tooltip: "계산기로 불러오기",
+              onPressed: _loadToCalculator,
             ),
           ],
         ),

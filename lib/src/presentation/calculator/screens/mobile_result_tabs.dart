@@ -1027,7 +1027,10 @@ class _MobileViewerTabState extends State<MobileViewerTab>
 // 🚀 4탭: 모바일 보관함 (History) 화면
 // ==========================================
 class MobileHistoryTab extends StatefulWidget {
-  const MobileHistoryTab({super.key});
+  /// 도면을 계산기로 불러온 뒤(시작 방향을 넘긴다). 입력 탭으로 옮길 때 쓴다.
+  final ValueChanged<String>? onLoaded;
+
+  const MobileHistoryTab({super.key, this.onLoaded});
   @override
   State<MobileHistoryTab> createState() => _MobileHistoryTabState();
 }
@@ -1277,7 +1280,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                                       vertical: 4,
                                     ),
                                     onTap: () async {
-                                      await Navigator.push(
+                                      final result = await Navigator.push(
                                         context,
                                         MaterialPageRoute(
                                           builder: (context) =>
@@ -1288,6 +1291,28 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                                       );
                                       if (!context.mounted) {
                                         return;
+                                      }
+                                      if (result is Map &&
+                                          result['loaded'] == true) {
+                                        widget.onLoaded?.call(
+                                          result['startDir']?.toString() ??
+                                              'RIGHT',
+                                        );
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            backgroundColor: makitaTeal,
+                                            behavior: SnackBarBehavior.floating,
+                                            content: Text(
+                                              "도면을 불러왔습니다. 입력 탭의 ↶로 되돌릴 수 있습니다.",
+                                              style: TextStyle(
+                                                color: pureWhite,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        );
                                       }
                                       // 🚀 [수정] 상세화면에서 돌아올 때는 조용히 갱신
                                       _refreshHistory(showFullLoader: false);

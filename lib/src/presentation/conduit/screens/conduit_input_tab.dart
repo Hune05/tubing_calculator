@@ -13,8 +13,6 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_sad
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_parallel_shrink_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/swipe_delete.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/undo_redo_buttons.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/swipe_delete.dart'
-    show inputPanelMaxHeight;
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
 
 const Color makitaTeal = Color(0xFF007580);

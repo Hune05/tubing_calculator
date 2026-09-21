@@ -9,8 +9,6 @@ import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart'
 import 'package:tubing_calculator/src/presentation/calculator/segment_length_check.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/swipe_delete.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/undo_redo_buttons.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/swipe_delete.dart'
-    show inputPanelMaxHeight;
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_rolling_offset_bottom_sheet.dart';

@@ -81,6 +81,10 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
     return wideIndex + 1;
   }
 
+  void _goToInputTab() {
+    setState(() => _selectedIndex = 0);
+  }
+
   void _goToMarkingTab() {
     setState(() => _selectedIndex = 1);
   }
@@ -248,7 +252,7 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
       children: [
         const ConduitInputTab(), // 0. 입력
         const ConduitResultTab(), // 1. 마킹
-        const ConduitHistoryTab(), // 2. 보관함
+        ConduitHistoryTab(onLoaded: _goToInputTab), // 2. 보관함
         _buildFieldTab(), // 3. 현장
         const ConduitViewerTab(), // 4. 아이소
         const ConduitSettingsPage(), // 5. 설정
@@ -271,7 +275,7 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
             Expanded(flex: 6, child: ConduitResultTab()),
           ],
         ),
-        const ConduitHistoryTab(),
+        ConduitHistoryTab(onLoaded: _goToInputTab),
         _buildFieldTab(),
         const ConduitViewerTab(),
         const ConduitSettingsPage(),

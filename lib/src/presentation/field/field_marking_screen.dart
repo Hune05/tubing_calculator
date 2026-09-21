@@ -433,63 +433,125 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           else
             const Spacer(),
           const SizedBox(width: 8),
-          SegmentedButton<bool>(
+          // 🚀 [바꿈] 글자 단추·조각 단추·아이콘이 섞여 있던 것을 같은 크기의
+          // 아이콘 단추(아래에 짧은 이름)로 맞췄다. 켜진 것은 진하게 채운다.
+          Container(
             key: const Key('field_gap_toggle'),
-            showSelectedIcon: false,
-            style: ButtonStyle(
-              visualDensity: VisualDensity.compact,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              // 고르지 않은 칸도 또렷하게(흐리면 햇빛 아래서 안 보인다).
-              foregroundColor: WidgetStateProperty.resolveWith(
-                (s) => s.contains(WidgetState.selected) ? Colors.white : _ink,
-              ),
-              backgroundColor: WidgetStateProperty.resolveWith(
-                (s) => s.contains(WidgetState.selected) ? _ink : Colors.white,
-              ),
-              textStyle: const WidgetStatePropertyAll(
-                TextStyle(fontWeight: FontWeight.bold),
-              ),
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _ink.withValues(alpha: 0.25)),
             ),
-            segments: const [
-              ButtonSegment(value: false, label: Text('누적')),
-              ButtonSegment(value: true, label: Text('간격')),
-            ],
-            selected: {_showGap},
-            onSelectionChanged: (v) {
-              HapticFeedback.selectionClick();
-              setState(() => _showGap = v.first);
-              _saveViewPref(_gapKey, _showGap);
-            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _toolButton(
+                  key: const Key('field_cumulative'),
+                  icon: Icons.straighten,
+                  label: '누적',
+                  selected: !_showGap,
+                  grouped: true,
+                  onTap: () => _setShowGap(false),
+                ),
+                _toolButton(
+                  key: const Key('field_gap'),
+                  icon: Icons.compare_arrows_rounded,
+                  label: '간격',
+                  selected: _showGap,
+                  grouped: true,
+                  onTap: () => _setShowGap(true),
+                ),
+              ],
+            ),
           ),
-          IconButton(
+          const SizedBox(width: 8),
+          _toolButton(
             key: const Key('field_contrast_toggle'),
-            tooltip: '햇빛 아래(흰 바탕·큰 숫자)',
-            isSelected: _highContrast,
-            icon: Icon(
-              _highContrast ? Icons.wb_sunny : Icons.wb_sunny_outlined,
-              color: _highContrast ? Colors.orange.shade800 : _ink,
-            ),
-            onPressed: () {
+            icon: _highContrast ? Icons.wb_sunny : Icons.wb_sunny_outlined,
+            label: '햇빛',
+            selected: _highContrast,
+            onTap: () {
               HapticFeedback.selectionClick();
               setState(() => _highContrast = !_highContrast);
               _saveViewPref(_hcKey, _highContrast);
             },
           ),
-          const SizedBox(width: 4),
-          FilledButton.tonalIcon(
+          const SizedBox(width: 8),
+          _toolButton(
             key: const Key('field_mode_toggle'),
-            onPressed: _toggleMode,
-            icon: Icon(
-              _stepMode ? Icons.view_timeline_outlined : Icons.touch_app,
-              size: 18,
-            ),
-            label: Text(_stepMode ? '전체 보기' : '한 단계씩'),
+            icon: Icons.format_list_numbered_rounded,
+            label: '한 단계',
+            selected: _stepMode,
+            onTap: _toggleMode,
           ),
-          IconButton(
-            icon: const Icon(Icons.close_rounded, color: _ink, size: 26),
-            onPressed: _close,
+          const SizedBox(width: 8),
+          _toolButton(
+            key: const Key('field_close'),
+            icon: Icons.close_rounded,
+            label: '닫기',
+            selected: false,
+            onTap: _close,
           ),
         ],
+      ),
+    );
+  }
+
+  void _setShowGap(bool v) {
+    if (_showGap == v) return;
+    HapticFeedback.selectionClick();
+    setState(() => _showGap = v);
+    _saveViewPref(_gapKey, v);
+  }
+
+  /// 위쪽 막대의 단추 하나. 모두 같은 크기(아이콘 + 짧은 이름)로 맞춘다.
+  Widget _toolButton({
+    required Key key,
+    required IconData icon,
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+    bool grouped = false,
+  }) {
+    final fg = selected ? Colors.white : _ink;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: Material(
+        key: key,
+        color: selected ? _ink : (grouped ? Colors.transparent : Colors.white),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(grouped ? 10 : 12),
+          side: grouped
+              ? BorderSide.none
+              : BorderSide(color: _ink.withValues(alpha: 0.25)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            width: 52,
+            height: grouped ? 40 : 44,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 20, color: fg),
+                const SizedBox(height: 1),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    height: 1.1,
+                    fontWeight: FontWeight.w800,
+                    color: fg,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

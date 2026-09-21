@@ -225,6 +225,14 @@ class MobileBendDataManager extends ChangeNotifier with BendListHistory {
     notifyListeners();
   }
 
+  /// 보관함에서 불러온 목록으로 통째로 바꾼다(↶로 되돌릴 수 있다).
+  void replaceAll(List<Map<String, dynamic>> bends) {
+    recordHistory();
+    bendList = [for (final b in bends) Map<String, dynamic>.from(b)];
+    _saveCurrentState();
+    notifyListeners();
+  }
+
   void clearBends() {
     if (bendList.isEmpty) return;
     recordHistory();
