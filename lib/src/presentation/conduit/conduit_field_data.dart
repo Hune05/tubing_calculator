@@ -75,10 +75,26 @@ FieldMarkingData computeConduitFieldData() {
     }
   }
 
+  // 설정 화면의 "단위"가 인치면 현장 탭에 인치를 같이 보여 준다(셈은 mm).
+  final unit = settings['unitSystem']?.toString() ?? '';
+  final inchMode = unit.contains('분수')
+      ? FieldInchMode.fraction
+      : (unit.contains('인치') ? FieldInchMode.decimal : FieldInchMode.none);
+  final den =
+      int.tryParse(
+        RegExp(r'1/(\d+)')
+                .firstMatch(settings['fractionPrecision']?.toString() ?? '')
+                ?.group(1) ??
+            '',
+      ) ??
+      16;
+
   return FieldMarkingData(
     totalCut: conduitTotalCut(bendList, settings),
     marks: marks,
     warnings: check.warnings,
+    inchMode: inchMode,
+    inchDenominator: den,
   );
 }
 

@@ -44,6 +44,31 @@ class FieldMark {
   bool get hasOverBend => isBend && (targetAngle - angle).abs() >= 0.05;
 }
 
+/// 인치를 같이 보여 줄지(전선관 설정이 인치일 때). 셈은 늘 mm로 한다.
+enum FieldInchMode { none, fraction, decimal }
+
+/// mm를 인치 글로. 분수는 [denominator](16이면 1/16")에 맞춰 반올림하고 줄인다.
+/// 예) 358mm → 14 1/8" (1/16), 14.09" (소수점)
+String formatInch(double mm, FieldInchMode mode, {int denominator = 16}) {
+  if (mode == FieldInchMode.none) return '';
+  final inch = mm / 25.4;
+  if (mode == FieldInchMode.decimal) return '${inch.toStringAsFixed(2)}"';
+  final d = denominator <= 0 ? 16 : denominator;
+  final negative = inch < 0;
+  var n = (inch.abs() * d).round();
+  final whole = n ~/ d;
+  var num = n % d;
+  var den = d;
+  while (num > 0 && num % 2 == 0 && den % 2 == 0) {
+    num ~/= 2;
+    den ~/= 2;
+  }
+  final sign = negative ? '-' : '';
+  if (num == 0) return '$sign$whole"';
+  if (whole == 0) return '$sign$num/$den"';
+  return '$sign$whole $num/$den"';
+}
+
 class FieldMarkingData {
   /// 자르는 길이(줄자 눈금). 0이면 없다.
   final double totalCut;
@@ -55,12 +80,22 @@ class FieldMarkingData {
   /// 셈이 안 될 때의 까닭.
   final String? error;
 
+  /// 인치를 같이 보여 줄지와 분수 눈금(16이면 1/16").
+  final FieldInchMode inchMode;
+  final int inchDenominator;
+
   const FieldMarkingData({
     required this.totalCut,
     required this.marks,
     this.warnings = const [],
     this.error,
+    this.inchMode = FieldInchMode.none,
+    this.inchDenominator = 16,
   });
+
+  /// 인치 글(인치를 안 쓰면 빈 글).
+  String inch(double mm) =>
+      formatInch(mm, inchMode, denominator: inchDenominator);
 
   static const empty = FieldMarkingData(totalCut: 0, marks: []);
 
@@ -86,6 +121,13 @@ class FieldStep {
 
   bool get isCut => mark == null;
   double get at => mark?.position ?? position;
+}
+
+/// 앞 마킹에서 이 단계까지(자르기는 마지막 벤드 마킹에서).
+double fieldStepGap(FieldMarkingData data, FieldStep step) {
+  if (!step.isCut) return step.mark!.gap;
+  final bends = data.bends;
+  return step.at - (bends.isEmpty ? 0.0 : bends.last.position);
 }
 
 List<FieldStep> fieldSteps(FieldMarkingData data) => [

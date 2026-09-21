@@ -380,7 +380,13 @@ pw.Widget _markTable(FieldMarkingData data) {
       pw.TableRow(
         children: [
           _cell('${m.number}', bold: true, color: _red),
-          _cell('${_mm(m.position)} mm', bold: true, size: 11),
+          _cell(
+            data.inchMode == FieldInchMode.none
+                ? '${_mm(m.position)} mm'
+                : '${_mm(m.position)} mm\n${data.inch(m.position)}',
+            bold: true,
+            size: 11,
+          ),
           _cell(
             m.number == 1 ? '관 끝 0에서' : '${m.gap >= 0 ? '+' : ''}${_mm(m.gap)}',
           ),
@@ -398,7 +404,13 @@ pw.Widget _markTable(FieldMarkingData data) {
         decoration: const pw.BoxDecoration(color: PdfColors.grey100),
         children: [
           _cell('자름', bold: true),
-          _cell('${_mm(data.totalCut)} mm', bold: true, size: 11),
+          _cell(
+            data.inchMode == FieldInchMode.none
+                ? '${_mm(data.totalCut)} mm'
+                : '${_mm(data.totalCut)} mm\n${data.inch(data.totalCut)}',
+            bold: true,
+            size: 11,
+          ),
           _cell('자르는 자리', bold: true),
           _cell(''),
           _cell(''),

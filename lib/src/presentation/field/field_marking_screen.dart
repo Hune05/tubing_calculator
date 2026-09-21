@@ -11,6 +11,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tubing_calculator/src/presentation/field/field_marking.dart';
 
@@ -65,16 +66,45 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   bool _capturingVolume = false;
   int _stepCount = 0;
 
+  // 햇빛 아래(흰 바탕·더 큰 숫자)와 간격 보기. 폰에 기억해 둔다.
+  static const String _hcKey = 'field_high_contrast';
+  static const String _gapKey = 'field_show_gap';
+  bool _highContrast = false;
+  bool _showGap = false;
+
+  Color get _bg => _highContrast ? Colors.white : _paper;
+  Color get _strip => _highContrast ? Colors.white : _stripBg;
+
+  Future<void> _loadViewPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        _highContrast = prefs.getBool(_hcKey) ?? false;
+        _showGap = prefs.getBool(_gapKey) ?? false;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _saveViewPref(String key, bool v) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(key, v);
+    } catch (_) {}
+  }
+
   bool _stepMode = false;
   int _current = 0;
   final Set<int> _done = {};
   int? _selectedStep;
   String _signature = '';
+  FieldMarkingData _data = FieldMarkingData.empty;
 
   @override
   void initState() {
     super.initState();
     if (widget.isActive) _setLandscape();
+    _loadViewPrefs();
   }
 
   @override
@@ -222,6 +252,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       listenable: widget.listenable,
       builder: (context, _) {
         final data = widget.compute();
+        _data = data;
         final steps = fieldSteps(data);
         _stepCount = steps.length;
         if (data.signature != _signature) {
@@ -243,7 +274,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             autofocus: widget.isActive,
             onKeyEvent: (_, e) => _onKey(e, steps.length),
             child: Scaffold(
-              backgroundColor: _paper,
+              backgroundColor: _bg,
               body: SafeArea(
                 child: data.isEmpty
                     ? _buildEmpty(data)
@@ -402,6 +433,49 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           else
             const Spacer(),
           const SizedBox(width: 8),
+          SegmentedButton<bool>(
+            key: const Key('field_gap_toggle'),
+            showSelectedIcon: false,
+            style: ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              // 고르지 않은 칸도 또렷하게(흐리면 햇빛 아래서 안 보인다).
+              foregroundColor: WidgetStateProperty.resolveWith(
+                (s) => s.contains(WidgetState.selected) ? Colors.white : _ink,
+              ),
+              backgroundColor: WidgetStateProperty.resolveWith(
+                (s) => s.contains(WidgetState.selected) ? _ink : Colors.white,
+              ),
+              textStyle: const WidgetStatePropertyAll(
+                TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            segments: const [
+              ButtonSegment(value: false, label: Text('누적')),
+              ButtonSegment(value: true, label: Text('간격')),
+            ],
+            selected: {_showGap},
+            onSelectionChanged: (v) {
+              HapticFeedback.selectionClick();
+              setState(() => _showGap = v.first);
+              _saveViewPref(_gapKey, _showGap);
+            },
+          ),
+          IconButton(
+            key: const Key('field_contrast_toggle'),
+            tooltip: '햇빛 아래(흰 바탕·큰 숫자)',
+            isSelected: _highContrast,
+            icon: Icon(
+              _highContrast ? Icons.wb_sunny : Icons.wb_sunny_outlined,
+              color: _highContrast ? Colors.orange.shade800 : _ink,
+            ),
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              setState(() => _highContrast = !_highContrast);
+              _saveViewPref(_hcKey, _highContrast);
+            },
+          ),
+          const SizedBox(width: 4),
           FilledButton.tonalIcon(
             key: const Key('field_mode_toggle'),
             onPressed: _toggleMode,
@@ -565,7 +639,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             ),
           ),
           Text(
-            l.position.round().toString(),
+            _showGap
+                ? '+${fieldStepGap(_data, FieldStep.cut(l.position)).round()}'
+                : l.position.round().toString(),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 17,
@@ -614,7 +690,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               _numberBadge(m.number, done: done, small: true),
               const SizedBox(width: 4),
               Text(
-                l.position.round().toString(),
+                _showGap ? '+${m.gap.round()}' : l.position.round().toString(),
                 style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w900,
@@ -684,7 +760,12 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   Widget _buildStepStrip(List<FieldStep> steps) {
     return Container(
       height: 64,
-      color: _stripBg,
+      decoration: BoxDecoration(
+        color: _strip,
+        border: _highContrast
+            ? const Border(top: BorderSide(color: Colors.black, width: 1.5))
+            : null,
+      ),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -726,7 +807,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${s.at.round()} mm',
+                        _showGap
+                            ? '+${fieldStepGap(_data, s).round()} mm'
+                            : '${s.at.round()} mm',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w900,
@@ -784,10 +867,10 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               ),
             ],
           ),
-          _bigNumber(s.at),
-          const Text(
-            '관 끝 0에서 잰 자리',
-            style: TextStyle(fontSize: 14, color: Colors.black54),
+          _bigNumber(s.at, gap: fieldStepGap(data, s), inch: data.inch(s.at)),
+          Text(
+            _showGap ? '마지막 마킹에서 · 줄자 눈금 ${s.at.round()} mm' : '관 끝 0에서 잰 자리',
+            style: const TextStyle(fontSize: 14, color: Colors.black54),
           ),
         ],
       );
@@ -814,11 +897,15 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                   ),
                 ],
               ),
-              _bigNumber(m.position),
+              _bigNumber(m.position, gap: m.gap, inch: data.inch(m.position)),
               Text(
-                m.number == 1
-                    ? '관 끝 0에서'
-                    : '앞 마킹에서 ${m.gap >= 0 ? '+' : ''}${m.gap.round()} mm',
+                _showGap
+                    ? (m.number == 1
+                          ? '관 끝 0에서 · 줄자 눈금 ${m.position.round()} mm'
+                          : '앞 마킹에서 · 줄자 눈금 ${m.position.round()} mm')
+                    : (m.number == 1
+                          ? '관 끝 0에서'
+                          : '앞 마킹에서 ${m.gap >= 0 ? '+' : ''}${m.gap.round()} mm'),
                 style: const TextStyle(
                   fontSize: 15,
                   color: Colors.black54,
@@ -929,32 +1016,51 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     );
   }
 
-  Widget _bigNumber(double v) {
-    return Row(
+  /// 한 단계씩의 큰 숫자. 간격 보기면 앞 마킹에서 잰 값을 크게.
+  /// 인치 설정이면 아래에 인치를 같이 적는다.
+  Widget _bigNumber(double v, {double? gap, String inch = ''}) {
+    final bool asGap = _showGap && gap != null;
+    final text = asGap ? '+${gap.round()}' : v.round().toString();
+    return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
       children: [
-        Text(
-          v.round().toString(),
-          key: const Key('field_step_number'),
-          style: const TextStyle(
-            fontSize: 96,
-            height: 1.05,
-            fontWeight: FontWeight.w900,
-            color: _ink,
-            letterSpacing: -2,
-          ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(
+              text,
+              key: const Key('field_step_number'),
+              style: TextStyle(
+                fontSize: _highContrast ? 120 : 96,
+                height: 1.05,
+                fontWeight: FontWeight.w900,
+                color: _highContrast ? Colors.black : _ink,
+                letterSpacing: -2,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'mm',
+              style: TextStyle(
+                fontSize: _highContrast ? 26 : 22,
+                fontWeight: FontWeight.bold,
+                color: _highContrast ? Colors.black87 : Colors.black54,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 4),
-        const Text(
-          'mm',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Colors.black54,
+        if (inch.isNotEmpty)
+          Text(
+            asGap ? '+${_data.inch(gap)}' : inch,
+            key: const Key('field_step_inch'),
+            style: TextStyle(
+              fontSize: _highContrast ? 30 : 24,
+              fontWeight: FontWeight.w800,
+              color: Colors.indigo.shade700,
+            ),
           ),
-        ),
       ],
     );
   }
@@ -1005,7 +1111,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
         : steps.fold<double>(1, (a, s) => s.at > a ? s.at : a);
     return Container(
       height: 30,
-      color: _stripBg,
+      color: _strip,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: LayoutBuilder(
         builder: (context, c) {
