@@ -295,7 +295,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                   ),
                 ),
                 Text(
-                  "너트 체결을 위한 완벽한 원형 직관 거리(${minFittingStraight}mm) 부족 (타원형 변형 틈 발생 가능성)",
+                  "너트를 물릴 곧은 길이(${minFittingStraight}mm)가 모자랍니다. 관이 찌그러져 샐 수 있습니다.",
                   style: const TextStyle(color: slate600, fontSize: 12),
                 ),
               ],

@@ -283,7 +283,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
           content: Text(
             "현재 설정된 장비의 최소 물림 길이는 ${_minStraight}mm 입니다.\n\n"
             "• 계산된 빗변: ${roundedTravel}mm\n\n"
-            "길이가 너무 짧아 벤더기에 물리지 않을 수 있습니다. 그래도 강제로 추가하시겠습니까?",
+            "길이가 너무 짧아 벤더기에 물리지 않을 수 있습니다. 그래도 넣으시겠습니까?",
             style: const TextStyle(color: slate900, fontSize: 14, height: 1.5),
           ),
           actions: [
@@ -303,7 +303,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
               ),
               onPressed: () {
                 Navigator.pop(ctx);
-                _execute3Point(travel3Pt, a3, shrink); // 🚀 고인물 강제 진행
+                _execute3Point(travel3Pt, a3, shrink); // 경고를 보고도 넣기
               },
               child: const Text(
                 "무시하고 추가",
@@ -414,7 +414,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
             "현재 설정된 장비의 최소 물림 길이는 ${_minStraight}mm 입니다.\n\n"
             "• 계산된 빗변: ${roundedTravel}mm\n"
             "• 상단 넓이(W): ${roundedW}mm\n\n"
-            "구간 길이가 너무 짧아 벤더기에 물리지 않을 수 있습니다. 그래도 강제로 추가하시겠습니까?",
+            "구간 길이가 너무 짧아 벤더기에 물리지 않을 수 있습니다. 그래도 넣으시겠습니까?",
             style: const TextStyle(color: slate900, fontSize: 14, height: 1.5),
           ),
           actions: [
@@ -434,7 +434,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
               ),
               onPressed: () {
                 Navigator.pop(ctx);
-                _execute4Point(travel4Pt, w, a4, shrink); // 🚀 고인물 강제 진행
+                _execute4Point(travel4Pt, w, a4, shrink); // 경고를 보고도 넣기
               },
               child: const Text(
                 "무시하고 추가",

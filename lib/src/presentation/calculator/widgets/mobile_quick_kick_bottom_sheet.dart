@@ -161,7 +161,7 @@ class _MobileQuickKickBottomSheetState
               ),
               const SizedBox(height: 8),
               const Text(
-                "장애물을 피하거나 목표 포트에 도달하기 위한 꺾임(빗변) 거리를 즉시 확인합니다. (도면에 저장되지 않습니다)",
+                "장애물을 넘거나 목표 포트에 닿기 위한 빗변 길이를 셈해 봅니다. (도면 목록에는 넣지 않습니다)",
                 style: TextStyle(color: slate600, fontSize: 12),
               ),
               const SizedBox(height: 24),

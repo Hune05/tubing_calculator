@@ -1369,7 +1369,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             "물림 길이(간섭) 경고",
             "물림 길이 경고 (초보자 권장)",
             "파이프 길이가 기계의 '최소 물림 구간'보다 짧게 입력되면 경고창을 띄워 불량을 막아줍니다.\n\n"
-                "경고창이 귀찮거나, 편법으로 아슬아슬하게 물려서 벤딩을 진행하는 숙련자(고인물)는 이 스위치를 끄고 쾌속으로 작업할 수 있습니다.",
+                "짧은 길이인 줄 알고도 물려서 꺾을 때는 이 스위치를 끄면 경고창이 뜨지 않습니다.",
           ),
           Switch(
             value: _warnShoeInterference,

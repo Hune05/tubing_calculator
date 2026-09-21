@@ -292,7 +292,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
             "현재 설정된 장비의 최소 물림 길이는 ${_minStraight}mm 입니다.\n\n"
             "• 1구간(시작~1번): ${firstSegmentLength.toStringAsFixed(1)}mm\n"
             "• 2구간(빗변): ${secondSegmentLength.toStringAsFixed(1)}mm\n\n"
-            "길이가 너무 짧아 벤더기에 물리지 않을 수 있습니다. 그래도 강제로 추가하시겠습니까?",
+            "길이가 너무 짧아 벤더기에 물리지 않을 수 있습니다. 그래도 넣으시겠습니까?",
             style: const TextStyle(color: slate900, fontSize: 14, height: 1.5),
           ),
           actions: [
@@ -317,7 +317,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                   roundedTravel,
                   roundedShrink,
                   startDistance,
-                ); // 🚀 고인물 강제 집어넣기
+                ); // 경고를 보고도 넣기
               },
               child: const Text(
                 "무시하고 추가",
@@ -653,7 +653,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                               const Padding(
                                 padding: EdgeInsets.only(top: 8),
                                 child: Text(
-                                  "오류: 빗변은 높이보다 커야함!",
+                                  "빗변은 높이보다 길어야 합니다.",
                                   style: TextStyle(
                                     color: Colors.redAccent,
                                     fontWeight: FontWeight.bold,

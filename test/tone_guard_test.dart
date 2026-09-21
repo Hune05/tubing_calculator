@@ -50,4 +50,26 @@ void main() {
     }
     expect(bad, isEmpty, reason: bad.join('\n'));
   });
+
+  test('속어·반말투·과장 문구가 화면 글에 없다', () {
+    // 2026-09-22 점검에서 고친 말들. 다시 들어오면 알려 준다.
+    const banned = ['고인물', '커야함', '강제로 추가', '완벽한 원형', '쾌속으로'];
+    final bad = <String>[];
+    for (final f in Directory(
+      'lib',
+    ).listSync(recursive: true).whereType<File>()) {
+      if (!f.path.endsWith('.dart')) continue;
+      final lines = f.readAsLinesSync();
+      for (var i = 0; i < lines.length; i++) {
+        if (lines[i].trimLeft().startsWith('//')) continue;
+        for (final w in banned) {
+          if (lines[i].contains(w)) {
+            final name = f.path.split(RegExp(r'[\\/]')).last;
+            bad.add('$name:${i + 1}: $w');
+          }
+        }
+      }
+    }
+    expect(bad, isEmpty, reason: bad.join('\n'));
+  });
 }
