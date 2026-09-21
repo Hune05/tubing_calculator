@@ -220,3 +220,45 @@ class PlacedDimension {
     return (p1: Offset(x, y1), p2: Offset(x, y2), distance: (y1 - y2).abs());
   }
 }
+
+// ---------------------------------------------------------
+// 3. 서버(layouts 모음)에 저장하는 칸과 불러오기
+// ---------------------------------------------------------
+// 저장된 배치도의 칸 이름은 절대 바꾸거나 빼지 않는다. 예전에 저장한 배치도가
+// 그대로 열려야 하기 때문이다(test/layout_board_compat_test.dart가 지킨다).
+// 새 칸을 더할 때는 여기에만 더하고, 읽을 때는 그 칸이 없어도 되게 만든다.
+
+/// layouts 문서에 저장하는 칸(저장 시각 칸은 서버 시각이라 부르는 쪽에서 붙인다).
+Map<String, dynamic> layoutSaveFields({
+  required String projectId,
+  required String projectName,
+  required double panelWidth,
+  required double panelHeight,
+  required List<PlacedItem> items,
+  required List<PlacedDimension> dimensions,
+  required String? backgroundImagePath,
+  required double backgroundOpacity,
+}) => {
+  'projectId': projectId,
+  'projectName': projectName,
+  'panelWidth': panelWidth,
+  'panelHeight': panelHeight,
+  'items': items.map((e) => e.toJson()).toList(),
+  'dimensions': dimensions.map((e) => e.toJson()).toList(),
+  'backgroundImagePath': backgroundImagePath,
+  'backgroundOpacity': backgroundOpacity,
+};
+
+/// 저장된 문서(또는 임시 저장·템플릿)의 items 칸을 모듈 목록으로 읽는다. 칸이 없으면 빈 목록.
+List<PlacedItem> layoutItemsFromData(Map<String, dynamic> data) =>
+    ((data['items'] as List?) ?? const [])
+        .map((e) => PlacedItem.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+
+/// 저장된 문서의 dimensions 칸을 치수선 목록으로 읽는다. 칸이 없으면 빈 목록.
+List<PlacedDimension> layoutDimensionsFromData(Map<String, dynamic> data) =>
+    ((data['dimensions'] as List?) ?? const [])
+        .map(
+          (e) => PlacedDimension.fromJson(Map<String, dynamic>.from(e as Map)),
+        )
+        .toList();
