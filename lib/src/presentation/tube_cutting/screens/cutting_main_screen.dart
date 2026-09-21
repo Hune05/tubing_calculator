@@ -2040,6 +2040,20 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       );
       return;
     }
+    // 🚀 [고침] 읽을 수 없는 길이('12a0' 등)는 절단 0으로 보고 저장에서 조용히
+    // 빠졌다. 구간 3개 중 2개만 기록되는데 확인 창에는 아무 말이 없었다.
+    final int unreadable = _points
+        .take(_points.length - 1)
+        .where((p) => p.c2cController.text.trim().isNotEmpty && p.unreadable)
+        .length;
+    if (unreadable > 0) {
+      showCuttingSnack(
+        context,
+        "읽을 수 없는 길이가 $unreadable곳 있습니다. 숫자로 고친 뒤 저장하십시오.",
+        isError: true,
+      );
+      return;
+    }
     final plan = _buildSavePlan();
     if (plan == null) return;
     FocusScope.of(context).unfocus();

@@ -174,6 +174,21 @@ void main() {
       expect(find.text('절단 1210.5mm'), findsOneWidget);
     });
 
+    testWidgets('읽을 수 없는 길이가 있으면 저장하지 않고 알려 준다', (tester) async {
+      await open(tester);
+      await tester.tap(find.text('포인트 추가'));
+      await tester.pump();
+      await tester.enterText(lengthField(0), '600');
+      await tester.enterText(lengthField(1), '12a0');
+      await tester.pump();
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('저장하기'));
+      await tester.pumpAndSettle();
+      expect(find.text('저장하시겠습니까?'), findsNothing);
+      expect(find.textContaining('읽을 수 없는 길이가 1곳'), findsOneWidget);
+    });
+
     testWidgets('읽을 수 없는 글자는 알려 주고 계산에서 뺀다', (tester) async {
       await open(tester);
       await tester.enterText(lengthField(0), '12a0');
