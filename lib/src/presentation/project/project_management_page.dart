@@ -190,7 +190,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
 
   void _showUpdateProgressDialog(int index) {
     final project = projects[index];
-    double currentProgress = project['progress'] ?? 0.0;
+    double currentProgress = ((project['progress'] as num?) ?? 0.0).toDouble();
     final TextEditingController percentCtrl = TextEditingController(
       text: (currentProgress * 100).toInt().toString(),
     );

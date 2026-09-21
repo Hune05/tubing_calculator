@@ -41,7 +41,7 @@ class ProjectListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isDeducted = project['isDeducted'] ?? false;
-    final double progress = project['progress'] ?? 0.0;
+    final double progress = ((project['progress'] as num?) ?? 0.0).toDouble();
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -754,7 +754,9 @@ class ProjectListItem extends StatelessWidget {
   Widget _buildMaterialRow(Map<String, dynamic> mat) {
     bool isTube = mat['type'] == 'TUBE';
     // 🚨 [핵심 해결] as int 때문에 발생하던 타입 에러를 as num으로 변경해 완벽 해결!
-    int tubeSticks = isTube ? ((mat['qty_mm'] as num) / 6000).ceil() : 0;
+    int tubeSticks = isTube
+        ? (((mat['qty_mm'] as num?) ?? 0) / 6000).ceil()
+        : 0;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
