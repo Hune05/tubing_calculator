@@ -1188,10 +1188,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
   }
 
   Widget _buildStatusCard(OrderModel order) {
-    String mainTitle = order.items.first.title;
-    if (order.items.length > 1) {
-      mainTitle += " 외 ${order.items.length - 1}건";
-    }
+    final String mainTitle = order.mainTitle;
 
     bool isSpecial = order.items.any((item) => item.type != "일반 자재");
     bool hasAnyPhoto = order.items.any(
@@ -1941,10 +1938,7 @@ class _MaterialOrderPageState extends State<MaterialOrderPage>
                 child: ElevatedButton.icon(
                   onPressed: () async {
                     HapticFeedback.lightImpact();
-                    String mainItemName = order.items.first.title;
-                    if (order.items.length > 1) {
-                      mainItemName += " 외 ${order.items.length - 1}건";
-                    }
+                    final String mainItemName = order.mainTitle;
                     String roomTitle = "[발주 문의] $mainItemName";
                     String safeOrderId = order.id.isNotEmpty
                         ? order.id

@@ -173,8 +173,7 @@ class _OrderLogPageState extends State<OrderLogPage> {
 
   Widget _buildCompactLogCard(OrderModel log) {
     Color statusColor = _getStatusColor(log.status);
-    String mainTitle = log.items.first.title;
-    if (log.items.length > 1) mainTitle += " 외 ${log.items.length - 1}건";
+    final String mainTitle = log.mainTitle;
 
     return GestureDetector(
       onTap: () {
@@ -589,7 +588,7 @@ class _OrderLogPageState extends State<OrderLogPage> {
     csv.writeln("요청일자,상태,요청자,담당자,품목,수량,비고");
     for (var log in _currentFilteredLogs) {
       csv.writeln(
-        "${_formatDate(log.requestDate)},${log.status},${log.requester},${log.assignee},${log.items.first.title},${log.items.first.qty},${(log.note ?? "").replaceAll(',', ' ')}",
+        "${_formatDate(log.requestDate)},${log.status},${log.requester},${log.assignee},${log.firstItemTitle},${log.firstItemQty},${(log.note ?? "").replaceAll(',', ' ')}",
       );
     }
     await Clipboard.setData(ClipboardData(text: csv.toString()));

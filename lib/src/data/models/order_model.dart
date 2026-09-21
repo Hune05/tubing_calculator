@@ -24,6 +24,15 @@ class OrderModel {
     this.rejectReason,
   });
 
+  // 품목이 비어 있는 예전 문서도 화면이 멈추지 않게 첫 품목 대신 쓰는 글.
+  String get firstItemTitle => items.isEmpty ? '품목 없음' : items.first.title;
+  String get firstItemQty => items.isEmpty ? '' : items.first.qty;
+
+  // 카드 제목: 첫 품목 이름에 나머지 건수를 붙인다(예: '유니온 1/2 외 2건').
+  String get mainTitle => items.length > 1
+      ? '$firstItemTitle 외 ${items.length - 1}건'
+      : firstItemTitle;
+
   // 🔥 상태 업데이트를 위한 copyWith 메서드
   OrderModel copyWith({
     String? id,
