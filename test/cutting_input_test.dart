@@ -174,6 +174,13 @@ void main() {
       expect(find.text('절단 1210.5mm'), findsOneWidget);
     });
 
+    testWidgets('폭 320·글자 1.3배에서 ± 단추 줄이 넘치지 않는다', (tester) async {
+      await open(tester, scale: 1.3);
+      tester.view.physicalSize = const Size(960, 1920);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('읽을 수 없는 길이가 있으면 저장하지 않고 알려 준다', (tester) async {
       await open(tester);
       await tester.tap(find.text('포인트 추가'));

@@ -3387,19 +3387,24 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         ? const [('-1', -1.0), ('-.1', -0.1), ('+.1', 0.1), ('+1', 1.0)]
         : const [('-10', -10.0), ('-1', -1.0), ('+1', 1.0), ('+10', 10.0)];
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (int i = 0; i < steps.length; i++)
-            segment(steps[i].$1, steps[i].$2, isFirst: i == 0),
-        ],
+    // 좁은 폭에 글자를 키우면(320·1.3배) 9.5px 넘쳤다. 자리가 모자라면 줄여 보인다.
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (int i = 0; i < steps.length; i++)
+              segment(steps[i].$1, steps[i].$2, isFirst: i == 0),
+          ],
+        ),
       ),
     );
   }
