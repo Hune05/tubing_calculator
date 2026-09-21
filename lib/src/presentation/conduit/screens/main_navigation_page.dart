@@ -36,11 +36,19 @@ class ConduitMainNavigation extends StatefulWidget {
 }
 
 class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
+  // 폰에 적어 둔 전선관 설정을 다 읽었는지.
+  bool _settingsLoaded = false;
+
   @override
   void initState() {
     super.initState();
     // 폰에 적어 둔 전선관 설정(테이크업·게인·CLR…)을 읽어 온다.
-    loadGlobalBenderSettings();
+    // 🚀 [고침] 예전에는 읽기를 기다리지 않고 탭들을 만들어서, 같이 만들어지는
+    // 설정 탭이 처음 기본값(게인 81.2)으로 칸을 채웠다. 그 상태로 저장을 누르면
+    // 저장해 둔 값(예: 82.5)이 기본값으로 덮였다. 다 읽은 뒤에 탭을 만든다.
+    loadGlobalBenderSettings().whenComplete(() {
+      if (mounted) setState(() => _settingsLoaded = true);
+    });
   }
 
   // 🚀 [수정] 폴더블 대응. 예전엔 PageView+PageController로 탭을
@@ -82,7 +90,9 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
 
     return Scaffold(
       backgroundColor: slate100,
-      body: isWide ? _buildWideBody() : _buildNarrowBody(),
+      body: !_settingsLoaded
+          ? const Center(child: CircularProgressIndicator(color: makitaTeal))
+          : (isWide ? _buildWideBody() : _buildNarrowBody()),
       bottomNavigationBar: isFieldTab
           ? const SizedBox.shrink() // 현장(가로) 탭일 때만 네비바 숨김
           : Container(

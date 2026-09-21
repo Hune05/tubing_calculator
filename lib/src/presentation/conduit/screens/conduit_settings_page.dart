@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:tubing_calculator/src/data/conduit_spec_sets.dart';
 import 'package:tubing_calculator/src/data/models/bender_spec_data.dart';
 
 const Color makitaTeal = Color(0xFF007580);
@@ -153,7 +154,13 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
       text: s['bladeKerf'].toString(),
     );
 
-    _updateDynamicDropdowns();
+    // 🚀 [고침] 예전에는 여기서 제조사 표 값으로 칸을 다시 채워서, 손으로 고쳐
+    // 저장한 테이크업·게인이 설정을 열 때마다 표 값으로 돌아갔다. 열 때는 저장된
+    // 값 그대로 두고, 저장된 고르기가 목록에 없을 때만 표 값을 쓴다.
+    if (_fixDropdownChoices()) _loadManufacturerDefaults();
+    loadConduitSpecSets().then((sets) {
+      if (mounted) _specSets = sets;
+    });
   }
 
   @override
@@ -196,23 +203,85 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     return _koreanConduitSizes;
   }
 
-  void _updateDynamicDropdowns() {
+  /// 벤더 종류·제조사·재질·규격 조합마다 저장해 둔 제원.
+  Map<String, Map<String, double>> _specSets = {};
+
+  String get _comboKey => conduitSpecKey(
+    benderType: _selectedTypeId,
+    manufacturer: _manufacturer,
+    conduitType: _conduitType,
+    conduitSize: _conduitSize,
+  );
+
+  /// 고른 제조사·재질·규격이 목록에 없으면 첫 것으로 맞춘다. 바뀌었으면 true.
+  bool _fixDropdownChoices() {
+    var changed = false;
     final mfrs = _availableManufacturers;
     if (!mfrs.contains(_manufacturer)) {
       _manufacturer = mfrs.isNotEmpty ? mfrs.first : 'Custom';
+      changed = true;
     }
 
     final types = _availableConduitTypes;
     if (!types.contains(_conduitType)) {
       _conduitType = types.isNotEmpty ? types.first : 'EMT';
+      changed = true;
     }
 
     final sizes = _availableConduitSizes;
     if (!sizes.contains(_conduitSize)) {
       _conduitSize = '22mm';
+      changed = true;
     }
+    return changed;
+  }
 
-    _loadManufacturerDefaults();
+  /// 벤더 종류·제조사·재질·규격을 바꿨을 때. 그 조합으로 저장해 둔 값이 있으면
+  /// 그것을, 처음 고르는 조합이면 제조사 표 값을 넣는다.
+  void _updateDynamicDropdowns() {
+    _fixDropdownChoices();
+    final saved = _specSets[_comboKey];
+    if (saved != null) {
+      _applySpecSet(saved);
+    } else {
+      _loadManufacturerDefaults();
+    }
+  }
+
+  String _numText(double v) => v.toString();
+
+  void _applySpecSet(Map<String, double> v) {
+    if (v['clr'] != null) _clrController.text = _numText(v['clr']!);
+    if (v['takeUp'] != null) _takeUpController.text = _numText(v['takeUp']!);
+    if (v['gain'] != null) _gainController.text = _numText(v['gain']!);
+    if (v['ramTravel'] != null) {
+      _ramTravelController.text = _numText(v['ramTravel']!);
+    }
+    if (v['setback'] != null) _setbackController.text = _numText(v['setback']!);
+    if (v['degPerNotch'] != null) _degPerNotch = v['degPerNotch']!;
+    if (v['notchSpacing'] != null) {
+      _notchSpacingController.text = _numText(v['notchSpacing']!);
+    }
+    if (v['rollerSize'] != null) {
+      _rollerSizeController.text = _numText(v['rollerSize']!);
+    }
+  }
+
+  Map<String, double> _currentSpecValues() {
+    double? d(TextEditingController c) => double.tryParse(c.text);
+    return {
+      if (d(_clrController) != null) 'clr': d(_clrController)!,
+      if (d(_takeUpController) != null) 'takeUp': d(_takeUpController)!,
+      if (d(_gainController) != null) 'gain': d(_gainController)!,
+      if (d(_ramTravelController) != null)
+        'ramTravel': d(_ramTravelController)!,
+      if (d(_setbackController) != null) 'setback': d(_setbackController)!,
+      'degPerNotch': _degPerNotch,
+      if (d(_notchSpacingController) != null)
+        'notchSpacing': d(_notchSpacingController)!,
+      if (d(_rollerSizeController) != null)
+        'rollerSize': d(_rollerSizeController)!,
+    };
   }
 
   // =========================================================
@@ -285,12 +354,6 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     }
   }
 
-  void _onMachineSettingChanged() {
-    setState(() {
-      _loadManufacturerDefaults();
-    });
-  }
-
   void _saveSettings() {
     HapticFeedback.mediumImpact();
     globalBenderSettings.value = {
@@ -318,6 +381,10 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
       'bendRadiusWarning': _bendRadiusWarning,
     };
     saveGlobalBenderSettings();
+    // 이 조합으로 넣은 제원을 기억해 둔다(규격을 바꿨다 돌아와도 그대로 나온다).
+    final specValues = _currentSpecValues();
+    _specSets[_comboKey] = specValues;
+    saveConduitSpecSet(_comboKey, specValues);
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
