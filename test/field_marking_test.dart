@@ -166,7 +166,8 @@ void main() {
       final errors = await pumpScreen(tester, sample());
       expect(errors, isEmpty);
       // 줄자 숫자는 그림으로 그려서 글자 위젯으로는 못 찾는다(폰 화면으로 확인).
-      expect(find.text('✂ 자르기'), findsOneWidget);
+      expect(find.text('자르기'), findsWidgets); // 말풍선·아래 줄
+      expect(find.byIcon(Icons.content_cut_rounded), findsWidgets);
       expect(find.text('직관 끝'), findsWidgets);
       expect(find.text('21°→24° · UP'), findsOneWidget);
     });
@@ -180,7 +181,7 @@ void main() {
           tester.widget<Text>(find.byKey(const Key('field_step_number'))).data!;
       expect(number(), '163');
       expect(find.text('1 / 3'), findsOneWidget);
-      expect(find.text('24°까지 꺾기(스프링백)'), findsOneWidget);
+      expect(find.text('실제로 24°까지 꺾기 · 스프링백'), findsOneWidget);
 
       // 화면 오른쪽을 누르면 다음.
       final area = find.byKey(const Key('field_step_area'));
@@ -205,7 +206,7 @@ void main() {
       await tester.tapAt(Offset(box.left + 20, box.center.dy));
       await tester.pumpAndSettle();
       expect(number(), '163');
-      expect(find.byIcon(Icons.check), findsWidgets);
+      expect(find.byIcon(Icons.check_rounded), findsWidgets);
     });
 
     testWidgets('경고가 있으면 위에 "확인"이 뜨고 누르면 내용이 나온다', (tester) async {

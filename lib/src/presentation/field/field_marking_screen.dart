@@ -15,11 +15,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tubing_calculator/src/presentation/field/field_marking.dart';
 
-const Color _paper = Color(0xFFF2F0E9);
-const Color _ink = Color(0xFF2D2D2D);
+// 🚀 [바꿈] 색을 줄였다. 바탕은 흰색 계열 하나, 누를 수 있는 것·켜진 것은
+// 앱의 청록, 벤드 마킹만 빨강. 테두리는 얇게, 그림자는 없앤다.
+const Color _paper = Color(0xFFF8FAFC);
+const Color _ink = Color(0xFF0F172A);
+const Color _muted = Color(0xFF64748B);
+const Color _faint = Color(0xFF94A3B8);
+const Color _line = Color(0xFFE2E8F0);
+const Color _teal = Color(0xFF007580);
 const Color _red = Color(0xFFD32F2F);
-const Color _orange = Colors.deepOrange;
-const Color _stripBg = Color(0xFFDFDDD3);
+const Color _stripBg = Colors.white;
 const Color _amber = Color(0xFFC77700);
 
 class FieldMarkingScreen extends StatefulWidget {
@@ -351,11 +356,11 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   Widget _buildTopBar(FieldMarkingData data, List<FieldStep> steps) {
     final int doneCount = _done.length;
     return Container(
-      height: 52,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
+      height: 56,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: _ink.withValues(alpha: 0.15))),
+        border: Border(bottom: BorderSide(color: _line)),
       ),
       child: Row(
         children: [
@@ -363,20 +368,25 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             TextSpan(
               children: [
                 const TextSpan(
-                  text: '절단 ',
-                  style: TextStyle(fontSize: 13, color: Colors.black54),
+                  text: '절단  ',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: _muted,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 TextSpan(
                   text: data.totalCut.round().toString(),
                   style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
                     color: _ink,
+                    letterSpacing: -0.5,
                   ),
                 ),
                 const TextSpan(
                   text: ' mm',
-                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                  style: TextStyle(fontSize: 13, color: _muted),
                 ),
               ],
             ),
@@ -397,8 +407,10 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              backgroundColor: const Color(0xFFFFF3DF),
-              side: BorderSide(color: _amber.withValues(alpha: 0.4)),
+              backgroundColor: const Color(0xFFFFF7E8),
+              side: BorderSide.none,
+              shape: const StadiumBorder(),
+              visualDensity: VisualDensity.compact,
               onPressed: () => _showWarnings(data.warnings),
             ),
           ],
@@ -410,20 +422,20 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                   Text(
                     '${_current + 1} / ${steps.length}',
                     style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: _ink,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: _muted,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(2),
                       child: LinearProgressIndicator(
                         value: steps.isEmpty ? 0 : doneCount / steps.length,
-                        minHeight: 8,
-                        backgroundColor: Colors.grey.shade300,
-                        color: Colors.green.shade600,
+                        minHeight: 4,
+                        backgroundColor: _line,
+                        color: _teal,
                       ),
                     ),
                   ),
@@ -432,40 +444,30 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             )
           else
             const Spacer(),
-          const SizedBox(width: 8),
-          // 🚀 [바꿈] 글자 단추·조각 단추·아이콘이 섞여 있던 것을 같은 크기의
-          // 아이콘 단추(아래에 짧은 이름)로 맞췄다. 켜진 것은 진하게 채운다.
-          Container(
+          const SizedBox(width: 12),
+          // 🚀 [바꿈] 앱 아래 탭과 같은 모양: 아이콘 + 짧은 이름, 테두리 없음.
+          // 켜진 것만 청록 바탕을 옅게 깐다. 보기(누적·간격·햇빛)와
+          // 움직임(한 단계·닫기) 사이에 가는 선.
+          Row(
             key: const Key('field_gap_toggle'),
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _ink.withValues(alpha: 0.25)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _toolButton(
-                  key: const Key('field_cumulative'),
-                  icon: Icons.straighten,
-                  label: '누적',
-                  selected: !_showGap,
-                  grouped: true,
-                  onTap: () => _setShowGap(false),
-                ),
-                _toolButton(
-                  key: const Key('field_gap'),
-                  icon: Icons.compare_arrows_rounded,
-                  label: '간격',
-                  selected: _showGap,
-                  grouped: true,
-                  onTap: () => _setShowGap(true),
-                ),
-              ],
-            ),
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _toolButton(
+                key: const Key('field_cumulative'),
+                icon: Icons.straighten,
+                label: '누적',
+                selected: !_showGap,
+                onTap: () => _setShowGap(false),
+              ),
+              _toolButton(
+                key: const Key('field_gap'),
+                icon: Icons.compare_arrows_rounded,
+                label: '간격',
+                selected: _showGap,
+                onTap: () => _setShowGap(true),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
           _toolButton(
             key: const Key('field_contrast_toggle'),
             icon: _highContrast ? Icons.wb_sunny : Icons.wb_sunny_outlined,
@@ -477,7 +479,12 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               _saveViewPref(_hcKey, _highContrast);
             },
           ),
-          const SizedBox(width: 8),
+          Container(
+            width: 1,
+            height: 28,
+            margin: const EdgeInsets.symmetric(horizontal: 6),
+            color: _line,
+          ),
           _toolButton(
             key: const Key('field_mode_toggle'),
             icon: Icons.format_list_numbered_rounded,
@@ -485,7 +492,6 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             selected: _stepMode,
             onTap: _toggleMode,
           ),
-          const SizedBox(width: 8),
           _toolButton(
             key: const Key('field_close'),
             icon: Icons.close_rounded,
@@ -512,43 +518,40 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     required String label,
     required bool selected,
     required VoidCallback onTap,
-    bool grouped = false,
   }) {
-    final fg = selected ? Colors.white : _ink;
+    final fg = selected ? _teal : _muted;
     return Semantics(
       button: true,
       selected: selected,
       label: label,
-      child: Material(
-        key: key,
-        color: selected ? _ink : (grouped ? Colors.transparent : Colors.white),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(grouped ? 10 : 12),
-          side: grouped
-              ? BorderSide.none
-              : BorderSide(color: _ink.withValues(alpha: 0.25)),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: SizedBox(
-            width: 52,
-            height: grouped ? 40 : 44,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 20, color: fg),
-                const SizedBox(height: 1),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    height: 1.1,
-                    fontWeight: FontWeight.w800,
-                    color: fg,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 3),
+        child: Material(
+          key: key,
+          color: selected ? _teal.withValues(alpha: 0.10) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: SizedBox(
+              width: 54,
+              height: 46,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 21, color: fg),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      height: 1.1,
+                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                      color: fg,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -685,60 +688,71 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
 
     Color border;
     Color bg;
+    double borderWidth = 1;
     Widget child;
     if (l.isCut) {
-      border = _ink;
-      bg = _ink;
+      border = isSel ? _teal : _ink;
+      borderWidth = isSel ? 2 : 1.4;
+      bg = Colors.white;
       child = Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text(
-            '✂ 자르기',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.content_cut_rounded, size: 15, color: _ink),
+              const SizedBox(width: 4),
+              Text(
+                _showGap
+                    ? '+${fieldStepGap(_data, FieldStep.cut(l.position)).round()}'
+                    : l.position.round().toString(),
+                style: const TextStyle(
+                  color: _ink,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
           ),
-          Text(
-            _showGap
-                ? '+${fieldStepGap(_data, FieldStep.cut(l.position)).round()}'
-                : l.position.round().toString(),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
+          const Text(
+            '자르기',
+            style: TextStyle(
+              color: _muted,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
       );
     } else if (!l.mark!.isBend) {
-      border = Colors.grey.shade400;
-      bg = Colors.white.withValues(alpha: 0.7);
+      // 직관 끝은 금 긋는 자리가 아니라 상자 없이 흐린 글만.
+      border = Colors.transparent;
+      bg = Colors.transparent;
       child = Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          Text(
+          const Text(
             '직관 끝',
             style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.bold,
+              fontSize: 10,
+              color: _faint,
+              fontWeight: FontWeight.w600,
             ),
           ),
           Text(
             l.position.round().toString(),
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: Colors.grey.shade700,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: _muted,
             ),
           ),
         ],
       );
     } else {
       final m = l.mark!;
-      border = isSel ? _orange : _ink;
+      border = isSel ? _teal : _line;
+      borderWidth = isSel ? 2 : 1;
       bg = Colors.white;
       final angleText = m.hasOverBend
           ? '${_fmt(m.angle)}°→${_fmt(m.targetAngle)}°'
@@ -750,12 +764,12 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _numberBadge(m.number, done: done, small: true),
-              const SizedBox(width: 4),
+              const SizedBox(width: 5),
               Text(
                 _showGap ? '+${m.gap.round()}' : l.position.round().toString(),
                 style: const TextStyle(
                   fontSize: 17,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w800,
                   color: _ink,
                 ),
               ),
@@ -767,8 +781,8 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 11,
-              color: _red,
-              fontWeight: FontWeight.bold,
+              color: _muted,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -781,15 +795,8 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
           color: bg,
-          border: Border.all(color: border, width: isSel ? 2.5 : 1.5),
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 3,
-              offset: Offset(1, 2),
-            ),
-          ],
+          border: Border.all(color: border, width: borderWidth),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: child,
       ),
@@ -797,23 +804,27 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   }
 
   Widget _numberBadge(int n, {bool done = false, bool small = false}) {
-    final double size = small ? 20 : 34;
+    final double size = small ? 19 : 30;
     return Container(
       width: size,
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: done ? Colors.green.shade600 : _red,
+        color: done ? _teal : _red,
         shape: BoxShape.circle,
       ),
       child: done
-          ? Icon(Icons.check, color: Colors.white, size: small ? 14 : 22)
+          ? Icon(
+              Icons.check_rounded,
+              color: Colors.white,
+              size: small ? 13 : 20,
+            )
           : Text(
               '$n',
               style: TextStyle(
                 color: Colors.white,
-                fontWeight: FontWeight.w900,
-                fontSize: small ? 12 : 18,
+                fontWeight: FontWeight.w800,
+                fontSize: small ? 11 : 16,
               ),
             ),
     );
@@ -824,9 +835,12 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       height: 64,
       decoration: BoxDecoration(
         color: _strip,
-        border: _highContrast
-            ? const Border(top: BorderSide(color: Colors.black, width: 1.5))
-            : null,
+        border: Border(
+          top: BorderSide(
+            color: _highContrast ? Colors.black : _line,
+            width: _highContrast ? 1.5 : 1,
+          ),
+        ),
       ),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
@@ -843,13 +857,11 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
-                color: isSel
-                    ? _orange.withValues(alpha: 0.12)
-                    : (s.isCut ? _ink : Colors.white),
-                borderRadius: BorderRadius.circular(8),
+                color: isSel ? _teal.withValues(alpha: 0.06) : Colors.white,
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: isSel ? _orange : _ink.withValues(alpha: 0.5),
-                  width: isSel ? 2 : 1,
+                  color: isSel ? _teal : (s.isCut ? _ink : _line),
+                  width: isSel ? 2 : (s.isCut ? 1.4 : 1),
                 ),
               ),
               child: Row(
@@ -857,9 +869,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                 children: [
                   if (s.isCut)
                     Icon(
-                      done ? Icons.check : Icons.content_cut,
+                      done ? Icons.check_rounded : Icons.content_cut_rounded,
                       size: 18,
-                      color: isSel ? _orange : Colors.white,
+                      color: done ? _teal : _ink,
                     )
                   else
                     _numberBadge(s.mark!.number, done: done, small: true),
@@ -872,22 +884,20 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                         _showGap
                             ? '+${fieldStepGap(_data, s).round()} mm'
                             : '${s.at.round()} mm',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                          color: s.isCut && !isSel ? Colors.white : _ink,
+                          fontWeight: FontWeight.w800,
+                          color: _ink,
                         ),
                       ),
                       Text(
                         s.isCut
                             ? '자르기'
                             : '${_fmt(s.mark!.angle)}° · ${fieldDirectionLabel(s.mark!.rotation).split(' ').first}',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: s.isCut && !isSel
-                              ? Colors.white70
-                              : Colors.black54,
+                          fontWeight: FontWeight.w600,
+                          color: _muted,
                         ),
                       ),
                     ],
@@ -917,14 +927,14 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.content_cut, size: 28, color: _ink),
-              const SizedBox(width: 8),
+              const Icon(Icons.content_cut_rounded, size: 22, color: _muted),
+              const SizedBox(width: 6),
               Text(
                 done ? '자르기 끝' : '여기서 자릅니다',
                 style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: _ink,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: _muted,
                 ),
               ),
             ],
@@ -932,7 +942,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           _bigNumber(s.at, gap: fieldStepGap(data, s), inch: data.inch(s.at)),
           Text(
             _showGap ? '마지막 마킹에서 · 줄자 눈금 ${s.at.round()} mm' : '관 끝 0에서 잰 자리',
-            style: const TextStyle(fontSize: 14, color: Colors.black54),
+            style: const TextStyle(fontSize: 14, color: _muted),
           ),
         ],
       );
@@ -944,21 +954,39 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _numberBadge(m.number, done: done),
-                  const SizedBox(width: 8),
-                  const Text(
-                    '번 마킹',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: _ink,
+              // "1번 마킹"을 한 덩어리 이름표로(끝낸 단계는 청록).
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: done ? _teal : _red,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (done) ...[
+                      const Icon(
+                        Icons.check_rounded,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(
+                      '${m.number}번 마킹',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(height: 4),
               _bigNumber(m.position, gap: m.gap, inch: data.inch(m.position)),
               Text(
                 _showGap
@@ -970,56 +998,70 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                           : '앞 마킹에서 ${m.gap >= 0 ? '+' : ''}${m.gap.round()} mm'),
                 style: const TextStyle(
                   fontSize: 15,
-                  color: Colors.black54,
+                  color: _muted,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-          const SizedBox(width: 40),
+          Container(
+            width: 1,
+            height: 150,
+            margin: const EdgeInsets.symmetric(horizontal: 36),
+            color: _line,
+          ),
           Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const Text(
+                '각도',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: _muted,
+                ),
+              ),
               Text(
                 '${_fmt(m.angle)}°',
                 style: const TextStyle(
-                  fontSize: 52,
-                  height: 1.0,
-                  fontWeight: FontWeight.w900,
+                  fontSize: 56,
+                  height: 1.05,
+                  fontWeight: FontWeight.w800,
                   color: _red,
+                  letterSpacing: -1,
                 ),
               ),
               if (m.hasOverBend)
                 Text(
-                  '${_fmt(m.targetAngle)}°까지 꺾기(스프링백)',
+                  '실제로 ${_fmt(m.targetAngle)}°까지 꺾기 · 스프링백',
                   style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: _orange,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: _muted,
                   ),
                 ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
+                  horizontal: 14,
+                  vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: _ink.withValues(alpha: 0.3)),
+                  color: _paper,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _line),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(_dirIcon(m.rotation), size: 22, color: _ink),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
                     Text(
                       fieldDirectionLabel(m.rotation),
                       style: const TextStyle(
                         fontSize: 18,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w800,
                         color: _ink,
                       ),
                     ),
@@ -1027,14 +1069,25 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                 ),
               ),
               if (m.roll != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  '꺾기 전에 관을 ${m.roll!.round()}° 굴립니다',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.indigo,
-                  ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.threesixty_rounded,
+                      size: 16,
+                      color: _muted,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '꺾기 전에 관을 ${m.roll!.round()}° 굴립니다',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: _muted,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ],
@@ -1097,9 +1150,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               style: TextStyle(
                 fontSize: _highContrast ? 120 : 96,
                 height: 1.05,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w800,
                 color: _highContrast ? Colors.black : _ink,
-                letterSpacing: -2,
+                letterSpacing: -3,
               ),
             ),
             const SizedBox(width: 4),
@@ -1107,8 +1160,8 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               'mm',
               style: TextStyle(
                 fontSize: _highContrast ? 26 : 22,
-                fontWeight: FontWeight.bold,
-                color: _highContrast ? Colors.black87 : Colors.black54,
+                fontWeight: FontWeight.w600,
+                color: _highContrast ? Colors.black87 : _muted,
               ),
             ),
           ],
@@ -1119,8 +1172,8 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             key: const Key('field_step_inch'),
             style: TextStyle(
               fontSize: _highContrast ? 30 : 24,
-              fontWeight: FontWeight.w800,
-              color: Colors.indigo.shade700,
+              fontWeight: FontWeight.w700,
+              color: _teal,
             ),
           ),
       ],
@@ -1133,30 +1186,29 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     required VoidCallback? onTap,
     bool strong = false,
   }) {
+    // 🚀 [바꿈] 검은 판 대신 옅은 바탕. "다음"만 청록으로 눈에 띄게.
+    // 장갑 낀 손을 위해 누르는 자리는 그대로 넓게 둔다.
     final enabled = onTap != null;
+    final Color fg = !enabled ? _line : (strong ? _teal : _muted);
     return SizedBox(
-      width: 88,
+      width: 96,
       child: Material(
-        color: strong && enabled ? _ink : Colors.white.withValues(alpha: 0.6),
+        color: strong && enabled
+            ? _teal.withValues(alpha: 0.08)
+            : Colors.transparent,
         child: InkWell(
           onTap: onTap,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                size: 44,
-                color: !enabled
-                    ? Colors.black26
-                    : (strong ? Colors.white : _ink),
-              ),
+              Icon(icon, size: 40, color: fg),
+              const SizedBox(height: 2),
               Text(
                 label,
                 style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: !enabled
-                      ? Colors.black26
-                      : (strong ? Colors.white : _ink),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: fg,
                 ),
               ),
             ],
@@ -1173,15 +1225,24 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
         : steps.fold<double>(1, (a, s) => s.at > a ? s.at : a);
     return Container(
       height: 30,
-      color: _strip,
       padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: const BoxDecoration(
+        color: _stripBg,
+        border: Border(top: BorderSide(color: _line)),
+      ),
       child: LayoutBuilder(
         builder: (context, c) {
           final w = c.maxWidth;
           return Stack(
             alignment: Alignment.centerLeft,
             children: [
-              Container(height: 4, color: Colors.grey.shade400),
+              Container(
+                height: 3,
+                decoration: BoxDecoration(
+                  color: _line,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
               for (var i = 0; i < steps.length; i++)
                 Positioned(
                   left:
@@ -1193,8 +1254,10 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: i == _current
-                          ? _orange
-                          : (_done.contains(i) ? Colors.green.shade600 : _red),
+                          ? _teal
+                          : (_done.contains(i)
+                                ? _teal.withValues(alpha: 0.45)
+                                : _faint),
                     ),
                   ),
                 ),
@@ -1287,35 +1350,32 @@ class _TapePainter extends CustomPainter {
       Rect.fromLTWH(padLeft, pipeTop, pipeLen, pipeH),
       const Radius.circular(4),
     );
+    // 관은 반짝이는 은색 대신 차분한 회색 하나(가장자리만 살짝 진하게).
     canvas.drawRRect(
       pipeRect,
       Paint()
-        ..shader = LinearGradient(
+        ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Colors.grey.shade600,
-            Colors.grey.shade300,
-            Colors.grey.shade700,
-          ],
+          colors: [Color(0xFFCBD5E1), Color(0xFFE2E8F0), Color(0xFFCBD5E1)],
         ).createShader(pipeRect.outerRect),
     );
     canvas.drawRRect(
       pipeRect,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2
-        ..color = _ink,
+        ..strokeWidth = 1
+        ..color = const Color(0xFF94A3B8),
     );
 
     // 줄자 바탕
     final tapeRect = Rect.fromLTWH(padLeft, tapeTop, maxMm * scale, tapeH);
-    canvas.drawRect(tapeRect, Paint()..color = const Color(0xFFFFD54F));
+    canvas.drawRect(tapeRect, Paint()..color = const Color(0xFFFFE17A));
     canvas.drawRect(
       tapeRect,
       Paint()
         ..style = PaintingStyle.stroke
-        ..color = _ink.withValues(alpha: 0.6),
+        ..color = const Color(0x33000000),
     );
 
     // 눈금: 10mm 짧게, 50mm 중간, 100mm 길게 + 숫자
@@ -1343,7 +1403,7 @@ class _TapePainter extends CustomPainter {
           style: const TextStyle(
             color: _ink,
             fontSize: 12,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
           ),
         );
         tp.layout();
@@ -1360,8 +1420,8 @@ class _TapePainter extends CustomPainter {
             Offset(l.x, l.top),
             Offset(l.x, bottom),
             Paint()
-              ..color = l.selected ? _orange : _red
-              ..strokeWidth = l.selected ? 3 : 2,
+              ..color = l.selected ? _teal : _red
+              ..strokeWidth = l.selected ? 2.5 : 1.6,
           );
           break;
         case _LineKind.straight:
@@ -1370,8 +1430,8 @@ class _TapePainter extends CustomPainter {
             Offset(l.x, l.top),
             Offset(l.x, bottom),
             Paint()
-              ..color = Colors.grey.shade600
-              ..strokeWidth = 1.2,
+              ..color = _faint
+              ..strokeWidth = 1,
           );
           break;
         case _LineKind.cut:
@@ -1379,8 +1439,8 @@ class _TapePainter extends CustomPainter {
             Offset(l.x, l.top),
             Offset(l.x, bottom),
             Paint()
-              ..color = _ink
-              ..strokeWidth = l.selected ? 3 : 2,
+              ..color = l.selected ? _teal : _ink
+              ..strokeWidth = l.selected ? 2.5 : 1.8,
           );
           break;
       }
