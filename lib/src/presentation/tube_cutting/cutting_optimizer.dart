@@ -90,7 +90,10 @@ CuttingOptimizationResult optimizeCuttingMixed({
   // 가장 긴 원자재 배치에서 본마다 들어갈 수 있는 가장 짧은 길이로 줄인다.
   final shrunk = <StockBarPlan>[];
   for (final b in longest.bars) {
-    final need = b.pieces.fold(0.0, (s, p) => s + p + kerf);
+    // 조각 하나짜리 본은 조각이 들어가기만 하면 된다(톱날은 남는 끝에서 먹는다).
+    final need = b.pieces.length == 1
+        ? b.pieces.first
+        : b.pieces.fold(0.0, (s, p) => s + p + kerf);
     final fit = lens.firstWhere(
       (l) => need <= l + 1e-6,
       orElse: () => lens.last,
@@ -145,10 +148,17 @@ CuttingOptimizationResult optimizeCutting({
 }) {
   final List<double> oversized = [];
   final List<double> valid = [];
+  // 원자재 한 본을 거의 통째로 쓰는 조각. 혼자 한 본에 들어가면 톱날 손실은
+  // 남는 끝에서 먹으므로 받아 준다.
+  // 🚀 [고침] 예전에는 6000 원자재에 6000 조각도 톱날 손실 때문에 '원자재보다
+  // 길다'로 빠졌다.
+  final List<double> wholeBar = [];
   for (final p in pieces) {
     if (p <= 0) continue;
-    if (p + kerf > stockLength) {
+    if (p > stockLength + 1e-6) {
       oversized.add(p);
+    } else if (p + kerf > stockLength) {
+      wholeBar.add(p);
     } else {
       valid.add(p);
     }
@@ -205,6 +215,9 @@ CuttingOptimizationResult optimizeCutting({
   final bars = <StockBarPlan>[];
   for (final b in bestBins) {
     bars.add(StockBarPlan(stockLength)..pieces.addAll(b));
+  }
+  for (final p in wholeBar) {
+    bars.add(StockBarPlan(stockLength)..pieces.add(p));
   }
 
   return CuttingOptimizationResult(

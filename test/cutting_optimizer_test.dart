@@ -22,16 +22,42 @@ void expectValid(
   double kerf = 0,
 }) {
   for (final b in [...r.bars, ...r.leftoverBars]) {
-    final need = b.pieces.fold(0.0, (s, p) => s + p + kerf);
+    // 조각 하나짜리 본은 조각만 들어가면 된다(톱날은 남는 끝에서 먹는다).
+    final need = b.pieces.length == 1
+        ? b.pieces.first
+        : b.pieces.fold(0.0, (s, p) => s + p + kerf);
     expect(need <= b.stockLength + 1e-6, true, reason: '$b.pieces 넘침');
   }
   final placed = allPieces(r)..sort();
-  final expected = [...input.where((p) => p > 0 && p + kerf <= r.stockLength)]
+  final expected = [...input.where((p) => p > 0 && p <= r.stockLength + 1e-6)]
     ..sort();
   expect(placed, expected, reason: '조각이 빠지거나 늘었다');
 }
 
 void main() {
+  group('원자재 한 본짜리 조각', () {
+    test('6000 원자재에 6000 조각은 톱날 손실이 있어도 1본', () {
+      final r = optimizeCutting(pieces: [6000], stockLength: 6000, kerf: 3);
+      expect(r.oversizedPieces, isEmpty);
+      expect(r.barCount, 1);
+      expectValid(r, [6000], kerf: 3);
+    });
+    test('5998 조각과 1000 조각은 2본(한 본에 같이 넣지 않는다)', () {
+      final r = optimizeCutting(
+        pieces: [5998, 1000],
+        stockLength: 6000,
+        kerf: 3,
+      );
+      expect(r.oversizedPieces, isEmpty);
+      expect(r.barCount, 2);
+      expectValid(r, [5998, 1000], kerf: 3);
+    });
+    test('원자재보다 긴 조각은 여전히 뺀다', () {
+      final r = optimizeCutting(pieces: [6001], stockLength: 6000, kerf: 3);
+      expect(r.oversizedPieces, [6001]);
+    });
+  });
+
   // 잔재는 앱에서는 서버에 두지만, 테스트에서는 폰(prefs) 저장소로 바꿔 쓴다.
   leftoverStore = PrefsLeftoverStore();
 
