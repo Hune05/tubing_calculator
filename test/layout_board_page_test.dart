@@ -162,4 +162,53 @@ void main() {
     expect(find.text('단자대'), findsOneWidget);
     await disposeBoard(tester);
   });
+
+  // 입력 칸 안의 글(컨트롤러 값)로 찾는다.
+  Finder fieldWith(String v) => find.byWidgetPredicate(
+    (w) => w is EditableText && w.controller.text == v,
+    skipOffstage: false,
+  );
+
+  testWidgets('넓은 화면 오른쪽 칸: 크기를 치고 완료 없이 다른 칸을 눌러도 값이 들어간다', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'layout_board_onboarding_shown_v1': true,
+      'layout_board_draft_v1': jsonEncode(oldDraft()),
+    });
+    setSize(tester, kTablet);
+    addTearDown(tester.view.reset);
+    await pumpBoard(tester);
+    await tester.tap(find.text('이어하기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('단자대'));
+    await tester.pumpAndSettle();
+
+    final Finder widthField = fieldWith('160');
+    expect(widthField, findsOneWidget);
+    await tester.ensureVisible(widthField);
+    await tester.pumpAndSettle();
+    await tester.enterText(widthField, '240');
+    await tester.pump();
+    // 완료를 누르지 않고 세로 칸으로 옮긴다.
+    await tester.tap(fieldWith('60'));
+    await tester.pumpAndSettle();
+    // 다른 모듈을 골랐다가 돌아와도 친 값이 남아 있다(모듈에 들어갔다).
+    await tester.tap(
+      find.descendant(
+        of: find.byType(InteractiveViewer),
+        matching: find.text('차단기 A'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(fieldWith('240'), findsNothing);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(InteractiveViewer),
+        matching: find.text('단자대'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(fieldWith('240'), findsOneWidget);
+    // 모듈을 누르기만 한 기록은 건너뛰고, 되돌리기 한 번이면 예전 크기로 돌아온다.    await tester.tap(find.byTooltip('되돌리기'));    await tester.pumpAndSettle();    await tester.tap(find.descendant(of: find.byType(InteractiveViewer), matching: find.text('단자대')));    await tester.pumpAndSettle();    expect(fieldWith('160'), findsOneWidget);
+    await disposeBoard(tester);
+  });
 }

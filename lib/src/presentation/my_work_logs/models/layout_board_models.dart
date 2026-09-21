@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:flutter/material.dart';
 
 // 🚀 배치도(모바일·태블릿 두 화면)가 함께 쓰는 데이터 모양과 치수 계산.
@@ -304,4 +305,30 @@ bool layoutVisibleTo(Map<String, dynamic> data, LayoutOwner me) {
   if (docUid.isNotEmpty && myUid.isNotEmpty) return docUid == myUid;
   if (docName.isNotEmpty && myName.isNotEmpty) return docName == myName;
   return true;
+}
+
+/// 문서가 마지막으로 고쳐진 때(updatedAt, 없으면 createdAt). 둘 다 없으면 1970년.
+DateTime layoutEditedAt(Map<String, dynamic> data) {
+  final Object? ts = data['updatedAt'] ?? data['createdAt'];
+  if (ts is Timestamp) return ts.toDate();
+  if (ts is DateTime) return ts;
+  return DateTime.fromMillisecondsSinceEpoch(0);
+}
+
+/// "다른 도면에서 가져오기"에 보여 줄 도면. 목록 화면과 같은 규칙으로 내 배치도만,
+/// 지금 열어 둔 도면은 빼고, 최근 고친 순으로 늘어놓는다.
+List<T> layoutImportCandidates<T>(
+  Iterable<T> docs, {
+  required LayoutOwner me,
+  required String? currentId,
+  required Map<String, dynamic> Function(T) dataOf,
+  required String Function(T) idOf,
+}) {
+  final list = docs
+      .where((d) => idOf(d) != currentId && layoutVisibleTo(dataOf(d), me))
+      .toList();
+  list.sort(
+    (a, b) => layoutEditedAt(dataOf(b)).compareTo(layoutEditedAt(dataOf(a))),
+  );
+  return list;
 }

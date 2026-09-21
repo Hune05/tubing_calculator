@@ -448,7 +448,16 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   }
 
   void _undo() {
-    if (_undoStack.isEmpty) return;
+    // 모듈을 누르기만 해도 편집 전 모습을 한 번 남겨 둔다. 아무것도 안 바꿨으면
+    // 그 기록은 지금과 똑같아서 되돌리기를 눌러도 아무 일이 없어 보였다. 그런 기록은 건너뛴다.
+    final String now = jsonEncode(_captureUndoState());
+    while (_undoStack.isNotEmpty && jsonEncode(_undoStack.last) == now) {
+      _undoStack.removeLast();
+    }
+    if (_undoStack.isEmpty) {
+      setState(() {});
+      return;
+    }
     setState(() {
       _redoStack.add(_captureUndoState());
       _restoreUndoState(_undoStack.removeLast());
@@ -1525,6 +1534,20 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     );
   }
 
+  // 가져올 도면 후보: 목록 화면과 같이 내 배치도(만든 사람 칸이 없는 예전 배치도 포함)만,
+  // 최근 고친 순. 예전엔 updatedAt으로 서버 정렬을 걸어서 이 칸이 없는 예전 배치도가 빠졌다.
+  Future<List<QueryDocumentSnapshot>> _loadImportSources() async {
+    final LayoutOwner me = await loadLayoutOwner();
+    final snap = await FirebaseFirestore.instance.collection('layouts').get();
+    return layoutImportCandidates(
+      snap.docs,
+      me: me,
+      currentId: _currentProjectId,
+      dataOf: (d) => d.data() as Map<String, dynamic>,
+      idOf: (d) => d.id,
+    );
+  }
+
   // 🚀 [신규] 다른 프로젝트 도면에서 모듈 가져오기 - 이전에 저장해둔
   // 다른 배치도의 모듈 중 원하는 것만 골라 지금 도면으로 복사해 온다.
   // 1단계: 가져올 원본 도면 선택 → 2단계: 그 안의 모듈 체크박스 선택.
@@ -1560,11 +1583,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   ),
                 ),
                 Flexible(
-                  child: FutureBuilder<QuerySnapshot>(
-                    future: FirebaseFirestore.instance
-                        .collection('layouts')
-                        .orderBy('updatedAt', descending: true)
-                        .get(),
+                  child: FutureBuilder<List<QueryDocumentSnapshot>>(
+                    future: _loadImportSources(),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Padding(
@@ -1574,15 +1594,14 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           ),
                         );
                       }
-                      final docs = (snapshot.data?.docs ?? [])
-                          .where((d) => d.id != _currentProjectId)
-                          .toList();
+                      final docs =
+                          snapshot.data ?? const <QueryDocumentSnapshot>[];
                       if (docs.isEmpty) {
                         return Padding(
                           padding: EdgeInsets.all(24),
                           child: Text(
                             keepWords("가져올 수 있는 다른 도면이 없습니다."),
-                            style: TextStyle(color: tossSubText),
+                            style: TextStyle(color: tossSubText, fontSize: 15),
                           ),
                         );
                       }
@@ -5333,6 +5352,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   Expanded(
                     child: _buildInspectorInput(
                       "가로",
+                      fieldKey: ValueKey("${item.id}_가로"),
                       item.width.toInt().toString(),
                       (val) {
                         _pushUndo();
@@ -5353,6 +5373,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   Expanded(
                     child: _buildInspectorInput(
                       "세로",
+                      fieldKey: ValueKey("${item.id}_세로"),
                       item.height.toInt().toString(),
                       (val) {
                         _pushUndo();
@@ -5379,6 +5400,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   Expanded(
                     child: _buildInspectorInput(
                       "X",
+                      fieldKey: ValueKey("${item.id}_X"),
                       item.position.dx.toInt().toString(),
                       (val) {
                         _pushUndo();
@@ -5399,6 +5421,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   Expanded(
                     child: _buildInspectorInput(
                       "Y",
+                      fieldKey: ValueKey("${item.id}_Y"),
                       item.position.dy.toInt().toString(),
                       (val) {
                         _pushUndo();
@@ -5631,8 +5654,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   Widget _buildInspectorInput(
     String label,
     String value,
-    Function(String) onChanged,
-  ) {
+    Function(String) onChanged, {
+    Key? fieldKey,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -5645,16 +5669,11 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           ),
         ),
         const SizedBox(height: 6),
-        TextField(
-          controller: TextEditingController(text: value)
-            ..selection = TextSelection.collapsed(offset: value.length),
-          keyboardType: TextInputType.number,
-          onSubmitted: onChanged,
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-            color: tossText,
-          ),
+        // 모듈마다 칸을 새로 만든다(치던 값이 다른 모듈로 넘어가지 않게).
+        _InspectorNumberField(
+          key: fieldKey,
+          value: value,
+          onCommit: onChanged,
           decoration: _inspectorFieldDecoration(),
         ),
       ],
@@ -6723,3 +6742,93 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 // ---------------------------------------------------------
 
 // 🚀 SmartGuidePainter·GridPainter 는 models/layout_board_painters.dart 로 옮겼다(모바일·태블릿 공용).
+
+// 넓은 화면 오른쪽 칸의 숫자 입력 칸(크기·위치).
+// 예전엔 그릴 때마다 입력 칸을 새로 만들어서, 값을 치다가 다른 칸을 누르면 친 값이 사라졌다.
+// 이제 칸 하나를 계속 쓰고, 완료를 누르거나 다른 곳을 누를 때(포커스가 빠질 때) 값을 넣는다.
+class _InspectorNumberField extends StatefulWidget {
+  final String value;
+  final void Function(String) onCommit;
+  final InputDecoration decoration;
+
+  const _InspectorNumberField({
+    super.key,
+    required this.value,
+    required this.onCommit,
+    required this.decoration,
+  });
+
+  @override
+  State<_InspectorNumberField> createState() => _InspectorNumberFieldState();
+}
+
+class _InspectorNumberFieldState extends State<_InspectorNumberField> {
+  late final TextEditingController _ctrl = TextEditingController(
+    text: widget.value,
+  );
+  final FocusNode _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() {
+      // 화면에서 빠지는 중(폭이 바뀌어 칸이 사라지거나 화면을 닫음)에는 넣지 않는다.
+      if (!_focus.hasFocus && mounted && _active) _commit();
+    });
+  }
+
+  bool _active = true;
+
+  @override
+  void deactivate() {
+    _active = false;
+    super.deactivate();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    _active = true;
+  }
+
+  @override
+  void didUpdateWidget(covariant _InspectorNumberField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 치는 중이 아닐 때만 바깥 값(끌어서 옮긴 위치, 되돌리기 등)을 따라간다.
+    if (!_focus.hasFocus && _ctrl.text != widget.value) {
+      _ctrl.text = widget.value;
+    }
+  }
+
+  void _commit() {
+    if (_ctrl.text.trim().isEmpty) {
+      _ctrl.text = widget.value;
+      return;
+    }
+    if (_ctrl.text != widget.value) widget.onCommit(_ctrl.text);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _ctrl,
+      focusNode: _focus,
+      keyboardType: TextInputType.number,
+      onSubmitted: (_) => _commit(),
+      onTapOutside: (_) => _focus.unfocus(),
+      style: const TextStyle(
+        fontSize: 17,
+        fontWeight: FontWeight.w800,
+        color: tossText,
+      ),
+      decoration: widget.decoration,
+    );
+  }
+}

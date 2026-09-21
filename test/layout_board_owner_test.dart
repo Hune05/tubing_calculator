@@ -124,4 +124,40 @@ void main() {
     expect(find.text('복제하기'), findsOneWidget);
     expect(find.text('삭제하기'), findsOneWidget);
   });
+
+  group('다른 도면에서 가져오기 후보', () {
+    List<MapEntry<String, Map<String, dynamic>>> pick(
+      List<MapEntry<String, Map<String, dynamic>>> docs, {
+      String? current,
+    }) => layoutImportCandidates(
+      docs,
+      me: me,
+      currentId: current,
+      dataOf: (d) => d.value,
+      idOf: (d) => d.key,
+    );
+
+    test('남의 배치도와 지금 열어 둔 도면은 빼고, 예전 배치도는 넣는다', () {
+      final docs = [
+        MapEntry('mine', {'ownerUid': 'u-me'}),
+        MapEntry('other', {'ownerUid': 'u-other'}),
+        MapEntry('old', <String, dynamic>{'projectName': '예전'}),
+        MapEntry('open', {'ownerUid': 'u-me'}),
+      ];
+      expect(pick(docs, current: 'open').map((e) => e.key).toSet(), {
+        'mine',
+        'old',
+      });
+    });
+
+    test('updatedAt이 없는 예전 문서도 빠지지 않고 createdAt으로 줄 선다', () {
+      final docs = [
+        MapEntry('a', {'updatedAt': Timestamp.fromDate(DateTime(2026, 1, 1))}),
+        MapEntry('b', {'createdAt': Timestamp.fromDate(DateTime(2026, 5, 1))}),
+        MapEntry('c', <String, dynamic>{}),
+        MapEntry('d', {'updatedAt': Timestamp.fromDate(DateTime(2026, 9, 1))}),
+      ];
+      expect(pick(docs).map((e) => e.key).toList(), ['d', 'b', 'a', 'c']);
+    });
+  });
 }
