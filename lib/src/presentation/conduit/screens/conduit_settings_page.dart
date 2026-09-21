@@ -73,6 +73,16 @@ Future<void> saveGlobalBenderSettings() async {
   );
 }
 
+/// 단위 칸 도움말. 셈은 늘 mm이고 단위는 현장 탭 표시에만 쓴다.
+const String kUnitHelp = "현장 탭(가로 줄자)에서 인치로도 같이 보여 줍니다. 제원 칸과 마킹 탭 값은 늘 mm입니다.";
+
+/// 설정에는 있지만 아직 마킹 셈에 쓰지 않는 칸에 붙이는 말.
+const String kNotUsedYet = "아직 마킹 셈에는 쓰지 않습니다.";
+
+/// 유압·시카고 화면의 게인 칸 도움말.
+const String kGainHelp =
+    "관이 90°로 꺾이며 줄어드는 길이입니다. 총 절단 길이에서 벤드마다 뺍니다. 제조사를 고르면 CLR로 셈한 값이 들어갑니다.";
+
 class ConduitSettingsPage extends StatefulWidget {
   const ConduitSettingsPage({super.key});
 
@@ -666,7 +676,9 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
   }
 
   Widget _buildHandSettingsView() {
-    String unit = _unitSystem.contains('인치') ? '"' : "mm";
+    // 🚀 [고침] 제원 칸 값은 늘 mm로 셈한다. 예전에는 단위를 인치로 고르면 칸 뒤
+    // 글자만 "로 바뀌어, 인치로 6을 넣으면 6mm로 셈했다.
+    const String unit = 'mm';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -719,10 +731,10 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
         _buildSectionTitle("제원 수치 (수동)"),
         _buildSettingsCard([
           _buildDropdownRow(
-            "단위",
+            "현장 탭 단위",
             ['인치 (분수)', '인치 (소수점)', '미터법 (mm)'],
             _unitSystem,
-            helpText: "입력 및 결과 표시에 사용할 단위를 선택합니다.",
+            helpText: kUnitHelp,
             (v) {
               if (v != null) {
                 setState(() => _unitSystem = v);
@@ -744,6 +756,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             "기본 마킹 기준",
             ['화살표 (일반)', '별 (Back-to-Back)', '노치 (새들 중앙)'],
             _referenceMark,
+            helpText: kNotUsedYet,
             (v) {
               if (v != null) {
                 setState(() => _referenceMark = v);
@@ -754,7 +767,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             "90° 테이크업 (Take-up)",
             _takeUpController,
             suffix: unit,
-            helpText: "바닥에서 위로 직각 벤딩 시, 벤더 헤드 자체가 차지하는 여유 길이입니다.",
+            helpText: "90°로 세울 때 세울 길이에서 이만큼 빼서 화살표 자리를 찍습니다.",
           ),
           _buildInputRow(
             "벤딩 게인 (Gain)",
@@ -853,7 +866,9 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
   }
 
   Widget _buildRamSettingsView() {
-    String unit = _unitSystem.contains('인치') ? '"' : "mm";
+    // 🚀 [고침] 제원 칸 값은 늘 mm로 셈한다. 예전에는 단위를 인치로 고르면 칸 뒤
+    // 글자만 "로 바뀌어, 인치로 6을 넣으면 6mm로 셈했다.
+    const String unit = 'mm';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -897,9 +912,10 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
         _buildSectionTitle("유압 실린더 제원"),
         _buildSettingsCard([
           _buildDropdownRow(
-            "단위",
+            "현장 탭 단위",
             ['인치 (분수)', '인치 (소수점)', '미터법 (mm)'],
             _unitSystem,
+            helpText: kUnitHelp,
             (v) {
               if (v != null) {
                 setState(() => _unitSystem = v);
@@ -910,13 +926,22 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             "램 이동 거리",
             _ramTravelController,
             suffix: unit,
-            helpText: "해당 장비의 실린더가 최대로 전진(스트로크)할 수 있는 물리적 거리 한계점입니다.",
+            helpText:
+                "90°로 꺾을 때 램이 나가는 거리입니다. 다른 각도는 이 값에서 셈해 보여 주므로, 최대 스트로크 한계가 아닙니다.",
           ),
           _buildInputRow(
             "셋백 (Setback)",
             _setbackController,
             suffix: unit,
-            helpText: "유압의 힘으로 파이프가 꺾이면서 장비 내에서 뒤로 밀려나는 거리를 보정하는 수치입니다.",
+            helpText: "꺾이는 점에서 이만큼 떨어진 자리에 마킹을 찍습니다(벤드마다 뺍니다).",
+          ),
+          // 🚀 [고침] 게인은 셈에 들어가는데 유압·시카고 화면에는 칸이 없어
+          // 보지도 고치지도 못했다.
+          _buildInputRow(
+            "벤딩 게인 (Gain)",
+            _gainController,
+            suffix: unit,
+            helpText: kGainHelp,
           ),
           _buildInputRow("슈 중심선 반경 (CLR)", _clrController, suffix: unit),
         ]),
@@ -926,7 +951,9 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
   }
 
   Widget _buildChicagoSettingsView() {
-    String unit = _unitSystem.contains('인치') ? '"' : "mm";
+    // 🚀 [고침] 제원 칸 값은 늘 mm로 셈한다. 예전에는 단위를 인치로 고르면 칸 뒤
+    // 글자만 "로 바뀌어, 인치로 6을 넣으면 6mm로 셈했다.
+    const String unit = 'mm';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -964,9 +991,10 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
         _buildSectionTitle("노치 및 제원 (시카고)"),
         _buildSettingsCard([
           _buildDropdownRow(
-            "단위",
+            "현장 탭 단위",
             ['인치 (분수)', '인치 (소수점)', '미터법 (mm)'],
             _unitSystem,
+            helpText: kUnitHelp,
             (v) {
               if (v != null) {
                 setState(() => _unitSystem = v);
@@ -986,19 +1014,25 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             _takeUpController,
             suffix: unit,
             helpText:
-                "시카고식도 슈에 감아 구부리는 방식이라 첫 벤딩점에서 여유 길이 차감이 필요합니다. 동일 규격 수동 벤더 값을 근사치로 사용합니다.",
+                "꺾이는 점에서 이만큼 빼서 마킹을 찍습니다(벤드마다 뺍니다). 같은 규격 수동 벤더 값을 어림값으로 씁니다.",
+          ),
+          _buildInputRow(
+            "벤딩 게인 (Gain)",
+            _gainController,
+            suffix: unit,
+            helpText: kGainHelp,
           ),
           _buildInputRow(
             "노치 간격",
             _notchSpacingController,
             suffix: unit,
-            helpText: "벤더 슈에 새겨진 노치와 노치 사이의 실제 물리적 거리입니다.",
+            helpText: "벤더 슈에 새겨진 노치와 노치 사이 거리입니다. $kNotUsedYet",
           ),
           _buildInputRow(
             "롤러 규격",
             _rollerSizeController,
             suffix: unit,
-            helpText: "시카고 벤더 구조상 배관을 위에서 눌러주는 롤러(바퀴)의 지름입니다.",
+            helpText: "관을 위에서 눌러 주는 롤러(바퀴)의 지름입니다. $kNotUsedYet",
           ),
           _buildInputRow("슈 중심선 반경 (CLR)", _clrController, suffix: unit),
         ]),
