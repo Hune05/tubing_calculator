@@ -13,8 +13,8 @@ const Color layoutLine = Color(0xFFE2E8F0); // slate200: 칸 테두리
 const Color pureWhite = Color(0xFFFFFFFF);
 const Color warningRed = Color(0xFFF04438);
 
-/// 장갑 끼고도 누를 수 있는 가장 작은 크기(dp).
-const double kLayoutTouch = 48;
+/// 누르는 곳의 가장 작은 크기(dp). 폰은 맨손으로 쓰므로 보통 폰 크기로 둔다.
+const double kLayoutTouch = 40;
 
 /// 전선관 계산기 카드: 흰 바탕, 둥근 모서리, 옅은 테두리와 그림자.
 BoxDecoration layoutCardDecoration({double radius = 18, Color? color}) =>

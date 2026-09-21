@@ -10,7 +10,7 @@ import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_boa
 // - 위 막대에는 자주 쓰는 것(되돌리기·다시 실행·저장·더보기)만 있다.
 // - 전체 지우기는 더보기 안의 빨간 칸에 따로 있고, 한 번 더 묻는다.
 // - 길게 눌러야만 되던 것(되돌리기 기록, 프리셋 지우기)을 단추로도 연다.
-// - 장갑 끼고도 누르게: 누르는 곳 48dp 이상, 글씨 14 이상.
+// - 보통 폰 크기: 누르는 곳 40dp 이상, 글씨 14 이상.
 
 const Size kPhone = Size(390, 844);
 const Size kTablet = Size(1024, 768);
@@ -76,8 +76,8 @@ Future<void> disposeBoard(WidgetTester tester) async {
 
 void expectTouchable(WidgetTester tester, Finder f) {
   final Size s = tester.getSize(f);
-  expect(s.width, greaterThanOrEqualTo(48), reason: '$f 폭 $s');
-  expect(s.height, greaterThanOrEqualTo(48), reason: '$f 높이 $s');
+  expect(s.width, greaterThanOrEqualTo(40), reason: '$f 폭 $s');
+  expect(s.height, greaterThanOrEqualTo(40), reason: '$f 높이 $s');
 }
 
 // 도면(확대·이동 안의 모듈 이름, 치수 글씨)은 mm 비율로 그리는 그림이라 빼고,
@@ -267,7 +267,7 @@ void main() {
     await disposeBoard(tester);
   });
 
-  testWidgets('폰 폭: 도구 칸의 글씨는 14 이상, 단추는 48 이상', (tester) async {
+  testWidgets('폰 폭: 도구 칸의 글씨는 14 이상, 단추는 40 이상', (tester) async {
     await openWithDraft(tester, kPhone, presets: true);
     expectNoSmallText(tester);
     expectTouchable(tester, buttonOf('여러 개 선택'));
@@ -278,7 +278,7 @@ void main() {
           matching: find.byType(AnimatedContainer),
         ),
       );
-      expect(s.height, greaterThanOrEqualTo(48), reason: t);
+      expect(s.height, greaterThanOrEqualTo(40), reason: t);
     }
 
     // 치수 모드 도구 칸도 같다.

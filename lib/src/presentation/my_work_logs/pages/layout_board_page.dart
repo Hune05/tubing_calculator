@@ -1734,7 +1734,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
                       child: SizedBox(
                         width: double.infinity,
-                        height: 52,
+                        height: 44,
                         child: ElevatedButton(
                           onPressed: selectedIds.isEmpty
                               ? null
@@ -1747,7 +1747,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                   );
                                 },
                           style: ElevatedButton.styleFrom(
-                            minimumSize: const Size(48, 48),
+                            minimumSize: const Size(40, 40),
                             backgroundColor: tossBlue,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
@@ -2314,7 +2314,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
-                      height: 52,
+                      height: 44,
                       child: OutlinedButton.icon(
                         onPressed: () {
                           _pushUndo();
@@ -2335,7 +2335,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(48, 48),
+                          minimumSize: const Size(40, 40),
                           side: const BorderSide(color: warningRed),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
@@ -2775,7 +2775,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 const SizedBox(height: 28),
                 SizedBox(
                   width: double.infinity,
-                  height: 56,
+                  height: 48,
                   child: ElevatedButton.icon(
                     onPressed: () async {
                       Navigator.pop(context);
@@ -2796,7 +2796,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(48, 48),
+                      minimumSize: const Size(40, 40),
                       backgroundColor: tossBlue,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -2808,7 +2808,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
-                  height: 56,
+                  height: 48,
                   child: OutlinedButton.icon(
                     onPressed: () async {
                       Navigator.pop(context);
@@ -2828,7 +2828,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(48, 48),
+                      minimumSize: const Size(40, 40),
                       side: const BorderSide(color: layoutLine, width: 1.5),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -2840,7 +2840,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
-                    height: 56,
+                    height: 48,
                     child: OutlinedButton.icon(
                       onPressed: () {
                         Navigator.pop(context);
@@ -2859,7 +2859,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                         ),
                       ),
                       style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(48, 48),
+                        minimumSize: const Size(40, 40),
                         side: const BorderSide(color: tossBlue, width: 1.5),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
@@ -3000,7 +3000,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               ),
                             ),
                             style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(48, 48),
+                              minimumSize: const Size(40, 40),
                               backgroundColor: tossBlue.withValues(alpha: 0.1),
                               elevation: 0,
                               shape: RoundedRectangleBorder(
@@ -3069,7 +3069,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               ),
                             ),
                             style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(48, 48),
+                              minimumSize: const Size(40, 40),
                               backgroundColor: tossBg,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
@@ -3112,7 +3112,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               ),
                             ),
                             style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(48, 48),
+                              minimumSize: const Size(40, 40),
                               side: BorderSide(
                                 color: tossText.withValues(alpha: 0.2),
                               ),
@@ -3148,7 +3148,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               ),
                             ),
                             style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(48, 48),
+                              minimumSize: const Size(40, 40),
                               side: BorderSide(
                                 color: tossText.withValues(alpha: 0.2),
                               ),
@@ -3376,7 +3376,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     const SizedBox(height: 36),
                     SizedBox(
                       width: double.infinity,
-                      height: 56,
+                      height: 48,
                       child: OutlinedButton.icon(
                         onPressed: () {
                           setState(() {
@@ -3405,7 +3405,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(48, 48),
+                          minimumSize: const Size(40, 40),
                           side: const BorderSide(color: warningRed, width: 1.5),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
@@ -3554,7 +3554,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               ),
                             ),
                             style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(48, 48),
+                              minimumSize: const Size(40, 40),
                               side: const BorderSide(color: tossBlue),
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
@@ -3585,7 +3585,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                 ),
                               ),
                               style: OutlinedButton.styleFrom(
-                                minimumSize: const Size(48, 48),
+                                minimumSize: const Size(40, 40),
                                 side: const BorderSide(color: warningRed),
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 14,
@@ -3850,7 +3850,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(48, 48),
+                          minimumSize: const Size(40, 40),
                           side: BorderSide(
                             color: tossText.withValues(alpha: 0.2),
                           ),
@@ -3882,7 +3882,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(48, 48),
+                          minimumSize: const Size(40, 40),
                           backgroundColor: tossBlue,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
@@ -3978,7 +3978,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 const SizedBox(height: 36),
                 SizedBox(
                   width: double.infinity,
-                  height: 56,
+                  height: 48,
                   child: ElevatedButton(
                     onPressed: () {
                       _pushUndo();
@@ -4006,7 +4006,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       Navigator.pop(context);
                     },
                     style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(48, 48),
+                      minimumSize: const Size(40, 40),
                       backgroundColor: tossBlue,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -4165,7 +4165,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             onPressed: canUndo ? _undo : null,
             icon: Icon(
               Icons.undo_rounded,
-              size: 26,
+              size: 24,
               color: canUndo ? tossText : tossSubText.withValues(alpha: 0.35),
             ),
           ),
@@ -4176,7 +4176,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           onPressed: canRedo ? _redo : null,
           icon: Icon(
             Icons.redo_rounded,
-            size: 26,
+            size: 24,
             color: canRedo ? tossText : tossSubText.withValues(alpha: 0.35),
           ),
         ),
@@ -4199,8 +4199,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           Tooltip(
             message: "저장·공유",
             child: SizedBox(
-              width: 48,
-              height: 48,
+              width: 44,
+              height: 44,
               child: FilledButton(
                 onPressed: _showSaveActionSheet,
                 style: FilledButton.styleFrom(
@@ -4212,7 +4212,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 ),
                 child: const Icon(
                   Icons.save_alt_rounded,
-                  size: 24,
+                  size: 22,
                   color: pureWhite,
                 ),
               ),
@@ -4225,7 +4225,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               onPressed: _showSaveActionSheet,
               style: FilledButton.styleFrom(
                 backgroundColor: tossBlue,
-                minimumSize: const Size(76, 48),
+                minimumSize: const Size(72, 44),
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -4250,7 +4250,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           tooltip: "더보기",
           constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           onPressed: _showMoreSheet,
-          icon: const Icon(Icons.more_vert_rounded, color: tossText, size: 26),
+          icon: const Icon(Icons.more_vert_rounded, color: tossText, size: 24),
         ),
         const SizedBox(width: 4),
       ],
@@ -4942,7 +4942,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                           ),
                                         ),
                                         style: OutlinedButton.styleFrom(
-                                          minimumSize: const Size(48, 48),
+                                          minimumSize: const Size(40, 40),
                                           side: const BorderSide(
                                             color: tossBlue,
                                           ),
@@ -5731,7 +5731,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   }) {
     final Color fg = danger ? warningRed : (accent ? tossBlue : tossText);
     return SizedBox(
-      height: 52,
+      height: 44,
       child: OutlinedButton.icon(
         onPressed: onTap,
         icon: Icon(icon, size: 22, color: fg),
@@ -5746,7 +5746,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           ),
         ),
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size(48, 48),
+          minimumSize: const Size(40, 40),
           backgroundColor: accent
               ? tossBlue.withValues(alpha: 0.08)
               : pureWhite,
@@ -5930,7 +5930,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   }
 
   // 모드 전환(모듈 배치/이동 ↔ 고정 치수 측정): 전선관 계산기처럼 회색 판 안에서
-  // 고른 쪽만 틸로 채운다. 높이 52로 장갑 끼고도 누른다.
+  // 고른 쪽만 틸로 채운다.
   Widget _buildModeSegmentedControl() {
     final segments = <(BoardMode, String, IconData)>[
       (BoardMode.placeModule, "모듈 배치/이동", Icons.open_with_rounded),
@@ -5938,7 +5938,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     ];
 
     return Container(
-      height: 60,
+      height: 50,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: tossBg,
@@ -6092,7 +6092,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             TextButton.icon(
               onPressed: _showPresetManageSheet,
               style: TextButton.styleFrom(
-                minimumSize: const Size(48, 48),
+                minimumSize: const Size(40, 40),
                 foregroundColor: tossBlue,
               ),
               icon: const Icon(Icons.edit_outlined, size: 20),
@@ -6410,8 +6410,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     // 넓은 화면의 왼쪽 칸에서는 크게 보인다. 끄는 동안 떠다니는 복사본으로도
     // 쓰이므로 폭은 늘 고정값이어야 한다(무한 폭이면 오류가 난다).
     return Container(
-      width: large ? 228 : 84,
-      height: large ? 72 : 64,
+      width: large ? 228 : 76,
+      height: large ? 56 : 56,
       decoration: BoxDecoration(
         color: tossBlue.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
@@ -6422,7 +6422,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             ? Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.add_box_rounded, color: tossBlue, size: 28),
+                  const Icon(Icons.add_box_rounded, color: tossBlue, size: 22),
                   const SizedBox(width: 8),
                   Text(
                     defaultName,
@@ -6437,7 +6437,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             : Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.add_box_rounded, color: tossBlue, size: 24),
+                  const Icon(Icons.add_box_rounded, color: tossBlue, size: 20),
                   const SizedBox(height: 2),
                   Text(
                     defaultName,
@@ -6456,7 +6456,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     );
   }
 
-  // 켜고 끄는 도구 단추(높이 48 이상, 글씨 15). 알약 모양 대신 모서리만 둥근 네모.
+  // 켜고 끄는 도구 단추(높이 44, 글씨 14). 알약 모양 대신 모서리만 둥근 네모.
   Widget _toolToggle({
     required IconData icon,
     required String label,
@@ -6483,7 +6483,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             onTap();
           },
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 52),
+            constraints: const BoxConstraints(minHeight: 44),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Row(
@@ -6661,7 +6661,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               TextButton.icon(
                 onPressed: () => setState(() => _dimensionStartPoint = null),
                 style: TextButton.styleFrom(
-                  minimumSize: const Size(48, 48),
+                  minimumSize: const Size(40, 40),
                   foregroundColor: tossText,
                 ),
                 icon: const Icon(Icons.undo_rounded, size: 22),

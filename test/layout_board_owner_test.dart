@@ -115,8 +115,8 @@ void main() {
     expect(find.text('남의 배치도'), findsNothing);
     expect(find.byTooltip('복제·삭제'), findsNWidgets(2));
     final Size btn = tester.getSize(find.byTooltip('복제·삭제').first);
-    expect(btn.width, greaterThanOrEqualTo(48)); // 장갑 끼고 누를 크기
-    expect(btn.height, greaterThanOrEqualTo(48));
+    expect(btn.width, greaterThanOrEqualTo(40)); // 보통 폰 누르는 크기
+    expect(btn.height, greaterThanOrEqualTo(40));
 
     // 길게 누르지 않고 단추로 복제·삭제 창을 연다.
     await tester.tap(find.byTooltip('복제·삭제').first);
