@@ -2098,10 +2098,13 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
 
     setState(() {
       try {
+        // 🚀 [고침] 절단 횟수는 자른 번수(구간 수 × 세트)로 센다. 예전에는
+        // 세트 수만 더해서 3구간을 잘라도 1회로 올랐고, 기록을 지울 때는
+        // 기록(구간)마다 세트 수를 빼서 누계가 음수가 되었다.
         widget.project.recordUsage(
           tubeLengthMm: plan.finalTotalMm,
           fittings: {},
-          multiplier: _setMultiplier,
+          multiplier: plan.records.length * _setMultiplier,
         );
       } catch (e) {
         debugPrint("단독 모드 에러 무시: $e");
@@ -2173,7 +2176,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         widget.project.recordUsage(
           tubeLengthMm: -s.plan.finalTotalMm,
           fittings: {},
-          multiplier: -s.setMultiplier,
+          multiplier: -(s.plan.records.length * s.setMultiplier),
         );
       } catch (e) {
         debugPrint("단독 모드 에러 무시: $e");

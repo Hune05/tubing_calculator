@@ -539,7 +539,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  "총 절단 ${project.cutCount}회 · 소모량 ${project.estimatedMeters}m",
+                                  "총 절단 ${project.cutCount < 0 ? 0 : project.cutCount}회 · 소모량 ${project.estimatedMeters}m",
                                   style: const TextStyle(
                                     color: CuttingColors.textSecondary,
                                     fontSize: 13,

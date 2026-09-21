@@ -401,7 +401,7 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                "총 절단 횟수: ${project.cutCount} 회",
+                                "총 절단 횟수: ${project.cutCount < 0 ? 0 : project.cutCount} 회",
                                 style: const TextStyle(
                                   color: CuttingColors.textSecondary,
                                   fontSize: 14,

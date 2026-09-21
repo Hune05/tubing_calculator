@@ -181,7 +181,7 @@ void main() {
       await tester.tap(find.text('저장'));
       await tester.pumpAndSettle();
       expect(p.totalTubeUsed, 1500);
-      expect(p.cutCount, 1);
+      expect(p.cutCount, 2); // 구간 2개 × 1세트 = 2번 자름
       expect(find.text('치수를 입력하십시오.'), findsOneWidget);
       expect(find.text('실행 취소'), findsOneWidget);
     });
