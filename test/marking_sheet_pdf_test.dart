@@ -93,7 +93,7 @@ void main() {
     final map = {for (final (k, v) in specs) k: v};
     expect(map['테이크업(90°)'], '152.4 mm');
     expect(map['게인(90°)'], '82.5 mm');
-    expect(map['커플링'], startsWith('체결'));
+    expect(map['커플링'], '체결 · 끝 여유 50 mm');
     expect(map['벤더'], contains('수동'));
 
     final ram = conduitMarkingSheetSpecs({

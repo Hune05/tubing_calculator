@@ -70,7 +70,6 @@ List<Map<String, dynamic>> calculateConduitMarkings(
 }) {
   final String benderType = settings['benderType'] ?? 'hand';
   final double gain90 = _num(settings, 'gain', 0.0);
-  final double couplingDepth = _num(settings, 'couplingDepth', 20.0);
   final bool applySpringback = settings['applySpringback'] ?? true;
   final double springbackVal = _num(settings, 'springback', 3.0);
   final double baseRamTravel = _num(settings, 'ramTravel', 0.0);
@@ -80,8 +79,10 @@ List<Map<String, dynamic>> calculateConduitMarkings(
   final markings = <Map<String, dynamic>>[];
 
   // 꺾이는 점의 줄자 눈금. 구간 길이를 더하고 앞 벤드의 게인을 뺀 것.
-  // 커플링을 꽂으면 관 끝이 그만큼 안으로 들어가므로 줄자 0이 뒤로 간다.
-  double developed = useCoupling ? -couplingDepth : 0.0;
+  // 커플링을 체결하면 줄자 0점을 커플링 끝에 댄다. 나사 물림(탭 깊이)에 따라
+  // 관이 들어가는 깊이가 매번 달라서, 깊이를 빼서 셈하면 마킹이 같이 흔들린다.
+  // 그래서 마킹은 옮기지 않고, 자를 길이에만 끝 여유를 더한다(conduitTotalCut).
+  double developed = 0.0;
   double prevMark = 0.0;
   double prevGain = 0.0;
 
@@ -106,7 +107,7 @@ List<Map<String, dynamic>> calculateConduitMarkings(
     if (isFirst) {
       note = '';
       if (angle > 0) note += '$offsetName(-${markOffset.round()}mm) ';
-      if (useCoupling) note += '커플링(-${couplingDepth.round()}mm) ';
+      if (useCoupling) note += '줄자 0점: 커플링 끝 ';
       if (note.isEmpty) note = angle == 0.0 ? '직관 시작' : '첫 벤딩점';
     } else if (gap < 0) {
       // 앞 마킹보다 앞에 찍힌다. 앞이 직관이면 한 줄로 이어진 관이라 꺾을 수는
@@ -200,8 +201,9 @@ double conduitOuterDiameterMm(String size) {
 /// 마킹 탭과 현장 탭이 같은 값을 쓰도록 한 곳에 둔다.
 double conduitTotalCut(
   List<Map<String, dynamic>> bendList,
-  Map<String, dynamic> settings,
-) {
+  Map<String, dynamic> settings, {
+  bool useCoupling = false,
+}) {
   if (bendList.isEmpty) return 0.0;
   final double gain90 = _num(settings, 'gain', 0.0);
   double sum = 0.0;
@@ -212,8 +214,17 @@ double conduitTotalCut(
     sum += len;
     if (angle > 0) gains += conduitGainForAngle(angle, gain90);
   }
-  return sum - gains + _num(settings, 'bladeKerf', 0.0);
+  return sum -
+      gains +
+      _num(settings, 'bladeKerf', 0.0) +
+      (useCoupling ? conduitCouplingAllowance(settings) : 0.0);
 }
+
+/// 커플링 체결 때 자를 길이에 더하는 끝 여유(기본 50mm).
+/// 커플링에 관이 들어가는 깊이는 나사 물림에 따라 달라서, 넉넉히 잘라
+/// 벤딩한 뒤 반대쪽 끝을 맞춰 자른다.
+double conduitCouplingAllowance(Map<String, dynamic> settings) =>
+    _num(settings, 'couplingAllowance', 50.0);
 
 /// 90°로 한 번 꺾어 잰 값으로 이 벤더의 테이크업·게인(90°)을 잡는다.
 ///

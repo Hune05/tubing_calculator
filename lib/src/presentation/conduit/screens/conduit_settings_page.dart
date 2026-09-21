@@ -39,6 +39,7 @@ final ValueNotifier<Map<String, dynamic>> globalBenderSettings = ValueNotifier({
   'rollerSize': 38.1,
   'keepScreenOn': true,
   'couplingDepth': 20.0,
+  'couplingAllowance': 50.0,
   'bladeKerf': 0.0,
   'referenceMark': '화살표 (일반)',
   'bendRadiusWarning': true,
@@ -114,6 +115,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
   late TextEditingController _notchSpacingController;
   late TextEditingController _rollerSizeController;
   late TextEditingController _couplingDepthController;
+  late TextEditingController _couplingAllowanceController;
   late TextEditingController _bladeKerfController;
 
   final List<String> _koreanConduitSizes = [
@@ -162,6 +164,9 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     _couplingDepthController = TextEditingController(
       text: s['couplingDepth'].toString(),
     );
+    _couplingAllowanceController = TextEditingController(
+      text: (s['couplingAllowance'] ?? 50.0).toString(),
+    );
     _bladeKerfController = TextEditingController(
       text: s['bladeKerf'].toString(),
     );
@@ -186,6 +191,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     _notchSpacingController.dispose();
     _rollerSizeController.dispose();
     _couplingDepthController.dispose();
+    _couplingAllowanceController.dispose();
     _bladeKerfController.dispose();
     super.dispose();
   }
@@ -388,6 +394,8 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
       'rollerSize': double.tryParse(_rollerSizeController.text) ?? 38.1,
       'keepScreenOn': _keepScreenOn,
       'couplingDepth': double.tryParse(_couplingDepthController.text) ?? 20.0,
+      'couplingAllowance':
+          double.tryParse(_couplingAllowanceController.text) ?? 50.0,
       'bladeKerf': double.tryParse(_bladeKerfController.text) ?? 0.0,
       'referenceMark': _referenceMark,
       'bendRadiusWarning': _bendRadiusWarning,
@@ -850,10 +858,11 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
           },
         ),
         _buildInputRow(
-          "커플링 깊이",
-          _couplingDepthController,
+          "커플링 끝 여유",
+          _couplingAllowanceController,
           suffix: unit,
-          helpText: "마킹 화면에서 \"체결\"을 고르면 관 끝이 커플링에 이만큼 들어간다고 보고 마킹을 당깁니다.",
+          helpText:
+              "마킹 화면에서 \"체결\"을 고르면 줄자 0점을 커플링 끝에 대고 마킹합니다. 커플링에 관이 들어가는 깊이는 탭 깊이·조임에 따라 달라지므로, 자를 길이에 이만큼 더해 넉넉히 자르고 벤딩한 뒤 반대쪽 끝을 맞춰 자르십시오.",
         ),
         _buildInputRow(
           "톱날 두께",

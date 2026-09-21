@@ -87,7 +87,7 @@ void main() {
         '스프링백 보정',
         '스프링백 각도',
         '수축량(Shrink) 자동 공제',
-        '커플링 깊이',
+        '커플링 끝 여유',
         '톱날 두께',
       ]) {
         expect(find.text(label), findsOneWidget, reason: '$type: $label');

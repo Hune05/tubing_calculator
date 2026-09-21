@@ -152,13 +152,15 @@ void main() {
       );
     });
 
-    test('커플링 체결은 현장 탭에도 들어간다', () {
-      final before = computeConduitFieldData().bends.first.position;
+    test('커플링 체결은 현장 탭에도 들어간다(마킹 그대로, 자를 길이 + 끝 여유)', () {
+      final before = computeConduitFieldData();
       conduitUseCoupling.value = true;
-      final after = computeConduitFieldData().bends.first.position;
-      final depth = (globalBenderSettings.value['couplingDepth'] as num)
-          .toDouble();
-      expect(before - after, closeTo(depth, 1e-9));
+      final after = computeConduitFieldData();
+      expect(
+        after.bends.first.position,
+        closeTo(before.bends.first.position, 1e-9),
+      );
+      expect(after.totalCut - before.totalCut, closeTo(50, 1e-9));
     });
   });
 

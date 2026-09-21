@@ -90,7 +90,11 @@ FieldMarkingData computeConduitFieldData() {
       16;
 
   return FieldMarkingData(
-    totalCut: conduitTotalCut(bendList, settings),
+    totalCut: conduitTotalCut(
+      bendList,
+      settings,
+      useCoupling: conduitUseCoupling.value,
+    ),
     marks: marks,
     warnings: check.warnings,
     inchMode: inchMode,
@@ -117,7 +121,9 @@ List<(String, String)> conduitMarkingSheetSpecs(Map<String, dynamic> s) {
     ('스프링백', (s['applySpringback'] ?? true) ? '${n(d('springback'))}°' : '안 씀'),
     (
       '커플링',
-      conduitUseCoupling.value ? '체결 ${n(d('couplingDepth'))} mm' : '미체결',
+      conduitUseCoupling.value
+          ? '체결 · 끝 여유 ${n(conduitCouplingAllowance(s))} mm'
+          : '미체결',
     ),
     if (d('bladeKerf') > 0) ('톱날 두께', '${n(d('bladeKerf'))} mm'),
   ];

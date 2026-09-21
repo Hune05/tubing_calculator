@@ -105,8 +105,13 @@ class _ConduitResultTabState extends State<ConduitResultTab>
           startDir: conduitStartDir.value,
         );
 
-        // 총 절단 길이 = 구간 길이 합 − 각도별 게인 합 + 톱날 두께(현장 탭과 같은 셈).
-        final double totalCut = conduitTotalCut(bendList, currentSettings);
+        // 총 절단 길이 = 구간 길이 합 − 각도별 게인 합 + 톱날 두께
+        // (+ 커플링 체결이면 끝 여유). 현장 탭과 같은 셈.
+        final double totalCut = conduitTotalCut(
+          bendList,
+          currentSettings,
+          useCoupling: _useCoupling,
+        );
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           globalMarkingState.value = {
@@ -247,7 +252,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
       themeColor: makitaTeal,
       deductionLabel: "설정된 테이크업",
       deductionValue: settings['takeUp'] ?? 0.0,
-      couplingDepth: settings['couplingDepth'] ?? 20.0,
+      couplingAllowance: conduitCouplingAllowance(settings),
     );
   }
 
@@ -270,7 +275,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
       themeColor: ramBlue,
       deductionLabel: "설정된 셋백(Setback)",
       deductionValue: settings['setback'] ?? 0.0,
-      couplingDepth: settings['couplingDepth'] ?? 20.0,
+      couplingAllowance: conduitCouplingAllowance(settings),
     );
   }
 
@@ -312,7 +317,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
       themeColor: chicagoPurple,
       deductionLabel: "설정된 테이크업",
       deductionValue: settings['takeUp'] ?? 0.0,
-      couplingDepth: settings['couplingDepth'] ?? 20.0,
+      couplingAllowance: conduitCouplingAllowance(settings),
     );
   }
 
@@ -345,7 +350,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
     required Color themeColor,
     required String deductionLabel,
     required double deductionValue,
-    required double couplingDepth,
+    required double couplingAllowance,
   }) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -418,6 +423,17 @@ class _ConduitResultTabState extends State<ConduitResultTab>
               ],
             ),
           ),
+          if (_useCoupling) ...[
+            const SizedBox(height: 6),
+            Text(
+              "끝 여유 ${couplingAllowance.round()}mm 포함 · 벤딩한 뒤 반대쪽 끝을 맞춰 자르십시오",
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: slate600,
+              ),
+            ),
+          ],
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Divider(height: 1, color: slate200),
@@ -459,7 +475,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    "커플링 (깊이 ${couplingDepth.round()}mm)",
+                    "커플링",
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,

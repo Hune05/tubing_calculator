@@ -130,7 +130,10 @@ void main() {
       final m = calculateConduitMarkings(list, settings());
       final cut = totalCut(list, kGain90);
       // 마지막 마킹 뒤에 남는 길이 = 테이크업 − 게인 (90°가 이어질 때).
-      expect(cut - (m.last['mark'] as double), closeTo(kTakeUp90 - kGain90, 0.01));
+      expect(
+        cut - (m.last['mark'] as double),
+        closeTo(kTakeUp90 - kGain90, 0.01),
+      );
     });
 
     test('45°가 섞이면 그 각의 테이크업·게인을 쓴다', () {
@@ -167,7 +170,9 @@ void main() {
       expect(m.first['note'], '직관 시작');
     });
 
-    test('커플링을 쓰면 그만큼 더 뺀다', () {
+    // 커플링 체결: 줄자 0점을 커플링 끝에 대므로 마킹은 그대로이고,
+    // 나사 물림에 따라 달라지는 깊이 대신 자를 길이에 끝 여유를 더한다.
+    test('커플링을 체결해도 마킹은 옮기지 않고 0점 안내만 붙는다', () {
       final m = calculateConduitMarkings(
         bends([
           [1000, 90, 0],
@@ -175,7 +180,27 @@ void main() {
         settings(),
         useCoupling: true,
       );
-      expect(m.first['mark'] as double, closeTo(1000 - kTakeUp90 - 20, 0.001));
+      expect(m.first['mark'] as double, closeTo(1000 - kTakeUp90, 0.001));
+      expect(m.first['note'] as String, contains('커플링 끝'));
+    });
+
+    test('커플링 체결이면 자를 길이에 끝 여유(기본 50mm)를 더한다', () {
+      final list = bends([
+        [1000, 90, 0],
+        [500, 0, 0],
+      ]);
+      final plain = conduitTotalCut(list, settings());
+      expect(
+        conduitTotalCut(list, settings(), useCoupling: true),
+        closeTo(plain + 50, 1e-9),
+      );
+      expect(
+        conduitTotalCut(list, {
+          ...settings(),
+          'couplingAllowance': 80.0,
+        }, useCoupling: true),
+        closeTo(plain + 80, 1e-9),
+      );
     });
 
     test('스프링백은 꺾을 각도에만 붙는다', () {
@@ -203,7 +228,10 @@ void main() {
         settings(benderType: 'chicago'),
       );
       for (var i = 0; i < hand.length; i++) {
-        expect(chi[i]['mark'] as double, closeTo(hand[i]['mark'] as double, 0.001));
+        expect(
+          chi[i]['mark'] as double,
+          closeTo(hand[i]['mark'] as double, 0.001),
+        );
       }
     });
 
