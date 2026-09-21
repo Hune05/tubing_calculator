@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
 
 // 🚀 매니저 임포트: 전선관 전용 매니저
 import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
-import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_viewer_tab.dart';
+import 'package:tubing_calculator/src/presentation/conduit/conduit_field_data.dart';
+import 'package:tubing_calculator/src/presentation/field/field_marking_screen.dart';
 import 'package:tubing_calculator/src/presentation/conduit/conduit_marking_logic.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
 
@@ -39,23 +39,14 @@ class _ConduitResultTabState extends State<ConduitResultTab>
   @override
   bool get wantKeepAlive => true;
 
-  bool _useCoupling = false;
-
-  // 3D(아이소) 탭에서 고른 시작 방향. 관끼리 닿는지 볼 때 쓴다.
-  String _startDir = 'RIGHT';
+  // 커플링 체결 여부와 시작 방향은 현장 탭과 같이 쓴다(conduit_field_data.dart).
+  bool get _useCoupling => conduitUseCoupling.value;
+  set _useCoupling(bool v) => conduitUseCoupling.value = v;
 
   @override
   void initState() {
     super.initState();
-    _loadStartDir();
-  }
-
-  Future<void> _loadStartDir() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getString('conduit_saved_start_dir');
-      if (saved != null && mounted) setState(() => _startDir = saved);
-    } catch (_) {}
+    loadConduitStartDir();
   }
 
   final List<Map<String, dynamic>> _directions = [
@@ -86,15 +77,18 @@ class _ConduitResultTabState extends State<ConduitResultTab>
     super.build(context);
 
     return AnimatedBuilder(
-      animation: Listenable.merge([ConduitDataManager(), globalBenderSettings]),
+      animation: Listenable.merge([
+        ConduitDataManager(),
+        globalBenderSettings,
+        conduitUseCoupling,
+        conduitStartDir,
+      ]),
       builder: (context, child) {
         final manager = ConduitDataManager();
         final bendList = manager.bendList;
         final currentSettings = globalBenderSettings.value;
 
-        final double bladeKerf = currentSettings['bladeKerf'] ?? 0.0;
         final String benderType = currentSettings['benderType'] ?? 'hand';
-        final double gain90 = currentSettings['gain'] ?? 0.0;
 
         final markings = calculateConduitMarkings(
           bendList,
@@ -105,27 +99,11 @@ class _ConduitResultTabState extends State<ConduitResultTab>
         final check = conduitBendCheck(
           bendList,
           currentSettings,
-          startDir: _startDir,
+          startDir: conduitStartDir.value,
         );
 
-        // 🚀 [핵심 보정] 총 절단 길이 독립 연산 (테이크업 이중 차감 원천 차단)
-        double totalLengthSum = 0.0;
-        double totalGainDeduction = 0.0;
-        for (var bend in bendList) {
-          double len = (bend['length'] as num).toDouble();
-          double angle = (bend['angle'] as num).toDouble();
-          totalLengthSum += len;
-          if (angle > 0) {
-            totalGainDeduction += conduitGainForAngle(angle, gain90);
-          }
-        }
-
-        double kerfAdjustment = bendList.isEmpty ? 0.0 : bladeKerf;
-
-        // 총 원자재 절단 길이 = (모든 구간 설계 길이 합) - (각도별 총 게인 합) + (톱날 손실)
-        double totalCut = bendList.isEmpty
-            ? 0.0
-            : (totalLengthSum - totalGainDeduction + kerfAdjustment);
+        // 총 절단 길이 = 구간 길이 합 − 각도별 게인 합 + 톱날 두께(현장 탭과 같은 셈).
+        final double totalCut = conduitTotalCut(bendList, currentSettings);
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           globalMarkingState.value = {
@@ -172,7 +150,10 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                           onPressed: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => const LandscapeMarkingScreen(),
+                                builder: (_) => FieldMarkingScreen(
+                                  listenable: conduitFieldListenable(),
+                                  compute: computeConduitFieldData,
+                                ),
                               ),
                             );
                           },

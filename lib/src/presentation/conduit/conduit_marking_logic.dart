@@ -195,3 +195,22 @@ double conduitOuterDiameterMm(String size) {
   if (plain != null) return double.tryParse(plain.group(1)!) ?? 0.0;
   return 0.0;
 }
+
+/// 총 절단 길이 = 구간 길이 합 − 각도별 게인 합 + 톱날 두께.
+/// 마킹 탭과 현장 탭이 같은 값을 쓰도록 한 곳에 둔다.
+double conduitTotalCut(
+  List<Map<String, dynamic>> bendList,
+  Map<String, dynamic> settings,
+) {
+  if (bendList.isEmpty) return 0.0;
+  final double gain90 = _num(settings, 'gain', 0.0);
+  double sum = 0.0;
+  double gains = 0.0;
+  for (final bend in bendList) {
+    final double len = (bend['length'] as num).toDouble();
+    final double angle = (bend['angle'] as num).toDouble();
+    sum += len;
+    if (angle > 0) gains += conduitGainForAngle(angle, gain90);
+  }
+  return sum - gains + _num(settings, 'bladeKerf', 0.0);
+}

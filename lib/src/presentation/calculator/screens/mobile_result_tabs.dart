@@ -7,6 +7,7 @@ import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/presentation/calculator/bend_check.dart';
+import 'package:tubing_calculator/src/presentation/field/field_marking.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_pipe_visualizer.dart';
@@ -20,29 +21,20 @@ const Color slate100 = Color(0xFFF2F4F6);
 const Color slate50 = Color(0xFFF8FAFC);
 const Color pureWhite = Color(0xFFFFFFFF);
 
-// 🚀 [추가] "현장" 탭(가로 모드 줄자 화면)이 필요한 최소 데이터(총 길이 +
-// 마킹 지점 목록)만 MobileBendDataManager에서 직접 다시 계산해주는 함수.
-// 🚀 [버그 수정] 처음엔 MobileResultTab의 build() 안에서 계산한 값을
-// postFrameCallback으로 전역 ValueNotifier에 밀어넣고 "현장" 탭이 그걸
-// 구독하는 방식이었는데, IndexedStack 안에서 두 위젯의 빌드 타이밍이
-// 어긋나면 "현장" 탭이 한 프레임 늦게 텅 빈 초기값을 보여주는 문제가
-// 있었다(사용자가 "결과 값을 안 가져오는 것 같다"고 확인). 다른 위젯의
-// 빌드 시점에 기대지 않도록, "현장" 탭이 자기 build() 안에서 이 함수를
-// 직접 호출해서 그 자리에서 항상 최신값을 스스로 계산하게 바꿨다.
 /// 관 바깥지름을 mm로. 설정이 인치면 바꿔 준다.
 double _odMm() {
   final s = AppSettingsController();
   return s.isInch ? s.tubeOD * 25.4 : s.tubeOD;
 }
 
-({double totalCutLength, List<Map<String, dynamic>> markings, String? error})
-computeLandscapeMarkingData() {
+/// 현장 탭(가로 줄자 화면)에 넘길 마킹 자료.
+/// 현장 탭이 자기 build() 안에서 직접 부른다(다른 탭의 빌드 시점에 기대면
+/// 한 프레임 늦게 빈 값을 보여 주던 일이 있었다).
+/// 마킹 탭과 같은 엔진·같은 점검(짧은 구간·관끼리 닿음·굴림 각도)을 쓴다.
+FieldMarkingData computeTubeFieldData({String startDir = "RIGHT"}) {
   final dataManager = MobileBendDataManager();
   final bendList = dataManager.bendList;
-
-  if (bendList.isEmpty) {
-    return (totalCutLength: 0.0, markings: const [], error: null);
-  }
+  if (bendList.isEmpty) return FieldMarkingData.empty;
 
   final engine = TubeBendingEngine(
     radius: dataManager.radius,
@@ -74,32 +66,58 @@ computeLandscapeMarkingData() {
       tail: dataManager.tail,
     );
   } catch (e) {
-    return (totalCutLength: 0.0, markings: const [], error: e.toString());
+    return FieldMarkingData(
+      totalCut: 0,
+      marks: const [],
+      error: e.toString().replaceFirst('Invalid argument(s): ', ''),
+    );
   }
 
-  final double pureCutLength = result['totalCutLength'];
   final List<StepResult> steps = result['steps'];
+  final check = checkBends(
+    bendList,
+    radius: dataManager.radius,
+    startDir: startDir,
+    tail: dataManager.tail,
+    outerDiameter: _odMm(),
+    engineWarnings: (result['warnings'] as List?)?.cast<String>() ?? const [],
+  );
 
-  final List<Map<String, dynamic>> markings = [];
+  final marks = <FieldMark>[];
+  int number = 0;
+  double prevBend = 0.0;
   for (int i = 0; i < bendList.length; i++) {
-    final double currentLength =
-        (bendList[i]['length'] as num?)?.toDouble() ?? 0.0;
-    final double angleValue = (bendList[i]['angle'] as num?)?.toDouble() ?? 0.0;
-    final bool isStraight = angleValue == 0.0;
-    if (currentLength <= 0.01 && isStraight) continue; // 길이 0짜리 더미 구간 제외
-
-    markings.add({
-      'mark': steps[i].markingPoint,
-      'angle': angleValue,
-      'rotation': (bendList[i]['rotation'] as num?)?.toDouble() ?? 0.0,
-    });
+    final double len = (bendList[i]['length'] as num?)?.toDouble() ?? 0.0;
+    final double angle = (bendList[i]['angle'] as num?)?.toDouble() ?? 0.0;
+    if (angle == 0.0 && len <= 0.01) continue; // 길이 0짜리 더미 구간
+    final pos = steps[i].markingPoint;
+    if (angle > 0) {
+      number++;
+      marks.add(
+        FieldMark(
+          number: number,
+          position: pos,
+          angle: angle,
+          targetAngle: steps[i].targetAngle,
+          rotation: (bendList[i]['rotation'] as num?)?.toDouble() ?? 0.0,
+          gap: pos - prevBend,
+          roll: check.rollByIndex[i],
+        ),
+      );
+      prevBend = pos;
+    } else {
+      marks.add(FieldMark(number: 0, position: pos, angle: 0, rotation: 0));
+    }
   }
 
-  // 꼬리는 엔진이 마지막 셋백을 빼고 더해 준다(예전에는 여기서 그대로 더해
-  // 마지막 셋백만큼 길게 잘렸다). 여기서는 톱날 손실만 더한다.
-  final double totalCut = pureCutLength + dataManager.cutMargin;
-
-  return (totalCutLength: totalCut, markings: markings, error: null);
+  // 꼬리는 엔진이 마지막 셋백을 빼고 더해 준다. 여기서는 톱날 손실만 더한다.
+  final double totalCut =
+      (result['totalCutLength'] as double) + dataManager.cutMargin;
+  return FieldMarkingData(
+    totalCut: totalCut,
+    marks: marks,
+    warnings: check.warnings,
+  );
 }
 
 // ==========================================

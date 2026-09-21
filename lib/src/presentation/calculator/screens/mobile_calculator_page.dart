@@ -8,7 +8,8 @@ import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'mobile_input_tab.dart';
 import 'mobile_result_tabs.dart';
 import 'mobile_settings_tab.dart';
-import 'mobile_landscape_marking_screen.dart';
+import 'package:tubing_calculator/src/data/machine_specs.dart';
+import 'package:tubing_calculator/src/presentation/field/field_marking_screen.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
@@ -236,6 +237,18 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
     return wideIndex + 1;
   }
 
+  /// 현장 탭(가로 줄자 화면). 전선관과 같은 화면을 쓴다.
+  Widget _buildFieldTab() => FieldMarkingScreen(
+    listenable: Listenable.merge([
+      MobileBendDataManager(),
+      MachineSpecs(),
+      AppSettingsController(),
+    ]),
+    compute: () => computeTubeFieldData(startDir: _startDir),
+    onCloseTab: _goToMarkingTab,
+    isActive: _currentIndex == 2,
+  );
+
   Widget _buildNarrowBody() {
     // 🚀 PageView 대신 IndexedStack 사용: 스와이프 금지, 렉 제거, 상태 유지 완벽!
     return IndexedStack(
@@ -243,10 +256,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
       children: [
         const MobileInputTab(),
         MobileResultTab(startDir: _startDir),
-        BendingLandscapeMarkingScreen(
-          onCloseTab: _goToMarkingTab,
-          isActive: _currentIndex == 2,
-        ),
+        _buildFieldTab(),
         MobileViewerTab(
           startDir: _startDir,
           onStartDirChanged: (val) => setState(() => _startDir = val),
@@ -273,10 +283,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
             Expanded(flex: 6, child: MobileResultTab(startDir: _startDir)),
           ],
         ),
-        BendingLandscapeMarkingScreen(
-          onCloseTab: _goToMarkingTab,
-          isActive: _currentIndex == 2,
-        ),
+        _buildFieldTab(),
         MobileViewerTab(
           startDir: _startDir,
           onStartDirChanged: (val) => setState(() => _startDir = val),
