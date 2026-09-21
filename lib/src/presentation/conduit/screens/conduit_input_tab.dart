@@ -11,6 +11,7 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_off
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_rolling_offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_saddle_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_parallel_shrink_bottom_sheet.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/swipe_delete.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
 
 const Color makitaTeal = Color(0xFF007580);
@@ -34,6 +35,14 @@ class _ConduitInputTabState extends State<ConduitInputTab>
   double _selectedType = 0.0; // 0.0: 직관, 90.0: 90도 벤딩
   double? _selectedRotation;
   final TextEditingController _lengthController = TextEditingController();
+
+  // 🚀 [추가] 튜브처럼 카드를 눌러 고친다. 고치는 줄 번호와 그 줄의 각도.
+  // 오프셋처럼 21° 같은 각도는 그대로 두고 길이·방향만 고친다.
+  int? _editingIndex;
+  double? _editingAngle;
+
+  /// 지금 넣을(고칠) 각도. 고치는 중이면 그 줄의 각도, 아니면 고른 형태.
+  double get _angleToSave => _editingAngle ?? _selectedType;
 
   final List<Map<String, dynamic>> _directions = [
     {"label": "UP", "val": 0.0, "icon": Icons.arrow_upward},
@@ -259,13 +268,19 @@ class _ConduitInputTabState extends State<ConduitInputTab>
       physics: const BouncingScrollPhysics(),
       itemCount: manager.bendList.length,
       onReorder: (oldIdx, newIdx) {
+        final to = newIdx > oldIdx ? newIdx - 1 : newIdx;
         manager.reorderBends(oldIdx, newIdx);
+        if (_editingIndex != null) {
+          setState(
+            () => _editingIndex = movedIndex(_editingIndex!, oldIdx, to),
+          );
+        }
       },
       itemBuilder: (context, index) => _buildInputCard(
         index,
         manager.bendList[index],
         manager,
-        Key('conduit_${manager.bendList[index].hashCode}_$index'),
+        ObjectKey(manager.bendList[index]),
       ),
     );
   }
@@ -279,100 +294,157 @@ class _ConduitInputTabState extends State<ConduitInputTab>
     double angle = (item['angle'] as num).toDouble();
     double rotation = (item['rotation'] as num).toDouble();
     bool isStraight = angle == 0.0;
+    final bool isEditingThis = _editingIndex == index;
 
-    return Container(
+    // 🚀 [바꿈] X 단추 대신 왼쪽으로 밀어서 지운다.
+    return Dismissible(
       key: key,
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: pureWhite,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: slate900.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        leading: ReorderableDragStartListener(
-          index: index,
-          child: Icon(
-            Icons.drag_indicator_rounded,
-            color: slate600.withValues(alpha: 0.3),
-          ),
-        ),
-        title: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: isStraight
-                  ? slate100
-                  : makitaTeal.withValues(alpha: 0.1),
-              child: Icon(
-                isStraight ? Icons.straighten : _getDirectionIcon(rotation),
-                color: isStraight ? slate600 : makitaTeal,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isStraight
-                        ? "직관 연장"
-                        : "${angle.toStringAsFixed(1).replaceAll('.0', '')}° 벤딩",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 15,
-                      color: slate900,
-                    ),
-                  ),
-                  // 🚀 [고침] 길이와 방향을 한 줄에 붙여 놓아서, 방향 글이
-                  // 길면 줄이 넘쳤다("RIGHT OVERFLOWED"). 자리가 모자라면
-                  // 아랫줄로 내려가게 한다.
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 2,
-                    children: [
-                      Text(
-                        "길이: ${item['length']}mm",
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: makitaTeal,
-                        ),
-                      ),
-                      if (!isStraight)
-                        Text(
-                          "방향: ${_getDirectionText(rotation)}",
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: slate600,
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
+      direction: DismissDirection.endToStart,
+      background: swipeDeleteBackground(radius: 16, bottomMargin: 12),
+      onDismissed: (_) => _removeBend(manager, index),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: isEditingThis ? Colors.orange.shade50 : pureWhite,
+          borderRadius: BorderRadius.circular(16),
+          border: isEditingThis
+              ? Border.all(color: Colors.orange.shade400, width: 2)
+              : null,
+          boxShadow: [
+            BoxShadow(
+              color: slate900.withValues(alpha: 0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
-        trailing: IconButton(
-          icon: const Icon(
-            Icons.close_rounded,
-            color: Colors.redAccent,
-            size: 20,
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 4,
           ),
-          onPressed: () {
-            HapticFeedback.mediumImpact();
-            manager.removeBend(index);
-          },
+          onTap: () => _startEdit(index, item),
+          leading: ReorderableDragStartListener(
+            index: index,
+            child: Icon(
+              Icons.drag_indicator_rounded,
+              color: slate600.withValues(alpha: 0.3),
+            ),
+          ),
+          title: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: isStraight
+                    ? slate100
+                    : makitaTeal.withValues(alpha: 0.1),
+                child: Icon(
+                  isStraight ? Icons.straighten : _getDirectionIcon(rotation),
+                  color: isStraight ? slate600 : makitaTeal,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isStraight
+                          ? "직관 연장"
+                          : "${angle.toStringAsFixed(1).replaceAll('.0', '')}° 벤딩",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15,
+                        color: slate900,
+                      ),
+                    ),
+                    // 🚀 [고침] 길이와 방향을 한 줄에 붙여 놓아서, 방향 글이
+                    // 길면 줄이 넘쳤다("RIGHT OVERFLOWED"). 자리가 모자라면
+                    // 아랫줄로 내려가게 한다.
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 2,
+                      children: [
+                        Text(
+                          "길이: ${item['length']}mm",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: makitaTeal,
+                          ),
+                        ),
+                        if (!isStraight)
+                          Text(
+                            "방향: ${_getDirectionText(rotation)}",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: slate600,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  String _fmtAngle(double a) =>
+      a == a.roundToDouble() ? a.toStringAsFixed(0) : a.toStringAsFixed(1);
+
+  /// 카드를 누르면 그 줄 값을 아래 입력칸에 넣고 "수정"으로 바꾼다.
+  void _startEdit(int index, Map<String, dynamic> item) {
+    HapticFeedback.lightImpact();
+    final angle = (item['angle'] as num?)?.toDouble() ?? 0.0;
+    final len = (item['length'] as num?)?.toDouble() ?? 0.0;
+    setState(() {
+      _editingIndex = index;
+      _editingAngle = angle;
+      _selectedType = angle == 0.0 ? 0.0 : 90.0;
+      _selectedRotation = angle == 0.0
+          ? null
+          : (item['rotation'] as num?)?.toDouble();
+      _lengthController.text = len == len.roundToDouble()
+          ? len.toStringAsFixed(0)
+          : len.toString();
+    });
+  }
+
+  void _cancelEdit() {
+    HapticFeedback.lightImpact();
+    setState(() {
+      _editingIndex = null;
+      _editingAngle = null;
+      _selectedType = 0.0;
+      _selectedRotation = null;
+      _lengthController.clear();
+    });
+  }
+
+  void _removeBend(ConduitDataManager manager, int index) {
+    if (index < 0 || index >= manager.bendList.length) return;
+    HapticFeedback.mediumImpact();
+    final removed = manager.bendList[index];
+    manager.removeBend(index);
+    if (_editingIndex == index) {
+      _cancelEdit();
+    } else {
+      setState(() => _editingIndex = indexAfterRemove(_editingIndex, index));
+    }
+    showDeletedSnackBar(
+      context,
+      number: index + 1,
+      onUndo: () {
+        manager.insertBend(index, removed);
+        if (_editingIndex != null && _editingIndex! >= index && mounted) {
+          setState(() => _editingIndex = _editingIndex! + 1);
+        }
+      },
     );
   }
 
@@ -453,7 +525,11 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                   const SizedBox(width: 12),
                   Expanded(
                     child: _buildTypeSegment(
-                      "90° 벤딩",
+                      _editingAngle != null &&
+                              _editingAngle! > 0 &&
+                              _editingAngle != 90.0
+                          ? "${_fmtAngle(_editingAngle!)}° 벤딩"
+                          : "90° 벤딩",
                       90.0,
                       Icons.turn_right_rounded,
                     ),
@@ -489,6 +565,50 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                 const SizedBox(height: 12),
               ],
 
+              if (_editingIndex != null) ...[
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.orange.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.edit_note_rounded,
+                        color: Colors.orange.shade800,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          "${_editingIndex! + 1}번 줄 고치는 중",
+                          style: TextStyle(
+                            color: Colors.orange.shade900,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _cancelEdit,
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.orange.shade900,
+                        ),
+                        child: const Text(
+                          "취소",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               _buildSectionLabel("배관 길이 (mm)"),
               Row(
                 children: [
@@ -535,16 +655,23 @@ class _ConduitInputTabState extends State<ConduitInputTab>
 
                   ElevatedButton.icon(
                     onPressed: _canAdd ? () => _addBend(manager) : null,
-                    icon: const Icon(Icons.add_circle, size: 20),
-                    label: const Text(
-                      "추가",
+                    icon: Icon(
+                      _editingIndex != null
+                          ? Icons.check_circle
+                          : Icons.add_circle,
+                      size: 20,
+                    ),
+                    label: Text(
+                      _editingIndex != null ? "수정" : "추가",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: makitaTeal,
+                      backgroundColor: _editingIndex != null
+                          ? Colors.orange.shade700
+                          : makitaTeal,
                       foregroundColor: pureWhite,
                       disabledBackgroundColor: slate600.withValues(alpha: 0.1),
                       disabledForegroundColor: slate600.withValues(alpha: 0.4),
@@ -608,6 +735,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
             HapticFeedback.lightImpact();
             setState(() {
               _selectedType = typeValue;
+              _editingAngle = null;
               if (typeValue == 0.0) _selectedRotation = null;
             });
           },
@@ -679,15 +807,23 @@ class _ConduitInputTabState extends State<ConduitInputTab>
 
     double val = double.parse(_lengthController.text);
     HapticFeedback.mediumImpact();
-    manager.addBend({
+    final angle = _angleToSave;
+    final bend = {
       'length': val,
-      'angle': _selectedType,
-      'rotation': _selectedType == 0.0 ? 0.0 : _selectedRotation!,
-    });
+      'angle': angle,
+      'rotation': angle == 0.0 ? 0.0 : _selectedRotation!,
+    };
+    if (_editingIndex != null) {
+      manager.updateBend(_editingIndex!, bend);
+    } else {
+      manager.addBend(bend);
+    }
 
     _lengthController.clear();
     setState(() {
       _selectedRotation = null;
+      _editingIndex = null;
+      _editingAngle = null;
     });
   }
 

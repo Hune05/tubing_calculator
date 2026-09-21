@@ -1,4 +1,3 @@
-import 'package:tubing_calculator/src/presentation/calculator/segment_length_check.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/engine/bend_path.dart';
@@ -7,6 +6,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
+import 'package:tubing_calculator/src/presentation/calculator/segment_length_check.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/swipe_delete.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_rolling_offset_bottom_sheet.dart';
@@ -76,7 +77,6 @@ class _MobileInputTabState extends State<MobileInputTab>
     super.dispose();
   }
 
-  // 파이프 외경(OD)에 따른 피팅 조립 최소 안전 직관 거리
   void _addSegment() {
     double length = double.tryParse(_lengthController.text) ?? 0.0;
 
@@ -114,13 +114,19 @@ class _MobileInputTabState extends State<MobileInputTab>
 
     final settings = AppSettingsController();
 
+    // 새로 넣는 줄(고치는 중이면 그 줄) 앞에 있는 줄들. 방향·길이 점검은 이것만 본다.
+    // 🚀 [고침] 예전에는 카드를 눌러 고칠 때도 목록 전체(뒤에 있는 줄까지)를 봤다.
+    final allBends = MobileBendDataManager().bendList;
+    final before = _editingIndex != null && _editingIndex! <= allBends.length
+        ? allBends.sublist(0, _editingIndex!)
+        : allBends;
+
     // 🚀 [추가] 지금 진행 방향과 같은(또는 정반대) 방향은 꺾을 수 없다.
     // 예전에는 그냥 들어가서, 3D 그림은 안 꺾이는데 절단 길이에는 호가 더해지는
     // 어긋남이 생겼다(오프셋 뒤에 "우"로 90°를 붙이는 경우가 대표적이다).
     if (_selectedAngle > 0) {
-      final bends = MobileBendDataManager().bendList;
       final current = directionAfter([
-        for (final b in bends)
+        for (final b in before)
           PathSegment(
             length: (b['length'] as num?)?.toDouble() ?? 0.0,
             angle: (b['angle'] as num?)?.toDouble() ?? 0.0,
@@ -180,7 +186,7 @@ class _MobileInputTabState extends State<MobileInputTab>
     // 기계 간섭 & 누설 위험 이중 검사 로직.
     // 앞에 이어진 직관은 합쳐서 보고, 누설은 관 끝에서만 본다.
     final lengthCheck = checkSegmentLength(
-      existing: MobileBendDataManager().bendList,
+      existing: before,
       length: length,
       angle: _selectedAngle,
       tubeOdMm: settings.isInch ? settings.tubeOD * 25.4 : settings.tubeOD,
@@ -330,14 +336,40 @@ class _MobileInputTabState extends State<MobileInputTab>
 
   void _removeSegment(int index) {
     HapticFeedback.lightImpact();
+    final list = MobileBendDataManager().bendList;
+    if (index < 0 || index >= list.length) return;
+    final removed = Map<String, dynamic>.from(list[index]);
     MobileBendDataManager().removeBend(index);
     setState(() {
       if (_editingIndex == index) {
         _cancelEdit();
-      } else if (_editingIndex != null && _editingIndex! > index) {
-        _editingIndex = _editingIndex! - 1;
+      } else {
+        _editingIndex = indexAfterRemove(_editingIndex, index);
       }
     });
+    showDeletedSnackBar(
+      context,
+      number: index + 1,
+      onUndo: () {
+        MobileBendDataManager().insertBend(index, removed);
+        if (_editingIndex != null && _editingIndex! >= index && mounted) {
+          setState(() => _editingIndex = _editingIndex! + 1);
+        }
+      },
+    );
+  }
+
+  /// 카드를 꾹 눌러 끌어서 순서를 바꾼다. 고치고 있던 줄은 따라간다.
+  void _reorderSegment(int oldIndex, int newIndex) {
+    if (newIndex > oldIndex) newIndex -= 1;
+    if (oldIndex == newIndex) return;
+    HapticFeedback.lightImpact();
+    MobileBendDataManager().reorderBend(oldIndex, newIndex);
+    if (_editingIndex != null) {
+      setState(
+        () => _editingIndex = movedIndex(_editingIndex!, oldIndex, newIndex),
+      );
+    }
   }
 
   void _clearAll() {
@@ -574,9 +606,11 @@ class _MobileInputTabState extends State<MobileInputTab>
                                 style: TextStyle(color: slate600, height: 1.5),
                               ),
                             )
-                          : ListView.builder(
+                          : ReorderableListView.builder(
                               padding: const EdgeInsets.all(16),
                               itemCount: bendList.length,
+                              // 🚀 [추가] 전선관처럼 꾹 눌러 끌어서 순서를 바꾼다.
+                              onReorder: _reorderSegment,
                               itemBuilder: (context, index) {
                                 final item = bendList[index];
                                 bool isStraight =
@@ -594,97 +628,109 @@ class _MobileInputTabState extends State<MobileInputTab>
                                 )['icon'];
                                 bool isEditingThis = _editingIndex == index;
 
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  decoration: BoxDecoration(
-                                    color: isEditingThis
-                                        ? Colors.orange.shade50
-                                        : pureWhite,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
+                                // 🚀 [바꿈] X 단추 대신 왼쪽으로 밀어서 지운다.
+                                return Dismissible(
+                                  key: ObjectKey(item),
+                                  direction: DismissDirection.endToStart,
+                                  background: swipeDeleteBackground(),
+                                  onDismissed: (_) => _removeSegment(index),
+                                  child: Container(
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    decoration: BoxDecoration(
                                       color: isEditingThis
-                                          ? Colors.orange.shade400
-                                          : Colors.grey.shade300,
-                                      width: isEditingThis ? 2 : 1,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.02,
+                                          ? Colors.orange.shade50
+                                          : pureWhite,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: isEditingThis
+                                            ? Colors.orange.shade400
+                                            : Colors.grey.shade300,
+                                        width: isEditingThis ? 2 : 1,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.02,
+                                          ),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
                                         ),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: ListTile(
-                                    onTap: () {
-                                      HapticFeedback.lightImpact();
-                                      setState(() {
-                                        _editingIndex = index;
-                                        _lengthController.text = item['length']
-                                            .toString();
+                                      ],
+                                    ),
+                                    child: ListTile(
+                                      onTap: () {
+                                        HapticFeedback.lightImpact();
+                                        setState(() {
+                                          _editingIndex = index;
+                                          _lengthController.text =
+                                              item['length'].toString();
 
-                                        double editedAngle =
-                                            (item['angle'] as num?)
-                                                ?.toDouble() ??
-                                            90.0;
-                                        if (editedAngle == 90.0) {
-                                          _bendType = "90";
-                                          _selectedAngle = 90.0;
-                                        } else if (editedAngle == 0.0) {
-                                          _bendType = "0";
-                                          _selectedAngle = 0.0;
-                                        } else {
-                                          _bendType = "custom";
-                                          _selectedAngle = editedAngle;
-                                          _customAngleController.text =
-                                              editedAngle.toString();
-                                        }
+                                          double editedAngle =
+                                              (item['angle'] as num?)
+                                                  ?.toDouble() ??
+                                              90.0;
+                                          if (editedAngle == 90.0) {
+                                            _bendType = "90";
+                                            _selectedAngle = 90.0;
+                                          } else if (editedAngle == 0.0) {
+                                            _bendType = "0";
+                                            _selectedAngle = 0.0;
+                                          } else {
+                                            _bendType = "custom";
+                                            _selectedAngle = editedAngle;
+                                            _customAngleController.text =
+                                                editedAngle.toString();
+                                          }
 
-                                        _selectedRotation =
-                                            _selectedAngle == 0.0
-                                            ? null
-                                            : (item['rotation'] as num?)
-                                                  ?.toDouble();
-                                      });
-                                    },
-                                    leading: CircleAvatar(
-                                      backgroundColor: isStraight
-                                          ? Colors.grey.shade200
-                                          : makitaTeal.withValues(alpha: 0.1),
-                                      child: Icon(
-                                        isStraight ? Icons.straighten : dirIcon,
-                                        color: isStraight
-                                            ? slate600
-                                            : makitaTeal,
+                                          _selectedRotation =
+                                              _selectedAngle == 0.0
+                                              ? null
+                                              : (item['rotation'] as num?)
+                                                    ?.toDouble();
+                                        });
+                                      },
+                                      leading: CircleAvatar(
+                                        backgroundColor: isStraight
+                                            ? Colors.grey.shade200
+                                            : makitaTeal.withValues(alpha: 0.1),
+                                        child: Icon(
+                                          isStraight
+                                              ? Icons.straighten
+                                              : dirIcon,
+                                          color: isStraight
+                                              ? slate600
+                                              : makitaTeal,
+                                        ),
                                       ),
-                                    ),
-                                    title: Text(
-                                      isStraight
-                                          ? "직관 (Straight)"
-                                          : "${(item['angle'] as num?)?.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '')}° 벤딩 ($dirLabel)",
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: isStraight ? slate600 : slate900,
-                                        fontSize: 14,
+                                      title: Text(
+                                        isStraight
+                                            ? "직관 (Straight)"
+                                            : "${(item['angle'] as num?)?.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '')}° 벤딩 ($dirLabel)",
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: isStraight
+                                              ? slate600
+                                              : slate900,
+                                          fontSize: 14,
+                                        ),
                                       ),
-                                    ),
-                                    subtitle: Text(
-                                      "길이: ${item['length']} mm",
-                                      style: const TextStyle(
-                                        color: makitaTeal,
-                                        fontWeight: FontWeight.w900,
-                                        fontFamily: 'monospace',
+                                      subtitle: Text(
+                                        "길이: ${item['length']} mm",
+                                        style: const TextStyle(
+                                          color: makitaTeal,
+                                          fontWeight: FontWeight.w900,
+                                          fontFamily: 'monospace',
+                                        ),
                                       ),
-                                    ),
-                                    trailing: IconButton(
-                                      icon: const Icon(
-                                        Icons.close,
-                                        color: Colors.redAccent,
-                                        size: 20,
+                                      trailing: ReorderableDragStartListener(
+                                        index: index,
+                                        child: Icon(
+                                          Icons.drag_indicator_rounded,
+                                          color: slate600.withValues(
+                                            alpha: 0.35,
+                                          ),
+                                        ),
                                       ),
-                                      onPressed: () => _removeSegment(index),
                                     ),
                                   ),
                                 );

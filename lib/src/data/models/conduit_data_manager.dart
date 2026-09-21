@@ -34,6 +34,19 @@ class ConduitDataManager extends ChangeNotifier {
     _updateAndSave();
   }
 
+  /// 카드를 눌러 고친 값으로 바꾼다.
+  void updateBend(int index, Map<String, dynamic> bend) {
+    if (index < 0 || index >= bendList.length) return;
+    bendList[index] = bend;
+    _updateAndSave();
+  }
+
+  /// 지운 줄을 되돌릴 때 원래 자리에 다시 넣는다.
+  void insertBend(int index, Map<String, dynamic> bend) {
+    bendList.insert(index.clamp(0, bendList.length), bend);
+    _updateAndSave();
+  }
+
   void removeBend(int index) {
     bendList.removeAt(index);
     _updateAndSave();

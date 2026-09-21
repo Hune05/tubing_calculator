@@ -205,6 +205,14 @@ class MobileBendDataManager extends ChangeNotifier {
     }
   }
 
+  /// 지운 줄을 되돌릴 때 원래 자리에 다시 넣는다.
+  void insertBend(int index, Map<String, dynamic> bend) {
+    final at = index.clamp(0, bendList.length);
+    bendList.insert(at, Map<String, dynamic>.from(bend));
+    _saveCurrentState();
+    notifyListeners();
+  }
+
   void clearBends() {
     bendList.clear();
     _saveCurrentState();
