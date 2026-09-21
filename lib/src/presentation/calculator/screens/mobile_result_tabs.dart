@@ -412,10 +412,60 @@ class _MobileResultTabState extends State<MobileResultTab>
           color: pureWhite,
           child: Column(
             children: [
+              // 전선관 마킹 탭과 같은 머리: 제목 + 오른쪽 위 아이콘(저장·마킹지).
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
+                child: SizedBox(
+                  height: kToolbarHeight,
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          "마킹 가이드",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: slate900,
+                          ),
+                        ),
+                      ),
+                      if (bendList.isNotEmpty) ...[
+                        IconButton(
+                          key: const Key('tube_save_drawing'),
+                          icon: const Icon(
+                            Icons.save_alt_rounded,
+                            color: slate900,
+                          ),
+                          tooltip: "보관함에 저장",
+                          onPressed: () => _handleSave(totalCut, bendList),
+                        ),
+                        IconButton(
+                          key: const Key('tube_marking_sheet'),
+                          icon: const Icon(
+                            Icons.picture_as_pdf_outlined,
+                            color: slate900,
+                          ),
+                          tooltip: "마킹지(PDF)",
+                          onPressed: () => openMarkingSheet(
+                            context,
+                            title: "튜브 벤딩 마킹지",
+                            fileBase: "튜브_마킹지",
+                            data: computeTubeFieldData(
+                              startDir: widget.startDir,
+                            ),
+                            specs: tubeMarkingSheetSpecs(),
+                            inputs: bendList,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
               BendWarningBanner(warnings: warnings),
               // 1. 상단 토탈 컷 카드
               Container(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -462,71 +512,6 @@ class _MobileResultTabState extends State<MobileResultTab>
                             color: slate600,
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: slate900,
-                            foregroundColor: pureWhite,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                          ),
-                          // ✅ 수정 완료: UI 전용 데이터(displayMarks) 대신 순수 데이터(bendList) 저장
-                          onPressed: bendList.isEmpty
-                              ? null
-                              : () => _handleSave(totalCut, bendList),
-                          icon: const Icon(Icons.save_alt_rounded, size: 18),
-                          label: const Text(
-                            "도면 저장",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        OutlinedButton.icon(
-                          key: const Key('tube_marking_sheet'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: slate900,
-                            side: const BorderSide(color: slate900),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
-                            ),
-                          ),
-                          onPressed: bendList.isEmpty
-                              ? null
-                              : () => openMarkingSheet(
-                                  context,
-                                  title: "튜브 벤딩 마킹지",
-                                  fileBase: "튜브_마킹지",
-                                  data: computeTubeFieldData(
-                                    startDir: widget.startDir,
-                                  ),
-                                  specs: tubeMarkingSheetSpecs(),
-                                  inputs: bendList,
-                                ),
-                          icon: const Icon(
-                            Icons.picture_as_pdf_outlined,
-                            size: 18,
-                          ),
-                          label: const Text(
-                            "마킹지",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
                           ),
                         ),
                       ],
