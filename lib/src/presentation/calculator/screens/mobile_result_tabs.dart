@@ -941,7 +941,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
     final int total = _groupedHistory.values.fold(0, (n, l) => n + l.length);
 
     // 🚀 전선관 보관함과 같은 모양: 큰 제목 "보관된 도면 N개", 폴더 제목 줄,
-    // 흰 카드(도면 이름·날짜·×, 총 재단 길이·규격, 단추). 검색과 폴더
+    // 흰 카드(도면 이름·날짜·×, 총 절단 길이·규격, 단추). 검색과 폴더
     // 접기·펴기, 누르면 도면 보기는 그대로 둔다.
     return ColoredBox(
       color: slate100,
@@ -1183,7 +1183,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
             const SizedBox(height: 20),
             Row(
               children: [
-                Expanded(child: _buildInfoChip("총 재단 길이", "$cut mm")),
+                Expanded(child: _buildInfoChip("총 절단 길이", "$cut mm")),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildInfoChip("규격", "${item['pipe_size'] ?? '-'}"),

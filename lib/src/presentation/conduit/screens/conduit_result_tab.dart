@@ -825,7 +825,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
               ),
               const SizedBox(height: 8),
               const Text(
-                "입력 탭에서 배관 형태와 길이를 추가하면\n자동으로 장비에 맞는 마킹 가이드가 생성됩니다.",
+                "입력 탭에서 배관 형태와 길이를 넣으면\n여기에 마킹 자리가 나옵니다.",
                 textAlign: TextAlign.center,
                 style: TextStyle(color: slate600, height: 1.5, fontSize: 13),
               ),

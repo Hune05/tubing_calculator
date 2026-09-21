@@ -272,7 +272,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
               ),
               const SizedBox(height: 8),
               const Text(
-                "하단 패널에서 배관 형태와 길이를\n입력하여 루트를 추가해 보십시오.",
+                "아래에서 배관 형태와 길이를\n넣고 추가를 누르십시오.",
                 textAlign: TextAlign.center,
                 style: TextStyle(color: slate600, height: 1.5, fontSize: 14),
               ),

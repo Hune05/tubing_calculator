@@ -410,7 +410,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
           Row(
             children: [
               Expanded(
-                child: _buildInfoChip("총 재단 길이", "${item['totalCut']} mm"),
+                child: _buildInfoChip("총 절단 길이", "${item['totalCut']} mm"),
               ),
               const SizedBox(width: 12),
               Expanded(
