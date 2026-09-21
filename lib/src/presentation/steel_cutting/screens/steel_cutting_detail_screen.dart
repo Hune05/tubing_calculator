@@ -971,7 +971,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
               table(kPlanHeaders, planRows(r)),
             if (r.oversizedPieces.isNotEmpty)
               pw.Text(
-                "원자재(${r.stockLength.toStringAsFixed(0)}mm)보다 길어 배치하지 못한 항목 ${r.oversizedPieces.length}건",
+                "원자재(${r.stockLength.toStringAsFixed(0)}mm)보다 길어 배치하지 못한 조각이 ${r.oversizedPieces.length}개 있습니다.",
                 style: const pw.TextStyle(fontSize: 9, color: PdfColors.red),
               ),
           ], rows: r.bars.length + r.leftoverBars.length),
@@ -1017,22 +1017,21 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
               pw.Align(
                 alignment: pw.Alignment.centerRight,
                 child: pw.Text(
-                  "총 중량: 약 ${fmtKg(weights.total!)} kg (이론값"
-                  "${weights.unknownSpecs > 0 ? ', 중량을 모르는 규격 ${weights.unknownSpecs}종 제외' : ''}"
-                  ", 실제와 다를 수 있음)",
+                  "총 중량: 약 ${fmtKg(weights.total!)} kg (이론값이라 실제와 다를 수 있습니다"
+                  "${weights.unknownSpecs > 0 ? '. 중량을 모르는 규격 ${weights.unknownSpecs}종은 뺐습니다' : ''})",
                   style: const pw.TextStyle(fontSize: 10),
                 ),
               ),
             pw.SizedBox(height: 20),
             pw.Text(
-              "2. 원자재별 배치 (재단 계획, 총 $totalBars본 - 규격별로 각각 계산됨)",
+              "2. 원자재별 배치 (재단 계획, 총 $totalBars본. 규격마다 따로 셌습니다)",
               style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
             ),
             ...planWidgets,
             if (totalOversized > 0) ...[
               pw.SizedBox(height: 8),
               pw.Text(
-                "원자재보다 긴 항목 $totalOversized건은 배치에서 뺐습니다. 원자재 기준 길이를 확인하십시오.",
+                "원자재보다 긴 조각 $totalOversized개는 배치에서 뺐습니다. 원자재 기준 길이를 확인하십시오.",
                 style: const pw.TextStyle(fontSize: 10, color: PdfColors.red),
               ),
             ],
@@ -2599,9 +2598,9 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       oversized += r.oversizedPieces.length;
     }
     // 원자재보다 긴 조각은 본수에 들어가지 않으므로 뺀 개수를 같이 적는다(본수가 모자라 보이지 않게).
-    final over = oversized > 0 ? " · 원자재보다 긴 조각 ${oversized}개는 뺐습니다" : "";
+    final over = oversized > 0 ? " · 원자재보다 긴 조각 $oversized개는 뺐습니다" : "";
     if (bars == 0) {
-      return oversized > 0 ? "원자재보다 긴 조각 ${oversized}개는 뺐습니다" : '';
+      return oversized > 0 ? "원자재보다 긴 조각 $oversized개는 뺐습니다" : '';
     }
     return "새 원자재 ${fmtMm(_stockLength)} $bars본$over";
   }

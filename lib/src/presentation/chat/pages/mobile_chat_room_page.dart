@@ -465,7 +465,7 @@ class _MobileChatRoomPageState extends State<MobileChatRoomPage> {
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('전화번호를 불러오는데 실패했습니다.')),
+                      const SnackBar(content: Text('전화번호를 불러오는 데 실패했습니다.')),
                     );
                   }
                 }

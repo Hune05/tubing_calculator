@@ -142,7 +142,7 @@ class _UserSelectionPageState extends State<UserSelectionPage> {
         stream: FirebaseFirestore.instance.collection('users').snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return const Center(child: Text("유저 목록을 불러오는데 실패했습니다."));
+            return const Center(child: Text("유저 목록을 불러오는 데 실패했습니다."));
           }
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(

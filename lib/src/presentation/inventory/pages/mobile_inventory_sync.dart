@@ -53,7 +53,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
       } catch (_) {}
 
       if (before < 0) {
-        lines.add("$name — ${data.qty}$unit 로 맞춤");
+        lines.add("$name — ${data.qty}$unit로 맞춤");
       } else if (before == data.qty) {
         lines.add("$name — ${data.qty}$unit (수량 그대로)");
       } else {
