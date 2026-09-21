@@ -70,9 +70,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
         label: e.shapeLabel,
       );
     }
-    _lengthCtrl = TextEditingController(
-      text: e != null ? e.length.toStringAsFixed(0) : '',
-    );
+    _lengthCtrl = TextEditingController(text: e != null ? fmtMm(e.length) : '');
     _qtyCtrl = TextEditingController(text: e != null ? '${e.qty}' : '1');
     _noteCtrl = TextEditingController(text: e?.note ?? '');
     // 즐겨찾기 별 아이콘이 길이 입력에 맞춰 즉시 켜지고/꺼지게.
@@ -268,10 +266,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
       _qtyCtrl.text = '1';
       _noteCtrl.clear();
     });
-    showCuttingSnack(
-      context,
-      "'${shape.label}' ${length.toStringAsFixed(0)}mm 추가했습니다.",
-    );
+    showCuttingSnack(context, "'${shape.label}' ${fmtMm(length)}mm 추가했습니다.");
   }
 
   // 길이 칸의 값을 [delta]만큼 바꾼다(비어 있으면 0에서 시작, 0 아래로는 내려가지 않는다).
@@ -365,7 +360,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
               category: pick.category,
               label: pick.shapeLabel,
             );
-            _lengthCtrl.text = pick.length.toStringAsFixed(0);
+            _lengthCtrl.text = fmtMm(pick.length);
           });
           _loadTopLengths();
         },
@@ -377,7 +372,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
               Icon(icon, size: 13, color: CuttingColors.primaryDark),
               const SizedBox(width: 4),
               Text(
-                "${pick.shapeLabel} ${pick.length.toStringAsFixed(0)}mm",
+                "${pick.shapeLabel} ${fmtMm(pick.length)}mm",
                 style: const TextStyle(
                   color: CuttingColors.primaryDark,
                   fontWeight: FontWeight.bold,

@@ -289,6 +289,38 @@ void main() {
       expect(find.text('찬넬 100x50x5'), findsOneWidget);
     });
 
+    testWidgets('소수 길이 항목을 고치러 열어도 길이가 반올림되지 않는다', (tester) async {
+      tester.view.physicalSize = const Size(1080, 3200);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      final saved = <SteelCutItem>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => showSteelItemSheet(
+                  context,
+                  existing: item('앵글 40x40x3', 1200.5, 2, id: 'a'),
+                  onSave: saved.add,
+                ),
+                child: const Text('열기'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('열기'));
+      await tester.pumpAndSettle();
+      final field = tester.widget<TextField>(
+        find.byKey(const Key('steel_length_field')),
+      );
+      expect(field.controller!.text, '1200.5');
+      await tester.tap(find.text('저장'));
+      await tester.pumpAndSettle();
+      expect(saved.single.length, 1200.5);
+    });
+
     testWidgets('직접 입력해서 항목을 추가하면 내 규격에 저장된다', (tester) async {
       tester.view.physicalSize = const Size(1080, 3200);
       tester.view.devicePixelRatio = 3.0;
