@@ -337,3 +337,13 @@ String? scheduleTitleError(String text) =>
 /// 고른 장소가 없으면(빈 글자) 버릴 것도 없다.
 bool shouldForgetPickedPlace(String pickedName, String now) =>
     pickedName.trim().isNotEmpty && now.trim() != pickedName.trim();
+
+/// 이름을 모를 때 내 일정 화면이 쓰는 자리 글. 이 이름으로는 일정을 저장하지 않는다
+/// (이름이 없는 여러 폰이 같은 주인 '로그인 필요' 일정을 서로 보고 고치게 되므로).
+const String kNoWorkerName = '로그인 필요';
+
+/// [worker]로 개인 일정을 저장해도 되는지.
+bool canSaveAsWorker(String worker) {
+  final w = worker.trim();
+  return w.isNotEmpty && w != kNoWorkerName;
+}

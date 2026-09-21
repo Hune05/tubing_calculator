@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_logic.dart';
 
 void main() {
+  workerGroup();
   sheetGroup();
   pickerGroup();
   coverGroup();
@@ -292,5 +293,13 @@ void sheetGroup() {
     expect(shouldForgetPickedPlace('A 발전소', 'B 사무소'), true);
     expect(shouldForgetPickedPlace('A 발전소', ' A 발전소 '), false);
     expect(shouldForgetPickedPlace('', 'B 사무소'), false);
+  });
+}
+
+void workerGroup() {
+  test('이름이 없으면(로그인 필요) 개인 일정을 저장하지 않는다', () {
+    expect(canSaveAsWorker(kNoWorkerName), false);
+    expect(canSaveAsWorker('  '), false);
+    expect(canSaveAsWorker('김반장'), true);
   });
 }

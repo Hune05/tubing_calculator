@@ -196,7 +196,7 @@ class MobileMyScheduleScreen extends StatefulWidget {
 }
 
 class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
-  String _currentWorker = "로그인 필요";
+  String _currentWorker = kNoWorkerName;
   _ViewMode _viewMode = _ViewMode.month;
   DateTime? _tlStart;
   CalendarFormat _calendarFormat = CalendarFormat.month;
@@ -537,6 +537,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     String? docId,
     Map<String, dynamic>? existing,
   }) async {
+    if (!_requireWorker()) return;
     final titleCtrl = TextEditingController(
       text: existing?['title'] as String? ?? '',
     );
@@ -1473,6 +1474,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     Map<String, dynamic> template,
     DateTime baseDate,
   ) async {
+    if (!_requireWorker()) return;
     final items = (template['items'] as List? ?? []);
     if (items.isEmpty) return;
     final batch = FirebaseFirestore.instance.batch();
@@ -1513,6 +1515,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   }
 
   Future<void> _showCreateTemplateSheet() async {
+    if (!_requireWorker()) return;
     final nameCtrl = TextEditingController();
     final List<Map<String, dynamic>> blueprint = [
       {
@@ -2249,6 +2252,13 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   }
 
   // ───────────── 내 일정 내보내기·가져오기 ─────────────
+  // 이름을 모르면 개인 일정을 저장하지 않고 알려 준다.
+  bool _requireWorker() {
+    if (canSaveAsWorker(_currentWorker)) return true;
+    _toast("이름이 등록되어 있지 않아 저장할 수 없습니다. 프로필 수정에서 이름을 먼저 등록하십시오.");
+    return false;
+  }
+
   void _toast(String m) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
@@ -2283,6 +2293,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   }
 
   Future<void> _importPersonal() async {
+    if (!_requireWorker()) return;
     try {
       final res = await FilePicker.pickFiles(
         type: FileType.any,
