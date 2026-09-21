@@ -10,10 +10,13 @@ class ScheduleSearchDialog extends StatefulWidget {
   final List<SearchEntry> entries;
   // 테스트에서 "지금"을 바꿔 끼운다.
   final DateTime? nowForTest;
+  // 달력에 종류·프로젝트 필터를 걸어 두었으면 true. 검색은 그 안에서만 찾으므로 한 줄로 알려 준다.
+  final bool filtered;
   const ScheduleSearchDialog({
     super.key,
     required this.entries,
     this.nowForTest,
+    this.filtered = false,
   });
 
   @override
@@ -78,6 +81,13 @@ class _ScheduleSearchDialogState extends State<ScheduleSearchDialog> {
               ),
               onChanged: (v) => setState(() => _q = v),
             ),
+            if (widget.filtered) ...[
+              const SizedBox(height: 8),
+              const Text(
+                "종류·프로젝트 필터를 걸어 두어서 그 안에서만 찾습니다.",
+                style: TextStyle(fontSize: 13, color: Color(0xFF4E5968)),
+              ),
+            ],
             const SizedBox(height: 10),
             if (_q.trim().isEmpty)
               const Padding(

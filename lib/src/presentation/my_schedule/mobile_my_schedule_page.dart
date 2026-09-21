@@ -2241,7 +2241,11 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     ];
     final picked = await showDialog<SearchEntry>(
       context: context,
-      builder: (ctx) => ScheduleSearchDialog(entries: entries),
+      builder: (ctx) => ScheduleSearchDialog(
+        entries: entries,
+        filtered:
+            _activeCategoryFilters.isNotEmpty || _activeProjectFilter != null,
+      ),
     );
     if (picked != null && mounted) {
       setState(() {
