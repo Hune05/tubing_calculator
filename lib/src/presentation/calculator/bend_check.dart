@@ -7,6 +7,7 @@
 /// 전선관 마킹 화면은 만들 수 없는 형상도 그냥 값을 찍어 줬다.
 library;
 
+import 'package:tubing_calculator/src/core/engine/bend_geometry.dart';
 import 'package:tubing_calculator/src/core/engine/bend_path.dart';
 
 class BendCheck {
@@ -24,6 +25,21 @@ class BendCheck {
 /// 짧은 구간 경고("N번 구간: 앞뒤 벤드를 빼면 곧은 부분이 …")의 번호를 뽑는다.
 final RegExp _shortSegment = RegExp(r'^(\d+)번 구간: 앞뒤 벤드를 빼면');
 final RegExp _segmentNo = RegExp(r'(\d+)번 구간');
+
+/// 끝 직관이 바로 앞 벤드의 셋백보다 짧으면, 벤드가 끝나기 전에 자르게 된다.
+/// 엔진은 직관 구간의 음수를 알리지 않는다(엔진은 고치지 않고 여기서 본다).
+/// 🚀 [추가] R100·[500 90°, 50 직관]은 벤드가 줄자 557에서 끝나는데 507에서
+/// 잘랐고 아무 경고도 없었다. 길이 0짜리 빈 직관은 보지 않는다.
+String? _shortEndStraight(List<PathSegment> input, double radius) {
+  if (input.length < 2 || radius <= 0) return null;
+  final last = input.last;
+  final prev = input[input.length - 2];
+  if (last.angle > 0 || last.length <= 0.01 || prev.angle <= 0) return null;
+  final double straight = last.length - bendSetback(radius, prev.angle);
+  if (straight >= 0) return null;
+  return '${input.length}번 구간: 앞 벤드를 빼면 곧은 부분이 '
+      '${straight.toStringAsFixed(1)}mm입니다. 이대로 자르면 벤드가 끝나기 전에 잘립니다.';
+}
 
 /// 배관 목록을 공간에서 걸어 보고 점검한다.
 ///
@@ -109,6 +125,7 @@ BendCheck checkBends(
   return BendCheck(
     warnings: [
       ...kept,
+      ?_shortEndStraight(input, radius),
       // 공간 기하가 본 것(짧은 구간·못 꺾는 방향·쓸 수 없는 방향값).
       // 엔진이 이미 말한 것과 겹치면 한 번만 보여 준다.
       ...pathWarnings.where((w) => !kept.contains(w)),
