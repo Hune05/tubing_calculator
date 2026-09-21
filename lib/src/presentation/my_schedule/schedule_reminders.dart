@@ -58,15 +58,20 @@ Future<void> schedulePersonalReminder(
   await flutterLocalNotificationsPlugin.cancel(id: notifId);
 
   final String recurrence = (data['recurrence'] as String?) ?? 'none';
+  final DateTime base = DateTime.parse(data['dateTime'] as String);
+  final int minutesBefore = (data['reminderMinutesBefore'] as int?) ?? 0;
   DateTimeComponents? matchComponents;
   if (recurrence == 'weekly') {
     matchComponents = DateTimeComponents.dayOfWeekAndTime;
-  } else if (recurrence == 'monthly') {
+  } else if (recurrence == 'monthly' &&
+      monthlyReminderKeepsDay(base, minutesBefore)) {
+    // 알림 날짜가 달마다 바뀌는 경우(1일 일정의 하루 전, 29~31일 일정)는 되풀이 예약하지 않고
+    // 다음 한 번만 잡는다. 내 일정 화면을 열 때 다시 잡는다(rescheduleDriftingMonthlyReminders).
     matchComponents = DateTimeComponents.dayOfMonthAndTime;
   }
   final DateTime? remindAt = reminderTime(
-    base: DateTime.parse(data['dateTime'] as String),
-    minutesBefore: (data['reminderMinutesBefore'] as int?) ?? 0,
+    base: base,
+    minutesBefore: minutesBefore,
     recurrence: recurrence,
     hasTime: data['hasTime'] != false,
     now: nowForTest ?? DateTime.now(),
@@ -146,6 +151,31 @@ Future<List<({String id, Map<String, dynamic> data})>> _personalDocs(
       .where('owner', isEqualTo: worker)
       .get();
   return [for (final d in snap.docs) (id: d.id, data: d.data())];
+}
+
+// 알림 날짜가 달마다 바뀌는 매달 반복 일정만 다시 예약한다(한 번씩만 예약해 두므로 지난 뒤에 다음 달 것을 잡는다).
+// 다시 예약한 일정 수를 돌려준다. 서버를 읽지 못하면 0.
+Future<int> rescheduleDriftingMonthlyReminders() async {
+  try {
+    final p = await SharedPreferences.getInstance();
+    final worker = p.getString('user_real_name');
+    if (worker == null || worker.isEmpty) return 0;
+    var n = 0;
+    for (final d in await _personalDocs(worker)) {
+      if (d.data['recurrence'] != 'monthly') continue;
+      final raw = d.data['dateTime'];
+      final base = raw is String ? DateTime.tryParse(raw) : null;
+      if (base == null) continue;
+      final m = (d.data['reminderMinutesBefore'] as int?) ?? 0;
+      if (m <= 0 || monthlyReminderKeepsDay(base, m)) continue;
+      await schedulePersonalReminder(d.id, d.data);
+      n++;
+    }
+    return n;
+  } catch (e) {
+    debugPrint('매달 반복 알림 다시 예약 실패: $e');
+    return 0;
+  }
 }
 
 // 내 개인 일정 알림을 전부 다시 예약한다. 다시 예약한 일정 수를 돌려준다.

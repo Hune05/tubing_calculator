@@ -95,17 +95,30 @@ DateTime? reminderTime({
   required DateTime now,
 }) {
   if (minutesBefore <= 0 || !hasTime) return null;
-  final remind = base.subtract(Duration(minutes: minutesBefore));
+  final before = Duration(minutes: minutesBefore);
   if (recurrence != 'weekly' && recurrence != 'monthly') {
+    final remind = base.subtract(before);
     return remind.isBefore(now) ? null : remind;
   }
+  // 회차(일정 날짜)를 먼저 구하고 거기서 뺀다. 알림 시각에 말일 맞추기를 걸면
+  // 1일 일정의 하루 전 알림이 28일로 가는 것처럼 날짜가 틀어진다.
   for (var n = 0; n < 1200; n++) {
-    final at = recurrence == 'weekly'
-        ? remind.add(Duration(days: 7 * n))
-        : addMonthsClamped(remind, n);
+    final occ = recurrence == 'weekly'
+        ? base.add(Duration(days: 7 * n))
+        : addMonthsClamped(base, n);
+    final at = occ.subtract(before);
     if (!at.isBefore(now)) return at;
   }
   return null;
+}
+
+/// 매달 반복 일정의 알림이 달마다 같은 날·같은 시각에 울리는지.
+/// 일정 날짜가 28일 이하이고 알림이 같은 달 안에 있을 때만 그렇다(그래야 폰에 '매달 같은 날'로
+/// 되풀이 예약해도 맞는다). 아니면 다음 한 번만 예약하고 앱을 열 때 다시 잡는다.
+bool monthlyReminderKeepsDay(DateTime base, int minutesBefore) {
+  if (base.day > 28) return false;
+  final r = base.subtract(Duration(minutes: minutesBefore));
+  return r.year == base.year && r.month == base.month;
 }
 
 /// 겹침·요약 계산에 필요한 최소한의 일정 정보.

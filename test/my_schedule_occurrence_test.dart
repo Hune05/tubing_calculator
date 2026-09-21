@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_logic.dart';
 
 void main() {
+  reminderGroup();
   group('반복 일정 회차 완료 표시', () {
     final day = DateTime(2026, 9, 25, 14, 30);
 
@@ -62,6 +63,62 @@ void main() {
         'completedOccurrences',
         '2026-09-25T00:00:00',
       ]);
+    });
+  });
+}
+
+DateTime? _monthly(DateTime base, int minutes, DateTime now) => reminderTime(
+  base: base,
+  minutesBefore: minutes,
+  recurrence: 'monthly',
+  hasTime: true,
+  now: now,
+);
+
+void reminderGroup() {
+  group('매달 반복 알림 날짜(회차를 먼저 구하고 거기서 뺀다)', () {
+    test('1일 일정의 하루 전 알림은 전달 말일이다', () {
+      expect(
+        _monthly(DateTime(2026, 3, 1, 9), 1440, DateTime(2026, 3, 15)),
+        DateTime(2026, 3, 31, 9),
+      );
+    });
+
+    test('31일 일정은 2월 말일 회차에서 하루 전이다', () {
+      expect(
+        _monthly(DateTime(2026, 1, 31, 9), 1440, DateTime(2026, 2, 1)),
+        DateTime(2026, 2, 27, 9),
+      );
+    });
+
+    test('이틀 전 알림', () {
+      expect(
+        _monthly(DateTime(2026, 10, 1, 8), 2880, DateTime(2026, 10, 2)),
+        DateTime(2026, 10, 30, 8),
+      );
+    });
+
+    test('매주 반복은 그대로 회차에서 뺀다', () {
+      expect(
+        reminderTime(
+          base: DateTime(2026, 9, 1, 10),
+          minutesBefore: 30,
+          recurrence: 'weekly',
+          hasTime: true,
+          now: DateTime(2026, 9, 19, 12),
+        ),
+        DateTime(2026, 9, 22, 9, 30),
+      );
+    });
+
+    test('알림 날짜가 달마다 같은지(같을 때만 매달 같은 날로 되풀이 예약한다)', () {
+      expect(monthlyReminderKeepsDay(DateTime(2026, 1, 15, 10), 60), true);
+      expect(monthlyReminderKeepsDay(DateTime(2026, 1, 15, 10), 1440), true);
+      expect(monthlyReminderKeepsDay(DateTime(2026, 1, 1, 9), 1440), false);
+      expect(monthlyReminderKeepsDay(DateTime(2026, 1, 1, 9), 30), true);
+      expect(monthlyReminderKeepsDay(DateTime(2026, 1, 1, 0, 10), 30), false);
+      expect(monthlyReminderKeepsDay(DateTime(2026, 1, 29, 9), 30), false);
+      expect(monthlyReminderKeepsDay(DateTime(2026, 1, 28, 9), 30), true);
     });
   });
 }

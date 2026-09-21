@@ -220,6 +220,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     _initTimeZone();
     _loadCurrentWorker();
     _loadProjects();
+    // 한 번씩만 예약해 둔 매달 반복 알림(날짜가 달마다 바뀌는 것)을 다음 회차로 다시 잡는다.
+    rescheduleDriftingMonthlyReminders();
   }
 
   Future<void> _initTimeZone() async {
