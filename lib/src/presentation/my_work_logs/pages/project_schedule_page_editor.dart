@@ -181,15 +181,19 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                               onTap: () async {
                                 final DateTime base =
                                     dateTime ?? DateTime.now();
+                                // 1년 넘게 지난 일정도 고칠 수 있게 범위를 그 날짜까지 넓힌다.
+                                final range = pickerRangeFor(
+                                  base,
+                                  DateTime.now().subtract(
+                                    const Duration(days: 365),
+                                  ),
+                                  DateTime.now().add(const Duration(days: 730)),
+                                );
                                 final pickedDate = await showDatePicker(
                                   context: context,
                                   initialDate: base,
-                                  firstDate: DateTime.now().subtract(
-                                    const Duration(days: 365),
-                                  ),
-                                  lastDate: DateTime.now().add(
-                                    const Duration(days: 730),
-                                  ),
+                                  firstDate: range.first,
+                                  lastDate: range.last,
                                 );
                                 if (pickedDate == null) return;
                                 if (!context.mounted) return;

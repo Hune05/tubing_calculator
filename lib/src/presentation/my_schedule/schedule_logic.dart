@@ -307,3 +307,24 @@ bool spanCoversDay(DateTime start, DateTime? end, DateTime day) {
   final last = DateTime(s.year, s.month, s.day + spanDayCount(start, end) - 1);
   return !d.isAfter(last);
 }
+
+/// 날짜 고르기 창의 범위. 고치려는 날짜([initial])가 기본 범위([first]~[last]) 밖이면 그 날짜까지
+/// 넓힌다(1년 넘게 지난 일정을 고칠 때 창이 오류로 멈추지 않게).
+({DateTime first, DateTime last}) pickerRangeFor(
+  DateTime initial,
+  DateTime first,
+  DateTime last,
+) {
+  final d = _dayOnly(initial);
+  return (
+    first: d.isBefore(_dayOnly(first)) ? d : first,
+    last: d.isAfter(_dayOnly(last)) ? d : last,
+  );
+}
+
+/// [initial]을 [first]~[last] 안으로 맞춘다(이미 지난 기한을 다시 고를 때 오늘부터 보이게).
+DateTime clampPickerInitial(DateTime initial, DateTime first, DateTime last) {
+  if (initial.isBefore(first)) return first;
+  if (initial.isAfter(last)) return last;
+  return initial;
+}

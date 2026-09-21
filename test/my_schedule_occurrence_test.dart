@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_logic.dart';
 
 void main() {
+  pickerGroup();
   coverGroup();
   spanGroup();
   recurrenceGroup();
@@ -251,5 +252,31 @@ void coverGroup() {
     expect(spanCoversDay(s, e, DateTime(2026, 9, 24)), false);
     expect(spanCoversDay(s, null, DateTime(2026, 9, 21)), true);
     expect(spanCoversDay(s, null, DateTime(2026, 9, 22)), false);
+  });
+}
+
+void pickerGroup() {
+  test('날짜 고르기 범위는 고치려는 날짜를 품도록 넓힌다', () {
+    final first = DateTime(2025, 9, 22);
+    final last = DateTime(2028, 9, 21);
+    final old = pickerRangeFor(DateTime(2025, 6, 1, 9), first, last);
+    expect(old.first, DateTime(2025, 6, 1));
+    expect(old.last, last);
+    final far = pickerRangeFor(DateTime(2029, 1, 1), first, last);
+    expect(far.first, first);
+    expect(far.last, DateTime(2029, 1, 1));
+    final inside = pickerRangeFor(DateTime(2026, 1, 1), first, last);
+    expect(inside.first, first);
+    expect(inside.last, last);
+  });
+
+  test('이미 지난 기한은 오늘부터 보인다', () {
+    final today = DateTime(2026, 9, 22, 10);
+    final last = DateTime(2027, 9, 22);
+    expect(clampPickerInitial(DateTime(2026, 9, 1), today, last), today);
+    expect(
+      clampPickerInitial(DateTime(2026, 10, 1), today, last),
+      DateTime(2026, 10, 1),
+    );
   });
 }

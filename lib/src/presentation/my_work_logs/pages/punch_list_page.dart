@@ -6,6 +6,7 @@ import '../widgets/voice_input_button.dart';
 import '../../../core/utils/image_picker_helper.dart'; // 🚀 경로 확인 필수!
 import '../widgets/photo_detail_modal.dart';
 import 'floor_plan_pin_page.dart';
+import '../../my_schedule/schedule_logic.dart' show clampPickerInitial;
 
 const Color tossText = Color(0xFF191F28);
 const Color tossSubText = Color(0xFF8B95A1);
@@ -114,12 +115,18 @@ class _PunchListPageState extends State<PunchListPage> {
   }
 
   Future<void> _pickDueDate() async {
+    final first = DateTime.now();
+    final last = first.add(const Duration(days: 365));
     final picked = await showDatePicker(
       context: context,
-      initialDate:
-          _customDueDate ?? DateTime.now().add(const Duration(days: 3)),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      // 이미 지난 기한을 다시 고를 때도 창이 멈추지 않게 오늘~1년 안으로 맞춘다.
+      initialDate: clampPickerInitial(
+        _customDueDate ?? first.add(const Duration(days: 3)),
+        first,
+        last,
+      ),
+      firstDate: first,
+      lastDate: last,
     );
     if (picked != null) {
       setState(() {
