@@ -360,6 +360,7 @@ class MobileVehicleDetailPage extends StatelessWidget {
 
                       _buildInputLabel("운행 목적"),
                       DropdownButtonFormField<String>(
+                        dropdownColor: Colors.white,
                         initialValue: selectedPurpose,
                         hint: const Text("운행 목적 선택"),
                         icon: const Icon(

@@ -518,6 +518,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 170),
         child: DropdownButton<String>(
+          dropdownColor: Colors.white,
           value: value,
           isExpanded: true,
           underline: const SizedBox(),

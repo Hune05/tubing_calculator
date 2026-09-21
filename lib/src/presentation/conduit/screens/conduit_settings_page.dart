@@ -563,6 +563,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
+                dropdownColor: Colors.white,
                 isExpanded: true,
                 value: _selectedTypeId,
                 icon: const Icon(
@@ -1098,6 +1099,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
       trailing: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 150),
         child: DropdownButton<String>(
+          dropdownColor: Colors.white,
           value: safeValue,
           isExpanded: true,
           underline: const SizedBox(),

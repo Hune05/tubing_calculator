@@ -1107,6 +1107,7 @@ Future<List<Leftover>?> _manageLeftovers(
                     children: [
                       if (labels.length > 1)
                         DropdownButton<String>(
+                          dropdownColor: Colors.white,
                           value: label,
                           items: [
                             for (final l in labels)
