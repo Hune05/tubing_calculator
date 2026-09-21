@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/utils/settings_cloud.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import '../../../core/utils/pdf_fonts.dart';
 import 'package:flutter/services.dart'
@@ -256,6 +257,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       setState(() => _bladeKerf = result);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble(_kerfPrefsKey, result);
+      SettingsCloudSync.instance.backup();
     }
   }
 
@@ -338,9 +340,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       kerf: _bladeKerf,
       onStockLengthChanged: (parsed) {
         setState(() => _stockLength = parsed);
-        SharedPreferences.getInstance().then(
-          (prefs) => prefs.setDouble(_stockLengthPrefsKey, parsed),
-        );
+        SharedPreferences.getInstance()
+            .then((prefs) => prefs.setDouble(_stockLengthPrefsKey, parsed))
+            .then((_) => SettingsCloudSync.instance.backup());
       },
     );
   }

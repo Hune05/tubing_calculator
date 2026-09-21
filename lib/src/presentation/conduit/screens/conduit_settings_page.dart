@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:tubing_calculator/src/core/utils/settings_cloud.dart';
 import 'package:tubing_calculator/src/data/conduit_spec_sets.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:tubing_calculator/src/data/models/bender_spec_data.dart';
@@ -72,6 +73,8 @@ Future<void> saveGlobalBenderSettings() async {
     kConduitSettingsPrefsKey,
     jsonEncode(globalBenderSettings.value),
   );
+  // 서버에도 올린다(구글 로그인했을 때만).
+  SettingsCloudSync.instance.backup();
 }
 
 /// 단위 칸 도움말. 셈은 늘 mm이고 단위는 현장 탭 표시에만 쓴다.

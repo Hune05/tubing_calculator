@@ -3,6 +3,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:tubing_calculator/src/data/machine_specs.dart';
 
 import 'settings_manager.dart';
+import 'settings_cloud.dart';
 
 /// 🚀 [신규] 앱 전역에서 공유하는 단일 설정 저장소.
 ///
@@ -186,6 +187,8 @@ class AppSettingsController extends ChangeNotifier {
     );
     _applyWakelock();
     notifyListeners();
+    // 서버에도 올린다(구글 로그인했을 때만, 기다리지 않는다).
+    SettingsCloudSync.instance.backup();
   }
 
   /// 🚀 [수정] "화면 꺼짐 방지" 스위치는 예전처럼 토글 즉시 적용되지만,

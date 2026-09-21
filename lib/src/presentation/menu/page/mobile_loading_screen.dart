@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:tubing_calculator/src/core/utils/settings_cloud.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // 🔥 추가됨
 import 'package:firebase_messaging/firebase_messaging.dart'; // 🔥 추가됨
 import 'package:tubing_calculator/src/presentation/menu/page/home_menu_router.dart';
@@ -113,6 +114,10 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
           idToken: googleAuth.idToken,
         );
         await FirebaseAuth.instance.signInWithCredential(credential);
+
+        // 새로 깔아서 폰에 설정이 없으면 서버에 올려 둔 설정을 받는다
+        // (통신이 없으면 5초만 기다리고 넘어간다).
+        await SettingsCloudSync.instance.restore();
 
         String name = account.displayName ?? "작업자";
         await prefs.setString('user_real_name', name);

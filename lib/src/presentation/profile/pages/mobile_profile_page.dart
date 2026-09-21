@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/profile/widgets/settings_cloud_card.dart';
+import 'package:tubing_calculator/src/core/utils/settings_cloud.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -64,6 +66,32 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
     }
   }
 
+  // 이름만 넣고 쓰던 사람이 이름은 그대로 두고 구글 계정만 잇는다
+  // (계산기 설정을 계정에 보관하려고).
+  Future<bool> _linkGoogleAccount() async {
+    try {
+      await _googleSignIn.initialize(
+        serverClientId:
+            '289974993415-lhibiid49ncmb5hev53hnasj7vhkvki3.apps.googleusercontent.com',
+      );
+      final GoogleSignInAccount account = await _googleSignIn.authenticate();
+      final credential = GoogleAuthProvider.credential(
+        idToken: account.authentication.idToken,
+      );
+      await FirebaseAuth.instance.signInWithCredential(credential);
+      final got = await SettingsCloudSync.instance.restore();
+      if (got == 0) await SettingsCloudSync.instance.backup();
+      if (mounted) setState(() {});
+      return true;
+    } catch (e) {
+      debugPrint("🚨 구글 계정 연결 에러: $e");
+      if (mounted) {
+        _showSnackBar("구글 계정을 연결하지 못했습니다. 통신을 확인하십시오.", isError: true);
+      }
+      return false;
+    }
+  }
+
   // 🚀 구글 로그인 처리
   Future<void> _handleGoogleSignIn() async {
     setState(() => _isLoggingIn = true);
@@ -80,6 +108,10 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
           idToken: googleAuth.idToken,
         );
         await FirebaseAuth.instance.signInWithCredential(credential);
+
+        // 폰에 설정이 없으면 서버 것을 받고, 폰에만 있으면 서버에 올려 둔다.
+        final got = await SettingsCloudSync.instance.restore();
+        if (got == 0) SettingsCloudSync.instance.backup();
 
         if (!mounted) return;
         await _showNameConfirmDialog(account.displayName ?? "");
@@ -407,6 +439,9 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
               ),
 
               const SizedBox(height: 8),
+
+              // 계산기 설정 서버 보관(구글 로그인했을 때만)
+              if (!isGuest) SettingsCloudCard(onLinkGoogle: _linkGoogleAccount),
 
               // 🌟 메뉴 리스트 영역 (로그인 상태일 때만 표시)
               if (!isGuest)
