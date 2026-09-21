@@ -13,6 +13,8 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_sad
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_parallel_shrink_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/swipe_delete.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/undo_redo_buttons.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/swipe_delete.dart'
+    show inputPanelMaxHeight;
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
 
 const Color makitaTeal = Color(0xFF007580);
@@ -498,9 +500,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
         ],
       ),
       child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.6,
-        ),
+        constraints: BoxConstraints(maxHeight: inputPanelMaxHeight(context)),
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           child: Column(
@@ -652,7 +652,8 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
-                    childAspectRatio: 2.5,
+                    // 칸 높이를 폭에 비례로 잡으면 가로 화면에서 칸이 커져 281px 넘쳤다.
+                    mainAxisExtent: 40,
                     crossAxisSpacing: 8,
                     mainAxisSpacing: 8,
                   ),

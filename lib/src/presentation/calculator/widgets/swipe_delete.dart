@@ -64,3 +64,10 @@ int? indexAfterRemove(int? editing, int removed) {
   if (editing == removed) return null;
   return editing > removed ? editing - 1 : editing;
 }
+
+/// 입력판이 차지할 수 있는 가장 큰 높이. 가로 화면에서는 목록이 보이도록 30%,
+/// 세로 화면에서는 60%. 넘치면 입력판 안에서 스크롤한다.
+double inputPanelMaxHeight(BuildContext context) {
+  final size = MediaQuery.sizeOf(context);
+  return size.height * (size.width > size.height ? 0.3 : 0.6);
+}
