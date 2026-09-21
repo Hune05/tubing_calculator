@@ -2571,6 +2571,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     }
     if (pieces == 0 || pieces > 400) return '';
     var bars = 0;
+    var oversized = 0;
     for (final list in byShape.values) {
       final r = optimizeCutting(
         pieces: list,
@@ -2578,9 +2579,14 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         kerf: _bladeKerf,
       );
       bars += r.barCount;
+      oversized += r.oversizedPieces.length;
     }
-    if (bars == 0) return '';
-    return "새 원자재 ${fmtMm(_stockLength)} $bars본";
+    // 원자재보다 긴 조각은 본수에 들어가지 않으므로 뺀 개수를 같이 적는다(본수가 모자라 보이지 않게).
+    final over = oversized > 0 ? " · 원자재보다 긴 조각 ${oversized}개는 뺐습니다" : "";
+    if (bars == 0) {
+      return oversized > 0 ? "원자재보다 긴 조각 ${oversized}개는 뺐습니다" : '';
+    }
+    return "새 원자재 ${fmtMm(_stockLength)} $bars본$over";
   }
 
   // 결과 탭 제목줄 아래의 켜고 끄는 칩(다 자른 규격 접기 · 자른 줄 감추기 · 중량 큰 규격부터).

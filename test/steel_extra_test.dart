@@ -1890,6 +1890,25 @@ void main() {
       expect(findTextContaining('새 원자재 6000 3본'), findsOneWidget);
     });
 
+    testWidgets('원자재보다 긴 조각이 있으면 본수 옆에 뺀 개수를 적는다', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await open(
+        tester,
+        proj(
+          items: [
+            item('앵글 40x40x3', 7000, 2, id: 'a'),
+            item('앵글 40x40x3', 1000, 1, id: 'b'),
+          ],
+        ),
+      );
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+      expect(
+        findTextContaining('새 원자재 6000 1본 · 원자재보다 긴 조각 2개는 뺐습니다'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('자른 줄 감추기 칩', (tester) async {
       SharedPreferences.setMockInitialValues({});
       await open(tester, proj());
