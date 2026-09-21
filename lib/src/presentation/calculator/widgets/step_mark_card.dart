@@ -285,7 +285,7 @@ class CutLengthCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
                   color: _teal,
                   borderRadius: BorderRadius.circular(8),
@@ -293,7 +293,7 @@ class CutLengthCard extends StatelessWidget {
                 child: const AppIcon(
                   AppGlyph.tubeCut,
                   color: _white,
-                  size: 14,
+                  size: 18,
                   filled: false,
                 ),
               ),
