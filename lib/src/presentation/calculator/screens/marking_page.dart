@@ -4,6 +4,7 @@ import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/presentation/calculator/bend_check.dart';
+import 'package:tubing_calculator/src/presentation/calculator/tube_marking_rules.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 
@@ -197,17 +198,12 @@ class _MarkingPageState extends State<MarkingPage> {
             // 🚀 [핵심 수정 완료] ISO 형상 파괴 버그 픽스!
             List<Map<String, dynamic>> displayMarks = [];
             int markNumber = 1;
-            double lastMarkingPoint = 0.0;
             double accumulatedIncremental = 0.0;
 
             for (int i = 0; i < bendList.length; i++) {
               bool isStraight = bendList[i]['angle'] == 0.0;
               double currentMark = steps[i].markingPoint;
               double currentLength = bendList[i]['length']!.toDouble();
-
-              if (currentMark > lastMarkingPoint) {
-                lastMarkingPoint = currentMark;
-              }
 
               // 🛑 1. 길이도 없고 각도도 없는 진짜 '깡통(더미) 직관'
               if (currentLength <= 0.01 && isStraight) {
@@ -263,7 +259,8 @@ class _MarkingPageState extends State<MarkingPage> {
             final double totalCut = bendList.isEmpty
                 ? 0.0
                 : pureCutLength + dataManager.cutMargin;
-            double diffAfterLastMark = (pureTotal - lastMarkingPoint) - radius;
+            // 마지막 벤드가 끝난 뒤 관 끝까지 곧은 길이.
+            double diffAfterLastMark = straightAfterLastBend(steps, pureTotal);
             if (diffAfterLastMark < 0) diffAfterLastMark = 0;
 
             return Column(
@@ -324,7 +321,7 @@ class _MarkingPageState extends State<MarkingPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      "※ 마지막 마킹 대비 잔여 기장: +${diffAfterLastMark.round()}mm",
+                                      "마지막 벤드 뒤 곧은 길이 ${diffAfterLastMark.round()}mm",
                                       style: TextStyle(
                                         color: Colors.red.shade700,
                                         fontSize: 12,

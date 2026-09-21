@@ -7,6 +7,7 @@ import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/presentation/calculator/bend_check.dart';
+import 'package:tubing_calculator/src/presentation/calculator/tube_marking_rules.dart';
 import 'package:tubing_calculator/src/presentation/field/field_marking.dart';
 import 'package:tubing_calculator/src/presentation/field/marking_sheet_pdf.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
@@ -334,7 +335,6 @@ class _MobileResultTabState extends State<MobileResultTab>
 
         List<Map<String, dynamic>> displayMarks = [];
         int markNumber = 1;
-        double lastMarkingPoint = 0.0;
         double accumulatedIncremental = 0.0;
 
         for (int i = 0; i < bendList.length; i++) {
@@ -348,10 +348,6 @@ class _MobileResultTabState extends State<MobileResultTab>
           if (i == 0 && _includeStartFitting) appliedFit += fittingDepth;
           if (i == bendList.length - 1 && _includeEndFitting) {
             appliedFit += fittingDepth;
-          }
-
-          if (currentMark > lastMarkingPoint) {
-            lastMarkingPoint = currentMark;
           }
 
           if (currentLength <= 0.01 && isStraight) {
@@ -402,8 +398,8 @@ class _MobileResultTabState extends State<MobileResultTab>
         double totalCut = bendList.isEmpty
             ? 0.0
             : pureCutLength + dataManager.cutMargin;
-        double diffAfterLastMark = (totalCut - lastMarkingPoint) - radius;
-
+        // 마지막 벤드가 끝난 뒤 관 끝까지 곧은 길이(톱날 손실은 빼고).
+        double diffAfterLastMark = straightAfterLastBend(steps, pureCutLength);
         if (diffAfterLastMark < 0) {
           diffAfterLastMark = 0;
         }
@@ -536,7 +532,7 @@ class _MobileResultTabState extends State<MobileResultTab>
           ? Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
-                "마지막 벤딩 후 잔여 +${leftover.round()}mm",
+                "마지막 벤드 뒤 곧은 길이 ${leftover.round()}mm",
                 style: const TextStyle(
                   color: slate600,
                   fontSize: 12,
