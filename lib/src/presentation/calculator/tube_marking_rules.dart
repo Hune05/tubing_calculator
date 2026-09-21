@@ -51,3 +51,31 @@ double straightAfterLastBend(List<StepResult> steps, double pureCutLength) {
     endFitOnTail: onTail,
   );
 }
+
+/// 엔진 오류를 화면에 보일 글로. 'Invalid argument(s): ' 머리말을 뗀다.
+/// 🚀 [고침] 마킹 탭은 이 머리말을 떼지 않고 그대로 보여 줬다.
+String tubeEngineErrorText(Object e) =>
+    e.toString().replaceFirst('Invalid argument(s): ', '');
+
+/// 엔진이 돌려준 절단 길이를 쓸 수 없으면 그 까닭을, 쓸 수 있으면 null을 준다.
+///
+/// 엔진은 179.9° 이상만 막아서 179.8°는 통과하고 절단 길이가 음수
+/// (R100·500 179.8°: −56482mm)로 나온다. 각도가 숫자가 아니면(NaN) 검사를
+/// 모두 지나 절단 길이도 숫자가 아니다. 이런 값은 크게 보여 주지 않는다.
+String? badCutLengthText(double pureCutLength) {
+  if (!pureCutLength.isFinite) {
+    return "셈 결과가 숫자가 아닙니다. 각도와 길이를 다시 확인하십시오.";
+  }
+  if (pureCutLength <= 0) {
+    return "총 절단 길이가 ${pureCutLength.toStringAsFixed(0)}mm로 나옵니다. "
+        "180°에 가까운 각이나 셋백보다 짧은 구간이 없는지 확인하십시오.";
+  }
+  return null;
+}
+
+/// 목록에 실제로 자를 구간이 있는지(길이 0짜리 빈 직관만 있으면 false).
+bool hasRealTubeRow(List<Map<String, dynamic>> bendList) => bendList.any(
+  (b) =>
+      ((b['angle'] as num?)?.toDouble() ?? 0.0) > 0 ||
+      ((b['length'] as num?)?.toDouble() ?? 0.0) > 0.01,
+);

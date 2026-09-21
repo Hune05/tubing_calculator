@@ -102,8 +102,12 @@ FieldMarkingData computeTubeFieldData({String startDir = "RIGHT"}) {
     return FieldMarkingData(
       totalCut: 0,
       marks: const [],
-      error: e.toString().replaceFirst('Invalid argument(s): ', ''),
+      error: tubeEngineErrorText(e),
     );
+  }
+  final String? badCut = badCutLengthText(result['totalCutLength'] as double);
+  if (badCut != null && hasRealTubeRow(bendList)) {
+    return FieldMarkingData(totalCut: 0, marks: const [], error: badCut);
   }
 
   final List<StepResult> steps = result['steps'];
@@ -280,7 +284,12 @@ class _MobileResultTabState extends State<MobileResultTab>
             tail: fitted.tail,
           );
         } catch (e) {
-          calcError = e.toString();
+          calcError = tubeEngineErrorText(e);
+        }
+        // 목록에 실제 구간이 있는데 절단 길이가 0 이하이거나 숫자가 아니면
+        // 값 대신 까닭을 보여 준다.
+        if (calcError == null && result != null && hasRealTubeRow(bendList)) {
+          calcError = badCutLengthText(result['totalCutLength'] as double);
         }
 
         if (calcError != null || result == null) {

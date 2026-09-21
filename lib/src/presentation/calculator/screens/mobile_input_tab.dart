@@ -25,6 +25,13 @@ const Color slate100 = Color(0xFFF1F5F9);
 const Color pureWhite = Color(0xFFFFFFFF);
 const Color _slate800 = Color(0xFF1E293B);
 
+/// 튜브 "직관+각도"로 넣을 수 있는 가장 큰 각.
+///
+/// 🚀 [고침] 예전에는 180°까지 받았다. 엔진은 179.9° 이상만 막아서 179.8°를
+/// 넣으면 셋백이 수만 mm가 되고 총 절단 길이가 음수(-56482mm)로 나왔다.
+/// U자는 퀵 U-Bend 계산기로 보낸다.
+const double kTubeMaxAngle = 170.0;
+
 class MobileInputTab extends StatefulWidget {
   const MobileInputTab({super.key});
   @override
@@ -79,6 +86,31 @@ class _MobileInputTabState extends State<MobileInputTab>
     super.dispose();
   }
 
+  /// 각도 칸 값을 0~[kTubeMaxAngle]로 묶어 읽는다. 넘치면 칸 글자도 바꾼다.
+  double _customAngle() {
+    final double? typed = double.tryParse(_customAngleController.text);
+    if (typed == null) return 0.0;
+    final double a = typed.clamp(0.0, kTubeMaxAngle);
+    if (a != typed) {
+      _customAngleController.text = a == a.roundToDouble()
+          ? a.toStringAsFixed(0)
+          : a.toStringAsFixed(1);
+    }
+    return a;
+  }
+
+  void _showAngleLimitNotice() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          "각도는 ${kTubeMaxAngle.toInt()}°까지 넣을 수 있습니다. "
+          "U자로 꺾는 것은 특수 벤딩 툴의 퀵 U-Bend 계산기를 쓰십시오.",
+        ),
+        backgroundColor: Colors.deepOrange,
+      ),
+    );
+  }
+
   void _addSegment() {
     double length = double.tryParse(_lengthController.text) ?? 0.0;
 
@@ -99,6 +131,11 @@ class _MobileInputTabState extends State<MobileInputTab>
           backgroundColor: Colors.deepOrange,
         ),
       );
+      return;
+    }
+
+    if (_selectedAngle > kTubeMaxAngle) {
+      _showAngleLimitNotice();
       return;
     }
 
@@ -945,11 +982,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                                             _selectedAngle = 0.0;
                                             _selectedRotation = null;
                                           } else {
-                                            _selectedAngle =
-                                                double.tryParse(
-                                                  _customAngleController.text,
-                                                ) ??
-                                                0.0;
+                                            _selectedAngle = _customAngle();
                                           }
                                         });
                                       },
@@ -986,20 +1019,23 @@ class _MobileInputTabState extends State<MobileInputTab>
                                   controller: _customAngleController,
                                   title: "벤딩 각도 입력 (°)",
                                 );
+                                if (!context.mounted) return;
+                                final double typed =
+                                    double.tryParse(
+                                      _customAngleController.text,
+                                    ) ??
+                                    0.0;
                                 setState(() {
-                                  // 🚀 [수정] 음수/180° 초과 입력 방지 (0~180° 범위로 클램프).
-                                  // 180°에 가까운 값은 계산 엔진에서 별도로 에러 처리되며,
-                                  // U-Bend는 전용 계산기를 사용하도록 안내함.
-                                  _selectedAngle =
-                                      (double.tryParse(
-                                                _customAngleController.text,
-                                              ) ??
-                                              0.0)
-                                          .clamp(0.0, 180.0);
+                                  // 음수·상한 초과는 묶는다. 칸 글자도 같이 바꿔서
+                                  // 보이는 값과 셈에 쓰는 값이 같게 한다.
+                                  _selectedAngle = _customAngle();
                                   if (_selectedAngle == 0.0) {
                                     _selectedRotation = null;
                                   }
                                 });
+                                if (typed > kTubeMaxAngle) {
+                                  _showAngleLimitNotice();
+                                }
                               },
                               child: AbsorbPointer(
                                 child: TextField(
