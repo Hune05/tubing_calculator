@@ -84,7 +84,18 @@ class _MobileParallelShrinkBottomSheetState
       trueRise = double.tryParse(_riseCtrl.text) ?? 0;
     }
 
-    if (_isParallelMode) {
+    // 🚀 [고침] 평행 모드는 각도 범위를 보지 않아 180°에서 tan(90°)로 값이
+    // +8×10^17mm처럼 터졌다. 범위를 벗어나면 까닭을 보여 준다.
+    String? angleProblem;
+    if (_isParallelMode && angle > 90.0) {
+      angleProblem = "각도는 90°까지 넣을 수 있습니다.";
+    } else if (!_isParallelMode && angle >= 90.0) {
+      angleProblem = "축소값은 90°보다 작은 각에서만 셈합니다.";
+    }
+
+    if (angleProblem != null) {
+      finalResult = 0;
+    } else if (_isParallelMode) {
       // 🚀 [버그 수정] 90°일 때만 tan(45°)=1.0 대신 엉뚱하게 π/2(1.5708)를
       // 하드코딩해놔서 결과가 약 57% 더 크게 나오고 있었다. tan(각도/2)는
       // 90°에서도(45°) 특이점 없이 정상 계산되므로 예외 처리 자체가
@@ -119,19 +130,21 @@ class _MobileParallelShrinkBottomSheetState
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Row(
-                    children: [
-                      Icon(LucideIcons.layoutGrid, color: makitaTeal, size: 28),
-                      SizedBox(width: 12),
-                      Text(
-                        "평행 & 축소 계산기",
-                        style: TextStyle(
-                          color: slate900,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
+                  const Icon(
+                    LucideIcons.layoutGrid,
+                    color: makitaTeal,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      "평행 & 축소 계산기",
+                      style: TextStyle(
+                        color: slate900,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ],
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, color: slate600),
@@ -315,17 +328,29 @@ class _MobileParallelShrinkBottomSheetState
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      finalResult > 0
-                          ? "+${finalResult.toStringAsFixed(1)} mm"
-                          : "계산 대기중",
-                      style: TextStyle(
-                        color: finalResult > 0 ? makitaTeal : Colors.redAccent,
-                        fontSize: 36,
-                        fontWeight: FontWeight.w900,
-                        fontFamily: 'monospace',
+                    if (angleProblem != null)
+                      Text(
+                        angleProblem,
+                        style: const TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      )
+                    else
+                      Text(
+                        finalResult > 0
+                            ? "+${finalResult.toStringAsFixed(1)} mm"
+                            : "계산 대기중",
+                        style: TextStyle(
+                          color: finalResult > 0
+                              ? makitaTeal
+                              : Colors.redAccent,
+                          fontSize: 36,
+                          fontWeight: FontWeight.w900,
+                          fontFamily: 'monospace',
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
