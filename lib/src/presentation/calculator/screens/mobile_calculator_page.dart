@@ -285,7 +285,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
     return IndexedStack(
       index: _currentIndex,
       children: [
-        const MobileInputTab(),
+        MobileInputTab(startDir: _startDir),
         MobileResultTab(startDir: _startDir),
         MobileHistoryTab(onLoaded: _onDrawingLoaded),
         _buildFieldTab(),
@@ -317,7 +317,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
         Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Expanded(flex: 5, child: MobileInputTab()),
+            Expanded(flex: 5, child: MobileInputTab(startDir: _startDir)),
             Container(width: 1, color: slate100),
             Expanded(flex: 6, child: MobileResultTab(startDir: _startDir)),
           ],

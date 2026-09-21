@@ -33,7 +33,10 @@ const Color _slate800 = Color(0xFF1E293B);
 const double kTubeMaxAngle = 170.0;
 
 class MobileInputTab extends StatefulWidget {
-  const MobileInputTab({super.key});
+  /// 관 시작 방향(퀵 U-Bend가 두 번째 벤드 방향을 정할 때 쓴다).
+  final String startDir;
+
+  const MobileInputTab({super.key, this.startDir = "RIGHT"});
   @override
   State<MobileInputTab> createState() => _MobileInputTabState();
 }
@@ -483,7 +486,11 @@ class _MobileInputTabState extends State<MobileInputTab>
                 // 🚀 2. 퀵 U-Bend (독립 실행형) 추가!
                 _buildSpecialMenuBtn("퀵 U-Bend (180°) 계산기", AppGlyph.uBend, () {
                   Navigator.pop(context);
-                  MobileQuickUBendBottomSheet.show(context);
+                  MobileQuickUBendBottomSheet.show(
+                    context,
+                    onAddMultipleBends: _addMultipleBends,
+                    startDir: widget.startDir,
+                  );
                 }),
 
                 _buildSpecialMenuBtn("일반 오프셋 (Offset)", AppGlyph.offset, () {

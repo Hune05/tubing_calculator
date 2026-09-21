@@ -630,6 +630,8 @@ class _MobileResultTabState extends State<MobileResultTab>
     // 앞 벤드와 다른 평면으로 꺾을 때 관을 굴릴 각도.
     final double rollDeg = (item['roll_deg'] as num?)?.toDouble() ?? 0.0;
     final int markNum = (item['mark_num'] as num?)?.toInt() ?? 0;
+    // 퀵 U-Bend로 넣은 90° 두 번(1: U자 시작, 2: 두 번째 90°).
+    final int uBend = (item['uBend'] as num?)?.toInt() ?? 0;
 
     return StepMarkCard(
       isStraight: isStraight,
@@ -658,6 +660,18 @@ class _MobileResultTabState extends State<MobileResultTab>
               Icons.warning_amber_rounded,
               "앞 벤드에서 ${rollDeg.round()}° 굴려 물리십시오",
               stepNoteAmber,
+            ),
+          if (uBend == 1)
+            (
+              Icons.u_turn_right_rounded,
+              "U자 시작: 한 번에 180°로 꺾을 때는 이 마킹만 씁니다",
+              stepNoteTeal,
+            ),
+          if (uBend == 2)
+            (
+              Icons.u_turn_right_rounded,
+              "U자 두 번째 90°: 90°씩 나눠 꺾을 때만 씁니다",
+              stepNoteGrey,
             ),
         ],
       ],

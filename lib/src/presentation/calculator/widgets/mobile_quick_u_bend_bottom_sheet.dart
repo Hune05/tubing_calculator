@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/u_bend_plan.dart';
+import 'package:tubing_calculator/src/core/engine/bend_path.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
@@ -22,14 +24,31 @@ double uBendApex({
 }) => startStraight > 0 ? startStraight + radius + odMm / 2 : 0.0;
 
 class MobileQuickUBendBottomSheet extends StatefulWidget {
-  const MobileQuickUBendBottomSheet({super.key});
+  /// 입력 목록에 넣을 때 부른다. null이면 값만 보는 계산기다.
+  final void Function(List<Map<String, double>>)? onAddMultipleBends;
 
-  static void show(BuildContext context) {
+  /// 관 시작 방향(목록이 비었을 때 지금 진행 방향).
+  final String startDir;
+
+  const MobileQuickUBendBottomSheet({
+    super.key,
+    this.onAddMultipleBends,
+    this.startDir = "RIGHT",
+  });
+
+  static void show(
+    BuildContext context, {
+    void Function(List<Map<String, double>>)? onAddMultipleBends,
+    String startDir = "RIGHT",
+  }) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const MobileQuickUBendBottomSheet(),
+      builder: (context) => MobileQuickUBendBottomSheet(
+        onAddMultipleBends: onAddMultipleBends,
+        startDir: startDir,
+      ),
     );
   }
 
@@ -45,6 +64,9 @@ class _MobileQuickUBendBottomSheetState
   bool _warnShoeInterference = true;
   double _tubeOD = 12.7;
   double _bendRadius = 38.1;
+
+  // U자가 튀어나가는 방향(0 위 · 90 우 · 180 아래 · 270 좌 · 360 앞 · 450 뒤).
+  double? _turn;
 
   // 피팅 삽입 여부 토글 상태
   bool _isStartFitting = true;
@@ -71,7 +93,8 @@ class _MobileQuickUBendBottomSheetState
         // 🚀 [고침] 인치 설정이면 이 값은 인치(0.5 등)다. mm로 바꿔 쓴다.
         final double od = (data['tubeOD'] as num?)?.toDouble() ?? 12.7;
         _tubeOD = data['isInch'] == true ? od * 25.4 : od;
-        _bendRadius = data['bendRadius'] ?? MobileBendDataManager().radius;
+        // 마킹 탭 엔진과 같은 반경을 쓴다(목록에 넣었을 때 값이 같게).
+        _bendRadius = MobileBendDataManager().radius;
         _warnShoeInterference = prefs.getBool('warnShoeInterference') ?? true;
       });
     }
@@ -123,7 +146,13 @@ class _MobileQuickUBendBottomSheetState
     double returnStraight = double.tryParse(_returnStraightCtrl.text) ?? 0.0;
 
     double cToCWidth = _bendRadius * 2;
-    double arcLength = _bendRadius * math.pi;
+    // U자가 먹는 길이. 실측 게인이 있으면 마킹 탭 엔진과 같게 그것으로 셈한다
+    // (게인 없이 반경만 쓰면 호 길이 πR과 같다).
+    final double gain90 = dm.gain90;
+    double arcLength = uBendAllowance(
+      radius: _bendRadius,
+      measuredGain90: gain90,
+    );
 
     double totalCutLength = 0.0;
     double startCutAdd = _isStartFitting ? fittingDepth : 0.0;
@@ -253,7 +282,8 @@ class _MobileQuickUBendBottomSheetState
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            "• 호(Arc) 소비 원장 길이: ${arcLength.toStringAsFixed(1)} mm",
+                            "• U자가 먹는 관 길이: ${arcLength.toStringAsFixed(1)} mm"
+                            "${gain90 > 0 ? ' (실측 게인 ${gain90.toStringAsFixed(1)} 반영)' : ''}",
                             style: TextStyle(
                               color: Colors.amber.shade900,
                               fontSize: 12,
@@ -262,8 +292,8 @@ class _MobileQuickUBendBottomSheetState
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            "• 앞 직관 + 호 + 뒤 직관이 곧 자를 길이입니다"
-                            " (연신율은 더하지 않습니다)",
+                            "• 앞 직관 + U자 + 뒤 직관이 자를 길이입니다"
+                            " (마킹 탭과 같은 셈)",
                             style: TextStyle(
                               color: Colors.amber.shade900,
                               fontSize: 12,
@@ -451,7 +481,7 @@ class _MobileQuickUBendBottomSheetState
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            "직관 + 호(${arcLength.toStringAsFixed(1)}) + 피팅 깊이 합산",
+                            "직관 + U자(${arcLength.toStringAsFixed(1)}) + 피팅 깊이 합산",
                             style: const TextStyle(
                               color: Colors.black54,
                               fontSize: 11,
@@ -460,7 +490,18 @@ class _MobileQuickUBendBottomSheetState
                         ],
                       ),
                     ),
-                    SizedBox(
+                  ],
+                ),
+              ),
+              if (widget.onAddMultipleBends != null) ...[
+                const SizedBox(height: 20),
+                _buildTurnSelector(),
+              ],
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
                       height: 48,
                       child: OutlinedButton(
                         style: OutlinedButton.styleFrom(
@@ -471,7 +512,7 @@ class _MobileQuickUBendBottomSheetState
                         ),
                         onPressed: () => Navigator.pop(context),
                         child: const Text(
-                          "확인 (닫기)",
+                          "닫기",
                           style: TextStyle(
                             color: makitaTeal,
                             fontSize: 15,
@@ -480,13 +521,156 @@ class _MobileQuickUBendBottomSheetState
                         ),
                       ),
                     ),
+                  ),
+                  if (widget.onAddMultipleBends != null) ...[
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: SizedBox(
+                        height: 48,
+                        child: FilledButton(
+                          key: const Key('u_bend_apply'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: makitaTeal,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: () =>
+                              _apply(startStraight, returnStraight),
+                          child: const Text(
+                            "목록에 넣기",
+                            style: TextStyle(
+                              color: pureWhite,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
-                ),
+                ],
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  static const List<(double, String)> _turnDirs = [
+    (0.0, "UP"),
+    (360.0, "FRONT"),
+    (270.0, "LEFT"),
+    (90.0, "RIGHT"),
+    (180.0, "DOWN"),
+    (450.0, "BACK"),
+  ];
+
+  // U자가 튀어나가는 방향. 목록에 넣을 때만 필요하다.
+  Widget _buildTurnSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "U자 방향 (목록에 넣을 때)",
+          style: TextStyle(
+            color: slate600,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final (val, label) in _turnDirs)
+              ChoiceChip(
+                key: Key('u_turn_$label'),
+                label: Text(label),
+                selected: _turn == val,
+                showCheckmark: false,
+                selectedColor: makitaTeal,
+                // 폰 다크 모드에서도 밝게(테마 색을 따라가면 검게 나온다).
+                backgroundColor: slate100,
+                side: BorderSide(
+                  color: _turn == val ? makitaTeal : Colors.grey.shade300,
+                ),
+                labelStyle: TextStyle(
+                  color: _turn == val ? pureWhite : slate900,
+                  fontWeight: FontWeight.bold,
+                ),
+                onSelected: (_) => setState(() => _turn = val),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showMsg(String msg) => showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      content: Text(msg),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text("확인"),
+        ),
+      ],
+    ),
+  );
+
+  // U자를 90° 두 번으로 목록 끝에 넣는다.
+  void _apply(double startStraight, double returnStraight) {
+    final dm = MobileBendDataManager();
+    final list = dm.bendList;
+    if (startStraight <= 0 && list.isEmpty) {
+      _showMsg("시작 직관 길이를 넣으십시오.");
+      return;
+    }
+    if (_turn == null) {
+      _showMsg("U자 방향을 고르십시오.");
+      return;
+    }
+    final double? travel = travelRotation(
+      list,
+      startDir: widget.startDir,
+      radius: _bendRadius,
+    );
+    if (travel == null) {
+      _showMsg("지금 관이 비스듬히 가고 있어 U자를 넣을 수 없습니다. 축 방향으로 간 뒤에 넣으십시오.");
+      return;
+    }
+    if (!canBendToward(
+      directionForRotation(travel),
+      directionForRotation(_turn!),
+    )) {
+      _showMsg("지금 관이 가는 방향과 나란한 쪽으로는 U자를 꺾을 수 없습니다. 다른 방향을 고르십시오.");
+      return;
+    }
+    final bool wasEmpty = list.isEmpty;
+    final segs = uBendSegments(
+      startStraight: startStraight,
+      returnStraight: returnStraight,
+      radius: _bendRadius,
+      turn: _turn!,
+      travel: travel,
+      prevSetback: lastSetback(list, _bendRadius),
+    );
+    // 마킹 카드가 U자 안내를 붙이도록 표시해 둔다.
+    segs[0]['uBend'] = 1.0;
+    segs[1]['uBend'] = 2.0;
+    if (wasEmpty) dm.startFit = _isStartFitting;
+    dm.endFit = _isReturnFitting;
+    widget.onAddMultipleBends!(segs);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("U자를 넣었습니다. 한 번에 180°로 꺾으면 1번 마킹만 씁니다."),
+        backgroundColor: makitaTeal,
+      ),
+    );
+    Navigator.pop(context);
   }
 }
