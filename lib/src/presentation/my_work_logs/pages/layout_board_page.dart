@@ -246,19 +246,19 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       ? "① 왼쪽 팔레트에서 모듈을 도면 위로 끌어다 놓습니다."
                       : "① 아래 팔레트에서 모듈을 도면 위로 끌어다 놓습니다.",
                 ),
-                style: TextStyle(color: tossText, fontSize: 13, height: 1.6),
+                style: TextStyle(color: tossText, fontSize: 14, height: 1.6),
               ),
               Text(
                 keepWords("② '고정 치수 측정' 모드에서 두 지점을 순서대로 탭하면 거리가 자동으로 표시됩니다."),
-                style: TextStyle(color: tossText, fontSize: 13, height: 1.6),
+                style: TextStyle(color: tossText, fontSize: 14, height: 1.6),
               ),
               Text(
                 keepWords("③ 상단의 '다중 선택'을 켜면 여러 모듈을 한 번에 옮기거나 정렬할 수 있습니다."),
-                style: TextStyle(color: tossText, fontSize: 13, height: 1.6),
+                style: TextStyle(color: tossText, fontSize: 14, height: 1.6),
               ),
               Text(
                 keepWords("④ ⋮ 더보기 메뉴에서 색상 범례, 배경 사진, 자재 수량 등을 확인할 수 있습니다."),
-                style: TextStyle(color: tossText, fontSize: 13, height: 1.6),
+                style: TextStyle(color: tossText, fontSize: 14, height: 1.6),
               ),
             ],
           ),
@@ -871,7 +871,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
                   "• $v",
-                  style: const TextStyle(color: warningRed, fontSize: 13),
+                  style: const TextStyle(color: warningRed, fontSize: 14),
                 ),
               ),
             ),
@@ -975,7 +975,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                             : "치수선 ${-dimDelta}개 삭제됨",
                         style: const TextStyle(
                           color: tossSubText,
-                          fontSize: 13,
+                          fontSize: 14,
                         ),
                       ),
                     ),
@@ -1015,12 +1015,12 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             style: TextStyle(
               color: color,
               fontWeight: FontWeight.w800,
-              fontSize: 13,
+              fontSize: 14,
             ),
           ),
           Text(
             names.join(', '),
-            style: const TextStyle(color: tossSubText, fontSize: 12),
+            style: const TextStyle(color: tossSubText, fontSize: 14),
           ),
         ],
       ),
@@ -1289,6 +1289,16 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           style: const TextStyle(color: tossText, fontWeight: FontWeight.w600),
           decoration: InputDecoration(
             labelText: "템플릿 이름",
+            labelStyle: const TextStyle(
+              color: tossSubText,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+            floatingLabelStyle: const TextStyle(
+              color: tossBlue,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
             filled: true,
             fillColor: tossBg,
             border: OutlineInputBorder(
@@ -1427,7 +1437,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               "모듈 $itemCount개",
                               style: const TextStyle(
                                 color: tossSubText,
-                                fontSize: 12,
+                                fontSize: 14,
                               ),
                             ),
                             trailing: IconButton(
@@ -1599,7 +1609,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               "모듈 $itemCount개",
                               style: const TextStyle(
                                 color: tossSubText,
-                                fontSize: 12,
+                                fontSize: 14,
                               ),
                             ),
                             enabled: itemCount > 0,
@@ -1691,7 +1701,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               "${item.width.toInt()}×${item.height.toInt()}mm",
                               style: const TextStyle(
                                 color: tossSubText,
-                                fontSize: 12,
+                                fontSize: 14,
                               ),
                             ),
                             activeColor: tossBlue,
@@ -1716,6 +1726,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                   );
                                 },
                           style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(48, 48),
                             backgroundColor: tossBlue,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
@@ -2055,7 +2066,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     const Text(
                       "측정 기준",
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: tossSubText,
                       ),
@@ -2086,7 +2097,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     const Text(
                       "메모",
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: tossSubText,
                       ),
@@ -2119,7 +2130,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     Text(
                       keepWords("최소 유지 간격 (mm) - 이보다 좁아지면 경고 표시"),
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: tossSubText,
                       ),
@@ -2195,8 +2206,13 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                             });
                           },
                           child: Container(
+                            constraints: const BoxConstraints(
+                              minHeight: 48,
+                              minWidth: 64,
+                            ),
+                            alignment: Alignment.center,
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
+                              horizontal: 14,
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
@@ -2212,7 +2228,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                             child: Text(
                               "${v}mm",
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w800,
                                 color: selected ? tossBlue : tossSubText,
                               ),
@@ -2238,14 +2254,14 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       title: const Text(
                         "대각선 모드",
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: tossText,
                         ),
                       ),
                       subtitle: Text(
                         keepWords("축에 맞추지 않고 실제 직선거리+각도로 표시"),
-                        style: TextStyle(fontSize: 11, color: tossSubText),
+                        style: TextStyle(fontSize: 14, color: tossSubText),
                       ),
                     ),
                     // 🚀 [신규] 안전 이격거리 등 규정과 관련된 중요한
@@ -2264,14 +2280,14 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       title: const Text(
                         "안전 이격거리로 강조 표시",
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: tossText,
                         ),
                       ),
                       subtitle: Text(
                         keepWords("굵은 선 + 🛡 표시로 다른 치수와 구분"),
-                        style: TextStyle(fontSize: 11, color: tossSubText),
+                        style: TextStyle(fontSize: 14, color: tossSubText),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -2298,6 +2314,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(48, 48),
                           side: const BorderSide(color: warningRed),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
@@ -2335,6 +2352,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         setModalState(() {});
       },
       child: Container(
+        constraints: const BoxConstraints(minHeight: 52),
         padding: const EdgeInsets.symmetric(vertical: 12),
         alignment: Alignment.center,
         decoration: BoxDecoration(
@@ -2350,7 +2368,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           style: TextStyle(
             color: selected ? color : tossSubText,
             fontWeight: FontWeight.bold,
-            fontSize: 13,
+            fontSize: 14,
           ),
         ),
       ),
@@ -2711,6 +2729,16 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   ),
                   decoration: InputDecoration(
                     labelText: "프로젝트/현장 명칭",
+                    labelStyle: const TextStyle(
+                      color: tossSubText,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    floatingLabelStyle: const TextStyle(
+                      color: tossBlue,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
                     filled: true,
                     fillColor: tossBg,
                     contentPadding: const EdgeInsets.symmetric(
@@ -2747,7 +2775,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(48, 48),
                       backgroundColor: tossBlue,
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -2777,7 +2807,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: tossText, width: 1.5),
+                      minimumSize: const Size(48, 48),
+                      side: const BorderSide(color: layoutLine, width: 1.5),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -2807,6 +2838,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                         ),
                       ),
                       style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(48, 48),
                         side: const BorderSide(color: tossBlue, width: 1.5),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
@@ -2947,6 +2979,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               ),
                             ),
                             style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(48, 48),
                               backgroundColor: tossBlue.withValues(alpha: 0.1),
                               elevation: 0,
                               shape: RoundedRectangleBorder(
@@ -3015,6 +3048,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               ),
                             ),
                             style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(48, 48),
                               backgroundColor: tossBg,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
@@ -3053,10 +3087,11 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               style: TextStyle(
                                 color: tossText,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                                fontSize: 14,
                               ),
                             ),
                             style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(48, 48),
                               side: BorderSide(
                                 color: tossText.withValues(alpha: 0.2),
                               ),
@@ -3088,10 +3123,11 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               style: TextStyle(
                                 color: tossText,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                                fontSize: 14,
                               ),
                             ),
                             style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(48, 48),
                               side: BorderSide(
                                 color: tossText.withValues(alpha: 0.2),
                               ),
@@ -3140,7 +3176,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           style: TextStyle(
                             color: tossBlue,
                             fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                            fontSize: 14,
                           ),
                         ),
                       ),
@@ -3167,7 +3203,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           style: TextStyle(
                             color: item.isLocked ? warningRed : tossSubText,
                             fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                            fontSize: 14,
                           ),
                         ),
                       ),
@@ -3182,7 +3218,17 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                         color: tossText,
                       ),
                       decoration: InputDecoration(
-                        labelText: "모듈 명칭 (라벨)",
+                        labelText: "모듈 이름",
+                        labelStyle: const TextStyle(
+                          color: tossSubText,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        floatingLabelStyle: const TextStyle(
+                          color: tossBlue,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
                         filled: true,
                         fillColor: tossBg,
                         contentPadding: const EdgeInsets.symmetric(
@@ -3338,6 +3384,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(48, 48),
                           side: const BorderSide(color: warningRed, width: 1.5),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
@@ -3409,7 +3456,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                         "카톡으로 받은 실제 도면 사진을 배경에 깔고 그 위에 모듈을\n배치할 수 있습니다.",
                       ),
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 14,
                         color: tossSubText,
                         height: 1.4,
                       ),
@@ -3438,7 +3485,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           const Text(
                             "투명도",
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: 14,
                               fontWeight: FontWeight.w700,
                               color: tossText,
                             ),
@@ -3486,6 +3533,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               ),
                             ),
                             style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(48, 48),
                               side: const BorderSide(color: tossBlue),
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
@@ -3516,6 +3564,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                 ),
                               ),
                               style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(48, 48),
                                 side: const BorderSide(color: warningRed),
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 14,
@@ -3566,7 +3615,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   Text(
                     label,
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
                       color: tossText,
                     ),
@@ -3575,7 +3624,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   Text(
                     desc,
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 14,
                       color: tossSubText,
                       height: 1.3,
                     ),
@@ -3679,7 +3728,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 const SizedBox(height: 4),
                 Text(
                   keepWords("배치된 모듈을 이름별로 모아 세었습니다."),
-                  style: TextStyle(fontSize: 13, color: tossSubText),
+                  style: TextStyle(fontSize: 14, color: tossSubText),
                 ),
                 const SizedBox(height: 16),
                 if (entries.isEmpty)
@@ -3737,7 +3786,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     const Text(
                       "총 모듈 수",
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 14,
                         color: tossSubText,
                         fontWeight: FontWeight.w600,
                       ),
@@ -3780,6 +3829,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(48, 48),
                           side: BorderSide(
                             color: tossText.withValues(alpha: 0.2),
                           ),
@@ -3811,6 +3861,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(48, 48),
                           backgroundColor: tossBlue,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
@@ -3934,6 +3985,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       Navigator.pop(context);
                     },
                     style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(48, 48),
                       backgroundColor: tossBlue,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -4829,7 +4881,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                           color: tossSubText.withValues(
                                             alpha: 0.7,
                                           ),
-                                          fontSize: 13,
+                                          fontSize: 14,
                                           fontWeight: FontWeight.w600,
                                           height: 1.4,
                                         ),
@@ -4850,6 +4902,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                           ),
                                         ),
                                         style: OutlinedButton.styleFrom(
+                                          minimumSize: const Size(48, 48),
                                           side: const BorderSide(
                                             color: tossBlue,
                                           ),
@@ -5647,6 +5700,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           ),
         ),
         style: OutlinedButton.styleFrom(
+          minimumSize: const Size(48, 48),
           backgroundColor: accent
               ? tossBlue.withValues(alpha: 0.08)
               : pureWhite,
@@ -6622,7 +6676,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         Text(
           label,
           style: const TextStyle(
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
             color: tossSubText,
           ),

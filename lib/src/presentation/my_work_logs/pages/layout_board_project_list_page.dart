@@ -274,12 +274,39 @@ class _LayoutBoardProjectListPageState
               Expanded(
                 child: docs.isEmpty
                     ? _buildEmptyState()
-                    : ListView.builder(
-                        physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 110),
-                        itemCount: docs.length,
-                        itemBuilder: (context, index) =>
-                            _buildCard(docs[index]),
+                    : LayoutBuilder(
+                        // 넓은 화면(태블릿·폴드)에서는 두 줄로 놓아 카드가 옆으로 너무 길어지지 않게.
+                        builder: (context, box) => box.maxWidth >= 720
+                            ? GridView.builder(
+                                physics: const BouncingScrollPhysics(),
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  4,
+                                  16,
+                                  110,
+                                ),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      crossAxisSpacing: 12,
+                                      mainAxisExtent: 124,
+                                    ),
+                                itemCount: docs.length,
+                                itemBuilder: (context, index) =>
+                                    _buildCard(docs[index]),
+                              )
+                            : ListView.builder(
+                                physics: const BouncingScrollPhysics(),
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  4,
+                                  16,
+                                  110,
+                                ),
+                                itemCount: docs.length,
+                                itemBuilder: (context, index) =>
+                                    _buildCard(docs[index]),
+                              ),
                       ),
               ),
             ],
@@ -289,7 +316,8 @@ class _LayoutBoardProjectListPageState
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openNew,
         backgroundColor: tossBlue,
-        elevation: 2,
+        elevation: 0,
+        highlightElevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         icon: const Icon(Icons.add_rounded, color: pureWhite, size: 26),
         label: const Text(
