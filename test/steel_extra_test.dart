@@ -9,6 +9,7 @@ import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_c
 import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_cutting_history_page.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_pdf_preview_page.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_leftover_log.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_optimizer.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_leftovers.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/widgets/leftover_log_page.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/steel_custom_shapes.dart';
@@ -1706,6 +1707,23 @@ void main() {
       expect(overLengthItems(items, 6000).map((e) => e.id), ['b', 'c']);
       expect(overLengthItems(items, 9000), isEmpty);
       expect(overLengthItems(items, 0), isEmpty);
+    });
+
+    test('긴 항목 경고와 재단 계획이 같은 조각을 뺀다(톱날이 있어도 한 본 통째 조각은 넣는다)', () {
+      final items = [
+        item('앵글 40x40x3', 5998, 1, id: 'a'),
+        item('앵글 40x40x3', 6000, 1, id: 'b'),
+        item('앵글 40x40x3', 1000, 1, id: 'c'),
+        item('앵글 40x40x3', 7000, 1, id: 'd'),
+      ];
+      final r = optimizeCutting(
+        pieces: [for (final i in items) i.length],
+        stockLength: 6000,
+        kerf: 3,
+      );
+      expect(overLengthItems(items, 6000).map((e) => e.id), ['d']);
+      expect(r.oversizedPieces, [7000.0]);
+      expect(r.barCount, 3);
     });
 
     SteelCuttingProject proj({
