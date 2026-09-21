@@ -24,6 +24,9 @@ class MultiLengthParse {
   double get totalMm => entries.fold(0.0, (s, e) => s + e.length * e.qty);
 }
 
+// 한 토막 길이의 위쪽 한계(mm). 이보다 길면 잘못 적은 값으로 본다.
+const double kMaxMultiLengthMm = 100000;
+
 final RegExp _multiToken = RegExp(
   r'^(\d+(?:\.\d+)?)\s*(?:mm)?\s*(?:[xX×*]\s*(\d+)\s*(?:개|ea|EA)?)?$',
 );
@@ -39,9 +42,16 @@ MultiLengthParse parseMultiLengths(String text) {
       bad.add(t);
       continue;
     }
-    final len = double.parse(m.group(1)!);
-    final qty = m.group(2) == null ? 1 : int.parse(m.group(2)!);
-    if (len <= 0 || qty <= 0 || qty > 9999) {
+    // 아주 긴 숫자는 int.parse가 오류를 내고 double.parse는 Infinity가 되므로 tryParse로 읽고 걸러 낸다.
+    final len = double.tryParse(m.group(1)!);
+    final qty = m.group(2) == null ? 1 : int.tryParse(m.group(2)!);
+    if (len == null ||
+        qty == null ||
+        !len.isFinite ||
+        len <= 0 ||
+        len > kMaxMultiLengthMm ||
+        qty <= 0 ||
+        qty > 9999) {
       bad.add(t);
       continue;
     }

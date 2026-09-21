@@ -1318,6 +1318,18 @@ void main() {
       expect(multiPreviewText(parseMultiLengths('')), '');
     });
 
+    test('여러 길이 읽기: 아주 큰 개수·아주 긴 길이는 오류 없이 못 읽는 값으로', () {
+      final big = parseMultiLengths('500x99999999999999999999, 800x2');
+      expect(big.entries.map((e) => (e.length, e.qty)), [(800.0, 2)]);
+      expect(big.bad, ['500x99999999999999999999']);
+      final inf = parseMultiLengths('9' * 400);
+      expect(inf.entries, isEmpty);
+      expect(inf.bad.length, 1);
+      final tooLong = parseMultiLengths('100001x2, 100000');
+      expect(tooLong.entries.map((e) => e.length), [100000.0]);
+      expect(tooLong.bad, ['100001x2']);
+    });
+
     test('자주 쓰는 길이: 두 번 이상 쓴 것만, 많이 쓴 순서', () async {
       expect(await loadTopSteelLengths(), isEmpty);
       await bumpSteelLengthUse([500]);
