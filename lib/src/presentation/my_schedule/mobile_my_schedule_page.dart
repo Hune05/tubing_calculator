@@ -3736,6 +3736,13 @@ const List<String> kWeekdaysKo = ['월', '화', '수', '목', '금', '토', '일
 // 프로젝트 일정(오늘 날짜인 것)과 개인 일정(오늘 또는 오늘에 걸리는
 // 반복 회차)을 합쳐서 세되, 이미 완료 처리된 것은 빼서 "아직 할 일"
 // 개수만 보여준다.
+DateTime? _looseDate(dynamic v) {
+  if (v is Timestamp) return v.toDate();
+  if (v is DateTime) return v;
+  if (v is String) return DateTime.tryParse(v);
+  return null;
+}
+
 Future<int> fetchTodayScheduleCount(String currentWorker) async {
   try {
     final now = DateTime.now();
@@ -3750,10 +3757,9 @@ Future<int> fetchTodayScheduleCount(String currentWorker) async {
         final s = Map<String, dynamic>.from(raw as Map);
         if (s['dateTime'] == null || s['isCompleted'] == true) continue;
         final dynamic dt = s['dateTime'];
-        final DateTime date = dt is Timestamp
-            ? dt.toDate()
-            : (dt is String ? DateTime.tryParse(dt) ?? today : today);
-        if (DateTime(date.year, date.month, date.day) == today) count++;
+        final DateTime date = _looseDate(dt) ?? today;
+        // 여러 날 일정은 달력처럼 종료일까지 센다.
+        if (spanCoversDay(date, _looseDate(s['endDate']), today)) count++;
       }
     }
 
@@ -3772,7 +3778,7 @@ Future<int> fetchTodayScheduleCount(String currentWorker) async {
       );
 
       if (recurrence == 'none') {
-        if (DateTime(base.year, base.month, base.day) == today &&
+        if (spanCoversDay(base, _looseDate(data['endDate']), today) &&
             data['isCompleted'] != true) {
           count++;
         }

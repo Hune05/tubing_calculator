@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_logic.dart';
 
 void main() {
+  coverGroup();
   spanGroup();
   recurrenceGroup();
   shiftGroup();
@@ -236,5 +237,19 @@ void spanGroup() {
       expect(spanDayCount(DateTime(2026, 9, 3), DateTime(2026, 9, 1)), 1);
       expect(spanDayCount(DateTime(2026, 9, 3, 14), DateTime(2026, 9, 5)), 3);
     });
+  });
+}
+
+void coverGroup() {
+  test('여러 날 일정은 둘째 날·마지막 날에도 오늘 일정으로 센다', () {
+    final s = DateTime(2026, 9, 21, 9);
+    final e = DateTime(2026, 9, 23);
+    expect(spanCoversDay(s, e, DateTime(2026, 9, 20)), false);
+    expect(spanCoversDay(s, e, DateTime(2026, 9, 21, 15)), true);
+    expect(spanCoversDay(s, e, DateTime(2026, 9, 22)), true);
+    expect(spanCoversDay(s, e, DateTime(2026, 9, 23, 23)), true);
+    expect(spanCoversDay(s, e, DateTime(2026, 9, 24)), false);
+    expect(spanCoversDay(s, null, DateTime(2026, 9, 21)), true);
+    expect(spanCoversDay(s, null, DateTime(2026, 9, 22)), false);
   });
 }

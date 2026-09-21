@@ -298,3 +298,12 @@ int spanDayCount(DateTime start, DateTime? end) {
   final days = (e.difference(s).inHours / 24).round() + 1;
   return days > kMaxSpanDays ? 1 : days;
 }
+
+/// 기간 일정([start]~[end])이 [day]에 걸리는지. 달력과 같은 규칙([spanDayCount])으로 본다.
+bool spanCoversDay(DateTime start, DateTime? end, DateTime day) {
+  final s = _dayOnly(start);
+  final d = _dayOnly(day);
+  if (d.isBefore(s)) return false;
+  final last = DateTime(s.year, s.month, s.day + spanDayCount(start, end) - 1);
+  return !d.isAfter(last);
+}
