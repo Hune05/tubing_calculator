@@ -493,11 +493,18 @@ Future<void> showCuttingOptimizationSheet(
           final r = results['']!;
           for (int i = 0; i < r.leftoverBars.length; i++) {
             barWidgets.add(
-              _buildOptBarCard(r.leftoverBars[i], i, showLength: mix),
+              _buildOptBarCard(
+                r.leftoverBars[i],
+                i,
+                showLength: mix,
+                kerf: kerf,
+              ),
             );
           }
           for (int i = 0; i < r.bars.length; i++) {
-            barWidgets.add(_buildOptBarCard(r.bars[i], i, showLength: mix));
+            barWidgets.add(
+              _buildOptBarCard(r.bars[i], i, showLength: mix, kerf: kerf),
+            );
           }
         } else {
           for (final entry in groups.entries) {
@@ -505,11 +512,18 @@ Future<void> showCuttingOptimizationSheet(
             barWidgets.add(_buildGroupSummaryHeader(entry.key, r));
             for (int i = 0; i < r.leftoverBars.length; i++) {
               barWidgets.add(
-                _buildOptBarCard(r.leftoverBars[i], i, showLength: mix),
+                _buildOptBarCard(
+                  r.leftoverBars[i],
+                  i,
+                  showLength: mix,
+                  kerf: kerf,
+                ),
               );
             }
             for (int i = 0; i < r.bars.length; i++) {
-              barWidgets.add(_buildOptBarCard(r.bars[i], i, showLength: mix));
+              barWidgets.add(
+                _buildOptBarCard(r.bars[i], i, showLength: mix, kerf: kerf),
+              );
             }
             if (r.bars.isEmpty && r.leftoverBars.isEmpty) {
               barWidgets.add(
@@ -740,6 +754,7 @@ Widget _buildOptBarCard(
   StockBarPlan bar,
   int index, {
   bool showLength = false,
+  double kerf = 0.0,
 }) {
   final double ratio = bar.stockLength > 0
       ? (bar.usedLength / bar.stockLength).clamp(0.0, 1.0)
@@ -819,7 +834,9 @@ Widget _buildOptBarCard(
               ),
             ),
             Text(
-              "잔여 ${bar.wasteLength.toStringAsFixed(0)}mm",
+              // 🚀 [고침] 톱날 손실을 빼지 않아 PDF·저장되는 잔재(994)와 달리
+              // 1000으로 보였다. 저장·PDF와 같은 값을 보인다.
+              "잔여 ${bar.remainderWithKerf(kerf).toStringAsFixed(0)}mm",
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
