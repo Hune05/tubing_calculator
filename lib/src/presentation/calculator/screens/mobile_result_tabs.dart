@@ -446,14 +446,14 @@ class _MobileResultTabState extends State<MobileResultTab>
                 ),
                 centerTitle: false,
                 actions: [
-                  if (bendList.isNotEmpty)
+                  if (hasRealTubeRow(bendList))
                     IconButton(
                       key: const Key('tube_save_drawing'),
                       icon: const Icon(Icons.save_alt_rounded, color: slate900),
                       tooltip: "보관함에 저장",
                       onPressed: () => _handleSave(totalCut, bendList),
                     ),
-                  if (bendList.isNotEmpty)
+                  if (hasRealTubeRow(bendList))
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: IconButton(
@@ -484,7 +484,7 @@ class _MobileResultTabState extends State<MobileResultTab>
                   leftover: bendList.isNotEmpty ? diffAfterLastMark : 0,
                 ),
               ),
-              if (displayMarks.isEmpty)
+              if (displayMarks.every((m) => m['is_hidden'] == true))
                 SliverFillRemaining(
                   hasScrollBody: false,
                   child: Center(
