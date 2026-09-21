@@ -327,19 +327,17 @@ class _MobileRollingOffsetBottomSheetState
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Row(
-                    children: [
-                      Icon(LucideIcons.orbit, color: makitaTeal, size: 28),
-                      SizedBox(width: 12),
-                      Text(
-                        "롤링 오프셋 계산기",
-                        style: TextStyle(
-                          color: slate900,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
+                  const Icon(LucideIcons.orbit, color: makitaTeal, size: 28),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      "롤링 오프셋 계산기",
+                      style: TextStyle(
+                        color: slate900,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ],
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, color: slate600),
@@ -488,8 +486,10 @@ class _MobileRollingOffsetBottomSheetState
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.grey.shade200),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        spacing: 16,
+                        runSpacing: 8,
                         children: [
                           _buildMiniResult(
                             "True Offset",
@@ -518,12 +518,14 @@ class _MobileRollingOffsetBottomSheetState
                             size: 16,
                           ),
                           SizedBox(width: 6),
-                          Text(
-                            "현장 마킹 제원 (설정 R값 적용)",
-                            style: TextStyle(
-                              color: Colors.deepOrange,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
+                          Flexible(
+                            child: Text(
+                              "현장 마킹 제원 (설정 R값 적용)",
+                              style: TextStyle(
+                                color: Colors.deepOrange,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         ],
@@ -538,8 +540,10 @@ class _MobileRollingOffsetBottomSheetState
                             color: Colors.deepOrange.withValues(alpha: 0.3),
                           ),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        child: Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          spacing: 16,
+                          runSpacing: 8,
                           children: [
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -594,9 +598,9 @@ class _MobileRollingOffsetBottomSheetState
                     ],
 
                     // 3. 메인 결과 및 적용 버튼 영역 (아래쪽)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                    // 결과 아래에 적용 단추를 둔다(좁은 폭에서 옆에 두면 넘쳤다).
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -634,8 +638,9 @@ class _MobileRollingOffsetBottomSheetState
                             ),
                           ],
                         ),
+                        const SizedBox(height: 12),
                         SizedBox(
-                          width: 100, // 버튼 너비 고정
+                          width: double.infinity,
                           height: 48,
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(

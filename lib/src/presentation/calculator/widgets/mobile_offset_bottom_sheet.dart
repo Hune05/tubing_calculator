@@ -593,10 +593,13 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                               ),
                             ),
                             const SizedBox(height: 8),
-                            Row(
+                            // 좁은 폭에서는 빠른 각도 단추가 다음 줄로 내려간다.
+                            Wrap(
+                              runSpacing: 8,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
-                                Expanded(
-                                  flex: 2,
+                                SizedBox(
+                                  width: 120,
                                   child: _buildTextField(_angleCtrl, "각도 °"),
                                 ),
                                 const SizedBox(width: 12),

@@ -141,19 +141,17 @@ class _MobileQuickKickBottomSheetState
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Row(
-                    children: [
-                      Icon(LucideIcons.zap, color: makitaTeal, size: 28),
-                      SizedBox(width: 12),
-                      Text(
-                        "퀵 킥 (단일 단차) 계산기",
-                        style: TextStyle(
-                          color: slate900,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                  const Icon(LucideIcons.zap, color: makitaTeal, size: 28),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      "퀵 킥 (단일 단차) 계산기",
+                      style: TextStyle(
+                        color: slate900,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ],
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, color: slate600),
@@ -228,10 +226,14 @@ class _MobileQuickKickBottomSheetState
                 ),
               ),
               const SizedBox(height: 8),
-              Row(
+              // 좁은 폭에서는 빠른 각도 단추가 다음 줄로 내려간다.
+              Wrap(
+                spacing: 0,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Expanded(
-                    flex: 2,
+                  SizedBox(
+                    width: 120,
                     child: TextField(
                       controller: _angleCtrl,
                       readOnly: true,
@@ -398,8 +400,9 @@ class _MobileQuickKickBottomSheetState
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: makitaTeal.withValues(alpha: 0.3)),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // 결과 아래에 닫기 단추를 둔다(좁은 폭에서 옆에 두면 넘쳤다).
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -434,8 +437,10 @@ class _MobileQuickKickBottomSheetState
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
                     // 닫기 버튼
                     SizedBox(
+                      width: double.infinity,
                       height: 48,
                       child: OutlinedButton(
                         style: OutlinedButton.styleFrom(

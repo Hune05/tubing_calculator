@@ -643,19 +643,17 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Row(
-                    children: [
-                      Icon(LucideIcons.rainbow, color: makitaTeal, size: 28),
-                      SizedBox(width: 12),
-                      Text(
-                        "새들 (Saddle)",
-                        style: TextStyle(
-                          color: slate900,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                  const Icon(LucideIcons.rainbow, color: makitaTeal, size: 28),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      "새들 (Saddle)",
+                      style: TextStyle(
+                        color: slate900,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ],
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, color: slate600),
@@ -754,9 +752,15 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
           ),
         ),
         const SizedBox(height: 8),
-        Row(
+        // 좁은 폭에서는 빠른 각도 단추가 다음 줄로 내려간다.
+        Wrap(
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Expanded(flex: 2, child: _buildAngleField(_angle3PtCtrl, "각도 °")),
+            SizedBox(
+              width: 120,
+              child: _buildAngleField(_angle3PtCtrl, "각도 °"),
+            ),
             const SizedBox(width: 12),
             ...[
               22.5,
@@ -843,9 +847,15 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
           ),
         ),
         const SizedBox(height: 8),
-        Row(
+        // 좁은 폭에서는 빠른 각도 단추가 다음 줄로 내려간다.
+        Wrap(
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Expanded(flex: 2, child: _buildAngleField(_angle4PtCtrl, "각도 °")),
+            SizedBox(
+              width: 120,
+              child: _buildAngleField(_angle4PtCtrl, "각도 °"),
+            ),
             const SizedBox(width: 12),
             ...[
               22.5,
@@ -1008,9 +1018,10 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 16,
+            runSpacing: 8,
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
