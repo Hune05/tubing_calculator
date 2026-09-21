@@ -41,9 +41,12 @@ class _SettingsCloudCardState extends State<SettingsCloudCard> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: _teal));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(color: _white)),
+        backgroundColor: _teal,
+      ),
+    );
   }
 
   Future<void> _upload() async {
@@ -59,9 +62,14 @@ class _SettingsCloudCardState extends State<SettingsCloudCard> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: _white,
-        title: const Text("서버에서 불러오기"),
+        // 폰 다크 모드에서도 흰 바탕에 진한 글씨로.
+        title: const Text(
+          "서버에서 불러오기",
+          style: TextStyle(color: _slate900, fontWeight: FontWeight.bold),
+        ),
         content: const Text(
           "지금 폰에 있는 계산기 설정(튜브 벤딩·전선관·튜브 컷팅)을 서버에 보관한 설정으로 바꿉니다.",
+          style: TextStyle(color: _slate600, height: 1.4),
         ),
         actions: [
           TextButton(
@@ -185,11 +193,15 @@ class _SettingsCloudCardState extends State<SettingsCloudCard> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
-                      "서버에서 불러오기",
-                      style: TextStyle(
-                        color: _slate900,
-                        fontWeight: FontWeight.w700,
+                    child: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        "서버에서 불러오기",
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: _slate900,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),
