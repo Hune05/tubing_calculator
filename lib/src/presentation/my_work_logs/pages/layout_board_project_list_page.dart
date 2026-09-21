@@ -12,8 +12,31 @@ const String kLayoutsCollection = 'layouts';
 // 열려서, 저장한 도면을 다시 불러볼 방법이 앱 안에 없었다(저장은 되는데
 // 그 저장된 목록을 볼 화면 자체가 없었음). 이 화면이 그 목록/불러오기
 // 역할을 한다.
+/// 목록 한 줄에 쓰는 저장된 배치도 한 건(문서 ID + 저장된 칸 그대로).
+class LayoutListEntry {
+  final String id;
+  final Map<String, dynamic> data;
+  const LayoutListEntry(this.id, this.data);
+}
+
 class LayoutBoardProjectListPage extends StatelessWidget {
-  const LayoutBoardProjectListPage({super.key});
+  // 테스트에서 서버 없이 목록을 그려 보려고 넣는 자리. 앱에서는 비워 두면
+  // 서버의 layouts 모음을 그대로 읽는다.
+  final Stream<List<LayoutListEntry>>? entries;
+
+  const LayoutBoardProjectListPage({super.key, this.entries});
+
+  Stream<List<LayoutListEntry>> _entryStream() {
+    return entries ??
+        FirebaseFirestore.instance
+            .collection(kLayoutsCollection)
+            .snapshots()
+            .map(
+              (snap) => snap.docs
+                  .map((d) => LayoutListEntry(d.id, d.data()))
+                  .toList(),
+            );
+  }
 
   void _openNew(BuildContext context) {
     HapticFeedback.lightImpact();
@@ -196,14 +219,12 @@ class LayoutBoardProjectListPage extends StatelessWidget {
         ),
         iconTheme: const IconThemeData(color: tossText),
       ),
-      body: StreamBuilder<QuerySnapshot>(
+      body: StreamBuilder<List<LayoutListEntry>>(
         // 🚀 [주의] updatedAt으로 orderBy를 걸면, 이 필드가 아직 없는
         // (이번 기능 이전에 저장된) 문서는 Firestore가 결과에서 통째로
         // 빼버린다. 그래서 정렬 없이 다 가져온 뒤 클라이언트에서
         // updatedAt(없으면 createdAt) 기준으로 정렬한다.
-        stream: FirebaseFirestore.instance
-            .collection(kLayoutsCollection)
-            .snapshots(),
+        stream: _entryStream(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Center(
@@ -224,9 +245,9 @@ class LayoutBoardProjectListPage extends StatelessWidget {
             );
           }
 
-          final docs = [...(snapshot.data?.docs ?? [])];
-          DateTime sortKey(QueryDocumentSnapshot d) {
-            final data = d.data() as Map<String, dynamic>;
+          final docs = [...(snapshot.data ?? <LayoutListEntry>[])];
+          DateTime sortKey(LayoutListEntry d) {
+            final data = d.data;
             final ts =
                 (data['updatedAt'] as Timestamp?) ??
                 (data['createdAt'] as Timestamp?);
@@ -269,7 +290,7 @@ class LayoutBoardProjectListPage extends StatelessWidget {
             itemCount: docs.length,
             itemBuilder: (context, index) {
               final doc = docs[index];
-              final data = doc.data() as Map<String, dynamic>;
+              final data = doc.data;
               final String rawName = (data['projectName'] as String?) ?? "";
               final String name = rawName.trim().isNotEmpty
                   ? rawName
