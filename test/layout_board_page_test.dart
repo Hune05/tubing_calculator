@@ -73,7 +73,7 @@ void main() {
     setSize(tester, kTablet);
     await tester.pumpAndSettle();
     expect(find.text('자재 라이브러리'), findsOneWidget);
-    expect(find.text('정밀 제어 패널'), findsOneWidget);
+    expect(find.text('모듈 편집'), findsOneWidget);
     expect(find.text('신규 박스 모듈'), findsOneWidget);
     await disposeBoard(tester);
   });
@@ -101,7 +101,7 @@ void main() {
     expect(find.text('차단기 A'), findsOneWidget);
 
     // 되돌리기 기록도 그대로라, 되돌리면 샘플을 불러오기 전(빈 도면)으로 간다.
-    await tester.tap(find.byTooltip('실행 취소 (길게 누르면 기록 보기)'));
+    await tester.tap(find.byTooltip('되돌리기'));
     await tester.pumpAndSettle();
     expect(find.text('차단기 A'), findsNothing);
     await disposeBoard(tester);
@@ -153,12 +153,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('단자대'));
     await tester.pumpAndSettle();
-    expect(find.text('모듈 명칭 (라벨)'), findsOneWidget);
+    expect(find.text('모듈 이름'), findsOneWidget);
 
     // 폭을 줄이면 오른쪽 칸이 없어지니 선택만 풀리고 배치는 남는다.
     setSize(tester, kPhone);
     await tester.pumpAndSettle();
-    expect(find.text('모듈 명칭 (라벨)'), findsNothing);
+    expect(find.text('모듈 이름'), findsNothing);
     expect(find.text('단자대'), findsOneWidget);
     await disposeBoard(tester);
   });

@@ -112,9 +112,12 @@ Future<bool> confirmLayoutDanger(
           fontSize: 18,
         ),
       ),
-      content: Text(
-        keepWords(message),
-        style: const TextStyle(color: tossSubText, fontSize: 15, height: 1.4),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: Text(
+          keepWords(message),
+          style: const TextStyle(color: tossSubText, fontSize: 15, height: 1.4),
+        ),
       ),
       actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       actions: [

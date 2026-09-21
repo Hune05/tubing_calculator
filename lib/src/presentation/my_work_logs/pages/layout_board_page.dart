@@ -55,7 +55,7 @@ const double _kTouchHitPad = 0.0;
 /// 폴드를 편 화면(세로 약 670dp)이나 세로로 세운 태블릿은 양옆 칸을 빼면 도면이
 /// 너무 좁아져서, 가로로 넉넉한 화면에서만 나란히 놓는다.
 const double kLayoutBoardWideWidth = 900;
-const double _kWideSidebarWidth = 240;
+const double _kWideSidebarWidth = 260;
 const double _kWideInspectorWidth = 320;
 
 /// 화면 폭으로 넓은 모양을 쓸지 정한다(테스트에서도 같은 기준을 쓴다).
@@ -185,6 +185,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   // 검색으로 바로 필터링할 수 있게 했다.
   final TextEditingController _presetSearchCtrl = TextEditingController();
   String _presetSearchQuery = '';
+
+  // 넓은 화면 오른쪽 칸의 모듈 이름 칸. 고른 모듈이 바뀔 때만 글을 바꿔 넣는다.
+  final TextEditingController _inspectorNameCtrl = TextEditingController();
+  String? _inspectorNameFor;
 
   @override
   void initState() {
@@ -334,6 +338,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     _draftTimer?.cancel();
     _saveDraftToPrefs();
     _presetSearchCtrl.dispose();
+    _inspectorNameCtrl.dispose();
     _viewerController.dispose();
     super.dispose();
   }
@@ -495,11 +500,11 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
                   child: Text(
-                    keepWords("실행 취소 기록 (${_undoStack.length}단계)"),
+                    keepWords("되돌리기 기록 (${_undoStack.length}단계)"),
                     style: const TextStyle(
                       color: tossText,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 17,
                     ),
                   ),
                 ),
@@ -510,18 +515,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     itemBuilder: (context, i) {
                       // 최근 단계가 위로 오도록 뒤에서부터 보여준다.
                       final int stepsBack = i + 1;
-                      return ListTile(
-                        leading: const Icon(
-                          Icons.history_rounded,
-                          color: tossBlue,
-                        ),
-                        title: Text(
-                          "$stepsBack단계 전으로 이동",
-                          style: const TextStyle(
-                            color: tossText,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                      return layoutSheetRow(
+                        icon: Icons.history_rounded,
+                        label: "$stepsBack단계 전으로 되돌리기",
                         onTap: () {
                           Navigator.pop(ctx);
                           _jumpToHistoryEntry(stepsBack);
@@ -3992,6 +3988,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         children: [
           if (wide)
             Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildLeftSidebar(),
                 Expanded(
@@ -4018,7 +4015,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           // 보고 있는 위치를 놓치지 않도록 구석에 작게 띄운다.
           if (_placedItems.isNotEmpty && _viewportSize != null)
             Positioned(
-              top: wide ? 76 : 12,
+              top: wide ? 96 : 12,
               right: wide ? _kWideInspectorWidth + 12 : 12,
               child: _buildMinimap(),
             ),
@@ -4036,205 +4033,328 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     );
   }
 
+  // 위 막대: 자주 쓰는 것(되돌리기·다시 실행·저장)만 둔다. 나머지는 "더보기"
+  // 바텀시트에 모으고, 전체 지우기 같은 위험한 것은 그 안에서도 따로 떼어 확인을 받는다.
   PreferredSizeWidget _buildAppBar() {
+    final bool canUndo = _undoStack.isNotEmpty;
+    final bool canRedo = _redoStack.isNotEmpty;
     return AppBar(
-      backgroundColor: pureWhite,
+      backgroundColor: tossBg,
+      surfaceTintColor: Colors.transparent,
       elevation: 0,
-      centerTitle: true,
+      scrolledUnderElevation: 0,
+      toolbarHeight: 64,
+      centerTitle: false,
+      titleSpacing: 0,
+      leadingWidth: 52,
+      shape: const Border(bottom: BorderSide(color: layoutLine)),
+      leading: IconButton(
+        tooltip: "뒤로",
+        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+        icon: const Icon(
+          Icons.arrow_back_ios_new_rounded,
+          color: tossText,
+          size: 22,
+        ),
+        onPressed: () => Navigator.pop(context),
+      ),
       title: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
             "작업 배치도",
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: tossText,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
               letterSpacing: -0.5,
             ),
           ),
           if (_projectName.isNotEmpty)
             Text(
               _projectName,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: tossSubText,
-                fontSize: 11,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
             ),
         ],
       ),
-      leading: IconButton(
-        icon: const Icon(
-          Icons.arrow_back_ios_new_rounded,
-          color: tossText,
-          size: 20,
-        ),
-        onPressed: () => Navigator.pop(context),
-      ),
       actions: [
-        // 🚀 [신규] 길게 누르면 실행 취소 기록 목록을 열어 원하는
-        // 시점으로 한 번에 이동할 수 있다(짧게 누르면 기존처럼 한
-        // 단계만 되돌린다).
+        // 길게 누르면 되돌리기 기록이 열린다. 같은 것을 "더보기"에서도 연다.
         GestureDetector(
-          onLongPress: _undoStack.isEmpty ? null : _showUndoHistorySheet,
+          onLongPress: canUndo ? _showUndoHistorySheet : null,
           child: IconButton(
-            tooltip: "실행 취소 (길게 누르면 기록 보기)",
-            onPressed: _undoStack.isEmpty ? null : _undo,
+            tooltip: "되돌리기",
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+            onPressed: canUndo ? _undo : null,
             icon: Icon(
               Icons.undo_rounded,
-              color: _undoStack.isEmpty
-                  ? tossSubText.withValues(alpha: 0.4)
-                  : tossText,
+              size: 26,
+              color: canUndo ? tossText : tossSubText.withValues(alpha: 0.35),
             ),
           ),
         ),
         IconButton(
           tooltip: "다시 실행",
-          onPressed: _redoStack.isEmpty ? null : _redo,
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          onPressed: canRedo ? _redo : null,
           icon: Icon(
             Icons.redo_rounded,
-            color: _redoStack.isEmpty
-                ? tossSubText.withValues(alpha: 0.4)
-                : tossText,
+            size: 26,
+            color: canRedo ? tossText : tossSubText.withValues(alpha: 0.35),
           ),
         ),
-        IconButton(
-          tooltip: "다중 선택",
-          onPressed: _toggleMultiSelectMode,
-          icon: Icon(
-            Icons.library_add_check_rounded,
-            color: _multiSelectMode ? tossBlue : tossText,
-          ),
-        ),
+        const SizedBox(width: 4),
         if (_isSaving)
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
+          const SizedBox(
+            width: 76,
             child: Center(
               child: SizedBox(
-                width: 20,
-                height: 20,
+                width: 22,
+                height: 22,
                 child: CircularProgressIndicator(
-                  strokeWidth: 2,
+                  strokeWidth: 2.5,
                   color: tossBlue,
                 ),
               ),
             ),
           )
         else
-          IconButton(
-            tooltip: "저장 및 공유",
-            onPressed: _showSaveActionSheet,
-            icon: const Icon(Icons.ios_share_rounded, color: tossBlue),
-          ),
-        // 🚀 [버그 수정] AppBar 아이콘이 하나둘 늘어나다 보니(자재 수량/
-        // 배경 사진/외함 크기/초기화까지) 좁은 화면에서 화면 밖으로
-        // 잘리거나 아이콘끼리 겹치는 오버플로우가 났다 - 자주 안 쓰는
-        // 것들은 "더보기" 메뉴 하나로 모았다.
-        PopupMenuButton<String>(
-          tooltip: "더보기",
-          icon: const Icon(Icons.more_vert_rounded, color: tossText),
-          onSelected: (value) {
-            switch (value) {
-              case 'material':
-                _showMaterialSummarySheet();
-                break;
-              case 'background':
-                _showBackgroundSheet();
-                break;
-              case 'panel':
-                _showPanelSettingsSheet();
-                break;
-              case 'clear':
-                _clearBoard();
-                break;
-              case 'legend':
-                _showColorLegendDialog();
-                break;
-              case 'save_template':
-                _saveAsTemplate();
-                break;
-              case 'load_template':
-                _showTemplateLibrarySheet();
-                break;
-              case 'import_modules':
-                _showImportModulesFlow();
-                break;
-            }
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'legend',
-              child: ListTile(
-                leading: Icon(Icons.palette_outlined, color: tossText),
-                title: Text("색상 범례"),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'save_template',
-              child: ListTile(
-                leading: Icon(Icons.bookmark_add_outlined, color: tossText),
-                title: Text("템플릿으로 저장"),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'load_template',
-              child: ListTile(
-                leading: Icon(Icons.library_books_outlined, color: tossText),
-                title: Text("템플릿 불러오기"),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'import_modules',
-              child: ListTile(
-                leading: Icon(Icons.move_down_outlined, color: tossText),
-                title: Text("다른 도면에서 모듈 가져오기"),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'material',
-              child: ListTile(
-                leading: Icon(Icons.inventory_2_outlined, color: tossText),
-                title: Text("자재 수량"),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            PopupMenuItem(
-              value: 'background',
-              child: ListTile(
-                leading: Icon(
-                  Icons.image_outlined,
-                  color: _backgroundImagePath != null ? tossBlue : tossText,
+          Tooltip(
+            message: "저장·공유",
+            child: FilledButton.icon(
+              onPressed: _showSaveActionSheet,
+              style: FilledButton.styleFrom(
+                backgroundColor: tossBlue,
+                minimumSize: const Size(76, 48),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                title: const Text("배경 사진"),
-                contentPadding: EdgeInsets.zero,
+              ),
+              icon: const Icon(
+                Icons.save_alt_rounded,
+                size: 20,
+                color: pureWhite,
+              ),
+              label: const Text(
+                "저장",
+                style: TextStyle(
+                  color: pureWhite,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
-            const PopupMenuItem(
-              value: 'panel',
-              child: ListTile(
-                leading: Icon(Icons.aspect_ratio_rounded, color: tossText),
-                title: Text("외함 사이즈 설정"),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'clear',
-              child: ListTile(
-                leading: Icon(Icons.refresh_rounded, color: warningRed),
-                title: Text("도면 초기화", style: TextStyle(color: warningRed)),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ],
+          ),
+        IconButton(
+          tooltip: "더보기",
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          onPressed: _showMoreSheet,
+          icon: const Icon(Icons.more_vert_rounded, color: tossText, size: 26),
         ),
+        const SizedBox(width: 4),
       ],
     );
+  }
+
+  // 위 막대 "더보기": 자주 안 쓰는 것을 묶어 둔 바텀시트.
+  // 맨 아래 빨간 칸의 전체 지우기는 한 번 더 묻고 지운다(되돌리기로도 돌아온다).
+  void _showMoreSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        void run(VoidCallback action) {
+          Navigator.pop(ctx);
+          action();
+        }
+
+        return SafeArea(
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+              maxWidth: 560,
+            ),
+            margin: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: tossBg,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _moreSection("도면", [
+                    layoutSheetRow(
+                      icon: Icons.aspect_ratio_rounded,
+                      label: "외함 사이즈 설정",
+                      caption:
+                          "지금 ${_panelWidth.toInt()} × ${_panelHeight.toInt()} mm",
+                      onTap: () => run(_showPanelSettingsSheet),
+                    ),
+                    layoutSheetRow(
+                      icon: Icons.image_outlined,
+                      label: "배경 사진",
+                      caption: _backgroundImagePath != null ? "깔려 있습니다" : null,
+                      onTap: () => run(_showBackgroundSheet),
+                    ),
+                    layoutSheetRow(
+                      icon: Icons.inventory_2_outlined,
+                      label: "자재 수량",
+                      onTap: () => run(_showMaterialSummarySheet),
+                    ),
+                    layoutSheetRow(
+                      icon: Icons.palette_outlined,
+                      label: "색상 범례",
+                      onTap: () => run(_showColorLegendDialog),
+                    ),
+                  ]),
+                  _moreSection("기록", [
+                    layoutSheetRow(
+                      icon: Icons.history_rounded,
+                      label: "되돌리기 기록",
+                      caption: _undoStack.isEmpty
+                          ? "되돌릴 것이 없습니다"
+                          : "${_undoStack.length}단계까지 골라서 한 번에 되돌립니다",
+                      onTap: _undoStack.isEmpty
+                          ? null
+                          : () => run(_showUndoHistorySheet),
+                    ),
+                  ]),
+                  _moreSection("템플릿", [
+                    layoutSheetRow(
+                      icon: Icons.bookmark_add_outlined,
+                      label: "템플릿으로 저장",
+                      onTap: () => run(_saveAsTemplate),
+                    ),
+                    layoutSheetRow(
+                      icon: Icons.library_books_outlined,
+                      label: "템플릿 불러오기",
+                      onTap: () => run(_showTemplateLibrarySheet),
+                    ),
+                    layoutSheetRow(
+                      icon: Icons.move_down_outlined,
+                      label: "다른 도면에서 모듈 가져오기",
+                      onTap: () => run(_showImportModulesFlow),
+                    ),
+                  ]),
+                  const SizedBox(height: 8),
+                  // 위험한 것은 따로 뗀 빨간 칸에 둔다.
+                  Container(
+                    decoration: BoxDecoration(
+                      color: pureWhite,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: warningRed.withValues(alpha: 0.35),
+                        width: 1.5,
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        layoutSheetRow(
+                          icon: Icons.straighten_rounded,
+                          label: "치수선 전체 지우기",
+                          danger: true,
+                          onTap: _dimensions.isEmpty
+                              ? null
+                              : () => run(_confirmClearDimensions),
+                        ),
+                        const Divider(height: 1, color: layoutLine),
+                        layoutSheetRow(
+                          icon: Icons.delete_sweep_outlined,
+                          label: "도면 전체 지우기",
+                          caption: "모듈과 치수선을 모두 지웁니다",
+                          danger: true,
+                          onTap: _hasAnyContent
+                              ? () => run(_confirmClearBoard)
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _moreSection(String title, List<Widget> rows) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: tossSubText,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          Container(
+            decoration: layoutCardDecoration(),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (int i = 0; i < rows.length; i++) ...[
+                  if (i > 0) const Divider(height: 1, color: layoutLine),
+                  rows[i],
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmClearBoard() async {
+    final ok = await confirmLayoutDanger(
+      context,
+      title: "도면 전체 지우기",
+      message:
+          "모듈 ${_placedItems.length}개와 치수선 ${_dimensions.length}개를 모두 지웁니다. 지운 뒤에도 되돌리기로 돌아올 수 있습니다.",
+      confirmLabel: "전체 지우기",
+    );
+    if (ok && mounted) _clearBoard();
+  }
+
+  Future<void> _confirmClearDimensions() async {
+    final ok = await confirmLayoutDanger(
+      context,
+      title: "치수선 전체 지우기",
+      message:
+          "치수선 ${_dimensions.length}개를 모두 지웁니다. 모듈은 그대로 둡니다. 지운 뒤에도 되돌리기로 돌아올 수 있습니다.",
+      confirmLabel: "전체 지우기",
+    );
+    if (!ok || !mounted) return;
+    _pushUndo();
+    setState(() {
+      _dimensions.clear();
+      _dimensionStartPoint = null;
+      _dimensionsVersion++;
+    });
   }
 
   // 도면(확대·이동, 모듈 끌어 놓기, 치수 찍기). 좁은 화면·넓은 화면이 같이 쓴다.
@@ -4784,7 +4904,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     );
   }
 
-  // 좁은 화면 아래쪽: 모드 전환 + 모드별 팔레트/치수 도구.
+  // 좁은 화면 아래 칸: 전선관 계산기 입력 칸처럼 흰 판 위에 모드 전환과 도구.
   Widget _buildBottomPanel() {
     return Container(
       decoration: BoxDecoration(
@@ -4792,191 +4912,48 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 20,
             offset: const Offset(0, -5),
           ),
         ],
       ),
       child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 🚀 [재구성] 기본 SegmentedButton은 선택된 항목 배경이
-            // 검정(tossText)이라 마키타 톤과 안 어울렸다. 설정 화면의
-            // AUTO/MAN 토글과 같은 방식(알약형 배경 안에 세그먼트,
-            // 선택된 쪽만 마키타 틸로 채움)으로 직접 만들어서 앱
-            // 전체 톤을 통일했다.
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: _buildModeSegmentedControl(),
-            ),
-            // 🚀 [정리] 모듈 배치/이동 중에는 가상선이 항상 나오는 게
-            // 자연스럽다는 판단으로 켜고/끄는 토글 UI 자체를 없앴다.
-            // (안 그러면 매번 껐다 켰다 하며 신경 써야 함) 이제 카드
-            // 안에는 모드별 옵션 패널만 남아서 하단부가 한결 정리됨.
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: tossBg,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: switch (_mode) {
-                    BoardMode.measureDimension => _buildDimensionToolBar(),
-                    BoardMode.placeModule => _buildModulePalette(),
-                  },
-                ),
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildModeSegmentedControl(),
+              const SizedBox(height: 12),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: switch (_mode) {
+                  BoardMode.measureDimension => _buildDimensionToolBar(),
+                  BoardMode.placeModule => _buildModulePalette(),
+                },
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // 넓은 화면 도면 위쪽: 모드 전환 + 안내선 켜기/끄기.
+  // 넓은 화면 도면 위쪽: 모드 전환만 둔다(안내선·여러 개 선택은 왼쪽 칸에 있다).
   Widget _buildWideModeBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      decoration: BoxDecoration(
-        color: pureWhite,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: const BoxDecoration(
+        color: tossBg,
+        border: Border(bottom: BorderSide(color: layoutLine)),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SegmentedButton<BoardMode>(
-              segments: const [
-                ButtonSegment(
-                  value: BoardMode.placeModule,
-                  label: Text(
-                    "모듈 배치/이동",
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                  ),
-                  icon: Icon(Icons.pan_tool_rounded, size: 16),
-                ),
-                ButtonSegment(
-                  value: BoardMode.measureDimension,
-                  label: Text(
-                    "고정 치수 측정",
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                  ),
-                  icon: Icon(Icons.straighten_rounded, size: 16),
-                ),
-              ],
-              selected: {_mode},
-              style: ButtonStyle(
-                backgroundColor: WidgetStateProperty.resolveWith<Color>((
-                  Set<WidgetState> states,
-                ) {
-                  if (states.contains(WidgetState.selected)) {
-                    return tossText;
-                  }
-                  return pureWhite;
-                }),
-                foregroundColor: WidgetStateProperty.resolveWith<Color>((
-                  Set<WidgetState> states,
-                ) {
-                  if (states.contains(WidgetState.selected)) {
-                    return pureWhite;
-                  }
-                  return tossText;
-                }),
-              ),
-              onSelectionChanged: (Set<BoardMode> newSelection) {
-                setState(() {
-                  _mode = newSelection.first;
-                  _dimensionStartPoint = null;
-                  for (var i in _placedItems) {
-                    i.isSelected = false;
-                  }
-                  _activeItem = null;
-                });
-              },
-            ),
-            Container(
-              height: 32,
-              width: 1,
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              color: Colors.grey.shade300,
-            ),
-            // 🚀 [수정] 가이드선 토글을 별도 그룹으로 시각적으로 묶어서
-            // "모드 선택"과 구분되는 하나의 컨트롤 묶음으로 읽히게 함
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: tossBg,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.only(right: 6),
-                    child: Icon(
-                      Icons.visibility_outlined,
-                      size: 16,
-                      color: tossSubText,
-                    ),
-                  ),
-                  FilterChip(
-                    label: const Text("센터선"),
-                    selected: _showCenterGuide,
-                    selectedColor: guideCenterColor.withValues(alpha: 0.15),
-                    checkmarkColor: guideCenterColor,
-                    backgroundColor: pureWhite,
-                    side: BorderSide.none,
-                    labelStyle: TextStyle(
-                      color: _showCenterGuide ? guideCenterColor : tossSubText,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    onSelected: (val) => setState(() => _showCenterGuide = val),
-                  ),
-                  const SizedBox(width: 6),
-                  FilterChip(
-                    label: const Text("외곽선"),
-                    selected: _showEdgeGuide,
-                    selectedColor: edgeDimColor.withValues(alpha: 0.15),
-                    checkmarkColor: edgeDimColor,
-                    backgroundColor: pureWhite,
-                    side: BorderSide.none,
-                    labelStyle: TextStyle(
-                      color: _showEdgeGuide ? edgeDimColor : tossSubText,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    onSelected: (val) => setState(() => _showEdgeGuide = val),
-                  ),
-                ],
-              ),
-            ),
-            if (_mode == BoardMode.measureDimension &&
-                _dimensions.isNotEmpty) ...[
-              const SizedBox(width: 16),
-              TextButton.icon(
-                onPressed: () {
-                  _pushUndo();
-                  setState(() => _dimensions.clear());
-                },
-                icon: const Icon(
-                  Icons.cleaning_services_rounded,
-                  size: 16,
-                  color: warningRed,
-                ),
-                label: const Text(
-                  "치수 삭제",
-                  style: TextStyle(
-                    color: warningRed,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ],
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: _buildModeSegmentedControl(),
         ),
       ),
     );
@@ -5020,8 +4997,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     keepWords("${_multiSelectedIds.length}개 선택"),
                     style: const TextStyle(
                       color: pureWhite,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -5090,6 +5067,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   ),
                   IconButton(
                     tooltip: "선택 해제",
+                    constraints: const BoxConstraints(
+                      minWidth: 48,
+                      minHeight: 48,
+                    ),
                     onPressed: () {
                       setState(() {
                         for (final i in _placedItems) {
@@ -5101,7 +5082,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     icon: const Icon(
                       Icons.close_rounded,
                       color: pureWhite,
-                      size: 20,
+                      size: 26,
                     ),
                   ),
                 ],
@@ -5113,793 +5094,479 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     );
   }
 
-  // ---------------------------------------------------------
-  // 넓은 화면 전용 칸(왼쪽 자재 칸, 오른쪽 편집 칸)
-  // ---------------------------------------------------------
   Widget _buildLeftSidebar() {
     return Container(
       width: _kWideSidebarWidth,
-      color: pureWhite,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: tossBg.withValues(alpha: 0.5),
-            child: const Text(
+      decoration: const BoxDecoration(
+        color: pureWhite,
+        border: Border(right: BorderSide(color: layoutLine)),
+      ),
+      // 칸이 길어져도 넘치지 않게 세로로 굴린다. 모듈은 옆(도면 쪽)으로 끌 때만
+      // 집히게(affinity: 가로) 해서, 위아래로 밀면 칸이 굴러가고 옆으로 밀면 모듈이 끌린다.
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
               "자재 라이브러리",
               style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                fontSize: 17,
                 color: tossText,
               ),
             ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              // 🚀 [수정] 항목이 딱 2개(박스 1개 + 안내문)뿐이라 스크롤이
-              // 필요 없는데도 ListView를 써서, 세로 드래그 제스처를 리스트
-              // 스크롤이 항상 먼저 가로채 모듈이 전혀 드래그되지 않는
-              // 문제가 있었다(실기기 태블릿에서 확인됨). 스크롤이 필요
-              // 없는 Column으로 바꿔 이 제스처 경합 자체를 없앤다.
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Draggable<ModulePreset>(
-                    data: const ModulePreset("신규 모듈", 80, 80),
-                    feedback: Material(
-                      color: Colors.transparent,
-                      child: Opacity(
-                        opacity: 0.8,
-                        child: _buildPaletteItem("드래그 중..", large: true),
-                      ),
-                    ),
-                    childWhenDragging: Opacity(
-                      opacity: 0.3,
-                      child: _buildPaletteItem("배치 중", large: true),
-                    ),
-                    child: _buildPaletteItem("신규 박스 모듈", large: true),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    keepWords(
-                      "위 박스를 우측 도면으로 드래그하여 배치하십시오.\n배치 후 터치하면 우측 패널에서 명칭과 크기를 수정할 수 있습니다.",
-                    ),
-                    style: TextStyle(
-                      color: tossSubText,
-                      fontSize: 13,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  // 🚀 [추가] ABS 배선덕트 - 폭이 정해진 자재라 배치 후
-                  // 크기를 손으로 고칠 필요 없이 원하는 폭을 바로 드래그.
-                  // ⚠️ 참고용 명목 폭이며 발주 전 사양서 대조 필요
-                  // (kDuctPresets 주석 참고). Wrap을 쓴 이유는 위
-                  // _buildPaletteItem 수정 사유와 같음 - 가로 스크롤
-                  // ListView를 쓰면 사이드바(왼쪽)에서 도면(오른쪽)으로
-                  // 드래그하는 방향이 스크롤 방향과 겹쳐서 실기기에서
-                  // 드래그 대신 스크롤로 먹혀버릴 수 있다.
-                  const Text(
-                    "ABS 덕트 (폭 mm)",
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: tossText,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: kDuctPresets.map((preset) {
-                      return Draggable<ModulePreset>(
-                        data: preset,
-                        feedback: Material(
-                          color: Colors.transparent,
-                          child: Opacity(
-                            opacity: 0.8,
-                            child: _buildDuctChip(preset),
-                          ),
-                        ),
-                        childWhenDragging: Opacity(
-                          opacity: 0.3,
-                          child: _buildDuctChip(preset),
-                        ),
-                        child: _buildDuctChip(preset),
-                      );
-                    }).toList(),
-                  ),
-                  if (_customPresets.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    // 🚀 [신규] 내가 저장해둔 자주 쓰는 모듈 크기 - 모듈
-                    // 편집 패널의 "프리셋으로 저장"으로 추가되며, 길게
-                    // 눌러 삭제할 수 있다. ABS 덕트와 같은 이유로 Wrap 사용.
-                    const Text(
-                      "내 프리셋 (길게 눌러 삭제)",
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: tossText,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    // 🚀 [신규] 프리셋이 늘어나면 찾기 번거로워질 수 있어
-                    // 이름 검색창을 추가했다(4개 이상일 때만 표시).
-                    if (_customPresets.length > 3) ...[
-                      TextField(
-                        controller: _presetSearchCtrl,
-                        onChanged: (v) =>
-                            setState(() => _presetSearchQuery = v.trim()),
-                        style: const TextStyle(fontSize: 13, color: tossText),
-                        decoration: InputDecoration(
-                          isDense: true,
-                          hintText: "프리셋 이름 검색",
-                          hintStyle: const TextStyle(
-                            fontSize: 12,
-                            color: tossSubText,
-                          ),
-                          prefixIcon: const Icon(
-                            Icons.search_rounded,
-                            size: 18,
-                            color: tossSubText,
-                          ),
-                          suffixIcon: _presetSearchQuery.isEmpty
-                              ? null
-                              : IconButton(
-                                  icon: const Icon(
-                                    Icons.close_rounded,
-                                    size: 16,
-                                    color: tossSubText,
-                                  ),
-                                  onPressed: () {
-                                    _presetSearchCtrl.clear();
-                                    setState(() => _presetSearchQuery = '');
-                                  },
-                                ),
-                          filled: true,
-                          fillColor: tossBg,
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 10,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-                    Builder(
-                      builder: (context) {
-                        final List<ModulePreset> filtered =
-                            _presetSearchQuery.isEmpty
-                            ? _customPresets
-                            : _customPresets
-                                  .where(
-                                    (p) => p.name.toLowerCase().contains(
-                                      _presetSearchQuery.toLowerCase(),
-                                    ),
-                                  )
-                                  .toList();
-                        if (filtered.isEmpty) {
-                          return const Text(
-                            "검색 결과가 없습니다",
-                            style: TextStyle(fontSize: 12, color: tossSubText),
-                          );
-                        }
-                        return Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: filtered.map((preset) {
-                            return GestureDetector(
-                              onLongPress: () => _confirmDeleteCustomPreset(
-                                _customPresets.indexOf(preset),
-                              ),
-                              child: Draggable<ModulePreset>(
-                                data: preset,
-                                feedback: Material(
-                                  color: Colors.transparent,
-                                  child: Opacity(
-                                    opacity: 0.8,
-                                    child: _buildCustomPresetChip(preset),
-                                  ),
-                                ),
-                                childWhenDragging: Opacity(
-                                  opacity: 0.3,
-                                  child: _buildCustomPresetChip(preset),
-                                ),
-                                child: _buildCustomPresetChip(preset),
-                              ),
-                            );
-                          }).toList(),
-                        );
-                      },
-                    ),
-                  ],
-                ],
+            const SizedBox(height: 4),
+            Text(
+              keepWords("오른쪽 도면으로 끌어다 놓습니다. 놓은 모듈을 누르면 오른쪽 칸에서 이름과 크기를 고칩니다."),
+              style: const TextStyle(
+                color: tossSubText,
+                fontSize: 14,
+                height: 1.4,
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            _dragTile(
+              const ModulePreset("신규 모듈", 80, 80),
+              (_) => _buildPaletteItem("신규 박스 모듈", large: true),
+              affinity: Axis.horizontal,
+            ),
+            const SizedBox(height: 20),
+            _panelLabel("ABS 덕트 (폭 mm)"),
+            const SizedBox(height: 8),
+            // 🚀 ABS 배선덕트 - 폭이 정해진 자재라 배치 후 크기를 손으로 고칠
+            // 필요 없이 원하는 폭을 바로 끌어다 놓는다(참고용 명목 폭,
+            // kDuctPresets 주석 참고).
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final preset in kDuctPresets)
+                  _dragTile(
+                    preset,
+                    (_) => _buildDuctChip(preset, width: 104),
+                    affinity: Axis.horizontal,
+                  ),
+              ],
+            ),
+            if (_customPresets.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              _buildPresetArea(wide: true),
+            ],
+            const SizedBox(height: 20),
+            const Divider(height: 1, color: layoutLine),
+            const SizedBox(height: 16),
+            _panelLabel("끌 때 보이는 가상선"),
+            const SizedBox(height: 8),
+            _toolToggle(
+              icon: Icons.center_focus_strong_rounded,
+              label: "센터선",
+              selected: _showCenterGuide,
+              color: guideCenterColor,
+              onTap: () => setState(() => _showCenterGuide = !_showCenterGuide),
+            ),
+            const SizedBox(height: 8),
+            _toolToggle(
+              icon: Icons.border_outer_rounded,
+              label: "외곽선",
+              selected: _showEdgeGuide,
+              color: edgeDimColor,
+              onTap: () => setState(() => _showEdgeGuide = !_showEdgeGuide),
+            ),
+            const SizedBox(height: 16),
+            _panelLabel("선택"),
+            const SizedBox(height: 8),
+            _buildMultiSelectToggle(),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildRightInspector() {
+    final PlacedItem? item = _activeItem;
+    // 이름 칸은 모듈이 바뀔 때만 새로 만든다(그릴 때마다 만들면 고치던 글자 자리가 튄다).
+    if (item != null && _inspectorNameFor != item.id) {
+      _inspectorNameFor = item.id;
+      _inspectorNameCtrl.text = item.name;
+    }
+    final bool measuring = _mode == BoardMode.measureDimension;
     return Container(
       width: _kWideInspectorWidth,
-      color: pureWhite,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: tossBg.withValues(alpha: 0.5),
-            child: const Text(
-              "정밀 제어 패널",
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
+      decoration: const BoxDecoration(
+        color: pureWhite,
+        border: Border(left: BorderSide(color: layoutLine)),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              measuring ? "치수 재기" : "모듈 편집",
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 17,
                 color: tossText,
               ),
             ),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: _mode == BoardMode.measureDimension
-                  ? _buildDimensionInspector()
-                  : _activeItem == null
-                  ? Center(
-                      child: Padding(
-                        padding: EdgeInsets.only(top: 40),
-                        child: Text(
-                          keepWords("도면에서 모듈을 선택하면\n상세 수치를 조절할 수 있습니다."),
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: tossSubText, height: 1.5),
-                        ),
-                      ),
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "모듈 명칭 (라벨)",
-                          style: TextStyle(
-                            color: tossSubText,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller:
-                              TextEditingController(text: _activeItem!.name)
-                                ..selection = TextSelection.collapsed(
-                                  offset: _activeItem!.name.length,
-                                ),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: tossText,
-                          ),
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: tossBg,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                          onChanged: (val) => setState(
-                            () =>
-                                _activeItem!.name = val.isEmpty ? "이름 없음" : val,
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-
-                        const Text(
-                          "모듈 크기 (W x H)",
-                          style: TextStyle(
-                            color: tossText,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildInspectorInput(
-                                "가로 (mm)",
-                                _activeItem!.width.toInt().toString(),
-                                (val) {
-                                  setState(() {
-                                    _activeItem!.width =
-                                        (double.tryParse(val) ?? 80.0);
-                                    _activeItem!.position = Offset(
-                                      _activeItem!.position.dx.clamp(
-                                        0.0,
-                                        math.max(
-                                          0.0,
-                                          _panelWidth - _activeItem!.width,
-                                        ),
-                                      ),
-                                      _activeItem!.position.dy,
-                                    );
-                                  });
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildInspectorInput(
-                                "세로 (mm)",
-                                _activeItem!.height.toInt().toString(),
-                                (val) {
-                                  setState(() {
-                                    _activeItem!.height =
-                                        (double.tryParse(val) ?? 80.0);
-                                    _activeItem!.position = Offset(
-                                      _activeItem!.position.dx,
-                                      _activeItem!.position.dy.clamp(
-                                        0.0,
-                                        math.max(
-                                          0.0,
-                                          _panelHeight - _activeItem!.height,
-                                        ),
-                                      ),
-                                    );
-                                  });
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 28),
-                        const Text(
-                          "절대 위치 (X, Y)",
-                          style: TextStyle(
-                            color: tossText,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildInspectorInput(
-                                "X (mm)",
-                                _activeItem!.position.dx.toInt().toString(),
-                                (val) {
-                                  setState(() {
-                                    double newX = double.tryParse(val) ?? 0;
-                                    _activeItem!.position = Offset(
-                                      newX.clamp(
-                                        0.0,
-                                        math.max(
-                                          0.0,
-                                          _panelWidth - _activeItem!.width,
-                                        ),
-                                      ),
-                                      _activeItem!.position.dy,
-                                    );
-                                  });
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildInspectorInput(
-                                "Y (mm)",
-                                _activeItem!.position.dy.toInt().toString(),
-                                (val) {
-                                  setState(() {
-                                    double newY = double.tryParse(val) ?? 0;
-                                    _activeItem!.position = Offset(
-                                      _activeItem!.position.dx,
-                                      newY.clamp(
-                                        0.0,
-                                        math.max(
-                                          0.0,
-                                          _panelHeight - _activeItem!.height,
-                                        ),
-                                      ),
-                                    );
-                                  });
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 12),
-                        // 🚀 [신규] 지금 이 모듈의 이름/크기를 "내
-                        // 프리셋"으로 저장 - 다음 도면에서 사이드바에서
-                        // 바로 드래그해 쓸 수 있다.
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            onPressed: () {
-                              _saveAsCustomPreset(
-                                _activeItem!.name,
-                                _activeItem!.width,
-                                _activeItem!.height,
-                              );
-                              HapticFeedback.lightImpact();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(keepWords("내 프리셋에 저장했습니다.")),
-                                  backgroundColor: tossText,
-                                  behavior: SnackBarBehavior.floating,
-                                  duration: Duration(seconds: 1),
-                                ),
-                              );
-                            },
-                            icon: const Icon(
-                              Icons.star_border_rounded,
-                              size: 18,
-                              color: tossBlue,
-                            ),
-                            label: const Text(
-                              "이 크기를 내 프리셋으로 저장",
-                              style: TextStyle(
-                                color: tossBlue,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        // 🚀 [신규] 위치가 확정된 모듈을 잠가서 실수로
-                        // 드래그해 옮겨지지 않게 한다.
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            onPressed: () {
-                              setState(
-                                () => _activeItem!.isLocked =
-                                    !_activeItem!.isLocked,
-                              );
-                              HapticFeedback.lightImpact();
-                            },
-                            icon: Icon(
-                              _activeItem!.isLocked
-                                  ? Icons.lock_rounded
-                                  : Icons.lock_open_rounded,
-                              size: 18,
-                              color: _activeItem!.isLocked
-                                  ? warningRed
-                                  : tossSubText,
-                            ),
-                            label: Text(
-                              _activeItem!.isLocked ? "잠금 해제" : "이 모듈 위치 잠그기",
-                              style: TextStyle(
-                                color: _activeItem!.isLocked
-                                    ? warningRed
-                                    : tossSubText,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-                        // 🚀 [신규] 레이어 순서(앞/뒤) 조정 - 리스트 맨 뒤에
-                        // 있을수록 화면 맨 위에 그려진다.
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () {
-                                  final item = _activeItem!;
-                                  _pushUndo();
-                                  setState(() {
-                                    _placedItems.remove(item);
-                                    _placedItems.add(item);
-                                  });
-                                  HapticFeedback.lightImpact();
-                                },
-                                icon: const Icon(
-                                  Icons.flip_to_front_rounded,
-                                  size: 18,
-                                  color: tossText,
-                                ),
-                                label: const Text(
-                                  "맨 앞으로",
-                                  style: TextStyle(
-                                    color: tossText,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  side: BorderSide(
-                                    color: tossText.withValues(alpha: 0.2),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () {
-                                  final item = _activeItem!;
-                                  _pushUndo();
-                                  setState(() {
-                                    _placedItems.remove(item);
-                                    _placedItems.insert(0, item);
-                                  });
-                                  HapticFeedback.lightImpact();
-                                },
-                                icon: const Icon(
-                                  Icons.flip_to_back_rounded,
-                                  size: 18,
-                                  color: tossText,
-                                ),
-                                label: const Text(
-                                  "맨 뒤로",
-                                  style: TextStyle(
-                                    color: tossText,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  side: BorderSide(
-                                    color: tossText.withValues(alpha: 0.2),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 50,
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              _pushUndo();
-                              setState(() {
-                                _dimensions.removeWhere(
-                                  (dim) =>
-                                      dim.p1.id == _activeItem!.id ||
-                                      dim.p2.id == _activeItem!.id,
-                                );
-                                _placedItems.remove(_activeItem);
-                                if (_dimensionStartPoint?.id ==
-                                    _activeItem!.id) {
-                                  _dimensionStartPoint = null;
-                                }
-                                _activeItem = null;
-                              });
-                            },
-                            icon: const Icon(
-                              Icons.delete_outline,
-                              color: warningRed,
-                            ),
-                            label: const Text(
-                              "모듈 삭제",
-                              style: TextStyle(
-                                color: warningRed,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(
-                                color: warningRed,
-                                width: 1.5,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+            const SizedBox(height: 12),
+            if (measuring)
+              _buildDimensionInspector()
+            else if (item == null)
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: tossBg,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  keepWords("도면에서 모듈을 누르면 여기서 이름·크기·위치를 고칩니다."),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: tossSubText,
+                    fontSize: 15,
+                    height: 1.5,
+                  ),
+                ),
+              )
+            else ...[
+              _panelLabel("모듈 이름"),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _inspectorNameCtrl,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: tossText,
+                ),
+                decoration: _inspectorFieldDecoration(),
+                onChanged: (val) =>
+                    setState(() => item.name = val.isEmpty ? "이름 없음" : val),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _inspectorButton(
+                      icon: Icons.rotate_90_degrees_cw_rounded,
+                      label: "90° 회전",
+                      onTap: () => _rotateItem(item),
+                      accent: true,
                     ),
-            ),
-          ),
-        ],
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _inspectorButton(
+                      icon: Icons.content_copy_rounded,
+                      label: "복제",
+                      onTap: () => _duplicateItem(item),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              _panelLabel("크기 (mm)"),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildInspectorInput(
+                      "가로",
+                      item.width.toInt().toString(),
+                      (val) {
+                        _pushUndo();
+                        setState(() {
+                          item.width = (double.tryParse(val) ?? 80.0);
+                          item.position = Offset(
+                            item.position.dx.clamp(
+                              0.0,
+                              math.max(0.0, _panelWidth - item.width),
+                            ),
+                            item.position.dy,
+                          );
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildInspectorInput(
+                      "세로",
+                      item.height.toInt().toString(),
+                      (val) {
+                        _pushUndo();
+                        setState(() {
+                          item.height = (double.tryParse(val) ?? 80.0);
+                          item.position = Offset(
+                            item.position.dx,
+                            item.position.dy.clamp(
+                              0.0,
+                              math.max(0.0, _panelHeight - item.height),
+                            ),
+                          );
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _panelLabel("위치 (mm, 왼쪽 위 기준)"),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildInspectorInput(
+                      "X",
+                      item.position.dx.toInt().toString(),
+                      (val) {
+                        _pushUndo();
+                        setState(() {
+                          final double newX = double.tryParse(val) ?? 0;
+                          item.position = Offset(
+                            newX.clamp(
+                              0.0,
+                              math.max(0.0, _panelWidth - item.width),
+                            ),
+                            item.position.dy,
+                          );
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildInspectorInput(
+                      "Y",
+                      item.position.dy.toInt().toString(),
+                      (val) {
+                        _pushUndo();
+                        setState(() {
+                          final double newY = double.tryParse(val) ?? 0;
+                          item.position = Offset(
+                            item.position.dx,
+                            newY.clamp(
+                              0.0,
+                              math.max(0.0, _panelHeight - item.height),
+                            ),
+                          );
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              _inspectorButton(
+                icon: Icons.star_border_rounded,
+                label: "이 크기를 내 프리셋으로 저장",
+                onTap: () {
+                  _saveAsCustomPreset(item.name, item.width, item.height);
+                  HapticFeedback.lightImpact();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(keepWords("내 프리셋에 저장했습니다.")),
+                      backgroundColor: tossText,
+                      behavior: SnackBarBehavior.floating,
+                      duration: const Duration(seconds: 1),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+              // 위치가 정해진 모듈을 잠가서 잘못 끌려 옮겨지지 않게 한다.
+              _inspectorButton(
+                icon: item.isLocked
+                    ? Icons.lock_rounded
+                    : Icons.lock_open_rounded,
+                label: item.isLocked ? "잠금 풀기" : "이 모듈 위치 잠그기",
+                onTap: () {
+                  setState(() => item.isLocked = !item.isLocked);
+                  HapticFeedback.lightImpact();
+                },
+              ),
+              const SizedBox(height: 8),
+              // 레이어 순서(앞/뒤): 목록 맨 뒤에 있을수록 맨 위에 그려진다.
+              Row(
+                children: [
+                  Expanded(
+                    child: _inspectorButton(
+                      icon: Icons.flip_to_front_rounded,
+                      label: "맨 앞으로",
+                      onTap: () {
+                        _pushUndo();
+                        setState(() {
+                          _placedItems.remove(item);
+                          _placedItems.add(item);
+                        });
+                        HapticFeedback.lightImpact();
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _inspectorButton(
+                      icon: Icons.flip_to_back_rounded,
+                      label: "맨 뒤로",
+                      onTap: () {
+                        _pushUndo();
+                        setState(() {
+                          _placedItems.remove(item);
+                          _placedItems.insert(0, item);
+                        });
+                        HapticFeedback.lightImpact();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              // 모듈 하나 지우기는 되돌리기로 돌아오므로 따로 묻지 않는다.
+              _inspectorButton(
+                icon: Icons.delete_outline_rounded,
+                label: "모듈 삭제",
+                danger: true,
+                onTap: () {
+                  _pushUndo();
+                  setState(() {
+                    _dimensions.removeWhere(
+                      (dim) => dim.p1.id == item.id || dim.p2.id == item.id,
+                    );
+                    _placedItems.remove(item);
+                    if (_dimensionStartPoint?.id == item.id) {
+                      _dimensionStartPoint = null;
+                    }
+                    _activeItem = null;
+                  });
+                },
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildDimensionInspector() {
+    final bool isCenter = _currentDimType == DimensionType.center;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          "측정 기준",
-          style: TextStyle(
-            color: tossText,
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
+        _panelLabel("재는 기준"),
+        const SizedBox(height: 8),
+        Row(
           children: [
-            ChoiceChip(
-              label: const Text("센터(중심) 기준"),
-              selected: _currentDimType == DimensionType.center,
-              selectedColor: centerDimColor.withValues(alpha: 0.2),
-              labelStyle: TextStyle(
-                color: _currentDimType == DimensionType.center
-                    ? centerDimColor
-                    : tossSubText,
-                fontWeight: FontWeight.bold,
+            Expanded(
+              child: _toolToggle(
+                icon: Icons.center_focus_strong_rounded,
+                label: "센터 기준",
+                selected: isCenter,
+                color: centerDimColor,
+                onTap: () =>
+                    setState(() => _currentDimType = DimensionType.center),
               ),
-              onSelected: (val) {
-                setState(() => _currentDimType = DimensionType.center);
-              },
             ),
-            ChoiceChip(
-              label: const Text("측면(여백) 기준"),
-              selected: _currentDimType == DimensionType.edge,
-              selectedColor: edgeDimColor.withValues(alpha: 0.2),
-              labelStyle: TextStyle(
-                color: _currentDimType == DimensionType.edge
-                    ? edgeDimColor
-                    : tossSubText,
-                fontWeight: FontWeight.bold,
+            const SizedBox(width: 8),
+            Expanded(
+              child: _toolToggle(
+                icon: Icons.border_outer_rounded,
+                label: "측면 기준",
+                selected: !isCenter,
+                color: edgeDimColor,
+                onTap: () =>
+                    setState(() => _currentDimType = DimensionType.edge),
               ),
-              onSelected: (val) {
-                setState(() => _currentDimType = DimensionType.edge);
-              },
-            ),
-            // 🚀 [신규] 체인 모드 - 켜면 점을 계속 이어서 탭하는 것만으로
-            // 연속된 치수선을 만들 수 있다(모바일과 동일).
-            ChoiceChip(
-              label: const Text("체인 모드"),
-              avatar: Icon(
-                Icons.link_rounded,
-                size: 16,
-                color: _dimensionChainMode ? tossBlue : tossSubText,
-              ),
-              selected: _dimensionChainMode,
-              selectedColor: tossBlue.withValues(alpha: 0.15),
-              labelStyle: TextStyle(
-                color: _dimensionChainMode ? tossBlue : tossSubText,
-                fontWeight: FontWeight.bold,
-              ),
-              onSelected: (val) {
-                setState(() => _dimensionChainMode = val);
-              },
-            ),
-            // 🚀 [신규] 대각선 모드 - 켜면 축 정렬 없이 실제 직선거리+
-            // 각도를 측정한다(모바일과 동일).
-            ChoiceChip(
-              label: const Text("대각선 모드"),
-              avatar: Icon(
-                Icons.turn_slight_right_rounded,
-                size: 16,
-                color: _dimensionDiagonalMode ? diagonalDimColor : tossSubText,
-              ),
-              selected: _dimensionDiagonalMode,
-              selectedColor: diagonalDimColor.withValues(alpha: 0.15),
-              labelStyle: TextStyle(
-                color: _dimensionDiagonalMode ? diagonalDimColor : tossSubText,
-                fontWeight: FontWeight.bold,
-              ),
-              onSelected: (val) {
-                setState(() => _dimensionDiagonalMode = val);
-              },
             ),
           ],
         ),
-        const SizedBox(height: 20),
-        Text(
-          _dimensionStartPoint != null
-              ? "💡 다음 측정 지점을 탭하면 치수선이 연결됩니다."
-              : _dimensionChainMode
-              ? "💡 체인 모드: 지점을 계속 탭하면 이어서 측정됩니다."
-              : _dimensions.isNotEmpty
-              ? "💡 치수선을 탭하면 삭제/기준 전환/메모/최소 간격을 설정할 수 있습니다."
-              : "💡 측정할 두 지점(모듈 or 벽면)을 순서대로 도면에서 탭하십시오.",
-          style: TextStyle(
-            color: _dimensionStartPoint == null
-                ? tossSubText
-                : (_currentDimType == DimensionType.center
-                      ? centerDimColor
-                      : edgeDimColor),
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            height: 1.5,
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            // 체인: 점을 계속 이어 누르면 치수선이 이어진다.
+            Expanded(
+              child: _toolToggle(
+                icon: Icons.link_rounded,
+                label: "체인",
+                selected: _dimensionChainMode,
+                color: tossBlue,
+                onTap: () =>
+                    setState(() => _dimensionChainMode = !_dimensionChainMode),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // 대각선: 축에 맞추지 않고 두 점을 곧게 잇는다(거리+각도).
+            Expanded(
+              child: _toolToggle(
+                icon: Icons.turn_slight_right_rounded,
+                label: "대각선",
+                selected: _dimensionDiagonalMode,
+                color: diagonalDimColor,
+                onTap: () => setState(
+                  () => _dimensionDiagonalMode = !_dimensionDiagonalMode,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: tossBg,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Text(
+            keepWords(_dimensionHint()),
+            style: TextStyle(
+              color: _dimensionStartPoint == null
+                  ? tossSubText
+                  : (isCenter ? centerDimColor : edgeDimColor),
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              height: 1.45,
+            ),
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          _currentDimType == DimensionType.center
-              ? "⚠️ 현재 '센터(중앙점)' 간의 거리를 측정 중입니다."
-              : "⚠️ 현재 박스 '끝단(측면/여백)' 간의 거리를 측정 중입니다.",
-          style: TextStyle(
-            color: _currentDimType == DimensionType.center
-                ? centerDimColor
-                : edgeDimColor,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        // 🚀 [추가] 첫 지점을 잘못 찍었을 때 두 번째 지점을 억지로 찍어
-        // 엉뚱한 치수를 만들지 않고도 취소할 수 있는 버튼.
+        // 첫 지점을 잘못 찍었을 때 두 번째 지점을 억지로 찍지 않고 취소한다.
         if (_dimensionStartPoint != null) ...[
-          const SizedBox(height: 12),
-          TextButton.icon(
-            onPressed: () {
-              setState(() {
-                _dimensionStartPoint = null;
-              });
-            },
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              foregroundColor: tossSubText,
-            ),
-            icon: const Icon(Icons.undo_rounded, size: 16),
-            label: const Text(
-              "첫 지점 취소",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
+          const SizedBox(height: 8),
+          _inspectorButton(
+            icon: Icons.undo_rounded,
+            label: "첫 지점 취소",
+            onTap: () => setState(() => _dimensionStartPoint = null),
           ),
         ],
         if (_dimensions.isNotEmpty) ...[
-          const SizedBox(height: 28),
-          Row(
-            children: [
-              const Text(
-                "배치된 치수선",
-                style: TextStyle(
-                  color: tossText,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const Spacer(),
-              TextButton(
-                onPressed: () {
-                  _pushUndo();
-                  setState(() => _dimensions.clear());
-                },
-                child: const Text(
-                  "전체 삭제",
-                  style: TextStyle(
-                    color: warningRed,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
+          const SizedBox(height: 16),
+          Text(
+            "배치된 치수선 ${_dimensions.length}개",
+            style: const TextStyle(
+              color: tossText,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            keepWords("치수선을 누르면 지우기·기준 바꾸기·메모를 합니다. 전체 지우기는 위 막대 더보기에 있습니다."),
+            style: const TextStyle(
+              color: tossSubText,
+              fontSize: 14,
+              height: 1.4,
+            ),
           ),
         ],
       ],
     );
+  }
+
+  // 치수 재기 안내 한 줄(좁은 화면 아래 칸과 넓은 화면 오른쪽 칸이 같이 쓴다).
+  String _dimensionHint() {
+    if (_dimensionStartPoint != null) return "다음 지점을 누르면 치수선이 이어집니다.";
+    if (_dimensionChainMode) return "체인: 지점을 계속 누르면 이어서 잽니다.";
+    return "잴 두 지점(모듈 또는 벽면)을 차례로 누르십시오. 치수선을 누르면 고칩니다.";
   }
 
   Widget _buildInspectorInput(
@@ -5913,8 +5580,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         Text(
           label,
           style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
             color: tossSubText,
           ),
         ),
@@ -5925,24 +5592,76 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           keyboardType: TextInputType.number,
           onSubmitted: onChanged,
           style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
             color: tossText,
           ),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: tossBg,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-          ),
+          decoration: _inspectorFieldDecoration(),
         ),
       ],
+    );
+  }
+
+  InputDecoration _inspectorFieldDecoration() => InputDecoration(
+    filled: true,
+    fillColor: tossBg,
+    isDense: false,
+    constraints: const BoxConstraints(minHeight: 52),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: layoutLine),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: layoutLine),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: tossBlue, width: 2),
+    ),
+  );
+
+  // 오른쪽 칸 단추(높이 48 이상, 글씨 15).
+  Widget _inspectorButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onTap,
+    bool danger = false,
+    bool accent = false,
+  }) {
+    final Color fg = danger ? warningRed : (accent ? tossBlue : tossText);
+    return SizedBox(
+      height: 52,
+      child: OutlinedButton.icon(
+        onPressed: onTap,
+        icon: Icon(icon, size: 22, color: fg),
+        label: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: fg,
+            fontWeight: FontWeight.w800,
+            fontSize: 15,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          backgroundColor: accent
+              ? tossBlue.withValues(alpha: 0.08)
+              : pureWhite,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          side: BorderSide(
+            color: danger
+                ? warningRed
+                : (accent ? tossBlue.withValues(alpha: 0.4) : layoutLine),
+            width: 1.5,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
     );
   }
 
@@ -5950,19 +5669,21 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     IconData icon,
     VoidCallback? onPressed, {
     Color color = pureWhite,
+    String? tooltip,
   }) {
     return IconButton(
+      tooltip: tooltip,
       onPressed: onPressed,
+      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
       icon: Icon(
         icon,
         color: onPressed == null ? color.withValues(alpha: 0.3) : color,
-        size: 22,
+        size: 26,
       ),
     );
   }
 
-  // 🚀 [신규] 잠금/정렬처럼 아이콘만으로는 뜻이 바로 와닿지 않는 동작에
-  // 짧은 텍스트 라벨을 함께 보여준다.
+  // 잠금·정렬처럼 아이콘만으로는 뜻이 바로 오지 않는 것에 짧은 글을 붙인다.
   Widget _buildMultiBarLabeledIcon(
     IconData icon,
     String label,
@@ -5972,28 +5693,32 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     return InkWell(
       onTap: onPressed,
       borderRadius: BorderRadius.circular(10),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: enabled ? pureWhite : pureWhite.withValues(alpha: 0.3),
-              size: 20,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                color: enabled
-                    ? pureWhite.withValues(alpha: 0.85)
-                    : pureWhite.withValues(alpha: 0.25),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 52, minHeight: 52),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: enabled ? pureWhite : pureWhite.withValues(alpha: 0.3),
+                size: 22,
               ),
-            ),
-          ],
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: enabled
+                      ? pureWhite.withValues(alpha: 0.9)
+                      : pureWhite.withValues(alpha: 0.3),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -6080,52 +5805,72 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     ];
   }
 
-  // 🚀 [추가] 설정 화면의 AUTO/MAN 알약형 토글과 같은 스타일 - 회색
-  // 알약 배경 안에서 선택된 세그먼트만 마키타 틸로 채운다. 검정 배경
-  // 대신 앱 전체와 통일된 톤을 쓴다.
+  // 모드 전환(모듈 배치/이동 ↔ 고정 치수 측정): 전선관 계산기처럼 회색 판 안에서
+  // 고른 쪽만 틸로 채운다. 높이 52로 장갑 끼고도 누른다.
   Widget _buildModeSegmentedControl() {
-    final segments = <(BoardMode, String)>[
-      (BoardMode.placeModule, "모듈 배치/이동"),
-      (BoardMode.measureDimension, "고정 치수 측정"),
+    final segments = <(BoardMode, String, IconData)>[
+      (BoardMode.placeModule, "모듈 배치/이동", Icons.open_with_rounded),
+      (BoardMode.measureDimension, "고정 치수 측정", Icons.straighten_rounded),
     ];
 
     return Container(
+      height: 60,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: tossBg,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: layoutLine),
       ),
       child: Row(
         children: segments.map((seg) {
           final isSelected = _mode == seg.$1;
           return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                if (isSelected) return;
-                setState(() {
-                  _mode = seg.$1;
-                  _dimensionStartPoint = null;
-                  _activeItem = null;
-                  for (var i in _placedItems) {
-                    i.isSelected = false;
-                  }
-                });
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected ? tossBlue : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  seg.$2,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: isSelected ? pureWhite : tossSubText,
+            child: Semantics(
+              button: true,
+              selected: isSelected,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  if (isSelected) return;
+                  HapticFeedback.selectionClick();
+                  setState(() {
+                    _mode = seg.$1;
+                    _dimensionStartPoint = null;
+                    _activeItem = null;
+                    for (var i in _placedItems) {
+                      i.isSelected = false;
+                    }
+                  });
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  decoration: BoxDecoration(
+                    color: isSelected ? tossBlue : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          seg.$3,
+                          size: 20,
+                          color: isSelected ? pureWhite : tossSubText,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          seg.$2,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: isSelected ? pureWhite : tossSubText,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -6136,332 +5881,328 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     );
   }
 
-  // 🚀 [재구성] 예전엔 "가상선: 센터/측면" 칩 2개 + 드래그 박스 + 2줄
-  // 설명 텍스트가 세로로 쌓여서 공간을 많이 차지했다. 이제 원형 버튼
-  // 하나로 색상을 전환하는 방식(탭할 때마다 센터↔측면 전환)으로 줄이고,
-  // 드래그 박스와 한 줄에 묶어서 패널 높이를 크게 줄였다. 이 가상선은
-  // 모듈 배치/이동 중 항상 표시되며 별도 켜고/끄는 토글은 없다.
+  // 좁은 화면 모듈 배치 도구: 끌어다 놓을 것 한 줄 + 가상선·여러 개 선택 단추 + 내 프리셋.
   Widget _buildModulePalette() {
-    return Padding(
+    return Column(
       key: const ValueKey("palette"),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _panelLabel("끌어다 도면에 놓습니다"),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 64,
+          child: Row(
             children: [
-              Draggable<ModulePreset>(
-                data: const ModulePreset("신규 모듈", 80, 80),
-                feedback: Material(
-                  color: Colors.transparent,
-                  child: Opacity(
-                    opacity: 0.8,
-                    child: _buildPaletteItem("드래그 중.."),
-                  ),
-                ),
-                childWhenDragging: Opacity(
-                  opacity: 0.3,
-                  child: _buildPaletteItem("배치 중"),
-                ),
-                child: _buildPaletteItem("신규 모듈"),
+              _dragTile(
+                const ModulePreset("신규 모듈", 80, 80),
+                (_) => _buildPaletteItem("신규 모듈"),
               ),
-              const SizedBox(width: 14),
-              Expanded(child: _buildGuideColorSwitch()),
+              const SizedBox(width: 8),
+              // 🚀 ABS 배선덕트: 폭이 정해진 자재라 원하는 폭을 바로 끌어다 놓는다.
+              // (참고용 명목 폭 - 실제 발주 규격 확인 필요, kDuctPresets 주석 참고)
+              Expanded(
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: kDuctPresets.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final preset = kDuctPresets[index];
+                    return _dragTile(preset, (_) => _buildDuctChip(preset));
+                  },
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 16),
-          // 🚀 [추가] ABS 배선덕트 - 폭이 정해진 자재라 매번 배치 후 크기를
-          // 손으로 고칠 필요 없이 원하는 폭을 바로 드래그해서 놓을 수 있게.
-          // (참고용 명목 폭 - 실제 발주 규격 확인 필요, kDuctPresets 주석 참고)
-          const Text(
-            "ABS 덕트 (폭 mm, 드래그)",
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: tossSubText,
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(child: _buildGuideColorSwitch()),
+            const SizedBox(width: 8),
+            Expanded(child: _buildMultiSelectToggle()),
+          ],
+        ),
+        if (_customPresets.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _buildPresetArea(wide: false),
+        ],
+      ],
+    );
+  }
+
+  // 여러 개 선택 켜기/끄기(예전엔 위 막대에 있었다).
+  Widget _buildMultiSelectToggle() {
+    return _toolToggle(
+      icon: Icons.library_add_check_rounded,
+      label: "여러 개 선택",
+      selected: _multiSelectMode,
+      color: tossBlue,
+      onTap: _toggleMultiSelectMode,
+    );
+  }
+
+  // 내 프리셋: 이름 검색(4개 이상일 때), 끌어다 놓을 목록, 지우기 단추가 있는 "관리".
+  Widget _buildPresetArea({required bool wide}) {
+    final String q = _presetSearchQuery.toLowerCase();
+    final List<ModulePreset> filtered = q.isEmpty
+        ? _customPresets
+        : _customPresets
+              .where((p) => p.name.toLowerCase().contains(q))
+              .toList();
+    Widget tile(ModulePreset p) => GestureDetector(
+      onLongPress: () => _confirmDeleteCustomPreset(_customPresets.indexOf(p)),
+      child: _dragTile(
+        p,
+        (_) => _buildCustomPresetChip(p, width: wide ? 228 : null),
+        affinity: wide ? Axis.horizontal : null,
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(child: _panelLabel("내 프리셋 ${_customPresets.length}개")),
+            TextButton.icon(
+              onPressed: _showPresetManageSheet,
+              style: TextButton.styleFrom(
+                minimumSize: const Size(48, 48),
+                foregroundColor: tossBlue,
+              ),
+              icon: const Icon(Icons.edit_outlined, size: 20),
+              label: const Text(
+                "관리",
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+        if (_customPresets.length > 3) ...[
+          TextField(
+            controller: _presetSearchCtrl,
+            onChanged: (v) => setState(() => _presetSearchQuery = v.trim()),
+            style: const TextStyle(fontSize: 15, color: tossText),
+            decoration: _inspectorFieldDecoration().copyWith(
+              hintText: "프리셋 이름 검색",
+              hintStyle: const TextStyle(fontSize: 15, color: tossSubText),
+              prefixIcon: const Icon(
+                Icons.search_rounded,
+                size: 22,
+                color: tossSubText,
+              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              suffixIcon: _presetSearchQuery.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: "검색 지우기",
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        size: 22,
+                        color: tossSubText,
+                      ),
+                      onPressed: () {
+                        _presetSearchCtrl.clear();
+                        setState(() => _presetSearchQuery = '');
+                      },
+                    ),
             ),
           ),
           const SizedBox(height: 8),
+        ],
+        if (filtered.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              "찾는 프리셋이 없습니다",
+              style: TextStyle(fontSize: 14, color: tossSubText),
+            ),
+          )
+        else if (wide)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [for (final p in filtered) tile(p)],
+          )
+        else
           SizedBox(
-            height: 44,
+            height: 56,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: kDuctPresets.length,
+              itemCount: filtered.length,
               separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final preset = kDuctPresets[index];
-                return Draggable<ModulePreset>(
-                  data: preset,
-                  feedback: Material(
-                    color: Colors.transparent,
-                    child: Opacity(opacity: 0.8, child: _buildDuctChip(preset)),
-                  ),
-                  childWhenDragging: Opacity(
-                    opacity: 0.3,
-                    child: _buildDuctChip(preset),
-                  ),
-                  child: _buildDuctChip(preset),
-                );
-              },
+              itemBuilder: (context, i) => tile(filtered[i]),
             ),
           ),
-          if (_customPresets.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            // 🚀 [신규] 내가 저장해둔 자주 쓰는 모듈 크기 - 모듈 편집창의
-            // "프리셋으로 저장"으로 추가되며, 길게 눌러 삭제할 수 있다.
-            const Text(
-              "내 프리셋 (길게 눌러 삭제)",
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: tossSubText,
-              ),
-            ),
-            const SizedBox(height: 8),
-            // 🚀 [신규] 프리셋이 늘어나면 찾기 번거로워질 수 있어 이름
-            // 검색창을 추가했다(프리셋 4개 이상일 때만 표시).
-            if (_customPresets.length > 3) ...[
-              TextField(
-                controller: _presetSearchCtrl,
-                onChanged: (v) => setState(() => _presetSearchQuery = v.trim()),
-                style: const TextStyle(fontSize: 13, color: tossText),
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: "프리셋 이름 검색",
-                  hintStyle: const TextStyle(fontSize: 12, color: tossSubText),
-                  prefixIcon: const Icon(
-                    Icons.search_rounded,
-                    size: 18,
-                    color: tossSubText,
-                  ),
-                  suffixIcon: _presetSearchQuery.isEmpty
-                      ? null
-                      : IconButton(
-                          icon: const Icon(
-                            Icons.close_rounded,
-                            size: 16,
-                            color: tossSubText,
-                          ),
-                          onPressed: () {
-                            _presetSearchCtrl.clear();
-                            setState(() => _presetSearchQuery = '');
-                          },
-                        ),
-                  filled: true,
-                  fillColor: tossBg,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-            Builder(
-              builder: (context) {
-                final List<ModulePreset> filtered = _presetSearchQuery.isEmpty
-                    ? _customPresets
-                    : _customPresets
-                          .where(
-                            (p) => p.name.toLowerCase().contains(
-                              _presetSearchQuery.toLowerCase(),
-                            ),
-                          )
-                          .toList();
-                if (filtered.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4),
-                    child: Text(
-                      "검색 결과가 없습니다",
-                      style: TextStyle(fontSize: 12, color: tossSubText),
-                    ),
-                  );
-                }
-                return SizedBox(
-                  height: 44,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final preset = filtered[index];
-                      return GestureDetector(
-                        onLongPress: () => _confirmDeleteCustomPreset(
-                          _customPresets.indexOf(preset),
-                        ),
-                        child: Draggable<ModulePreset>(
-                          data: preset,
-                          feedback: Material(
-                            color: Colors.transparent,
-                            child: Opacity(
-                              opacity: 0.8,
-                              child: _buildCustomPresetChip(preset),
-                            ),
-                          ),
-                          childWhenDragging: Opacity(
-                            opacity: 0.3,
-                            child: _buildCustomPresetChip(preset),
-                          ),
-                          child: _buildCustomPresetChip(preset),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
-          ],
-        ],
-      ),
+      ],
     );
   }
 
-  Widget _buildCustomPresetChip(ModulePreset preset) {
-    return Container(
-      height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: tossBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: tossBlue.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.star_rounded, size: 14, color: tossBlue),
-          const SizedBox(width: 6),
-          Text(
-            preset.name,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              color: tossText,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            "${preset.width.toInt()}×${preset.height.toInt()}",
-            style: const TextStyle(fontSize: 10, color: tossSubText),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _confirmDeleteCustomPreset(int index) {
-    final preset = _customPresets[index];
-    showDialog(
+  // 내 프리셋 관리: 길게 누르지 않아도 줄마다 지우기 단추로 지운다.
+  void _showPresetManageSheet() {
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: pureWhite,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          "프리셋 삭제",
-          style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
-        ),
-        content: Text(
-          keepWords("'${preset.name}' 프리셋을 삭제하시겠습니까?"),
-          style: const TextStyle(color: tossSubText),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("취소", style: TextStyle(color: tossSubText)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _deleteCustomPreset(index);
-            },
-            child: const Text(
-              "삭제",
-              style: TextStyle(color: warningRed, fontWeight: FontWeight.bold),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => SafeArea(
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.7,
+              maxWidth: 560,
+            ),
+            margin: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: pureWhite,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 20, 20, 4),
+                  child: Text(
+                    "내 프리셋 관리",
+                    style: TextStyle(
+                      color: tossText,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                  child: Text(
+                    keepWords("이 폰에만 저장됩니다. 지우면 끌어다 놓는 목록에서 빠집니다."),
+                    style: const TextStyle(color: tossSubText, fontSize: 14),
+                  ),
+                ),
+                if (_customPresets.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text(
+                      "저장된 프리셋이 없습니다",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: tossSubText, fontSize: 15),
+                    ),
+                  )
+                else
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: _customPresets.length,
+                      separatorBuilder: (_, _) =>
+                          const Divider(height: 1, color: layoutLine),
+                      itemBuilder: (context, i) {
+                        final p = _customPresets[i];
+                        return ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 60),
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 20, right: 8),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.star_rounded,
+                                  color: tossBlue,
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        p.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: tossText,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                      Text(
+                                        "${p.width.toInt()} × ${p.height.toInt()} mm",
+                                        style: const TextStyle(
+                                          color: tossSubText,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: "프리셋 삭제",
+                                  constraints: const BoxConstraints(
+                                    minWidth: 52,
+                                    minHeight: 52,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.delete_outline_rounded,
+                                    color: warningRed,
+                                    size: 26,
+                                  ),
+                                  onPressed: () async {
+                                    await _confirmDeleteCustomPreset(i);
+                                    setSheet(() {});
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                const SizedBox(height: 8),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildDuctChip(ModulePreset preset) {
+  Widget _buildCustomPresetChip(ModulePreset preset, {double? width}) {
     return Container(
-      height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      alignment: Alignment.center,
+      height: 56,
+      width: width,
+      constraints: const BoxConstraints(minWidth: 72),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      alignment: Alignment.centerLeft,
       decoration: BoxDecoration(
-        color: tossBg,
+        color: pureWhite,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: tossSubText.withValues(alpha: 0.3)),
+        border: Border.all(color: tossBlue.withValues(alpha: 0.4), width: 1.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.view_agenda_outlined, size: 16, color: tossText),
+          const Icon(Icons.star_rounded, size: 20, color: tossBlue),
           const SizedBox(width: 6),
-          Text(
-            preset.width.toInt().toString(),
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              color: tossText,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 🚀 [추가] "원 버튼식 전환" - 칩 2개 대신 원형 버튼 하나를 탭할 때마다
-  // 센터(파란)/측면(주황) 가상선 색상이 서로 전환된다.
-  Widget _buildGuideColorSwitch() {
-    final bool isCenter = !_showEdgeGuide;
-    final Color color = isCenter ? guideCenterColor : edgeDimColor;
-    final String label = isCenter ? "센터(파란색)" : "측면(주황색)";
-
-    return GestureDetector(
-      onTap: () => setState(() {
-        _showCenterGuide = !isCenter;
-        _showEdgeGuide = isCenter;
-      }),
-      child: Row(
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            child: const Icon(
-              Icons.sync_alt_rounded,
-              color: pureWhite,
-              size: 16,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          _flexIf(
+            width != null,
+            Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "드래그 시 적용될 가상선",
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: tossSubText,
+                Text(
+                  preset.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: tossText,
                   ),
                 ),
-                const SizedBox(height: 2),
                 Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: color,
-                  ),
+                  "${preset.width.toInt()}×${preset.height.toInt()}",
+                  style: const TextStyle(fontSize: 14, color: tossSubText),
                 ),
               ],
             ),
@@ -6471,203 +6212,343 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     );
   }
 
-  Widget _buildPaletteItem(String defaultName, {bool large = false}) {
-    // 넓은 화면의 왼쪽 칸에서는 크게 보인다. 드래그 중 떠다니는 복사본으로도
-    // 쓰이므로 폭은 늘 고정값이어야 한다(무한 폭이면 오류가 난다).
+  // 폭이 정해졌을 때만 Flexible로 감싼다(가로로 굴리는 목록 안에서는 폭이 끝없어 Flexible을 못 쓴다).
+  Widget _flexIf(bool flex, Widget child) =>
+      flex ? Flexible(child: child) : child;
+
+  Future<void> _confirmDeleteCustomPreset(int index) async {
+    if (index < 0 || index >= _customPresets.length) return;
+    final preset = _customPresets[index];
+    final ok = await confirmLayoutDanger(
+      context,
+      title: "프리셋 삭제",
+      message: "'${preset.name}' 프리셋을 지웁니다.",
+      confirmLabel: "삭제",
+    );
+    if (ok && mounted) await _deleteCustomPreset(index);
+  }
+
+  Widget _buildDuctChip(ModulePreset preset, {double width = 76}) {
     return Container(
-      width: large ? 208 : 64,
-      height: large ? 90 : 64,
+      height: 64,
+      width: width,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: tossBlue.withValues(alpha: 0.4), width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: tossBlue.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.add_box_rounded, color: tossBlue, size: large ? 28 : 22),
-            SizedBox(height: large ? 6 : 4),
-            Text(
-              defaultName,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: large ? 12 : 9,
-                fontWeight: FontWeight.w700,
-                color: tossBlue,
-              ),
-            ),
-          ],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: tossSubText.withValues(alpha: 0.3),
+          width: 1.5,
         ),
       ),
-    );
-  }
-
-  // 🚀 [정리] 배치가 끝난 뒤 치수를 "확인"하는 용도라는 점에 맞춰,
-  // 칩 2개 + 안내문 2줄로 나뉘어 있던 걸 한 줄로 압축했다. 기준(센터/
-  // 측면) 전환은 모듈 팔레트와 같은 원 버튼식으로 통일하고, 상태
-  // 안내는 한 줄만 남기고, "전체 삭제"는 텍스트 버튼 대신 아이콘
-  // 버튼으로 줄여서 자리를 덜 차지하게 했다.
-  Widget _buildDimensionChip({
-    required bool selected,
-    required Color color,
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? color.withValues(alpha: 0.12) : tossBg,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected ? color : Colors.transparent,
-            width: 1.2,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: selected ? color : tossSubText),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: selected ? color : tossSubText,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDimensionToolBar() {
-    final bool isCenter = _currentDimType == DimensionType.center;
-    final Color activeColor = isCenter ? centerDimColor : edgeDimColor;
-
-    return Padding(
-      key: const ValueKey("dimension"),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // 🚀 [수정] 칩 3개(기준/체인/대각선)가 좁은 화면에서 넘치지
-              // 않도록 가로 스크롤 영역으로 묶고, 취소/전체삭제 아이콘은
-              // 항상 오른쪽에 고정해서 보이게 했다.
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildDimensionChip(
-                        selected: true,
-                        color: activeColor,
-                        icon: Icons.sync_alt_rounded,
-                        label: isCenter ? "센터 기준" : "측면 기준",
-                        onTap: () => setState(() {
-                          _currentDimType = isCenter
-                              ? DimensionType.edge
-                              : DimensionType.center;
-                        }),
-                      ),
-                      const SizedBox(width: 8),
-                      // 🚀 [신규] 체인 모드 - 켜면 점을 계속 이어서 탭하는
-                      // 것만으로 연속 치수선이 만들어진다.
-                      _buildDimensionChip(
-                        selected: _dimensionChainMode,
-                        color: tossBlue,
-                        icon: Icons.link_rounded,
-                        label: "체인",
-                        onTap: () => setState(() {
-                          _dimensionChainMode = !_dimensionChainMode;
-                        }),
-                      ),
-                      const SizedBox(width: 8),
-                      // 🚀 [신규] 대각선 모드 - 켜면 축 정렬 없이 실제
-                      // 직선거리+각도를 측정한다.
-                      _buildDimensionChip(
-                        selected: _dimensionDiagonalMode,
-                        color: diagonalDimColor,
-                        icon: Icons.turn_slight_right_rounded,
-                        label: "대각선",
-                        onTap: () => setState(() {
-                          _dimensionDiagonalMode = !_dimensionDiagonalMode;
-                        }),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              // 🚀 [추가] 첫 지점을 잘못 찍었을 때 두 번째 지점을 억지로
-              // 찍어 엉뚱한 치수를 만들지 않고도 취소할 수 있는 버튼.
-              if (_dimensionStartPoint != null)
-                IconButton(
-                  tooltip: "첫 지점 취소",
-                  onPressed: () {
-                    setState(() {
-                      _dimensionStartPoint = null;
-                    });
-                  },
-                  icon: const Icon(
-                    Icons.undo_rounded,
-                    color: tossSubText,
-                    size: 20,
-                  ),
-                  constraints: const BoxConstraints(),
-                  padding: const EdgeInsets.all(6),
-                ),
-              if (_dimensions.isNotEmpty)
-                IconButton(
-                  tooltip: "치수 전체 삭제",
-                  onPressed: () {
-                    _pushUndo();
-                    setState(() {
-                      _dimensions.clear();
-                    });
-                  },
-                  icon: const Icon(
-                    Icons.delete_outline_rounded,
-                    color: warningRed,
-                    size: 20,
-                  ),
-                  constraints: const BoxConstraints(),
-                  padding: const EdgeInsets.all(6),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _dimensionStartPoint == null
-                ? (_dimensionChainMode
-                      ? "체인 모드: 지점을 계속 탭하면 이어서 측정됩니다"
-                      : "측정할 두 지점을 순서대로 터치하십시오 (치수선을 탭하면 편집)")
-                : "다음 지점을 터치하면 연결됩니다",
-            style: const TextStyle(
-              color: tossSubText,
-              fontSize: 12,
+          const Text(
+            "ABS 덕트",
+            style: TextStyle(
+              fontSize: 14,
               fontWeight: FontWeight.w600,
+              color: tossSubText,
+              height: 1.1,
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+          ),
+          Text(
+            preset.width.toInt().toString(),
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: tossText,
+              height: 1.2,
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  // 좁은 화면 가상선 단추: 누를 때마다 센터선(틸) ↔ 외곽선(주황)으로 바뀐다.
+  Widget _buildGuideColorSwitch() {
+    final bool isCenter = !_showEdgeGuide;
+    return _toolToggle(
+      icon: Icons.sync_alt_rounded,
+      label: isCenter ? "가상선: 센터" : "가상선: 측면",
+      selected: true,
+      color: isCenter ? guideCenterColor : edgeDimColor,
+      onTap: () => setState(() {
+        _showCenterGuide = !isCenter;
+        _showEdgeGuide = isCenter;
+      }),
+    );
+  }
+
+  Widget _buildPaletteItem(String defaultName, {bool large = false}) {
+    // 넓은 화면의 왼쪽 칸에서는 크게 보인다. 끄는 동안 떠다니는 복사본으로도
+    // 쓰이므로 폭은 늘 고정값이어야 한다(무한 폭이면 오류가 난다).
+    return Container(
+      width: large ? 228 : 84,
+      height: large ? 72 : 64,
+      decoration: BoxDecoration(
+        color: tossBlue.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: tossBlue.withValues(alpha: 0.5), width: 1.5),
+      ),
+      child: Center(
+        child: large
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.add_box_rounded, color: tossBlue, size: 28),
+                  const SizedBox(width: 8),
+                  Text(
+                    defaultName,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: tossBlue,
+                    ),
+                  ),
+                ],
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.add_box_rounded, color: tossBlue, size: 24),
+                  const SizedBox(height: 2),
+                  Text(
+                    defaultName,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: tossBlue,
+                      height: 1.1,
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  // 켜고 끄는 도구 단추(높이 48 이상, 글씨 15). 알약 모양 대신 모서리만 둥근 네모.
+  Widget _toolToggle({
+    required IconData icon,
+    required String label,
+    required bool selected,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Semantics(
+      button: true,
+      toggled: selected,
+      child: Material(
+        color: selected ? color.withValues(alpha: 0.10) : pureWhite,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: selected ? color : layoutLine,
+            width: selected ? 2 : 1.5,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            onTap();
+          },
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 52),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 22, color: selected ? color : tossSubText),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: selected ? color : tossSubText,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 칸 안의 작은 제목(14, 굵게).
+  Widget _panelLabel(String text) => Text(
+    text,
+    style: const TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w800,
+      color: tossSubText,
+    ),
+  );
+
+  // 도면으로 끌어다 놓는 것 하나. affinity를 주면 그 방향으로 끌 때만 집힌다.
+  Widget _dragTile(
+    ModulePreset preset,
+    Widget Function(bool dragging) builder, {
+    Axis? affinity,
+  }) {
+    return Draggable<ModulePreset>(
+      data: preset,
+      affinity: affinity,
+      feedback: Material(
+        color: Colors.transparent,
+        child: Opacity(opacity: 0.8, child: builder(true)),
+      ),
+      childWhenDragging: Opacity(opacity: 0.3, child: builder(true)),
+      child: builder(false),
+    );
+  }
+
+  // 90° 돌리기(가로·세로 바꾸기). 도면 밖으로 나가지 않게 위치를 맞춘다.
+  void _rotateItem(PlacedItem item) {
+    _pushUndo();
+    setState(() {
+      final double temp = item.width;
+      item.width = item.height;
+      item.height = temp;
+      item.position = Offset(
+        item.position.dx.clamp(0.0, math.max(0.0, _panelWidth - item.width)),
+        item.position.dy.clamp(0.0, math.max(0.0, _panelHeight - item.height)),
+      );
+    });
+    HapticFeedback.lightImpact();
+  }
+
+  // 모듈 하나 복제: 오른쪽 아래로 20mm 비켜 놓고, 넓은 화면에서는 복제본을 고른다.
+  void _duplicateItem(PlacedItem item) {
+    _pushUndo();
+    final newItem = PlacedItem(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: item.name,
+      position: _snapToGrid(
+        Offset(
+          (item.position.dx + 20).clamp(
+            0.0,
+            math.max(0.0, _panelWidth - item.width),
+          ),
+          (item.position.dy + 20).clamp(
+            0.0,
+            math.max(0.0, _panelHeight - item.height),
+          ),
+        ),
+      ),
+      width: item.width,
+      height: item.height,
+      isSelected: false,
+    );
+    setState(() {
+      _placedItems.add(newItem);
+      if (_isWide) {
+        item.isSelected = false;
+        newItem.isSelected = true;
+        _activeItem = newItem;
+      }
+    });
+    HapticFeedback.mediumImpact();
+  }
+
+  // 좁은 화면 치수 재기 도구: 기준·체인·대각선 단추 한 줄 + 안내 + 첫 지점 취소.
+  // 치수선 전체 지우기는 위 막대 "더보기"의 빨간 칸으로 옮겼다(확인을 받는다).
+  Widget _buildDimensionToolBar() {
+    final bool isCenter = _currentDimType == DimensionType.center;
+    return Column(
+      key: const ValueKey("dimension"),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              flex: 4,
+              child: _toolToggle(
+                icon: Icons.sync_alt_rounded,
+                label: isCenter ? "센터 기준" : "측면 기준",
+                selected: true,
+                color: isCenter ? centerDimColor : edgeDimColor,
+                onTap: () => setState(() {
+                  _currentDimType = isCenter
+                      ? DimensionType.edge
+                      : DimensionType.center;
+                }),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 3,
+              child: _toolToggle(
+                icon: Icons.link_rounded,
+                label: "체인",
+                selected: _dimensionChainMode,
+                color: tossBlue,
+                onTap: () =>
+                    setState(() => _dimensionChainMode = !_dimensionChainMode),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 3,
+              child: _toolToggle(
+                icon: Icons.turn_slight_right_rounded,
+                label: "대각선",
+                selected: _dimensionDiagonalMode,
+                color: diagonalDimColor,
+                onTap: () => setState(
+                  () => _dimensionDiagonalMode = !_dimensionDiagonalMode,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                keepWords(_dimensionHint()),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: tossSubText,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
+                ),
+              ),
+            ),
+            // 첫 지점을 잘못 찍었을 때 두 번째 지점을 억지로 찍지 않고 취소한다.
+            if (_dimensionStartPoint != null)
+              TextButton.icon(
+                onPressed: () => setState(() => _dimensionStartPoint = null),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(48, 48),
+                  foregroundColor: tossText,
+                ),
+                icon: const Icon(Icons.undo_rounded, size: 22),
+                label: const Text(
+                  "첫 지점 취소",
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 
