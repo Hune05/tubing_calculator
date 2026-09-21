@@ -141,6 +141,18 @@ List<Map<String, dynamic>> subtractMaterialsUsage(
   return materials;
 }
 
+/// 컷팅 기록에서 규격별 튜브 사용 길이(mm)를 모은다. 저장과 되돌리기가
+/// 같은 값을 써야 자재 사용량이 제자리로 돌아온다.
+/// 한 작업에 3/8"와 1/2"가 섞일 수 있어 규격별로 나눈다.
+Map<String, double> tubeUsageBySize(List<CutRecord> cutRecords) {
+  final bySize = <String, double>{};
+  for (final r in cutRecords) {
+    final size = r.tubeSize.trim();
+    bySize[size] = (bySize[size] ?? 0) + r.cutLength * r.multiplier;
+  }
+  return bySize;
+}
+
 /// CuttingMainScreen의 onSaveCallback에서 호출한다. 프로젝트 누적치
 /// (totalTubeUsed/cutCount/usedFittings/lastCutAt)를 갱신하고, 재고 차감에
 /// 쓸 materials를 누적하고, 이번 "완료"로 생성된 CutRecord들을 서브컬렉션에
@@ -158,12 +170,7 @@ Future<void> saveCuttingSession({
 
   final snap = await docRef.get();
   final existingMaterials = (snap.data()?['materials'] as List?) ?? [];
-  // 기록에 적힌 규격별로 나눠서 쌓는다(한 작업에 3/8"와 1/2"가 섞일 수 있다).
-  final bySize = <String, double>{};
-  for (final r in cutRecords) {
-    final size = r.tubeSize.trim();
-    bySize[size] = (bySize[size] ?? 0) + r.cutLength * r.multiplier;
-  }
+  final bySize = tubeUsageBySize(cutRecords);
   final mergedMaterials = mergeMaterialsUsage(
     existingMaterials,
     totalTubeLength,
@@ -206,6 +213,10 @@ Future<void> undoCuttingSession({
 
   final snap = await docRef.get();
   final existingMaterials = (snap.data()?['materials'] as List?) ?? [];
+  // 🚀 [고침] 저장할 때와 같은 규격별 길이로 뺀다. 예전에는 규격 없이
+  // 전체 길이(톱날 손실 포함)를 첫 튜브 줄에서만 빼서, 규격이 섞이면 다른
+  // 규격 줄이 그대로 남고 톱날 손실만큼 더 빠졌다.
+  final bySize = tubeUsageBySize(cutRecords);
   await docRef.update({
     'totalTubeUsed': project.totalTubeUsed,
     'cutCount': project.cutCount,
@@ -214,6 +225,7 @@ Future<void> undoCuttingSession({
       existingMaterials,
       totalTubeLength,
       fittingsList,
+      tubeLengthBySize: bySize.isEmpty ? null : bySize,
     ),
     // 되돌린 뒤 누적이 0이면 "마지막 작업" 날짜도 지운다(저장한 적이 없는 것으로 돌아간다).
     if (project.cutCount <= 0 && project.totalTubeUsed <= 1e-6)
