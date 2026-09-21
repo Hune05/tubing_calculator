@@ -11,6 +11,7 @@ import 'package:tubing_calculator/src/presentation/field/field_marking.dart';
 import 'package:tubing_calculator/src/presentation/field/marking_sheet_pdf.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/app_dialog.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/step_mark_card.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_pipe_visualizer.dart';
 import 'package:tubing_calculator/src/core/database/database_helper.dart';
@@ -529,176 +530,86 @@ class _MobileResultTabState extends State<MobileResultTab>
     required double fittingDepth,
     required double leftover,
   }) {
-    const labelStyle = TextStyle(
-      fontSize: 11,
-      fontWeight: FontWeight.bold,
-      color: slate600,
-    );
-    const valueStyle = TextStyle(
-      fontSize: 14,
-      fontWeight: FontWeight.w900,
-      color: slate900,
-    );
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: pureWhite,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: makitaTeal.withValues(alpha: 0.3)),
-        boxShadow: [
-          BoxShadow(
-            color: slate900.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: makitaTeal,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.content_cut_rounded,
-                  color: pureWhite,
-                  size: 12,
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                "총 절단 길이",
-                style: TextStyle(
-                  color: makitaTeal,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                "${totalCut.round()}",
+    return CutLengthCard(
+      totalCut: totalCut,
+      under: leftover > 0
+          ? Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                "마지막 벤딩 후 잔여 +${leftover.round()}mm",
                 style: const TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.w900,
-                  color: slate900,
-                  letterSpacing: -1,
-                  height: 1.0,
-                  fontFamily: 'monospace',
-                ),
-              ),
-              const SizedBox(width: 4),
-              const Text(
-                "mm",
-                style: TextStyle(
-                  fontSize: 14,
                   color: slate600,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-            ],
-          ),
-          if (leftover > 0) ...[
-            const SizedBox(height: 6),
-            Text(
-              "마지막 벤딩 후 잔여 +${leftover.round()}mm",
-              style: const TextStyle(
-                color: slate600,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Divider(height: 1, color: slate200),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("반경(R)", style: labelStyle),
-                  const SizedBox(height: 4),
-                  Text("${radius.round()} mm", style: valueStyle),
-                ],
-              ),
-              Container(width: 1, height: 24, color: slate200),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text("피팅 (깊이 ${fittingDepth.round()}mm)", style: labelStyle),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      _buildToggleBtn(
-                        key: const Key('tube_start_fit'),
-                        title: "시작",
-                        isSelected: _includeStartFitting,
-                        onTap: () => setState(() {
-                          _includeStartFitting = !_includeStartFitting;
-                          MobileBendDataManager().startFit =
-                              _includeStartFitting;
-                        }),
-                      ),
-                      const SizedBox(width: 4),
-                      _buildToggleBtn(
-                        key: const Key('tube_end_fit'),
-                        title: "종료",
-                        isSelected: _includeEndFitting,
-                        onTap: () => setState(() {
-                          _includeEndFitting = !_includeEndFitting;
-                          MobileBendDataManager().endFit = _includeEndFitting;
-                        }),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Divider(height: 1, color: slate200),
-          ),
-          InkWell(
-            key: const Key('tube_tail'),
-            onTap: _showTailPad,
-            borderRadius: BorderRadius.circular(8),
-            child: Row(
+            )
+          : null,
+      bottom: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            CardLabelValue("반경(R)", "${radius.round()} mm"),
+            Container(width: 1, height: 24, color: slate200),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                const Expanded(child: Text("꼬리 길이", style: labelStyle)),
-                Text("${_tailLength.round()} mm", style: valueStyle),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  size: 18,
-                  color: slate600,
+                Text(
+                  "피팅 (깊이 ${fittingDepth.round()}mm)",
+                  style: cardLabelStyle,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    _buildToggleBtn(
+                      key: const Key('tube_start_fit'),
+                      title: "시작",
+                      isSelected: _includeStartFitting,
+                      onTap: () => setState(() {
+                        _includeStartFitting = !_includeStartFitting;
+                        MobileBendDataManager().startFit = _includeStartFitting;
+                      }),
+                    ),
+                    const SizedBox(width: 4),
+                    _buildToggleBtn(
+                      key: const Key('tube_end_fit'),
+                      title: "종료",
+                      isSelected: _includeEndFitting,
+                      onTap: () => setState(() {
+                        _includeEndFitting = !_includeEndFitting;
+                        MobileBendDataManager().endFit = _includeEndFitting;
+                      }),
+                    ),
+                  ],
                 ),
               ],
             ),
+          ],
+        ),
+        InkWell(
+          key: const Key('tube_tail'),
+          onTap: _showTailPad,
+          borderRadius: BorderRadius.circular(8),
+          child: Row(
+            children: [
+              const Expanded(child: Text("꼬리 길이", style: cardLabelStyle)),
+              Text("${_tailLength.round()} mm", style: cardValueStyle),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: slate600,
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  /// STEP 카드(전선관 카드와 같은 모양). 번호는 벤딩에만 붙인다
-  /// (현장 탭·마킹지의 "N번 마킹"과 같은 번호). 직관은 회색 띠.
+  /// STEP 카드. 번호는 벤딩에만 붙인다(현장 탭·마킹지의 "N번 마킹"과
+  /// 같은 번호). 직관은 회색 띠.
   Widget _buildMarkingCard(Map<String, dynamic> item) {
     final bool isStraight = item['is_straight'] == true;
-    final int mark = (item['marking_point'] as num?)?.round() ?? 0;
     final int incremental = (item['incremental_mark'] as num?)?.round() ?? 0;
     final int length = (item['length'] as num?)?.round() ?? 0;
     final double appliedFit = (item['applied_fit'] as num?)?.toDouble() ?? 0.0;
@@ -711,203 +622,36 @@ class _MobileResultTabState extends State<MobileResultTab>
     final double rollDeg = (item['roll_deg'] as num?)?.toDouble() ?? 0.0;
     final int markNum = (item['mark_num'] as num?)?.toInt() ?? 0;
 
-    final notes = <(IconData, String, Color)>[
-      if (isStraight)
-        (Icons.info_outline_rounded, "직관 +$length$fitText mm", slate600)
-      else ...[
-        if (markNum > 1)
-          (
-            Icons.info_outline_rounded,
-            "앞 마킹과의 거리 +$incremental mm",
-            makitaTeal,
-          ),
-        (Icons.info_outline_rounded, "배관 $length$fitText mm", slate600),
-        if (rollDeg > 0.5)
-          (
-            Icons.warning_amber_rounded,
-            "앞 벤드에서 ${rollDeg.round()}° 굴려 물리십시오",
-            const Color(0xFFC77700),
-          ),
-      ],
-    ];
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: pureWhite,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isStraight ? slate200 : makitaTeal.withValues(alpha: 0.2),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: slate900.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
+    return StepMarkCard(
+      isStraight: isStraight,
+      markNum: markNum,
+      mark: (item['marking_point'] as num?)?.round() ?? 0,
+      title: isStraight
+          ? "직관 연장 마킹"
+          : hasSpringback
+          ? "${angle.round()}° 벤딩 (실제 ${target.toStringAsFixed(1)}°)"
+          : "${angle.round()}° 벤딩",
+      dirIcon: _getDirectionIcon(rotation),
+      dirText: _getDirectionText(rotation),
+      notes: [
+        if (isStraight)
+          (Icons.info_outline_rounded, "직관 +$length$fitText mm", stepNoteGrey)
+        else ...[
+          if (markNum > 1)
+            (
+              Icons.info_outline_rounded,
+              "앞 마킹과의 거리 +$incremental mm",
+              stepNoteTeal,
+            ),
+          (Icons.info_outline_rounded, "배관 $length$fitText mm", stepNoteGrey),
+          if (rollDeg > 0.5)
+            (
+              Icons.warning_amber_rounded,
+              "앞 벤드에서 ${rollDeg.round()}° 굴려 물리십시오",
+              stepNoteAmber,
+            ),
         ],
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              width: 60,
-              decoration: BoxDecoration(
-                color: isStraight ? slate200 : makitaTeal,
-                borderRadius: const BorderRadius.horizontal(
-                  left: Radius.circular(15),
-                ),
-              ),
-              child: isStraight
-                  ? const Icon(
-                      Icons.straighten_rounded,
-                      color: slate600,
-                      size: 24,
-                    )
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "STEP",
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            color: pureWhite.withValues(alpha: 0.7),
-                            letterSpacing: 1,
-                          ),
-                        ),
-                        Text(
-                          "$markNum",
-                          style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w900,
-                            color: pureWhite,
-                            height: 1.1,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            isStraight
-                                ? "직관 연장 마킹"
-                                : hasSpringback
-                                ? "${angle.round()}° 벤딩 (실제 ${target.toStringAsFixed(1)}°)"
-                                : "${angle.round()}° 벤딩",
-                            style: const TextStyle(
-                              color: slate600,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        if (!isStraight)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: makitaTeal.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: makitaTeal.withValues(alpha: 0.3),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  _getDirectionIcon(rotation),
-                                  color: makitaTeal,
-                                  size: 12,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _getDirectionText(rotation),
-                                  style: const TextStyle(
-                                    color: makitaTeal,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: slate100,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            "$mark",
-                            style: const TextStyle(
-                              fontSize: 30,
-                              fontWeight: FontWeight.w900,
-                              color: slate900,
-                              fontFamily: 'monospace',
-                              letterSpacing: -1,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Text(
-                            "mm",
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: slate600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    for (final (icon, text, color) in notes) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(icon, size: 14, color: color),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              text,
-                              style: TextStyle(
-                                color: color,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 
