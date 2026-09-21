@@ -352,8 +352,13 @@ String buildSaveConfirmMessage({
   }
   if (kerfLossMm > 0) {
     b.writeln(
-      '톱날 손실 ${_one(kerfLossMm)}mm가 더해져 ${_one(baseMm + kerfLossMm)}mm로 기록됩니다.',
+      '톱날 손실 ${_one(kerfLossMm)}mm가 더해져 누적 사용량에 ${_one(baseMm + kerfLossMm)}mm로 기록됩니다.',
     );
+    // 🚀 [고침] 자재 사용량(재고 차감용)은 규격별 자른 길이만 쌓고 톱날 손실은
+    // 넣지 않는다. 예전 글은 전부 더해진다고만 해서 실제와 달랐다.
+    if (recordsToProject) {
+      b.writeln('자재 사용량(출고 대기)에는 톱날 손실을 넣지 않습니다.');
+    }
   }
   if (specs.any((e) => e.spec.isNotEmpty)) {
     final t = specs
