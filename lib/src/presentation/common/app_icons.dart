@@ -165,10 +165,18 @@ class AppIcon extends StatelessWidget {
     final theme = IconTheme.of(context);
     final double s = size ?? theme.size ?? 24;
     final Color c = color ?? theme.color ?? const Color(0xFF0F172A);
+    // 기본 Icon처럼: 둘레가 크기를 억지로 늘려도(가운데 맞춤 없는 상자 등)
+    // 그림은 제 크기로 가운데에 그린다.
     return SizedBox(
       width: s,
       height: s,
-      child: CustomPaint(painter: _AppIconPainter(glyph, c, filled)),
+      child: Center(
+        child: SizedBox(
+          width: s,
+          height: s,
+          child: CustomPaint(painter: _AppIconPainter(glyph, c, filled)),
+        ),
+      ),
     );
   }
 }
