@@ -2032,6 +2032,41 @@ void main() {
       expect(find.byKey(const Key('steel_over_a')), findsNothing);
     });
 
+    testWidgets('원자재 길이 창: 잘못 적으면 창을 닫지 않고 까닭을 보여 준다', (tester) async {
+      await open(tester, proj(items: [item('앵글 40x40x3', 6500, 1, id: 'a')]));
+      await tester.tap(find.byKey(const Key('steel_edit_stock')));
+      await tester.pumpAndSettle();
+      final field = find.byKey(const Key('steel_stock_field'));
+      final save = find.byKey(const Key('steel_stock_save'));
+      for (final (text, msg) in [
+        ('1.2.3', '숫자로 적어 주십시오.'),
+        ('', '숫자로 적어 주십시오.'),
+        ('0', '0보다 큰 길이를 적어 주십시오.'),
+        ('-5', '0보다 큰 길이를 적어 주십시오.'),
+        ('99999999', '20000mm 이하로 적어 주십시오.'),
+      ]) {
+        await tester.enterText(field, text);
+        await tester.tap(save);
+        await tester.pumpAndSettle();
+        expect(find.text('원자재 기준 길이'), findsOneWidget, reason: text);
+        expect(find.text(msg), findsOneWidget, reason: text);
+      }
+      await tester.enterText(field, '7000');
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(find.text('원자재 기준 길이'), findsNothing);
+      expect(find.byKey(const Key('steel_over_banner')), findsNothing);
+    });
+
+    test('원자재 길이 검사', () {
+      expect(stockLengthError('6000'), isNull);
+      expect(stockLengthError(' 6000.5 '), isNull);
+      expect(stockLengthError('20000'), isNull);
+      expect(stockLengthError('20001'), '20000mm 이하로 적어 주십시오.');
+      expect(stockLengthError('abc'), '숫자로 적어 주십시오.');
+      expect(stockLengthError('0'), '0보다 큰 길이를 적어 주십시오.');
+    });
+
     testWidgets('원자재 길이 창에서 취소하면 그대로다', (tester) async {
       await open(tester, proj(items: [item('앵글 40x40x3', 6500, 1, id: 'a')]));
       await tester.tap(find.byKey(const Key('steel_edit_stock')));

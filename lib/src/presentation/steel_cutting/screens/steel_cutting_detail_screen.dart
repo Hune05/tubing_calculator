@@ -1613,7 +1613,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     );
     if (!mounted || v == null) return;
     if (v <= 0) {
-      showCuttingSnack(context, "길이를 숫자로 적으십시오.", isError: true);
+      showCuttingSnack(context, "0보다 큰 길이를 적어 주십시오.", isError: true);
       return;
     }
     if (v == item.length) return;
@@ -2030,90 +2030,107 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
 
   // 원자재 기준 길이를 입력 탭에서 바로 고친다(재단 계획 창까지 들어가지 않아도 된다).
   Future<void> _showStockDialog() async {
-    final ctrl = TextEditingController(text: _stockLength.toStringAsFixed(0));
+    final ctrl = TextEditingController(text: fmtMm(_stockLength));
+    // 잘못 적으면 창을 닫지 않고 칸 아래에 까닭을 보여 준다.
+    String? error;
     final v = await showDialog<double>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: CuttingColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            cuttingDialogIcon(Icons.straighten_rounded),
-            const SizedBox(width: 14),
-            const Expanded(
-              child: Text(
-                "원자재 기준 길이",
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: CuttingColors.textPrimary,
-                  fontSize: 17,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          void submit() {
+            final e = stockLengthError(ctrl.text);
+            if (e != null) {
+              setDialogState(() => error = e);
+              return;
+            }
+            Navigator.pop(ctx, double.parse(ctrl.text.trim()));
+          }
+
+          return AlertDialog(
+            backgroundColor: CuttingColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Row(
+              children: [
+                cuttingDialogIcon(Icons.straighten_rounded),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Text(
+                    "원자재 기준 길이",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: CuttingColors.textPrimary,
+                      fontSize: 17,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "자재 한 본의 길이입니다. 재단 계획 배치와 긴 항목 경고가 이 길이를 씁니다.",
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('steel_stock_field'),
+                  controller: ctrl,
+                  autofocus: true,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: CuttingColors.textPrimary,
+                  ),
+                  decoration: InputDecoration(
+                    suffixText: 'mm',
+                    filled: true,
+                    fillColor: Colors.grey.shade100,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                    errorText: error,
+                    errorMaxLines: 2,
+                  ),
+                  onChanged: (_) {
+                    if (error != null) setDialogState(() => error = null);
+                  },
+                  onSubmitted: (_) => submit(),
+                ),
+              ],
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text("취소", style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                key: const Key('steel_stock_save'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: CuttingColors.primary,
+                ),
+                onPressed: submit,
+                child: const Text(
+                  "저장",
+                  style: TextStyle(color: CuttingColors.surface),
                 ),
               ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "자재 한 본의 길이입니다. 재단 계획 배치와 긴 항목 경고가 이 길이를 씁니다.",
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              key: const Key('steel_stock_field'),
-              controller: ctrl,
-              autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: CuttingColors.textPrimary,
-              ),
-              decoration: InputDecoration(
-                suffixText: 'mm',
-                filled: true,
-                fillColor: Colors.grey.shade100,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-              onSubmitted: (v) => Navigator.pop(ctx, double.tryParse(v.trim())),
-            ),
-          ],
-        ),
-        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("취소", style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            key: const Key('steel_stock_save'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: CuttingColors.primary,
-            ),
-            onPressed: () =>
-                Navigator.pop(ctx, double.tryParse(ctrl.text.trim())),
-            child: const Text(
-              "저장",
-              style: TextStyle(color: CuttingColors.surface),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
     if (!mounted) return;
-    if (v == null || v <= 0) {
-      if (v != null) {
-        showCuttingSnack(context, "길이를 숫자로 적으십시오.", isError: true);
-      }
-      return;
-    }
+    // 취소하면 null이다(잘못된 값은 창 안에서 막는다).
+    if (v == null) return;
     setState(() => _stockLength = v);
     try {
       await _persistStockLength(v);

@@ -140,6 +140,18 @@ List<SteelCutItem> overLengthItems(List<SteelCutItem> items, double maxStock) =>
         if (maxStock > 0 && i.length > maxStock) i,
     ];
 
+// 원자재 기준 길이의 위쪽 한계(mm).
+const double kMaxStockLengthMm = 20000;
+
+// 원자재 기준 길이 창에 적은 글이 잘못됐으면 그 까닭, 괜찮으면 null.
+String? stockLengthError(String text) {
+  final v = double.tryParse(text.trim());
+  if (v == null || !v.isFinite) return '숫자로 적어 주십시오.';
+  if (v <= 0) return '0보다 큰 길이를 적어 주십시오.';
+  if (v > kMaxStockLengthMm) return '20000mm 이하로 적어 주십시오.';
+  return null;
+}
+
 // 한 규격 묶음의 항목을 [ordered] 순서로 다시 놓는다. 그 묶음이 쓰던 자리(전체 목록에서의 위치)는 그대로
 // 두고 그 자리에만 새 순서로 넣어서, 다른 규격 항목은 움직이지 않는다.
 List<SteelCutItem> applyShapeOrder(
