@@ -13,6 +13,14 @@ const Color slate600 = Color(0xFF475569);
 const Color slate100 = Color(0xFFF1F5F9);
 const Color pureWhite = Color(0xFFFFFFFF);
 
+/// U-Bend 조립 후 벽(피팅 면)에서 튀어나오는 최고점.
+/// 시작 직관 + 반경 + 관 바깥지름의 반. 시작 직관이 없으면 0.
+double uBendApex({
+  required double startStraight,
+  required double radius,
+  required double odMm,
+}) => startStraight > 0 ? startStraight + radius + odMm / 2 : 0.0;
+
 class MobileQuickUBendBottomSheet extends StatefulWidget {
   const MobileQuickUBendBottomSheet({super.key});
 
@@ -60,7 +68,9 @@ class _MobileQuickUBendBottomSheetState
     if (mounted) {
       setState(() {
         _minStraight = data['minStraight'] ?? 0.0;
-        _tubeOD = data['tubeOD'] ?? 12.7;
+        // 🚀 [고침] 인치 설정이면 이 값은 인치(0.5 등)다. mm로 바꿔 쓴다.
+        final double od = (data['tubeOD'] as num?)?.toDouble() ?? 12.7;
+        _tubeOD = data['isInch'] == true ? od * 25.4 : od;
         _bendRadius = data['bendRadius'] ?? MobileBendDataManager().radius;
         _warnShoeInterference = prefs.getBool('warnShoeInterference') ?? true;
       });
@@ -135,14 +145,15 @@ class _MobileQuickUBendBottomSheetState
           returnCutAdd;
     }
 
-    // 🚀 완벽 수정: 최고점(Apex)은 오직 '시작 다리'를 기준으로 단 1개만 존재함!
-    double apex = 0.0;
-    if (startStraight > 0) {
-      apex = startStraight + _bendRadius + (_tubeOD / 2);
-      if (_isStartFitting) {
-        apex -= fittingDepth; // 시작부가 피팅에 박히면 그만큼 최고점도 내려옴
-      }
-    }
+    // 최고점(Apex)은 시작 다리 기준 하나다. 입력한 시작 직관은 피팅 면 밖으로
+    // 보이는 길이다(피팅에 들어가는 깊이는 절단 길이에 따로 더한다).
+    // 🚀 [고침] 예전에는 여기서 피팅 깊이를 한 번 더 빼서, 깊이 23이면
+    // 최고점이 23mm 낮게 나왔다.
+    final double apex = uBendApex(
+      startStraight: startStraight,
+      radius: _bendRadius,
+      odMm: _tubeOD,
+    );
 
     // 빨려들어감 간섭 계산 로직
     double requiredFittingStraight = fittingDepth + 15.0; // 15mm는 스패너 조작 여유
@@ -183,19 +194,17 @@ class _MobileQuickUBendBottomSheetState
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.u_turn_right, color: makitaTeal, size: 28),
-                      SizedBox(width: 12),
-                      Text(
-                        "퀵 U-Bend (180°) 계산기",
-                        style: TextStyle(
-                          color: slate900,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                  const Icon(Icons.u_turn_right, color: makitaTeal, size: 28),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      "퀵 U-Bend (180°) 계산기",
+                      style: TextStyle(
+                        color: slate900,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ],
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, color: slate600),
@@ -235,7 +244,7 @@ class _MobileQuickUBendBottomSheetState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "• ${_tubeOD}mm 기준 180° 벤딩 폭(C-C): ${cToCWidth.toStringAsFixed(1)} mm (고정)",
+                            "• ${_tubeOD.toStringAsFixed(1)}mm 기준 180° 벤딩 폭(C-C): ${cToCWidth.toStringAsFixed(1)} mm (고정)",
                             style: TextStyle(
                               color: Colors.amber.shade900,
                               fontSize: 12,
@@ -273,12 +282,14 @@ class _MobileQuickUBendBottomSheetState
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    "1. 시작부 순수 직관 길이",
-                    style: TextStyle(
-                      color: slate600,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
+                  const Expanded(
+                    child: Text(
+                      "1. 시작부 순수 직관 길이",
+                      style: TextStyle(
+                        color: slate600,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   Row(
@@ -318,12 +329,14 @@ class _MobileQuickUBendBottomSheetState
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    "2. 복귀부 순수 직관 길이",
-                    style: TextStyle(
-                      color: slate600,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
+                  const Expanded(
+                    child: Text(
+                      "2. 복귀부 순수 직관 길이",
+                      style: TextStyle(
+                        color: slate600,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   Row(
