@@ -168,13 +168,16 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                widget.title,
-                style: const TextStyle(
-                  color: slate900, // 너무 튀지 않게 진한 차콜색으로
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.5,
+              // 제목이 길면 두 줄로 내려간다(닫기 단추 자리를 먼저 준다).
+              Flexible(
+                child: Text(
+                  widget.title,
+                  style: const TextStyle(
+                    color: slate900, // 너무 튀지 않게 진한 차콜색으로
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
+                  ),
                 ),
               ),
               if (widget.onApply != null)

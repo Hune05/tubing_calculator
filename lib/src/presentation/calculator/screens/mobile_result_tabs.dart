@@ -732,7 +732,7 @@ class _MobileResultTabState extends State<MobileResultTab>
     await MakitaNumpad.show(
       context,
       controller: _tailController,
-      title: "절단 여유 기장 (mm)",
+      title: "꼬리 길이 (마지막 꺾임점에서 관 끝까지, mm)",
     );
     if (!mounted) {
       return;

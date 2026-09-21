@@ -453,7 +453,7 @@ class _MarkingPageState extends State<MarkingPage> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           const Text(
-                                            "최종 절단 여유 기장 (Tail)",
+                                            "꼬리 길이 (마지막 꺾임점에서 관 끝까지)",
                                             style: TextStyle(
                                               color: slate900,
                                               fontSize: 15,
@@ -879,7 +879,7 @@ class _MarkingPageState extends State<MarkingPage> {
     await MakitaNumpad.show(
       context,
       controller: _tailController,
-      title: "절단 여유 기장 (mm)",
+      title: "꼬리 길이 (마지막 꺾임점에서 관 끝까지, mm)",
     );
 
     if (!mounted) return;
