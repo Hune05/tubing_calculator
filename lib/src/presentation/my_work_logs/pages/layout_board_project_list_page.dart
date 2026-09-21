@@ -277,7 +277,8 @@ class _LayoutBoardProjectListPageState
                     : LayoutBuilder(
                         // 넓은 화면(태블릿·폴드)에서는 두 줄로 놓아 카드가 옆으로 너무 길어지지 않게.
                         builder: (context, box) => box.maxWidth >= 720
-                            ? GridView.builder(
+                            // 칸 높이를 글 길이에 맞춘다(이름이 두 줄이 되거나 글씨를 키워도 넘치지 않게).
+                            ? ListView.builder(
                                 physics: const BouncingScrollPhysics(),
                                 padding: const EdgeInsets.fromLTRB(
                                   16,
@@ -285,15 +286,25 @@ class _LayoutBoardProjectListPageState
                                   16,
                                   110,
                                 ),
-                                gridDelegate:
-                                    const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 2,
-                                      crossAxisSpacing: 12,
-                                      mainAxisExtent: 124,
+                                itemCount: (docs.length + 1) ~/ 2,
+                                itemBuilder: (context, row) {
+                                  final int i = row * 2;
+                                  return IntrinsicHeight(
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        Expanded(child: _buildCard(docs[i])),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: i + 1 < docs.length
+                                              ? _buildCard(docs[i + 1])
+                                              : const SizedBox.shrink(),
+                                        ),
+                                      ],
                                     ),
-                                itemCount: docs.length,
-                                itemBuilder: (context, index) =>
-                                    _buildCard(docs[index]),
+                                  );
+                                },
                               )
                             : ListView.builder(
                                 physics: const BouncingScrollPhysics(),
