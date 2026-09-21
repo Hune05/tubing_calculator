@@ -18,19 +18,14 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/utils/image_picker_helper.dart' show ImagePickerHelper;
 import '../models/layout_board_models.dart';
+import '../models/layout_board_owner.dart';
 import '../models/layout_board_painters.dart';
+import '../widgets/layout_board_ui.dart';
 export '../models/layout_board_painters.dart';
 export '../models/layout_board_models.dart';
+export '../widgets/layout_board_ui.dart';
 
-// ---------------------------------------------------------
-// 🎨 토스(Toss) 디자인 시스템 색상
-// ---------------------------------------------------------
-const Color tossBlue = Color(0xFF007580); // 🚀 마키타 틸로 통일
-const Color tossText = Color(0xFF191F28);
-const Color tossSubText = Color(0xFF8B95A1);
-const Color tossBg = Color(0xFFF2F4F6);
-const Color pureWhite = Color(0xFFFFFFFF);
-const Color warningRed = Color(0xFFF04438);
+// 색(전선관 계산기와 같은 slate + 틸)과 카드·확인 창은 widgets/layout_board_ui.dart에 있다.
 
 // 🚀 치수선 색상 분리
 // 🚀 [수정] 수동 측정(센터)이 녹색, 자동 가이드(센터)가 파란색으로
@@ -1221,6 +1216,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     setState(() => _isSaving = true);
     try {
       final bool isNew = _currentProjectId == null;
+      // 새 문서일 때만 만든 사람 칸을 붙인다(예전 배치도는 고쳐 저장해도 칸을 붙이지 않는다).
+      final LayoutOwner owner = isNew
+          ? await loadLayoutOwner()
+          : const LayoutOwner();
       final docRef = isNew
           ? FirebaseFirestore.instance.collection('layouts').doc()
           : FirebaseFirestore.instance
@@ -1237,6 +1236,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           backgroundImagePath: _backgroundImagePath,
           backgroundOpacity: _backgroundOpacity,
         ),
+        if (isNew) ...layoutOwnerFields(owner),
         if (isNew) 'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));

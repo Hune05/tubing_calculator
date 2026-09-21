@@ -262,3 +262,46 @@ List<PlacedDimension> layoutDimensionsFromData(Map<String, dynamic> data) =>
           (e) => PlacedDimension.fromJson(Map<String, dynamic>.from(e as Map)),
         )
         .toList();
+
+// ---------------------------------------------------------
+// 4. 만든 사람 칸(목록에 내 배치도만 보이게)
+// ---------------------------------------------------------
+// 예전 배치도에는 만든 사람 칸이 없다. 그래서 새 칸 두 개(ownerUid, ownerName)는
+// 새 문서를 처음 저장할 때만 붙이고, 칸이 없는 예전 배치도는 누구 목록에나 예전처럼 보인다.
+// 남이 만든 예전 배치도를 고쳐 저장해도 칸을 붙이지 않는다(붙이면 그 사람 목록에서 사라진다).
+
+/// 만든 사람 칸 이름. 이미 있는 칸 이름과 겹치지 않는다.
+const String kLayoutOwnerUidField = 'ownerUid';
+const String kLayoutOwnerNameField = 'ownerName';
+
+/// 지금 앱을 쓰는 사람. uid는 로그인(인증)했을 때만, name은 프로필 이름.
+class LayoutOwner {
+  final String? uid;
+  final String? name;
+  const LayoutOwner({this.uid, this.name});
+
+  bool get isEmpty =>
+      (uid == null || uid!.isEmpty) && (name == null || name!.isEmpty);
+}
+
+/// 새 문서를 저장할 때 덧붙이는 만든 사람 칸. 아는 것이 없으면 빈 맵.
+Map<String, dynamic> layoutOwnerFields(LayoutOwner me) => {
+  if (me.uid != null && me.uid!.isNotEmpty) kLayoutOwnerUidField: me.uid,
+  if (me.name != null && me.name!.isNotEmpty) kLayoutOwnerNameField: me.name,
+};
+
+/// 목록에 이 배치도를 보여 줄지.
+/// - 만든 사람 칸이 없는 예전 배치도: 보여 준다.
+/// - uid가 양쪽에 다 있으면 uid로 비교한다.
+/// - 아니면 이름이 양쪽에 다 있을 때 이름으로 비교한다.
+/// - 비교할 것이 없으면(로그인도 이름도 없음) 예전처럼 보여 준다.
+bool layoutVisibleTo(Map<String, dynamic> data, LayoutOwner me) {
+  final String docUid = (data[kLayoutOwnerUidField] as String?)?.trim() ?? '';
+  final String docName = (data[kLayoutOwnerNameField] as String?)?.trim() ?? '';
+  if (docUid.isEmpty && docName.isEmpty) return true;
+  final String myUid = me.uid?.trim() ?? '';
+  final String myName = me.name?.trim() ?? '';
+  if (docUid.isNotEmpty && myUid.isNotEmpty) return docUid == myUid;
+  if (docName.isNotEmpty && myName.isNotEmpty) return docName == myName;
+  return true;
+}
