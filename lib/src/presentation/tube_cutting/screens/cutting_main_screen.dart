@@ -293,11 +293,21 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 기록으로 남기는 것은 결과 탭의 "저장하기"다. 창에서 저장을 되돌리면 표시도 저장 전으로 돌린다.
   Set<String>? _doneBeforeLeftoverSave;
 
+  // 잔재를 저장한 때의 결과 줄 모양(줄 열쇠를 이은 글). 지금 줄과 같으면
+  // "이 결과의 잔재는 이미 저장함"이다(형강 화면과 같은 방식).
+  // 🚀 [고침] 예전에는 이것이 없어서, 잔재를 저장하고 창을 다시 열면 방금
+  // 나온 잔재를 쓰는 계획으로 바뀌고 같은 컷팅을 또 저장할 수 있었다.
+  String _leftoverSavedSig = '';
+  String get _linesSig => _resultLines().map((l) => l.key).join('|');
+  bool get _leftoversSaved =>
+      _leftoverSavedSig.isNotEmpty && _leftoverSavedSig == _linesSig;
+
   void _onLeftoversSaved() {
     if (!mounted) return;
     setState(() {
       _doneBeforeLeftoverSave = {..._doneKeys};
       _doneKeys.addAll(_resultLines().map((l) => l.key));
+      _leftoverSavedSig = _linesSig;
     });
     _saveDraftState();
   }
@@ -309,6 +319,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         ..clear()
         ..addAll(_doneBeforeLeftoverSave ?? const <String>{});
       _doneBeforeLeftoverSave = null;
+      _leftoverSavedSig = '';
     });
     _saveDraftState();
   }
@@ -321,6 +332,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       mixPrefsKey: kTubeMixPrefsKey,
       onLeftoversSaved: _onLeftoversSaved,
       onLeftoversSaveUndone: _onLeftoversSaveUndone,
+      leftoversAlreadySaved: _leftoversSaved,
       leftoverLogSource: '튜브 컷팅 · ${widget.project.name}',
       jobLogName: '튜브 컷팅 · ${widget.project.name}',
       kerf: _bladeKerf,
@@ -691,6 +703,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         'setMultiplier': _setMultiplier,
         'groupSameLengths': _groupSameLengths,
         'doneKeys': _doneKeys.toList(),
+        'leftoverSavedSig': _leftoverSavedSig,
         'tubeSpec': _tubeSpec,
         'lengthUnit': _lengthUnit,
         'points': _points.map((p) {
@@ -730,6 +743,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               ),
             );
           _lengthUnit = stateData['lengthUnit'] ?? "mm";
+          _leftoverSavedSig = (stateData['leftoverSavedSig'] as String?) ?? '';
 
           if (stateData['points'] != null) {
             for (var p in _points) {
@@ -2064,6 +2078,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       texts: [for (final p in _points) p.c2cController.text],
       setMultiplier: _setMultiplier,
       doneKeys: {..._doneKeys},
+      leftoverSig: _leftoverSavedSig,
     );
 
     setState(() {
@@ -2088,6 +2103,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       }
       _setMultiplier = 1;
       _doneKeys.clear();
+      // 기록까지 저장했으면 새 작업이다. 같은 길이를 다시 넣어도 잔재를
+      // 저장할 수 있게 한다.
+      _leftoverSavedSig = '';
       _calculate();
     });
 
@@ -2158,6 +2176,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       _doneKeys
         ..clear()
         ..addAll(s.doneKeys);
+      _leftoverSavedSig = s.leftoverSig;
       _calculate();
     });
     showCuttingSnack(context, "저장을 취소하고 입력을 되돌렸습니다.");
@@ -3944,11 +3963,13 @@ class _SavedSnapshot {
   final List<String> texts;
   final int setMultiplier;
   final Set<String> doneKeys;
+  final String leftoverSig;
 
   const _SavedSnapshot({
     required this.plan,
     required this.texts,
     required this.setMultiplier,
     required this.doneKeys,
+    this.leftoverSig = '',
   });
 }
