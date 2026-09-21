@@ -19,7 +19,7 @@ import '../../../data/models/steel_shape_db.dart';
 import '../../tube_cutting/cutting_action_bar.dart';
 import '../../tube_cutting/cutting_diagram_pdf.dart' show keepTogether;
 import '../../tube_cutting/cutting_leftovers.dart';
-import '../../tube_cutting/cutting_math.dart' show fmtMm;
+import '../../tube_cutting/cutting_math.dart' show fmtMm, safeFileName;
 import '../../tube_cutting/cutting_optimizer.dart';
 import '../../tube_cutting/cutting_pending_banner.dart';
 import '../../tube_cutting/cutting_stock_deduct.dart';
@@ -1053,7 +1053,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
 
       final bytes = await pdf.save();
       if (!mounted) return;
-      final fileName = "${widget.project.name}_형강컷팅지시서.pdf";
+      final fileName = "${safeFileName(widget.project.name)}_형강컷팅지시서.pdf";
       // 바로 공유하지 않고 미리보기를 먼저 보여 준다. 공유는 미리보기의 버튼으로.
       await Navigator.of(context).push(
         MaterialPageRoute(

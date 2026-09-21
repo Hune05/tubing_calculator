@@ -114,3 +114,12 @@ String fittingCountsText(List<String> names) {
     });
   return keys.map((k) => '$k ×${counts[k]}').join(' · ');
 }
+
+// ── 파일 이름 ──
+// 프로젝트 이름을 파일 이름에 넣을 때, 폴더 구분자나 윈도우에서 못 쓰는 글자
+// (/ \ : * ? " < > |)를 '_'로 바꾼다. 🚀 [고침] 이름이 'A/B동'이면 없는 하위
+// 폴더 경로가 되어 PDF 내보내기가 실패했다.
+String safeFileName(String name) {
+  final s = name.replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1F]'), '_').trim();
+  return s.isEmpty ? '이름없음' : s;
+}

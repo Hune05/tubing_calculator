@@ -12,6 +12,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../data/models/cutting_project_model.dart';
 import '../cutting_firestore_helper.dart';
+import '../cutting_math.dart' show safeFileName;
 import '../cutting_record_export.dart';
 import '../cutting_theme.dart';
 
@@ -168,7 +169,9 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
         ),
       );
       final dir = await getTemporaryDirectory();
-      final file = File("${dir.path}/${widget.project.name}_컷팅기록.pdf");
+      final file = File(
+        "${dir.path}/${safeFileName(widget.project.name)}_컷팅기록.pdf",
+      );
       await file.writeAsBytes(await pdf.save());
       if (!mounted) return;
       // ignore: deprecated_member_use

@@ -27,7 +27,7 @@ import '../cutting_result_view.dart';
 import '../cutting_leftovers.dart'
     show loadLeftovers, loadMixLengths, kTubeMixPrefsKey;
 import '../cutting_math.dart'
-    show cutBreakdownText, cutLengthMm, parseLengthInput;
+    show cutBreakdownText, cutLengthMm, parseLengthInput, safeFileName;
 import '../cutting_optimizer.dart';
 import '../cutting_plan_rows.dart';
 import '../cutting_theme.dart';
@@ -592,7 +592,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       );
 
       final output = await getTemporaryDirectory();
-      final file = File("${output.path}/${widget.project.name}_컷팅지시서.pdf");
+      final file = File(
+        "${output.path}/${safeFileName(widget.project.name)}_컷팅지시서.pdf",
+      );
       await file.writeAsBytes(await pdf.save());
 
       if (!mounted) return;
@@ -639,7 +641,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         ),
       );
       final output = await getTemporaryDirectory();
-      final file = File("${output.path}/${widget.project.name}_배치도.pdf");
+      final file = File(
+        "${output.path}/${safeFileName(widget.project.name)}_배치도.pdf",
+      );
       await file.writeAsBytes(await pdf.save());
       if (!mounted) return;
       // ignore: deprecated_member_use
