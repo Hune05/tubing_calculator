@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_sheet_specs.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/opposite_rotation.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
@@ -186,12 +187,11 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
   ) {
     // 1번 마킹이 "시작 거리 + 더할 축소값" 자리에 오도록 한다.
     final double firstLen = _firstLength(startDistance, angle, shrink);
-    double r1 = _isInverted
-        ? (_selectedRotation! + 180.0) % 360.0
-        : _selectedRotation!;
-    double r2 = _isInverted
-        ? _selectedRotation!
-        : (_selectedRotation! + 180.0) % 360.0;
+    // 앞(360)·뒤(450)는 +180을 하면 아래·좌가 되므로 짝을 따로 짓는다.
+    final (double r1, double r2) = offsetRotations(
+      _selectedRotation!,
+      inverted: _isInverted,
+    );
 
     widget.onAddMultipleBends([
       {'length': firstLen, 'angle': angle, 'rotation': r1},

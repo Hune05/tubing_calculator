@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/opposite_rotation.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color panelBg = Color(0xFF2A2A2A); // 태블릿 전용 다크 배경
@@ -153,12 +154,11 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
     // 💡 2번 구간 = 빗변(Travel) 거리
     double secondSegmentLength = roundedTravel;
 
-    double r1 = _isInverted
-        ? (_selectedRotation! + 180.0) % 360.0
-        : _selectedRotation!;
-    double r2 = _isInverted
-        ? _selectedRotation!
-        : (_selectedRotation! + 180.0) % 360.0;
+    // 앞(360)·뒤(450)는 +180을 하면 아래·좌가 되므로 짝을 따로 짓는다.
+    final (double r1, double r2) = offsetRotations(
+      _selectedRotation!,
+      inverted: _isInverted,
+    );
 
     widget.onAddMultipleBends([
       {'length': firstSegmentLength, 'angle': roundedAngle, 'rotation': r1},
