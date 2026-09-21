@@ -1,8 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:math' as math;
+import 'package:tubing_calculator/src/core/engine/bend_geometry.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_sheet_specs.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/opposite_rotation.dart';
+
+/// 굴림 오프셋이 목록에 넣을 두 구간(길이, 각도, 방향).
+///
+/// 🚀 [고침] 예전에는 첫 구간을 축소값(빗변 − 전진)으로만 넣어서, 마킹 화면이
+/// 셋백을 빼고 나면 R150·높이 100·45°에서 1번 마킹이 −20.7mm가 되었다(반경과
+/// 높이가 우연히 같을 때만 맞았다). 오프셋·새들처럼 "시작 거리 + 셋백"을
+/// 첫 구간으로 넣어 1번 마킹이 시작 거리 자리에 오게 한다.
+List<(double, double, double)> rollingOffsetBends({
+  required BendSheetSpecs specs,
+  required double startDistance,
+  required double travel,
+  required double angle,
+  required double advance,
+  required double rotation,
+}) {
+  double r1(double v) => double.parse(v.toStringAsFixed(1));
+  final double a = r1(angle);
+  final double shrink = (travel - advance).clamp(0.0, travel);
+  return [
+    (r1(specs.firstLength(startDistance, a, shrink)), a, rotation),
+    (r1(travel), a, oppositeRotation(rotation)),
+  ];
+}
 
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
@@ -52,6 +77,10 @@ class _MobileRollingOffsetBottomSheetState
   bool _isReverseMode = false;
   double? _selectedRotation;
   double _bendRadius = 0.0; // 🚀 설정화면에서 불러올 R값 저장 변수
+  BendSheetSpecs? _specs;
+
+  // 1번 마킹을 찍을 자리(관 끝이나 앞 마킹에서).
+  final TextEditingController _startCtrl = TextEditingController(text: "0");
 
   final TextEditingController _riseCtrl = TextEditingController(text: "150");
   final TextEditingController _rollCtrl = TextEditingController(text: "200");
@@ -84,6 +113,7 @@ class _MobileRollingOffsetBottomSheetState
       final specs = widget.specs ?? await BendSheetSpecs.tube();
       if (mounted) {
         setState(() {
+          _specs = specs;
           _bendRadius = specs.radius;
         });
       }
@@ -98,13 +128,8 @@ class _MobileRollingOffsetBottomSheetState
     _rollCtrl.dispose();
     _travelCtrl.dispose();
     _angleCtrl.dispose();
+    _startCtrl.dispose();
     super.dispose();
-  }
-
-  double _getOppositeRotation(double currentRot) {
-    if (currentRot == 360.0) return 450.0;
-    if (currentRot == 450.0) return 360.0;
-    return (currentRot + 180.0) % 360.0;
   }
 
   void _applyRolling(
@@ -126,23 +151,24 @@ class _MobileRollingOffsetBottomSheetState
       // 🚀 [고침] 예전에는 방향값에 굴림 각도를 더해서(예: 0 + 30 = 30) 표에
       // 없는 값이 되었고, 그런 값은 모두 '우'로 떨어져 형상이 엉켰다. 방향은
       // 고른 기준면 그대로 쓰고, 굴림 각도는 작업 지시로 따로 알려 준다.
-      final double r1 = _selectedRotation!;
-      final double r2 = _getOppositeRotation(r1);
-
-      // 🚀 [고침] 첫 구간 길이를 0으로 넣어 1번 마킹이 음수(관 바깥)로 나왔다.
-      // 오프셋과 같은 방식으로 축소값(빗변 − 전진)만큼 띄운다.
-      final double shrink = (finalTravel - advance).clamp(0.0, finalTravel);
-
-      widget.onAddBend(
-        double.parse(shrink.toStringAsFixed(1)),
-        double.parse(finalBendAngle.toStringAsFixed(1)),
-        r1,
+      final specs =
+          _specs ??
+          BendSheetSpecs(
+            radius: _bendRadius,
+            gain90: 0.0,
+            markOffset: (a) => bendSetback(_bendRadius, a),
+          );
+      final bends = rollingOffsetBends(
+        specs: specs,
+        startDistance: double.tryParse(_startCtrl.text) ?? 0.0,
+        travel: finalTravel,
+        angle: finalBendAngle,
+        advance: advance,
+        rotation: _selectedRotation!,
       );
-      widget.onAddBend(
-        double.parse(finalTravel.toStringAsFixed(1)),
-        double.parse(finalBendAngle.toStringAsFixed(1)),
-        r2,
-      );
+      for (final (length, angle, rotation) in bends) {
+        widget.onAddBend(length, angle, rotation);
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -389,6 +415,8 @@ class _MobileRollingOffsetBottomSheetState
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
+              _buildCompactInputRow(_startCtrl, "시작 거리 (1번 마킹 자리, mm)"),
               const SizedBox(height: 12),
               if (_isReverseMode) ...[
                 _buildCompactInputRow(_travelCtrl, "가진 파이프 빗변 (Travel)"),
