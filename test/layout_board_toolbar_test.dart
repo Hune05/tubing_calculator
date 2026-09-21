@@ -312,4 +312,49 @@ void main() {
     expect(find.byType(ChoiceChip), findsNothing);
     await disposeBoard(tester);
   });
+
+  testWidgets('폰 폭: 아래 칸의 신규 모듈을 위로 끌어 도면에 놓는다', (tester) async {
+    await openWithDraft(tester, kPhone);
+    expect(onBoard('신규 모듈'), findsNothing);
+    final Offset from = tester.getCenter(find.text('신규 모듈'));
+    final g = await tester.startGesture(from);
+    for (int i = 0; i < 12; i++) {
+      await g.moveBy(const Offset(0, -40));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await g.up();
+    await tester.pumpAndSettle();
+    // 놓으면 좁은 화면에서는 편집 바텀시트가 열린다.
+    expect(onBoard('신규 모듈'), findsOneWidget);
+    await disposeBoard(tester);
+  });
+
+  testWidgets('태블릿 폭: 왼쪽 칸의 덕트를 옆으로 끌어 도면에 놓는다', (tester) async {
+    await openWithDraft(tester, kTablet);
+    expect(onBoard('ABS덕트 80mm'), findsNothing);
+    final Offset from = tester.getCenter(find.text('80'));
+    final g = await tester.startGesture(from);
+    for (int i = 0; i < 12; i++) {
+      await g.moveBy(const Offset(40, -10));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await g.up();
+    await tester.pumpAndSettle();
+    expect(onBoard('ABS덕트 80mm'), findsOneWidget);
+    await disposeBoard(tester);
+  });
+
+  // 폰 가로, 작은 폰, 폴드 편 화면에서도 아래 칸이 넘치지 않는다.
+  for (final size in const [Size(844, 390), Size(360, 640), Size(673, 841)]) {
+    testWidgets('화면 ${size.width.toInt()}x${size.height.toInt()}에서도 넘치지 않는다', (
+      tester,
+    ) async {
+      await openWithDraft(tester, size, presets: true);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('고정 치수 측정'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await disposeBoard(tester);
+    });
+  }
 }

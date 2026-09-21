@@ -4959,7 +4959,11 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 
   // 좁은 화면 아래 칸: 전선관 계산기 입력 칸처럼 흰 판 위에 모드 전환과 도구.
   Widget _buildBottomPanel() {
+    // 폰을 가로로 눕히면 세로가 짧아 도면이 안 보일 수 있어, 아래 칸은 화면 높이의
+    // 절반까지만 쓰고 넘치는 부분은 위아래로 굴린다.
+    final double maxH = MediaQuery.sizeOf(context).height * 0.5;
     return Container(
+      constraints: BoxConstraints(maxHeight: maxH),
       decoration: BoxDecoration(
         color: pureWhite,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -4975,20 +4979,22 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildModeSegmentedControl(),
-              const SizedBox(height: 12),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: switch (_mode) {
-                  BoardMode.measureDimension => _buildDimensionToolBar(),
-                  BoardMode.placeModule => _buildModulePalette(),
-                },
-              ),
-            ],
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildModeSegmentedControl(),
+                const SizedBox(height: 12),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: switch (_mode) {
+                    BoardMode.measureDimension => _buildDimensionToolBar(),
+                    BoardMode.placeModule => _buildModulePalette(),
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
