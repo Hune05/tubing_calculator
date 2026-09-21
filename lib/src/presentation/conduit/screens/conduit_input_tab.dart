@@ -23,6 +23,13 @@ const Color slate600 = Color(0xFF475569);
 const Color slate100 = Color(0xFFF1F5F9);
 const Color pureWhite = Color(0xFFFFFFFF);
 
+/// 전선관 "직관+각도"로 넣을 수 있는 가장 큰 각.
+///
+/// 🚀 [고침] 예전에는 180°까지 받아서 테이크업·게인 셈의 tan(θ/2)가 끝없이
+/// 커졌다(180°에 1번 마킹 −1.9×10^18mm). 170°를 넘는 벤드는 전선관 현장에서
+/// 쓰지 않으므로 여기서 막는다.
+const double kConduitMaxAngle = 170.0;
+
 class ConduitInputTab extends StatefulWidget {
   const ConduitInputTab({super.key});
   @override
@@ -59,6 +66,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
     double val = double.tryParse(_lengthController.text) ?? 0.0;
     if (val <= 0) return false;
     if (_bendType == "custom" && _selectedAngle <= 0) return false;
+    if (_selectedAngle > kConduitMaxAngle) return false;
     if (_selectedAngle > 0 && _selectedRotation == null) return false;
     return true;
   }
@@ -416,6 +424,16 @@ class _ConduitInputTabState extends State<ConduitInputTab>
   String _fmtAngle(double a) =>
       a == a.roundToDouble() ? a.toStringAsFixed(0) : a.toStringAsFixed(1);
 
+  /// 각도 칸 값을 0~[kConduitMaxAngle]로 묶어 읽는다. 넘치면 칸 글자도
+  /// 묶은 값으로 바꿔서, 보이는 값과 셈에 쓰는 값이 같게 한다.
+  double _customAngle() {
+    final double? typed = double.tryParse(_customAngleController.text);
+    if (typed == null) return 0.0;
+    final double a = typed.clamp(0.0, kConduitMaxAngle);
+    if (a != typed) _customAngleController.text = _fmtAngle(a);
+    return a;
+  }
+
   /// 카드를 누르면 그 줄 값을 아래 입력칸에 넣고 "수정"으로 바꾼다.
   void _startEdit(int index, Map<String, dynamic> item) {
     HapticFeedback.lightImpact();
@@ -557,9 +575,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                             _selectedAngle = 0.0;
                             _selectedRotation = null;
                           } else {
-                            _selectedAngle =
-                                double.tryParse(_customAngleController.text) ??
-                                0.0;
+                            _selectedAngle = _customAngle();
                           }
                         });
                       },
@@ -588,12 +604,23 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                       controller: _customAngleController,
                       title: "벤딩 각도 입력 (°)",
                     );
+                    if (!context.mounted) return;
+                    final double typed =
+                        double.tryParse(_customAngleController.text) ?? 0.0;
                     setState(() {
-                      _selectedAngle =
-                          (double.tryParse(_customAngleController.text) ?? 0.0)
-                              .clamp(0.0, 180.0);
+                      _selectedAngle = _customAngle();
                       if (_selectedAngle == 0.0) _selectedRotation = null;
                     });
+                    if (typed > kConduitMaxAngle) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            "각도는 ${kConduitMaxAngle.toInt()}°까지 넣을 수 있습니다. "
+                            "그보다 크면 마킹 값이 맞지 않습니다.",
+                          ),
+                        ),
+                      );
+                    }
                   },
                   child: AbsorbPointer(
                     child: TextField(
