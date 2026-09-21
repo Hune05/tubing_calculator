@@ -14,6 +14,7 @@ library;
 import 'dart:math' as math;
 
 import 'package:tubing_calculator/src/core/engine/bend_geometry.dart';
+import 'package:tubing_calculator/src/presentation/calculator/bend_check.dart';
 
 /// 각도별 게인. 표에는 90° 값 하나만 있으므로 기하 비율로 줄인다.
 double conduitGainForAngle(double angle, double gain90) {
@@ -108,10 +109,9 @@ List<Map<String, dynamic>> calculateConduitMarkings(
       if (useCoupling) note += '커플링(-${couplingDepth.round()}mm) ';
       if (note.isEmpty) note = angle == 0.0 ? '직관 시작' : '첫 벤딩점';
     } else if (gap < 0) {
-      // 앞 마킹보다 뒤로 가면 그 사이 곧은 부분이 벤더에 물릴 만큼 없다.
-      note =
-          '앞 마킹보다 ${(-gap).round()}mm 앞입니다. '
-          '구간이 짧아 이대로는 만들 수 없습니다.';
+      // 앞 마킹보다 앞에 찍힌다. 앞이 직관이면 한 줄로 이어진 관이라 꺾을 수는
+      // 있다(금 긋는 순서만 거꾸로). 만들 수 있는지는 위 띠(conduitBendCheck)가 본다.
+      note = '앞 마킹보다 ${(-gap).round()}mm 앞에 찍힙니다(순서가 거꾸로).';
     } else if (angle == 0.0) {
       note = '직관 연장 (앞 마킹 +${gap.round()}mm)';
     } else {
@@ -149,6 +149,58 @@ List<Map<String, dynamic>> calculateConduitMarkings(
     prevGain = conduitGainForAngle(angle, gain90);
   }
   return markings;
+}
+
+/// 마킹 탭 위에 띄울 형상 점검(짧은 구간·못 꺾는 방향·관끼리 닿음).
+///
+/// 튜브 마킹 화면과 같은 점검([checkBends])을 CLR로 돌린다. 다만 직관(0°)은
+/// 다음 구간에 합쳐서 본다. 직관 150 다음에 7mm짜리 21° 구간이 와도 한 줄로
+/// 이어진 관이라 꺾을 수 있는데, 구간을 따로 보면 "곧은 부분 -14mm"로 잡혔다.
+/// 경고 글의 구간 번호는 입력 목록 번호로 되돌려 적는다.
+BendCheck conduitBendCheck(
+  List<Map<String, dynamic>> bendList,
+  Map<String, dynamic> settings, {
+  String startDir = 'RIGHT',
+}) {
+  final merged = <Map<String, dynamic>>[];
+  final origNo = <int>[]; // 합친 목록 번호(0부터) → 입력 목록 번호(1부터)
+  double carry = 0.0;
+  for (int i = 0; i < bendList.length; i++) {
+    final len = (bendList[i]['length'] as num?)?.toDouble() ?? 0.0;
+    final angle = (bendList[i]['angle'] as num?)?.toDouble() ?? 0.0;
+    final isLast = i == bendList.length - 1;
+    if (angle <= 0 && !isLast) {
+      carry += len;
+      continue;
+    }
+    merged.add({...bendList[i], 'length': len + carry});
+    origNo.add(i + 1);
+    carry = 0.0;
+  }
+
+  final check = checkBends(
+    merged,
+    radius: _num(settings, 'clr', 0.0),
+    startDir: startDir,
+    outerDiameter: conduitOuterDiameterMm(
+      settings['conduitSize']?.toString() ?? '',
+    ),
+  );
+
+  final numbered = RegExp(r'(\d+)번 구간');
+  String renumber(String w) => w.replaceAllMapped(numbered, (m) {
+    final n = int.parse(m.group(1)!);
+    final orig = (n >= 1 && n <= origNo.length) ? origNo[n - 1] : n;
+    return '$orig번 구간';
+  });
+
+  return BendCheck(
+    warnings: [for (final w in check.warnings) renumber(w)],
+    rollByIndex: {
+      for (final e in check.rollByIndex.entries)
+        if (e.key >= 0 && e.key < origNo.length) origNo[e.key] - 1: e.value,
+    },
+  );
 }
 
 /// 전선관 규격 이름(22mm, G22, E25, 1/2" …)에서 바깥지름(mm)을 뽑는다.

@@ -291,7 +291,7 @@ void main() {
       expect(m[1]['short'], isFalse);
     });
 
-    test('앞 마킹보다 뒤로 가면 짧다고 알려 준다', () {
+    test('앞 마킹보다 앞에 찍히면 순서가 거꾸로라고 알려 준다', () {
       final m = calculateConduitMarkings(
         bends([
           [150, 0, 0],
@@ -300,7 +300,9 @@ void main() {
         settings(),
       );
       expect(m[1]['short'], isTrue);
-      expect(m[1]['note'], contains('만들 수 없습니다'));
+      // 앞이 직관이면 꺾을 수는 있으므로 "만들 수 없다"고 하지 않는다.
+      expect(m[1]['note'], contains('순서가 거꾸로'));
+      expect(m[1]['note'], isNot(contains('만들 수 없습니다')));
     });
 
     test('설정값이 정수로 들어와도 셈한다', () {

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
 
 // 🚀 매니저 임포트: 전선관 전용 매니저
 import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
@@ -38,6 +40,23 @@ class _ConduitResultTabState extends State<ConduitResultTab>
   bool get wantKeepAlive => true;
 
   bool _useCoupling = false;
+
+  // 3D(아이소) 탭에서 고른 시작 방향. 관끼리 닿는지 볼 때 쓴다.
+  String _startDir = 'RIGHT';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStartDir();
+  }
+
+  Future<void> _loadStartDir() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString('conduit_saved_start_dir');
+      if (saved != null && mounted) setState(() => _startDir = saved);
+    } catch (_) {}
+  }
 
   final List<Map<String, dynamic>> _directions = [
     {"label": "UP (위)", "val": 0.0, "icon": Icons.arrow_upward},
@@ -81,6 +100,12 @@ class _ConduitResultTabState extends State<ConduitResultTab>
           bendList,
           currentSettings,
           useCoupling: _useCoupling,
+        );
+        // 🚀 [추가] 튜브 마킹 화면처럼 만들 수 없는 형상이면 값 위에 띠를 띄운다.
+        final check = conduitBendCheck(
+          bendList,
+          currentSettings,
+          startDir: _startDir,
         );
 
         // 🚀 [핵심 보정] 총 절단 길이 독립 연산 (테이크업 이중 차감 원천 차단)
@@ -154,6 +179,9 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                         ),
                       ),
                   ],
+                ),
+                SliverToBoxAdapter(
+                  child: BendWarningBanner(warnings: check.warnings),
                 ),
                 SliverToBoxAdapter(
                   child: markings.isEmpty
@@ -452,7 +480,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
     // 앞 마킹보다 뒤로 간 벤드. 그 사이 곧은 부분이 벤더에 물릴 만큼 없다.
     final bool isShort = item['short'] == true;
     final Color noteColor = isShort
-        ? Colors.redAccent
+        ? const Color(0xFFC77700)
         : (isStraight ? slate600 : themeColor);
 
     return Container(
