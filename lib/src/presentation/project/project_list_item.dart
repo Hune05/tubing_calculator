@@ -132,12 +132,16 @@ class ProjectListItem extends StatelessWidget {
                                       color: makitaTeal,
                                     ),
                                     const SizedBox(width: 4),
-                                    Text(
-                                      "기준: ${project['revision'] ?? ''}",
-                                      style: const TextStyle(
-                                        color: slate600,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
+                                    Flexible(
+                                      child: Text(
+                                        "기준: ${project['revision'] ?? ''}",
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: slate600,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -280,14 +284,17 @@ class ProjectListItem extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              "📦 소모 자재 집계 (BOM)",
-                              style: TextStyle(
-                                color: slate900,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                            const Expanded(
+                              child: Text(
+                                "📦 소모 자재 집계 (BOM)",
+                                style: TextStyle(
+                                  color: slate900,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 8),
                             ElevatedButton.icon(
                               onPressed: onOpenCutting,
                               style: ElevatedButton.styleFrom(
@@ -344,14 +351,17 @@ class ProjectListItem extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              "📝 작업 일지 (터치하여 상세/사진)",
-                              style: TextStyle(
-                                color: slate900,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                            const Expanded(
+                              child: Text(
+                                "📝 작업 일지 (터치하여 상세/사진)",
+                                style: TextStyle(
+                                  color: slate900,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 8),
                             InkWell(
                               onTap: onAddDailyReport,
                               child: const Icon(
@@ -585,14 +595,17 @@ class ProjectListItem extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              "🔴 펀치 리스트 (터치하여 상세/사진)",
-                              style: TextStyle(
-                                color: slate900,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                            const Expanded(
+                              child: Text(
+                                "🔴 펀치 리스트 (터치하여 상세/사진)",
+                                style: TextStyle(
+                                  color: slate900,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 8),
                             InkWell(
                               onTap: onAddPunch,
                               child: Icon(

@@ -56,6 +56,7 @@ Future<void> _pump(
 }
 
 void main() {
+  overflowGroup();
   testWidgets('진행률이 정수(1)로 저장돼 있어도 카드가 그려진다', (tester) async {
     await _pump(tester, _project(progress: 1));
     expect(tester.takeException(), isNull);
@@ -75,4 +76,20 @@ void main() {
     expect(find.text('튜브 1/2'), findsOneWidget);
     expect(find.text('0 본'), findsOneWidget);
   });
+}
+
+void overflowGroup() {
+  for (final width in [320.0, 360.0, 390.0]) {
+    testWidgets('펼친 카드가 폭 $width에서 넘치지 않는다(긴 리비전 포함)', (tester) async {
+      await _pump(
+        tester,
+        _project(revision: 'Rev.3 아주 긴 리비전 이름입니다 설계 변경 반영본'),
+        width: width,
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining('소모 자재 집계'), findsOneWidget);
+      expect(find.textContaining('📝 작업 일지'), findsOneWidget);
+      expect(find.textContaining('🔴 펀치 리스트'), findsOneWidget);
+    });
+  }
 }
