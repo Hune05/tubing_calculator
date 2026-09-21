@@ -213,4 +213,4 @@ void dimensionTests() {
   });
 }
 
-const int dimensionHash = 1632631539;
+const int dimensionHash = 83402877;

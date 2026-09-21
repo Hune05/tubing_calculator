@@ -124,7 +124,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(onBoard('단자대'), findsOneWidget);
 
-      await tester.tap(find.text('저장'));
+      await tester.tap(find.byTooltip('저장·공유'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       nav.currentState!.pop();

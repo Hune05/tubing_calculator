@@ -118,6 +118,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   // 저장된 적 없는 새 도면" - 이 경우 저장을 누르면 새 문서가 생성되고,
   // 이후엔 이 ID로 계속 같은 문서를 갱신(update)한다.
   bool _isLoadingProject = false;
+  // 미니맵을 펼쳤는지. null이면 넓은 화면은 펴고, 폰 폭은 접어 둔다.
+  bool? _minimapOpen;
   String? _currentProjectId;
   String _projectName = "";
 
@@ -4088,7 +4090,15 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             Positioned(
               top: wide ? 96 : 12,
               right: wide ? _kWideInspectorWidth + 12 : 12,
-              child: _buildMinimap(),
+              child: (_minimapOpen ?? wide)
+                  ? Tooltip(
+                      message: "미니맵 접기",
+                      child: GestureDetector(
+                        onTap: () => setState(() => _minimapOpen = false),
+                        child: _buildMinimap(),
+                      ),
+                    )
+                  : _buildMinimapButton(),
             ),
           // 🚀 [추가] 저장된 프로젝트를 불러오는 동안 화면을 덮어서 빈
           // 도면이 잠깐 보였다가 내용이 채워지는 깜빡임을 막는다.
@@ -4109,6 +4119,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   PreferredSizeWidget _buildAppBar() {
     final bool canUndo = _undoStack.isNotEmpty;
     final bool canRedo = _redoStack.isNotEmpty;
+    // 폰 폭에서는 저장 단추를 아이콘만 두어 제목 자리를 넓힌다.
+    final bool narrowBar = MediaQuery.of(context).size.width < 600;
     return AppBar(
       backgroundColor: tossBg,
       surfaceTintColor: Colors.transparent,
@@ -4129,33 +4141,19 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         ),
         onPressed: () => Navigator.pop(context),
       ),
-      title: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "작업 배치도",
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: tossText,
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.5,
-            ),
-          ),
-          if (_projectName.isNotEmpty)
-            Text(
-              _projectName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: tossSubText,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-        ],
+      // 제목은 배치도 이름 하나만 쓴다. 폰 폭은 단추 넷이 자리를 차지하므로
+      // 두 줄까지 접어서 이름이 잘리지 않게 한다.
+      title: Text(
+        _projectName.isNotEmpty ? _projectName : "작업 배치도",
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: tossText,
+          fontSize: narrowBar ? 16 : 18,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -0.5,
+          height: 1.2,
+        ),
       ),
       actions: [
         // 길게 누르면 되돌리기 기록이 열린다. 같은 것을 "더보기"에서도 연다.
@@ -4193,6 +4191,29 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
                   color: tossBlue,
+                ),
+              ),
+            ),
+          )
+        else if (narrowBar)
+          Tooltip(
+            message: "저장·공유",
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: FilledButton(
+                onPressed: _showSaveActionSheet,
+                style: FilledButton.styleFrom(
+                  backgroundColor: tossBlue,
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.save_alt_rounded,
+                  size: 24,
+                  color: pureWhite,
                 ),
               ),
             ),
@@ -5805,6 +5826,30 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 
   // 🚀 [신규] 미니맵 - 전체 도면을 축소해서 보여주고, InteractiveViewer의
   // 변환행렬을 역산해 지금 화면에 실제로 보이는 영역을 겹쳐 그린다.
+  // 접어 둔 미니맵: 작은 단추 하나. 눌러야 펴져서 그 밑 모듈을 가리지 않는다.
+  Widget _buildMinimapButton() {
+    return Tooltip(
+      message: "미니맵 펴기",
+      child: Material(
+        color: pureWhite.withValues(alpha: 0.95),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: tossSubText.withValues(alpha: 0.4)),
+        ),
+        elevation: 2,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => setState(() => _minimapOpen = true),
+          child: const SizedBox(
+            width: 48,
+            height: 48,
+            child: Icon(Icons.map_outlined, color: tossText, size: 24),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildMinimap() {
     const double miniW = 96;
     final double scale = miniW / _panelWidth;

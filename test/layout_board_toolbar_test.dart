@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart';
@@ -140,10 +141,28 @@ void main() {
       findsNothing,
     );
     expect(find.text('여러 개 선택'), findsOneWidget);
-    // 폰 폭에서 제목이 잘리지 않는다.
-    expect(find.text('작업 배치도'), findsOneWidget);
-    final Size title = tester.getSize(find.text('작업 배치도'));
-    expect(title.width, greaterThan(80));
+    // 폰 폭에서 제목(배치도 이름)이 잘리지 않는다. 저장은 아이콘 단추.
+    final Finder name = find.descendant(
+      of: bar,
+      matching: find.text('1호기 분전반'),
+    );
+    expect(name, findsOneWidget);
+    final RenderParagraph p = tester.renderObject(name);
+    expect(p.didExceedMaxLines, isFalse);
+    expect(find.descendant(of: bar, matching: find.text('저장')), findsNothing);
+    await disposeBoard(tester);
+  });
+
+  testWidgets('폰 폭에서 미니맵은 접혀 있고, 눌러서 펴고 접는다', (tester) async {
+    await openWithDraft(tester, kPhone);
+    expect(find.byTooltip('미니맵 펴기'), findsOneWidget);
+    expect(find.byTooltip('미니맵 접기'), findsNothing);
+    await tester.tap(find.byTooltip('미니맵 펴기'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('미니맵 접기'), findsOneWidget);
+    await tester.tap(find.byTooltip('미니맵 접기'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('미니맵 펴기'), findsOneWidget);
     await disposeBoard(tester);
   });
 
