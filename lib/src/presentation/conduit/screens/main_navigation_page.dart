@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' as vmath;
@@ -151,30 +152,26 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
                     },
                     items: isWide
                         ? [
-                            _buildNavItem(
-                              Icons.edit_document,
-                              Icons.edit_outlined,
+                            _buildGlyphNavItem(
+                              AppGlyph.navInput,
                               '입력/마킹',
                               0,
                               isWide: true,
                             ),
-                            _buildNavItem(
-                              Icons.folder_rounded,
-                              Icons.folder_outlined,
+                            _buildGlyphNavItem(
+                              AppGlyph.navStorage,
                               '보관함',
                               1,
                               isWide: true,
                             ),
-                            _buildNavItem(
-                              Icons.architecture_rounded,
-                              Icons.architecture_outlined,
+                            _buildGlyphNavItem(
+                              AppGlyph.navField,
                               '현장',
                               2,
                               isWide: true,
                             ),
-                            _buildNavItem(
-                              Icons.view_in_ar_rounded,
-                              Icons.view_in_ar_outlined,
+                            _buildGlyphNavItem(
+                              AppGlyph.navIso,
                               '아이소',
                               3,
                               isWide: true,
@@ -188,37 +185,32 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
                             ),
                           ]
                         : [
-                            _buildNavItem(
-                              Icons.edit_document,
-                              Icons.edit_outlined,
+                            _buildGlyphNavItem(
+                              AppGlyph.navInput,
                               '입력',
                               0,
                               isWide: false,
                             ),
-                            _buildNavItem(
-                              Icons.format_list_numbered_rounded,
-                              Icons.format_list_numbered_rtl_outlined,
+                            _buildGlyphNavItem(
+                              AppGlyph.navMarking,
                               '마킹',
                               1,
                               isWide: false,
                             ),
-                            _buildNavItem(
-                              Icons.folder_rounded,
-                              Icons.folder_outlined,
+                            _buildGlyphNavItem(
+                              AppGlyph.navStorage,
                               '보관함',
                               2,
                               isWide: false,
                             ),
-                            _buildNavItem(
-                              Icons.architecture_rounded,
-                              Icons.architecture_outlined,
+                            _buildGlyphNavItem(
+                              AppGlyph.navField,
                               '현장',
                               3,
                               isWide: false,
                             ),
-                            _buildNavItem(
-                              Icons.view_in_ar_rounded,
-                              Icons.view_in_ar_outlined,
+                            _buildGlyphNavItem(
+                              AppGlyph.navIso,
                               '아이소',
                               4,
                               isWide: false,
@@ -280,6 +272,25 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
         const ConduitViewerTab(),
         const ConduitSettingsPage(),
       ],
+    );
+  }
+
+  /// 직접 그린 아이콘 탭(고르면 속이 옅게 채워진다).
+  BottomNavigationBarItem _buildGlyphNavItem(
+    AppGlyph glyph,
+    String label,
+    int index, {
+    required bool isWide,
+  }) {
+    final int currentDisplayIndex = isWide
+        ? _wideIndexFor(_selectedIndex)
+        : _selectedIndex;
+    return BottomNavigationBarItem(
+      icon: Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: AppIcon(glyph, size: 24, filled: currentDisplayIndex == index),
+      ),
+      label: label,
     );
   }
 

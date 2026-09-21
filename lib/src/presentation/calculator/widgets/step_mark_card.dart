@@ -3,6 +3,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 
 const Color _teal = Color(0xFF007580);
 const Color _slate900 = Color(0xFF0F172A);
@@ -92,10 +93,12 @@ class StepMarkCard extends StatelessWidget {
                   ),
                 ),
                 child: isStraight
-                    ? Icon(
-                        Icons.straighten_rounded,
-                        color: selected ? _white : _slate600,
-                        size: 24,
+                    ? Center(
+                        child: AppIcon(
+                          AppGlyph.straightPipe,
+                          color: selected ? _white : _slate600,
+                          size: 26,
+                        ),
                       )
                     : Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -287,10 +290,11 @@ class CutLengthCard extends StatelessWidget {
                   color: _teal,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
-                  Icons.content_cut_rounded,
+                child: const AppIcon(
+                  AppGlyph.tubeCut,
                   color: _white,
-                  size: 12,
+                  size: 14,
+                  filled: false,
                 ),
               ),
               const SizedBox(width: 8),

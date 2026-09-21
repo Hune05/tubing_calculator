@@ -1,5 +1,6 @@
 // 현장 탭(가로 줄자 화면) 검사. 튜브·전선관이 같이 쓰는 화면.
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -167,7 +168,12 @@ void main() {
       expect(errors, isEmpty);
       // 줄자 숫자는 그림으로 그려서 글자 위젯으로는 못 찾는다(폰 화면으로 확인).
       expect(find.text('자르기'), findsWidgets); // 말풍선·아래 줄
-      expect(find.byIcon(Icons.content_cut_rounded), findsWidgets);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is AppIcon && w.glyph == AppGlyph.tubeCut,
+        ),
+        findsWidgets,
+      );
       expect(find.text('직관 끝'), findsWidgets);
       expect(find.text('21°→24° · UP'), findsOneWidget);
     });

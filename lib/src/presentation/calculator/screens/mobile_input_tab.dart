@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 
 import '../../../core/engine/bend_path.dart';
 import 'package:flutter/services.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
@@ -438,22 +438,18 @@ class _MobileInputTabState extends State<MobileInputTab>
                 const SizedBox(height: 24),
 
                 // 🚀 1. 퀵 킥 (독립 실행형)
-                _buildSpecialMenuBtn("퀵 킥 (단일 단차) 계산기", LucideIcons.zap, () {
+                _buildSpecialMenuBtn("퀵 킥 (단일 단차) 계산기", AppGlyph.kick, () {
                   Navigator.pop(context);
                   MobileQuickKickBottomSheet.show(context);
                 }),
 
                 // 🚀 2. 퀵 U-Bend (독립 실행형) 추가!
-                _buildSpecialMenuBtn(
-                  "퀵 U-Bend (180°) 계산기",
-                  Icons.u_turn_right,
-                  () {
-                    Navigator.pop(context);
-                    MobileQuickUBendBottomSheet.show(context);
-                  },
-                ),
+                _buildSpecialMenuBtn("퀵 U-Bend (180°) 계산기", AppGlyph.uBend, () {
+                  Navigator.pop(context);
+                  MobileQuickUBendBottomSheet.show(context);
+                }),
 
-                _buildSpecialMenuBtn("일반 오프셋 (Offset)", Icons.timeline, () {
+                _buildSpecialMenuBtn("일반 오프셋 (Offset)", AppGlyph.offset, () {
                   Navigator.pop(context);
                   MobileOffsetBottomSheet.show(
                     context,
@@ -462,16 +458,20 @@ class _MobileInputTabState extends State<MobileInputTab>
                   );
                 }),
 
-                _buildSpecialMenuBtn("롤링 오프셋 (Rolling Offset)", Icons.sync, () {
-                  Navigator.pop(context);
-                  MobileRollingOffsetBottomSheet.show(
-                    context,
-                    currentRotation: currentRot,
-                    onAddBend: _addSingleBend,
-                  );
-                }),
+                _buildSpecialMenuBtn(
+                  "롤링 오프셋 (Rolling Offset)",
+                  AppGlyph.rollingOffset,
+                  () {
+                    Navigator.pop(context);
+                    MobileRollingOffsetBottomSheet.show(
+                      context,
+                      currentRotation: currentRot,
+                      onAddBend: _addSingleBend,
+                    );
+                  },
+                ),
 
-                _buildSpecialMenuBtn("새들 벤딩 (Saddle)", Icons.architecture, () {
+                _buildSpecialMenuBtn("새들 벤딩 (Saddle)", AppGlyph.saddle, () {
                   Navigator.pop(context);
                   MobileSaddleBottomSheet.show(
                     context,
@@ -482,7 +482,7 @@ class _MobileInputTabState extends State<MobileInputTab>
 
                 _buildSpecialMenuBtn(
                   "평행 및 축소값 (Parallel & Shrink)",
-                  Icons.grid_view,
+                  AppGlyph.parallel,
                   () {
                     Navigator.pop(context);
                     MobileParallelShrinkBottomSheet.show(
@@ -580,7 +580,7 @@ class _MobileInputTabState extends State<MobileInputTab>
     );
   }
 
-  Widget _buildSpecialMenuBtn(String title, IconData icon, VoidCallback onTap) {
+  Widget _buildSpecialMenuBtn(String title, AppGlyph icon, VoidCallback onTap) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -608,7 +608,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                   color: makitaTeal.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: makitaTeal, size: 20),
+                child: AppIcon(icon, color: makitaTeal, size: 22),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -783,15 +783,17 @@ class _MobileInputTabState extends State<MobileInputTab>
                                                 : makitaTeal.withValues(
                                                     alpha: 0.1,
                                                   ),
-                                            child: Icon(
-                                              isStraight
-                                                  ? Icons.straighten
-                                                  : dirIcon,
-                                              color: isStraight
-                                                  ? slate600
-                                                  : makitaTeal,
-                                              size: 20,
-                                            ),
+                                            child: isStraight
+                                                ? const AppIcon(
+                                                    AppGlyph.straightPipe,
+                                                    color: slate600,
+                                                    size: 20,
+                                                  )
+                                                : Icon(
+                                                    dirIcon,
+                                                    color: makitaTeal,
+                                                    size: 20,
+                                                  ),
                                           ),
                                           const SizedBox(width: 16),
                                           Expanded(

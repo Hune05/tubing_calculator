@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart';
 
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
@@ -129,30 +130,26 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
                       ),
                       items: isWide
                           ? [
-                              _buildNavItem(
-                                Icons.edit_document,
-                                Icons.edit_outlined,
+                              _buildGlyphNavItem(
+                                AppGlyph.navInput,
                                 "입력 / 마킹",
                                 0,
                                 isWide: true,
                               ),
-                              _buildNavItem(
-                                Icons.folder_rounded,
-                                Icons.folder_outlined,
+                              _buildGlyphNavItem(
+                                AppGlyph.navStorage,
                                 "보관함",
                                 1,
                                 isWide: true,
                               ),
-                              _buildNavItem(
-                                Icons.architecture_rounded,
-                                Icons.architecture_outlined,
+                              _buildGlyphNavItem(
+                                AppGlyph.navField,
                                 "현장",
                                 2,
                                 isWide: true,
                               ),
-                              _buildNavItem(
-                                Icons.view_in_ar_rounded,
-                                Icons.view_in_ar_outlined,
+                              _buildGlyphNavItem(
+                                AppGlyph.navIso,
                                 "아이소",
                                 3,
                                 isWide: true,
@@ -166,37 +163,32 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
                               ),
                             ]
                           : [
-                              _buildNavItem(
-                                Icons.edit_document,
-                                Icons.edit_outlined,
+                              _buildGlyphNavItem(
+                                AppGlyph.navInput,
                                 "입력",
                                 0,
                                 isWide: false,
                               ),
-                              _buildNavItem(
-                                Icons.format_list_numbered_rounded,
-                                Icons.format_list_numbered_rtl_outlined,
+                              _buildGlyphNavItem(
+                                AppGlyph.navMarking,
                                 "마킹",
                                 1,
                                 isWide: false,
                               ),
-                              _buildNavItem(
-                                Icons.folder_rounded,
-                                Icons.folder_outlined,
+                              _buildGlyphNavItem(
+                                AppGlyph.navStorage,
                                 "보관함",
                                 2,
                                 isWide: false,
                               ),
-                              _buildNavItem(
-                                Icons.architecture_rounded,
-                                Icons.architecture_outlined,
+                              _buildGlyphNavItem(
+                                AppGlyph.navField,
                                 "현장",
                                 3,
                                 isWide: false,
                               ),
-                              _buildNavItem(
-                                Icons.view_in_ar_rounded,
-                                Icons.view_in_ar_outlined,
+                              _buildGlyphNavItem(
+                                AppGlyph.navIso,
                                 "아이소",
                                 4,
                                 isWide: false,
@@ -220,6 +212,25 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
   // 🚀 [추가] 전선관 계산기(main_navigation_page.dart)와 탭 이름/아이콘을
   // 통일하면서, 그쪽의 선택 시 아이콘이 채워진 형태로 바뀌는 방식도
   // 그대로 가져왔다 (전엔 항상 같은 아이콘이라 선택 표시가 색상뿐이었음).
+  /// 직접 그린 아이콘 탭(고르면 속이 옅게 채워진다).
+  BottomNavigationBarItem _buildGlyphNavItem(
+    AppGlyph glyph,
+    String label,
+    int index, {
+    required bool isWide,
+  }) {
+    final int currentDisplayIndex = isWide
+        ? _wideIndexFor(_currentIndex)
+        : _currentIndex;
+    return BottomNavigationBarItem(
+      icon: Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: AppIcon(glyph, size: 24, filled: currentDisplayIndex == index),
+      ),
+      label: label,
+    );
+  }
+
   BottomNavigationBarItem _buildNavItem(
     IconData activeIcon,
     IconData inactiveIcon,

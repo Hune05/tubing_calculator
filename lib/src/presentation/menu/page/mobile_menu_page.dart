@@ -1,5 +1,5 @@
 import '../../my_work_logs/widgets/work_theme.dart';
-import 'package:tubing_calculator/src/presentation/menu/widgets/menu_icons.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -344,7 +344,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   context: context,
                   title: "내 프로젝트",
                   subtitle: "개인 작업 일지 · 이슈 리스트 및 자재 기록",
-                  icon: MenuGlyph.project,
+                  icon: AppGlyph.project,
                   iconColor: slate900,
                   onTap: () {
                     HapticFeedback.lightImpact();
@@ -360,7 +360,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   context: context,
                   title: "내 일정 관리",
                   subtitle: "프로젝트 일정 통합 + 개인 일정 · 반복 · 알림",
-                  icon: MenuGlyph.schedule,
+                  icon: AppGlyph.schedule,
                   iconColor: makitaTeal,
                   badgeText:
                       (_todayScheduleCount != null && _todayScheduleCount! > 0)
@@ -410,7 +410,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   context: context,
                   title: "전선관 벤딩 마킹 계산기",
                   subtitle: "장비 프로필 설정 · 자이로 각도기 · 마킹 뷰어",
-                  icon: MenuGlyph.conduitBend,
+                  icon: AppGlyph.conduitBend,
                   iconColor: Colors.blueGrey, // 메인 기능이므로 파란색 강조
                   badgeText: "Smart",
                   badgeColor: Colors.blueGrey,
@@ -429,7 +429,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   context: context,
                   title: "벤딩 마킹 계산기",
                   subtitle: "스마트폰용 · 단계별 치수 입력",
-                  icon: MenuGlyph.tubeBend,
+                  icon: AppGlyph.tubeBend,
                   iconColor: makitaTeal,
                   badgeText: "Main",
                   badgeColor: makitaTeal,
@@ -448,7 +448,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   context: context,
                   title: "튜브 컷팅 계산기",
                   subtitle: "피팅 삽입깊이 차감 · 절단 자재 기록",
-                  icon: MenuGlyph.tubeCut,
+                  icon: AppGlyph.tubeCut,
                   iconColor: makitaTeal,
                   badgeText: "New",
                   badgeColor: makitaTeal,
@@ -468,7 +468,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   context: context,
                   title: "형강 컷팅 (찬넬/앵글)",
                   subtitle: "라인 조립 없이 규격·길이만으로 재단 계획·지시서 출력",
-                  icon: MenuGlyph.steel,
+                  icon: AppGlyph.steel,
                   iconColor: makitaTeal,
                   badgeText: "New",
                   badgeColor: makitaTeal,
@@ -493,7 +493,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   context: context,
                   title: "작업 배치도",
                   subtitle: "캐비닛 중판 레이아웃 및 튜빙/결선 스케치",
-                  icon: MenuGlyph.layout,
+                  icon: AppGlyph.layout,
                   iconColor: slate900,
                   badgeText: "New",
                   badgeColor: slate900,
@@ -517,7 +517,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   context: context,
                   title: "현장 도면 스캔 (QR)",
                   subtitle: "오프라인 지시서 스캔 후 3D 뷰어 실행",
-                  icon: MenuGlyph.scan,
+                  icon: AppGlyph.scan,
                   onTap: () async {
                     HapticFeedback.lightImpact();
                     final String? scannedData = await Navigator.push(
@@ -593,7 +593,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   context: context,
                   title: "벤딩 리모컨",
                   subtitle: "수치 전송용 리모컨 (스마트폰 권장)",
-                  icon: MenuGlyph.remote,
+                  icon: AppGlyph.remote,
                   onTap: () {
                     HapticFeedback.lightImpact();
                     Navigator.push(
@@ -614,7 +614,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   context: context,
                   title: "튜브 규격 및 실측 도표",
                   subtitle: "3/8\", 1/2\" 외경·반지름 및 실측 가이드",
-                  icon: MenuGlyph.tubeSpec,
+                  icon: AppGlyph.tubeSpec,
                   iconColor: slate900,
                   onTap: () {
                     HapticFeedback.lightImpact();
@@ -652,7 +652,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   context: context,
                   title: "자재 현황",
                   subtitle: "지금 재고 확인 및 현장 자재 입출고 처리",
-                  icon: MenuGlyph.stock,
+                  icon: AppGlyph.stock,
                   iconColor: slate900,
                   onTap: () {
                     HapticFeedback.lightImpact();
@@ -670,7 +670,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   context: context,
                   title: "자재 통합 관리",
                   subtitle: "재고조사 · 새 자재 등록 및 삭제",
-                  icon: MenuGlyph.stockAdmin,
+                  icon: AppGlyph.stockAdmin,
                   iconColor: slate900,
                   onTap: () {
                     HapticFeedback.lightImpact();
@@ -1113,7 +1113,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     required BuildContext context,
     required String title,
     required String subtitle,
-    required MenuGlyph icon,
+    required AppGlyph icon,
     required VoidCallback onTap,
     Color? iconColor,
     String? badgeText,
@@ -1133,7 +1133,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
-              child: MenuIcon(icon, size: 28, color: iconColor ?? slate900),
+              child: AppIcon(icon, size: 28, color: iconColor ?? slate900),
             ),
             const SizedBox(width: 20),
             Expanded(

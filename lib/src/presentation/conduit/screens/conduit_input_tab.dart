@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart';
 
 // 새롭게 만든 전선관 전용 데이터 매니저 임포트 (경로를 맞게 수정해 주세요)
@@ -349,11 +350,17 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                 backgroundColor: isStraight
                     ? slate100
                     : makitaTeal.withValues(alpha: 0.1),
-                child: Icon(
-                  isStraight ? Icons.straighten : _getDirectionIcon(rotation),
-                  color: isStraight ? slate600 : makitaTeal,
-                  size: 20,
-                ),
+                child: isStraight
+                    ? const AppIcon(
+                        AppGlyph.straightPipe,
+                        color: slate600,
+                        size: 20,
+                      )
+                    : Icon(
+                        _getDirectionIcon(rotation),
+                        color: makitaTeal,
+                        size: 20,
+                      ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -923,7 +930,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
               ),
               const SizedBox(height: 24),
 
-              _buildPopupToolBtn("오프셋 계산기", Icons.timeline, () {
+              _buildPopupToolBtn("오프셋 계산기", AppGlyph.offset, () {
                 Navigator.pop(ctx);
                 MobileOffsetBottomSheet.show(
                   context,
@@ -934,7 +941,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
               }),
               const SizedBox(height: 12),
 
-              _buildPopupToolBtn("롤링 오프셋 계산기", Icons.sync, () {
+              _buildPopupToolBtn("롤링 오프셋 계산기", AppGlyph.rollingOffset, () {
                 Navigator.pop(ctx);
                 MobileRollingOffsetBottomSheet.show(
                   context,
@@ -946,7 +953,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
               }),
               const SizedBox(height: 12),
 
-              _buildPopupToolBtn("새들 벤딩 계산기", Icons.architecture, () {
+              _buildPopupToolBtn("새들 벤딩 계산기", AppGlyph.saddle, () {
                 Navigator.pop(ctx);
                 MobileSaddleBottomSheet.show(
                   context,
@@ -958,7 +965,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
               }),
               const SizedBox(height: 12),
 
-              _buildPopupToolBtn("평행/축소 벤딩 계산기", Icons.grid_view, () {
+              _buildPopupToolBtn("평행/축소 벤딩 계산기", AppGlyph.parallel, () {
                 Navigator.pop(ctx);
                 MobileParallelShrinkBottomSheet.show(
                   context,
@@ -974,7 +981,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
     );
   }
 
-  Widget _buildPopupToolBtn(String label, IconData icon, VoidCallback onTap) {
+  Widget _buildPopupToolBtn(String label, AppGlyph icon, VoidCallback onTap) {
     return ElevatedButton(
       onPressed: () {
         HapticFeedback.lightImpact();
@@ -988,7 +995,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
       ),
       child: Row(
         children: [
-          Icon(icon, color: makitaTeal, size: 26),
+          AppIcon(icon, color: makitaTeal, size: 28),
           const SizedBox(width: 16),
           Text(
             label,

@@ -10,6 +10,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -700,7 +701,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.content_cut_rounded, size: 15, color: _ink),
+              const AppIcon(AppGlyph.tubeCut, size: 17, color: _ink),
               const SizedBox(width: 4),
               Text(
                 _showGap
@@ -868,11 +869,17 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (s.isCut)
-                    Icon(
-                      done ? Icons.check_rounded : Icons.content_cut_rounded,
-                      size: 18,
-                      color: done ? _teal : _ink,
-                    )
+                    (done
+                        ? const Icon(
+                            Icons.check_rounded,
+                            size: 18,
+                            color: _teal,
+                          )
+                        : const AppIcon(
+                            AppGlyph.tubeCut,
+                            size: 20,
+                            color: _ink,
+                          ))
                   else
                     _numberBadge(s.mark!.number, done: done, small: true),
                   const SizedBox(width: 6),
@@ -927,7 +934,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.content_cut_rounded, size: 22, color: _muted),
+              const AppIcon(AppGlyph.tubeCut, size: 24, color: _muted),
               const SizedBox(width: 6),
               Text(
                 done ? '자르기 끝' : '여기서 자릅니다',
