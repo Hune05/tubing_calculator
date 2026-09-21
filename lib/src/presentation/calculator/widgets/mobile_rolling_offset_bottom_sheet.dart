@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:math' as math;
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
-import 'package:tubing_calculator/src/core/utils/settings_manager.dart'; // 🚀 SettingsManager 임포트 추가
+import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_sheet_specs.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
@@ -14,16 +14,21 @@ class MobileRollingOffsetBottomSheet extends StatefulWidget {
   final double currentRotation;
   final Function(double length, double angle, double rotation) onAddBend;
 
+  /// 어느 계산기에서 열었는지에 따른 장비 값. 없으면 튜브 제원을 읽는다.
+  final BendSheetSpecs? specs;
+
   const MobileRollingOffsetBottomSheet({
     super.key,
     required this.currentRotation,
     required this.onAddBend,
+    this.specs,
   });
 
   static void show(
     BuildContext context, {
     required double currentRotation,
     required Function(double, double, double) onAddBend,
+    BendSheetSpecs? specs,
   }) {
     showModalBottomSheet(
       context: context,
@@ -32,6 +37,7 @@ class MobileRollingOffsetBottomSheet extends StatefulWidget {
       builder: (context) => MobileRollingOffsetBottomSheet(
         currentRotation: currentRotation,
         onAddBend: onAddBend,
+        specs: specs,
       ),
     );
   }
@@ -74,10 +80,11 @@ class _MobileRollingOffsetBottomSheetState
   // 🚀 설정 파일에서 벤더 R값 끌어오는 함수
   Future<void> _loadSettings() async {
     try {
-      final data = await SettingsManager.loadSettings();
+      // 🚀 [고침] 전선관에서 열어도 튜브 반경을 읽고 있었다.
+      final specs = widget.specs ?? await BendSheetSpecs.tube();
       if (mounted) {
         setState(() {
-          _bendRadius = data['bendRadius'] ?? 0.0;
+          _bendRadius = specs.radius;
         });
       }
     } catch (e) {

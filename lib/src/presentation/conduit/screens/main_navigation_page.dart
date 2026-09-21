@@ -36,6 +36,13 @@ class ConduitMainNavigation extends StatefulWidget {
 }
 
 class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
+  @override
+  void initState() {
+    super.initState();
+    // 폰에 적어 둔 전선관 설정(테이크업·게인·CLR…)을 읽어 온다.
+    loadGlobalBenderSettings();
+  }
+
   // 🚀 [수정] 폴더블 대응. 예전엔 PageView+PageController로 탭을
   // 넘겼는데, 넓은 화면에서 "입력"과 "마킹" 탭을 한 페이지로 합치면
   // 탭 개수가 6→5로 줄어들어 PageController가 들고 있던 스크롤

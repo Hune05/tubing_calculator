@@ -235,4 +235,85 @@ void main() {
       expect(t45, lessThan(t90));
     });
   });
+  group('벤더 종류에 관계없이', () {
+    test('마킹 자리 = 꺾이는 점 − 그 벤더의 마킹 거리', () {
+      final list = bends([
+        [150, 0, 0],
+        [80, 21, 0],
+        [195.3, 21, 180],
+        [200, 0, 0],
+      ]);
+      for (final type in ['hand', 'chicago', 'ram']) {
+        final s = settings(benderType: type);
+        s['setback'] = 40.0;
+        final m = calculateConduitMarkings(list, s);
+        var developed = 0.0;
+        var prevGain = 0.0;
+        for (var i = 0; i < list.length; i++) {
+          final len = list[i]['length'] as double;
+          final a = list[i]['angle'] as double;
+          developed += len - prevGain;
+          expect(
+            m[i]['mark'] as double,
+            closeTo(developed - conduitMarkOffset(a, s), 0.001),
+            reason: '$type ${i + 1}번',
+          );
+          prevGain = conduitGainForAngle(a, kGain90);
+        }
+      }
+    });
+
+    test('램도 두 번째 벤드부터 앞 벤드 게인을 뺀다(예전에는 안 뺐다)', () {
+      final list = bends([
+        [1000, 90, 0],
+        [800, 90, 90],
+      ]);
+      final m = calculateConduitMarkings(list, settings(benderType: 'ram'));
+      expect(
+        (m[1]['mark'] as double) - (m[0]['mark'] as double),
+        closeTo(800 - kGain90, 0.001),
+      );
+      expect(m[1]['note'], contains('게인'));
+    });
+
+    test('직관 뒤에 오는 벤드는 직관 자리에서 테이크업만큼 앞에 찍힌다', () {
+      // 직관 150 다음 21° 벤드(꺾이는 점까지 59.3 = 21° 테이크업)면 딱 150.
+      final off = conduitMarkOffset(21, settings());
+      final m = calculateConduitMarkings(
+        bends([
+          [150, 0, 0],
+          [off, 21, 0],
+        ]),
+        settings(),
+      );
+      expect(m[1]['mark'] as double, closeTo(150, 0.001));
+      expect(m[1]['gap'] as double, closeTo(0, 0.001));
+      expect(m[1]['short'], isFalse);
+    });
+
+    test('앞 마킹보다 뒤로 가면 짧다고 알려 준다', () {
+      final m = calculateConduitMarkings(
+        bends([
+          [150, 0, 0],
+          [10, 21, 0],
+        ]),
+        settings(),
+      );
+      expect(m[1]['short'], isTrue);
+      expect(m[1]['note'], contains('만들 수 없습니다'));
+    });
+
+    test('설정값이 정수로 들어와도 셈한다', () {
+      final s = settings();
+      s['takeUp'] = 152;
+      s['gain'] = 81;
+      final m = calculateConduitMarkings(
+        bends([
+          [1000, 90, 0],
+        ]),
+        s,
+      );
+      expect(m.first['mark'] as double, closeTo(1000 - 152, 0.001));
+    });
+  });
 }

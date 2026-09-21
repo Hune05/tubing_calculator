@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tubing_calculator/src/data/models/bender_spec_data.dart';
 
@@ -38,6 +40,35 @@ final ValueNotifier<Map<String, dynamic>> globalBenderSettings = ValueNotifier({
   'referenceMark': '화살표 (일반)',
   'bendRadiusWarning': true,
 });
+
+const String kConduitSettingsPrefsKey = 'conduit_bender_settings_v1';
+
+/// 폰에 적어 둔 전선관 설정을 읽어 온다.
+/// 🚀 [고침] 예전에는 저장 단추를 눌러도 화면에만 남고, 앱을 끄면 Greenlee
+/// 22mm 기본값으로 돌아갔다. 테이크업·게인이 바뀌면 마킹 자리가 바뀌는 값이다.
+Future<void> loadGlobalBenderSettings() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(kConduitSettingsPrefsKey);
+    if (raw == null || raw.isEmpty) return;
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return;
+    globalBenderSettings.value = {
+      ...globalBenderSettings.value,
+      ...Map<String, dynamic>.from(decoded),
+    };
+  } catch (e) {
+    debugPrint('전선관 설정 읽기 실패: $e');
+  }
+}
+
+Future<void> saveGlobalBenderSettings() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(
+    kConduitSettingsPrefsKey,
+    jsonEncode(globalBenderSettings.value),
+  );
+}
 
 class ConduitSettingsPage extends StatefulWidget {
   const ConduitSettingsPage({super.key});
@@ -286,6 +317,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
       'referenceMark': _referenceMark,
       'bendRadiusWarning': _bendRadiusWarning,
     };
+    saveGlobalBenderSettings();
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -793,7 +825,8 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
           _buildSwitchRow(
             "수축량(Shrink) 자동 공제",
             _applyShrink,
-            helpText: "오프셋(새들)처럼 배관이 우회할 때, 직진 도달 거리가 줄어드는 현상을 자동 계산합니다.",
+            helpText:
+                "켜면 오프셋·새들 계산기의 1번 마킹을 \"시작 거리 + 축소값\" 자리에 찍습니다(현장 셈법). 끄면 시작 거리 그대로 찍습니다.",
             (v) {
               setState(() => _applyShrink = v);
             },

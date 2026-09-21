@@ -5,11 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
 
 // 특수 바텀시트 경로는 기존 공용 위젯 폴더를 그대로 씁니다.
+import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_sheet_specs.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_rolling_offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_saddle_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_parallel_shrink_bottom_sheet.dart';
+import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
@@ -699,6 +701,9 @@ class _ConduitInputTabState extends State<ConduitInputTab>
     double currentRot = manager.bendList.isNotEmpty
         ? (manager.bendList.last['rotation'] as num).toDouble()
         : 90.0;
+    // 🚀 [고침] 특수 벤딩 계산기들이 튜브 벤더 제원으로 셈하고 있었다.
+    // 전선관 설정(CLR·테이크업·게인·수축량 스위치)을 넘긴다.
+    final specs = BendSheetSpecs.conduit(globalBenderSettings.value);
 
     showModalBottomSheet(
       context: context,
@@ -743,6 +748,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                   context,
                   currentRotation: currentRot,
                   onAddMultipleBends: manager.addMultipleBends,
+                  specs: specs,
                 );
               }),
               const SizedBox(height: 12),
@@ -754,6 +760,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                   currentRotation: currentRot,
                   onAddBend: (l, a, r) =>
                       manager.addBend({'length': l, 'angle': a, 'rotation': r}),
+                  specs: specs,
                 );
               }),
               const SizedBox(height: 12),
@@ -765,6 +772,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                   currentRotation: currentRot,
                   onAddBend: (l, a, r) =>
                       manager.addBend({'length': l, 'angle': a, 'rotation': r}),
+                  specs: specs,
                 );
               }),
               const SizedBox(height: 12),

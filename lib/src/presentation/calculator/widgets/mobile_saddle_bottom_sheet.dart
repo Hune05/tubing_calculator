@@ -3,10 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../core/engine/bend_geometry.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:math' as math;
-import 'package:shared_preferences/shared_preferences.dart'; // 🚀 SharedPreferences 임포트 추가
 
-import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_sheet_specs.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
 
 const Color makitaTeal = Color(0xFF007580);
@@ -19,16 +18,21 @@ class MobileSaddleBottomSheet extends StatefulWidget {
   final double currentRotation;
   final Function(double length, double angle, double rotation) onAddBend;
 
+  /// 어느 계산기에서 열었는지에 따른 장비 값. 없으면 튜브 제원을 읽는다.
+  final BendSheetSpecs? specs;
+
   const MobileSaddleBottomSheet({
     super.key,
     required this.currentRotation,
     required this.onAddBend,
+    this.specs,
   });
 
   static void show(
     BuildContext context, {
     required double currentRotation,
     required Function(double, double, double) onAddBend,
+    BendSheetSpecs? specs,
   }) {
     showModalBottomSheet(
       context: context,
@@ -37,6 +41,7 @@ class MobileSaddleBottomSheet extends StatefulWidget {
       builder: (context) => MobileSaddleBottomSheet(
         currentRotation: currentRotation,
         onAddBend: onAddBend,
+        specs: specs,
       ),
     );
   }
@@ -53,11 +58,42 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
 
   double _machineRadius = 0.0;
   double _machineGain = 0.0;
-  double _userOffsetShrink = 0.0;
 
   // 🚀 슈 간섭 경고를 위한 변수 추가
   double _minStraight = 0.0;
   bool _warnShoeInterference = true;
+
+  // 어느 계산기에서 열었는지에 따른 장비 값 한 벌. 읽기 전에는 튜브처럼 셈한다.
+  BendSheetSpecs? _specs;
+
+  /// 첫 구간 길이. 마킹 화면이 도로 뺄 거리(튜브는 셋백, 전선관은 테이크업)를
+  /// 더해야 1번 마킹이 "시작 거리 + 더할 축소값" 자리에 온다.
+  /// 목록에 82.34100216…처럼 길게 찍히지 않게 0.1mm로 자른다.
+  double _firstLength(double startDistance, double angle, double shrink) {
+    final double raw =
+        _specs?.firstLength(startDistance, angle, shrink) ??
+        (startDistance + bendSetback(_machineRadius, angle));
+    return double.parse(raw.toStringAsFixed(1));
+  }
+
+  /// 1번 마킹에 더할 축소값(전선관은 설정 스위치, 튜브는 설정의 여유).
+  double _shrinkToAdd(double geometricShrink) =>
+      _specs?.shrinkToAdd(geometricShrink) ?? 0.0;
+
+  /// 넣고 나서 알려 줄 말.
+  String _addedMessage(double startDistance, double shrink) {
+    final double add = _shrinkToAdd(shrink);
+    final double mark = startDistance + add;
+    if (mark <= 0) {
+      return "넣었습니다. 축소값 ${shrink.toStringAsFixed(1)}mm는 직진 거리가 줄어드는 몫입니다.";
+    }
+    if (add > 0) {
+      return "1번 마킹이 ${mark.toStringAsFixed(0)}mm 자리에 찍힙니다"
+          "(시작 거리 ${startDistance.toStringAsFixed(0)} + 축소값 ${add.toStringAsFixed(1)}).";
+    }
+    return "1번 마킹이 ${mark.toStringAsFixed(0)}mm 자리에 찍힙니다. "
+        "축소값 ${shrink.toStringAsFixed(1)}mm는 직진 거리가 줄어드는 몫입니다.";
+  }
 
   // 🚀 [추가] 장애물 앞 시작 거리. 예전에는 첫 구간을 축소값으로 강제해서
   // 1번 마킹이 관 끝 20mm 자리에 찍혔고(벤더에 물리지도 않는다), 장애물 위에
@@ -114,17 +150,16 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
   }
 
   Future<void> _loadMachineSettings() async {
-    final data = await SettingsManager.loadSettings();
-    final prefs = await SharedPreferences.getInstance(); // 🚀 설정 불러오기 추가
+    // 🚀 [고침] 어느 계산기에서 열었든 튜브 제원을 읽고 있었다. 넘겨받은
+    // 한 벌(전선관이면 CLR·테이크업·게인)을 쓰고, 없으면 튜브 제원을 읽는다.
+    final specs = widget.specs ?? await BendSheetSpecs.tube();
     if (mounted) {
       setState(() {
-        _machineRadius = data['bendRadius'] ?? 0.0;
-        _machineGain = data['gain'] ?? 0.0;
-        _userOffsetShrink = data['offsetShrink'] ?? 0.0;
-
-        // 🚀 저장된 장비 제원 및 경고 스위치 상태 적용
-        _minStraight = data['minStraight'] ?? 0.0;
-        _warnShoeInterference = prefs.getBool('warnShoeInterference') ?? true;
+        _specs = specs;
+        _machineRadius = specs.radius;
+        _machineGain = specs.gain90;
+        _minStraight = specs.minStraight;
+        _warnShoeInterference = specs.warnShoeInterference;
       });
     }
   }
@@ -160,11 +195,10 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     double sideAngle = a3 / 2;
     double oppRot = _getOppositeRotation(_selectedRotation!);
 
-    // 🚀 [고침] 1번 마킹이 시작 거리와 같아지도록 셋백을 더한다.
+    // 🚀 [고침] 1번 마킹이 "시작 거리 + 더할 축소값" 자리에 오도록 한다.
     final double startDistance =
         double.tryParse(_startDistanceCtrl.text) ?? 0.0;
-    final double firstLen =
-        startDistance + bendSetback(_machineRadius, sideAngle);
+    final double firstLen = _firstLength(startDistance, sideAngle, roundedShrink);
 
     widget.onAddBend(firstLen, sideAngle, _selectedRotation!);
     widget.onAddBend(roundedTravel, a3, oppRot);
@@ -173,10 +207,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          startDistance > 0
-              ? "1번 마킹이 ${startDistance.toStringAsFixed(0)}mm 자리에 찍힙니다."
-                    " 축소값은 ${roundedShrink}mm입니다."
-              : "넣었습니다. 축소값은 ${roundedShrink}mm입니다.",
+          _addedMessage(startDistance, roundedShrink),
         ),
         backgroundColor: makitaTeal,
       ),
@@ -295,8 +326,8 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     double roundedShrink = double.parse(shrink.toStringAsFixed(1));
     double oppRot = _getOppositeRotation(_selectedRotation!);
 
-    // 🚀 [고침] 1번 마킹이 시작 거리와 같아지도록 셋백을 더한다.
-    final double firstLen4 = startDistance4 + bendSetback(_machineRadius, a4);
+    // 🚀 [고침] 1번 마킹이 "시작 거리 + 더할 축소값" 자리에 오도록 한다.
+    final double firstLen4 = _firstLength(startDistance4, a4, roundedShrink);
 
     widget.onAddBend(firstLen4, a4, _selectedRotation!);
     widget.onAddBend(roundedTravel, a4, oppRot);
@@ -306,10 +337,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          startDistance4 > 0
-              ? "1번 마킹이 ${startDistance4.toStringAsFixed(0)}mm 자리에 찍힙니다."
-                    " 축소값은 ${roundedShrink}mm입니다."
-              : "넣었습니다. 축소값은 ${roundedShrink}mm입니다.",
+          _addedMessage(startDistance4, roundedShrink),
         ),
         backgroundColor: makitaTeal,
       ),
@@ -525,7 +553,6 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
       run3PtTotal = run3 * 2;
 
       shrink3Pt = pipeUsed3Pt - run3PtTotal;
-      if (_userOffsetShrink > 0) shrink3Pt += (_userOffsetShrink * 2);
 
       double gainCenter = 0.0;
       double gainSide = 0.0;
@@ -577,7 +604,6 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
       run4PtTotal = (run4 * 2) + w;
 
       shrink4Pt = pipeUsed4Pt - run4PtTotal;
-      if (_userOffsetShrink > 0) shrink4Pt += (_userOffsetShrink * 2);
 
       // 🚀 [고침] 실측 게인 각도 환산을 기하 비율로(공용 함수).
       final double gainBend = effectiveGain(
@@ -1194,7 +1220,9 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      "1번 마킹 축소값: +${shrink.toStringAsFixed(1)} mm",
+                      _shrinkToAdd(shrink) > 0
+                          ? "1번 마킹에 축소값 +${_shrinkToAdd(shrink).toStringAsFixed(1)} mm를 더합니다"
+                          : "축소값 ${shrink.toStringAsFixed(1)} mm는 직진 거리가 줄어드는 몫입니다",
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,

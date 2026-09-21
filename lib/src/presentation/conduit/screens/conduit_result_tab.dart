@@ -449,6 +449,11 @@ class _ConduitResultTabState extends State<ConduitResultTab>
     double mark = (item['mark'] as num).toDouble();
     String note = item['note']?.toString() ?? '';
     bool isStraight = angle == 0.0;
+    // 앞 마킹보다 뒤로 간 벤드. 그 사이 곧은 부분이 벤더에 물릴 만큼 없다.
+    final bool isShort = item['short'] == true;
+    final Color noteColor = isShort
+        ? Colors.redAccent
+        : (isStraight ? slate600 : themeColor);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -598,16 +603,18 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                       Row(
                         children: [
                           Icon(
-                            Icons.info_outline_rounded,
+                            isShort
+                                ? Icons.warning_amber_rounded
+                                : Icons.info_outline_rounded,
                             size: 14,
-                            color: isStraight ? slate600 : themeColor,
+                            color: noteColor,
                           ),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               note,
                               style: TextStyle(
-                                color: isStraight ? slate600 : themeColor,
+                                color: noteColor,
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                               ),

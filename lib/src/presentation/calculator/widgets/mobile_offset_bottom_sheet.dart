@@ -3,10 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../core/engine/bend_geometry.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:math' as math;
-import 'package:shared_preferences/shared_preferences.dart'; // 🚀 설정 연동을 위해 임포트 추가
 
-import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_sheet_specs.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
 
 const Color makitaTeal = Color(0xFF007580);
@@ -19,16 +18,21 @@ class MobileOffsetBottomSheet extends StatefulWidget {
   final double currentRotation;
   final Function(List<Map<String, double>> bends) onAddMultipleBends;
 
+  /// 어느 계산기에서 열었는지에 따른 장비 값. 없으면 튜브 제원을 읽는다.
+  final BendSheetSpecs? specs;
+
   const MobileOffsetBottomSheet({
     super.key,
     required this.currentRotation,
     required this.onAddMultipleBends,
+    this.specs,
   });
 
   static void show(
     BuildContext context, {
     required double currentRotation,
     required Function(List<Map<String, double>>) onAddMultipleBends,
+    BendSheetSpecs? specs,
   }) {
     showModalBottomSheet(
       context: context,
@@ -37,6 +41,7 @@ class MobileOffsetBottomSheet extends StatefulWidget {
       builder: (context) => MobileOffsetBottomSheet(
         currentRotation: currentRotation,
         onAddMultipleBends: onAddMultipleBends,
+        specs: specs,
       ),
     );
   }
@@ -54,11 +59,42 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
 
   double _machineRadius = 0.0;
   double _machineGain = 0.0;
-  double _userOffsetShrink = 0.0;
 
   // 🚀 장비 최소 물림 길이 및 경고 스위치 상태 변수 추가
   double _minStraight = 0.0;
   bool _warnShoeInterference = true;
+
+  // 어느 계산기에서 열었는지에 따른 장비 값 한 벌. 읽기 전에는 튜브처럼 셈한다.
+  BendSheetSpecs? _specs;
+
+  /// 첫 구간 길이. 마킹 화면이 도로 뺄 거리(튜브는 셋백, 전선관은 테이크업)를
+  /// 더해야 1번 마킹이 "시작 거리 + 더할 축소값" 자리에 온다.
+  /// 목록에 82.34100216…처럼 길게 찍히지 않게 0.1mm로 자른다.
+  double _firstLength(double startDistance, double angle, double shrink) {
+    final double raw =
+        _specs?.firstLength(startDistance, angle, shrink) ??
+        (startDistance + bendSetback(_machineRadius, angle));
+    return double.parse(raw.toStringAsFixed(1));
+  }
+
+  /// 1번 마킹에 더할 축소값(전선관은 설정 스위치, 튜브는 설정의 여유).
+  double _shrinkToAdd(double geometricShrink) =>
+      _specs?.shrinkToAdd(geometricShrink) ?? 0.0;
+
+  /// 넣고 나서 알려 줄 말.
+  String _addedMessage(double startDistance, double shrink) {
+    final double add = _shrinkToAdd(shrink);
+    final double mark = startDistance + add;
+    if (mark <= 0) {
+      return "넣었습니다. 축소값 ${shrink.toStringAsFixed(1)}mm는 직진 거리가 줄어드는 몫입니다.";
+    }
+    if (add > 0) {
+      return "1번 마킹이 ${mark.toStringAsFixed(0)}mm 자리에 찍힙니다"
+          "(시작 거리 ${startDistance.toStringAsFixed(0)} + 축소값 ${add.toStringAsFixed(1)}).";
+    }
+    return "1번 마킹이 ${mark.toStringAsFixed(0)}mm 자리에 찍힙니다. "
+        "축소값 ${shrink.toStringAsFixed(1)}mm는 직진 거리가 줄어드는 몫입니다.";
+  }
 
   final TextEditingController _heightCtrl = TextEditingController();
   final TextEditingController _angleCtrl = TextEditingController();
@@ -110,17 +146,16 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
   }
 
   Future<void> _loadMachineSettings() async {
-    final data = await SettingsManager.loadSettings();
-    final prefs = await SharedPreferences.getInstance(); // 🚀 설정 불러오기 추가
+    // 🚀 [고침] 어느 계산기에서 열었든 튜브 제원을 읽고 있었다. 넘겨받은
+    // 한 벌(전선관이면 CLR·테이크업·게인)을 쓰고, 없으면 튜브 제원을 읽는다.
+    final specs = widget.specs ?? await BendSheetSpecs.tube();
     if (mounted) {
       setState(() {
-        _machineRadius = data['bendRadius'] ?? 0.0;
-        _machineGain = data['gain'] ?? 0.0;
-        _userOffsetShrink = data['offsetShrink'] ?? 0.0;
-
-        // 🚀 저장된 장비 제원 및 경고 스위치 상태 적용
-        _minStraight = data['minStraight'] ?? 0.0;
-        _warnShoeInterference = prefs.getBool('warnShoeInterference') ?? true;
+        _specs = specs;
+        _machineRadius = specs.radius;
+        _machineGain = specs.gain90;
+        _minStraight = specs.minStraight;
+        _warnShoeInterference = specs.warnShoeInterference;
       });
     }
   }
@@ -149,8 +184,8 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     double shrink,
     double startDistance,
   ) {
-    // 1번 마킹이 시작 거리와 같아지도록 셋백을 더한다.
-    final double firstLen = startDistance + bendSetback(_machineRadius, angle);
+    // 1번 마킹이 "시작 거리 + 더할 축소값" 자리에 오도록 한다.
+    final double firstLen = _firstLength(startDistance, angle, shrink);
     double r1 = _isInverted
         ? (_selectedRotation! + 180.0) % 360.0
         : _selectedRotation!;
@@ -165,11 +200,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          startDistance > 0
-              ? "1번 마킹이 ${startDistance}mm 자리에 찍힙니다. 축소값은 ${shrink}mm입니다."
-              : "빗변 ${travel}mm로 넣었습니다. 축소값은 ${shrink}mm입니다.",
-        ),
+        content: Text(_addedMessage(startDistance, shrink)),
         backgroundColor: makitaTeal,
       ),
     );
@@ -227,9 +258,12 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     double startDistance = double.tryParse(_startDistanceCtrl.text) ?? 0.0;
     // 🚀 [고침] 예전에는 축소값을 더해서, 반경과 높이가 우연히 같을 때만
     // "시작 거리 = 1번 마킹"이 맞았다(3/8" 튜브 R38에 높이 100이면 26mm 늦게
-    // 시작했다). 셋백을 더하면 1번 마킹이 시작 거리와 정확히 같아진다.
-    double firstSegmentLength =
-        startDistance + bendSetback(_machineRadius, roundedAngle);
+    // 시작했다). 마킹 화면이 도로 뺄 거리를 더하면 1번 마킹이 정확히 맞는다.
+    double firstSegmentLength = _firstLength(
+      startDistance,
+      roundedAngle,
+      roundedShrink,
+    );
     double secondSegmentLength = roundedTravel;
 
     // 🚀 [추가] 슈 간섭 경고 (Soft Warning)
@@ -410,10 +444,6 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
       calcRun = h / math.tan(rad);
       geometricShrink = targetTravel - calcRun;
 
-      if (_userOffsetShrink > 0) {
-        geometricShrink += _userOffsetShrink;
-      }
-
       // 🚀 [버그 수정] 반경 기반 이론 게인이 사용자가 실측해서 입력한
       // "실측 연신율"보다 먼저 적용되고 있었다. 메인 마킹 엔진
       // (tube_bending_engine.dart)은 반대로 실측값을 항상 우선하는데,
@@ -428,6 +458,8 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
       );
       totalGain = gainPerBend * 2;
     }
+    // 1번 마킹에 더할 축소값(전선관 스위치·튜브 여유). 0이면 시작 거리 그대로.
+    final double shrinkToAdd = _shrinkToAdd(geometricShrink);
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
@@ -493,9 +525,14 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                             ),
                           ),
                           const SizedBox(height: 4),
-                          const Text(
-                            "입력 시 축소값이 이 거리에 자동 합산됩니다.",
-                            style: TextStyle(color: slate600, fontSize: 11),
+                          Text(
+                            shrinkToAdd > 0
+                                ? "1번 마킹은 이 거리에 축소값 ${shrinkToAdd.toStringAsFixed(1)}mm를 더한 자리에 찍힙니다."
+                                : "1번 마킹이 이 거리에 찍힙니다.",
+                            style: const TextStyle(
+                              color: slate600,
+                              fontSize: 11,
+                            ),
                           ),
                         ],
                       ),
@@ -578,6 +615,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                               value: calcTravel,
                               runDistance: calcRun,
                               shrink: geometricShrink,
+                              shrinkToAdd: shrinkToAdd,
                               gain: totalGain,
                               btnText: "적용",
                               onPressed: () =>
@@ -629,6 +667,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                               value: calcAngle,
                               runDistance: calcRun,
                               shrink: geometricShrink,
+                              shrinkToAdd: shrinkToAdd,
                               gain: totalGain,
                               btnText: "적용",
                               isError: inverseError,
@@ -772,6 +811,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     required double value,
     required double runDistance,
     required double shrink,
+    required double shrinkToAdd,
     required double gain,
     required String btnText,
     required VoidCallback onPressed,
@@ -905,9 +945,14 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                           fontFamily: 'monospace',
                         ),
                       ),
-                      const Text(
-                        "(총 기장에 더함)",
-                        style: TextStyle(fontSize: 10, color: Colors.black54),
+                      Text(
+                        shrinkToAdd > 0
+                            ? "(직진 거리가 줄어드는 몫 · 1번 마킹에 +${shrinkToAdd.toStringAsFixed(1)})"
+                            : "(직진 거리가 이만큼 줄어듭니다)",
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.black54,
+                        ),
                       ),
                     ],
                   ),
