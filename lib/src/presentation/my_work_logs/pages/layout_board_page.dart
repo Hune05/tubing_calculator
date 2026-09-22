@@ -2564,6 +2564,38 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   ConduitRoute? _draggingRoute;
   Offset? _routeDragLast;
 
+  /// 끌고 있는 경로에서 손가락으로 잡은 토막(가상선을 이 토막에서 잰다).
+  int _routeDragSeg = 0;
+
+  /// 끄는 동안 가상선을 그릴 상자: 잡은 토막을 관 바깥지름 굵기로 감싼 것.
+  PlacedItem? get _routeGuideItem {
+    final r = _draggingRoute;
+    if (r == null) return null;
+    final (planW, planH) = _planSize;
+    final pts = r
+        .points(_planItems)
+        .map(
+          (v) => projectToView(
+            v,
+            _plateId,
+            planW: planW,
+            planH: planH,
+            viewH: _panelHeight,
+          ),
+        )
+        .toList();
+    if (pts.length < 2) return null;
+    final int i = _routeDragSeg.clamp(0, pts.length - 2);
+    final Rect box = Rect.fromPoints(pts[i], pts[i + 1]).inflate(r.od / 2);
+    return PlacedItem(
+      id: 'route_guide',
+      name: r.name,
+      position: box.topLeft,
+      width: box.width,
+      height: box.height,
+    );
+  }
+
   List<Widget> _buildRouteHandles() {
     final plan = _planItems;
     final (planW, planH) = _planSize;
@@ -2600,7 +2632,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 // 손가락을 댄 자리부터 따라오게(처음 움직인 만큼이 빠지지 않게).
                 dragStartBehavior: DragStartBehavior.down,
                 onTap: () => _showRouteEditor(r),
-                onPanStart: (d) => _startRouteDrag(r, d.globalPosition),
+                onPanStart: (d) {
+                  _routeDragSeg = i;
+                  _startRouteDrag(r, d.globalPosition);
+                },
                 onPanUpdate: (d) => _updateRouteDrag(d.globalPosition),
                 onPanEnd: (_) => _endRouteDrag(),
                 child: SizedBox(width: len, height: th),
@@ -2637,7 +2672,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         ),
       );
     }
-    _draggingRoute = r;
+    setState(() => _draggingRoute = r);
     _routeDragLast = _boardLocal(global);
     HapticFeedback.selectionClick();
   }
@@ -2676,8 +2711,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         ..y = snap(r.y)
         ..z = snap(r.z);
     });
-    _draggingRoute = null;
-    _routeDragLast = null;
+    setState(() {
+      _draggingRoute = null;
+      _routeDragLast = null;
+    });
     _saveDraftToPrefs();
   }
 
@@ -5341,6 +5378,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                             if (_activeItem != null &&
                                 _mode == BoardMode.placeModule)
                               ..._buildGuidePaints(_activeItem!),
+                            if (_routeGuideItem != null)
+                              ..._buildGuidePaints(_routeGuideItem!),
 
                             // 🚀 [복원] 안내선 자체는 문제가
                             // 없었다 - 아래 _placedItems.map()의

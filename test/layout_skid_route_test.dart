@@ -327,8 +327,28 @@ void main() {
       board.left + board.width * 1000 / 2400,
       board.top + board.height * 600 / 1200,
     );
-    await tester.dragFrom(at, Offset(0, 300 * k));
+    // 끄는 동안 가상선(SmartGuidePainter)이 나온다.
+    final g = await tester.startGesture(at);
+    for (int i = 0; i < 5; i++) {
+      await g.moveBy(Offset(0, 60 * k));
+      await tester.pump();
+    }
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is CustomPaint && w.painter is SmartGuidePainter,
+      ),
+      findsWidgets,
+    );
+    await g.moveBy(Offset(0, 150 * k));
+    await tester.pump();
+    await g.up();
     await tester.pumpAndSettle();
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is CustomPaint && w.painter is SmartGuidePainter,
+      ),
+      findsNothing,
+    );
 
     Future<Map> saved() async {
       await tester.pump(const Duration(seconds: 21)); // 20초 임시 저장
@@ -337,7 +357,7 @@ void main() {
     }
 
     final moved = (await saved())['routes'][0] as Map;
-    expect((moved['y'] as num).toDouble(), closeTo(900, 20));
+    expect((moved['y'] as num).toDouble(), closeTo(1050, 20)); // 600 + 300 + 150
     expect((moved['x'] as num).toDouble(), closeTo(200, 20));
 
     await tester.tap(find.byTooltip('되돌리기'));
