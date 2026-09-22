@@ -8,7 +8,12 @@ List<String> _globalLocationOptions = ["A동 1열", "B동 2열", "튜빙 야적�
 
 extension MobileInventoryDialogsExt on _MobileInventoryPageState {
   // 🚀 1. 수량 입력 다이얼로그
-  void _showQuantityInputDialog(String docId, String item, int currentQty) {
+  void _showQuantityInputDialog(
+    String docId,
+    String item,
+    int currentQty, {
+    ItemData? Function()? seed,
+  }) {
     TextEditingController qtyController = TextEditingController(
       text: currentQty.toString(),
     );
@@ -105,7 +110,9 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                         if (newQty != null && newQty >= 0) {
                           setState(() {
                             if (!_localEdits.containsKey(docId)) {
-                              _localEdits[docId] = ItemData();
+                              // 빈 ItemData로 시작하면 최소 수량·보관 위치가 0·빈칸으로
+                              // 서버에 올라갔다(자재 부족 알림이 꺼졌다). 문서 값으로 시작한다.
+                              _localEdits[docId] = seed?.call() ?? ItemData();
                             }
                             _localEdits[docId]!.qty = newQty;
                           });

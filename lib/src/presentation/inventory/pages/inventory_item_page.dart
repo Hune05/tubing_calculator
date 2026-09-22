@@ -49,6 +49,9 @@ class InventoryItemPage extends StatelessWidget {
               .doc(docId)
               .snapshots(includeMetadataChanges: true),
           builder: (context, snap) {
+            if (snap.hasError) {
+              return const Center(child: Text("자재를 불러오지 못했습니다. 통신을 확인하십시오."));
+            }
             if (!snap.hasData) {
               return const Center(
                 child: CircularProgressIndicator(color: CuttingColors.primary),
@@ -462,9 +465,17 @@ class _RecentLogs extends StatelessWidget {
       stream: FirebaseFirestore.instance
           .collection('inventory_logs')
           .where('material_name', isEqualTo: itemName)
+          // 정렬 없이 20건을 자르면 옛 기록이 나오고 오늘 것이 빠질 수 있다.
+          .orderBy('timestamp', descending: true)
           .limit(20)
           .snapshots(),
       builder: (context, snap) {
+        if (snap.hasError) {
+          return const Padding(
+            padding: EdgeInsets.all(8),
+            child: Text("기록을 불러오지 못했습니다."),
+          );
+        }
         if (!snap.hasData) return const SizedBox(height: 8);
         final docs = snap.data!.docs.toList()
           ..sort((a, b) {

@@ -80,6 +80,11 @@ extension InventoryTabsExt on _InventoryPageState {
                 .limit(300)
                 .snapshots(),
             builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return const Center(
+                  child: Text("자재 목록을 불러오지 못했습니다. 통신을 확인하십시오."),
+                );
+              }
               if (!snapshot.hasData) {
                 return const Center(
                   child: CircularProgressIndicator(color: makitaTeal),
@@ -183,10 +188,12 @@ extension InventoryTabsExt on _InventoryPageState {
     bool isReorder = item['is_reorder_needed'] ?? false;
     String heatNo = item['heatNo'] ?? "";
     String location = item['location'] ?? "";
-    int currentQty = item['qty'] ?? 0;
-    int minQty = item['minQty'] ?? item['min_qty'] ?? 10;
-
-    bool isLowStock = !isDead && (currentQty <= minQty);
+    int currentQty = (item['qty'] as num?)?.toInt() ?? 0;
+    // 폰과 같은 기준(inventory_view_logic.isShortStock): 최소 수량을 안 적은 자재는 부족이 아니다.
+    // 예전엔 태블릿만 10을 기본으로 잡아 폰과 다르게 "부족"이 떴다.
+    bool isLowStock =
+        !isDead &&
+        isShortStock({...item, 'minQty': item['minQty'] ?? item['min_qty']});
     bool isSelected = _selectedDocId == id;
 
     return InkWell(
@@ -310,7 +317,9 @@ extension InventoryTabsExt on _InventoryPageState {
               children: [
                 Expanded(
                   child: Text(
-                    item['name'],
+                    (item['name'] ?? '이름 없음').toString(),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
@@ -331,9 +340,9 @@ extension InventoryTabsExt on _InventoryPageState {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  "${item['unit']}",
+                  (item['unit'] ?? '').toString(),
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: isDead ? slate400 : slate600,
                   ),
@@ -475,6 +484,9 @@ extension InventoryTabsExt on _InventoryPageState {
           .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Center(child: Text("현장 자재를 불러오지 못했습니다. 통신을 확인하십시오."));
+        }
         if (!snapshot.hasData) {
           return const Center(
             child: CircularProgressIndicator(color: makitaTeal),
@@ -605,9 +617,9 @@ extension InventoryTabsExt on _InventoryPageState {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          "${data['unit']}",
+                          (data['unit'] ?? '').toString(),
                           style: const TextStyle(
-                            fontSize: 20,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: slate600,
                           ),
@@ -684,6 +696,9 @@ extension InventoryTabsExt on _InventoryPageState {
                 .limit(300)
                 .snapshots(),
             builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return const Center(child: Text("기록을 불러오지 못했습니다. 통신을 확인하십시오."));
+              }
               if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
               }
@@ -758,7 +773,7 @@ extension InventoryTabsExt on _InventoryPageState {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "${log['project_name']} • $dateStr",
+                          "${log['project_name'] ?? log['job_name'] ?? ''} • $dateStr",
                           style: const TextStyle(
                             fontSize: 13,
                             color: slate700,
@@ -778,7 +793,7 @@ extension InventoryTabsExt on _InventoryPageState {
                       ],
                     ),
                     trailing: Text(
-                      "$sign ${log['qty']} ${log['unit']}",
+                      "$sign ${log['qty'] ?? ''} ${log['unit'] ?? ''}",
                       style: TextStyle(
                         color: iconColor,
                         fontWeight: FontWeight.w900,

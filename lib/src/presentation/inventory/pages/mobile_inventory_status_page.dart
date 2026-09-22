@@ -254,6 +254,11 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
               : StreamBuilder<QuerySnapshot>(
                   stream: _inventoryDb.snapshots(includeMetadataChanges: true),
                   builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return const Center(
+                        child: Text("자재 목록을 불러오지 못했습니다. 통신을 확인하십시오."),
+                      );
+                    }
                     if (!snapshot.hasData) {
                       return const Center(
                         child: CircularProgressIndicator(color: slate300),
@@ -617,7 +622,11 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
     try {
       await saveLeftovers(all);
       if (!mounted) return;
-      setState(() => _leftovers = all);
+      setState(() {
+        _leftovers = all;
+        // 자재 줄의 "잔재 있음" 표시도 같이 갱신(예전엔 지운 잔재가 계속 보였다).
+        _leftoverBySpec = leftoverSummaryBySpec(all);
+      });
       showCuttingSnack(context, "지웠습니다.");
     } catch (_) {
       if (!mounted) return;

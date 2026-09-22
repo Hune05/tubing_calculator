@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import 'inventory_constants.dart';
+import 'inventory_view_logic.dart' show isShortStock;
 
 part 'inventory_tabs.dart';
 part 'inventory_dialogs.dart';

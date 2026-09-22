@@ -269,7 +269,7 @@ class _InventoryItemCardState extends State<InventoryItemCard> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                isEmpty ? "$hint 입력" : "$infoType: $value",
+                isEmpty ? "$hint 입력" : "$hint: $value",
                 style: TextStyle(
                   color: isEmpty ? Colors.grey.shade500 : slate900,
                   fontSize: 14,

@@ -105,7 +105,8 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
 
   ItemData _createItemDataFromDoc(Map<String, dynamic> docData) {
     ItemData item = ItemData();
-    item.qty = docData['qty'] ?? 0;
+    // 다른 기기가 소수로 적었어도 죽지 않게.
+    item.qty = (docData['qty'] as num?)?.toInt() ?? 0;
     try {
       item.heatNo = docData['heatNo'] ?? '';
       item.maker = docData['maker'] ?? '';
@@ -144,6 +145,36 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
   // 다르게 쓰던 것을 앱 색(청록) 하나로 맞췄다.
   @override
   Widget build(BuildContext context) {
+    // 센 수량은 올리기 전까지 폰 화면에만 있다. 뒤로 가기로 나가면 다 사라지므로 묻는다.
+    return PopScope(
+      canPop: _localEdits.isEmpty && _newLocalItems.isEmpty,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final leave = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: pureWhite,
+            title: const Text("아직 올리지 않은 수량이 있습니다"),
+            content: const Text("나가면 센 수량이 사라집니다. 그래도 나가겠습니까?"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text("계속 세기"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text("나가기", style: TextStyle(color: Colors.red)),
+              ),
+            ],
+          ),
+        );
+        if (leave == true && context.mounted) Navigator.pop(context);
+      },
+      child: _buildBody(context),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
     return Scaffold(
       backgroundColor: pureWhite,
       body: GestureDetector(
@@ -173,7 +204,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
         children: [
           IconButton(
             icon: const Icon(Icons.arrow_back, color: slate900),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.maybePop(context),
           ),
           const Expanded(
             child: Text(
@@ -330,6 +361,14 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     return StreamBuilder<QuerySnapshot>(
       stream: _inventoryDb.snapshots(includeMetadataChanges: true),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              "자재 목록을 불러오지 못했습니다. 통신을 확인하십시오.",
+              style: TextStyle(color: slate600),
+            ),
+          );
+        }
         if (!snapshot.hasData) {
           return const Center(
             child: CircularProgressIndicator(color: makitaTeal),
@@ -427,17 +466,37 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
             HapticFeedback.lightImpact();
             setState(() {
               if (!_localEdits.containsKey(docId) && !isLocalNew) {
-                final m = dbDocs.firstWhere((d) => d.id == docId).data();
+                // 목록이 바뀌는 순간 누르면 없을 수 있다(예전엔 여기서 죽었다).
+                final doc = dbDocs.cast<QueryDocumentSnapshot?>().firstWhere(
+                  (d) => d!.id == docId,
+                  orElse: () => null,
+                );
                 _localEdits[docId] = _createItemDataFromDoc(
-                  (m as Map<String, dynamic>?) ?? {},
+                  (doc?.data() as Map<String, dynamic>?) ?? {},
                 );
               }
               final next = (_localEdits[docId]?.qty ?? 0) + delta;
               if (next >= 0) _localEdits[docId]!.qty = next;
             });
           },
-          onQuantityTap: () =>
-              _showQuantityInputDialog(docId, itemName, displayData.qty),
+          onQuantityTap: () => _showQuantityInputDialog(
+            docId,
+            itemName,
+            displayData.qty,
+            seed: () => isLocalNew
+                ? null
+                : _createItemDataFromDoc(
+                    (dbDocs
+                                .cast<QueryDocumentSnapshot?>()
+                                .firstWhere(
+                                  (d) => d!.id == docId,
+                                  orElse: () => null,
+                                )
+                                ?.data()
+                            as Map<String, dynamic>?) ??
+                        {},
+                  ),
+          ),
           onExtraInfoTap: (infoType) =>
               _showExtraInfoDialog(docId, displayData, infoType),
         );

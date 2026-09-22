@@ -9,6 +9,7 @@ extension _InventoryDialogsExt on _InventoryPageState {
     final TextEditingController qtyCtrl = TextEditingController();
     final TextEditingController projCtrl = TextEditingController();
     final TextEditingController reasonCtrl = TextEditingController();
+    bool busy = false;
 
     showDialog(
       context: context,
@@ -143,14 +144,31 @@ extension _InventoryDialogsExt on _InventoryPageState {
               ),
             ),
             onPressed: () async {
+              // 통신이 느릴 때 두 번 누르면 두 번 빠졌다.
+              if (busy) return;
+              busy = true;
               int qty = int.tryParse(qtyCtrl.text) ?? 0;
               String proj = projCtrl.text.trim();
               String reason = reasonCtrl.text.trim();
-              int currentStock = item['qty'] ?? 0;
+              int currentStock = (item['qty'] as num?)?.toInt() ?? 0;
 
               if (qty <= 0 ||
                   (isDispatch && proj.isEmpty) ||
                   (isDispatch && qty > currentStock)) {
+                busy = false;
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        qty <= 0
+                            ? "수량을 넣으십시오."
+                            : proj.isEmpty
+                            ? "프로젝트를 넣으십시오."
+                            : "창고 수량($currentStock)보다 많이 뺄 수 없습니다.",
+                      ),
+                    ),
+                  );
+                }
                 return;
               }
 
@@ -207,11 +225,12 @@ extension _InventoryDialogsExt on _InventoryPageState {
                   });
                 }
               } catch (e) {
+                busy = false;
                 debugPrint("Error: $e");
               }
             },
             child: Text(
-              isDispatch ? "뺐습니다" : "넣었습니다",
+              isDispatch ? "빼기" : "넣기",
               style: const TextStyle(
                 color: pureWhite,
                 fontWeight: FontWeight.bold,
@@ -363,7 +382,7 @@ extension _InventoryDialogsExt on _InventoryPageState {
               ),
               onPressed: () async {
                 int qty = int.tryParse(qtyCtrl.text) ?? 0;
-                int currentProjQty = pItem['qty'] ?? 0;
+                int currentProjQty = (pItem['qty'] as num?)?.toInt() ?? 0;
 
                 if (qty <= 0 || qty > currentProjQty) {
                   return;
@@ -771,7 +790,10 @@ extension _InventoryDialogsExt on _InventoryPageState {
           var snapshot = await _logsDb.get();
           WriteBatch batch = FirebaseFirestore.instance.batch();
           for (var doc in snapshot.docs) {
-            final ts = doc['timestamp'] as Timestamp?;
+            // 서버 시각이 아직 안 붙은 기록은 칸이 없어 doc['timestamp']가 죽는다.
+            final ts =
+                (doc.data() as Map<String, dynamic>?)?['timestamp']
+                    as Timestamp?;
             if (ts != null) {
               if (isAll || ts.toDate().isBefore(cutoff)) {
                 batch.delete(doc.reference);
@@ -929,7 +951,7 @@ extension _InventoryDialogsExt on _InventoryPageState {
               int physicalQty = int.tryParse(physicalQtyCtrl.text) ?? -1;
               if (physicalQty < 0) return;
 
-              int systemQty = item['qty'] ?? 0;
+              int systemQty = (item['qty'] as num?)?.toInt() ?? 0;
               int diff = physicalQty - systemQty;
 
               if (diff == 0) {
@@ -941,6 +963,7 @@ extension _InventoryDialogsExt on _InventoryPageState {
                 await _inventoryDb.doc(docId).update({'qty': physicalQty});
                 await _logsDb.add({
                   'type': 'AUDIT',
+                  'action': '재고 실사',
                   'project_name': '정기 재고 수정',
                   'material_name': item['name'],
                   'qty': diff.abs(),

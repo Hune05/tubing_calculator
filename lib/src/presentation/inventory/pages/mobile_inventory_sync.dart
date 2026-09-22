@@ -177,6 +177,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
 
     try {
       WriteBatch batch = FirebaseFirestore.instance.batch();
+      bool fromCache = false;
 
       for (var entry in _localEdits.entries) {
         String docId = entry.key;
@@ -244,6 +245,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
           DocumentReference existingDocRef = _inventoryDb.doc(docId);
 
           var snapshot = await existingDocRef.get();
+          if (snapshot.metadata.isFromCache) fromCache = true;
           if (snapshot.exists) {
             Map<String, dynamic> dbData =
                 snapshot.data() as Map<String, dynamic>;
@@ -284,6 +286,8 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
             if (diff != 0) {
               batch.set(_logsDb.doc(), {
                 'type': 'AUDIT',
+                // "지난 재고조사 뒤 N 나감" 셈이 여기서 멈추게 하는 표시.
+                'action': '재고 실사',
                 'project_name': '현장 재고조사',
                 'material_name': dbData['name'],
                 'qty': diff.abs(),
@@ -297,13 +301,24 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
         }
       }
 
-      await batch.commit();
+      // 통신이 없으면 서버 확인이 영영 안 끝나 "올리고 있습니다"에서 멈추고, 다시 누르면
+      // 재고조사 기록이 두 번 남았다. 폰에 먼저 적히므로 기다리지 않는다.
+      if (fromCache) {
+        unawaited(batch.commit().catchError((_) {}));
+      } else {
+        await batch.commit().timeout(
+          const Duration(seconds: 8),
+          onTimeout: () {},
+        );
+      }
 
       if (!mounted) return;
       setState(() {
-        _historyLogs.firstWhere(
-          (log) => log['id'] == newRecord['id'],
-        )['status'] = "completed";
+        final rec = _historyLogs.cast<Map<String, dynamic>?>().firstWhere(
+          (log) => log!['id'] == newRecord['id'],
+          orElse: () => null,
+        );
+        rec?['status'] = "completed";
 
         _localEdits.clear();
         _newLocalItems.clear();
@@ -322,11 +337,13 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
     } catch (e) {
       debugPrint(e.toString());
       if (!mounted) return;
-      setState(
-        () => _historyLogs.firstWhere(
-          (log) => log['id'] == newRecord['id'],
-        )['status'] = "failed",
-      );
+      setState(() {
+        final rec = _historyLogs.cast<Map<String, dynamic>?>().firstWhere(
+          (log) => log!['id'] == newRecord['id'],
+          orElse: () => null,
+        );
+        rec?['status'] = "failed";
+      });
       _showErrorSnackBar("올리지 못했습니다. 통신을 확인하십시오.");
     }
   }

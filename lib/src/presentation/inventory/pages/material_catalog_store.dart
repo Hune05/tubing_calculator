@@ -34,6 +34,9 @@ Future<List<CatalogItem>> loadMaterialCatalog() async {
 /// 채운 개수를 돌려준다.
 Future<int> seedMissingCatalog() async {
   final snap = await _catalog.get();
+  // 통신이 없어 폰 캐시(비어 있을 수 있음)로 답하면 채우지 않는다. 예전엔 이때 천 건을
+  // 쓰려다 서버 확인이 안 끝나 화면이 영영 돌았다.
+  if (snap.metadata.isFromCache) return 0;
   final have = {for (final d in snap.docs) d.id};
   final missing = [
     for (final item in allMaterialCatalog())
