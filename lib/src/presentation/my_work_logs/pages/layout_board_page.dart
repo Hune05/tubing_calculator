@@ -158,6 +158,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   Rect? _groupOriginBounds;
 
   final GlobalKey _boardKey = GlobalKey();
+  // 도면이 보이는 칸. 계기 목록에서 고른 것을 지금 보이는 가운데에 놓을 때 쓴다.
+  final GlobalKey _viewerKey = GlobalKey();
   final GlobalKey _captureKey = GlobalKey();
 
   // 🚀 [신규] 미니맵 - 확대해서 작업할 때 지금 전체 도면 중 어디를 보고
@@ -4461,6 +4463,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           }
         });
         return InteractiveViewer(
+          key: _viewerKey,
           transformationController: _viewerController,
           minScale: 0.1,
           maxScale: 4.0,
@@ -5248,6 +5251,32 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   ),
               ],
             ),
+            const SizedBox(height: 20),
+            _panelLabel("계기 (정면 크기, 브래킷 빼고)"),
+            for (final brand in kInstrumentPresets.entries) ...[
+              const SizedBox(height: 10),
+              Text(
+                brand.key,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: tossText,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final preset in brand.value)
+                    _dragTile(
+                      preset,
+                      (_) => _buildInstrumentChip(preset, width: 228),
+                      affinity: Axis.horizontal,
+                    ),
+                ],
+              ),
+            ],
             if (_customPresets.isNotEmpty) ...[
               const SizedBox(height: 20),
               _buildPresetArea(wide: true),
@@ -6023,6 +6052,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 (_) => _buildPaletteItem("신규 모듈"),
               ),
               const SizedBox(width: 8),
+              _buildInstrumentButton(),
+              const SizedBox(width: 8),
               // 🚀 ABS 배선덕트: 폭이 정해진 자재라 원하는 폭을 바로 끌어다 놓는다.
               // (참고용 명목 폭 - 실제 발주 규격 확인 필요, kDuctPresets 주석 참고)
               Expanded(
@@ -6350,6 +6381,161 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       confirmLabel: "삭제",
     );
     if (ok && mounted) await _deleteCustomPreset(index);
+  }
+
+  // 좁은 화면 "계기" 단추: 누르면 제조사별 목록이 뜨고, 고르면 지금 보이는 도면 가운데에 놓는다.
+  // (아래 칸 높이를 늘리면 도면이 좁아져서 끌어다 놓기 대신 목록으로 둔다.)
+  Widget _buildInstrumentButton() {
+    return Material(
+      key: const ValueKey("instrument_button"),
+      color: pureWhite,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: tossSubText.withValues(alpha: 0.3), width: 1.5),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: _showInstrumentSheet,
+        child: const SizedBox(
+          width: 76,
+          height: 56,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.speed_rounded, size: 22, color: tossBlue),
+              Text(
+                "계기",
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: tossText,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showInstrumentSheet() async {
+    final ModulePreset? picked = await showModalBottomSheet<ModulePreset>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        builder: (ctx, scroll) => ListView(
+          controller: scroll,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          children: [
+            const Text(
+              "계기 놓기",
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+                color: tossText,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              keepWords(
+                "정면에서 본 몸통 크기입니다(2인치 브래킷 빼고). 누르면 지금 보이는 도면 가운데에 놓습니다.",
+              ),
+              style: const TextStyle(
+                fontSize: 14,
+                color: tossSubText,
+                height: 1.4,
+              ),
+            ),
+            for (final brand in kInstrumentPresets.entries) ...[
+              const SizedBox(height: 16),
+              _panelLabel(brand.key),
+              for (final p in brand.value)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    p.name,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: tossText,
+                    ),
+                  ),
+                  trailing: Text(
+                    "${p.width.toInt()}×${p.height.toInt()}",
+                    style: const TextStyle(fontSize: 15, color: tossSubText),
+                  ),
+                  onTap: () => Navigator.pop(ctx, p),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    _onAcceptItem(picked, _visibleBoardCenter(picked));
+  }
+
+  // 지금 화면에 보이는 도면 가운데(모듈 왼쪽 위 자리). 못 구하면 도면 한가운데.
+  Offset _visibleBoardCenter(ModulePreset p) {
+    final half = Offset(p.width / 2, p.height / 2);
+    try {
+      final viewer = _viewerKey.currentContext!.findRenderObject() as RenderBox;
+      final board = _boardKey.currentContext!.findRenderObject() as RenderBox;
+      final g = viewer.localToGlobal(viewer.size.center(Offset.zero));
+      return board.globalToLocal(g) - half;
+    } catch (_) {
+      return Offset(_panelWidth / 2, _panelHeight / 2) - half;
+    }
+  }
+
+  // 계기 한 칸: 모델 이름과 정면 가로×세로(mm).
+  Widget _buildInstrumentChip(ModulePreset preset, {double? width}) {
+    return Container(
+      height: 56,
+      width: width,
+      constraints: const BoxConstraints(minWidth: 72),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: pureWhite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: tossSubText.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            preset.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: tossText,
+              height: 1.2,
+            ),
+          ),
+          Text(
+            "${preset.width.toInt()}×${preset.height.toInt()}",
+            style: const TextStyle(
+              fontSize: 14,
+              color: tossSubText,
+              height: 1.2,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildDuctChip(ModulePreset preset, {double width = 76}) {

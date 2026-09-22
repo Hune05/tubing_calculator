@@ -36,6 +36,44 @@ const List<ModulePreset> kDuctPresets = [
   ModulePreset("ABS덕트 100mm", 100, 200),
 ];
 
+/// 계기(트랜스미터·스위치) 모듈. 정면에서 본 몸통 크기(2인치 브래킷 빼고)다.
+/// 제조사 도면의 외곽 치수를 mm로 옮겼다(2026-09 판). 제조사 이름 순서가 화면에 나오는 순서다.
+/// "≈"는 도면에 숫자가 없어 비례로 잰 값(±5mm 안팎).
+///
+/// 출처
+/// - 요꼬가와: GS 01C31B01-01EN p.14(EJA110E), GS 01C31E01-01EN p.12(EJA430E),
+///   GS 01C31F01-01EN p.11(EJA530E, 접속 코드 7). 수평 배관의 가로 115는 ≈.
+/// - 오토롤(듀온시스템): 카탈로그 C3100-E05C p.12(APT3100), C3200-E05C p.8(APT3200).
+/// - 로즈마운트: PDS 00813-0100-4001 p.97·100·102(3051), 00813-0100-4101 p.88·96(2051),
+///   00813-0100-4030 p.23(2120 나사형 표준 길이), 00813-0100-4130 p.23(2130).
+///   3051 재래식 플랜지 세로 200은 ≈(2051은 197).
+/// - 로즈마운트 상표 압력 스위치는 없다(에머슨 압력 스위치는 ASCO 상표).
+const Map<String, List<ModulePreset>> kInstrumentPresets = {
+  "요꼬가와": [
+    ModulePreset("EJA110E DPT 수직배관", 175, 138),
+    ModulePreset("EJA110E DPT 수평배관", 115, 175),
+    ModulePreset("EJA430E PT 수직배관", 175, 138),
+    ModulePreset("EJA430E PT 수평배관", 115, 175),
+    ModulePreset("EJA530E PT 인라인", 95, 159),
+  ],
+  "오토롤": [
+    ModulePreset("APT3100 DPT", 86, 194),
+    ModulePreset("APT3200 PT", 86, 160),
+  ],
+  "로즈마운트": [
+    ModulePreset("3051CD DPT", 104, 181),
+    ModulePreset("3051CD DPT 재래식 플랜지", 115, 200),
+    ModulePreset("3051CG PT", 104, 181),
+    ModulePreset("3051TG PT 인라인", 104, 183),
+    ModulePreset("2051CD DPT", 98, 179),
+    ModulePreset("2051TG PT 인라인", 98, 183),
+    ModulePreset("2120 레벨 스위치", 120, 220),
+    ModulePreset("2120 레벨 스위치 나일론", 141, 196),
+    ModulePreset("2130 레벨 스위치", 120, 251),
+    ModulePreset("2130 레벨 스위치 고온", 120, 418),
+  ],
+};
+
 abstract class MeasurePoint {
   Offset get center;
   Rect get boundingBox;
