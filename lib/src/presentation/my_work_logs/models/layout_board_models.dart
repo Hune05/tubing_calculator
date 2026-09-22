@@ -747,6 +747,9 @@ class PlacedItem implements MeasurePoint {
   /// 스키드: 바닥에서 부품 가운데까지 높이(mm). 모르면 null.
   double? elevation;
 
+  /// 스키드 전선관 부속: 길이 방향으로 좌우를 뒤집어 놓음(허브가 반대쪽). 크기는 그대로.
+  bool flipped;
+
   PlacedItem({
     required this.id,
     required this.name,
@@ -758,6 +761,7 @@ class PlacedItem implements MeasurePoint {
     this.shape,
     this.depth,
     this.elevation,
+    this.flipped = false,
   });
 
   @override
@@ -781,6 +785,7 @@ class PlacedItem implements MeasurePoint {
     if (shape != null) 'shape': shape,
     if (depth != null) 'depth': depth,
     if (elevation != null) 'elev': elevation,
+    if (flipped) 'flip': true,
   };
 
   factory PlacedItem.fromJson(Map<String, dynamic> j) => PlacedItem(
@@ -795,6 +800,7 @@ class PlacedItem implements MeasurePoint {
         (j['depth'] as num?)?.toDouble() ??
         _presetDepthByName(j['name'] as String?),
     elevation: (j['elev'] as num?)?.toDouble(),
+    flipped: j['flip'] == true,
   );
 }
 

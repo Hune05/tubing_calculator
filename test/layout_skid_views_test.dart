@@ -323,4 +323,125 @@ void main() {
     final saved = jsonDecode(prefs.getString('layout_board_draft_v1')!) as Map;
     expect(saved['showHiddenParts'], false);
   });
+  test('좌우 뒤집기: 저장했다 읽어도 남고(예전 도면은 false), 그림이 실제로 좌우 대칭으로 바뀐다', () async {
+    final lb = PlacedItem(
+      id: 'lb',
+      name: '곤질레다 LB 22',
+      position: Offset.zero,
+      width: 125,
+      height: 48,
+      shape: SkidShape.cdLB,
+      flipped: true,
+    );
+    expect(lb.toJson()['flip'], true);
+    expect(PlacedItem.fromJson(lb.toJson()).flipped, isTrue);
+    final old = Map<String, dynamic>.from(lb.toJson())..remove('flip');
+    expect(PlacedItem.fromJson(old).flipped, isFalse);
+
+    Future<List<int>> px(bool mirror, Size size) async {
+      final rec = ui.PictureRecorder();
+      final c = Canvas(rec);
+      c.drawRect(Offset.zero & size, Paint()..color = const Color(0xFFFFFFFF));
+      SkidPartPainter(shape: SkidShape.cdLB, mirror: mirror).paint(c, size);
+      final img = await rec.endRecording().toImage(
+        size.width.toInt(),
+        size.height.toInt(),
+      );
+      return (await img.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      ))!.buffer.asUint8List();
+    }
+
+    // 가로로 놓인 LB: 뒤집은 그림의 (x)는 원래 그림의 (w-1-x)와 같다.
+    const size = Size(120, 48);
+    final a = await px(false, size), b = await px(true, size);
+    int diff = 0;
+    for (int y = 0; y < 48; y++) {
+      for (int x = 0; x < 120; x++) {
+        final i = (y * 120 + x) * 4, j = (y * 120 + (119 - x)) * 4;
+        if ((a[i] - b[j]).abs() > 40) diff++;
+      }
+    }
+    expect(diff, lessThan(120 * 48 * 0.02)); // 테두리 반 픽셀 차이만
+    // 뒤집기 전후가 같은 그림이면 안 된다(허브가 한쪽에만 있으니).
+    int same = 0;
+    for (int k = 0; k < a.length; k += 4) {
+      if ((a[k] - b[k]).abs() > 40) same++;
+    }
+    expect(same, greaterThan(50));
+    // 세로로 돌려 놓아도(칸이 세로로 김) 길이 방향으로 뒤집힌다: 위아래가 바뀐다.
+    const tall = Size(48, 120);
+    final c = await px(false, tall), d = await px(true, tall);
+    int diffV = 0;
+    for (int y = 0; y < 120; y++) {
+      for (int x = 0; x < 48; x++) {
+        final i = (y * 48 + x) * 4, j = ((119 - y) * 48 + x) * 4;
+        if ((c[i] - d[j]).abs() > 40) diffV++;
+      }
+    }
+    expect(diffV, lessThan(120 * 48 * 0.02));
+  });
+
+  testWidgets('편집 창의 좌우 뒤집기 단추는 전선관 부속에만 있고, 누르면 뒤집히고 되돌리기로 돌아온다', (
+    tester,
+  ) async {
+    await openSkid(
+      tester,
+      prefs: {
+        'layout_board_draft_v1': jsonEncode({
+          'kind': kLayoutKindSkid,
+          'panelWidth': 2400,
+          'panelHeight': 1200,
+          'items': [
+            PlacedItem(
+              id: 'lb',
+              name: '곤질레다 LB 22',
+              position: const Offset(1000, 500),
+              width: 125,
+              height: 48,
+              shape: SkidShape.cdLB,
+              depth: 72,
+            ).toJson(),
+            PlacedItem(
+              id: 'jb',
+              name: '정션박스 300×300',
+              position: const Offset(200, 200),
+              width: 300,
+              height: 300,
+              shape: SkidShape.jb,
+            ).toJson(),
+          ],
+        }),
+      },
+    );
+    await tester.tap(find.byKey(const ValueKey('jb')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('flip_button')), findsNothing);
+    await tester.tap(find.byIcon(Icons.close_rounded).last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('lb')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('flip_button')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('flip_button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.close_rounded).last);
+    await tester.pumpAndSettle();
+    final state = tester.state(find.byType(LayoutBoardPage)) as dynamic;
+    Map<String, dynamic> lb() {
+      final plates = state.debugPlates() as Map<String, Map<String, dynamic>>;
+      return Map<String, dynamic>.from(
+        (plates[kPlateMain]!['items'] as List).firstWhere(
+              (e) => e['id'] == 'lb',
+            )
+            as Map,
+      );
+    }
+
+    expect(lb()['flip'], true);
+    expect(lb()['w'], 125); // 크기는 그대로
+    await tester.tap(find.byIcon(Icons.undo_rounded).first);
+    await tester.pumpAndSettle();
+    expect(lb()['flip'], isNull);
+  });
 }

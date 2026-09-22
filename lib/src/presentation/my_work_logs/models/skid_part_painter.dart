@@ -33,10 +33,6 @@ class SkidPartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (size.width <= 0 || size.height <= 0) return;
     canvas.save();
-    if (mirror) {
-      canvas.translate(size.width, 0);
-      canvas.scale(-1, 1);
-    }
     Size s = size;
     // 위에서 본 모습은 긴 쪽을 가로로 그린다. 칸이 세로로 길면(90° 돌려 놓음) 그림도 돌린다.
     if (face == SkidFace.top &&
@@ -45,6 +41,11 @@ class SkidPartPainter extends CustomPainter {
       canvas.translate(size.width, 0);
       canvas.rotate(math.pi / 2);
       s = Size(size.height, size.width);
+    }
+    // 뒤집기는 돌린 뒤에 해서, 돌려 놓은 부품도 길이 방향으로 뒤집힌다.
+    if (mirror) {
+      canvas.translate(s.width, 0);
+      canvas.scale(-1, 1);
     }
     drawSkidPart(canvas, s, shape, face, stroke, strokeWidth);
     canvas.restore();

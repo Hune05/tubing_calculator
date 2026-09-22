@@ -3791,6 +3791,39 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     ),
                     const SizedBox(height: 20),
 
+                    if (SkidShape.isFitting(item.shape)) ...[
+                      // 전선관 부속(곤질레다·커플링·유니온)은 허브 방향을 바꿀 수 있다.
+                      ElevatedButton.icon(
+                        key: const ValueKey("flip_button"),
+                        onPressed: () {
+                          _flipItem(item);
+                          setModalState(() {});
+                        },
+                        icon: const Icon(
+                          Icons.flip_rounded,
+                          size: 18,
+                          color: tossBlue,
+                        ),
+                        label: const Text(
+                          "좌우 뒤집기 (허브 반대쪽)",
+                          style: TextStyle(
+                            color: tossBlue,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(40, 44),
+                          backgroundColor: tossBlue.withValues(alpha: 0.1),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     // 🚀 [여기가 핵심 추가본입니다] 회전 & 복사 버튼
                     Row(
                       children: [
@@ -3879,6 +3912,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                   shape: item.shape,
                                   depth: item.depth,
                                   elevation: item.elevation,
+                                  flipped: item.flipped,
                                 );
                                 _placedItems.add(newItem);
                               });
@@ -6543,6 +6577,17 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       accent: true,
                     ),
                   ),
+                  if (SkidShape.isFitting(item.shape)) ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _inspectorButton(
+                        icon: Icons.flip_rounded,
+                        label: "좌우 뒤집기",
+                        onTap: () => _flipItem(item),
+                        accent: true,
+                      ),
+                    ),
+                  ],
                   const SizedBox(width: 8),
                   Expanded(
                     child: _inspectorButton(
@@ -7746,7 +7791,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           it: p.it,
           rect: p.rect,
           face: p.face,
-          mirror: _plateId == 'right',
+          // 옆모습은 뒤집어 놓은 부품이면 반대로, 우측면은 좌우가 뒤집혀 보인다.
+          mirror: p.face == SkidFace.side
+              ? (p.it.flipped != (_plateId == 'right'))
+              : _plateId == 'right',
           covered: p.covered,
         ),
     ];
@@ -8645,6 +8693,13 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     HapticFeedback.lightImpact();
   }
 
+  /// 전선관 부속을 길이 방향으로 좌우 뒤집는다(허브가 반대쪽). 크기·자리는 그대로.
+  void _flipItem(PlacedItem item) {
+    _pushUndo();
+    setState(() => item.flipped = !item.flipped);
+    HapticFeedback.lightImpact();
+  }
+
   // 모듈 하나 복제: 오른쪽 아래로 20mm 비켜 놓고, 넓은 화면에서는 복제본을 고른다.
   void _duplicateItem(PlacedItem item) {
     _pushUndo();
@@ -8669,6 +8724,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       shape: item.shape,
       depth: item.depth,
       elevation: item.elevation,
+      flipped: item.flipped,
     );
     setState(() {
       _placedItems.add(newItem);
@@ -8864,16 +8920,29 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         children: [
           Positioned.fill(
             child: CustomPaint(
-              painter: InstrumentShapePainter(
-                shape: item.shape!,
-                stroke: color,
-                strokeWidth:
-                    item.isSelected ||
-                        isMeasuringStart ||
-                        _problemIds.contains(item.id)
-                    ? 2.5
-                    : 1.5,
-              ),
+              painter: SkidShape.isFitting(item.shape)
+                  // 전선관 부속은 뒤집어 놓을 수 있어 스키드 부품 그림으로 그린다.
+                  ? SkidPartPainter(
+                      shape: item.shape!,
+                      mirror: item.flipped,
+                      stroke: color,
+                      strokeWidth:
+                          item.isSelected ||
+                              isMeasuringStart ||
+                              _problemIds.contains(item.id)
+                          ? 2.5
+                          : 1.5,
+                    )
+                  : InstrumentShapePainter(
+                      shape: item.shape!,
+                      stroke: color,
+                      strokeWidth:
+                          item.isSelected ||
+                              isMeasuringStart ||
+                              _problemIds.contains(item.id)
+                          ? 2.5
+                          : 1.5,
+                    ),
             ),
           ),
           Center(
