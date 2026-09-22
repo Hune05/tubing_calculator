@@ -19,8 +19,10 @@ Future<void> openSharedDrawing(BuildContext context, String imagePath) async {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
+    // 작은 폰(세로 568)에서는 창이 화면보다 길어 굴린다.
+    isScrollControlled: true,
     builder: (ctx) => SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
