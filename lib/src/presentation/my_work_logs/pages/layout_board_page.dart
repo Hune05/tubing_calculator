@@ -7104,6 +7104,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     final Color color = isMeasuringStart
         ? activeColor
         : (item.isSelected ? tossBlue : const Color(0xFF64748B));
+    // 피팅처럼 작은 것은 이름 띠가 그림을 다 가려서, 글씨를 줄이고 띠를 비친다.
+    final bool small = math.min(item.width, item.height) < 60;
     return SizedBox(
       width: item.width,
       height: item.height,
@@ -7121,12 +7123,12 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           Center(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-              color: pureWhite.withValues(alpha: 0.85),
+              color: pureWhite.withValues(alpha: small ? 0.55 : 0.85),
               child: Text(
                 item.name,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: small ? 8 : 11,
                   fontWeight: FontWeight.w800,
                   color: isMeasuringStart
                       ? activeColor
@@ -7134,7 +7136,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   height: 1.15,
                   letterSpacing: -0.3,
                 ),
-                maxLines: 3,
+                maxLines: small ? 2 : 3,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
