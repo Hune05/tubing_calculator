@@ -5932,7 +5932,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               child: CustomPaint(
                                 size: Size.infinite,
                                 painter: DimensionPainter(
-                                  dimensions: _dimensions,
+                                  dimensions: _syncedDimensions,
                                   activePoint: _dimensionStartPoint,
                                   panelWidth: _panelWidth,
                                   panelHeight: _panelHeight,
@@ -7863,6 +7863,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       }
       it.elevation = (_panelHeight - top - v / 2).roundToDouble();
     });
+    _dimensionsVersion++; // 이 면 치수가 옮긴 부품을 따라 다시 그려지게
   }
 
   List<Widget> _buildViewProxies() {
@@ -7880,7 +7881,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           height: p.rect.height,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => _openPlanItemFromView(p.it.id),
+            // 고정 치수 측정이면 이 면에서 본 자리로 치수 점을 찍고, 아니면 평면 편집으로 간다.
+            onTap: () => _mode == BoardMode.measureDimension
+                ? _handleDimensionPoint(_viewPoint(p.it, p.rect))
+                : _openPlanItemFromView(p.it.id),
             onPanStart: _mode != BoardMode.placeModule || p.it.isLocked
                 ? null
                 : (_) {
@@ -7922,7 +7926,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       shape: p.it.shape ?? '',
                       face: p.face,
                       mirror: p.mirror,
-                      stroke: _proxyDragId == p.it.id
+                      stroke:
+                          _proxyDragId == p.it.id ||
+                              _dimensionStartPoint?.id == _viewPointId(p.it.id)
                           ? tossBlue
                           : const Color(0xFF64748B),
                       strokeWidth: 1.5 * _markScale.clamp(1.0, 3.0),
@@ -7949,6 +7955,41 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           ),
         ),
     ];
+  }
+
+  /// 그릴 치수 목록(정면·측면이면 평면 부품 자리로 맞춘 뒤).
+  List<PlacedDimension> get _syncedDimensions {
+    _syncViewDimensions();
+    return _dimensions;
+  }
+
+  /// 정면·측면에서 잰 치수는 평면 부품의 "이 면에서 본 자리"를 점으로 쓴다(아이디 view_…).
+  static String _viewPointId(String planId) => "view_$planId";
+
+  PlacedItem _viewPoint(PlacedItem it, Rect rect) => PlacedItem(
+    id: _viewPointId(it.id),
+    name: it.name,
+    position: rect.topLeft,
+    width: rect.width,
+    height: rect.height,
+  );
+
+  /// 정면·측면 치수 점(view_…)을 지금 평면 부품 자리로 맞춘다. 평면에서 부품을 옮기거나
+  /// 높이를 바꿔도 치수가 따라오게 그릴 때마다 부른다(저장은 맞춰진 자리로 된다).
+  void _syncViewDimensions() {
+    if (!_isSkid || _plateId == kPlateMain || _dimensions.isEmpty) return;
+    final rects = {for (final p in _viewProxies) _viewPointId(p.it.id): p.rect};
+    for (final d in _dimensions) {
+      for (final pt in [d.p1, d.p2]) {
+        final Rect? r = rects[pt.id];
+        if (r != null && pt is PlacedItem) {
+          pt
+            ..position = r.topLeft
+            ..width = r.width
+            ..height = r.height;
+        }
+      }
+    }
   }
 
   /// 정면·측면에서 누른 평면 부품: 평면 탭으로 가서 그 부품을 고르고 편집 칸을 연다.

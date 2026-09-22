@@ -6,6 +6,7 @@ import 'package:vector_math/vector_math_64.dart' as vm;
 import '../../../data/models/conduit_data_manager.dart';
 import '../../conduit/screens/conduit_input_tab.dart' show ConduitInputTab;
 import '../models/instrument_shape_painter.dart';
+import '../models/skid_part_painter.dart';
 import '../models/layout_board_models.dart';
 import '../models/skid_presets.dart';
 import '../models/skid_route.dart';
@@ -419,14 +420,19 @@ class _SkidRouteEditorPageState extends State<SkidRouteEditorPage> {
       painter: SkidMiniViewPainter(
         board: board,
         items: viewItems,
-        ghosts: skidGhosts(plan, view, planH: _planH, viewH: board.height),
+        view: view,
+        // 정면·측면은 평면 부품을 그 면에서 본 모양으로(가까운 것이 위, 가려진 것은 점선).
+        planViews: view == kPlateMainId
+            ? const []
+            : skidViewLayout(plan, view, planH: _planH, viewH: board.height),
         others: [
           for (final r in widget.otherRoutes)
             if (r.id != _route.id) (r.points(plan).map(proj).toList(), r.od),
         ],
         route: _route.points(plan).map(proj).toList(),
         routeOd: _route.od,
-        version: "${view}_${_json(_route)}",
+        version:
+            "${view}_${_json(_route)}_${plan.map((e) => e.toJson()).join()}",
       ),
     );
   }
@@ -607,12 +613,18 @@ class _SkidRouteEditorPageState extends State<SkidRouteEditorPage> {
   );
 }
 
-/// 작은 도면: 판 테두리, 그 탭의 부품(모양), 평면 부품 그림자, 다른 경로(회색), 고치는 경로(청록).
+/// 작은 도면: 판 테두리, 그 탭의 부품(모양), 평면 부품(그 면에서 본 모양), 다른 경로(회색), 고치는 경로(청록).
 /// 좌표는 mm, 칸에 맞춰 줄이되 선 굵기는 줄이지 않는다.
 class SkidMiniViewPainter extends CustomPainter {
   final Size board;
   final List<PlacedItem> items;
-  final List<SkidGhost> ghosts;
+
+  /// 어느 면인지('main'·'front'·'left'·'right').
+  final String view;
+
+  /// 정면·측면에 그릴 평면 부품(skidViewLayout: 먼 것부터, 가려진 정도 포함).
+  final List<({PlacedItem it, Rect rect, SkidFace face, double covered})>
+  planViews;
   final List<(List<Offset>, double)> others;
   final List<Offset> route;
   final double routeOd;
@@ -621,7 +633,8 @@ class SkidMiniViewPainter extends CustomPainter {
   const SkidMiniViewPainter({
     required this.board,
     required this.items,
-    required this.ghosts,
+    this.view = kPlateMainId,
+    this.planViews = const [],
     required this.others,
     required this.route,
     required this.routeOd,
@@ -654,7 +667,16 @@ class SkidMiniViewPainter extends CustomPainter {
 
     for (final it in items) {
       final Rect rr = r(it.position & Size(it.width, it.height));
-      if (it.shape != null) {
+      if (SkidShape.isFitting(it.shape)) {
+        canvas.save();
+        canvas.translate(rr.left, rr.top);
+        SkidPartPainter(
+          shape: it.shape!,
+          mirror: it.flipped,
+          strokeWidth: 0.8,
+        ).paint(canvas, rr.size);
+        canvas.restore();
+      } else if (it.shape != null) {
         canvas.save();
         canvas.translate(rr.left, rr.top);
         InstrumentShapePainter(
@@ -673,13 +695,45 @@ class SkidMiniViewPainter extends CustomPainter {
       }
     }
 
-    final ghostPaint = Paint()
+    // 평면 부품을 이 면에서 본 모양으로. 반 넘게 가려진 것은 점선 테두리만.
+    final hiddenPaint = Paint()
       ..color = const Color(0xFF94A3B8)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
-    for (final g in ghosts) {
-      canvas.drawRect(r(g.rect), Paint()..color = const Color(0x2294A3B8));
-      canvas.drawRect(r(g.rect), ghostPaint);
+    for (final pv in planViews) {
+      final Rect rr = r(pv.rect);
+      if (rr.width <= 0 || rr.height <= 0) continue;
+      canvas.save();
+      canvas.translate(rr.left, rr.top);
+      SkidPartPainter(
+        shape: pv.it.shape ?? '',
+        face: pv.face,
+        mirror: pv.face == SkidFace.side
+            ? (pv.it.flipped != (view == 'right'))
+            : view == 'right',
+        strokeWidth: 0.8,
+      ).paint(canvas, rr.size);
+      canvas.restore();
+      if (pv.covered >= 0.5) {
+        const double dash = 4, gap = 3;
+        void seg(Offset a, Offset b) {
+          final double len = (b - a).distance;
+          if (len <= 0) return;
+          final Offset d = (b - a) / len;
+          for (double t = 0; t < len; t += dash + gap) {
+            canvas.drawLine(
+              a + d * t,
+              a + d * math.min(t + dash, len),
+              hiddenPaint,
+            );
+          }
+        }
+
+        seg(rr.topLeft, rr.topRight);
+        seg(rr.topRight, rr.bottomRight);
+        seg(rr.bottomRight, rr.bottomLeft);
+        seg(rr.bottomLeft, rr.topLeft);
+      }
     }
 
     void line(List<Offset> pts, double od, Color c, bool dots) {

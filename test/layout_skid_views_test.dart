@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/skid_route_editor_page.dart';
 
 void main() {
   test('전선관 부속: 곤질레다 LB·LL·LR·LT·LC·LX와 커플링·유니온, 규격 16~54', () {
@@ -443,5 +444,134 @@ void main() {
     await tester.tap(find.byIcon(Icons.undo_rounded).first);
     await tester.pumpAndSettle();
     expect(lb()['flip'], isNull);
+  });
+  testWidgets('정면에서 고정 치수 측정: 평면 부품 둘을 누르면 치수가 생기고, 부품이 옮겨지면 치수가 따라온다', (
+    tester,
+  ) async {
+    Map<String, dynamic> jb(String id, double x, double elev) => PlacedItem(
+      id: id,
+      name: '정션박스 300×300',
+      position: Offset(x, 450),
+      width: 300,
+      height: 300,
+      shape: SkidShape.jb,
+      elevation: elev,
+    ).toJson();
+    await openSkid(
+      tester,
+      prefs: {
+        'layout_board_draft_v1': jsonEncode({
+          'kind': kLayoutKindSkid,
+          'panelWidth': 2400,
+          'panelHeight': 1200,
+          'items': [jb('a', 200, 800), jb('b', 1500, 800)],
+        }),
+      },
+    );
+    await tester.tap(find.byKey(const ValueKey('plate_tab_front')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('고정 치수 측정'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('view_a')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('view_b')));
+    await tester.pumpAndSettle();
+
+    final state = tester.state(find.byType(LayoutBoardPage)) as dynamic;
+    Map<String, dynamic> front() {
+      final plates = state.debugPlates() as Map<String, Map<String, dynamic>>;
+      return plates['front']!;
+    }
+
+    final dims = front()['dimensions'] as List;
+    expect(dims, hasLength(1));
+    final d = Map<String, dynamic>.from(dims.single as Map);
+    expect(d['p1']['id'], 'view_a');
+    expect(d['p2']['id'], 'view_b');
+    // 정면에서 본 자리: a는 x 200, 높이 800 → 위 = 1500-800-150 = 550
+    expect(d['p1']['x'], 200);
+    expect(d['p1']['y'], 550);
+    // 센터 거리 = 1650 - 350 = 1300
+    final dim = PlacedDimension.fromJson(d);
+    expect(computeDimensionEndpoints(dim).distance, 1300);
+
+    // 평면에서 b를 오른쪽으로 옮기면(저장 칸을 직접 고침) 정면 치수가 따라온다.
+    await tester.tap(find.byKey(const ValueKey('plate_tab_main')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('모듈 배치/이동'));
+    await tester.pumpAndSettle();
+    final Offset c = tester.getCenter(find.byKey(const ValueKey('b')));
+    final g = await tester.startGesture(c);
+    for (int i = 0; i < 10; i++) {
+      await g.moveBy(const Offset(8, 0));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await g.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('plate_tab_front')));
+    await tester.pumpAndSettle();
+    final moved = PlacedDimension.fromJson(
+      Map<String, dynamic>.from((front()['dimensions'] as List).single as Map),
+    );
+    expect(computeDimensionEndpoints(moved).distance, greaterThan(1300));
+  });
+  test('경로 입력 작은 도면: 정면·측면에 평면 부품을 점선 네모 대신 그 면에서 본 모양으로 그린다', () async {
+    final jb = PlacedItem(
+      id: 'j',
+      name: '정션박스 300×300',
+      position: const Offset(1000, 450),
+      width: 300,
+      height: 300,
+      shape: SkidShape.jb,
+      elevation: 800,
+    );
+    Future<List<int>> px(List<PlacedItem> plan) async {
+      const size = Size(300, 200);
+      final rec = ui.PictureRecorder();
+      final c = Canvas(rec);
+      SkidMiniViewPainter(
+        board: const Size(2400, 1500),
+        items: const [],
+        view: kSkidViewFront,
+        planViews: skidViewLayout(
+          plan,
+          kSkidViewFront,
+          planH: 1200,
+          viewH: 1500,
+        ),
+        others: const [],
+        route: const [],
+        routeOd: 26.5,
+        version: 'v',
+      ).paint(c, size);
+      final img = await rec.endRecording().toImage(300, 200);
+      return (await img.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      ))!.buffer.asUint8List();
+    }
+
+    final empty = await px([]);
+    final withJb = await px([jb]);
+    int diff = 0;
+    for (int k = 0; k < empty.length; k += 4) {
+      if ((empty[k] - withJb[k]).abs() > 40) diff++;
+    }
+    expect(diff, greaterThan(100)); // JB가 그려졌다
+    // 뒤에 가려진 부품이 있어도 그려진다(점선 테두리 포함).
+    final back = PlacedItem(
+      id: 'b',
+      name: '정션박스 300×300',
+      position: const Offset(1100, 100), // 2/3 가려짐
+      width: 300,
+      height: 300,
+      shape: SkidShape.jb,
+      elevation: 800,
+    );
+    final two = await px([jb, back]);
+    int diff2 = 0;
+    for (int k = 0; k < two.length; k += 4) {
+      if ((two[k] - withJb[k]).abs() > 40) diff2++;
+    }
+    expect(diff2, greaterThan(20)); // 안 가려진 1/3과 점선이 그려졌다
   });
 }
