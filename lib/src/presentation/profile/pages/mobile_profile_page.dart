@@ -74,6 +74,33 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
     }
   }
 
+  // 이름을 바꿀 때 users/{옛 이름} 문서의 칸을 users/{새 이름}에 복사한다.
+  // 통신이 없으면 5초 뒤 그만둔다(이름 바꾸기 자체는 막지 않는다).
+  Future<void> _copyUserDoc(String oldName, String newName) async {
+    if (oldName.isEmpty || oldName == "로그인 필요" || oldName == newName) {
+      return;
+    }
+    try {
+      final users = FirebaseFirestore.instance.collection('users');
+      final snap = await users
+          .doc(oldName)
+          .get()
+          .timeout(const Duration(seconds: 5));
+      final data = snap.data();
+      if (data == null || data.isEmpty) return;
+      await users
+          .doc(newName)
+          .set({
+            ...data,
+            'name': newName,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true))
+          .timeout(const Duration(seconds: 5), onTimeout: () {});
+    } catch (e) {
+      debugPrint("사용자 문서 복사 실패: $e");
+    }
+  }
+
   // 이름만 넣고 쓰던 사람이 이름은 그대로 두고 구글 계정만 잇는다
   // (계산기 설정을 계정에 보관하려고).
   Future<bool> _linkGoogleAccount() async {
@@ -294,10 +321,14 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                     // 2. 스마트폰 로컬 저장소 업데이트
                     await _saveUserData(newId);
 
-                    // 3. 이름이 바뀌었으니 토큰도 새 이름 문서에 저장
+                    // 3. 사용자 문서가 이름으로 되어 있어, 옛 이름 문서에 있던
+                    //    사진·팀·연락처를 새 이름 문서로 옮긴다(옛 문서는 그대로 둔다).
+                    await _copyUserDoc(_displayName, newId);
+
+                    // 4. 이름이 바뀌었으니 토큰도 새 이름 문서에 저장
                     await _saveUserToken(newId);
 
-                    // 4. 화면 즉시 업데이트 (그 사이 화면이 닫혔을 수 있으니 mounted 체크)
+                    // 5. 화면 즉시 업데이트 (그 사이 화면이 닫혔을 수 있으니 mounted 체크)
                     if (!mounted) return;
                     setState(() {
                       _displayName = newId;

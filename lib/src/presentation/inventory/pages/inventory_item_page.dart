@@ -99,7 +99,8 @@ class _Body extends StatelessWidget {
   String get _name => (data['name'] ?? '이름 없음').toString();
   String get _unit => (data['unit'] ?? 'EA').toString();
   int get _qty => (data['qty'] as num?)?.toInt() ?? 0;
-  int get _minQty => (data['minQty'] as num?)?.toInt() ?? 0;
+  int get _minQty =>
+      ((data['minQty'] ?? data['min_qty']) as num?)?.toInt() ?? 0;
   // 원자재 한 본의 길이(mm). 컷팅에서 몇 본 드는지 셀 때 쓴다(비었으면 6000).
   int get _barLengthMm => (data['barLengthMm'] as num?)?.toInt() ?? 0;
 

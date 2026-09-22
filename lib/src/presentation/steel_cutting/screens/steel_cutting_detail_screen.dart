@@ -192,9 +192,19 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     try {
       final mix = await loadMixLengths(kSteelMixPrefsKey);
       final m = mix.isEmpty ? 0.0 : mix.reduce((a, b) => a > b ? a : b);
-      if (mounted && m != _mixMax) setState(() => _mixMax = m);
+      final leftovers = await loadLeftovers();
+      if (!mounted) return;
+      setState(() {
+        _mixMax = m;
+        _mixLengths = mix;
+        _leftovers = leftovers;
+      });
     } catch (_) {}
   }
+
+  // 결과 탭 머리의 본수 셈에 쓰는 섞어 쓰기 길이와 잔재(재단 계획 시트와 같은 자료).
+  List<double> _mixLengths = const [];
+  List<Leftover> _leftovers = const [];
 
   // 긴 항목 경고에 쓰는 원자재 길이: 기준 길이와 섞어 쓰기 길이 중 가장 긴 것.
   double get _maxStock => _stockLength > _mixMax ? _stockLength : _mixMax;
@@ -2587,11 +2597,12 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     );
   }
 
-  // 새 자재만으로 자를 때 몇 본이 드는지. 재단 계획 창과 같은 계산(FFD)을 규격별로 돌려
-  // 본수를 더한다. 잔재는 넣지 않는다 — 잔재를 쓰면 창에서 더 줄어든다.
+  // 새 원자재가 몇 본 드는지. 재단 계획 시트와 같은 셈(잔재 먼저 쓰고, 섞어 쓰기
+  // 길이가 있으면 그것도)을 규격별로 돌려 본수를 더한다. 예전엔 잔재·섞어 쓰기를
+  // 빼고 세서 시트 본수와 달랐다.
   // 조각이 너무 많으면(수백 개) 계산을 건너뛰고 아무 글도 보여 주지 않는다.
   String _stockNote() {
-    if (_stockLength <= 0) return '';
+    if (_stockLength <= 0 && _mixLengths.isEmpty) return '';
     final byShape = _collectPiecesByShape();
     var pieces = 0;
     for (final list in byShape.values) {
@@ -2600,21 +2611,41 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     if (pieces == 0 || pieces > 400) return '';
     var bars = 0;
     var oversized = 0;
-    for (final list in byShape.values) {
-      final r = optimizeCutting(
-        pieces: list,
-        stockLength: _stockLength,
-        kerf: _bladeKerf,
-      );
+    var fromLeftover = 0;
+    for (final e in byShape.entries) {
+      final groupLeftovers = [
+        for (final l in _leftovers)
+          if (l.label == e.key) l.length,
+      ];
+      final r = _mixLengths.isNotEmpty
+          ? optimizeCuttingMixed(
+              pieces: e.value,
+              stockLengths: _mixLengths,
+              kerf: _bladeKerf,
+              leftovers: groupLeftovers,
+            )
+          : optimizeCutting(
+              pieces: e.value,
+              stockLength: _stockLength,
+              kerf: _bladeKerf,
+              leftovers: groupLeftovers,
+            );
       bars += r.barCount;
       oversized += r.oversizedPieces.length;
+      fromLeftover += r.leftoverBars.length;
     }
     // 원자재보다 긴 조각은 본수에 들어가지 않으므로 뺀 개수를 같이 적는다(본수가 모자라 보이지 않게).
     final over = oversized > 0 ? " · 원자재보다 긴 조각 $oversized개는 뺐습니다" : "";
+    final scrap = fromLeftover > 0 ? " · 잔재 $fromLeftover본 씀" : "";
     if (bars == 0) {
-      return oversized > 0 ? "원자재보다 긴 조각 $oversized개는 뺐습니다" : '';
+      final base = fromLeftover > 0 ? "잔재 $fromLeftover본으로 다 됩니다" : "";
+      if (oversized == 0) return base;
+      return base.isEmpty
+          ? "원자재보다 긴 조각 $oversized개는 뺐습니다"
+          : "$base · 원자재보다 긴 조각 $oversized개는 뺐습니다";
     }
-    return "새 원자재 ${fmtMm(_stockLength)} $bars본$over";
+    final len = _mixLengths.isNotEmpty ? "길이 섞어" : fmtMm(_stockLength);
+    return "새 원자재 $len $bars본$scrap$over";
   }
 
   // 결과 탭 제목줄 아래의 켜고 끄는 칩(다 자른 규격 접기 · 자른 줄 감추기 · 중량 큰 규격부터).

@@ -962,6 +962,11 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
 
                       final newReport = {
                         "date": dateStr,
+                        // "MM/DD"는 해가 바뀌면 구분이 안 된다. 폰 일지처럼 연도 있는 날짜도 같이 남긴다
+                        // (고칠 때는 원래 것을 그대로).
+                        "dateISO": isEdit
+                            ? existingData['dateISO']
+                            : today.toIso8601String(),
                         "points": int.tryParse(ptText) ?? 0,
                         "note": ntText.isEmpty ? "특이사항 없음" : ntText,
                         "is_as_built": isAsBuilt,

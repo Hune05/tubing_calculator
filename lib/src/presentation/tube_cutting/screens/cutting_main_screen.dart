@@ -2055,6 +2055,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           maker: _globalMaker,
           startDeduction: point.fitting.deduction,
           endDeduction: nextFitting.deduction,
+          // 기록을 지울 때 누적 합계에서 톱날 손실 몫도 같이 빠지게.
+          kerf: _bladeKerf,
         ),
       );
     }

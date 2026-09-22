@@ -686,8 +686,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 // 🚀 [정리] "자재 발주 및 현황"과 "발주 의뢰 내역"은 메뉴에서 뺐다
                 // (2026-09-20). 발주 기록이 한 건도 없고, 발주를 넣으면 지금
                 // 숨겨 둔 현장 소통(채팅)으로 글이 가는 반쪽 구조였다. 화면
-                // (material_order_page.dart, order_log_page.dart)은 지워지지
-                // 않았으니 필요해지면 여기에 다시 붙이면 된다.
+                // 파일(발주·발주 기록·채팅·차량 관리자)은 2026-09-23에 지웠다.
+                // 필요해지면 git 기록(3bef015 이전)에서 꺼내 여기에 붙이면 된다.
                 const SizedBox(height: 60),
               ],
             ),

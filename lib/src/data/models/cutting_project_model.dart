@@ -99,6 +99,13 @@ class CutRecord {
   final String maker;
   final double startDeduction;
   final double endDeduction;
+  // 이 기록을 자를 때 한 번 자를 때마다 먹은 톱날 손실(mm). 누적 합계에는
+  // 톱날 손실이 들어가므로 기록을 지울 때 (cutLength + kerf) × multiplier를 뺀다.
+  // 예전 기록은 0이라 예전처럼 cutLength만 빠진다.
+  final double kerf;
+
+  // 누적 합계(totalTubeUsed)에서 이 기록이 차지하는 길이.
+  double get usedWithKerf => (cutLength + kerf) * multiplier;
 
   const CutRecord({
     required this.id,
@@ -113,6 +120,7 @@ class CutRecord {
     this.maker = '',
     this.startDeduction = 0.0,
     this.endDeduction = 0.0,
+    this.kerf = 0.0,
   });
 
   Map<String, dynamic> toMap() {
@@ -128,6 +136,7 @@ class CutRecord {
       'maker': maker,
       'startDeduction': startDeduction,
       'endDeduction': endDeduction,
+      if (kerf > 0) 'kerf': kerf,
     };
   }
 
@@ -152,6 +161,7 @@ class CutRecord {
       maker: map['maker'] ?? '',
       startDeduction: (map['startDeduction'] as num?)?.toDouble() ?? 0.0,
       endDeduction: (map['endDeduction'] as num?)?.toDouble() ?? 0.0,
+      kerf: (map['kerf'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }

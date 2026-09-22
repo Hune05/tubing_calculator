@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tubing_calculator/src/core/utils/settings_cloud.dart';
@@ -18,6 +19,8 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animController;
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
+  // 설치된 앱 버전(pubspec). 예전엔 "v2.0"이라 글자로 박혀 있어 실제 버전과 달랐다.
+  String _version = '';
 
   @override
   void initState() {
@@ -26,6 +29,12 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
       vsync: this,
       duration: const Duration(seconds: 1),
     )..repeat(reverse: true);
+
+    PackageInfo.fromPlatform()
+        .then((p) {
+          if (mounted) setState(() => _version = p.version);
+        })
+        .catchError((_) {});
 
     // 🔥 앱 켜지자마자 바로 로그인 상태 체크 시작
     _checkLoginStatusAndRoute();
@@ -192,9 +201,9 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              "모바일 현장 지원 시스템 v2.0",
-              style: TextStyle(color: Colors.grey, fontSize: 16),
+            Text(
+              _version.isEmpty ? "모바일 현장 지원 시스템" : "모바일 현장 지원 시스템 v$_version",
+              style: const TextStyle(color: Colors.grey, fontSize: 16),
             ),
             const SizedBox(height: 100),
 

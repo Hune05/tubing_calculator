@@ -22,7 +22,6 @@ import '../pages/weekly_report_page.dart';
 import '../pages/notification_check_page.dart';
 import '../widgets/reminder_problem_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:path_provider/path_provider.dart';
 import '../pages/retro_overview_page.dart';
 import '../pages/storage_management_page.dart';
 import 'dart:async';
@@ -110,8 +109,8 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     _loadData();
     _loadGuideFlag();
     recordActiveReminders();
-    // 예전에 공유하려고 만들어 둔 PDF 임시 파일 정리(백그라운드).
-    getTemporaryDirectory().then(runPdfCleanup).catchError((_) => 0);
+    // 예전에 공유하려고 만들어 둔 보고서 PDF 정리(백그라운드). 보고서 폴더만 본다.
+    reportPdfDir().then(runPdfCleanup).catchError((_) => 0);
   }
 
   Future<void> _loadData() async {

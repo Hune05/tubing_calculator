@@ -253,6 +253,17 @@ const _kAutoOn = 'auto_backup_on';
 const _kAutoLast = 'auto_backup_last';
 const _kCloudDir = 'app_backups/my_projects';
 
+// 이름별 폴더. 예전엔 모두 한 폴더라 두 사람이 쓰면 서로의 백업을 지웠다.
+// 이름이 없으면(게스트) 예전처럼 맨 위 폴더를 쓴다.
+Future<Reference> _cloudUserDir() async {
+  final root = FirebaseStorage.instance.ref().child(_kCloudDir);
+  final name = (await SharedPreferences.getInstance())
+      .getString('user_real_name')
+      ?.trim();
+  if (name == null || name.isEmpty || name == '로그인 필요') return root;
+  return root.child(name.replaceAll(RegExp(r'[/\\#?\[\]]'), '_'));
+}
+
 Future<bool> autoBackupEnabled() async =>
     (await SharedPreferences.getInstance()).getBool(_kAutoOn) ?? true;
 
@@ -272,7 +283,7 @@ Future<bool> uploadCloudBackup(List<Map<String, dynamic>> projects) async {
     String two(int n) => n.toString().padLeft(2, '0');
     final name =
         '${d.year}${two(d.month)}${two(d.day)}_${two(d.hour)}${two(d.minute)}.json';
-    final dir = FirebaseStorage.instance.ref().child(_kCloudDir);
+    final dir = await _cloudUserDir();
     await dir.child(name).putFile(file);
     await (await SharedPreferences.getInstance()).setString(
       _kAutoLast,
@@ -307,9 +318,15 @@ Future<bool?> autoBackupIfDue(List<Map<String, dynamic>> projects) async {
   return uploadCloudBackup(projects);
 }
 
+// 내 폴더 것과, 폴더를 나누기 전(맨 위 폴더) 것을 같이 보여 준다.
 Future<List<Reference>> listCloudBackups() async {
-  final r = await FirebaseStorage.instance.ref().child(_kCloudDir).listAll();
-  return r.items..sort((a, b) => b.name.compareTo(a.name));
+  final root = FirebaseStorage.instance.ref().child(_kCloudDir);
+  final mine = await _cloudUserDir();
+  final items = <Reference>[...(await mine.listAll()).items];
+  if (mine.fullPath != root.fullPath) {
+    items.addAll((await root.listAll()).items);
+  }
+  return items..sort((a, b) => b.name.compareTo(a.name));
 }
 
 Future<String> downloadBackupText(Reference ref) async {

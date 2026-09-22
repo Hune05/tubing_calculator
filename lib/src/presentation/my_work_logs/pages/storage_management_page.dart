@@ -10,7 +10,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../models/backup_tools.dart';
-import '../models/report_tools.dart' show loadPdfCleanupRecord, runPdfCleanup;
+import '../models/report_tools.dart'
+    show loadPdfCleanupRecord, reportPdfDir, runPdfCleanup;
 import '../models/photo_store.dart';
 import '../widgets/work_theme.dart';
 import 'app_status_page.dart';
@@ -57,6 +58,13 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
         out.add(e);
       }
     }
+    // 보고서 PDF는 따로 둔 폴더(report_pdf)에 있다.
+    try {
+      final rp = await reportPdfDir();
+      await for (final e in rp.list()) {
+        if (e is File) out.add(e);
+      }
+    } catch (_) {}
     return out;
   }
 
@@ -279,7 +287,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
       ),
     );
     if (ok != true) return;
-    final dir = await getTemporaryDirectory();
+    final dir = await reportPdfDir();
     // 방금 만든 파일까지 지우려고 기준 시간을 1초 뒤로 잡는다.
     final n = await runPdfCleanup(
       dir,

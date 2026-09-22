@@ -22,7 +22,8 @@ String inventorySpecAndPlace(Map<String, dynamic> data) {
 /// 재고가 최소 수량 아래로 내려갔는지. 최소 수량을 안 적어 둔 자재는 따지지 않는다.
 /// (최소 수량은 "이만큼은 늘 있어야 한다"는 뜻이라, 그 수량까지 내려오면 모자란 것으로 본다.)
 bool isShortStock(Map<String, dynamic> data) {
-  final min = (data['minQty'] as num?)?.toInt() ?? 0;
+  // 예전 태블릿 등록은 'min_qty'로 저장했다. 둘 다 읽는다.
+  final min = ((data['minQty'] ?? data['min_qty']) as num?)?.toInt() ?? 0;
   if (min <= 0) return false;
   final qty = (data['qty'] as num?)?.toInt() ?? 0;
   return qty <= min;

@@ -272,9 +272,7 @@ Future<void> reconcileProjectAfterRecordDelete({
       .collection(kCuttingProjectsCollection)
       .doc(projectId);
   await docRef.update({
-    'totalTubeUsed': FieldValue.increment(
-      -(deletedRecord.cutLength * deletedRecord.multiplier),
-    ),
+    'totalTubeUsed': FieldValue.increment(-deletedRecord.usedWithKerf),
     'cutCount': FieldValue.increment(-deletedRecord.multiplier),
   });
 }

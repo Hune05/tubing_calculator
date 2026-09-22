@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import '../../../core/utils/pdf_fonts.dart';
 
 import '../../../core/utils/image_picker_helper.dart' show ImagePickerHelper;
 import '../models/instrument_shape_painter.dart';
@@ -425,6 +426,13 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         state == AppLifecycleState.detached) {
       _saveDraftToPrefs();
     }
+  }
+
+  bool _plateHasContent(String id) {
+    final p = _plateStore[id];
+    if (p == null) return false;
+    return ((p['items'] as List?)?.isNotEmpty ?? false) ||
+        ((p['dimensions'] as List?)?.isNotEmpty ?? false);
   }
 
   bool get _hasAnyContent =>
@@ -1013,6 +1021,15 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     if (planItems is List && _plateStore[kPlateMain] != null) {
       _plateStore[kPlateMain]!['items'] = List.of(planItems);
     }
+    // 도면 전체 지우기를 되돌릴 때: 다른 탭 것도 돌려놓는다.
+    final plates = snap['plates'];
+    if (plates is Map) {
+      plates.forEach((id, p) {
+        if (p is Map && id != _plateId) {
+          _plateStore[id.toString()] = Map<String, dynamic>.from(p);
+        }
+      });
+    }
     final routes = snap['routes'];
     if (routes is List) {
       _routes
@@ -1354,15 +1371,45 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     return false;
   }
 
+  // 모든 탭(판)·경로·치수선을 지운다. 되돌리기 기록에 다른 탭 것도 같이 담아 두어
+  // 이 탭에서 되돌리기를 누르면 도면 전체가 돌아온다(예전엔 지금 탭만 지웠다).
   void _clearBoard() {
-    _pushUndo();
+    _undoStack.add({
+      ..._captureUndoState(),
+      'routes': _routes.map((r) => r.toJson()).toList(),
+      'plates': {
+        for (final e in _plateStore.entries)
+          if (e.key != _plateId) e.key: Map<String, dynamic>.from(e.value),
+      },
+    });
+    if (_undoStack.length > _maxUndoSteps) _undoStack.removeAt(0);
+    _redoStack.clear();
     setState(() {
       _placedItems.clear();
       _dimensions.clear();
+      _routes.clear();
+      for (final e in _plateStore.entries) {
+        if (e.key == _plateId) continue;
+        e.value['items'] = <Map<String, dynamic>>[];
+        e.value['dimensions'] = <Map<String, dynamic>>[];
+      }
+      _plateUndo.clear();
       _dimensionStartPoint = null;
       _activeItem = null;
       _previewItem = null;
     });
+  }
+
+  // 전체 지우기 확인 글에 쓰는, 모든 탭을 합친 개수.
+  (int items, int dims) _countAllPlates() {
+    var items = _placedItems.length;
+    var dims = _dimensions.length;
+    for (final e in _plateStore.entries) {
+      if (e.key == _plateId) continue;
+      items += (e.value['items'] as List?)?.length ?? 0;
+      dims += (e.value['dimensions'] as List?)?.length ?? 0;
+    }
+    return (items, dims);
   }
 
   Future<Uint8List?> _capturePng() async {
@@ -1644,7 +1691,17 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           ? _tabOrder
                 .where((id) => id == kPlateMain || made.contains(id))
                 .toList()
-          : (_sidePlatesOn ? kPlateOrder : [_plateId]);
+          // 캐비닛 측판은 뭔가 놓인 판만(예전엔 빈 측판도 빈 쪽으로 찍혔다).
+          : (_sidePlatesOn
+                ? kPlateOrder
+                      .where(
+                        (id) =>
+                            id == kPlateMain ||
+                            id == _plateId ||
+                            _plateHasContent(id),
+                      )
+                      .toList()
+                : [_plateId]);
       final shots =
           <(String, Uint8List, double, double, List<PlacedDimension>)>[];
       for (final id in plateIds) {
@@ -1661,21 +1718,23 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         setState(() => _switchPlate(startPlate));
       }
 
-      final pdf = pw.Document();
+      // 한글 글꼴을 넣는다(예전엔 기본 글꼴이라 한글 프로젝트 이름·메모가 네모로 나왔다).
+      final fonts = await loadKoreanPdfFonts();
+      final pdf = pw.Document(theme: fonts.theme);
       String qrData = "tubingcalc://layout?project=$_currentProjectId";
       for (final (plateId, imageBytes, plateW, plateH, plateDims) in shots) {
         final image = pw.MemoryImage(imageBytes);
         final String plateName = _isSkid
             ? switch (plateId) {
-                kSkidViewFront => "Front View",
-                kPlateLeft => "Left View",
-                kPlateRight => "Right View",
-                _ => "Plan View",
+                kSkidViewFront => "정면",
+                kPlateLeft => "왼쪽 측면",
+                kPlateRight => "오른쪽 측면",
+                _ => "평면",
               }
             : switch (plateId) {
-                kPlateLeft => "Left Side Plate",
-                kPlateRight => "Right Side Plate",
-                _ => _sidePlatesOn ? "Main Plate" : "",
+                kPlateLeft => "왼쪽 측판",
+                kPlateRight => "오른쪽 측판",
+                _ => _sidePlatesOn ? "중판" : "",
               };
 
         pdf.addPage(
@@ -1692,7 +1751,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
                           pw.Text(
-                            "Smart Panel Layout Report",
+                            _isSkid ? "스키드 배치도" : "판넬 배치도",
                             style: pw.TextStyle(
                               fontSize: 24,
                               fontWeight: pw.FontWeight.bold,
@@ -1700,15 +1759,15 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           ),
                           pw.SizedBox(height: 8),
                           pw.Text(
-                            "Project: $projectName",
+                            "프로젝트: $projectName",
                             style: const pw.TextStyle(fontSize: 14),
                           ),
                           pw.Text(
-                            "${plateName.isEmpty ? "" : "$plateName - "}Panel Size: ${plateW.toInt()}mm x ${plateH.toInt()}mm",
+                            "${plateName.isEmpty ? "" : "$plateName · "}${_isSkid ? "스키드" : "판"} 크기: ${plateW.toInt()} × ${plateH.toInt()}mm",
                             style: const pw.TextStyle(fontSize: 14),
                           ),
                           pw.Text(
-                            "Date: ${DateTime.now().toString().split('.')[0]}",
+                            "만든 날: ${DateTime.now().toString().split('.')[0]}",
                             style: const pw.TextStyle(
                               fontSize: 12,
                               color: PdfColors.grey600,
@@ -1734,7 +1793,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   ),
                   pw.SizedBox(height: 20),
                   pw.Text(
-                    "* Scan the QR code to open this layout in the Tubing Calculator App.",
+                    "* QR 코드를 찍으면 앱에서 이 배치도가 열립니다.",
                     style: const pw.TextStyle(
                       fontSize: 10,
                       color: PdfColors.grey600,
@@ -1758,7 +1817,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      keepWords("치수 목록표 (Dimension Schedule)"),
+                      "치수 목록표",
                       style: pw.TextStyle(
                         fontSize: 18,
                         fontWeight: pw.FontWeight.bold,
@@ -1819,9 +1878,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 
       if (!mounted) return;
       // ignore: deprecated_member_use
-      await Share.shareXFiles([
-        XFile(file.path),
-      ], text: '$projectName 레이아웃 도면입니다.');
+      await Share.shareXFiles([XFile(file.path)], text: '$projectName 배치도입니다.');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -5390,7 +5447,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                         layoutSheetRow(
                           icon: Icons.delete_sweep_outlined,
                           label: "도면 전체 지우기",
-                          caption: "모듈과 치수선을 모두 지웁니다",
+                          caption: "모든 탭의 모듈·경로·치수선을 지웁니다",
                           danger: true,
                           onTap: _hasAnyContent
                               ? () => run(_confirmClearBoard)
@@ -5444,11 +5501,13 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   }
 
   Future<void> _confirmClearBoard() async {
+    final (items, dims) = _countAllPlates();
+    final routeNote = _routes.isEmpty ? "" : "경로 ${_routes.length}개와 ";
     final ok = await confirmLayoutDanger(
       context,
       title: "도면 전체 지우기",
       message:
-          "모듈 ${_placedItems.length}개와 치수선 ${_dimensions.length}개를 모두 지웁니다. 지운 뒤에도 되돌리기로 돌아올 수 있습니다.",
+          "모든 탭의 $routeNote모듈 $items개, 치수선 $dims개를 지웁니다. 지운 뒤에도 되돌리기로 돌아올 수 있습니다.",
       confirmLabel: "전체 지우기",
     );
     if (ok && mounted) _clearBoard();

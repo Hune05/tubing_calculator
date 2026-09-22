@@ -634,12 +634,21 @@ String? finalReportShareLabel(Map<String, dynamic> log) {
   return null;
 }
 
+// 보고서 PDF를 두는 임시 폴더. 정리(runPdfCleanup)도 이 폴더만 본다 —
+// 예전엔 임시 폴더 맨 위의 .pdf를 다 지워서 다른 기능(마킹 시트·배치도 등)이
+// 공유하려고 둔 PDF까지 지울 수 있었다.
+Future<Directory> reportPdfDir() async {
+  final dir = Directory('${(await getTemporaryDirectory()).path}/report_pdf');
+  if (!await dir.exists()) await dir.create(recursive: true);
+  return dir;
+}
+
 Future<ShareResult> shareReportPdf(
   ReportDoc doc, {
   bool withPhotos = false,
 }) async {
   final bytes = await buildReportPdfBytes(doc, withPhotos: withPhotos);
-  final dir = await getTemporaryDirectory();
+  final dir = await reportPdfDir();
   final name = uniquePdfName(
     reportPdfFileName(doc),
     (n) => File('${dir.path}/$n').existsSync(),

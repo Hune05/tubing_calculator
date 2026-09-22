@@ -61,13 +61,74 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
         .toList();
   }
 
-  Map<String, Map<String, dynamic>> get _byDateInViewedMonth {
-    final map = <String, Map<String, dynamic>>{};
+  // 날짜별 일지. 같은 날 일지가 둘 이상이면 모두 담는다(예전엔 첫 것만 보여
+  // 나머지는 달력에서 열 수 없었다). 최신 순 리스트라 앞이 최신.
+  Map<String, List<Map<String, dynamic>>> get _byDateInViewedMonth {
+    final map = <String, List<Map<String, dynamic>>>{};
     for (final r in _reportsInViewedMonth) {
       final key = r['date'].toString();
-      map.putIfAbsent(key, () => r); // 최신 순 리스트라 첫 항목이 최신
+      map.putIfAbsent(key, () => []).add(r);
     }
     return map;
+  }
+
+  // 같은 날 일지가 여럿이면 어느 것을 열지 고른다.
+  Future<void> _openDay(String key, List<Map<String, dynamic>> reports) async {
+    if (reports.length == 1) return _openReport(reports.first);
+    final picked = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      keepWords("$key 작업 일지 ${reports.length}개"),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: tossText,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            for (final r in reports)
+              ListTile(
+                leading: Icon(
+                  r['is_as_built'] == true
+                      ? Icons.edit_note_rounded
+                      : Icons.description_outlined,
+                  color: r['is_as_built'] == true ? warningRed : tossBlue,
+                ),
+                title: Text(
+                  keepWords(
+                    "벤딩 ${(r['points'] as num?)?.toInt() ?? 0}pt · 결선 ${(r['wiring_points'] as num?)?.toInt() ?? 0}개소",
+                  ),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(
+                  keepWords((r['note']?.toString() ?? '').trim()),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () => Navigator.pop(ctx, r),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (picked != null && mounted) await _openReport(picked);
   }
 
   // 🚀 [신규] 최근 6개월(실제 현재 달 기준, 달력에서 이동 중인 달과는
@@ -225,27 +286,29 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
 
     for (int day = 1; day <= daysInMonth; day++) {
       final key = _mmdd(_viewedMonth.month, day);
-      final r = byDate[key];
-      if (r == null) continue;
-      final int pts = (r['points'] as num?)?.toInt() ?? 0;
-      final int wiring = (r['wiring_points'] as num?)?.toInt() ?? 0;
-      final bool overtime = r['is_overtime'] == true;
-      totalPoints += pts;
-      totalWiring += wiring;
-      if (overtime) overtimeDays++;
+      final dayReports = byDate[key];
+      if (dayReports == null) continue;
+      for (final r in dayReports.reversed) {
+        final int pts = (r['points'] as num?)?.toInt() ?? 0;
+        final int wiring = (r['wiring_points'] as num?)?.toInt() ?? 0;
+        final bool overtime = r['is_overtime'] == true;
+        totalPoints += pts;
+        totalWiring += wiring;
+        if (overtime) overtimeDays++;
 
-      // 🚀 work_type이 복수 선택(List)으로 바뀌어서, 예전 단일 문자열
-      // 데이터와 둘 다 안전하게 처리한다.
-      final dynamic wt = r['work_type'];
-      final String workTypeStr = wt is List ? wt.join('/') : (wt ?? '');
+        // 🚀 work_type이 복수 선택(List)으로 바뀌어서, 예전 단일 문자열
+        // 데이터와 둘 다 안전하게 처리한다.
+        final dynamic wt = r['work_type'];
+        final String workTypeStr = wt is List ? wt.join('/') : (wt ?? '');
 
-      buffer.writeln(
-        "$key ($workTypeStr, ${r['worker_count'] ?? 1}명${overtime ? ', 야간' : ''}) "
-        "- 벤딩 ${pts}pt / 결선 $wiring개소",
-      );
-      final note = r['note']?.toString() ?? '';
-      if (note.isNotEmpty && note != '특이사항 없음') {
-        buffer.writeln("   ↳ $note");
+        buffer.writeln(
+          "$key ($workTypeStr, ${r['worker_count'] ?? 1}명${overtime ? ', 야간' : ''}) "
+          "- 벤딩 ${pts}pt / 결선 $wiring개소",
+        );
+        final note = r['note']?.toString() ?? '';
+        if (note.isNotEmpty && note != '특이사항 없음') {
+          buffer.writeln("   ↳ $note");
+        }
       }
     }
 
@@ -278,7 +341,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
     int totalPoints = 0;
     int totalWiring = 0;
     int overtimeDays = 0;
-    for (final r in byDate.values) {
+    for (final r in byDate.values.expand((l) => l)) {
       totalPoints += (r['points'] as num?)?.toInt() ?? 0;
       totalWiring += (r['wiring_points'] as num?)?.toInt() ?? 0;
       if (r['is_overtime'] == true) overtimeDays++;
@@ -402,14 +465,16 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
                 if (index < leadingBlanks) return const SizedBox.shrink();
                 final int day = index - leadingBlanks + 1;
                 final String key = _mmdd(_viewedMonth.month, day);
-                final report = byDate[key];
-                final bool hasReport = report != null;
-                final bool isAsBuilt = report?['is_as_built'] == true;
+                final dayReports = byDate[key];
+                final bool hasReport = dayReports != null;
+                final bool isAsBuilt =
+                    dayReports?.any((r) => r['is_as_built'] == true) ?? false;
+                final int count = dayReports?.length ?? 0;
 
                 return InkWell(
                   borderRadius: BorderRadius.circular(10),
                   onTap: hasReport
-                      ? () => _openReport(report)
+                      ? () => _openDay(key, dayReports)
                       : () => ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(keepWords("이 날짜의 작업 일지가 없습니다.")),
@@ -435,7 +500,17 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
                             fontSize: 13,
                           ),
                         ),
-                        if (hasReport)
+                        // 같은 날 일지가 둘 이상이면 점 대신 개수를 보여 준다.
+                        if (count > 1)
+                          Text(
+                            "$count",
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: isAsBuilt ? warningRed : tossBlue,
+                            ),
+                          )
+                        else if (hasReport)
                           Container(
                             margin: const EdgeInsets.only(top: 2),
                             width: 5,

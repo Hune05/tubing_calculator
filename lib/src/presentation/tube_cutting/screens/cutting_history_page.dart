@@ -70,9 +70,8 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
         projectRef.collection(kCutRecordsSubcollection).doc(record.id),
       );
       batch.update(projectRef, {
-        'totalTubeUsed': FieldValue.increment(
-          -(record.cutLength * record.multiplier),
-        ),
+        // 저장할 때 톱날 손실도 합계에 들어갔으니 지울 때도 같이 뺀다.
+        'totalTubeUsed': FieldValue.increment(-record.usedWithKerf),
         'cutCount': FieldValue.increment(-record.multiplier),
       });
       await batch.commit().timeout(
