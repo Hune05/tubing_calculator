@@ -60,6 +60,31 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('skid_steel')), findsOneWidget);
+    // 화면 맞춤 뒤 확대 기능이 읽는 배율이 실제(가로) 배율과 같아야 끝까지 확대된다.
+    final ctrl = tester
+        .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+        .transformationController!;
+    Matrix4 m = ctrl.value;
+    expect(m.getMaxScaleOnAxis(), closeTo(m[0], 1e-9));
+    expect(m[0], lessThan(0.5));
+
+    // 두 손가락으로 여러 번 벌리면 1:1(1배)을 넘어 치수를 볼 만큼 커진다.
+    // 예전에는 맞춘 크기의 4배(0.6배 안팎)에서 멈췄다.
+    final Offset c = tester.getCenter(find.byType(InteractiveViewer));
+    for (int n = 0; n < 6; n++) {
+      final g1 = await tester.startGesture(c - const Offset(20, 0));
+      final g2 = await tester.startGesture(c + const Offset(20, 0));
+      for (int i = 0; i < 10; i++) {
+        await g1.moveBy(const Offset(-8, 0));
+        await g2.moveBy(const Offset(8, 0));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await g1.up();
+      await g2.up();
+      await tester.pumpAndSettle();
+    }
+    m = ctrl.value;
+    expect(m[0], greaterThan(2));
     expect(find.byKey(const ValueKey('duct_button')), findsNothing);
 
     expect(find.byKey(const ValueKey('skid_conduit')), findsNothing);

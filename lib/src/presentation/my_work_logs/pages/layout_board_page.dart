@@ -184,6 +184,13 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   // 표시한다. InteractiveViewer의 변환행렬(확대/이동)을 추적해야 해서
   // 컨트롤러를 직접 연결해둔다.
   final TransformationController _viewerController = TransformationController();
+
+  /// 지금 확대 배율(가로축). getMaxScaleOnAxis는 화면 맞춤에서 깊이축 1까지 봐서 줄여 볼 때도 1로 나온다.
+  double get _viewZoom {
+    final m = _viewerController.value;
+    return math.sqrt(m[0] * m[0] + m[1] * m[1]);
+  }
+
   Size? _viewportSize;
 
   // 🚀 [추가] 서버에 정식 저장하기 전에 앱을 껐다 켜거나 화면을 나가면
@@ -457,7 +464,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     final double dy = (vh - _panelHeight * k) / 2;
     _viewerController.value = Matrix4.identity()
       ..translateByDouble(dx, dy, 0, 1)
-      ..scaleByDouble(k, k, 1, 1);
+      // 깊이축도 k로 둔다. 1로 두면 확대 기능이 지금 배율을 1로 읽어 맞춘 크기의 4배까지만 키워 줬다.
+      ..scaleByDouble(k, k, k, 1);
   }
 
   void _startNewSkid() {
@@ -2599,7 +2607,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   List<Widget> _buildRouteHandles() {
     final plan = _planItems;
     final (planW, planH) = _planSize;
-    final double scale = _viewerController.value.getMaxScaleOnAxis();
+    final double scale = _viewZoom;
     final out = <Widget>[];
     for (final r in _routes) {
       final pts = r
@@ -2722,7 +2730,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   ConduitRoute? _findRouteNear(Offset p) {
     final plan = _planItems;
     final (planW, planH) = _planSize;
-    final double scale = _viewerController.value.getMaxScaleOnAxis();
+    final double scale = _viewZoom;
     ConduitRoute? best;
     double bestD = double.infinity;
     for (final r in _routes) {
@@ -5274,8 +5282,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         return InteractiveViewer(
           key: _viewerKey,
           transformationController: _viewerController,
-          minScale: 0.1,
-          maxScale: 4.0,
+          minScale: 0.05,
+          // 스키드는 도면이 커서(2400mm 이상) 화면에 맞추면 0.15배 안팎이다. 치수를 볼 만큼 더 키울 수 있게.
+          maxScale: _isSkid ? 12.0 : 4.0,
           boundaryMargin: const EdgeInsets.all(2000),
           constrained: false,
           child: DragTarget<ModulePreset>(
