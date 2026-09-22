@@ -234,6 +234,55 @@ Rect skidViewRect(
   return Rect.fromLTWH(l, top, w, v);
 }
 
+/// 그 탭에서 보는 사람과 가까운 정도(클수록 가깝다). 정면은 평면 아래쪽(y 큰 쪽)에서,
+/// 좌측면은 x=0 쪽에서, 우측면은 x 큰 쪽에서 본다.
+double skidViewNearness(PlacedItem it, String view) => switch (view) {
+  kSkidViewFront => it.position.dy + it.height,
+  'left' => -it.position.dx,
+  _ => it.position.dx + it.width,
+};
+
+/// 정면·측면에 그릴 평면 부품 차례(먼 것부터 — 가까운 것이 위에 그려지고 먼저 잡힌다)와
+/// 가려진 정도(0~1: 더 가까운 부품에 덮인 넓이 비율, 겹친 넓이를 더해 1에서 자른다).
+List<({PlacedItem it, Rect rect, SkidFace face, double covered})>
+skidViewLayout(
+  List<PlacedItem> plan,
+  String view, {
+  required double planH,
+  required double viewH,
+}) {
+  final items = [
+    for (final it in plan)
+      (
+        it: it,
+        rect: skidViewRect(it, view, planH: planH, viewH: viewH),
+        face: skidViewFace(it, view),
+        near: skidViewNearness(it, view),
+      ),
+  ]..sort((a, b) => a.near.compareTo(b.near));
+  return [
+    for (int i = 0; i < items.length; i++)
+      (
+        it: items[i].it,
+        rect: items[i].rect,
+        face: items[i].face,
+        covered: () {
+          final Rect r = items[i].rect;
+          final double area = r.width * r.height;
+          if (area <= 0) return 0.0;
+          double sum = 0;
+          for (int j = i + 1; j < items.length; j++) {
+            // 같은 깊이(나란히 놓인 것)는 가리지 않는다.
+            if (items[j].near <= items[i].near) continue;
+            final Rect x = r.intersect(items[j].rect);
+            if (x.width > 0 && x.height > 0) sum += x.width * x.height;
+          }
+          return math.min(1.0, sum / area);
+        }(),
+      ),
+  ];
+}
+
 /// 그 탭에서 부품이 보이는 방향: 부품 길이가 보는 면과 나란하면 옆모습, 보는 쪽으로
 /// 뻗어 있으면 끝모습(형강은 단면). 정션박스는 늘 옆모습.
 SkidFace skidViewFace(PlacedItem it, String view) {

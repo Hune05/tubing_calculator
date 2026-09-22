@@ -230,4 +230,97 @@ void main() {
     expect((back['x'] as num).toDouble(), 1000);
     expect((back['elev'] as num).toDouble(), 600);
   });
+  test('면별 차례·가려짐: 가까운 것이 나중(위), 뒤에 가려진 것은 가려진 정도가 크다, 좌·우측면은 앞뒤가 반대', () {
+    PlacedItem jb(String id, double x, double y) => PlacedItem(
+      id: id,
+      name: '정션박스 300×300',
+      position: Offset(x, y),
+      width: 300,
+      height: 300,
+      shape: SkidShape.jb,
+      elevation: 800,
+    );
+    // 같은 x·높이, y만 다름: 정면(y 큰 쪽에서 봄)에서 back은 front 뒤에 완전히 가린다.
+    final back = jb('back', 1000, 100);
+    final front = jb('front', 1000, 800);
+    final f = skidViewLayout(
+      [front, back],
+      kSkidViewFront,
+      planH: 1200,
+      viewH: 1500,
+    );
+    expect(f.map((p) => p.it.id), ['back', 'front']);
+    expect(f.first.covered, closeTo(1, 1e-9));
+    expect(f.last.covered, 0);
+    // 좌측면(x=0 쪽)·우측면: x만 다른 둘
+    final near = jb('x0', 100, 450);
+    final far = jb('x1', 1500, 450);
+    final l = skidViewLayout([near, far], 'left', planH: 1200, viewH: 1500);
+    expect(l.map((p) => p.it.id), ['x1', 'x0']);
+    expect(l.first.covered, closeTo(1, 1e-9));
+    final r = skidViewLayout([near, far], 'right', planH: 1200, viewH: 1500);
+    expect(r.map((p) => p.it.id), ['x0', 'x1']);
+    // 나란히(겹치지 않게) 놓이면 안 가린다.
+    final side = jb('side', 1400, 800);
+    expect(
+      skidViewLayout(
+        [side, back],
+        kSkidViewFront,
+        planH: 1200,
+        viewH: 1500,
+      ).firstWhere((p) => p.it.id == 'back').covered,
+      0,
+    );
+  });
+
+  testWidgets('정면: 뒤에 가려진 부품은 점선 테두리, 관리에서 끄면 안 그린다(임시 저장에 남음)', (
+    tester,
+  ) async {
+    Map<String, dynamic> jb(String id, double y) => PlacedItem(
+      id: id,
+      name: '정션박스 300×300',
+      position: Offset(1000, y),
+      width: 300,
+      height: 300,
+      shape: SkidShape.jb,
+      elevation: 800,
+    ).toJson();
+    await openSkid(
+      tester,
+      prefs: {
+        'layout_board_draft_v1': jsonEncode({
+          'kind': kLayoutKindSkid,
+          'panelWidth': 2400,
+          'panelHeight': 1200,
+          'items': [jb('front', 800), jb('back', 100)],
+        }),
+      },
+    );
+    await tester.tap(find.byKey(const ValueKey('plate_tab_front')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('hidden_back')), findsOneWidget);
+    expect(find.byKey(const ValueKey('hidden_front')), findsNothing);
+    // 가까운 부품이 Stack에서 나중(위)이다.
+    final order = tester
+        .widgetList<Positioned>(find.byType(Positioned))
+        .map((p) => p.key)
+        .whereType<ValueKey<String>>()
+        .map((k) => k.value)
+        .where((v) => v == 'view_front' || v == 'view_back')
+        .toList();
+    expect(order, ['view_back', 'view_front']);
+
+    // 관리 → 가려진 부품 보이기 끄기
+    await tester.tap(find.byIcon(Icons.more_vert_rounded).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('toggle_hidden_parts')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('hidden_back')), findsNothing);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+    final prefs = await SharedPreferences.getInstance();
+    final saved = jsonDecode(prefs.getString('layout_board_draft_v1')!) as Map;
+    expect(saved['showHiddenParts'], false);
+  });
 }

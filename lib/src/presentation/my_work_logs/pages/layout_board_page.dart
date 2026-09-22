@@ -621,6 +621,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     'kind': _kind,
     if (_routes.isNotEmpty) 'routes': _routes.map((r) => r.toJson()).toList(),
     'sidePlatesOn': _sidePlatesOn,
+    if (!_showHiddenParts) 'showHiddenParts': false,
     if (_cabinetDepth != null) 'cabinetDepth': _cabinetDepth,
     'sidePlates': {
       for (final e in plates.entries)
@@ -630,6 +631,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 
   /// 저장된 문서의 측판 칸을 읽는다(중판은 늘 쓰던 칸에서 따로 읽는다).
   void _applySidePlateFields(Map<String, dynamic> data) {
+    _showHiddenParts = data['showHiddenParts'] != false;
     _plateStore.clear();
     _plateUndo.clear();
     _plateId = kPlateMain;
@@ -5244,6 +5246,19 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           "${_showTabs ? "${_tabLabel(_plateId)} " : ""}지금 ${_panelWidth.toInt()} × ${_panelHeight.toInt()} mm",
                       onTap: () => run(_showPanelSettingsSheet),
                     ),
+                    if (_isSkid)
+                      layoutSheetRow(
+                        key: const ValueKey("toggle_hidden_parts"),
+                        icon: Icons.layers_outlined,
+                        label: "가려진 부품 보이기",
+                        caption: _showHiddenParts
+                            ? "켜짐 · 정면·측면에서 뒤에 가려진 부품을 점선으로 그립니다"
+                            : "꺼짐 · 가까운 부품만 보입니다",
+                        onTap: () => run(() {
+                          setState(() => _showHiddenParts = !_showHiddenParts);
+                          _saveDraftToPrefs();
+                        }),
+                      ),
                     if (!_isSkid) ...[
                       layoutSheetRow(
                         icon: Icons.view_column_outlined,
@@ -5577,8 +5592,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                 ),
                               ),
 
-                            if (_isSkid && _plateId != kPlateMain)
+                            if (_isSkid && _plateId != kPlateMain) ...[
                               ..._buildViewProxies(),
+                              ..._buildHiddenOutlines(),
+                            ],
                             if (_isSkid && _mode == BoardMode.placeModule)
                               ..._buildRouteHandles(),
                             ..._placedItems.map((item) {
@@ -7711,20 +7728,50 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   String? _proxyDragId;
   Offset _proxyRaw = Offset.zero;
 
-  List<({PlacedItem it, Rect rect, SkidFace face, bool mirror})>
+  /// 가려진 부품(더 가까운 부품 뒤에 반 넘게 가려진 것)을 점선으로 보일지. 도면 하나에 하나.
+  bool _showHiddenParts = true;
+
+  List<({PlacedItem it, Rect rect, SkidFace face, bool mirror, double covered})>
   get _viewProxies {
     if (!_isSkid || _plateId == kPlateMain) return const [];
     final (_, planH) = _planSize;
     return [
-      for (final it in _planItems)
+      for (final p in skidViewLayout(
+        _planItems,
+        _plateId,
+        planH: planH,
+        viewH: _panelHeight,
+      ))
         (
-          it: it,
-          rect: skidViewRect(it, _plateId, planH: planH, viewH: _panelHeight),
-          face: skidViewFace(it, _plateId),
+          it: p.it,
+          rect: p.rect,
+          face: p.face,
           mirror: _plateId == 'right',
+          covered: p.covered,
         ),
     ];
   }
+
+  /// 반 넘게 가려진 부품의 테두리를 점선(숨은선)으로 가까운 부품 위에 그린다.
+  List<Widget> _buildHiddenOutlines() => [
+    if (_showHiddenParts)
+      for (final p in _viewProxies)
+        if (p.covered >= 0.5)
+          Positioned(
+            key: ValueKey("hidden_${p.it.id}"),
+            left: p.rect.left,
+            top: p.rect.top,
+            width: p.rect.width,
+            height: p.rect.height,
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _HiddenOutlinePainter(
+                  strokeWidth: 1.2 * _markScale.clamp(1.0, 3.0),
+                ),
+              ),
+            ),
+          ),
+  ];
 
   PlacedItem? get _proxyGuideItem {
     final id = _proxyDragId;
@@ -9022,4 +9069,37 @@ class _InspectorNumberFieldState extends State<_InspectorNumberField> {
       decoration: widget.decoration,
     );
   }
+}
+
+/// 가려진 부품 테두리(숨은선): 회색 점선 네모.
+class _HiddenOutlinePainter extends CustomPainter {
+  final double strokeWidth;
+  const _HiddenOutlinePainter({required this.strokeWidth});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF94A3B8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+    final double dash = strokeWidth * 6, gap = strokeWidth * 4;
+    void line(Offset a, Offset b) {
+      final double len = (b - a).distance;
+      if (len <= 0) return;
+      final Offset d = (b - a) / len;
+      for (double t = 0; t < len; t += dash + gap) {
+        canvas.drawLine(a + d * t, a + d * math.min(t + dash, len), paint);
+      }
+    }
+
+    final r = Offset.zero & size;
+    line(r.topLeft, r.topRight);
+    line(r.topRight, r.bottomRight);
+    line(r.bottomRight, r.bottomLeft);
+    line(r.bottomLeft, r.topLeft);
+  }
+
+  @override
+  bool shouldRepaint(covariant _HiddenOutlinePainter old) =>
+      old.strokeWidth != strokeWidth;
 }

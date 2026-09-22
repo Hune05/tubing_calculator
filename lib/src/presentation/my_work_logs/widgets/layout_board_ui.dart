@@ -36,6 +36,7 @@ BoxDecoration layoutCardDecoration({double radius = 18, Color? color}) =>
 
 /// 바텀시트 안의 한 줄 단추(높이 60dp, 글씨 16).
 Widget layoutSheetRow({
+  Key? key,
   required IconData icon,
   required String label,
   required VoidCallback? onTap,
@@ -46,6 +47,7 @@ Widget layoutSheetRow({
   final Color fg = danger ? warningRed : tossText;
   final bool enabled = onTap != null;
   return InkWell(
+    key: key,
     onTap: onTap,
     child: ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 60),
