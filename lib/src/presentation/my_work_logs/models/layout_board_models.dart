@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'elec_presets.dart';
 import 'fitting_spec.dart';
 import 'instrument_shape_painter.dart';
 
@@ -674,11 +675,12 @@ double? _presetDepthByName(String? name) {
   for (final list in [
     ...kFittingPresets.values,
     ...kValvePresets.values,
+    ...kElecPresets.values,
     kDuctPresets,
     kDuctMorePresets,
   ]) {
     for (final p in list) {
-      if (p.name == name) return guessPresetDepth(p);
+      if (p.name == name) return p.depthOrGuess;
     }
   }
   return null;
@@ -742,6 +744,9 @@ class PlacedItem implements MeasurePoint {
   /// 판 면에서 앞으로 튀어나오는 깊이(mm). 모르면 null(간섭 확인에서 빠진다).
   double? depth;
 
+  /// 스키드: 바닥에서 부품 가운데까지 높이(mm). 모르면 null.
+  double? elevation;
+
   PlacedItem({
     required this.id,
     required this.name,
@@ -752,6 +757,7 @@ class PlacedItem implements MeasurePoint {
     this.isLocked = false,
     this.shape,
     this.depth,
+    this.elevation,
   });
 
   @override
@@ -774,6 +780,7 @@ class PlacedItem implements MeasurePoint {
     'locked': isLocked,
     if (shape != null) 'shape': shape,
     if (depth != null) 'depth': depth,
+    if (elevation != null) 'elev': elevation,
   };
 
   factory PlacedItem.fromJson(Map<String, dynamic> j) => PlacedItem(
@@ -787,6 +794,7 @@ class PlacedItem implements MeasurePoint {
     depth:
         (j['depth'] as num?)?.toDouble() ??
         _presetDepthByName(j['name'] as String?),
+    elevation: (j['elev'] as num?)?.toDouble(),
   );
 }
 

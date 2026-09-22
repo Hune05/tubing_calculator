@@ -2,7 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'elec_presets.dart';
 import 'fitting_spec.dart';
+import 'skid_presets.dart';
 
 // 🚀 배치도 계기 모듈의 정면 모양. 제조사 치수 도면(GS·PDS·카탈로그)의 앞 그림을 보고
 // 몸통·뚜껑·목·플랜지·육각·포크의 자리와 비율을 옮겼다. 치수를 재는 그림이 아니라
@@ -120,6 +122,8 @@ class InstrumentShape {
 
   /// 원래 가로가 긴 모양인지(돌려 놓았는지 가리는 데 쓴다).
   static bool isLandscape(String shape) {
+    // 스키드 형강·전선관은 길이 방향이 가로, 정션박스는 네모라 돌리지 않는다.
+    if (SkidShape.isSkid(shape)) return shape != SkidShape.jb;
     final Size? mm = fittingSpecSize(shape);
     if (mm != null) return mm.width > mm.height;
     return _landscape.contains(shape);
@@ -146,6 +150,11 @@ class InstrumentShapePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (size.width <= 0 || size.height <= 0) return;
+    // 전기 부품은 칸 크기 그대로 그린다(돌리지 않는다).
+    if (ElecShape.isElec(shape)) {
+      _elec(_Box(canvas, size), shape);
+      return;
+    }
     // 모듈을 90° 돌려 가로·세로가 바뀌었으면 그림도 돌려서 그린다.
     final bool boxLandscape = size.width > size.height;
     final bool rotate =
@@ -236,7 +245,9 @@ class InstrumentShapePainter extends CustomPainter {
       case InstrumentShape.swV5:
         _swV(b, 5);
       default:
-        if (isFittingSpec(shape)) {
+        if (SkidShape.isSkid(shape)) {
+          _skid(b, shape);
+        } else if (isFittingSpec(shape)) {
           _fitSpec(canvas, s, shape);
         } else {
           _part(canvas, Offset.zero & s, _body, radius: 4);
@@ -1311,6 +1322,186 @@ class InstrumentShapePainter extends CustomPainter {
             radius: th / 2,
           );
         }
+    }
+  }
+
+  // ───────────────────────── 스키드 평면(위에서 본 모습) ─────────────────────────
+  // 형강은 길이 방향이 가로. H형강 = 플랜지 판(가운데 웨브 점선), 찬넬 = 한쪽 끝 웨브,
+  // 앵글 = 한쪽 끝 다리, 각파이프 = 안쪽 테두리, 스트럿 = 가운데 홈. 전선관은 관 두 줄과
+  // 가운데 점선, 정션박스는 뚜껑 나사 넷.
+
+  void _dashed(Canvas c, Offset a, Offset b) {
+    final double len = (b - a).distance;
+    if (len <= 0) return;
+    final Offset d = (b - a) / len;
+    const double dash = 8, gap = 5;
+    for (double t = 0; t < len; t += dash + gap) {
+      c.drawLine(a + d * t, a + d * math.min(t + dash, len), _thin);
+    }
+  }
+
+  void _skid(_Box b, String shape) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    switch (shape) {
+      case SkidShape.conduit:
+        _part(c, Rect.fromLTWH(0, 0, w, h), _metal, radius: h / 2);
+        _dashed(c, Offset(0, h / 2), Offset(w, h / 2));
+      case SkidShape.jb:
+        _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 3);
+        _part(
+          c,
+          Rect.fromLTWH(w * 0.06, h * 0.06, w * 0.88, h * 0.88),
+          _body,
+          radius: 2,
+        );
+        final double r = math.min(w, h) * 0.03 + 1;
+        for (final dx in [0.12, 0.88]) {
+          for (final dy in [0.12, 0.88]) {
+            _circle(c, b.p(dx, dy), r, _metal);
+          }
+        }
+      case SkidShape.beam:
+        _part(c, Rect.fromLTWH(0, 0, w, h), _metal, radius: 0);
+        _dashed(c, Offset(0, h / 2), Offset(w, h / 2));
+      case SkidShape.channel:
+        _part(c, Rect.fromLTWH(0, 0, w, h), _metal, radius: 0);
+        c.drawLine(Offset(0, h * 0.12), Offset(w, h * 0.12), _thin);
+      case SkidShape.angle:
+        _part(c, Rect.fromLTWH(0, 0, w, h), _metal, radius: 0);
+        c.drawLine(Offset(0, h * 0.15), Offset(w, h * 0.15), _thin);
+      case SkidShape.square:
+        _part(c, Rect.fromLTWH(0, 0, w, h), _metal, radius: 1);
+        c.drawLine(Offset(0, h * 0.12), Offset(w, h * 0.12), _thin);
+        c.drawLine(Offset(0, h * 0.88), Offset(w, h * 0.88), _thin);
+      case SkidShape.strut:
+        _part(c, Rect.fromLTWH(0, 0, w, h), _metal, radius: 0);
+        _part(c, Rect.fromLTWH(0, h * 0.3, w, h * 0.4), _body, radius: 0);
+    }
+  }
+
+  // ───────────────────────── 전기 부품(DIN 레일) 정면 ─────────────────────────
+  // 칸 크기 그대로(돌리지 않는다). 단자대·차단기는 극마다 세로 줄.
+
+  void _elec(_Box b, String shape) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    final double? n = ElecShape.pitch(shape);
+    final double? pitch = n == null || n < 1 ? null : w / n;
+    final String kind = shape.split(':').first;
+    void poles(double top, double bottom) {
+      if (pitch == null || pitch <= 0) return;
+      for (double x = pitch; x < w - 0.5; x += pitch) {
+        c.drawLine(Offset(x, top), Offset(x, bottom), _thin);
+      }
+    }
+
+    switch (kind) {
+      case ElecShape.tb:
+        _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 1);
+        poles(0, h);
+        // 위아래 나사, 가운데 표시판 홈
+        c.drawLine(Offset(0, h * 0.2), Offset(w, h * 0.2), _thin);
+        c.drawLine(Offset(0, h * 0.8), Offset(w, h * 0.8), _thin);
+        _part(c, Rect.fromLTWH(0, h * 0.42, w, h * 0.16), _metal, radius: 0);
+      case ElecShape.mcb:
+        _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
+        _part(c, Rect.fromLTWH(0, h * 0.22, w, h * 0.56), _body, radius: 1);
+        poles(0, h);
+        final double pw = pitch ?? w;
+        for (double x = pw / 2; x < w; x += pw) {
+          _part(
+            c,
+            Rect.fromCenter(
+              center: Offset(x, h * 0.45),
+              width: pw * 0.4,
+              height: h * 0.16,
+            ),
+            _metal,
+            radius: 1,
+          );
+        }
+      case ElecShape.mccb:
+        _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
+        _part(
+          c,
+          Rect.fromLTWH(w * 0.1, h * 0.25, w * 0.8, h * 0.5),
+          _body,
+          radius: 2,
+        );
+        _part(
+          c,
+          Rect.fromLTWH(w * 0.38, h * 0.35, w * 0.24, h * 0.3),
+          _metal,
+          radius: 2,
+        );
+        c.drawLine(Offset(0, h * 0.12), Offset(w, h * 0.12), _thin);
+        c.drawLine(Offset(0, h * 0.88), Offset(w, h * 0.88), _thin);
+      case ElecShape.psu:
+        _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
+        for (double x = w * 0.15; x < w * 0.86; x += w * 0.1) {
+          c.drawLine(Offset(x, h * 0.3), Offset(x, h * 0.62), _thin);
+        }
+        _part(
+          c,
+          Rect.fromLTWH(w * 0.05, 0, w * 0.9, h * 0.14),
+          _metal,
+          radius: 1,
+        );
+        _part(
+          c,
+          Rect.fromLTWH(w * 0.05, h * 0.86, w * 0.9, h * 0.14),
+          _metal,
+          radius: 1,
+        );
+      case ElecShape.relay:
+        _part(c, Rect.fromLTWH(0, 0, w, h), _metal, radius: 2);
+        _part(
+          c,
+          Rect.fromLTWH(w * 0.04, h * 0.3, w * 0.92, h * 0.4),
+          _glass,
+          radius: 2,
+        );
+      case ElecShape.mc:
+        _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
+        _part(
+          c,
+          Rect.fromLTWH(w * 0.15, h * 0.25, w * 0.7, h * 0.5),
+          _body,
+          radius: 2,
+        );
+        _part(
+          c,
+          Rect.fromLTWH(w * 0.35, h * 0.4, w * 0.3, h * 0.2),
+          _metal,
+          radius: 1,
+        );
+        c.drawLine(Offset(0, h * 0.15), Offset(w, h * 0.15), _thin);
+        c.drawLine(Offset(0, h * 0.85), Offset(w, h * 0.85), _thin);
+      case ElecShape.spd:
+        _part(c, Rect.fromLTWH(0, 0, w, h), _metal, radius: 1);
+        _part(
+          c,
+          Rect.fromLTWH(w * 0.08, h * 0.18, w * 0.84, h * 0.64),
+          _body,
+          radius: 2,
+        );
+      case ElecShape.iso:
+        _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
+        _part(
+          c,
+          Rect.fromLTWH(w * 0.1, h * 0.12, w * 0.8, h * 0.2),
+          _glass,
+          radius: 1,
+        );
+        c.drawLine(Offset(0, h * 0.85), Offset(w, h * 0.85), _thin);
+      case ElecShape.rail:
+        _part(c, Rect.fromLTWH(0, 0, w, h), _metal, radius: 0);
+        for (double x = 12; x < w - 12; x += 25) {
+          _part(c, Rect.fromLTWH(x, h * 0.4, 12, h * 0.2), _body, radius: 2);
+        }
+      default:
+        _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
     }
   }
 

@@ -82,11 +82,44 @@ class _LayoutBoardProjectListPageState
             );
   }
 
-  void _openNew() {
+  // 새 배치도: 캐비닛(중판·측판)인지 스키드(위에서 본 평면)인지 고른다.
+  Future<void> _openNew() async {
     HapticFeedback.lightImpact();
+    final String? kind = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => SafeArea(
+        child: Container(
+          margin: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: pureWhite,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              layoutSheetRow(
+                icon: Icons.dashboard_outlined,
+                label: "캐비닛",
+                caption: "중판·좌우 측판에 계기·전기 부품 배치",
+                onTap: () => Navigator.pop(ctx, kLayoutKindCabinet),
+              ),
+              layoutSheetRow(
+                icon: Icons.grid_on_rounded,
+                label: "스키드",
+                caption: "위에서 본 평면에 형강 틀·장비·JB·전선관 배치",
+                onTap: () => Navigator.pop(ctx, kLayoutKindSkid),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (kind == null || !mounted) return;
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const LayoutBoardPage()),
+      MaterialPageRoute(builder: (_) => LayoutBoardPage(initialKind: kind)),
     );
   }
 

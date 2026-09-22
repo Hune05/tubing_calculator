@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tubing_calculator/src/presentation/my_work_logs/models/layout_plates.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart';
 
 PlacedItem item(

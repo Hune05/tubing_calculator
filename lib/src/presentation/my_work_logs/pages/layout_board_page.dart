@@ -20,12 +20,17 @@ import '../../../core/utils/image_picker_helper.dart' show ImagePickerHelper;
 import '../models/instrument_shape_painter.dart';
 import '../models/layout_board_models.dart';
 import '../models/layout_plates.dart';
+import '../models/skid_presets.dart';
+import '../models/elec_presets.dart';
 import '../models/layout_board_owner.dart';
 import '../models/layout_board_painters.dart';
 import '../widgets/layout_board_ui.dart';
 export '../models/layout_board_painters.dart';
 export '../models/layout_board_models.dart';
 export '../models/instrument_shape_painter.dart';
+export '../models/skid_presets.dart';
+export '../models/elec_presets.dart';
+export '../models/layout_plates.dart';
 export '../widgets/layout_board_ui.dart';
 
 // 색(전선관 계산기와 같은 slate + 틸)과 카드·확인 창은 widgets/layout_board_ui.dart에 있다.
@@ -80,10 +85,14 @@ class LayoutBoardPage extends StatefulWidget {
   // 캡처한 사진 경로를 화면을 닫을 때 결과값으로 돌려준다.
   final bool attachToReport;
 
+  /// 새 도면일 때 종류(캐비닛·스키드). 불러온 도면·이어한 임시 저장은 그 문서의 종류를 쓴다.
+  final String initialKind;
+
   const LayoutBoardPage({
     super.key,
     this.projectId,
     this.attachToReport = false,
+    this.initialKind = kLayoutKindCabinet,
   });
 
   @override
@@ -213,7 +222,15 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       // 🚀 [신규] 새 도면을 열 때만(불러온 프로젝트가 아닐 때) 처음
       // 한 번 사용법을 간단히 안내한다 - 이어할 임시 저장 확인이 먼저
       // 끝난 뒤에 보여줘서 다이얼로그가 겹치지 않게 한다.
-      _checkAndOfferDraftRecovery().then((_) => _maybeShowOnboarding());
+      _checkAndOfferDraftRecovery().then((resumed) {
+        if (!resumed &&
+            widget.initialKind == kLayoutKindSkid &&
+            mounted &&
+            !_hasAnyContent) {
+          setState(_startNewSkid);
+        }
+        _maybeShowOnboarding();
+      });
     }
     _draftTimer = Timer.periodic(
       const Duration(seconds: 20),
@@ -417,6 +434,34 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   String _plateId = kPlateMain;
   bool _sidePlatesOn = false;
 
+  /// 도면 종류(kLayoutKindCabinet·kLayoutKindSkid).
+  String _kind = kLayoutKindCabinet;
+  bool get _isSkid => _kind == kLayoutKindSkid;
+
+  /// 새 스키드 도면: 크기를 스키드 기본(길이 × 폭)으로.
+  /// 다음 그리기에서 도면 전체가 화면에 들어오게 맞춘다(스키드처럼 큰 도면).
+  bool _fitPending = false;
+
+  void _fitBoardToView() {
+    final Size? v = _viewportSize;
+    if (v == null || _panelWidth <= 0 || _panelHeight <= 0) return;
+    final double k =
+        math.min(v.width / _panelWidth, v.height / _panelHeight) * 0.92;
+    final double dx = (v.width - _panelWidth * k) / 2;
+    final double dy = (v.height - _panelHeight * k) / 2;
+    _viewerController.value = Matrix4.identity()
+      ..translateByDouble(dx, dy, 0, 1)
+      ..scaleByDouble(k, k, 1, 1);
+  }
+
+  void _startNewSkid() {
+    _fitPending = true;
+    _kind = kLayoutKindSkid;
+    _sidePlatesOn = false;
+    _panelWidth = kSkidDefaultLength;
+    _panelHeight = kSkidDefaultWidth;
+  }
+
   /// 중판 면에서 문 안쪽까지(mm). 넣으면 이보다 깊은 부품을 알려 준다.
   double? _cabinetDepth;
   final Map<String, Map<String, dynamic>> _plateStore = {};
@@ -493,6 +538,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   Map<String, dynamic> _sidePlateFields(
     Map<String, Map<String, dynamic>> plates,
   ) => {
+    'kind': _kind,
     'sidePlatesOn': _sidePlatesOn,
     if (_cabinetDepth != null) 'cabinetDepth': _cabinetDepth,
     'sidePlates': {
@@ -514,6 +560,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       }
     }
     _sidePlatesOn = data['sidePlatesOn'] == true;
+    _kind = data['kind'] == kLayoutKindSkid
+        ? kLayoutKindSkid
+        : kLayoutKindCabinet;
+    if (_kind == kLayoutKindSkid) _fitPending = true;
     _cabinetDepth = (data['cabinetDepth'] as num?)?.toDouble();
   }
 
@@ -991,15 +1041,15 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 
   // 🚀 [추가] 새 도면으로 들어왔을 때(특정 프로젝트를 불러온 게 아닐 때)
   // 이전에 저장 안 하고 나간 임시 작업이 남아있으면 이어할지 물어본다.
-  Future<void> _checkAndOfferDraftRecovery() async {
+  Future<bool> _checkAndOfferDraftRecovery() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw =
           prefs.getString(_draftPrefsKey) ??
           prefs.getString(_legacyTabletDraftPrefsKey);
-      if (raw == null) return;
+      if (raw == null) return false;
       final data = jsonDecode(raw) as Map<String, dynamic>;
-      if (!mounted) return;
+      if (!mounted) return false;
       final bool resume =
           await showDialog<bool>(
             context: context,
@@ -1040,14 +1090,16 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           ) ??
           false;
 
-      if (!mounted) return;
+      if (!mounted) return false;
       if (resume) {
         setState(() => _applySnapshotJson(data));
       } else {
         await _clearDraftPrefs();
       }
+      return resume;
     } catch (_) {
       // 임시 저장 데이터가 깨져있으면 그냥 무시하고 새로 시작한다.
+      return false;
     }
   }
 
@@ -2233,6 +2285,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           height: src.height,
           shape: src.shape,
           depth: src.depth,
+          elevation: src.elevation,
         );
         // 겹치는 자리면 조금씩 옮겨가며 빈 자리를 찾는다.
         while (_overlapsAny(newItem, newItem.position)) {
@@ -2899,6 +2952,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           isSelected: true,
           shape: item.shape,
           depth: item.depth,
+          elevation: item.elevation,
         );
         _placedItems.add(newItem);
         newIds.add(newItem.id);
@@ -3334,7 +3388,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       text: item.height.toInt().toString(),
     );
     final TextEditingController depthCtrl = TextEditingController(
-      text: _depthText(item.depth),
+      text: _depthText(_isSkid ? item.elevation : item.depth),
     );
 
     showModalBottomSheet(
@@ -3486,6 +3540,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                   isSelected: false,
                                   shape: item.shape,
                                   depth: item.depth,
+                                  elevation: item.elevation,
                                 );
                                 _placedItems.add(newItem);
                               });
@@ -3770,10 +3825,18 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     ),
                     const SizedBox(height: 16),
                     _buildCoordinateInput(
-                      "깊이 (mm, 판에서 앞으로 튀어나온 길이)",
+                      _isSkid
+                          ? "바닥에서 높이 (mm, 부품 가운데까지)"
+                          : "깊이 (mm, 판에서 앞으로 튀어나온 길이)",
                       depthCtrl.text,
                       (val) {
-                        setState(() => item.depth = _parseDepth(val));
+                        setState(() {
+                          if (_isSkid) {
+                            item.elevation = _parseDepth(val);
+                          } else {
+                            item.depth = _parseDepth(val);
+                          }
+                        });
                       },
                       controller: depthCtrl,
                     ),
@@ -4752,33 +4815,35 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   _moreSection("도면", [
                     layoutSheetRow(
                       icon: Icons.aspect_ratio_rounded,
-                      label: "외함 사이즈 설정",
+                      label: _isSkid ? "스키드 크기 (길이 × 폭)" : "외함 사이즈 설정",
                       caption:
                           "${_sidePlatesOn ? "${plateLabel(_plateId)} " : ""}지금 ${_panelWidth.toInt()} × ${_panelHeight.toInt()} mm",
                       onTap: () => run(_showPanelSettingsSheet),
                     ),
-                    layoutSheetRow(
-                      icon: Icons.view_column_outlined,
-                      label: "좌·우 측판",
-                      caption: _sidePlatesOn
-                          ? "켜짐 · 위 탭으로 판을 바꿉니다"
-                          : "꺼짐 · 켜면 측판에 전기 부품을 따로 배치합니다",
-                      onTap: () => run(_toggleSidePlates),
-                    ),
-                    layoutSheetRow(
-                      icon: Icons.layers_outlined,
-                      label: "측판·깊이 설정",
-                      caption: _cabinetDepth == null
-                          ? "캐비닛 깊이·측판 높이 차"
-                          : "캐비닛 깊이 ${_cabinetDepth!.toInt()} mm",
-                      onTap: () => run(_showCabinetSettingsSheet),
-                    ),
-                    layoutSheetRow(
-                      icon: Icons.warning_amber_rounded,
-                      label: "간섭 확인",
-                      caption: "중판·측판 부품이 부딪히는지, 문보다 깊은지",
-                      onTap: () => run(_showClashSheet),
-                    ),
+                    if (!_isSkid) ...[
+                      layoutSheetRow(
+                        icon: Icons.view_column_outlined,
+                        label: "좌·우 측판",
+                        caption: _sidePlatesOn
+                            ? "켜짐 · 위 탭으로 판을 바꿉니다"
+                            : "꺼짐 · 켜면 측판에 전기 부품을 따로 배치합니다",
+                        onTap: () => run(_toggleSidePlates),
+                      ),
+                      layoutSheetRow(
+                        icon: Icons.layers_outlined,
+                        label: "측판·깊이 설정",
+                        caption: _cabinetDepth == null
+                            ? "캐비닛 깊이·측판 높이 차"
+                            : "캐비닛 깊이 ${_cabinetDepth!.toInt()} mm",
+                        onTap: () => run(_showCabinetSettingsSheet),
+                      ),
+                      layoutSheetRow(
+                        icon: Icons.warning_amber_rounded,
+                        label: "간섭 확인",
+                        caption: "중판·측판 부품이 부딪히는지, 문보다 깊은지",
+                        onTap: () => run(_showClashSheet),
+                      ),
+                    ],
                     layoutSheetRow(
                       icon: Icons.image_outlined,
                       label: "배경 사진",
@@ -4942,6 +5007,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && _viewportSize != constraints.biggest) {
             setState(() => _viewportSize = constraints.biggest);
+          }
+          if (mounted && _fitPending && _viewportSize != null) {
+            _fitPending = false;
+            setState(_fitBoardToView);
           }
         });
         return InteractiveViewer(
@@ -5751,6 +5820,37 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               ],
             ),
             const SizedBox(height: 20),
+            if (_isSkid) ...[
+              _panelLabel("스키드"),
+              const SizedBox(height: 8),
+              for (final e in [
+                ("형강", "형강 놓기", kSkidSteelPresets),
+                ("후강 전선관", "후강 전선관 놓기", kSkidConduitPresets),
+                ("정션박스", "정션박스 놓기", kSkidJbPresets),
+              ]) ...[
+                OutlinedButton(
+                  onPressed: () => _openSkidSheet(e.$2, e.$3),
+                  child: Text(
+                    e.$1,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+              ],
+              const SizedBox(height: 14),
+            ],
+            OutlinedButton.icon(
+              onPressed: _openElecSheet,
+              icon: const Icon(Icons.electrical_services_rounded, size: 20),
+              label: const Text(
+                "전기 부품 (단자대·차단기·전원)",
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+              ),
+            ),
+            const SizedBox(height: 14),
             _panelLabel("밸브·피팅"),
             const SizedBox(height: 8),
             Row(
@@ -5977,12 +6077,18 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               ),
               const SizedBox(height: 12),
               _buildInspectorInput(
-                "깊이 (앞으로 튀어나온 길이)",
-                fieldKey: ValueKey("${item.id}_깊이"),
-                _depthText(item.depth),
+                _isSkid ? "바닥에서 높이 (가운데까지)" : "깊이 (앞으로 튀어나온 길이)",
+                fieldKey: ValueKey("${item.id}_${_isSkid ? "높이" : "깊이"}"),
+                _depthText(_isSkid ? item.elevation : item.depth),
                 (val) {
                   _pushUndo();
-                  setState(() => item.depth = _parseDepth(val));
+                  setState(() {
+                    if (_isSkid) {
+                      item.elevation = _parseDepth(val);
+                    } else {
+                      item.depth = _parseDepth(val);
+                    }
+                  });
                 },
               ),
               const SizedBox(height: 16),
@@ -6242,6 +6348,13 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     if (_dimensionStartPoint != null) return "다음 지점을 누르면 치수선이 이어집니다.";
     if (_dimensionChainMode) return "체인: 지점을 계속 누르면 이어서 잽니다.";
     return "잴 두 지점(모듈 또는 벽면)을 차례로 누르십시오. 치수선을 누르면 고칩니다.";
+  }
+
+  // 모듈 이름 밑 한 줄: 캐비닛은 깊이, 스키드는 바닥에서 높이.
+  String? _itemCaption(PlacedItem item) {
+    final double? v = _isSkid ? item.elevation : item.depth;
+    if (v == null) return null;
+    return "${_isSkid ? "높이" : "깊이"} ${v.toInt()}";
   }
 
   // 깊이 칸: 빈칸이면 모름(null), 숫자면 mm.
@@ -6608,7 +6721,35 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   affinity: Axis.vertical,
                 ),
                 const SizedBox(width: 8),
-                _buildDuctButton(),
+                if (_isSkid) ...[
+                  _buildSkidButton(
+                    "skid_steel",
+                    Icons.view_stream_rounded,
+                    "형강",
+                    "형강 놓기",
+                    kSkidSteelPresets,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildSkidButton(
+                    "skid_conduit",
+                    Icons.horizontal_rule_rounded,
+                    "전선관",
+                    "후강 전선관 놓기",
+                    kSkidConduitPresets,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildSkidButton(
+                    "skid_jb",
+                    Icons.inbox_outlined,
+                    "JB",
+                    "정션박스 놓기",
+                    kSkidJbPresets,
+                  ),
+                ] else ...[
+                  _buildDuctButton(),
+                  const SizedBox(width: 8),
+                  _buildElecButton(),
+                ],
                 const SizedBox(width: 8),
                 _buildInstrumentButton(),
                 const SizedBox(width: 8),
@@ -6971,6 +7112,45 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     icon: Icons.tune_rounded,
     label: "밸브",
     onTap: _openValveSheet,
+  );
+
+  // 스키드 평면 모듈 단추(형강·전선관·정션박스). 길이는 1000으로 놓이고 놓은 뒤 고친다.
+  Widget _buildSkidButton(
+    String key,
+    IconData icon,
+    String label,
+    String title,
+    Map<String, List<ModulePreset>> groups,
+  ) => _buildSheetButton(
+    key: ValueKey(key),
+    icon: icon,
+    label: label,
+    onTap: () => _openSkidSheet(title, groups),
+  );
+
+  void _openSkidSheet(
+    String title,
+    Map<String, List<ModulePreset>> groups,
+  ) => _showPresetSheet(
+    title: title,
+    help: groups == kSkidJbPresets
+        ? "위에서 본 가로×세로(mm)입니다. 누르면 지금 보이는 도면 가운데에 놓습니다. 바닥에서 높이는 놓은 뒤 편집 칸에 넣으십시오."
+        : "위에서 본 폭(mm)으로, 길이 1000으로 놓입니다. 놓은 뒤 편집 칸에서 실제 길이로 고치고, 세로로 쓰려면 돌리십시오.",
+    groups: groups,
+  );
+
+  void _openElecSheet() => _showPresetSheet(
+    title: "전기 부품 놓기",
+    help:
+        "DIN 레일에 다는 부품을 정면에서 본 크기입니다(깊이는 판 면에서, 레일 포함). 누르면 지금 보이는 도면 가운데에 놓습니다.",
+    groups: kElecPresets,
+  );
+
+  Widget _buildElecButton() => _buildSheetButton(
+    key: const ValueKey("elec_button"),
+    icon: Icons.electrical_services_rounded,
+    label: "전기",
+    onTap: _openElecSheet,
   );
 
   Widget _buildDuctButton() => _buildSheetButton(
@@ -7429,6 +7609,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       isSelected: false,
       shape: item.shape,
       depth: item.depth,
+      elevation: item.elevation,
     );
     setState(() {
       _placedItems.add(newItem);
@@ -7582,9 +7763,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       ),
       child: Center(
         child: Text(
-          item.depth == null
+          _itemCaption(item) == null
               ? item.name
-              : "${item.name}\n깊이 ${item.depth!.toInt()}",
+              : "${item.name}\n${_itemCaption(item)}",
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 13,
@@ -7641,11 +7822,11 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
               color: pureWhite.withValues(alpha: small ? 0.55 : 0.85),
               child: Text(
-                item.depth == null ||
+                _itemCaption(item) == null ||
                         small ||
                         item.shape == InstrumentShape.duct
                     ? item.name
-                    : "${item.name}\n깊이 ${item.depth!.toInt()}",
+                    : "${item.name}\n${_itemCaption(item)}",
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: small ? 8 : 11,

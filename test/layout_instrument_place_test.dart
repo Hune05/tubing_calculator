@@ -86,6 +86,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.byKey(const ValueKey('fitting_button')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('fitting_button')));
     await tester.pumpAndSettle();
     expect(find.text('피팅 놓기'), findsOneWidget);
