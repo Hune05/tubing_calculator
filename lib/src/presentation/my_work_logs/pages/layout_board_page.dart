@@ -22,6 +22,9 @@ import '../models/layout_board_models.dart';
 import '../models/layout_plates.dart';
 import '../models/skid_presets.dart';
 import '../models/elec_presets.dart';
+import '../models/skid_route.dart';
+import 'package:vector_math/vector_math_64.dart' as vm;
+import '../../../data/models/conduit_data_manager.dart';
 import '../models/layout_board_owner.dart';
 import '../models/layout_board_painters.dart';
 import '../widgets/layout_board_ui.dart';
@@ -30,6 +33,7 @@ export '../models/layout_board_models.dart';
 export '../models/instrument_shape_painter.dart';
 export '../models/skid_presets.dart';
 export '../models/elec_presets.dart';
+export '../models/skid_route.dart';
 export '../models/layout_plates.dart';
 export '../widgets/layout_board_ui.dart';
 
@@ -377,6 +381,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   }
 
   bool get _hasAnyContent =>
+      _routes.isNotEmpty ||
       _placedItems.isNotEmpty ||
       _dimensions.isNotEmpty ||
       _plateStore.values.any(
@@ -553,6 +558,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     Map<String, Map<String, dynamic>> plates,
   ) => {
     'kind': _kind,
+    if (_routes.isNotEmpty) 'routes': _routes.map((r) => r.toJson()).toList(),
     'sidePlatesOn': _sidePlatesOn,
     if (_cabinetDepth != null) 'cabinetDepth': _cabinetDepth,
     'sidePlates': {
@@ -574,6 +580,12 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         }
       });
     }
+    _routes
+      ..clear()
+      ..addAll([
+        for (final r in (data['routes'] as List?) ?? const [])
+          if (r is Map) ConduitRoute.fromJson(Map<String, dynamic>.from(r)),
+      ]);
     _sidePlatesOn = data['sidePlatesOn'] == true;
     _kind = data['kind'] == kLayoutKindSkid
         ? kLayoutKindSkid
@@ -5139,6 +5151,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                 version: _dimensionsVersion,
                               ),
                             ),
+                            if (_isSkid) _buildSkidOverlay(),
                             if (_previewItem != null &&
                                 _mode == BoardMode.placeModule) ...[
                               ..._buildGuidePaints(_previewItem!),
@@ -6774,6 +6787,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     kSkidConduitPresets,
                   ),
                   const SizedBox(width: 8),
+                  _buildRouteButton(),
+                  const SizedBox(width: 8),
                   _buildSkidButton(
                     "skid_jb",
                     Icons.inbox_outlined,
@@ -7149,6 +7164,634 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     label: "밸브",
     onTap: _openValveSheet,
   );
+
+  // ───────────────────────── 스키드 전선관 경로 ─────────────────────────
+  // 경로는 평면 기준(탭과 상관없이 하나)이고, 탭마다 그 방향에서 본 선으로 그린다.
+
+  final List<ConduitRoute> _routes = [];
+
+  List<PlacedItem> get _planItems => _plateId == kPlateMain
+      ? _placedItems
+      : layoutItemsFromData(_plateStore[kPlateMain] ?? const {});
+
+  (double, double) get _planSize {
+    if (_plateId == kPlateMain) return (_panelWidth, _panelHeight);
+    final m = _plateStore[kPlateMain];
+    return (
+      (m?['panelWidth'] as num?)?.toDouble() ?? _panelWidth,
+      (m?['panelHeight'] as num?)?.toDouble() ?? _panelHeight,
+    );
+  }
+
+  Widget _buildSkidOverlay() {
+    final plan = _planItems;
+    final (planW, planH) = _planSize;
+    Offset proj(vm.Vector3 p) => projectToView(
+      p,
+      _plateId,
+      planW: planW,
+      planH: planH,
+      viewH: _panelHeight,
+    );
+    final routes = [
+      for (final r in _routes)
+        (r.name, r.points(plan).map(proj).toList(), r.od),
+    ];
+    final ghosts = skidGhosts(
+      plan,
+      _plateId,
+      planH: planH,
+      viewH: _panelHeight,
+    );
+    final version = jsonEncode([
+      _plateId,
+      _panelHeight,
+      planW,
+      planH,
+      _routes.map((r) => r.toJson()).toList(),
+      if (_plateId != kPlateMain)
+        plan
+            .map(
+              (e) => [
+                e.id,
+                e.position.dx,
+                e.position.dy,
+                e.width,
+                e.height,
+                e.elevation,
+              ],
+            )
+            .toList()
+      else
+        _routes.map((r) => r.startItemId).toList(),
+      if (_plateId == kPlateMain)
+        plan
+            .where((e) => _routes.any((r) => r.startItemId == e.id))
+            .map((e) => [e.position.dx, e.position.dy, e.elevation])
+            .toList(),
+    ]);
+    return IgnorePointer(
+      child: CustomPaint(
+        size: Size.infinite,
+        painter: SkidOverlayPainter(
+          routes: routes,
+          ghosts: ghosts,
+          version: version,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRouteButton() => _buildSheetButton(
+    key: const ValueKey("skid_route"),
+    icon: Icons.route_rounded,
+    label: "경로",
+    onTap: _showRoutesSheet,
+  );
+
+  void _showRoutesSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => SafeArea(
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.75,
+            ),
+            margin: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            decoration: BoxDecoration(
+              color: pureWhite,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  "전선관 경로",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: tossText,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  keepWords(
+                    "시작 부품에서 곧게 가는 길이와 꺾는 곳을 한 줄씩 넣으면 평면·정면·측면에 선으로 그립니다. 구조물은 오프셋으로 비켜 가고, 다 되면 전선관 계산기로 보냅니다.",
+                  ),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: tossSubText,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (final r in _routes)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(
+                            Icons.route_rounded,
+                            color: tossBlue,
+                          ),
+                          title: Text(
+                            "${r.name} · 후강 ${r.size}",
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: tossText,
+                            ),
+                          ),
+                          subtitle: Text(
+                            "${r.bends.length}줄 · 꺾이는 점 사이 합 ${r.totalLength.toInt()} mm",
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: tossSubText,
+                            ),
+                          ),
+                          trailing: IconButton(
+                            tooltip: "지우기",
+                            icon: const Icon(
+                              Icons.delete_outline_rounded,
+                              color: warningRed,
+                            ),
+                            onPressed: () async {
+                              final ok = await confirmLayoutDanger(
+                                context,
+                                title: "경로 지우기",
+                                message: "'${r.name}' 경로를 지웁니다.",
+                                confirmLabel: "지우기",
+                              );
+                              if (!ok || !mounted) return;
+                              setState(() => _routes.remove(r));
+                              setSheet(() {});
+                              _saveDraftToPrefs();
+                            },
+                          ),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _showRouteEditor(r);
+                          },
+                        ),
+                      if (_routes.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Text(
+                            "아직 경로가 없습니다.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: tossSubText, fontSize: 15),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton.icon(
+                  key: const ValueKey("route_new"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: tossBlue,
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _showRouteEditor(null);
+                  },
+                  icon: const Icon(Icons.add_rounded, color: pureWhite),
+                  label: const Text(
+                    "새 경로",
+                    style: TextStyle(
+                      color: pureWhite,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _dirChips(double? selected, ValueChanged<double> onPick) => Wrap(
+    spacing: 6,
+    runSpacing: 6,
+    children: [
+      for (final d in kRouteDirections)
+        ChoiceChip(
+          label: Text(d.$3),
+          selected: selected == d.$1,
+          showCheckmark: false,
+          labelStyle: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: selected == d.$1 ? pureWhite : tossText,
+          ),
+          selectedColor: tossBlue,
+          backgroundColor: pureWhite,
+          side: BorderSide(color: selected == d.$1 ? tossBlue : layoutLine),
+          onSelected: (_) => onPick(d.$1),
+        ),
+    ],
+  );
+
+  Widget _angleChips(
+    List<double> options,
+    double? selected,
+    ValueChanged<double> onPick, {
+    String zeroLabel = "곧게",
+  }) => Wrap(
+    spacing: 6,
+    runSpacing: 6,
+    children: [
+      for (final a in options)
+        ChoiceChip(
+          label: Text(
+            a == 0 ? zeroLabel : (a < 0 ? "직접" : "${_depthText(a)}°"),
+          ),
+          selected: selected == a,
+          showCheckmark: false,
+          labelStyle: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: selected == a ? pureWhite : tossText,
+          ),
+          selectedColor: tossBlue,
+          backgroundColor: pureWhite,
+          side: BorderSide(color: selected == a ? tossBlue : layoutLine),
+          onSelected: (_) => onPick(a),
+        ),
+    ],
+  );
+
+  TextField _routeNumField(TextEditingController c, String label) => TextField(
+    controller: c,
+    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+    style: const TextStyle(fontSize: 16, color: tossText),
+    decoration: InputDecoration(
+      labelText: label,
+      isDense: true,
+      border: const OutlineInputBorder(),
+    ),
+  );
+
+  String _routeRowText(Map<String, dynamic> b) {
+    final double len = (b['length'] as num?)?.toDouble() ?? 0;
+    final double ang = (b['angle'] as num?)?.toDouble() ?? 0;
+    final double rot = (b['rotation'] as num?)?.toDouble() ?? 0;
+    if (ang == 0) return "곧게 ${_depthText(len)}";
+    return "${_depthText(len)} 가서 ${routeDirLabel(rot)}(으)로 ${_depthText(ang)}°";
+  }
+
+  void _showRouteEditor(ConduitRoute? original) {
+    final r = original == null
+        ? ConduitRoute(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            name: "경로 ${_routes.length + 1}",
+          )
+        : ConduitRoute.fromJson(original.toJson());
+    final plan = _planItems;
+    final nameCtrl = TextEditingController(text: r.name);
+    final xCtrl = TextEditingController(text: _depthText(r.x));
+    final yCtrl = TextEditingController(text: _depthText(r.y));
+    final zCtrl = TextEditingController(text: _depthText(r.z));
+    final lenCtrl = TextEditingController();
+    final angCtrl = TextEditingController();
+    final beforeCtrl = TextEditingController();
+    final offCtrl = TextEditingController();
+    final offAngCtrl = TextEditingController();
+    double stepAngle = 0;
+    double? stepDir;
+    double offAngle = 30;
+    double? offDir;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) {
+          final warnings = r.warnings();
+          void addStep() {
+            final double? len = double.tryParse(lenCtrl.text.trim());
+            final double ang = stepAngle < 0
+                ? (double.tryParse(angCtrl.text.trim()) ?? 0)
+                : stepAngle;
+            if (len == null || len <= 0) return;
+            if (ang > 0 && stepDir == null) return;
+            setSheet(() {
+              r.bends.add({
+                'length': len,
+                'angle': ang,
+                'rotation': ang == 0 ? 0.0 : stepDir!,
+              });
+              lenCtrl.clear();
+            });
+          }
+
+          void addOffset() {
+            final double? before = double.tryParse(beforeCtrl.text.trim());
+            final double? off = double.tryParse(offCtrl.text.trim());
+            final double ang = offAngle < 0
+                ? (double.tryParse(offAngCtrl.text.trim()) ?? 0)
+                : offAngle;
+            if (before == null || off == null || off <= 0) return;
+            if (ang <= 0 || ang >= 90 || offDir == null) return;
+            setSheet(() {
+              r.bends.addAll(
+                offsetBends(
+                  before: before,
+                  offset: off,
+                  angle: ang,
+                  dir: offDir!,
+                ),
+              );
+              beforeCtrl.clear();
+              offCtrl.clear();
+            });
+          }
+
+          void applyFields() {
+            r.name = nameCtrl.text.trim().isEmpty
+                ? r.name
+                : nameCtrl.text.trim();
+            r.x = double.tryParse(xCtrl.text.trim()) ?? r.x;
+            r.y = double.tryParse(yCtrl.text.trim()) ?? r.y;
+            r.z = double.tryParse(zCtrl.text.trim()) ?? r.z;
+          }
+
+          void save() {
+            applyFields();
+            setState(() {
+              final i = _routes.indexWhere((e) => e.id == r.id);
+              if (i >= 0) {
+                _routes[i] = r;
+              } else {
+                _routes.add(r);
+              }
+            });
+            _saveDraftToPrefs();
+          }
+
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            child: DraggableScrollableSheet(
+              expand: false,
+              initialChildSize: 0.9,
+              maxChildSize: 0.95,
+              builder: (ctx, scroll) => ListView(
+                controller: scroll,
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                children: [
+                  const Text(
+                    "전선관 경로",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: tossText,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: "이름",
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _panelLabel("후강 규격"),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    children: [
+                      for (final s in kThickConduitOd.keys)
+                        ChoiceChip(
+                          label: Text("$s"),
+                          selected: r.size == s,
+                          showCheckmark: false,
+                          labelStyle: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: r.size == s ? pureWhite : tossText,
+                          ),
+                          selectedColor: tossBlue,
+                          backgroundColor: pureWhite,
+                          side: BorderSide(
+                            color: r.size == s ? tossBlue : layoutLine,
+                          ),
+                          onSelected: (_) => setSheet(() => r.size = s),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _panelLabel("시작 (평면 부품 가운데에서)"),
+                  DropdownButton<String?>(
+                    isExpanded: true,
+                    value: plan.any((e) => e.id == r.startItemId)
+                        ? r.startItemId
+                        : null,
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text("부품 없이 자리로 (가로·세로)"),
+                      ),
+                      for (final it in plan)
+                        DropdownMenuItem<String?>(
+                          value: it.id,
+                          child: Text(it.name, overflow: TextOverflow.ellipsis),
+                        ),
+                    ],
+                    onChanged: (v) => setSheet(() => r.startItemId = v),
+                  ),
+                  if (!plan.any((e) => e.id == r.startItemId)) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(child: _routeNumField(xCtrl, "가로 (왼쪽에서)")),
+                        const SizedBox(width: 8),
+                        Expanded(child: _routeNumField(yCtrl, "세로 (위에서)")),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  _routeNumField(zCtrl, "시작 높이 (바닥에서, 부품에 높이가 없을 때)"),
+                  const SizedBox(height: 12),
+                  _panelLabel("처음 나가는 방향 (앞 = 평면 아래쪽)"),
+                  const SizedBox(height: 6),
+                  _dirChips(r.startDir, (v) => setSheet(() => r.startDir = v)),
+                  const SizedBox(height: 16),
+                  _panelLabel("경로 (${r.bends.length}줄)"),
+                  for (int i = 0; i < r.bends.length; i++)
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        "${i + 1}. ${_routeRowText(r.bends[i])}",
+                        style: const TextStyle(fontSize: 15, color: tossText),
+                      ),
+                      trailing: IconButton(
+                        tooltip: "이 줄 지우기",
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                        onPressed: () => setSheet(() => r.bends.removeAt(i)),
+                      ),
+                    ),
+                  for (final w in warnings)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        keepWords(w),
+                        style: const TextStyle(fontSize: 14, color: warningRed),
+                      ),
+                    ),
+                  const Divider(height: 28),
+                  _panelLabel("한 줄 넣기 (꺾이는 점까지 곧은 길이 + 꺾기)"),
+                  const SizedBox(height: 8),
+                  _routeNumField(lenCtrl, "길이 (mm)"),
+                  const SizedBox(height: 8),
+                  _angleChips(
+                    const [0, 90, 45, 30, 22.5, -1],
+                    stepAngle,
+                    (v) => setSheet(() => stepAngle = v),
+                    zeroLabel: "곧게 (끝)",
+                  ),
+                  if (stepAngle < 0) ...[
+                    const SizedBox(height: 8),
+                    _routeNumField(angCtrl, "각도 (°)"),
+                  ],
+                  if (stepAngle != 0) ...[
+                    const SizedBox(height: 8),
+                    _dirChips(stepDir, (v) => setSheet(() => stepDir = v)),
+                  ],
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    key: const ValueKey("route_add_step"),
+                    onPressed: addStep,
+                    child: const Text(
+                      "한 줄 넣기",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 28),
+                  _panelLabel("오프셋 넣기 (구조물 비켜 가기, 벤드 두 줄)"),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(child: _routeNumField(beforeCtrl, "첫 벤드까지 길이")),
+                      const SizedBox(width: 8),
+                      Expanded(child: _routeNumField(offCtrl, "비켜 갈 거리")),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _angleChips(
+                    const [22.5, 30, 45, -1],
+                    offAngle,
+                    (v) => setSheet(() => offAngle = v),
+                  ),
+                  if (offAngle < 0) ...[
+                    const SizedBox(height: 8),
+                    _routeNumField(offAngCtrl, "각도 (°)"),
+                  ],
+                  const SizedBox(height: 8),
+                  _dirChips(offDir, (v) => setSheet(() => offDir = v)),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    key: const ValueKey("route_add_offset"),
+                    onPressed: addOffset,
+                    child: const Text(
+                      "오프셋 넣기",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          key: const ValueKey("route_to_calc"),
+                          onPressed: r.bends.isEmpty
+                              ? null
+                              : () async {
+                                  final ok = await confirmLayoutDanger(
+                                    context,
+                                    title: "계산기로 보내기",
+                                    message:
+                                        "전선관 벤딩 계산기의 입력 목록을 이 경로(${r.bends.length}줄)로 바꿉니다. 계산기에서 ↶로 되돌릴 수 있습니다.",
+                                    confirmLabel: "보내기",
+                                  );
+                                  if (!ok) return;
+                                  ConduitDataManager().replaceAll(r.bends);
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        keepWords(
+                                          "전선관 계산기 입력 목록에 넣었습니다. 계산기 설정 규격이 후강 ${r.size}인지 확인하십시오.",
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                          child: const Text(
+                            "계산기로 보내기",
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton(
+                          key: const ValueKey("route_save"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: tossBlue,
+                          ),
+                          onPressed: () {
+                            save();
+                            Navigator.pop(ctx);
+                          },
+                          child: const Text(
+                            "저장",
+                            style: TextStyle(
+                              color: pureWhite,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   // 스키드 평면 모듈 단추(형강·전선관·정션박스). 길이는 1000으로 놓이고 놓은 뒤 고친다.
   Widget _buildSkidButton(
