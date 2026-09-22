@@ -32,7 +32,10 @@ const Color pureWhite = Color(0xFFFFFFFF);
 const double kConduitMaxAngle = 170.0;
 
 class ConduitInputTab extends StatefulWidget {
-  const ConduitInputTab({super.key});
+  /// 목록 관리자. 없으면 계산기 목록(폰에 저장되는 것). 배치도 스키드 경로는 따로 준다.
+  final ConduitDataManager? manager;
+
+  const ConduitInputTab({super.key, this.manager});
   @override
   State<ConduitInputTab> createState() => _ConduitInputTabState();
 }
@@ -102,9 +105,9 @@ class _ConduitInputTabState extends State<ConduitInputTab>
     super.build(context);
 
     return ListenableBuilder(
-      listenable: ConduitDataManager(), // 변경: 전선관 매니저 감지
+      listenable: widget.manager ?? ConduitDataManager(),
       builder: (context, child) {
-        final manager = ConduitDataManager(); // 변경: 전선관 매니저 인스턴스
+        final manager = widget.manager ?? ConduitDataManager();
         final bendList = manager.bendList;
 
         // 🚀 [수정] 폴더블 대응으로 넓은 화면에서 마킹 탭과 나란히 붙여

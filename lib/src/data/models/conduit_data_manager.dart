@@ -11,10 +11,21 @@ class ConduitDataManager extends ChangeNotifier with BendListHistory {
     return _instance;
   }
 
-  ConduitDataManager._internal() {
+  ConduitDataManager._internal() : _persist = true {
     // 최초 생성 시 로컬 스토리지에서 전선관 데이터를 불러옵니다.
     _loadData();
   }
+
+  /// 계산기 목록과 따로 노는 목록(배치도 스키드 경로 입력용). 폰에 적지 않는다.
+  ConduitDataManager.detached([List<Map<String, dynamic>>? initial])
+    : _persist = false {
+    bendList = [
+      for (final b in initial ?? const <Map<String, dynamic>>[])
+        Map<String, dynamic>.from(b),
+    ];
+  }
+
+  final bool _persist;
 
   List<Map<String, dynamic>> bendList = [];
 
@@ -92,6 +103,7 @@ class ConduitDataManager extends ChangeNotifier with BendListHistory {
 
   // --- 로컬 스토리지(SharedPreferences) 로직 ---
   Future<void> _saveData() async {
+    if (!_persist) return;
     final prefs = await SharedPreferences.getInstance();
     String jsonString = jsonEncode(bendList);
     // 다른 배관 데이터와 겹치지 않게 고유 키값 사용

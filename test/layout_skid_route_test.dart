@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/skid_route_editor_page.dart';
 import 'package:vector_math/vector_math_64.dart' as vm;
 
 PlacedItem jb({double? elev = 800}) => PlacedItem(
@@ -160,60 +161,65 @@ void main() {
     expect((saved['routes'] as List).single['name'], 'JB→PT');
   });
 
-  testWidgets('경로 창을 연 채로 줄을 넣으면 저장 전에도 도면에 그려지고, 닫으면 사라진다', (tester) async {
-    SharedPreferences.setMockInitialValues({
-      'layout_board_onboarding_shown_v1': true,
-    });
+  testWidgets('경로 입력: 아래는 전선관 계산기 입력 탭, 넣은 줄이 위 작은 도면에 바로 그려지고 저장된다', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(390, 844) * 2;
     tester.view.devicePixelRatio = 2;
     addTearDown(tester.view.reset);
+    ConduitRoute? result;
     await tester.pumpWidget(
-      const MaterialApp(home: LayoutBoardPage(initialKind: kLayoutKindSkid)),
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () async {
+                  result = await SkidRouteEditorPage.open(
+                    context,
+                    route: ConduitRoute(id: 'r', name: '경로 1'),
+                    plates: {
+                      'main': {
+                        'panelWidth': 2400.0,
+                        'panelHeight': 1200.0,
+                        'items': [jb().toJson()],
+                      },
+                    },
+                  );
+                },
+                child: const Text('열기'),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.text('열기'));
     await tester.pumpAndSettle();
 
-    SkidOverlayPainter overlay() =>
+    SkidMiniViewPainter mini() =>
         tester
                 .widget<CustomPaint>(
                   find.byWidgetPredicate(
-                    (w) => w is CustomPaint && w.painter is SkidOverlayPainter,
+                    (w) => w is CustomPaint && w.painter is SkidMiniViewPainter,
                   ),
                 )
                 .painter!
-            as SkidOverlayPainter;
+            as SkidMiniViewPainter;
+    expect(mini().route, hasLength(1)); // 시작점만
 
-    await tester.ensureVisible(find.byKey(const ValueKey('skid_route')));
+    // 계산기 입력 탭의 길이 칸에 700을 넣고 추가
+    await tester.enterText(find.byType(TextField).last, '700');
+    await tester.tap(find.text('90° 벤딩'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('skid_route')));
+    await tester.tap(find.text('0° 직관')); // 화면을 다시 그리게(길이 칸은 앱 숫자판이라)
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('route_new')));
+    await tester.tap(find.text('추가').last);
     await tester.pumpAndSettle();
-    expect(overlay().routes, hasLength(1));
-    expect(overlay().routes.single.$2, hasLength(1)); // 시작점만
+    expect(mini().route, hasLength(2)); // 저장 전에도 바로 그려진다
 
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('route_add_step')),
-      300,
-      scrollable: find
-          .descendant(
-            of: find.byType(DraggableScrollableSheet),
-            matching: find.byType(Scrollable),
-          )
-          .first,
-    );
+    await tester.tap(find.byKey(const ValueKey('route_save')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, '길이 (mm)'), '700');
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('route_add_step')));
-    await tester.pumpAndSettle();
-    expect(overlay().routes.single.$2, hasLength(2)); // 저장 전인데 벌써 그려진다
-
-    Navigator.of(tester.element(find.text('한 줄 넣기').first)).pop();
-    await tester.pumpAndSettle();
-    expect(overlay().routes, isEmpty); // 저장 안 하고 닫으면 사라진다
-
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(seconds: 1));
+    expect(result!.bends.single['length'], 700.0);
   });
 }
