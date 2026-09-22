@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
@@ -915,6 +916,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   Map<String, dynamic> _captureUndoState() => {
     'items': _placedItems.map((e) => e.toJson()).toList(),
     'dimensions': _dimensions.map((e) => e.toJson()).toList(),
+    if (_isSkid) 'routes': _routes.map((r) => r.toJson()).toList(),
   };
 
   // 실제로 뭔가 바꾸기 "직전"에 호출한다.
@@ -939,6 +941,15 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           (e) => PlacedDimension.fromJson(Map<String, dynamic>.from(e)),
         ),
       );
+    final routes = snap['routes'];
+    if (routes is List) {
+      _routes
+        ..clear()
+        ..addAll([
+          for (final r in routes)
+            if (r is Map) ConduitRoute.fromJson(Map<String, dynamic>.from(r)),
+        ]);
+    }
     _activeItem = null;
     _previewItem = null;
     _dimensionStartPoint = null;
@@ -2547,6 +2558,127 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         _multiSelectedIds = {};
       });
     }
+  }
+
+  // 경로 끌기: 선 위에 보이지 않는 손잡이를 토막마다 깔아, 끌면 경로 시작 자리가 옮겨진다.
+  ConduitRoute? _draggingRoute;
+  Offset? _routeDragLast;
+
+  List<Widget> _buildRouteHandles() {
+    final plan = _planItems;
+    final (planW, planH) = _planSize;
+    final double scale = _viewerController.value.getMaxScaleOnAxis();
+    final out = <Widget>[];
+    for (final r in _routes) {
+      final pts = r
+          .points(plan)
+          .map(
+            (v) => projectToView(
+              v,
+              _plateId,
+              planW: planW,
+              planH: planH,
+              viewH: _panelHeight,
+            ),
+          )
+          .toList();
+      final double th = math.max(24 / (scale <= 0 ? 1 : scale), r.od + 6);
+      for (int i = 0; i + 1 < pts.length; i++) {
+        final Offset a = pts[i], b = pts[i + 1];
+        final double len = (b - a).distance + th;
+        if (len <= th) continue;
+        final Offset mid = (a + b) / 2;
+        out.add(
+          Positioned(
+            key: ValueKey("route_handle_${r.id}_$i"),
+            left: mid.dx - len / 2,
+            top: mid.dy - th / 2,
+            child: Transform.rotate(
+              angle: math.atan2(b.dy - a.dy, b.dx - a.dx),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                // 손가락을 댄 자리부터 따라오게(처음 움직인 만큼이 빠지지 않게).
+                dragStartBehavior: DragStartBehavior.down,
+                onTap: () => _showRouteEditor(r),
+                onPanStart: (d) => _startRouteDrag(r, d.globalPosition),
+                onPanUpdate: (d) => _updateRouteDrag(d.globalPosition),
+                onPanEnd: (_) => _endRouteDrag(),
+                child: SizedBox(width: len, height: th),
+              ),
+            ),
+          ),
+        );
+      }
+    }
+    return out;
+  }
+
+  Offset? _boardLocal(Offset global) {
+    final box = _boardKey.currentContext?.findRenderObject() as RenderBox?;
+    return box?.globalToLocal(global);
+  }
+
+  void _startRouteDrag(ConduitRoute r, Offset global) {
+    _pushUndo();
+    // 시작 부품에 붙어 있던 경로는 끌면 그 자리(부품 가운데·높이)에서 떨어져 나온다.
+    if (r.startItemId != null) {
+      final start = r.startPoint(_planItems);
+      r
+        ..startItemId = null
+        ..x = start.x
+        ..y = start.y
+        ..z = start.z;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            keepWords("경로가 시작 부품에서 떨어졌습니다. 경로를 눌러 시작 부품을 다시 고를 수 있습니다."),
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+    _draggingRoute = r;
+    _routeDragLast = _boardLocal(global);
+    HapticFeedback.selectionClick();
+  }
+
+  void _updateRouteDrag(Offset global) {
+    final r = _draggingRoute;
+    final now = _boardLocal(global);
+    if (r == null || now == null || _routeDragLast == null) return;
+    final Offset d = now - _routeDragLast!;
+    _routeDragLast = now;
+    setState(() {
+      switch (_plateId) {
+        case kSkidViewFront:
+          r.x += d.dx;
+          r.z -= d.dy;
+        case kPlateLeft:
+          r.y += d.dx;
+          r.z -= d.dy;
+        case kPlateRight:
+          r.y -= d.dx;
+          r.z -= d.dy;
+        default:
+          r.x += d.dx;
+          r.y += d.dy;
+      }
+    });
+  }
+
+  void _endRouteDrag() {
+    final r = _draggingRoute;
+    if (r == null) return;
+    double snap(double v) => (v / _gridSize).round() * _gridSize;
+    setState(() {
+      r
+        ..x = snap(r.x)
+        ..y = snap(r.y)
+        ..z = snap(r.z);
+    });
+    _draggingRoute = null;
+    _routeDragLast = null;
+    _saveDraftToPrefs();
   }
 
   /// 지금 탭에서 [p](도면 mm) 가까이 지나는 경로. 손가락 폭(화면 24px)이나 관 굵기 안이면 잡는다.
@@ -5242,6 +5374,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                 ),
                               ),
 
+                            if (_isSkid && _mode == BoardMode.placeModule)
+                              ..._buildRouteHandles(),
                             ..._placedItems.map((item) {
                               final bool canDrag =
                                   _mode == BoardMode.placeModule &&

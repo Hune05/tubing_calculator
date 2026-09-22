@@ -285,4 +285,67 @@ void main() {
     expect(find.byType(SkidRouteEditorPage), findsOneWidget);
     expect(find.textContaining('JB→PT'), findsWidgets);
   });
+
+  testWidgets('도면에서 경로 선을 끌면 경로가 옮겨지고, 되돌리기로 돌아온다', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'layout_board_onboarding_shown_v1': true,
+      'layout_board_draft_v1': jsonEncode({
+        'kind': 'skid',
+        'panelWidth': 2400,
+        'panelHeight': 1200,
+        'items': [],
+        'dimensions': [],
+        'routes': [
+          ConduitRoute(
+            id: 'r1',
+            name: 'A',
+            x: 200,
+            y: 600,
+            bends: [
+              {'length': 1600, 'angle': 0, 'rotation': 0},
+            ],
+          ).toJson(),
+        ],
+      }),
+    });
+    tester.view.physicalSize = const Size(390, 844) * 2;
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const MaterialApp(home: LayoutBoardPage()));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('이어하기'));
+    await tester.pumpAndSettle();
+
+    final Rect board = tester.getRect(
+      find.byWidgetPredicate(
+        (w) => w is CustomPaint && w.painter is SkidOverlayPainter,
+      ),
+    );
+    final double k = board.height / 1200; // 화면 픽셀 / mm
+    final Offset at = Offset(
+      board.left + board.width * 1000 / 2400,
+      board.top + board.height * 600 / 1200,
+    );
+    await tester.dragFrom(at, Offset(0, 300 * k));
+    await tester.pumpAndSettle();
+
+    Future<Map> saved() async {
+      await tester.pump(const Duration(seconds: 21)); // 20초 임시 저장
+      final prefs = await SharedPreferences.getInstance();
+      return jsonDecode(prefs.getString('layout_board_draft_v1')!) as Map;
+    }
+
+    final moved = (await saved())['routes'][0] as Map;
+    expect((moved['y'] as num).toDouble(), closeTo(900, 20));
+    expect((moved['x'] as num).toDouble(), closeTo(200, 20));
+
+    await tester.tap(find.byTooltip('되돌리기'));
+    await tester.pumpAndSettle();
+    final back = (await saved())['routes'][0] as Map;
+    expect((back['y'] as num).toDouble(), 600);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
 }
