@@ -781,7 +781,14 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text("닫기", style: TextStyle(fontSize: 15)),
+                  child: const Text(
+                    "닫기",
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: tossBlue,
+                    ),
+                  ),
                 ),
               ),
             ],
