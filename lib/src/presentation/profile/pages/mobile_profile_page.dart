@@ -1,17 +1,28 @@
-import 'package:flutter/material.dart';
-import 'package:tubing_calculator/src/presentation/profile/widgets/settings_cloud_card.dart';
-import 'package:tubing_calculator/src/core/utils/settings_cloud.dart';
-import 'package:flutter/services.dart';
-import 'package:lucide_icons/lucide_icons.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+// 내 프로필: 이름·사진·팀·직급·연락처, 계산기 설정 서버 보관, 빠른 이동, 로그아웃.
+//
+// 사용자 문서는 users/{이름}이라 이름 바꾸기는 [ProfileStore.renameUser] 한 갈래로만 한다.
+// 바꾼 뒤에는 홈을 새 이름으로 다시 연다(예전엔 앱을 껐다 켜기 전까지 홈이 옛 이름이었다).
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import 'package:tubing_calculator/src/core/utils/settings_cloud.dart';
+import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
+import 'package:tubing_calculator/src/presentation/menu/page/mobile_loading_screen.dart';
+import 'package:tubing_calculator/src/presentation/menu/page/mobile_menu_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/notification_check_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/storage_management_page.dart';
+import 'package:tubing_calculator/src/presentation/profile/profile_tools.dart';
+import 'package:tubing_calculator/src/presentation/profile/widgets/profile_photo.dart';
+import 'package:tubing_calculator/src/presentation/profile/widgets/settings_cloud_card.dart';
+import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart';
 
 import 'mobile_profile_edit_page.dart';
-import 'package:tubing_calculator/src/presentation/menu/page/mobile_loading_screen.dart';
-import 'package:tubing_calculator/src/presentation/menu/page/mobile_menu_page.dart'; // 🔥 메인 메뉴 화면 import 추가
 
 const Color tossBlue = Color(0xFF3182F6);
 const Color slate900 = Color(0xFF191F28);
@@ -20,6 +31,9 @@ const Color slate600 = Color(0xFF8B95A1);
 const Color slate100 = Color(0xFFF2F4F6);
 const Color pureWhite = Color(0xFFFFFFFF);
 const Color red500 = Color(0xFFF04452);
+
+const String _kGoogleServerClientId =
+    '289974993415-lhibiid49ncmb5hev53hnasj7vhkvki3.apps.googleusercontent.com';
 
 class MobileProfilePage extends StatefulWidget {
   final String currentWorker;
@@ -32,83 +46,32 @@ class MobileProfilePage extends StatefulWidget {
 
 class _MobileProfilePageState extends State<MobileProfilePage> {
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
+  final ProfileStore _store = ProfileStore.instance;
   bool _isLoggingIn = false;
+  bool _photoBusy = false;
+  String _version = '';
 
-  // 🚀 화면에서 즉시 변경된 이름을 보여주기 위한 로컬 상태 변수
   late String _displayName;
 
   @override
   void initState() {
     super.initState();
-    // 초기에는 이전 화면에서 전달받은 이름을 세팅합니다.
     _displayName = widget.currentWorker;
+    PackageInfo.fromPlatform()
+        .then((p) {
+          if (mounted) setState(() => _version = p.version);
+        })
+        .catchError((_) {});
   }
 
-  // 🚀 로그인 완료 및 아이디 변경 시 기기에 이름 저장
-  Future<void> _saveUserData(String name) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_real_name', name);
-  }
+  bool get _isGuest => ProfileStore.isGuest(_displayName);
 
-  // 🚀 공통 FCM 토큰 저장 함수 추가
-  Future<void> _saveUserToken(String userName) async {
-    if (userName.isEmpty || userName == "로그인 필요") return;
-    try {
-      // 로딩 화면과 같이 5초 넘으면 그만둔다(통신 없을 때 영영 기다리지 않게).
-      String? token = await FirebaseMessaging.instance.getToken().timeout(
-        const Duration(seconds: 5),
-        onTimeout: () => null,
-      );
-      if (token != null) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userName)
-            .set({
-              'fcmToken': token,
-              'updatedAt': FieldValue.serverTimestamp(),
-            }, SetOptions(merge: true))
-            .timeout(const Duration(seconds: 5), onTimeout: () {});
-      }
-    } catch (e) {
-      debugPrint("🚨 FCM 토큰 저장 에러: $e");
-    }
-  }
+  // ───────────────── 로그인 ─────────────────
 
-  // 이름을 바꿀 때 users/{옛 이름} 문서의 칸을 users/{새 이름}에 복사한다.
-  // 통신이 없으면 5초 뒤 그만둔다(이름 바꾸기 자체는 막지 않는다).
-  Future<void> _copyUserDoc(String oldName, String newName) async {
-    if (oldName.isEmpty || oldName == "로그인 필요" || oldName == newName) {
-      return;
-    }
-    try {
-      final users = FirebaseFirestore.instance.collection('users');
-      final snap = await users
-          .doc(oldName)
-          .get()
-          .timeout(const Duration(seconds: 5));
-      final data = snap.data();
-      if (data == null || data.isEmpty) return;
-      await users
-          .doc(newName)
-          .set({
-            ...data,
-            'name': newName,
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true))
-          .timeout(const Duration(seconds: 5), onTimeout: () {});
-    } catch (e) {
-      debugPrint("사용자 문서 복사 실패: $e");
-    }
-  }
-
-  // 이름만 넣고 쓰던 사람이 이름은 그대로 두고 구글 계정만 잇는다
-  // (계산기 설정을 계정에 보관하려고).
+  /// 이름만 넣고 쓰던 사람이 이름은 그대로 두고 구글 계정만 잇는다(계산기 설정을 계정에 보관하려고).
   Future<bool> _linkGoogleAccount() async {
     try {
-      await _googleSignIn.initialize(
-        serverClientId:
-            '289974993415-lhibiid49ncmb5hev53hnasj7vhkvki3.apps.googleusercontent.com',
-      );
+      await _googleSignIn.initialize(serverClientId: _kGoogleServerClientId);
       final GoogleSignInAccount account = await _googleSignIn.authenticate();
       final credential = GoogleAuthProvider.credential(
         idToken: account.authentication.idToken,
@@ -119,7 +82,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
       if (mounted) setState(() {});
       return true;
     } catch (e) {
-      debugPrint("🚨 구글 계정 연결 에러: $e");
+      debugPrint("구글 계정 연결 실패: $e");
       if (mounted) {
         _showSnackBar("구글 계정을 연결하지 못했습니다. 통신을 확인하십시오.", isError: true);
       }
@@ -127,43 +90,37 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
     }
   }
 
-  // 🚀 구글 로그인 처리
   Future<void> _handleGoogleSignIn() async {
     setState(() => _isLoggingIn = true);
     try {
-      await _googleSignIn.initialize(
-        serverClientId:
-            '289974993415-lhibiid49ncmb5hev53hnasj7vhkvki3.apps.googleusercontent.com',
-      );
+      await _googleSignIn.initialize(serverClientId: _kGoogleServerClientId);
       // authenticate()는 취소·실패면 예외를 던지고 null을 주지 않는다.
       final GoogleSignInAccount account = await _googleSignIn.authenticate();
-      {
-        final GoogleSignInAuthentication googleAuth = account.authentication;
-        final OAuthCredential credential = GoogleAuthProvider.credential(
-          idToken: googleAuth.idToken,
-        );
-        await FirebaseAuth.instance.signInWithCredential(credential);
+      final OAuthCredential credential = GoogleAuthProvider.credential(
+        idToken: account.authentication.idToken,
+      );
+      await FirebaseAuth.instance.signInWithCredential(credential);
 
-        // 폰에 설정이 없으면 서버 것을 받고, 폰에만 있으면 서버에 올려 둔다.
-        final got = await SettingsCloudSync.instance.restore();
-        if (got == 0) SettingsCloudSync.instance.backup();
+      // 폰에 설정이 없으면 서버 것을 받고, 폰에만 있으면 서버에 올려 둔다.
+      final got = await SettingsCloudSync.instance.restore();
+      if (got == 0) SettingsCloudSync.instance.backup();
 
-        if (!mounted) return;
-        await _showNameConfirmDialog(account.displayName ?? "");
-      }
+      if (!mounted) return;
+      await _showNameConfirmDialog(account.displayName ?? "");
     } catch (error) {
-      debugPrint("🚨 구글 로그인 에러: $error");
+      debugPrint("구글 로그인 실패: $error");
       if (mounted) {
-        _showSnackBar("로그인에 실패했습니다. 오프라인 모드를 사용해 주십시오.", isError: true);
+        _showSnackBar("로그인하지 못했습니다. 통신이 없으면 '이름만 넣기'로 쓰십시오.", isError: true);
       }
     } finally {
       if (mounted) setState(() => _isLoggingIn = false);
     }
   }
 
-  // 🚀 실명 입력 다이얼로그 (오프라인 & 구글 로그인 공통 사용 - 초기 설정용)
+  /// 처음 이름 넣기(이름만 넣기·구글 로그인 뒤 공통). 넣으면 앱을 처음부터 다시 연다.
   Future<void> _showNameConfirmDialog([String initialName = ""]) async {
-    TextEditingController nameCtrl = TextEditingController(text: initialName);
+    final nameCtrl = TextEditingController(text: initialName);
+    final error = ValueNotifier<String?>(null);
 
     await showDialog(
       context: context,
@@ -171,39 +128,23 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
       builder: (context) {
         return AlertDialog(
           backgroundColor: pureWhite,
+          surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
           title: const Text(
-            "작업자 실명 입력",
+            "작업자 이름 넣기",
             style: TextStyle(fontWeight: FontWeight.bold, color: slate900),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                "현장에서 사용할 정확한 본인 실명(또는 직급)을 입력해 주십시오.",
+                "현장에서 부르는 이름(또는 직급)을 넣으십시오. 일지·일정·자재 기록에 이 이름이 남습니다.",
                 style: TextStyle(fontSize: 14, color: slate600, height: 1.4),
               ),
               const SizedBox(height: 16),
-              TextField(
-                controller: nameCtrl,
-                cursorColor: tossBlue,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: slate100,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: tossBlue, width: 2),
-                  ),
-                  hintText: "예: 홍길동 (또는 김반장)",
-                  prefixIcon: const Icon(LucideIcons.user, color: tossBlue),
-                ),
-              ),
+              _nameField(nameCtrl, error, hint: "예: 홍길동 (또는 김반장)"),
             ],
           ),
           actions: [
@@ -212,36 +153,30 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
               child: const Text("취소", style: TextStyle(color: slate600)),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: tossBlue,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
+              style: _blueButton,
               onPressed: () async {
-                String realName = nameCtrl.text.trim();
-                if (realName.isNotEmpty) {
-                  await _saveUserData(realName);
-                  await _saveUserToken(realName);
-
-                  if (context.mounted) {
-                    Navigator.pop(context); // 팝업 닫기
-                    _showSnackBar("환영합니다, $realName님!");
-                    // 로그인 완료 후 화면 새로고침을 위해 로딩스크린(또는 메인)으로 강제 이동
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const MobileLoadingScreen(),
-                      ),
-                      (route) => false,
-                    );
-                  }
-                } else {
-                  _showSnackBar("이름을 입력해 주십시오.", isError: true);
+                final realName = nameCtrl.text.trim();
+                final problem = userNameProblem(realName);
+                if (problem != null) {
+                  error.value = problem;
+                  return;
                 }
+                await _store.saveName(realName);
+                await _store.saveToken(realName);
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                _showSnackBar("$realName님, 시작합니다.");
+                // 이름이 정해졌으니 로딩 화면부터 다시(홈·알림·설정이 이 이름으로 읽힌다).
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const MobileLoadingScreen(),
+                  ),
+                  (route) => false,
+                );
               },
               child: const Text(
-                "확인 및 시작",
+                "시작",
                 style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
               ),
             ),
@@ -251,48 +186,32 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
     );
   }
 
-  // 🚀 프로필에서 즉시 아이디(이름)를 변경하는 다이얼로그
-  Future<void> _showEditAppIdDialog() async {
-    TextEditingController idCtrl = TextEditingController(text: _displayName);
+  // ───────────────── 이름 바꾸기 ─────────────────
 
-    await showDialog(
+  Future<void> _showRenameDialog() async {
+    final idCtrl = TextEditingController(text: _displayName);
+    final error = ValueNotifier<String?>(null);
+    final String? newName = await showDialog<String>(
       context: context,
       builder: (context) {
         return AlertDialog(
           backgroundColor: pureWhite,
+          surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
           title: const Text(
-            "앱 아이디 변경",
+            "이름 바꾸기",
             style: TextStyle(fontWeight: FontWeight.bold, color: slate900),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              _nameField(idCtrl, error, hint: "새 이름", autofocus: true),
+              const SizedBox(height: 12),
               const Text(
-                "앱에서 사용할 새로운 아이디나 직급을 입력해 주십시오.",
-                style: TextStyle(fontSize: 14, color: slate600, height: 1.4),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: idCtrl,
-                cursorColor: tossBlue,
-                autofocus: true,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: slate100,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: tossBlue, width: 2),
-                  ),
-                  hintText: "새로운 아이디 입력",
-                  prefixIcon: const Icon(LucideIcons.edit2, color: tossBlue),
-                ),
+                "사진·팀·연락처는 새 이름으로 같이 옮깁니다. 예전 이름으로 적어 둔 일정·일지·자재 기록은 예전 이름 그대로 남습니다.",
+                style: TextStyle(fontSize: 13, color: slate600, height: 1.4),
               ),
             ],
           ),
@@ -302,54 +221,22 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
               child: const Text("취소", style: TextStyle(color: slate600)),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: tossBlue,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onPressed: () async {
-                String newId = idCtrl.text.trim();
-                if (newId.isNotEmpty) {
-                  try {
-                    // 1. Firebase Auth 서버에 새 이름 업데이트 🌟
-                    if (FirebaseAuth.instance.currentUser != null) {
-                      await FirebaseAuth.instance.currentUser!
-                          .updateDisplayName(newId);
-                    }
-
-                    // 2. 스마트폰 로컬 저장소 업데이트
-                    await _saveUserData(newId);
-
-                    // 3. 사용자 문서가 이름으로 되어 있어, 옛 이름 문서에 있던
-                    //    사진·팀·연락처를 새 이름 문서로 옮긴다(옛 문서는 그대로 둔다).
-                    await _copyUserDoc(_displayName, newId);
-
-                    // 4. 이름이 바뀌었으니 토큰도 새 이름 문서에 저장
-                    await _saveUserToken(newId);
-
-                    // 5. 화면 즉시 업데이트 (그 사이 화면이 닫혔을 수 있으니 mounted 체크)
-                    if (!mounted) return;
-                    setState(() {
-                      _displayName = newId;
-                    });
-
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      _showSnackBar("아이디가 '$newId'(으)로 변경되었습니다.");
-                    }
-                  } catch (e) {
-                    debugPrint("Firebase 이름 업데이트 실패: $e");
-                    if (context.mounted) {
-                      _showSnackBar("서버 업데이트에 실패했습니다.", isError: true);
-                    }
-                  }
-                } else {
-                  _showSnackBar("아이디를 입력해 주십시오.", isError: true);
+              style: _blueButton,
+              onPressed: () {
+                final v = idCtrl.text.trim();
+                final problem = userNameProblem(v);
+                if (problem != null) {
+                  error.value = problem;
+                  return;
                 }
+                if (v == _displayName) {
+                  error.value = "지금 이름과 같습니다.";
+                  return;
+                }
+                Navigator.pop(context, v);
               },
               child: const Text(
-                "적용",
+                "바꾸기",
                 style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
               ),
             ),
@@ -357,9 +244,67 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
         );
       },
     );
+    if (newName == null || !mounted) return;
+    await _applyRename(newName);
   }
 
+  Future<void> _applyRename(String newName) async {
+    final old = _displayName;
+    await _store.renameUser(old, newName);
+    if (!mounted) return;
+    setState(() => _displayName = newName);
+    _showSnackBar("이름을 '$newName'(으)로 바꿨습니다.");
+    // 홈·다른 화면이 옛 이름을 들고 있으니 홈을 새 이름으로 다시 연다.
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MobileMenuPage(currentWorker: newName),
+      ),
+      (route) => false,
+    );
+  }
+
+  Widget _nameField(
+    TextEditingController ctrl,
+    ValueNotifier<String?> error, {
+    required String hint,
+    bool autofocus = false,
+  }) {
+    return ValueListenableBuilder<String?>(
+      valueListenable: error,
+      builder: (_, err, _) => TextField(
+        controller: ctrl,
+        cursorColor: tossBlue,
+        autofocus: autofocus,
+        maxLength: 20,
+        onChanged: (_) => error.value = null,
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: slate100,
+          counterText: "",
+          errorText: err,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: tossBlue, width: 2),
+          ),
+          hintText: hint,
+          prefixIcon: const Icon(LucideIcons.user, color: tossBlue),
+        ),
+      ),
+    );
+  }
+
+  ButtonStyle get _blueButton => ElevatedButton.styleFrom(
+    backgroundColor: tossBlue,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  );
+
   void _showSnackBar(String msg, {bool isError = false}) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -369,9 +314,103 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
     );
   }
 
+  // ───────────────── 연락처 ─────────────────
+
+  Future<void> _phoneActions(String phone) async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+              child: Text(
+                phone,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: slate900,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.phoneCall, color: tossBlue),
+              title: const Text(
+                "전화 걸기",
+                style: TextStyle(fontWeight: FontWeight.w700, color: slate900),
+              ),
+              onTap: () => Navigator.pop(ctx, 'call'),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.copy, color: tossBlue),
+              title: const Text(
+                "복사",
+                style: TextStyle(fontWeight: FontWeight.w700, color: slate900),
+              ),
+              onTap: () => Navigator.pop(ctx, 'copy'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    if (choice == 'copy') {
+      await Clipboard.setData(ClipboardData(text: phone));
+      _showSnackBar('연락처를 복사했습니다.');
+      return;
+    }
+    final uri = Uri(
+      scheme: 'tel',
+      path: phone.replaceAll(RegExp(r'[^0-9+]'), ''),
+    );
+    try {
+      final ok = await launchUrl(uri);
+      if (!ok) _showSnackBar('전화 앱을 열지 못했습니다.', isError: true);
+    } catch (_) {
+      _showSnackBar('전화 앱을 열지 못했습니다.', isError: true);
+    }
+  }
+
+  // ───────────────── 빠른 이동 ─────────────────
+
+  Future<void> _openStorage() async {
+    final logs = await WorkProjectRepository().fetchAllProjects();
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => StorageManagementPage(logs: logs)),
+    );
+  }
+
+  Future<void> _openNotifications() async {
+    final logs = await WorkProjectRepository().fetchAllProjects();
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => NotificationCheckPage(logs: logs)),
+    );
+  }
+
+  void _openEdit() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MobileProfileEditPage(initialName: _displayName),
+      ),
+    );
+  }
+
+  // ───────────────── 화면 ─────────────────
+
   @override
   Widget build(BuildContext context) {
-    bool isGuest = _displayName.isEmpty || _displayName == "로그인 필요";
+    final bool isGuest = _isGuest;
 
     return Scaffold(
       backgroundColor: slate100,
@@ -389,7 +428,6 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
           physics: const BouncingScrollPhysics(),
           child: Column(
             children: [
-              // 🌟 내 정보 (또는 로그인 유도) 카드 영역
               Container(
                 width: double.infinity,
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -404,8 +442,6 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                       _buildGuestIdentity()
                     else
                       _buildUserIdentity(),
-
-                    // 🚀 비로그인 상태일 때만 로그인 버튼들 표시
                     if (isGuest) ...[
                       const SizedBox(height: 24),
                       if (_isLoggingIn)
@@ -425,7 +461,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                               size: 20,
                             ),
                             label: const Text(
-                              "Google 계정으로 시작",
+                              "구글 계정으로 시작",
                               style: TextStyle(
                                 color: pureWhite,
                                 fontSize: 16,
@@ -448,7 +484,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                           child: OutlinedButton.icon(
                             onPressed: () {
                               HapticFeedback.lightImpact();
-                              _showNameConfirmDialog(); // 오프라인 실명 입력 모드
+                              _showNameConfirmDialog();
                             },
                             icon: const Icon(
                               LucideIcons.wifiOff,
@@ -456,7 +492,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                               size: 20,
                             ),
                             label: const Text(
-                              "오프라인 모드 (이름만 입력)",
+                              "이름만 넣고 시작 (통신 없을 때)",
                               style: TextStyle(
                                 color: slate600,
                                 fontSize: 16,
@@ -476,59 +512,85 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 8),
 
-              // 계산기 설정 서버 보관(구글 로그인했을 때만)
               if (!isGuest) SettingsCloudCard(onLinkGoogle: _linkGoogleAccount),
 
-              // 🌟 메뉴 리스트 영역 (로그인 상태일 때만 표시)
-              if (!isGuest)
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: pureWhite,
-                    borderRadius: BorderRadius.circular(24),
+              if (!isGuest) ...[
+                _buildMenuCard([
+                  _menuItem(
+                    title: "상세 프로필 (팀·직급·연락처)",
+                    icon: LucideIcons.settings,
+                    onTap: _openEdit,
                   ),
-                  child: Column(
-                    children: [
-                      _buildProfileMenuItem(
-                        title: "상세 프로필 설정",
-                        icon: LucideIcons.settings,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => MobileProfileEditPage(
-                                initialName: _displayName,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      const Divider(
-                        height: 1,
-                        color: slate100,
-                        indent: 24,
-                        endIndent: 24,
-                      ),
-                      _buildProfileMenuItem(
-                        title: "로그아웃",
-                        icon: LucideIcons.logOut,
-                        titleColor: red500,
-                        iconColor: red500,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          _showLogoutDialog(context);
-                        },
-                      ),
-                    ],
+                  _menuItem(
+                    title: "알림 확인",
+                    subtitle: "일지·주간 보고 알림이 잡혀 있는지",
+                    icon: LucideIcons.bell,
+                    onTap: _openNotifications,
                   ),
-                ),
+                  _menuItem(
+                    title: "백업 · 저장 공간",
+                    subtitle: "일지 백업 파일, 클라우드 백업, 임시 파일 정리",
+                    icon: LucideIcons.hardDrive,
+                    onTap: _openStorage,
+                  ),
+                  _menuItem(
+                    title: "현장 자료 · 장비 사용법",
+                    icon: LucideIcons.bookOpen,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TubeReferencePage(),
+                      ),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 8),
+                _buildMenuCard([
+                  _menuItem(
+                    title: "로그아웃",
+                    icon: LucideIcons.logOut,
+                    titleColor: red500,
+                    iconColor: red500,
+                    onTap: () => _showLogoutDialog(context),
+                  ),
+                ]),
+              ],
+              const SizedBox(height: 16),
+              Text(
+                _version.isEmpty ? "현장 도우미" : "현장 도우미 v$_version",
+                key: const Key('profile_version'),
+                style: const TextStyle(color: slate600, fontSize: 12),
+              ),
+              const SizedBox(height: 24),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMenuCard(List<Widget> items) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: pureWhite,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0)
+              const Divider(
+                height: 1,
+                color: slate100,
+                indent: 24,
+                endIndent: 24,
+              ),
+            items[i],
+          ],
+        ],
       ),
     );
   }
@@ -539,7 +601,10 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
         Container(
           width: 80,
           height: 80,
-          decoration: BoxDecoration(color: slate100, shape: BoxShape.circle),
+          decoration: const BoxDecoration(
+            color: slate100,
+            shape: BoxShape.circle,
+          ),
           child: Icon(
             LucideIcons.userX,
             size: 40,
@@ -548,7 +613,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
         ),
         const SizedBox(height: 16),
         const Text(
-          "로그인이 필요합니다",
+          "이름이 없습니다",
           style: TextStyle(
             color: slate600,
             fontSize: 22,
@@ -558,78 +623,102 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
         ),
         const SizedBox(height: 4),
         const Text(
-          "현장 관리 기능을 100% 활용해 보십시오",
+          "이름을 넣거나 구글로 로그인하면 일지·일정·자재 기록에 이름이 남습니다.",
+          textAlign: TextAlign.center,
           style: TextStyle(
             color: slate600,
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: FontWeight.w500,
+            height: 1.4,
           ),
         ),
       ],
     );
   }
 
-  // 🚀 [프로필 고도화] 예전엔 이 화면이 이름만 보여줬다 - 상세 프로필에서
-  // 소속팀/직급/연락처를 입력할 수 있는데도 정작 요약 화면에선 전혀
-  // 보이지 않아서, 입력해도 확인할 방법이 없었다. users/{이름} 문서를
-  // 실시간으로 구독해서 사진·직급·소속팀·연락처를 실제로 보여주고,
-  // 상세 프로필에서 뭘 바꾸면 여기도 즉시 반영되게 했다.
+  /// users/{이름} 문서를 구독해 사진·직급·팀·연락처를 보여 준다. 상세 프로필에서 고치면 바로 반영.
   Widget _buildUserIdentity() {
-    return StreamBuilder<DocumentSnapshot>(
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
           .collection('users')
           .doc(_displayName)
           .snapshots(),
       builder: (context, snapshot) {
-        final data = snapshot.data?.data() as Map<String, dynamic>?;
-        final String? photoUrl = data?['photoUrl'] as String?;
-        final String team = (data?['team'] as String?) ?? '';
-        final String role = (data?['role'] as String?) ?? '';
-        final String phone = (data?['phoneNumber'] as String?) ?? '';
-        final bool isVerified = FirebaseAuth.instance.currentUser != null;
+        final p = UserProfile.fromMap(_displayName, snapshot.data?.data());
+        final String? photoUrl = p.photoUrl;
+        final bool hasPhoto = photoUrl != null && photoUrl.isNotEmpty;
+        final user = FirebaseAuth.instance.currentUser;
+        final bool isVerified = user != null;
 
         return Column(
           children: [
             Stack(
               children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: slate100,
-                    shape: BoxShape.circle,
-                    image: (photoUrl != null && photoUrl.isNotEmpty)
-                        ? DecorationImage(
-                            image: NetworkImage(photoUrl),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                  ),
-                  child: (photoUrl == null || photoUrl.isEmpty)
-                      ? const Icon(LucideIcons.user, size: 40, color: tossBlue)
-                      : null,
-                ),
-                if (isVerified)
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      width: 22,
-                      height: 22,
-                      decoration: const BoxDecoration(
-                        color: tossBlue,
-                        shape: BoxShape.circle,
-                        border: Border.fromBorderSide(
-                          BorderSide(color: pureWhite, width: 2),
+                InkWell(
+                  onTap: _photoBusy
+                      ? null
+                      : () => changeProfilePhoto(
+                          context,
+                          userName: _displayName,
+                          hasPhoto: hasPhoto,
+                          onBusy: (b) {
+                            if (mounted) setState(() => _photoBusy = b);
+                          },
                         ),
-                      ),
-                      child: const Icon(
-                        Icons.check_rounded,
-                        size: 14,
-                        color: pureWhite,
+                  customBorder: const CircleBorder(),
+                  child: Container(
+                    width: 88,
+                    height: 88,
+                    decoration: BoxDecoration(
+                      color: slate100,
+                      shape: BoxShape.circle,
+                      image: hasPhoto
+                          ? DecorationImage(
+                              image: NetworkImage(photoUrl),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: _photoBusy
+                        ? const Center(
+                            child: SizedBox(
+                              width: 26,
+                              height: 26,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3,
+                                color: tossBlue,
+                              ),
+                            ),
+                          )
+                        : hasPhoto
+                        ? null
+                        : const Icon(
+                            LucideIcons.user,
+                            size: 40,
+                            color: tossBlue,
+                          ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    decoration: const BoxDecoration(
+                      color: pureWhite,
+                      shape: BoxShape.circle,
+                      border: Border.fromBorderSide(
+                        BorderSide(color: slate100, width: 2),
                       ),
                     ),
+                    child: const Icon(
+                      LucideIcons.camera,
+                      size: 14,
+                      color: slate800,
+                    ),
                   ),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -650,9 +739,10 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                 ),
                 const SizedBox(width: 8),
                 InkWell(
+                  key: const Key('profile_rename'),
                   onTap: () {
                     HapticFeedback.lightImpact();
-                    _showEditAppIdDialog();
+                    _showRenameDialog();
                   },
                   borderRadius: BorderRadius.circular(12),
                   child: Padding(
@@ -668,40 +758,57 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
             ),
             const SizedBox(height: 4),
             Text(
-              role.isNotEmpty ? role : "현장 작업자",
+              p.role.isNotEmpty ? p.role : "현장 작업자",
               style: const TextStyle(
                 color: slate600,
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
               ),
             ),
-            if (team.isNotEmpty || phone.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                alignment: WrapAlignment.center,
-                children: [
-                  if (team.isNotEmpty)
-                    _buildInfoChip(icon: LucideIcons.users, label: team),
-                  if (phone.isNotEmpty)
-                    _buildInfoChip(
-                      icon: LucideIcons.phone,
-                      label: phone,
-                      onTap: () {
-                        Clipboard.setData(ClipboardData(text: phone));
-                        HapticFeedback.lightImpact();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('연락처를 복사했습니다.'),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      },
+            const SizedBox(height: 6),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isVerified ? LucideIcons.badgeCheck : LucideIcons.smartphone,
+                  size: 14,
+                  color: isVerified ? tossBlue : slate600,
+                ),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    loginMethodLabel(
+                      googleLinked: isVerified,
+                      email: user?.email,
                     ),
-                ],
-              ),
-            ],
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: slate600, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                _buildInfoChip(
+                  icon: LucideIcons.users,
+                  label: p.team.isNotEmpty ? p.team : "팀 넣기",
+                  muted: p.team.isEmpty,
+                  onTap: _openEdit,
+                ),
+                _buildInfoChip(
+                  icon: LucideIcons.phone,
+                  label: p.phone.isNotEmpty ? p.phone : "연락처 넣기",
+                  muted: p.phone.isEmpty,
+                  onTap: p.phone.isNotEmpty
+                      ? () => _phoneActions(p.phone)
+                      : _openEdit,
+                ),
+              ],
+            ),
           ],
         );
       },
@@ -712,6 +819,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
     required IconData icon,
     required String label,
     VoidCallback? onTap,
+    bool muted = false,
   }) {
     return InkWell(
       onTap: onTap,
@@ -729,8 +837,8 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
             const SizedBox(width: 6),
             Text(
               label,
-              style: const TextStyle(
-                color: slate800,
+              style: TextStyle(
+                color: muted ? slate600 : slate800,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
@@ -741,31 +849,47 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
     );
   }
 
-  Widget _buildProfileMenuItem({
+  Widget _menuItem({
     required String title,
+    String? subtitle,
     required IconData icon,
     required VoidCallback onTap,
     Color titleColor = slate800,
     Color iconColor = slate600,
   }) {
     return InkWell(
-      onTap: onTap,
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
       borderRadius: BorderRadius.circular(24),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
         child: Row(
           children: [
             Icon(icon, size: 24, color: iconColor),
             const SizedBox(width: 16),
             Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  color: titleColor,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -0.5,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: titleColor,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(color: slate600, fontSize: 13),
+                    ),
+                  ],
+                ],
               ),
             ),
             Icon(
@@ -790,7 +914,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
             borderRadius: BorderRadius.circular(20),
           ),
           title: const Text(
-            "로그아웃 하시겠습니까?",
+            "로그아웃할까요?",
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -799,7 +923,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
             ),
           ),
           content: const Text(
-            "안전한 작업을 위해\n작업이 끝났다면 로그아웃 해 주십시오.",
+            "이 폰에서 이름과 알림을 지웁니다. 폰에 저장된 일지·설정은 그대로 남습니다.",
             style: TextStyle(fontSize: 15, color: slate600, height: 1.4),
           ),
           actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -831,27 +955,22 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                   child: TextButton(
                     onPressed: () async {
                       HapticFeedback.mediumImpact();
-
-                      // 🔥 1. 구글 완전 연결 해제 (자동 로그인 방지)
+                      // 같이 쓰는 폰에서 남의 알림이 오지 않게 토큰부터 지운다.
+                      await _store.clearToken(_displayName);
                       try {
                         await _googleSignIn.signOut();
                         await _googleSignIn.disconnect();
                       } catch (e) {
-                        debugPrint("구글 연결 해제 패스: $e");
+                        debugPrint("구글 연결 해제 건너뜀: $e");
                       }
-
-                      // 🔥 2. 파이어베이스 및 기기 저장소 초기화
                       await FirebaseAuth.instance.signOut();
-                      final prefs = await SharedPreferences.getInstance();
-                      await prefs.remove('user_real_name');
-
-                      // 🔥 3. 로딩 화면이 아닌 메인 메뉴(게스트)로 직행
+                      await _store.clearName();
                       if (context.mounted) {
                         Navigator.pushAndRemoveUntil(
                           context,
                           MaterialPageRoute(
                             builder: (context) =>
-                                const MobileMenuPage(currentWorker: "로그인 필요"),
+                                const MobileMenuPage(currentWorker: kGuestName),
                           ),
                           (route) => false,
                         );
