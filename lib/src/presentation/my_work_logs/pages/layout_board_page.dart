@@ -17,12 +17,14 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/utils/image_picker_helper.dart' show ImagePickerHelper;
+import '../models/instrument_shape_painter.dart';
 import '../models/layout_board_models.dart';
 import '../models/layout_board_owner.dart';
 import '../models/layout_board_painters.dart';
 import '../widgets/layout_board_ui.dart';
 export '../models/layout_board_painters.dart';
 export '../models/layout_board_models.dart';
+export '../models/instrument_shape_painter.dart';
 export '../widgets/layout_board_ui.dart';
 
 // 색(전선관 계산기와 같은 slate + 틸)과 카드·확인 창은 widgets/layout_board_ui.dart에 있다.
@@ -1796,6 +1798,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           ),
           width: src.width,
           height: src.height,
+          shape: src.shape,
         );
         // 겹치는 자리면 조금씩 옮겨가며 빈 자리를 찾는다.
         while (_overlapsAny(newItem, newItem.position)) {
@@ -1844,6 +1847,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         width: preset.width,
         height: preset.height,
         isSelected: true,
+        shape: preset.shape,
       );
 
       _placedItems.add(newItem);
@@ -2458,6 +2462,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           width: item.width,
           height: item.height,
           isSelected: true,
+          shape: item.shape,
         );
         _placedItems.add(newItem);
         newIds.add(newItem.id);
@@ -3040,6 +3045,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                   width: item.width,
                                   height: item.height,
                                   isSelected: false,
+                                  shape: item.shape,
                                 );
                                 _placedItems.add(newItem);
                               });
@@ -4489,6 +4495,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   position: _snapToGrid(Offset(clampedX, clampedY)),
                   width: details.data.width,
                   height: details.data.height,
+                  shape: details.data.shape,
                 );
               });
             },
@@ -6459,6 +6466,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               for (final p in brand.value)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
+                  leading: _instrumentThumb(p, box: 48),
                   title: Text(
                     p.name,
                     style: const TextStyle(
@@ -6511,26 +6519,37 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           width: 1.5,
         ),
       ),
-      child: Column(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            preset.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: tossText,
-              height: 1.2,
-            ),
-          ),
-          Text(
-            "${preset.width.toInt()}×${preset.height.toInt()}",
-            style: const TextStyle(
-              fontSize: 14,
-              color: tossSubText,
-              height: 1.2,
+          _instrumentThumb(preset, box: 40),
+          const SizedBox(width: 8),
+          _flexIf(
+            width != null,
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  preset.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: tossText,
+                    height: 1.2,
+                  ),
+                ),
+                Text(
+                  "${preset.width.toInt()}×${preset.height.toInt()}",
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: tossSubText,
+                    height: 1.2,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -6762,6 +6781,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       width: item.width,
       height: item.height,
       isSelected: false,
+      shape: item.shape,
     );
     setState(() {
       _placedItems.add(newItem);
@@ -6870,6 +6890,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         ? centerDimColor
         : edgeDimColor;
 
+    if (item.shape != null) {
+      return _buildInstrumentItem(item, isMeasuringStart, activeColor);
+    }
+
     return Container(
       width: item.width,
       height: item.height,
@@ -6915,6 +6939,76 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           ),
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+  }
+
+  // 계기 모듈: 네모 대신 정면 모양을 그리고, 이름은 가운데 흰 띠에 적는다.
+  Widget _buildInstrumentItem(
+    PlacedItem item,
+    bool isMeasuringStart,
+    Color activeColor,
+  ) {
+    final Color color = isMeasuringStart
+        ? activeColor
+        : (item.isSelected ? tossBlue : const Color(0xFF64748B));
+    return SizedBox(
+      width: item.width,
+      height: item.height,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: CustomPaint(
+              painter: InstrumentShapePainter(
+                shape: item.shape!,
+                stroke: color,
+                strokeWidth: item.isSelected || isMeasuringStart ? 2.5 : 1.5,
+              ),
+            ),
+          ),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+              color: pureWhite.withValues(alpha: 0.85),
+              child: Text(
+                item.name,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: isMeasuringStart
+                      ? activeColor
+                      : (item.isSelected ? tossBlue : tossText),
+                  height: 1.15,
+                  letterSpacing: -0.3,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 목록·자재 칸에 쓰는 계기 작은 그림(가로·세로 비율 그대로).
+  Widget _instrumentThumb(ModulePreset p, {double box = 44}) {
+    final double k = box / math.max(p.width, p.height);
+    return SizedBox(
+      width: box,
+      height: box,
+      child: Center(
+        child: SizedBox(
+          width: p.width * k,
+          height: p.height * k,
+          child: CustomPaint(
+            painter: InstrumentShapePainter(
+              shape: p.shape ?? '',
+              strokeWidth: 1,
+            ),
+          ),
         ),
       ),
     );

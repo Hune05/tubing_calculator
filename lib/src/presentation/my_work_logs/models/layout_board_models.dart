@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:flutter/material.dart';
 
+import 'instrument_shape_painter.dart';
+
 // 🚀 배치도(모바일·태블릿 두 화면)가 함께 쓰는 데이터 모양과 치수 계산.
 // 예전에는 두 화면 파일에 똑같은 코드가 각각 들어 있었다. 저장 형식이나 치수 계산 규칙을
 // 바꿀 때는 이 파일 하나만 고치면 되고, test/layout_board_models_test.dart가 규칙을 지킨다.
@@ -23,7 +25,10 @@ class ModulePreset {
   final String name;
   final double width;
   final double height;
-  const ModulePreset(this.name, this.width, this.height);
+
+  /// 계기 모양(InstrumentShape). 없으면 네모 모듈.
+  final String? shape;
+  const ModulePreset(this.name, this.width, this.height, {this.shape});
 }
 
 // 🚀 [수정] 실제 현장에서 쓰는 폭(40/60/80/100mm)만 남김.
@@ -50,27 +55,32 @@ const List<ModulePreset> kDuctPresets = [
 /// - 로즈마운트 상표 압력 스위치는 없다(에머슨 압력 스위치는 ASCO 상표).
 const Map<String, List<ModulePreset>> kInstrumentPresets = {
   "요꼬가와": [
-    ModulePreset("EJA110E DPT 수직배관", 175, 138),
-    ModulePreset("EJA110E DPT 수평배관", 115, 175),
-    ModulePreset("EJA430E PT 수직배관", 175, 138),
-    ModulePreset("EJA430E PT 수평배관", 115, 175),
-    ModulePreset("EJA530E PT 인라인", 95, 159),
+    ModulePreset("EJA110E DPT 수직배관", 175, 138, shape: InstrumentShape.dpSide),
+    ModulePreset("EJA110E DPT 수평배관", 115, 175, shape: InstrumentShape.dp),
+    ModulePreset("EJA430E PT 수직배관", 175, 138, shape: InstrumentShape.dpSide),
+    ModulePreset("EJA430E PT 수평배관", 115, 175, shape: InstrumentShape.gp),
+    ModulePreset("EJA530E PT 인라인", 95, 159, shape: InstrumentShape.inline),
   ],
   "오토롤": [
-    ModulePreset("APT3100 DPT", 86, 194),
-    ModulePreset("APT3200 PT", 86, 160),
+    ModulePreset("APT3100 DPT", 86, 194, shape: InstrumentShape.dp),
+    ModulePreset("APT3200 PT", 86, 160, shape: InstrumentShape.inline),
   ],
   "로즈마운트": [
-    ModulePreset("3051CD DPT", 104, 181),
-    ModulePreset("3051CD DPT 재래식 플랜지", 115, 200),
-    ModulePreset("3051CG PT", 104, 181),
-    ModulePreset("3051TG PT 인라인", 104, 183),
-    ModulePreset("2051CD DPT", 98, 179),
-    ModulePreset("2051TG PT 인라인", 98, 183),
-    ModulePreset("2120 레벨 스위치", 120, 220),
-    ModulePreset("2120 레벨 스위치 나일론", 141, 196),
-    ModulePreset("2130 레벨 스위치", 120, 251),
-    ModulePreset("2130 레벨 스위치 고온", 120, 418),
+    ModulePreset("3051CD DPT", 104, 181, shape: InstrumentShape.dp),
+    ModulePreset(
+      "3051CD DPT 재래식 플랜지",
+      115,
+      200,
+      shape: InstrumentShape.dpTraditional,
+    ),
+    ModulePreset("3051CG PT", 104, 181, shape: InstrumentShape.gp),
+    ModulePreset("3051TG PT 인라인", 104, 183, shape: InstrumentShape.inline),
+    ModulePreset("2051CD DPT", 98, 179, shape: InstrumentShape.dp),
+    ModulePreset("2051TG PT 인라인", 98, 183, shape: InstrumentShape.inline),
+    ModulePreset("2120 레벨 스위치", 120, 220, shape: InstrumentShape.fork),
+    ModulePreset("2120 레벨 스위치 나일론", 141, 196, shape: InstrumentShape.fork),
+    ModulePreset("2130 레벨 스위치", 120, 251, shape: InstrumentShape.fork),
+    ModulePreset("2130 레벨 스위치 고온", 120, 418, shape: InstrumentShape.fork),
   ],
 };
 
@@ -93,6 +103,9 @@ class PlacedItem implements MeasurePoint {
   // 않게 하는 기능.
   bool isLocked;
 
+  /// 계기 모양(InstrumentShape). 없으면 네모 모듈.
+  String? shape;
+
   PlacedItem({
     required this.id,
     required this.name,
@@ -101,6 +114,7 @@ class PlacedItem implements MeasurePoint {
     this.height = 80.0,
     this.isSelected = false,
     this.isLocked = false,
+    this.shape,
   });
 
   @override
@@ -121,6 +135,7 @@ class PlacedItem implements MeasurePoint {
     'w': width,
     'h': height,
     'locked': isLocked,
+    if (shape != null) 'shape': shape,
   };
 
   factory PlacedItem.fromJson(Map<String, dynamic> j) => PlacedItem(
@@ -130,6 +145,7 @@ class PlacedItem implements MeasurePoint {
     width: (j['w'] as num?)?.toDouble() ?? 80.0,
     height: (j['h'] as num?)?.toDouble() ?? 80.0,
     isLocked: j['locked'] as bool? ?? false,
+    shape: j['shape'] as String?,
   );
 }
 

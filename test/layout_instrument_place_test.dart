@@ -20,6 +20,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('계기 놓기'), findsOneWidget);
     expect(find.text('요꼬가와'), findsOneWidget);
+    await tester.ensureVisible(find.text('APT3100 DPT'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('APT3100 DPT'));
     await tester.pumpAndSettle();
 
