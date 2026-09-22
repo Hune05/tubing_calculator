@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'fitting_spec.dart';
@@ -29,7 +31,19 @@ class ModulePreset {
 
   /// 계기 모양(InstrumentShape). 없으면 네모 모듈.
   final String? shape;
-  const ModulePreset(this.name, this.width, this.height, {this.shape});
+
+  /// 판 면에서 앞으로 튀어나오는 깊이(mm). 모르면 null.
+  final double? depth;
+  const ModulePreset(
+    this.name,
+    this.width,
+    this.height, {
+    this.shape,
+    this.depth,
+  });
+
+  /// 깊이를 모를 때 모양에서 어림한다(덕트는 이름의 높이, 피팅은 가장 굵은 육각).
+  double? get depthOrGuess => depth ?? guessPresetDepth(this);
 }
 
 // 🚀 배선 덕트 크기 = 폭×높이(mm). 도면(정면)에는 폭만큼 놓이고, 세로(길이)는 기본 200에서
@@ -611,6 +625,85 @@ final Map<String, List<ModulePreset>> kValvePresets = {
   ],
 };
 
+/// 제조사 도면의 깊이(mm, 판 면~앞 끝). 계기는 몸통(브래킷 빼고), 매니폴드는 손잡이 다 연 상태.
+/// 출처는 kInstrumentPresets·kValvePresets 주석과 같다(EJA GS p.14 D110, APT C3100 p.12 D112,
+/// 3051 PDS p.97 D109, 2051 p.88 D111, SOR CAT216 D, MA PV 31.11 Ø136, 하이록 H-120MV 열림).
+const Map<String, double> kPresetDepth = {
+  'EJA110E DPT 수직배관': 110,
+  'EJA110E DPT 수평배관': 110,
+  'EJA430E PT 수직배관': 110,
+  'EJA430E PT 수평배관': 110,
+  'EJA530E PT 인라인': 110,
+  'APT3100 DPT': 112,
+  'APT3200 PT': 112,
+  '3051CD DPT': 109,
+  '3051CD DPT 재래식 플랜지': 109,
+  '3051CG PT': 109,
+  '3051TG PT 인라인': 109,
+  '2051CD DPT': 111,
+  '2051TG PT 인라인': 111,
+  '2120 레벨 스위치': 100,
+  '2120 레벨 스위치 나일론': 102,
+  '2130 레벨 스위치': 100,
+  '2130 레벨 스위치 고온': 100,
+  '6NN 압력 스위치': 57,
+  '12NN 압력 스위치 저압': 95,
+  '54NN 압력 스위치': 57,
+  '6RN 압력 스위치': 66,
+  '54RN 압력 스위치': 66,
+  '6B3 방폭 압력 스위치': 110,
+  '101NN 차압 스위치': 60,
+  'MA 압력 스위치': 136,
+  'VM2V 2밸브 매니폴드': 85,
+  'VM3V 3밸브 매니폴드': 85,
+  'VM3V1F 3밸브 직결': 96,
+  'VM5V 5밸브 매니폴드': 85,
+  'VM5V1F 5밸브 직결': 101,
+  'VGV 게이지 밸브 1/2"': 69,
+  'VGV2 게이지 2밸브 1/2"': 85,
+  'V2 2밸브 매니폴드': 78,
+  'V3 3밸브 매니폴드': 104,
+  'V5 5밸브 매니폴드': 78,
+};
+
+/// 목록에 있는 이름이면 그 깊이(예전에 깊이 없이 놓은 계기도 읽을 때 채운다).
+double? _presetDepthByName(String? name) {
+  if (name == null) return null;
+  final d = kPresetDepth[name];
+  if (d != null) return d;
+  for (final list in [
+    ...kFittingPresets.values,
+    ...kValvePresets.values,
+    kDuctPresets,
+    kDuctMorePresets,
+  ]) {
+    for (final p in list) {
+      if (p.name == name) return guessPresetDepth(p);
+    }
+  }
+  return null;
+}
+
+/// 모양에서 깊이를 어림한다. 덕트 = 이름의 높이(폭×높이), 곧은 피팅 = 가장 굵은 육각,
+/// 엘보·티 = 가장 굵은 팔, 인라인 밸브 = 몸통 굵기. 모르면 null.
+double? guessPresetDepth(ModulePreset p) {
+  final dm = RegExp(r'ABS덕트 \d+×(\d+)').firstMatch(p.name);
+  if (dm != null) return double.parse(dm.group(1)!);
+  final shape = p.shape;
+  if (shape == null) return null;
+  if (shape.startsWith('fs:')) return p.height;
+  if (shape.startsWith('fl:')) {
+    final (_, arms) = parseElbow(shape);
+    if (arms.isEmpty) return null;
+    return arms.map((a) => a.thick).reduce(math.max);
+  }
+  if (shape.startsWith('fv:')) {
+    final v = parseValve(shape);
+    return valveNum(v, 'pipe', 20);
+  }
+  return null;
+}
+
 /// 예전(모양 여섯 가지 시절) 이름으로 저장된 계기는, 이름이 목록에 있으면
 /// 지금의 모델별 모양으로 바꿔 읽는다. 이름을 고친 것은 예전 모양 그대로 둔다.
 String? _upgradeShape(String? name, String? shape) {
@@ -646,6 +739,9 @@ class PlacedItem implements MeasurePoint {
   /// 계기 모양(InstrumentShape). 없으면 네모 모듈.
   String? shape;
 
+  /// 판 면에서 앞으로 튀어나오는 깊이(mm). 모르면 null(간섭 확인에서 빠진다).
+  double? depth;
+
   PlacedItem({
     required this.id,
     required this.name,
@@ -655,6 +751,7 @@ class PlacedItem implements MeasurePoint {
     this.isSelected = false,
     this.isLocked = false,
     this.shape,
+    this.depth,
   });
 
   @override
@@ -676,6 +773,7 @@ class PlacedItem implements MeasurePoint {
     'h': height,
     'locked': isLocked,
     if (shape != null) 'shape': shape,
+    if (depth != null) 'depth': depth,
   };
 
   factory PlacedItem.fromJson(Map<String, dynamic> j) => PlacedItem(
@@ -686,6 +784,9 @@ class PlacedItem implements MeasurePoint {
     height: (j['h'] as num?)?.toDouble() ?? 80.0,
     isLocked: j['locked'] as bool? ?? false,
     shape: _upgradeShape(j['name'] as String?, j['shape'] as String?),
+    depth:
+        (j['depth'] as num?)?.toDouble() ??
+        _presetDepthByName(j['name'] as String?),
   );
 }
 
