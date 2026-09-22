@@ -219,6 +219,10 @@ void main() {
     expect(mini().route, hasLength(2)); // 저장 전에도 바로 그려진다
 
     // 작은 도면을 누르면 크게 보기, 탭을 바꿔도 그려진다
+    // 화면이 막 열린 직후 누름은 무시하므로 잠깐 기다린다.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 800)),
+    );
     await tester.tap(find.byKey(const ValueKey('route_mini_board')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('route_big_board')), findsOneWidget);
@@ -233,5 +237,52 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('route_save')));
     await tester.pumpAndSettle();
     expect(result!.bends.single['length'], 700.0);
+  });
+
+  testWidgets('도면에서 경로 선을 누르면 그 경로 입력 화면이 열린다', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'layout_board_onboarding_shown_v1': true,
+      'layout_board_draft_v1': jsonEncode({
+        'kind': 'skid',
+        'panelWidth': 2400,
+        'panelHeight': 1200,
+        'items': [],
+        'dimensions': [],
+        'routes': [
+          ConduitRoute(
+            id: 'r1',
+            name: 'JB→PT',
+            x: 200,
+            y: 600,
+            bends: [
+              {'length': 1600, 'angle': 0, 'rotation': 0},
+            ],
+          ).toJson(),
+        ],
+      }),
+    });
+    tester.view.physicalSize = const Size(390, 844) * 2;
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const MaterialApp(home: LayoutBoardPage()));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('이어하기'));
+    await tester.pumpAndSettle();
+
+    // 도면(2400×1200)이 화면에 그려진 자리에서, 경로(가로 200→1800, 세로 600) 가운데를 누른다.
+    final Rect board = tester.getRect(
+      find.byWidgetPredicate(
+        (w) => w is CustomPaint && w.painter is SkidOverlayPainter,
+      ),
+    );
+    final Offset at = Offset(
+      board.left + board.width * 1000 / 2400,
+      board.top + board.height * 600 / 1200,
+    );
+    await tester.tapAt(at);
+    await tester.pumpAndSettle();
+    expect(find.byType(SkidRouteEditorPage), findsOneWidget);
+    expect(find.textContaining('JB→PT'), findsWidgets);
   });
 }

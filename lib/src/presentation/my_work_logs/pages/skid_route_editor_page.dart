@@ -71,6 +71,10 @@ class _SkidRouteEditorPageState extends State<SkidRouteEditorPage> {
 
   static String _json(ConduitRoute r) => r.toJson().toString();
 
+  // 도면에서 경로 선을 눌러 이 화면을 열면, 그 누름이 막 뜬 작은 도면에도 닿아 크게 보기가
+  // 같이 열렸다. 열린 뒤 잠깐은 작은 도면 누름을 받지 않는다.
+  final DateTime _openedAt = DateTime.now();
+
   @override
   void initState() {
     super.initState();
@@ -305,6 +309,10 @@ class _SkidRouteEditorPageState extends State<SkidRouteEditorPage> {
 
   // 작은 도면을 누르면 크게: 화면 전체에 같은 그림, 손가락으로 벌려 더 키운다. 탭도 바꾼다.
   void _openBigBoard() {
+    if (DateTime.now().difference(_openedAt) <
+        const Duration(milliseconds: 700)) {
+      return;
+    }
     String view = _view;
     Navigator.push(
       context,

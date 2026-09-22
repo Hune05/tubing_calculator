@@ -62,14 +62,15 @@ void main() {
     expect(find.byKey(const ValueKey('skid_steel')), findsOneWidget);
     expect(find.byKey(const ValueKey('duct_button')), findsNothing);
 
-    await tester.tap(find.byKey(const ValueKey('skid_conduit')));
+    expect(find.byKey(const ValueKey('skid_conduit')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('skid_jb')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('후강 전선관 28'));
+    await tester.tap(find.text('정션박스 300×300'));
     await tester.pumpAndSettle();
     expect(
       find.descendant(
         of: find.byType(InteractiveViewer),
-        matching: find.text('후강 전선관 28'),
+        matching: find.text('정션박스 300×300'),
       ),
       findsOneWidget,
     );

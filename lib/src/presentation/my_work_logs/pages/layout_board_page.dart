@@ -2530,6 +2530,15 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       HapticFeedback.lightImpact();
       _handleDimensionPoint(nearestWall);
     } else {
+      // 스키드: 경로 선 가까이를 누르면 그 경로 입력을 연다.
+      if (_isSkid) {
+        final ConduitRoute? hit = _findRouteNear(localPosition);
+        if (hit != null) {
+          HapticFeedback.lightImpact();
+          _showRouteEditor(hit);
+          return;
+        }
+      }
       setState(() {
         for (var i in _placedItems) {
           i.isSelected = false;
@@ -2538,6 +2547,38 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         _multiSelectedIds = {};
       });
     }
+  }
+
+  /// 지금 탭에서 [p](도면 mm) 가까이 지나는 경로. 손가락 폭(화면 24px)이나 관 굵기 안이면 잡는다.
+  ConduitRoute? _findRouteNear(Offset p) {
+    final plan = _planItems;
+    final (planW, planH) = _planSize;
+    final double scale = _viewerController.value.getMaxScaleOnAxis();
+    ConduitRoute? best;
+    double bestD = double.infinity;
+    for (final r in _routes) {
+      final pts = r
+          .points(plan)
+          .map(
+            (v) => projectToView(
+              v,
+              _plateId,
+              planW: planW,
+              planH: planH,
+              viewH: _panelHeight,
+            ),
+          )
+          .toList();
+      final double tol = math.max(24 / (scale <= 0 ? 1 : scale), r.od / 2 + 5);
+      for (int i = 0; i + 1 < pts.length; i++) {
+        final double d = _distanceToSegment(p, pts[i], pts[i + 1]);
+        if (d <= tol && d < bestD) {
+          bestD = d;
+          best = r;
+        }
+      }
+    }
+    return best;
   }
 
   double _distanceToSegment(Offset p, Offset a, Offset b) {
@@ -5872,9 +5913,17 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             if (_isSkid) ...[
               _panelLabel("스키드"),
               const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _showRoutesSheet,
+                icon: const Icon(Icons.route_rounded, size: 20),
+                label: const Text(
+                  "전선관 경로",
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                ),
+              ),
+              const SizedBox(height: 6),
               for (final e in [
                 ("형강", "형강 놓기", kSkidSteelPresets),
-                ("후강 전선관", "후강 전선관 놓기", kSkidConduitPresets),
                 ("정션박스", "정션박스 놓기", kSkidJbPresets),
               ]) ...[
                 OutlinedButton(
@@ -6779,14 +6828,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     kSkidSteelPresets,
                   ),
                   const SizedBox(width: 8),
-                  _buildSkidButton(
-                    "skid_conduit",
-                    Icons.horizontal_rule_rounded,
-                    "전선관",
-                    "후강 전선관 놓기",
-                    kSkidConduitPresets,
-                  ),
-                  const SizedBox(width: 8),
+                  // 전선관은 "경로"로 그린다(따로 놓는 막대는 경로와 이어지지 않아 헷갈렸다).
                   _buildRouteButton(),
                   const SizedBox(width: 8),
                   _buildSkidButton(
@@ -7281,7 +7323,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 const SizedBox(height: 4),
                 Text(
                   keepWords(
-                    "시작 부품에서 곧게 가는 길이와 꺾는 곳을 한 줄씩 넣으면 평면·정면·측면에 선으로 그립니다. 구조물은 오프셋으로 비켜 가고, 다 되면 전선관 계산기로 보냅니다.",
+                    "전선관은 경로로 그립니다. 시작 부품에서 계산기 입력 탭처럼 한 줄씩 넣고, 구조물은 특수 벤딩의 오프셋으로 비켜 갑니다. 도면에서 경로 선을 눌러도 고칠 수 있습니다.",
                   ),
                   style: const TextStyle(
                     fontSize: 14,
