@@ -447,13 +447,14 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   /// 다음 그리기에서 도면 전체가 화면에 들어오게 맞춘다(스키드처럼 큰 도면).
   bool _fitPending = false;
 
-  void _fitBoardToView() {
+  /// [heightFrac]: 화면 위쪽 이만큼에만 맞춘다(아래에 창이 올라와 있을 때).
+  void _fitBoardToView({double heightFrac = 1}) {
     final Size? v = _viewportSize;
     if (v == null || _panelWidth <= 0 || _panelHeight <= 0) return;
-    final double k =
-        math.min(v.width / _panelWidth, v.height / _panelHeight) * 0.92;
+    final double vh = v.height * heightFrac;
+    final double k = math.min(v.width / _panelWidth, vh / _panelHeight) * 0.92;
     final double dx = (v.width - _panelWidth * k) / 2;
-    final double dy = (v.height - _panelHeight * k) / 2;
+    final double dy = (vh - _panelHeight * k) / 2;
     _viewerController.value = Matrix4.identity()
       ..translateByDouble(dx, dy, 0, 1)
       ..scaleByDouble(k, k, 1, 1);
@@ -7170,6 +7171,16 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 
   final List<ConduitRoute> _routes = [];
 
+  /// 경로 창에서 고치는 중인 경로(저장 전). 도면에 바로 그려 보여 준다.
+  ConduitRoute? _draftRoute;
+
+  /// 도면에 그릴 경로: 저장된 것 + 고치는 중인 것(같은 경로면 고치는 중인 것으로).
+  List<ConduitRoute> get _shownRoutes => [
+    for (final r in _routes)
+      if (r.id != _draftRoute?.id) r,
+    ?_draftRoute,
+  ];
+
   List<PlacedItem> get _planItems => _plateId == kPlateMain
       ? _placedItems
       : layoutItemsFromData(_plateStore[kPlateMain] ?? const {});
@@ -7194,7 +7205,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       viewH: _panelHeight,
     );
     final routes = [
-      for (final r in _routes)
+      for (final r in _shownRoutes)
         (r.name, r.points(plan).map(proj).toList(), r.od),
     ];
     final ghosts = skidGhosts(
@@ -7208,7 +7219,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       _panelHeight,
       planW,
       planH,
-      _routes.map((r) => r.toJson()).toList(),
+      _shownRoutes.map((r) => r.toJson()).toList(),
       if (_plateId != kPlateMain)
         plan
             .map(
@@ -7473,15 +7484,40 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     double offAngle = 30;
     double? offDir;
 
+    // 창을 연 채로 도면에서 선이 늘어나는 것을 본다: 창은 아래 절반, 도면은 위쪽에 맞춘다.
+    void preview() {
+      if (!mounted) return;
+      r.name = nameCtrl.text.trim().isEmpty ? r.name : nameCtrl.text.trim();
+      r.x = double.tryParse(xCtrl.text.trim()) ?? r.x;
+      r.y = double.tryParse(yCtrl.text.trim()) ?? r.y;
+      r.z = double.tryParse(zCtrl.text.trim()) ?? r.z;
+      setState(() => _draftRoute = ConduitRoute.fromJson(r.toJson()));
+    }
+
+    for (final c in [xCtrl, yCtrl, zCtrl]) {
+      c.addListener(preview);
+    }
+    setState(() {
+      _draftRoute = ConduitRoute.fromJson(r.toJson());
+      _fitBoardToView(heightFrac: 0.45);
+    });
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      barrierColor: Colors.black.withValues(alpha: 0.08),
       backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) {
+          // 창 안에서 고칠 때마다 도면에도 바로 그린다.
+          void upd(VoidCallback f) {
+            setSheet(f);
+            preview();
+          }
+
           final warnings = r.warnings();
           void addStep() {
             final double? len = double.tryParse(lenCtrl.text.trim());
@@ -7490,7 +7526,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 : stepAngle;
             if (len == null || len <= 0) return;
             if (ang > 0 && stepDir == null) return;
-            setSheet(() {
+            upd(() {
               r.bends.add({
                 'length': len,
                 'angle': ang,
@@ -7508,7 +7544,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 : offAngle;
             if (before == null || off == null || off <= 0) return;
             if (ang <= 0 || ang >= 90 || offDir == null) return;
-            setSheet(() {
+            upd(() {
               r.bends.addAll(
                 offsetBends(
                   before: before,
@@ -7550,7 +7586,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             ),
             child: DraggableScrollableSheet(
               expand: false,
-              initialChildSize: 0.9,
+              initialChildSize: 0.55,
+              minChildSize: 0.3,
               maxChildSize: 0.95,
               builder: (ctx, scroll) => ListView(
                 controller: scroll,
@@ -7594,7 +7631,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           side: BorderSide(
                             color: r.size == s ? tossBlue : layoutLine,
                           ),
-                          onSelected: (_) => setSheet(() => r.size = s),
+                          onSelected: (_) => upd(() => r.size = s),
                         ),
                     ],
                   ),
@@ -7616,7 +7653,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           child: Text(it.name, overflow: TextOverflow.ellipsis),
                         ),
                     ],
-                    onChanged: (v) => setSheet(() => r.startItemId = v),
+                    onChanged: (v) => upd(() => r.startItemId = v),
                   ),
                   if (!plan.any((e) => e.id == r.startItemId)) ...[
                     const SizedBox(height: 8),
@@ -7633,7 +7670,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   const SizedBox(height: 12),
                   _panelLabel("처음 나가는 방향 (앞 = 평면 아래쪽)"),
                   const SizedBox(height: 6),
-                  _dirChips(r.startDir, (v) => setSheet(() => r.startDir = v)),
+                  _dirChips(r.startDir, (v) => upd(() => r.startDir = v)),
                   const SizedBox(height: 16),
                   _panelLabel("경로 (${r.bends.length}줄)"),
                   for (int i = 0; i < r.bends.length; i++)
@@ -7647,7 +7684,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       trailing: IconButton(
                         tooltip: "이 줄 지우기",
                         icon: const Icon(Icons.close_rounded, size: 20),
-                        onPressed: () => setSheet(() => r.bends.removeAt(i)),
+                        onPressed: () => upd(() => r.bends.removeAt(i)),
                       ),
                     ),
                   for (final w in warnings)
@@ -7666,7 +7703,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   _angleChips(
                     const [0, 90, 45, 30, 22.5, -1],
                     stepAngle,
-                    (v) => setSheet(() => stepAngle = v),
+                    (v) => upd(() => stepAngle = v),
                     zeroLabel: "곧게 (끝)",
                   ),
                   if (stepAngle < 0) ...[
@@ -7675,7 +7712,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   ],
                   if (stepAngle != 0) ...[
                     const SizedBox(height: 8),
-                    _dirChips(stepDir, (v) => setSheet(() => stepDir = v)),
+                    _dirChips(stepDir, (v) => upd(() => stepDir = v)),
                   ],
                   const SizedBox(height: 8),
                   OutlinedButton(
@@ -7703,14 +7740,14 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   _angleChips(
                     const [22.5, 30, 45, -1],
                     offAngle,
-                    (v) => setSheet(() => offAngle = v),
+                    (v) => upd(() => offAngle = v),
                   ),
                   if (offAngle < 0) ...[
                     const SizedBox(height: 8),
                     _routeNumField(offAngCtrl, "각도 (°)"),
                   ],
                   const SizedBox(height: 8),
-                  _dirChips(offDir, (v) => setSheet(() => offDir = v)),
+                  _dirChips(offDir, (v) => upd(() => offDir = v)),
                   const SizedBox(height: 8),
                   OutlinedButton(
                     key: const ValueKey("route_add_offset"),
@@ -7790,7 +7827,17 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           );
         },
       ),
-    );
+    ).whenComplete(() {
+      for (final c in [xCtrl, yCtrl, zCtrl]) {
+        c.removeListener(preview);
+      }
+      if (mounted) {
+        setState(() {
+          _draftRoute = null;
+          _fitBoardToView();
+        });
+      }
+    });
   }
 
   // 스키드 평면 모듈 단추(형강·전선관·정션박스). 길이는 1000으로 놓이고 놓은 뒤 고친다.

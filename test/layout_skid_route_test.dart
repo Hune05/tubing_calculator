@@ -159,4 +159,61 @@ void main() {
     final saved = jsonDecode(prefs.getString('layout_board_draft_v1')!) as Map;
     expect((saved['routes'] as List).single['name'], 'JB→PT');
   });
+
+  testWidgets('경로 창을 연 채로 줄을 넣으면 저장 전에도 도면에 그려지고, 닫으면 사라진다', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'layout_board_onboarding_shown_v1': true,
+    });
+    tester.view.physicalSize = const Size(390, 844) * 2;
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      const MaterialApp(home: LayoutBoardPage(initialKind: kLayoutKindSkid)),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    SkidOverlayPainter overlay() =>
+        tester
+                .widget<CustomPaint>(
+                  find.byWidgetPredicate(
+                    (w) => w is CustomPaint && w.painter is SkidOverlayPainter,
+                  ),
+                )
+                .painter!
+            as SkidOverlayPainter;
+
+    await tester.ensureVisible(find.byKey(const ValueKey('skid_route')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('skid_route')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('route_new')));
+    await tester.pumpAndSettle();
+    expect(overlay().routes, hasLength(1));
+    expect(overlay().routes.single.$2, hasLength(1)); // 시작점만
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('route_add_step')),
+      300,
+      scrollable: find
+          .descendant(
+            of: find.byType(DraggableScrollableSheet),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, '길이 (mm)'), '700');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('route_add_step')));
+    await tester.pumpAndSettle();
+    expect(overlay().routes.single.$2, hasLength(2)); // 저장 전인데 벌써 그려진다
+
+    Navigator.of(tester.element(find.text('한 줄 넣기').first)).pop();
+    await tester.pumpAndSettle();
+    expect(overlay().routes, isEmpty); // 저장 안 하고 닫으면 사라진다
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
 }
