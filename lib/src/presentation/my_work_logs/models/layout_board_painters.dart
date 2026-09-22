@@ -23,12 +23,16 @@ class SmartGuidePainter extends CustomPainter {
   final double panelHeight;
   final DimensionType currentType;
 
+  /// 숫자 글씨·눈금 배율([dimensionMarkScale]). 줄여 볼 때 숫자가 읽히는 크기로 남게 한다.
+  final double markScale;
+
   SmartGuidePainter({
     required this.item,
     required this.allItems,
     required this.panelWidth,
     required this.panelHeight,
     required this.currentType,
+    this.markScale = 1,
   });
 
   // 네 방향 선을 모았다가 긴 것부터 그린다. 짧은 선(바짝 붙은 쪽)의 숫자는 자리가 없어
@@ -54,7 +58,7 @@ class SmartGuidePainter extends CustomPainter {
     ];
     // 제자리(선 옆 가운데)에 들어가는 숫자를 먼저, 비켜야 하는 숫자를 나중에.
     bool fits((Offset, Offset, double, Color, String) l) =>
-        cadLabelFitsOnLine(l.$1, l.$2, l.$3, l.$5);
+        cadLabelFitsOnLine(l.$1, l.$2, l.$3, l.$5, scale: markScale);
     _lines.sort((a, b) {
       final int fa = fits(a) ? 0 : 1, fb = fits(b) ? 0 : 1;
       return fa != fb ? fa - fb : b.$3.compareTo(a.$3);
@@ -69,6 +73,7 @@ class SmartGuidePainter extends CustomPainter {
         prefix,
         avoid: avoid,
         bounds: Offset.zero & Size(panelWidth, panelHeight),
+        scale: markScale,
       );
       if (placed != null) avoid.add(placed);
     }
@@ -237,31 +242,34 @@ class GridPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-// 🚀 [수정] 산업 도면(CAD)처럼 얇은 치수선 + 끝단 눈금 + 항상 보이는
-// 라벨로 통일. 예전엔 두꺼운 색상 알약(pill) 라벨이 10mm 미만
-// 거리에서는 아예 안 보였는데, 라벨을 선 옆으로 살짝 띄워서 거리와
-// 무관하게 항상 표시되게 한다.
 /// 치수 숫자 칸이 선 옆 가운데(제자리)에 들어가는지. [drawCadDimensionLine]과 같은 셈.
 bool cadLabelFitsOnLine(
   Offset start,
   Offset end,
   double distance,
-  String prefix,
-) {
+  String prefix, {
+  double scale = 1,
+}) {
   final double len = (end - start).distance;
   if (len == 0) return true;
   final tp = TextPainter(
     text: TextSpan(
       text: "$prefix ${distance.toInt()} mm",
-      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
+      style: TextStyle(fontSize: 10 * scale, fontWeight: FontWeight.w800),
     ),
     textDirection: TextDirection.ltr,
   )..layout();
   final double ux = (end.dx - start.dx) / len, uy = (end.dy - start.dy) / len;
-  final double along = ux.abs() * (tp.width + 10) + uy.abs() * (tp.height + 6);
-  return along + 8 <= len;
+  final double along =
+      ux.abs() * (tp.width + 10 * scale) + uy.abs() * (tp.height + 6 * scale);
+  return along + 8 * scale <= len;
 }
 
+// 🚀 [수정] 산업 도면(CAD)처럼 얇은 치수선 + 끝단 눈금 + 항상 보이는
+// 라벨로 통일. 예전엔 두꺼운 색상 알약(pill) 라벨이 10mm 미만
+// 거리에서는 아예 안 보였는데, 라벨을 선 옆으로 살짝 띄워서 거리와
+// 무관하게 항상 표시되게 한다.
+/// [scale]은 숫자 글씨·눈금·칸 여백·선 굵기 배율([dimensionMarkScale]).
 Rect? drawCadDimensionLine(
   Canvas canvas,
   Offset start,
@@ -272,7 +280,9 @@ Rect? drawCadDimensionLine(
   double strokeWidth = 1.3,
   List<Rect> avoid = const [],
   Rect? bounds,
+  double scale = 1,
 }) {
+  strokeWidth *= scale;
   if (distance < 1) return null; // 사실상 붙어있으면 표시할 게 없음
 
   final linePaint = Paint()
@@ -288,7 +298,7 @@ Rect? drawCadDimensionLine(
   final double py = len == 0 ? 0 : dx / len;
 
   // 끝단 눈금(CAD 치수선의 tick mark)
-  final tick = Offset(px, py) * 5;
+  final tick = Offset(px, py) * 5 * scale;
   canvas.drawLine(start - tick, start + tick, linePaint);
   canvas.drawLine(end - tick, end + tick, linePaint);
 
@@ -296,7 +306,11 @@ Rect? drawCadDimensionLine(
 
   final textSpan = TextSpan(
     text: "$prefix ${distance.toInt()} mm",
-    style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w800),
+    style: TextStyle(
+      color: color,
+      fontSize: 10 * scale,
+      fontWeight: FontWeight.w800,
+    ),
   );
   final textPainter = TextPainter(
     text: textSpan,
@@ -307,7 +321,10 @@ Rect? drawCadDimensionLine(
   // 부품을 가린다. 그때는 [bounds](도면) 안에서 [avoid](움직이는 부품·옆 부품)와 안 겹치는 자리를
   // 찾아 적는다: 끝점 너머 → 부품 위·아래(또는 옆)로 비켜서.
   final double ux = len == 0 ? 0 : dx / len, uy = len == 0 ? 0 : dy / len;
-  final Size box = Size(textPainter.width + 10, textPainter.height + 6);
+  final Size box = Size(
+    textPainter.width + 10 * scale,
+    textPainter.height + 6 * scale,
+  );
   final double along = ux.abs() * box.width + uy.abs() * box.height;
   Rect boxAt(Offset c) =>
       Rect.fromCenter(center: c, width: box.width, height: box.height);
@@ -335,12 +352,13 @@ Rect? drawCadDimensionLine(
     return !avoid.any(r.overlaps);
   }
 
-  Offset label = mid + Offset(px, py) * 15;
+  // 도면 가장자리 근처면 칸이 도면 밖으로 삐져 잘린다. 도면 안으로 당겨 넣는다.
+  Offset label = keepIn(mid + Offset(px, py) * 15 * scale);
   Offset anchor = mid;
-  if (along + 8 > len) {
+  if (along + 8 * scale > len) {
     final candidates = <Offset>[
-      end + Offset(ux, uy) * (along / 2 + 8),
-      for (double k = 15; k <= 15 + 2000; k += 5) ...[
+      end + Offset(ux, uy) * (along / 2 + 8 * scale),
+      for (double k = 15 * scale; k <= (15 + 2000) * scale; k += 5 * scale) ...[
         keepIn(mid + Offset(px, py) * k),
         keepIn(mid - Offset(px, py) * k),
       ],
@@ -355,12 +373,8 @@ Rect? drawCadDimensionLine(
   }
 
   final bgRect = RRect.fromRectAndRadius(
-    Rect.fromCenter(
-      center: label,
-      width: textPainter.width + 10,
-      height: textPainter.height + 6,
-    ),
-    const Radius.circular(4),
+    boxAt(label),
+    Radius.circular(4 * scale),
   );
   // 라벨-치수선 연결용 짧은 리더선
   // 리더선은 숫자 칸의 가장 가까운 테두리까지만(가운데로 그으면 비킨 칸일 때 부품을 가로지른다).
@@ -373,7 +387,7 @@ Rect? drawCadDimensionLine(
     ),
     Paint()
       ..color = color.withValues(alpha: 0.5)
-      ..strokeWidth = 1,
+      ..strokeWidth = scale,
   );
   canvas.drawRRect(bgRect, Paint()..color = const Color(0xFFFFFFFF));
   canvas.drawRRect(
@@ -381,7 +395,7 @@ Rect? drawCadDimensionLine(
     Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1,
+      ..strokeWidth = scale,
   );
   textPainter.paint(
     canvas,
@@ -402,12 +416,16 @@ class DimensionPainter extends CustomPainter {
   // 다시 그려지게 한다.
   final int version;
 
+  /// 숫자 글씨·번호·눈금 배율([dimensionMarkScale]).
+  final double markScale;
+
   DimensionPainter({
     required this.dimensions,
     this.activePoint,
     this.panelWidth = 0,
     this.panelHeight = 0,
     this.version = 0,
+    this.markScale = 1,
   });
 
   @override
@@ -462,17 +480,18 @@ class DimensionPainter extends CustomPainter {
         bounds: panelWidth > 0 && panelHeight > 0
             ? Offset.zero & Size(panelWidth, panelHeight)
             : null,
+        scale: markScale,
       );
 
       // 🚀 [신규] 치수선마다 번호 배지를 달아서, 도면이 복잡해져도
       // 사진/PDF로 내보낸 치수 목록표와 대조해볼 수 있게 한다.
       final Offset badgeCenter = endpoints.p1;
-      canvas.drawCircle(badgeCenter, 8, Paint()..color = dColor);
+      canvas.drawCircle(badgeCenter, 8 * markScale, Paint()..color = dColor);
       final numberSpan = TextSpan(
         text: "${i + 1}",
-        style: const TextStyle(
+        style: TextStyle(
           color: _pureWhite,
-          fontSize: 9,
+          fontSize: 9 * markScale,
           fontWeight: FontWeight.w800,
         ),
       );
@@ -503,9 +522,9 @@ class DimensionPainter extends CustomPainter {
             : Offset(ddy / dlen, -ddx / dlen);
         final noteSpan = TextSpan(
           text: dim.note,
-          style: const TextStyle(
+          style: TextStyle(
             color: _tossSubText,
-            fontSize: 9,
+            fontSize: 9 * markScale,
             fontWeight: FontWeight.w600,
             fontStyle: FontStyle.italic,
           ),
@@ -514,15 +533,15 @@ class DimensionPainter extends CustomPainter {
           text: noteSpan,
           textDirection: TextDirection.ltr,
         )..layout();
-        final Offset noteCenter = mid + away * 15;
+        final Offset noteCenter = mid + away * 15 * markScale;
         canvas.drawRRect(
           RRect.fromRectAndRadius(
             Rect.fromCenter(
               center: noteCenter,
-              width: notePainter.width + 8,
-              height: notePainter.height + 4,
+              width: notePainter.width + 8 * markScale,
+              height: notePainter.height + 4 * markScale,
             ),
-            const Radius.circular(3),
+            Radius.circular(3 * markScale),
           ),
           Paint()..color = const Color(0xE6FFFFFF),
         );
@@ -542,10 +561,14 @@ class DimensionPainter extends CustomPainter {
     // 생기는 게 예상치 못하게 느껴졌다. 이제 첫 지점 종류와 상관없이
     // 항상 표시해서 측정이 진행 중임을 분명히 보여준다.
     if (activePoint != null) {
-      canvas.drawCircle(activePoint!.center, 6, Paint()..color = _tossText);
       canvas.drawCircle(
         activePoint!.center,
-        16,
+        6 * markScale,
+        Paint()..color = _tossText,
+      );
+      canvas.drawCircle(
+        activePoint!.center,
+        16 * markScale,
         Paint()
           ..color = _tossText.withValues(alpha: 0.2)
           ..style = PaintingStyle.fill,
@@ -564,6 +587,13 @@ class DimensionPainter extends CustomPainter {
         oldDelegate.activePoint != activePoint ||
         oldDelegate.panelWidth != panelWidth ||
         oldDelegate.panelHeight != panelHeight ||
+        oldDelegate.markScale != markScale ||
         oldDelegate.version != version;
   }
 }
+
+/// 치수 숫자 배율. 숫자는 도면 mm로 10mm 크기라, 화면에 맞춰 줄여 보면(스키드 0.13배 안팎)
+/// 화면에서 1~2px로 작아져 크게 확대해야만 읽혔다. 줄여 볼 때는 화면에서 11px(보통 작은
+/// 글씨) 아래로 작아지지 않게 키우고, 1.1배 넘게 확대하면 원래 크기(1)로 둔다.
+double dimensionMarkScale(double zoom) =>
+    zoom <= 0 ? 1 : (1.1 / zoom).clamp(1.0, 12.0);

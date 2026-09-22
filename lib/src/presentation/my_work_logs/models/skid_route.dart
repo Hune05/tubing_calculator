@@ -249,10 +249,14 @@ class SkidOverlayPainter extends CustomPainter {
   final List<SkidGhost> ghosts;
   final String version;
 
+  /// 이름 글씨·점·가는 선 배율([dimensionMarkScale]과 같은 값).
+  final double markScale;
+
   const SkidOverlayPainter({
     required this.routes,
     required this.ghosts,
     required this.version,
+    this.markScale = 1,
   });
 
   static const Color _route = Color(0xFF0E7490);
@@ -263,11 +267,17 @@ class SkidOverlayPainter extends CustomPainter {
     final ghostLine = Paint()
       ..color = const Color(0xFF94A3B8)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
+      ..strokeWidth = 1.2 * markScale;
     for (final g in ghosts) {
       canvas.drawRect(g.rect, ghostFill);
       _dashRect(canvas, g.rect, ghostLine);
-      _label(canvas, g.name, g.rect.center, const Color(0xFF64748B), 10);
+      _label(
+        canvas,
+        g.name,
+        g.rect.center,
+        const Color(0xFF64748B),
+        10 * markScale,
+      );
     }
     for (final (name, pts, od) in routes) {
       if (pts.length < 2) continue;
@@ -289,12 +299,18 @@ class SkidOverlayPainter extends CustomPainter {
         Paint()
           ..color = _route
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5,
+          ..strokeWidth = 1.5 * markScale,
       );
       for (final p in pts) {
-        canvas.drawCircle(p, 3, Paint()..color = _route);
+        canvas.drawCircle(p, 3 * markScale, Paint()..color = _route);
       }
-      _label(canvas, name, pts.first + const Offset(0, -14), _route, 11);
+      _label(
+        canvas,
+        name,
+        pts.first + Offset(0, -14 * markScale),
+        _route,
+        11 * markScale,
+      );
     }
   }
 
@@ -303,8 +319,8 @@ class SkidOverlayPainter extends CustomPainter {
       final double len = (b - a).distance;
       if (len <= 0) return;
       final Offset d = (b - a) / len;
-      for (double t = 0; t < len; t += 12) {
-        c.drawLine(a + d * t, a + d * math.min(t + 7, len), p);
+      for (double t = 0; t < len; t += 12 * markScale) {
+        c.drawLine(a + d * t, a + d * math.min(t + 7 * markScale, len), p);
       }
     }
 
@@ -327,11 +343,11 @@ class SkidOverlayPainter extends CustomPainter {
       ),
       textDirection: TextDirection.ltr,
       maxLines: 1,
-    )..layout(maxWidth: 400);
+    )..layout(maxWidth: 400 * markScale);
     tp.paint(c, at - Offset(tp.width / 2, tp.height / 2));
   }
 
   @override
   bool shouldRepaint(covariant SkidOverlayPainter old) =>
-      old.version != version;
+      old.version != version || old.markScale != markScale;
 }

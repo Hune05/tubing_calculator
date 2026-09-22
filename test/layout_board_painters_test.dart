@@ -40,6 +40,15 @@ void main() {
   const size = Size(300, 300);
   dimensionTests();
 
+  test('치수 숫자 배율: 줄여 보면 화면에서 11px 아래로 안 작아지고, 확대하면 원래 크기', () {
+    // 스키드(2400mm)를 폰 화면에 맞추면 0.13배 안팎: 10mm 글씨가 화면 1.3px였다.
+    const double fitZoom = 0.132;
+    expect(10 * mob.dimensionMarkScale(fitZoom) * fitZoom, closeTo(11, 1e-9));
+    expect(mob.dimensionMarkScale(1.1), 1);
+    expect(mob.dimensionMarkScale(3), 1);
+    expect(mob.dimensionMarkScale(0.001), 12);
+  });
+
   testWidgets('벽에 바짝 붙은 부품: 치수 숫자를 부품 위가 아니라 도면 안 비킨 자리에 적는다', (tester) async {
     // 오른쪽 벽까지 20mm. 숫자 칸(70mm 안팎)이 사이에 안 들어가 예전엔 부품을 덮었다.
     final item = mob.PlacedItem(
@@ -248,6 +257,9 @@ Future<List<int>> _dims(WidgetTester tester, bool mobile) async {
     tab.DimensionPainter(
       dimensions: dims,
       activePoint: dims.first.p1,
+      // 앱은 폰·태블릿 모두 도면 크기를 넘긴다(숫자 칸을 도면 안에 두는 데 쓴다).
+      panelWidth: 300,
+      panelHeight: 300,
       version: 1,
     ),
     const Size(300, 300),
@@ -263,4 +275,4 @@ void dimensionTests() {
   });
 }
 
-const int dimensionHash = 1234928501; // 리더선을 숫자 칸 테두리까지만(2026-09-22)
+const int dimensionHash = 526321441; // 가장자리 숫자 칸은 도면 안으로(2026-09-22)

@@ -191,6 +191,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     return math.sqrt(m[0] * m[0] + m[1] * m[1]);
   }
 
+  /// 치수·가상선·경로 이름 글씨 배율: 줄여 볼 때도 읽히는 크기로(dimensionMarkScale).
+  double get _markScale => dimensionMarkScale(_viewZoom);
+
   Size? _viewportSize;
 
   // 🚀 [추가] 서버에 정식 저장하기 전에 앱을 껐다 켜거나 화면을 나가면
@@ -5712,6 +5715,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                   panelWidth: _panelWidth,
                                   panelHeight: _panelHeight,
                                   version: _dimensionsVersion,
+                                  markScale: _markScale,
                                 ),
                               ),
                             ),
@@ -6904,6 +6908,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             panelWidth: _panelWidth,
             panelHeight: _panelHeight,
             currentType: type,
+            markScale: _markScale,
           ),
         ),
     ];
@@ -7467,6 +7472,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           routes: routes,
           ghosts: ghosts,
           version: version,
+          markScale: _markScale,
         ),
       ),
     );
