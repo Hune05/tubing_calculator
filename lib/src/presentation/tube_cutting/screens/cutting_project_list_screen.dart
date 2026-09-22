@@ -139,7 +139,15 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
                   totalTubeLength: totalTubeLength,
                   fittingsList: fittingsList,
                   cutRecords: cutRecords,
-                );
+                ).catchError((e) {
+                  if (context.mounted) {
+                    showCuttingSnack(
+                      context,
+                      "저장하지 못했습니다. 통신을 확인하십시오.",
+                      isError: true,
+                    );
+                  }
+                });
               },
         ),
       ),

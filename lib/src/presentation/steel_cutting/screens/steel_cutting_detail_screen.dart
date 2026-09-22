@@ -316,6 +316,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     // 다른 규격이 제멋대로 닫히지 않게 한다.
     if (!_foldDone || !_doneKeys.contains(key)) return;
     final lines = _resultLines();
+    if (lines.isEmpty) return;
     final spec = lines
         .firstWhere((l) => l.key == key, orElse: () => lines.first)
         .spec;
@@ -428,7 +429,10 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     if (_specFilter.isNotEmpty) {
       out = out.where((i) => i.shapeLabel == _specFilter).toList();
     }
-    if (_categoryFilter == '전체') return out;
+    // 고른 분류의 항목을 다 지우면 분류 칩이 사라져 되돌릴 길이 없었다 → 그때는 전체로 본다.
+    if (_categoryFilter == '전체' || !_categories.contains(_categoryFilter)) {
+      return out;
+    }
     return out
         .where((i) => SteelShapeDB.categoryLabel(i.category) == _categoryFilter)
         .toList();
@@ -460,12 +464,20 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   }
 
   Future<void> _persistStockLength(double v) async {
-    await _docRef.update({'stockLength': v});
+    try {
+      await _docRef.update({'stockLength': v});
+    } catch (e) {
+      if (mounted) showCuttingSnack(context, "저장하지 못했습니다: $e", isError: true);
+    }
   }
 
   Future<void> _persistSetMultiplier(int v) async {
     _pruneDone();
-    await _docRef.update({'setMultiplier': v});
+    try {
+      await _docRef.update({'setMultiplier': v});
+    } catch (e) {
+      if (mounted) showCuttingSnack(context, "저장하지 못했습니다: $e", isError: true);
+    }
   }
 
   // 🚀 [형강 컷팅 기록 신규] 항목을 추가/수정/삭제/복제할 때마다 자동으로
@@ -512,7 +524,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       context,
       onSave: (item) {
         setState(() => _items.add(item));
-        _persistItems();
+        _saveItems();
         _logChange('ADD', item);
       },
     );
@@ -527,7 +539,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
           final idx = _items.indexWhere((e) => e.id == item.id);
           if (idx >= 0) _items[idx] = updated;
         });
-        _persistItems();
+        _saveItems();
         _logChange('EDIT', updated);
       },
     );
@@ -543,14 +555,14 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       note: item.note,
     );
     setState(() => _items.add(copy));
-    _persistItems();
+    _saveItems();
     _logChange('DUPLICATE', copy);
     showCuttingUndoSnack(
       context,
       "'${item.shapeLabel}' 항목을 복제했습니다.",
       onUndo: () {
         setState(() => _items.removeWhere((e) => e.id == copy.id));
-        _persistItems();
+        _saveItems();
       },
     );
   }
@@ -610,7 +622,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
           i,
     ];
     setState(() => _items = next);
-    _persistItems();
+    _saveItems();
     for (final i in changed) {
       _logChange('EDIT', i);
     }
@@ -619,7 +631,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       "'$shape' ${changed.length}건을 '${to.label}'(으)로 바꿨습니다.",
       onUndo: () {
         setState(() => _items = before);
-        _persistItems();
+        _saveItems();
       },
     );
   }
@@ -635,7 +647,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     );
     if (copies.isEmpty) return;
     setState(() => _items.addAll(copies));
-    _persistItems();
+    _saveItems();
     for (final c in copies) {
       _logChange('DUPLICATE', c);
     }
@@ -645,7 +657,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       "'$shape' ${copies.length}건을 '${to.label}'에 복제했습니다.",
       onUndo: () {
         setState(() => _items.removeWhere((e) => ids.contains(e.id)));
-        _persistItems();
+        _saveItems();
       },
     );
   }
@@ -656,7 +668,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     if (r.removed.isEmpty) return;
     final before = List<SteelCutItem>.of(_items);
     setState(() => _items = r.items);
-    _persistItems();
+    _saveItems();
     for (final k in r.kept) {
       _logChange('EDIT', k);
     }
@@ -668,7 +680,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       "${r.removed.length + r.kept.length}건을 ${r.kept.length}건으로 합쳤습니다.",
       onUndo: () {
         setState(() => _items = before);
-        _persistItems();
+        _saveItems();
       },
     );
   }
@@ -676,14 +688,14 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   void _deleteItem(SteelCutItem item) {
     final index = _items.indexOf(item);
     setState(() => _items.removeWhere((e) => e.id == item.id));
-    _persistItems();
+    _saveItems();
     _logChange('DELETE', item);
     showCuttingUndoSnack(
       context,
       "'${item.shapeLabel}' ${item.length.toStringAsFixed(0)}mm 항목을 삭제했습니다.",
       onUndo: () {
         setState(() => _items.insert(index.clamp(0, _items.length), item));
-        _persistItems();
+        _saveItems();
       },
     );
   }

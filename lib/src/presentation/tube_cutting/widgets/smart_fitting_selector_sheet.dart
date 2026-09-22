@@ -199,7 +199,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
             SizedBox(width: 6),
             Expanded(
               child: Text(
-                "찾는 부속이 없나요? 커스텀으로 직접 입력",
+                "찾는 부속이 없으면 직접 넣으십시오",
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,

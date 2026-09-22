@@ -87,6 +87,7 @@ Future<void> showCuttingOptimizationSheet(
   if (!context.mounted) return;
   bool useLeftovers = true;
   bool leftoversSaved = leftoversAlreadySaved;
+  bool leftoversSaving = false;
   // 이번 계산의 새 원자재를 재고에서 뺐는지(같은 것을 두 번 빼지 않게).
   // 뺀 본수 자체를 적어 두고 견준다. 기준 길이·섞어 쓰기를 바꿔 본수가 달라지면
   // 다시 뺄 수 있고, 같은 본수면 창을 다시 열어도 "뺐습니다"로 나온다.
@@ -421,6 +422,9 @@ Future<void> showCuttingOptimizationSheet(
               results = compute(stockNow);
             }),
             onSave: () async {
+              // 통신이 느릴 때 두 번 누르면 잔재가 두 번 빠지고 두 번 더해졌다.
+              if (leftoversSaving || leftoversSaved) return;
+              leftoversSaving = true;
               final used = [
                 for (final e in results.entries)
                   for (final b in e.value.leftoverBars)
@@ -444,6 +448,7 @@ Future<void> showCuttingOptimizationSheet(
                 added: added,
               );
               onLeftoversSaved?.call();
+              leftoversSaving = false;
               setSheetState(() => leftoversSaved = true);
               if (ctx.mounted) {
                 showCuttingSnack(
@@ -1169,7 +1174,8 @@ Future<List<Leftover>?> _manageLeftovers(
                     children: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx),
-                        child: const Text("닫기"),
+                        // 지운 것은 저장을 눌러야 남는다. 그냥 닫으면 버려진다는 것을 보여 준다.
+                        child: Text(changed ? "저장 안 하고 닫기" : "닫기"),
                       ),
                       FilledButton(
                         onPressed: () =>

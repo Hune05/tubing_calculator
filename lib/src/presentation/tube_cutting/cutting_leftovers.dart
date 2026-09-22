@@ -106,12 +106,16 @@ class FirestoreLeftoverStore implements LeftoverStore {
 
   @override
   Future<void> save(List<Leftover> all) async {
-    await _doc.set({
-      'items': [
-        for (final l in all) {'label': l.label, 'length': l.length},
-      ],
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    // 통신이 없으면 서버 확인이 영영 안 끝나 "잘랐습니다" 단추가 멈췄다. 폰에 먼저 적히므로
+    // 8초 넘으면 그냥 진행한다(통신되면 올라간다).
+    await _doc
+        .set({
+          'items': [
+            for (final l in all) {'label': l.label, 'length': l.length},
+          ],
+          'updatedAt': FieldValue.serverTimestamp(),
+        })
+        .timeout(const Duration(seconds: 8), onTimeout: () {});
   }
 }
 

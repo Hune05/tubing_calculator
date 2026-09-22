@@ -4,7 +4,7 @@ import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import '../../../core/utils/pdf_fonts.dart';
 import 'package:flutter/services.dart'
     show Clipboard, ClipboardData, HapticFeedback;
-import 'dart:async' show Timer;
+import 'dart:async' show Timer, unawaited;
 import 'dart:convert';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -701,7 +701,12 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     return 'cutting_draft_$idStr';
   }
 
+  /// 임시 저장을 다 읽었는지. 읽기 전에 저장하면 빈 화면이 임시 저장을 덮었다(앱 켜자마자
+  /// 열고 바로 나갈 때).
+  bool _draftLoaded = false;
+
   Future<void> _saveDraftState() async {
+    if (!_draftLoaded) return;
     try {
       final prefs = await SharedPreferences.getInstance();
       final stateData = {
@@ -731,10 +736,23 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
 
   Future<void> _loadDraftState() async {
     try {
+      await _loadDraftStateInner();
+    } finally {
+      _draftLoaded = true;
+    }
+  }
+
+  Future<void> _loadDraftStateInner() async {
+    try {
       final prefs = await SharedPreferences.getInstance();
       final jsonStr = prefs.getString(_draftKey);
+      if (!mounted) return;
+      // 읽기가 늦게 왔는데 그새 치기 시작했으면 치던 것을 지우지 않는다.
+      final bool typing = _points.any(
+        (p) => p.c2cController.text.trim().isNotEmpty,
+      );
 
-      if (jsonStr != null) {
+      if (jsonStr != null && !typing) {
         final stateData = jsonDecode(jsonStr);
         setState(() {
           _globalMaker = stateData['globalMaker'] ?? "Swagelok";
@@ -976,13 +994,22 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     );
     if (name == null || name.isEmpty) return;
 
-    await FirebaseFirestore.instance
-        .collection(kCuttingLineTemplatesCollection)
-        .add({
-          'name': name,
-          'createdAt': DateTime.now().toIso8601String(),
-          'points': _serializePointsForTemplate(),
-        });
+    // 폰에 먼저 적히고 통신되면 올라간다. 기다리면 통신 없을 때 답이 없어 다시 눌러 겹쳤다.
+    unawaited(
+      FirebaseFirestore.instance
+          .collection(kCuttingLineTemplatesCollection)
+          .add({
+            'name': name,
+            'createdAt': DateTime.now().toIso8601String(),
+            'points': _serializePointsForTemplate(),
+          })
+          .catchError((e) {
+            if (mounted) {
+              showCuttingSnack(context, "템플릿을 저장하지 못했습니다.", isError: true);
+            }
+            throw e;
+          }),
+    );
     if (mounted) showCuttingSnack(context, "'$name' 템플릿으로 저장했습니다.");
   }
 
@@ -1046,10 +1073,13 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       icon: Icons.delete_outline_rounded,
     );
     if (confirmed) {
-      await FirebaseFirestore.instance
-          .collection(kCuttingLineTemplatesCollection)
-          .doc(docId)
-          .delete();
+      unawaited(
+        FirebaseFirestore.instance
+            .collection(kCuttingLineTemplatesCollection)
+            .doc(docId)
+            .delete()
+            .catchError((_) {}),
+      );
     }
   }
 
@@ -1307,6 +1337,11 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                 child: FutureBuilder<List<FittingSetGroup>>(
                   future: loadFittingSets(),
                   builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return const Center(
+                        child: Text("불러오지 못했습니다. 통신을 확인하십시오."),
+                      );
+                    }
                     if (!snapshot.hasData) {
                       return const Center(
                         child: CircularProgressIndicator(color: makitaTeal),
@@ -1488,6 +1523,11 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                       .orderBy('createdAt', descending: true)
                       .snapshots(),
                   builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return const Center(
+                        child: Text("불러오지 못했습니다. 통신을 확인하십시오."),
+                      );
+                    }
                     if (!snapshot.hasData) {
                       return const Center(
                         child: CircularProgressIndicator(color: makitaTeal),
@@ -1817,7 +1857,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                     ),
                     const SizedBox(height: 16),
                     buildInputField(
-                      label: "적용할 공제값 (Deduction)",
+                      label: "적용할 공제값",
                       hint: "0.0",
                       controller: deductionCtrl,
                       isNumber: true,
@@ -2805,10 +2845,12 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     setState(() => _focusedPointIndex = index);
     _tabController.animateTo(0);
     final bool hasField = index < _points.length - 1;
-    final node = _points[index].c2cFocusNode;
     for (int attempt = 0; attempt < 8; attempt++) {
       await Future<void>.delayed(const Duration(milliseconds: 60));
       if (!mounted) return;
+      // 기다리는 사이 구간이 지워졌으면 그만둔다(지워진 칸에 초점을 주다 죽었다).
+      if (index >= _points.length) return;
+      final node = _points[index].c2cFocusNode;
       final ctx = hasField ? node.context : null;
       if (ctx != null && ctx.mounted) {
         await Scrollable.ensureVisible(
@@ -3497,7 +3539,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                           color: textPrimary,
                         ),
                         decoration: InputDecoration(
-                          labelText: "전체 길이 (C to C / End to End)",
+                          labelText: "전체 길이 (중심~중심)",
                           labelStyle: TextStyle(
                             color: Colors.grey.shade600,
                             fontSize: 13,

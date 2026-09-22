@@ -57,12 +57,6 @@ class CuttingProject {
 
   String get estimatedMeters => (totalTubeUsed / 1000).toStringAsFixed(1);
 
-  // 기존 함수 (하위 호환성을 위해 남겨둠)
-  void addCutLength(double length) {
-    totalTubeUsed += length;
-    cutCount += 1;
-  }
-
   // 🚀 [버그 수정] 예전엔 이 함수가 자기 스스로 Hive DB 파일을 열어서
   // ProjectManagementPage의 projectList를 직접 덮어썼다. 그런데 그 화면은
   // onSaveCallback을 통해 이미 같은 데이터를 저장하고 있어서, 결국 같은

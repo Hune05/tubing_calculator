@@ -317,7 +317,15 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                   totalTubeLength: totalTubeLength,
                   fittingsList: fittingsList,
                   cutRecords: cutRecords,
-                );
+                ).catchError((e) {
+                  if (context.mounted) {
+                    showCuttingSnack(
+                      context,
+                      "저장하지 못했습니다. 통신을 확인하십시오.",
+                      isError: true,
+                    );
+                  }
+                });
               },
           // 저장 직후 "실행 취소": 저장한 사용량·기록을 되돌린다(화면이 메모리 값은 이미 뺐다).
           onUndoCallback:
@@ -332,7 +340,15 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                   totalTubeLength: totalTubeLength,
                   fittingsList: fittingsList,
                   cutRecords: cutRecords,
-                );
+                ).catchError((e) {
+                  if (context.mounted) {
+                    showCuttingSnack(
+                      context,
+                      "되돌리지 못했습니다. 통신을 확인하십시오.",
+                      isError: true,
+                    );
+                  }
+                });
               },
         ),
       ),

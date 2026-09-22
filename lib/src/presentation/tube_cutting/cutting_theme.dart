@@ -273,7 +273,13 @@ Future<double?> showBladeKerfDialog(
             ),
           ),
           onPressed: () {
-            Navigator.pop(ctx, double.tryParse(ctrl.text) ?? 0.0);
+            final v = double.tryParse(ctrl.text.trim());
+            if (v == null || v < 0) {
+              // 예전엔 잘못 친 값이 조용히 0으로 저장돼 총 소모량이 바뀌었다.
+              showCuttingSnack(ctx, "숫자로 넣으십시오(예: 3).", isError: true);
+              return;
+            }
+            Navigator.pop(ctx, v);
           },
           child: const Text(
             "저장",

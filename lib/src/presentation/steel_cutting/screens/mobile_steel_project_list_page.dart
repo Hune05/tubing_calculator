@@ -237,10 +237,23 @@ class MobileSteelProjectListPage extends StatelessWidget {
       icon: Icons.delete_outline_rounded,
     );
     if (confirmed) {
-      await FirebaseFirestore.instance
+      // 변경 이력(하위 모음)도 같이 지운다(튜브 쪽 deleteCuttingProjectWithRecords와 같게).
+      final docRef = FirebaseFirestore.instance
           .collection(kSteelCuttingProjectsCollection)
-          .doc(docId)
-          .delete();
+          .doc(docId);
+      final logs = await docRef
+          .collection(kSteelChangeLogSubcollection)
+          .get()
+          .timeout(const Duration(seconds: 8));
+      final batch = FirebaseFirestore.instance.batch();
+      for (final d in logs.docs) {
+        batch.delete(d.reference);
+      }
+      batch.delete(docRef);
+      await batch.commit().timeout(
+        const Duration(seconds: 8),
+        onTimeout: () {},
+      );
       if (context.mounted) showCuttingSnack(context, "작업을 삭제했습니다.");
     }
   }

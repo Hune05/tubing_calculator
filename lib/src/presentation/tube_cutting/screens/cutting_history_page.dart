@@ -11,7 +11,6 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 
 import '../../../data/models/cutting_project_model.dart';
-import '../cutting_firestore_helper.dart';
 import '../cutting_math.dart' show safeFileName;
 import '../cutting_record_export.dart';
 import '../cutting_theme.dart';
@@ -61,18 +60,24 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
       icon: Icons.delete_outline_rounded,
     );
     if (confirmed) {
-      await FirebaseFirestore.instance
+      // 기록 지우기와 누적 합계 빼기를 한 묶음으로. 예전엔 따로 기다려서, 통신이 없으면
+      // 첫 번째(지우기)에서 영영 멈춰 합계는 빠지지 않은 채 기록만 나중에 지워졌다.
+      final projectRef = FirebaseFirestore.instance
           .collection(kCuttingProjectsCollection)
-          .doc(widget.project.id)
-          .collection(kCutRecordsSubcollection)
-          .doc(record.id)
-          .delete();
-      // 🚀 [3번 강화] 기록 하나를 지웠으면 프로젝트 누적 합계도 그만큼
-      // 원자적으로 빼서, 개별 기록 삭제가 누적 합계와 영구히 어긋나지
-      // 않게 한다(예전엔 여기서 누적 합계를 전혀 건드리지 않았다).
-      await reconcileProjectAfterRecordDelete(
-        projectId: widget.project.id,
-        deletedRecord: record,
+          .doc(widget.project.id);
+      final batch = FirebaseFirestore.instance.batch();
+      batch.delete(
+        projectRef.collection(kCutRecordsSubcollection).doc(record.id),
+      );
+      batch.update(projectRef, {
+        'totalTubeUsed': FieldValue.increment(
+          -(record.cutLength * record.multiplier),
+        ),
+        'cutCount': FieldValue.increment(-record.multiplier),
+      });
+      await batch.commit().timeout(
+        const Duration(seconds: 8),
+        onTimeout: () {},
       );
       if (mounted) {
         showCuttingSnack(context, "기록을 삭제했습니다.");
@@ -333,10 +338,14 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
           key: Key('history_spec_${value ?? 'all'}'),
           label: Text(label),
           selected: selected,
-          onSelected: (_) => setState(() {
-            _specFilter = value;
-            _currentPage = 0;
-          }),
+          onSelected: (_) {
+            setState(() {
+              _specFilter = value;
+              _currentPage = 0;
+            });
+            // 머리글은 1쪽인데 쪽은 그대로여서 날짜와 목록이 어긋났다.
+            if (_pageController.hasClients) _pageController.jumpToPage(0);
+          },
           selectedColor: CuttingColors.primary,
           backgroundColor: CuttingColors.surface,
           side: BorderSide(

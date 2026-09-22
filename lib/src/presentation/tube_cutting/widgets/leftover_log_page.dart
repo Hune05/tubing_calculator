@@ -49,6 +49,9 @@ class LeftoverLogPage extends StatelessWidget {
         body: FutureBuilder<(List<LeftoverLogEntry>, List<Leftover>)>(
           future: _load(),
           builder: (context, snap) {
+            if (snap.hasError) {
+              return const Center(child: Text("기록을 불러오지 못했습니다. 통신을 확인하십시오."));
+            }
             if (!snap.hasData) {
               return const Center(
                 child: CircularProgressIndicator(color: CuttingColors.primary),
