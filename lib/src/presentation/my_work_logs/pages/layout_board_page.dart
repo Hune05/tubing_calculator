@@ -218,6 +218,13 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   /// 치수·가상선·경로 이름 글씨 배율: 줄여 볼 때도 읽히는 크기로(dimensionMarkScale).
   double get _markScale => dimensionMarkScale(_viewZoom);
 
+  /// 판 가로·세로(W·H) 표기 글씨 크기(도면 mm). 16mm로 두면 스키드를 화면에 맞췄을 때
+  /// 2px로 작아져서, 화면에서 12px 아래로 작아지지 않게 한다.
+  double get _sizeLabelFont {
+    final double z = _viewZoom;
+    return z <= 0 ? 16 : math.max(16, 12 / z);
+  }
+
   Size? _viewportSize;
 
   // 🚀 [추가] 서버에 정식 저장하기 전에 앱을 껐다 켜거나 화면을 나가면
@@ -489,7 +496,12 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     final Size? v = _viewportSize;
     if (v == null || _panelWidth <= 0 || _panelHeight <= 0) return;
     final double vh = v.height;
-    final double k = math.min(v.width / _panelWidth, vh / _panelHeight) * 0.92;
+    // 둘레에 W·H 표기(화면 12px 글씨) 자리를 남기고 맞춘다.
+    const double pad = 28;
+    final double k = math.min(
+      (v.width - pad * 2) / _panelWidth,
+      (vh - pad * 2) / _panelHeight,
+    );
     final double dx = (v.width - _panelWidth * k) / 2;
     final double dy = (vh - _panelHeight * k) / 2;
     _viewerController.value = Matrix4.identity()
@@ -5937,19 +5949,23 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       ),
                     ),
                   ),
+                  // 판 가로·세로 표기: 치수 숫자처럼 줄여 볼 때도 화면에서 12px 안팎으로 읽히게
+                  // 키우고(_sizeLabelFont), 판 바로 바깥에 붙인다.
                   Positioned(
-                    top: -30,
+                    key: const ValueKey("panel_w_label"),
+                    top: -_sizeLabelFont * 1.6,
                     child: Text(
                       "W: ${_panelWidth.toInt()} mm",
                       style: TextStyle(
                         color: Colors.blueGrey.shade700,
                         fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                        fontSize: _sizeLabelFont,
                       ),
                     ),
                   ),
                   Positioned(
-                    left: -80,
+                    key: const ValueKey("panel_h_label"),
+                    left: -_sizeLabelFont * 1.6,
                     child: RotatedBox(
                       quarterTurns: 3,
                       child: Text(
@@ -5957,7 +5973,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                         style: TextStyle(
                           color: Colors.blueGrey.shade700,
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          fontSize: _sizeLabelFont,
                         ),
                       ),
                     ),
