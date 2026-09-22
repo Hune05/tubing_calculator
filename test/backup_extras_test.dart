@@ -16,8 +16,8 @@ String backupText({List? layouts, List? schedules}) => jsonEncode({
     {'id': 't1'},
   ],
   'favMaterials': [],
-  if (layouts != null) 'layouts': layouts,
-  if (schedules != null) 'personalSchedules': schedules,
+  'layouts': ?layouts,
+  'personalSchedules': ?schedules,
 });
 
 void main() {

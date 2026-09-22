@@ -491,9 +491,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     final m = _morning;
     if (m == null || !m.enabled) return const [];
     final pending = _pendingIds;
-    final scheduled = pending == null
-        ? null
-        : pending.contains(kMorningSummaryId);
+    final scheduled = pending?.contains(kMorningSummaryId);
     final ok = scheduled != false;
     final color = ok ? const Color(0xFF1B9E5A) : const Color(0xFFE5484D);
     return [

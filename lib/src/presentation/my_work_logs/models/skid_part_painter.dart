@@ -289,8 +289,9 @@ void _condulet(_P p, String shape, SkidFace face) {
         1,
       );
     }
-    if (hb.back)
+    if (hb.back) {
       p.part(Rect.fromLTWH(cc.dx - hd / 2, bh, hd, h - bh), _metal, 1);
+    }
     p.part(Rect.fromLTWH(x0, 0, bw, bh), _body, bw * 0.2);
     p.part(Rect.fromLTWH(x0, 0, bw, bh * 0.14), _cover, 2);
     p.circle(cc, hd / 2, _metal);

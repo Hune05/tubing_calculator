@@ -9,7 +9,6 @@ import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_c
 import 'package:tubing_calculator/src/presentation/steel_cutting/steel_result_logic.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/widgets/steel_item_sheet.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_action_bar.dart';
-import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_result_logic.dart';
 
 import 'helpers_text.dart';
 

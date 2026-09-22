@@ -95,8 +95,9 @@ Future<String?> appendLeftoverLog({
     added: added,
   );
   final list = [entry, ...await loadLeftoverLog()];
-  if (list.length > kMaxLeftoverLog)
+  if (list.length > kMaxLeftoverLog) {
     list.removeRange(kMaxLeftoverLog, list.length);
+  }
   await _save(list);
   return entry.id;
 }

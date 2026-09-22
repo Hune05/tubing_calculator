@@ -1,4 +1,5 @@
 import 'dart:io'; // 🔥 File 객체를 사용하기 위해 필수
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart'; // 🔥 파이어베이스 스토리지 필수!
 import '../models/order_model.dart';
@@ -72,7 +73,7 @@ class OrderRepository {
 
       return downloadUrl; // 성공 시 진짜 파이어베이스 URL 반환!
     } catch (e) {
-      print("🚨 이미지 업로드 실패: $e");
+      debugPrint("🚨 이미지 업로드 실패: $e");
       // 업로드 실패 시 에러를 던져서 프론트(UI)쪽에서 스낵바로 알려주게 함
       throw Exception("이미지 업로드 중 오류가 발생했습니다.");
     }

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 
 class SmartFittingDBSeeder {
   // 🚀 [피팅 고도화] 국내 현장에서 자주 쓰는 국산 대표 피팅 브랜드
@@ -53,9 +54,9 @@ class SmartFittingDBSeeder {
         }
       }
       await batch.commit();
-      print("✅ [진짜 최종 DB 구축 완료] 총 ${massiveData.length}개의 정밀 데이터 업로드!");
+      debugPrint("✅ [진짜 최종 DB 구축 완료] 총 ${massiveData.length}개의 정밀 데이터 업로드!");
     } catch (e) {
-      print("❌ 업로드 실패: $e");
+      debugPrint("❌ 업로드 실패: $e");
     }
   }
 

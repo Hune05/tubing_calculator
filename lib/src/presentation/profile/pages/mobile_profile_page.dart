@@ -100,9 +100,9 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
         serverClientId:
             '289974993415-lhibiid49ncmb5hev53hnasj7vhkvki3.apps.googleusercontent.com',
       );
+      // authenticate()는 취소·실패면 예외를 던지고 null을 주지 않는다.
       final GoogleSignInAccount account = await _googleSignIn.authenticate();
-
-      if (account != null) {
+      {
         final GoogleSignInAuthentication googleAuth = account.authentication;
         final OAuthCredential credential = GoogleAuthProvider.credential(
           idToken: googleAuth.idToken,

@@ -999,41 +999,6 @@ class TubeReferencePage extends StatelessWidget {
     );
   }
 
-  // 타이틀 + 내용 나열용
-  Widget _buildInfoRow(String title, String value, String desc) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: textSub,
-              ),
-            ),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: textMain,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          desc,
-          style: const TextStyle(fontSize: 13, color: textSub, height: 1.4),
-        ),
-      ],
-    );
-  }
-
   // 토스 스타일 테이블
   Widget _buildTossTable({
     required List<String> headers,

@@ -177,7 +177,7 @@ class _LogListState extends State<_LogList> {
                 for (final d in const <int?>[null, 7, 30])
                   _chip(
                     Key('log_days_${d ?? 'all'}'),
-                    d == null ? '전체 기간' : '최근 ${d}일',
+                    d == null ? '전체 기간' : '최근 $d일',
                     _days == d,
                     () => setState(() => _days = d),
                   ),

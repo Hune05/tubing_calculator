@@ -5,8 +5,6 @@ import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_math.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_main_screen.dart';
 
-import 'helpers_text.dart';
-
 // 튜브 컷팅 계산기 입력 탭: 길이 글자 해석, 절단 길이 계산 과정, 하단 요약 줄.
 void main() {
   group('길이 글자 해석', () {

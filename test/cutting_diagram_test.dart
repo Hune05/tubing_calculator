@@ -8,8 +8,6 @@ import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_math.dar
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_theme.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_main_screen.dart';
 
-import 'helpers_text.dart';
-
 // 튜브 컷팅 배치도: 선 길이·누적 위치·요약 계산, 화면 그림, 지점을 눌러 입력으로 이동.
 DiagramPoint none() => const DiagramPoint(
   isNone: true,
