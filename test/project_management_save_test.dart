@@ -15,7 +15,10 @@ class _FakeRepo extends WorkProjectRepository {
   Future<List<Map<String, dynamic>>> fetchAllProjects() async => items;
 
   @override
-  Future<void> upsertProject(Map<String, dynamic> project) async {
+  Future<void> upsertProject(
+    Map<String, dynamic> project, {
+    bool merge = true,
+  }) async {
     saved.add(project['id'].toString());
   }
 

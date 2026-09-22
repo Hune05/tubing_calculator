@@ -9,6 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import '../widgets/create_log_sheet.dart';
 import '../widgets/project_summary_card.dart';
 import '../models/project_phase.dart';
+import '../models/project_merge.dart';
 import '../models/report_tools.dart';
 import '../models/photo_store.dart';
 import '../models/backup_tools.dart';
@@ -106,11 +107,21 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   @override
   void initState() {
     super.initState();
+    _loadWorkerName();
     _loadData();
     _loadGuideFlag();
     recordActiveReminders();
     // 예전에 공유하려고 만들어 둔 보고서 PDF 정리(백그라운드). 보고서 폴더만 본다.
     reportPdfDir().then(runPdfCleanup).catchError((_) => 0);
+  }
+
+  // 일지·이슈에 작성자로 남길 이 폰의 이름.
+  Future<void> _loadWorkerName() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final n = p.getString('user_real_name') ?? '';
+      currentWorkerName.value = n == '로그인 필요' ? '' : n;
+    } catch (_) {}
   }
 
   Future<void> _loadData() async {
@@ -536,6 +547,11 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         if (report['unlockHistory'] != null) {
           updated['unlockHistory'] = report['unlockHistory'];
         }
+        // 아이디·작성자는 원래 것을 잇고, 누가 고쳤는지 남긴다.
+        updated['id'] ??= report['id'];
+        updated['author'] ??= report['author'];
+        updated['authoredAt'] ??= report['authoredAt'];
+        stampAuthor(updated, currentWorkerName.value, created: false);
         if (idx != -1) list[idx] = updated;
         applyReportEffects(log, updated);
       });
@@ -564,7 +580,10 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       setState(() {
         log['daily_reports'] = updated;
         for (final r in updated) {
-          if (!before.contains(r)) applyReportEffects(log, r);
+          if (!before.contains(r)) {
+            stampAuthor(r, currentWorkerName.value, created: false);
+            applyReportEffects(log, r);
+          }
         }
       });
       _saveProject(log);
@@ -603,6 +622,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       newPunch['created_at'] = DateTime.now();
       newPunch['lastPunchReminderAt'] = null;
       newPunch['linkedScheduleId'] = null;
+      stampAuthor(newPunch, currentWorkerName.value, created: true);
       setState(
         () =>
             ((log['punch_lists'] ??= <dynamic>[]) as List).insert(0, newPunch),
@@ -910,6 +930,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       setState(() {
         final list = (log['punch_lists'] ??= <dynamic>[]) as List;
         final idx = list.indexOf(punch);
+        stampAuthor(updated, currentWorkerName.value, created: false);
         if (idx != -1) list[idx] = updated;
       });
       _saveProject(log);
@@ -1088,6 +1109,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       ),
     );
     if (newReport != null) {
+      newReport['id'] ??=
+          'daily_reports_${DateTime.now().microsecondsSinceEpoch}';
+      stampAuthor(newReport, currentWorkerName.value, created: true);
       setState(() {
         ((log['daily_reports'] ??= <dynamic>[]) as List).insert(0, newReport);
         applyReportEffects(log, newReport);

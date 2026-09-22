@@ -16,6 +16,7 @@ import '../../../core/utils/image_picker_helper.dart' show ImagePickerHelper;
 import '../models/summary_image.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/phase_templates.dart';
+import '../models/project_merge.dart' show authorLabel;
 import '../../../data/repositories/work_project_repository.dart';
 import 'report_search_page.dart' show ProjectPhotosPage;
 import 'project_stats_page.dart';

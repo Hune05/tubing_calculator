@@ -162,6 +162,13 @@ extension _ProjectDetailReports on _ProjectDetailPageState {
                   height: 1.4,
                 ),
               ),
+              if (authorLabel(r).isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  authorLabel(r),
+                  style: const TextStyle(fontSize: 11, color: tossSubText),
+                ),
+              ],
               if (phaseChips.isNotEmpty ||
                   issueCnt > 0 ||
                   doneCnt > 0 ||

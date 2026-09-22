@@ -5,6 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../presentation/my_work_logs/models/project_merge.dart';
+
 const String kWorkProjectsCollection = 'my_projects';
 
 // [schedules](프로젝트 문서의 일정 목록)에서 id가 [scheduleId]인 일정의 완료 표시를 [done]으로 바꾼
@@ -72,6 +74,8 @@ class WorkProjectRepository {
     return snapshot.docs.map((d) {
       final data = Map<String, dynamic>.from(d.data());
       data['id'] = d.id;
+      // 아이디 없는 예전 일지에 아이디를 붙인다(다음 저장부터 아이디로 합쳐진다).
+      ensureItemIds(data);
       return data;
     }).toList();
   }
@@ -80,12 +84,41 @@ class WorkProjectRepository {
   // 바뀐 기존 프로젝트든 동일하게 이걸로 덮어쓴다) - 기존 _saveData()가
   // "지금 메모리에 있는 걸 그대로 다시 쓴다"던 방식과 동일한 개념을
   // 프로젝트 단위로 축소한 것.
-  Future<void> upsertProject(Map<String, dynamic> project) async {
+  Future<void> upsertProject(
+    Map<String, dynamic> project, {
+    bool merge = true,
+  }) async {
     final String id =
         project['id']?.toString() ??
         DateTime.now().millisecondsSinceEpoch.toString();
-    final data = Map<String, dynamic>.from(project);
+    ensureItemIds(project);
+    var data = Map<String, dynamic>.from(project);
     data['id'] = id;
+    if (merge) {
+      // 저장 직전에 서버 것을 읽어 아이디로 합친다(다른 폰이 그 사이 넣은 일지·이슈가
+      // 안 지워지게). 통신이 없으면 5초 뒤 폰 캐시로, 그것도 없으면 예전처럼 그대로.
+      Map<String, dynamic>? server;
+      try {
+        server = (await _col.doc(id).get().timeout(const Duration(seconds: 5)))
+            .data();
+      } catch (_) {
+        try {
+          server =
+              (await _col.doc(id).get(const GetOptions(source: Source.cache)))
+                  .data();
+        } catch (_) {}
+      }
+      if (server != null) {
+        data = mergeProjectDocs(local: data, server: server);
+        // 화면이 들고 있는 것도 합친 대로(다른 폰이 넣은 것이 바로 보이게).
+        for (final key in kMergedListKeys) {
+          if (data.containsKey(key)) project[key] = data[key];
+        }
+        if (data.containsKey(kDeletedIdsKey)) {
+          project[kDeletedIdsKey] = data[kDeletedIdsKey];
+        }
+      }
+    }
     pendingWrites.value++;
     try {
       await _col.doc(id).set(data);

@@ -8,6 +8,8 @@ import '../models/project_phase.dart'
     show issueWeeklyExcluded, setIssueWeeklyExcluded;
 import '../../../core/utils/image_picker_helper.dart' show ImagePickerHelper;
 import 'floor_plan_pin_page.dart';
+import '../models/project_merge.dart' show currentWorkerName, authorLabel;
+import '../widgets/assignee_picker.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color tossText = Color(0xFF191F28);
@@ -316,6 +318,38 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
                   _infoRow("위치", _punch['location'] ?? '위치 모름'),
                   _infoRow("결함 유형", _punch['defect_type'] ?? '-'),
                   _infoRow("우선순위", _priorityCadenceLabel(_punch['priority'])),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _infoRow(
+                          "담당자",
+                          (_punch['assignee']?.toString() ?? '').isEmpty
+                              ? '없음'
+                              : _punch['assignee'].toString(),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          final v = await pickAssignee(
+                            context,
+                            current: _punch['assignee']?.toString() ?? '',
+                            me: currentWorkerName.value,
+                          );
+                          if (v == null || !mounted) return;
+                          setState(() {
+                            _punch['assignee'] = v;
+                            _changed = true;
+                          });
+                        },
+                        child: const Text(
+                          "바꾸기",
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (authorLabel(_punch).isNotEmpty)
+                    _infoRow("기록", authorLabel(_punch)),
                   const SizedBox(height: 12),
                   Text(
                     _punch['content'] ?? '',

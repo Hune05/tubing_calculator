@@ -3,6 +3,8 @@ import '../widgets/korean_text.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../widgets/voice_input_button.dart';
+import '../models/project_merge.dart' show currentWorkerName;
+import '../widgets/assignee_picker.dart';
 import '../../../core/utils/image_picker_helper.dart'; // 🚀 경로 확인 필수!
 import '../widgets/photo_detail_modal.dart';
 import '../widgets/confirm_delete.dart';
@@ -70,6 +72,8 @@ class _PunchListPageState extends State<PunchListPage> {
 
   String _selectedPriority = '보통';
   final List<String> _priorities = ['긴급', '보통', '여유'];
+  // 담당자(선택). 비우면 담당자 없음.
+  String _assignee = '';
 
   // 🚀 [추가] 등록 시점에 바로 처리 기한을 정할 수 있게 - 우선순위별
   // 알림 주기보다 구체적인 기한이 필요할 때 쓴다. 옵션 이름과 실제
@@ -213,6 +217,7 @@ class _PunchListPageState extends State<PunchListPage> {
       "location": locValue.isEmpty ? "위치 모름" : locValue,
       "defect_type": _selectedDefect,
       "priority": _selectedPriority,
+      "assignee": _assignee.trim(),
       "content": textValue.isEmpty ? "내용 없음 (사진 참조)" : textValue,
       "is_completed": false,
       "has_image": _attachedImages.isNotEmpty,
@@ -480,6 +485,23 @@ class _PunchListPageState extends State<PunchListPage> {
                       ),
                     )
                     .toList(),
+              ),
+              const SizedBox(height: 32),
+
+              // 담당자(선택): 사용자 목록에서 고르거나 이름을 적는다.
+              const Text(
+                "담당자 (선택)",
+                style: TextStyle(
+                  color: tossText,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 12),
+              AssigneePicker(
+                value: _assignee,
+                me: currentWorkerName.value,
+                onChanged: (v) => setState(() => _assignee = v),
               ),
               const SizedBox(height: 32),
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'korean_text.dart';
 
 import 'photo_detail_modal.dart';
+import '../models/project_merge.dart' show currentWorkerName;
 import '../models/project_phase.dart'
     show issueOverdueDays, issueWeeklyExcluded, setIssueWeeklyExcluded;
 
@@ -133,15 +134,19 @@ class PunchListSectionState extends State<PunchListSection> {
   // 0=미해결 1=전체(미해결 먼저) 2=완료만
   int _mode = 0;
   int _page = 0;
+  // 내가 담당자인 이슈만.
+  bool _onlyMine = false;
 
   @override
   Widget build(BuildContext context) {
-    final openList = widget.punchLists
-        .where((p) => p['is_completed'] != true)
-        .toList();
-    final doneList = widget.punchLists
-        .where((p) => p['is_completed'] == true)
-        .toList();
+    final String me = currentWorkerName.value;
+    final List<dynamic> source = _onlyMine && me.isNotEmpty
+        ? widget.punchLists
+              .where((p) => p is Map && p['assignee']?.toString() == me)
+              .toList()
+        : widget.punchLists;
+    final openList = source.where((p) => p['is_completed'] != true).toList();
+    final doneList = source.where((p) => p['is_completed'] == true).toList();
     // 주간 보고에서 뺀 미해결 이슈만 모아 보기(3). 없어지면 미해결(0)로 돌아간다.
     final excludedList = openList
         .where((p) => p is Map && issueWeeklyExcluded(p))
@@ -219,6 +224,42 @@ class PunchListSectionState extends State<PunchListSection> {
                 alignment: WrapAlignment.end,
                 runSpacing: 6,
                 children: [
+                  if (me.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: GestureDetector(
+                        key: const Key('punch_only_mine'),
+                        onTap: () => setState(() {
+                          _onlyMine = !_onlyMine;
+                          _page = 0;
+                        }),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _onlyMine
+                                ? warningRed.withValues(alpha: 0.12)
+                                : pureWhite,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: _onlyMine
+                                  ? warningRed.withValues(alpha: 0.5)
+                                  : const Color(0xFFE5E8EB),
+                            ),
+                          ),
+                          child: Text(
+                            "내 이슈",
+                            style: TextStyle(
+                              color: _onlyMine ? warningRed : tossSubText,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   for (final e in [
                     (0, "미해결 ${openList.length}"),
                     (1, "전체"),
@@ -283,7 +324,7 @@ class PunchListSectionState extends State<PunchListSection> {
               context: context,
               // 위치를 제목에 보여줘서 어느 곳 이슈인지 목록에서 바로 알 수 있게 한다.
               title:
-                  "${(punch['location']?.toString() ?? '').isEmpty || punch['location'] == '위치 모름' ? '' : '${punch['location']} · '}${isPunchDone ? '처리 완료' : (issueOverdueDays(punch) > 0 ? '기한 초과 ${issueOverdueDays(punch)}일' : '확인 필요')}${issueWeeklyExcluded(punch) ? ' · 주간 제외' : ''}",
+                  "${(punch['assignee']?.toString() ?? '').isEmpty ? '' : '${punch['assignee']} 담당 · '}${(punch['location']?.toString() ?? '').isEmpty || punch['location'] == '위치 모름' ? '' : '${punch['location']} · '}${isPunchDone ? '처리 완료' : (issueOverdueDays(punch) > 0 ? '기한 초과 ${issueOverdueDays(punch)}일' : '확인 필요')}${issueWeeklyExcluded(punch) ? ' · 주간 제외' : ''}",
               content: punch['priority'] == '긴급'
                   ? "[긴급] ${punch['content'] ?? ''}"
                   : (punch['content'] ?? '').toString(),
