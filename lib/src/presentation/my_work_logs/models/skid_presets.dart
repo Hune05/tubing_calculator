@@ -36,7 +36,22 @@ class SkidShape {
   static const String conduit = 'sk_conduit';
   static const String jb = 'sk_jb';
 
+  // 전선관 부속(삼화기전 F-7 곤질레다, 커플링, 유니온 커플링).
+  static const String cdLB = 'sk_cd_lb';
+  static const String cdLL = 'sk_cd_ll';
+  static const String cdLR = 'sk_cd_lr';
+  static const String cdLT = 'sk_cd_lt';
+  static const String cdLC = 'sk_cd_lc';
+  static const String cdLX = 'sk_cd_lx';
+  static const String coupling = 'sk_coupling';
+  static const String union = 'sk_union';
+
   static bool isSkid(String? s) => s != null && s.startsWith('sk_');
+  static bool isCondulet(String? s) => s != null && s.startsWith('sk_cd_');
+
+  /// 전선관 부속(곤질레다·커플링·유니온 커플링).
+  static bool isFitting(String? s) =>
+      isCondulet(s) || s == coupling || s == union;
 }
 
 const double _kMemberLength = 1000;
@@ -121,6 +136,89 @@ final Map<String, List<ModulePreset>> kSkidJbPresets = {
         s[0].toDouble(),
         s[1].toDouble(),
         shape: SkidShape.jb,
+      ),
+  ],
+};
+
+// ── 전선관 부속: 삼화기전 F-7 곤질레다·커플링·유니온 커플링 ──
+// 종류·규격은 삼화기전 카탈로그(F-7 TYPE: LB·LL·LR·LT·LTB·LX·LC, 16~104)를 따른다.
+// 카탈로그에 몸통 치수가 없어서 치수는 같은 모양(Form 7)의 대략 값이다. 실제 제품을 재서
+// 다르면 놓은 뒤 편집 칸에서 고친다.
+// 크기: 가로 = 길이(끝 허브 포함), 세로 = 위에서 본 폭(옆 허브 포함), 깊이 = 바닥에서 본 높이
+// (뚜껑이 위를 보게, 뒤 허브 포함). 스키드에서 PlacedItem.depth는 이 높이로 쓴다.
+
+/// 규격별 곤질레다 몸통 [길이, 몸통 폭, 몸통 높이, 옆·뒤 허브가 튀어나온 길이] (mm, 대략).
+const Map<int, List<double>> kConduletSize = {
+  16: [110, 42, 45, 20],
+  22: [125, 48, 50, 22],
+  28: [150, 58, 60, 26],
+  36: [185, 71, 73, 30],
+  42: [195, 79, 80, 32],
+  54: [240, 92, 95, 36],
+};
+
+/// 규격별 커플링 [길이, 바깥지름] (mm, 대략). 길이가 늘 바깥지름보다 길게 둔다(그림이 긴 쪽을 가로로 그린다).
+const Map<int, List<double>> kCouplingSize = {
+  16: [40, 27],
+  22: [44, 33],
+  28: [50, 40],
+  36: [56, 50],
+  42: [62, 56],
+  54: [74, 69],
+};
+
+/// 규격별 유니온 커플링(방폭 유니온 EUF) [길이, 너트 바깥지름] (mm, 대략).
+const Map<int, List<double>> kUnionSize = {
+  16: [58, 42],
+  22: [64, 50],
+  28: [70, 60],
+  36: [80, 72],
+  42: [84, 80],
+  54: [100, 96],
+};
+
+ModulePreset _condulet(String type, String shape, int size) {
+  final d = kConduletSize[size]!;
+  final double l = d[0], w = d[1], h = d[2], p = d[3];
+  final double planW = switch (shape) {
+    SkidShape.cdLL || SkidShape.cdLR || SkidShape.cdLT => w + p,
+    SkidShape.cdLX => w + 2 * p,
+    _ => w,
+  };
+  final double high = shape == SkidShape.cdLB ? h + p : h;
+  return ModulePreset("곤질레다 $type $size", l, planW, shape: shape, depth: high);
+}
+
+final Map<String, List<ModulePreset>> kSkidFittingPresets = {
+  for (final t in const [
+    ['LB', SkidShape.cdLB],
+    ['LL', SkidShape.cdLL],
+    ['LR', SkidShape.cdLR],
+    ['LT', SkidShape.cdLT],
+    ['LC', SkidShape.cdLC],
+    ['LX', SkidShape.cdLX],
+  ])
+    "곤질레다 ${t[0]}": [
+      for (final size in kConduletSize.keys) _condulet(t[0], t[1], size),
+    ],
+  "커플링": [
+    for (final e in kCouplingSize.entries)
+      ModulePreset(
+        "커플링 ${e.key}",
+        e.value[0],
+        e.value[1],
+        shape: SkidShape.coupling,
+        depth: e.value[1],
+      ),
+  ],
+  "유니온 커플링": [
+    for (final e in kUnionSize.entries)
+      ModulePreset(
+        "유니온 커플링 ${e.key}",
+        e.value[0],
+        e.value[1],
+        shape: SkidShape.union,
+        depth: e.value[1],
       ),
   ],
 };

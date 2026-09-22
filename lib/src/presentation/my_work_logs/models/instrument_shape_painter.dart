@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'elec_presets.dart';
 import 'fitting_spec.dart';
+import 'skid_part_painter.dart';
 import 'skid_presets.dart';
 
 // 🚀 배치도 계기 모듈의 정면 모양. 제조사 치수 도면(GS·PDS·카탈로그)의 앞 그림을 보고
@@ -1343,6 +1344,11 @@ class InstrumentShapePainter extends CustomPainter {
   void _skid(_Box b, String shape) {
     final Canvas c = b.c;
     final double w = b.w, h = b.h;
+    // 전선관 부속(곤질레다·커플링·유니온)은 스키드 부품 그림(위에서 본 모습)을 쓴다.
+    if (SkidShape.isFitting(shape)) {
+      drawSkidPart(c, Size(w, h), shape, SkidFace.top, stroke, strokeWidth);
+      return;
+    }
     switch (shape) {
       case SkidShape.conduit:
         _part(c, Rect.fromLTWH(0, 0, w, h), _metal, radius: h / 2);

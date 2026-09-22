@@ -24,6 +24,7 @@ import '../models/layout_plates.dart';
 import '../models/skid_presets.dart';
 import '../models/elec_presets.dart';
 import '../models/skid_route.dart';
+import '../models/skid_part_painter.dart';
 import 'skid_route_editor_page.dart';
 import 'drawing_scale_page.dart';
 import '../models/drawing_scale.dart';
@@ -37,6 +38,7 @@ export '../models/instrument_shape_painter.dart';
 export '../models/skid_presets.dart';
 export '../models/elec_presets.dart';
 export '../models/skid_route.dart';
+export '../models/skid_part_painter.dart';
 export '../models/layout_plates.dart';
 export '../widgets/layout_board_ui.dart';
 
@@ -539,6 +541,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         : drawingRectToJson(_backgroundRect!),
   };
 
+  /// 테스트에서 모든 탭(판)의 저장 모양을 본다.
+  @visibleForTesting
+  Map<String, Map<String, dynamic>> debugPlates() => _allPlates();
+
   Map<String, Map<String, dynamic>> _allPlates() => {
     ..._plateStore,
     _plateId: _captureActivePlate(),
@@ -972,6 +978,11 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     'items': _placedItems.map((e) => e.toJson()).toList(),
     'dimensions': _dimensions.map((e) => e.toJson()).toList(),
     if (_isSkid) 'routes': _routes.map((r) => r.toJson()).toList(),
+    // 정면·측면에서 평면 부품을 옮기거나 놓아도 되돌릴 수 있게 평면 부품도 담는다.
+    if (_isSkid && _plateId != kPlateMain)
+      'planItems': List.of(
+        (_plateStore[kPlateMain]?['items'] as List?) ?? const [],
+      ),
   };
 
   // 실제로 뭔가 바꾸기 "직전"에 호출한다.
@@ -996,6 +1007,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           (e) => PlacedDimension.fromJson(Map<String, dynamic>.from(e)),
         ),
       );
+    final planItems = snap['planItems'];
+    if (planItems is List && _plateStore[kPlateMain] != null) {
+      _plateStore[kPlateMain]!['items'] = List.of(planItems);
+    }
     final routes = snap['routes'];
     if (routes is List) {
       _routes
@@ -2428,6 +2443,11 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   }
 
   void _onAcceptItem(ModulePreset preset, Offset localPosition) {
+    // 스키드 정면·측면에서 놓으면 평면 부품으로 놓는다(한 부품을 모든 면에서 본다).
+    if (_isSkid && _plateId != kPlateMain) {
+      _placeFromView(preset, localPosition);
+      return;
+    }
     HapticFeedback.mediumImpact();
     _pushUndo();
     setState(() {
@@ -5557,6 +5577,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                 ),
                               ),
 
+                            if (_isSkid && _plateId != kPlateMain)
+                              ..._buildViewProxies(),
                             if (_isSkid && _mode == BoardMode.placeModule)
                               ..._buildRouteHandles(),
                             ..._placedItems.map((item) {
@@ -5877,11 +5899,31 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                 if (g != null)
                                   for (final w in _buildGuidePaints(g))
                                     IgnorePointer(child: w),
+                            // 정면·측면에서 평면 부품을 끄는 동안의 가상선(옆 부품 = 이 탭 부품 + 다른 평면 부품).
+                            if (_proxyGuideItem != null)
+                              for (final w in _buildGuidePaints(
+                                _proxyGuideItem!,
+                                others: [
+                                  ..._placedItems,
+                                  for (final p in _viewProxies)
+                                    if (p.it.id != _proxyDragId)
+                                      PlacedItem(
+                                        id: "view_${p.it.id}",
+                                        name: p.it.name,
+                                        position: p.rect.topLeft,
+                                        width: p.rect.width,
+                                        height: p.rect.height,
+                                      ),
+                                ],
+                              ))
+                                IgnorePointer(child: w),
                             // 🚀 [신규] 완전히 빈 도면일 때, 처음
                             // 여는 사람이 뭘 해야 할지 막막하지
                             // 않도록 샘플 배치를 눌러보게 안내.
+                            // 스키드 정면·측면은 이 탭 부품이 없어도 평면 부품이 보이면 안내를 빼 가리지 않게 한다.
                             if (_placedItems.isEmpty &&
                                 _dimensions.isEmpty &&
+                                _viewProxies.isEmpty &&
                                 !_isLoadingProject)
                               Positioned.fill(
                                 child: Center(
@@ -6221,46 +6263,51 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               affinity: Axis.horizontal,
             ),
             const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(child: _panelLabel("ABS 덕트 (폭×높이)")),
-                TextButton(
-                  onPressed: () => _showPresetSheet(
-                    title: "덕트 놓기",
-                    help:
-                        "폭×높이(mm)입니다. 도면에는 폭만큼 놓이고, 길이는 놓은 뒤 세로 칸에서 고칩니다. 누르면 지금 보이는 도면 가운데에 놓습니다.",
-                    groups: kDuctPresetGroups,
+            if (!_isSkid) ...[
+              Row(
+                children: [
+                  Expanded(child: _panelLabel("ABS 덕트 (폭×높이)")),
+                  TextButton(
+                    onPressed: () => _showPresetSheet(
+                      title: "덕트 놓기",
+                      help:
+                          "폭×높이(mm)입니다. 도면에는 폭만큼 놓이고, 길이는 놓은 뒤 세로 칸에서 고칩니다. 누르면 지금 보이는 도면 가운데에 놓습니다.",
+                      groups: kDuctPresetGroups,
+                    ),
+                    child: const Text(
+                      "크기 전부",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
-                  child: const Text(
-                    "크기 전부",
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // 🚀 ABS 배선덕트 - 폭이 정해진 자재라 배치 후 크기를 손으로 고칠
-            // 필요 없이 원하는 폭을 바로 끌어다 놓는다(참고용 명목 폭,
-            // kDuctPresets 주석 참고).
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final preset in kDuctPresets)
-                  _dragTile(
-                    preset,
-                    (_) => _buildDuctChip(preset, width: 104),
-                    affinity: Axis.horizontal,
-                  ),
-              ],
-            ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // 🚀 ABS 배선덕트 - 폭이 정해진 자재라 배치 후 크기를 손으로 고칠
+              // 필요 없이 원하는 폭을 바로 끌어다 놓는다(참고용 명목 폭,
+              // kDuctPresets 주석 참고).
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final preset in kDuctPresets)
+                    _dragTile(
+                      preset,
+                      (_) => _buildDuctChip(preset, width: 104),
+                      affinity: Axis.horizontal,
+                    ),
+                ],
+              ),
+            ],
             const SizedBox(height: 20),
             if (_isSkid) ...[
               _panelLabel("스키드"),
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: _showRoutesSheet,
-                icon: const Icon(Icons.route_rounded, size: 20),
+                icon: _routeIcon,
                 label: const Text(
                   "전선관 경로",
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
@@ -6268,12 +6315,29 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               ),
               const SizedBox(height: 6),
               for (final e in [
-                ("형강", "형강 놓기", kSkidSteelPresets),
-                ("정션박스", "정션박스 놓기", kSkidJbPresets),
+                (
+                  "형강",
+                  "형강 놓기",
+                  kSkidSteelPresets,
+                  _skidIcon(SkidShape.beam, SkidFace.end),
+                ),
+                (
+                  "정션박스",
+                  "정션박스 놓기",
+                  kSkidJbPresets,
+                  _skidIcon(SkidShape.jb, SkidFace.side),
+                ),
+                (
+                  "전선관 부속 (곤질레다·커플링·유니온)",
+                  "전선관 부속 놓기",
+                  kSkidFittingPresets,
+                  _skidIcon(SkidShape.cdLB, SkidFace.side, h: 24),
+                ),
               ]) ...[
-                OutlinedButton(
+                OutlinedButton.icon(
                   onPressed: () => _openSkidSheet(e.$2, e.$3),
-                  child: Text(
+                  icon: e.$4,
+                  label: Text(
                     e.$1,
                     style: const TextStyle(
                       fontSize: 15,
@@ -6285,73 +6349,75 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               ],
               const SizedBox(height: 14),
             ],
-            OutlinedButton.icon(
-              onPressed: _openElecSheet,
-              icon: const Icon(Icons.electrical_services_rounded, size: 20),
-              label: const Text(
-                "전기 부품 (단자대·차단기·전원)",
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-              ),
-            ),
-            const SizedBox(height: 14),
-            _panelLabel("밸브·피팅"),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _openValveSheet,
-                    icon: const Icon(Icons.tune_rounded, size: 20),
-                    label: const Text(
-                      "밸브",
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _openFittingSheet,
-                    icon: const Icon(Icons.plumbing_rounded, size: 20),
-                    label: const Text(
-                      "피팅",
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            _panelLabel("계기 (정면 크기, 브래킷 빼고)"),
-            for (final brand in kInstrumentPresets.entries) ...[
-              const SizedBox(height: 10),
-              Text(
-                brand.key,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: tossText,
+            if (!_isSkid) ...[
+              OutlinedButton.icon(
+                onPressed: _openElecSheet,
+                icon: const Icon(Icons.electrical_services_rounded, size: 20),
+                label: const Text(
+                  "전기 부품 (단자대·차단기·전원)",
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
                 ),
               ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+              const SizedBox(height: 14),
+              _panelLabel("밸브·피팅"),
+              const SizedBox(height: 8),
+              Row(
                 children: [
-                  for (final preset in brand.value)
-                    _dragTile(
-                      preset,
-                      (_) => _buildInstrumentChip(preset, width: 228),
-                      affinity: Axis.horizontal,
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _openValveSheet,
+                      icon: const Icon(Icons.tune_rounded, size: 20),
+                      label: const Text(
+                        "밸브",
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _openFittingSheet,
+                      icon: const Icon(Icons.plumbing_rounded, size: 20),
+                      label: const Text(
+                        "피팅",
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
+              const SizedBox(height: 20),
+              _panelLabel("계기 (정면 크기, 브래킷 빼고)"),
+              for (final brand in kInstrumentPresets.entries) ...[
+                const SizedBox(height: 10),
+                Text(
+                  brand.key,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: tossText,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final preset in brand.value)
+                      _dragTile(
+                        preset,
+                        (_) => _buildInstrumentChip(preset, width: 228),
+                        affinity: Axis.horizontal,
+                      ),
+                  ],
+                ),
+              ],
             ],
             if (_customPresets.isNotEmpty) ...[
               const SizedBox(height: 20),
@@ -7047,7 +7113,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 
   // 🚀 [정리] 켜고/끄는 토글 없이, 모듈 배치/이동 중에는 항상 현재
   // 선택된 가상선 색상(_currentDimType)의 가이드선 하나만 그려준다.
-  List<Widget> _buildGuidePaints(PlacedItem item) {
+  List<Widget> _buildGuidePaints(PlacedItem item, {List<PlacedItem>? others}) {
     return [
       for (final type in [
         if (_showCenterGuide) DimensionType.center,
@@ -7057,7 +7123,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           size: Size.infinite,
           painter: SmartGuidePainter(
             item: item,
-            allItems: _placedItems,
+            allItems: others ?? _placedItems,
             panelWidth: _panelWidth,
             panelHeight: _panelHeight,
             currentType: type,
@@ -7165,6 +7231,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   affinity: Axis.vertical,
                 ),
                 const SizedBox(width: 8),
+                // 스키드는 전선관 작업 부속만(계기·밸브·피팅·전기는 캐비닛에서 쓴다).
                 if (_isSkid) ...[
                   _buildSkidButton(
                     "skid_steel",
@@ -7172,6 +7239,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     "형강",
                     "형강 놓기",
                     kSkidSteelPresets,
+                    iconWidget: _skidIcon(SkidShape.beam, SkidFace.end),
                   ),
                   const SizedBox(width: 8),
                   // 전선관은 "경로"로 그린다(따로 놓는 막대는 경로와 이어지지 않아 헷갈렸다).
@@ -7183,18 +7251,28 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     "JB",
                     "정션박스 놓기",
                     kSkidJbPresets,
+                    iconWidget: _skidIcon(SkidShape.jb, SkidFace.side),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildSkidButton(
+                    "skid_fitting",
+                    Icons.plumbing_rounded,
+                    "부속",
+                    "전선관 부속 놓기",
+                    kSkidFittingPresets,
+                    iconWidget: _skidIcon(SkidShape.cdLB, SkidFace.side, h: 24),
                   ),
                 ] else ...[
                   _buildDuctButton(),
                   const SizedBox(width: 8),
                   _buildElecButton(),
+                  const SizedBox(width: 8),
+                  _buildInstrumentButton(),
+                  const SizedBox(width: 8),
+                  _buildValveButton(),
+                  const SizedBox(width: 8),
+                  _buildFittingButton(),
                 ],
-                const SizedBox(width: 8),
-                _buildInstrumentButton(),
-                const SizedBox(width: 8),
-                _buildValveButton(),
-                const SizedBox(width: 8),
-                _buildFittingButton(),
               ],
             ),
           ),
@@ -7585,12 +7663,6 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       for (final r in _routes)
         (r.name, r.points(plan).map(proj).toList(), r.od),
     ];
-    final ghosts = skidGhosts(
-      plan,
-      _plateId,
-      planH: planH,
-      viewH: _panelHeight,
-    );
     final version = jsonEncode([
       _plateId,
       _panelHeight,
@@ -7623,7 +7695,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         size: Size.infinite,
         painter: SkidOverlayPainter(
           routes: routes,
-          ghosts: ghosts,
+          // 평면 부품은 점선 네모 대신 그 면에서 본 모양으로 따로 그린다(_buildViewProxies).
+          ghosts: const [],
           version: version,
           markScale: _markScale,
         ),
@@ -7631,9 +7704,232 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     );
   }
 
+  // ───── 스키드: 평면 부품을 정면·측면에도 그 면에서 본 모양으로 보이고, 끌어서 옮긴다 ─────
+  // 부품은 평면에 하나만 있다(위치 x·y + 바닥에서 높이). 정면에서 끌면 x와 높이가, 좌·우측면에서
+  // 끌면 y와 높이가 바뀐다. 누르면 평면 탭으로 가서 그 부품 편집 칸을 연다.
+
+  String? _proxyDragId;
+  Offset _proxyRaw = Offset.zero;
+
+  List<({PlacedItem it, Rect rect, SkidFace face, bool mirror})>
+  get _viewProxies {
+    if (!_isSkid || _plateId == kPlateMain) return const [];
+    final (_, planH) = _planSize;
+    return [
+      for (final it in _planItems)
+        (
+          it: it,
+          rect: skidViewRect(it, _plateId, planH: planH, viewH: _panelHeight),
+          face: skidViewFace(it, _plateId),
+          mirror: _plateId == 'right',
+        ),
+    ];
+  }
+
+  PlacedItem? get _proxyGuideItem {
+    final id = _proxyDragId;
+    if (id == null) return null;
+    for (final p in _viewProxies) {
+      if (p.it.id == id) {
+        return PlacedItem(
+          id: "view_guide",
+          name: p.it.name,
+          position: p.rect.topLeft,
+          width: p.rect.width,
+          height: p.rect.height,
+        );
+      }
+    }
+    return null;
+  }
+
+  /// 평면(안 보이는 탭) 부품 하나를 고쳐 저장 칸에 다시 적는다.
+  void _updatePlanItem(String id, void Function(PlacedItem) change) {
+    final m = _plateStore[kPlateMain];
+    if (m == null) return;
+    final items = layoutItemsFromData(m);
+    for (final it in items) {
+      if (it.id == id) change(it);
+    }
+    m['items'] = items.map((e) => e.toJson()).toList();
+  }
+
+  /// 이 탭에서 [left]·[top](mm)으로 옮긴 부품을 평면 위치와 바닥에서 높이로 바꿔 적는다.
+  void _moveProxy(String id, double left, double top, double v) {
+    final (_, planH) = _planSize;
+    _updatePlanItem(id, (it) {
+      switch (_plateId) {
+        case kSkidViewFront:
+          it.position = Offset(left, it.position.dy);
+        case 'left':
+          it.position = Offset(it.position.dx, left);
+        default:
+          it.position = Offset(it.position.dx, planH - left - it.height);
+      }
+      it.elevation = (_panelHeight - top - v / 2).roundToDouble();
+    });
+  }
+
+  List<Widget> _buildViewProxies() {
+    final (planW, planH) = _planSize;
+    final double reach = _plateId == kSkidViewFront
+        ? planW
+        : planH; // 이 탭 가로 = 평면 길이 또는 폭
+    return [
+      for (final p in _viewProxies)
+        Positioned(
+          key: ValueKey("view_${p.it.id}"),
+          left: p.rect.left,
+          top: p.rect.top,
+          width: p.rect.width,
+          height: p.rect.height,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _openPlanItemFromView(p.it.id),
+            onPanStart: _mode != BoardMode.placeModule || p.it.isLocked
+                ? null
+                : (_) {
+                    _pushUndo();
+                    setState(() {
+                      _proxyDragId = p.it.id;
+                      _proxyRaw = p.rect.topLeft;
+                    });
+                  },
+            onPanUpdate: _mode != BoardMode.placeModule || p.it.isLocked
+                ? null
+                : (d) {
+                    _proxyRaw += d.delta;
+                    final double w = p.rect.width, v = p.rect.height;
+                    final double maxL = math.max(
+                      0.0,
+                      math.min(_panelWidth, reach) - w,
+                    );
+                    final double maxT = math.max(0.0, _panelHeight - v);
+                    final Offset snapped = _snapToGrid(_proxyRaw);
+                    setState(
+                      () => _moveProxy(
+                        p.it.id,
+                        snapped.dx.clamp(0.0, maxL),
+                        snapped.dy.clamp(0.0, maxT),
+                        v,
+                      ),
+                    );
+                  },
+            onPanEnd: (_) {
+              setState(() => _proxyDragId = null);
+              _saveDraftToPrefs();
+            },
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: SkidPartPainter(
+                      shape: p.it.shape ?? '',
+                      face: p.face,
+                      mirror: p.mirror,
+                      stroke: _proxyDragId == p.it.id
+                          ? tossBlue
+                          : const Color(0xFF64748B),
+                      strokeWidth: 1.5 * _markScale.clamp(1.0, 3.0),
+                    ),
+                  ),
+                ),
+                // 모양이 없는 네모 모듈은 이름을 적는다.
+                if (p.it.shape == null)
+                  Center(
+                    child: Text(
+                      p.it.name,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: tossText,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+    ];
+  }
+
+  /// 정면·측면에서 누른 평면 부품: 평면 탭으로 가서 그 부품을 고르고 편집 칸을 연다.
+  void _openPlanItemFromView(String id) {
+    setState(() => _switchPlate(kPlateMain));
+    PlacedItem? hit;
+    setState(() {
+      for (final i in _placedItems) {
+        i.isSelected = i.id == id;
+        if (i.id == id) hit = i;
+      }
+      _activeItem = hit;
+    });
+    if (hit != null && !_isWide) _showInspectorBottomSheet(hit!);
+  }
+
+  /// 정면·측면에서 놓은 부품은 평면에 놓는다(정면이면 평면 폭 가운데, 측면이면 길이 가운데).
+  void _placeFromView(ModulePreset preset, Offset localPosition) {
+    final m = _plateStore[kPlateMain];
+    if (m == null) return;
+    HapticFeedback.mediumImpact();
+    final (planW, planH) = _planSize;
+    final tmp = PlacedItem(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: preset.name,
+      position: Offset.zero,
+      width: preset.width,
+      height: preset.height,
+      shape: preset.shape,
+      depth: preset.depthOrGuess,
+    );
+    final double v = skidVerticalSize(tmp);
+    final bool front = _plateId == kSkidViewFront;
+    final double hw = front ? preset.width : preset.height;
+    final Offset at = _snapToGrid(
+      Offset(
+        localPosition.dx.clamp(0.0, math.max(0.0, _panelWidth - hw)),
+        localPosition.dy.clamp(0.0, math.max(0.0, _panelHeight - v)),
+      ),
+    );
+    tmp.position = switch (_plateId) {
+      kSkidViewFront => Offset(
+        at.dx,
+        ((planH - preset.height) / 2).roundToDouble(),
+      ),
+      'left' => Offset(((planW - preset.width) / 2).roundToDouble(), at.dx),
+      _ => Offset(
+        ((planW - preset.width) / 2).roundToDouble(),
+        planH - at.dx - preset.height,
+      ),
+    };
+    tmp.elevation = (_panelHeight - at.dy - v / 2).roundToDouble();
+    _pushUndo();
+    setState(() {
+      m['items'] = [...((m['items'] as List?) ?? const []), tmp.toJson()];
+      _previewItem = null;
+    });
+    _saveDraftToPrefs();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          keepWords(
+            front
+                ? "평면에도 같이 놓았습니다(폭 가운데). 앞뒤 자리는 평면이나 측면에서 옮기십시오."
+                : "평면에도 같이 놓았습니다(길이 가운데). 좌우 자리는 평면이나 정면에서 옮기십시오.",
+          ),
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   Widget _buildRouteButton() => _buildSheetButton(
     key: const ValueKey("skid_route"),
     icon: Icons.route_rounded,
+    iconWidget: _routeIcon,
     label: "경로",
     onTap: _showRoutesSheet,
   );
@@ -7806,12 +8102,39 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     IconData icon,
     String label,
     String title,
-    Map<String, List<ModulePreset>> groups,
-  ) => _buildSheetButton(
+    Map<String, List<ModulePreset>> groups, {
+    Widget? iconWidget,
+  }) => _buildSheetButton(
     key: ValueKey(key),
     icon: icon,
+    iconWidget: iconWidget,
     label: label,
     onTap: () => _openSkidSheet(title, groups),
+  );
+
+  /// 스키드 단추 그림: 부품 그림을 단추 크기로(형강 = 단면, JB = 옆모습, 부속 = 곤질레다 LB 옆모습).
+  Widget _skidIcon(
+    String shape,
+    SkidFace face, {
+    double w = 30,
+    double h = 22,
+  }) => SizedBox(
+    width: w,
+    height: h,
+    child: CustomPaint(
+      painter: SkidPartPainter(
+        shape: shape,
+        face: face,
+        stroke: tossBlue,
+        strokeWidth: 1.6,
+      ),
+    ),
+  );
+
+  Widget get _routeIcon => const SizedBox(
+    width: 28,
+    height: 22,
+    child: CustomPaint(painter: SkidRouteIconPainter(color: tossBlue)),
   );
 
   void _openSkidSheet(
@@ -7819,7 +8142,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     Map<String, List<ModulePreset>> groups,
   ) => _showPresetSheet(
     title: title,
-    help: groups == kSkidJbPresets
+    help: groups == kSkidFittingPresets
+        ? "삼화기전 F-7 곤질레다와 커플링·유니온 커플링입니다. 치수는 대략입니다(카탈로그에 몸통 치수가 없습니다). 위에서 본 길이×폭(mm)으로 놓이고, 높이는 정면에서 끌어 맞추거나 편집 칸에 넣으십시오."
+        : groups == kSkidJbPresets
         ? "위에서 본 가로×세로(mm)입니다. 누르면 지금 보이는 도면 가운데에 놓습니다. 바닥에서 높이는 놓은 뒤 편집 칸에 넣으십시오."
         : "위에서 본 폭(mm)으로, 길이 1000으로 놓입니다. 놓은 뒤 편집 칸에서 실제 길이로 고치고, 세로로 쓰려면 돌리십시오.",
     groups: groups,
@@ -7856,6 +8181,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    Widget? iconWidget,
   }) {
     return Material(
       key: key,
@@ -7873,7 +8199,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 22, color: tossBlue),
+              iconWidget ?? Icon(icon, size: 22, color: tossBlue),
               Text(
                 label,
                 style: const TextStyle(

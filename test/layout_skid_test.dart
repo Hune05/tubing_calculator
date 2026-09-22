@@ -109,7 +109,7 @@ void main() {
     expect(saved['panelHeight'], kSkidDefaultWidth);
   });
 
-  testWidgets('스키드는 평면·정면·좌측면·우측면 탭, 정면은 길이×1500으로 새로 생기고 저장된다', (
+  testWidgets('스키드는 평면·정면·좌측면·우측면 탭, 정면은 길이×1500, 정면에서 놓은 부품은 평면에 들어간다', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({
@@ -142,7 +142,10 @@ void main() {
     final front = (saved['sidePlates'] as Map)['front'] as Map;
     expect(front['panelWidth'], kSkidDefaultLength);
     expect(front['panelHeight'], kSkidDefaultHeight);
-    expect((front['items'] as List).single['name'], '정션박스 300×300');
-    expect(saved['items'], isEmpty); // 평면에는 안 들어갔다
+    // 정면에서 놓아도 부품은 평면에 하나만 있다(정면·측면에는 그 면에서 본 모양으로 보인다).
+    expect(front['items'], isEmpty);
+    final placed = (saved['items'] as List).single as Map;
+    expect(placed['name'], '정션박스 300×300');
+    expect(placed['elev'], isNotNull); // 바닥에서 높이
   });
 }

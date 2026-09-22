@@ -6,6 +6,7 @@ import 'package:vector_math/vector_math_64.dart' as vm;
 import 'package:tubing_calculator/src/core/engine/bend_path.dart';
 
 import 'layout_board_models.dart';
+import 'skid_part_painter.dart' show SkidFace;
 import 'skid_presets.dart';
 
 // 🚀 스키드 전선관 경로. 전선관 벤딩 계산기 입력 목록과 같은 모양(길이·각도·방향값)으로
@@ -194,6 +195,10 @@ Offset projectToView(
 /// 평면 부품을 정면·측면에 옮길 때 높이 방향 크기(어림).
 /// 형강 = 단면 높이(규격 이름 첫 숫자, 각파이프는 둘째), 전선관 = 바깥지름, 그 밖 = 평면 세로.
 double skidVerticalSize(PlacedItem it) {
+  // 전선관 부속은 깊이 칸에 바닥에서 본 높이를 넣어 둔다.
+  if (SkidShape.isFitting(it.shape) && it.depth != null && it.depth! > 0) {
+    return it.depth!;
+  }
   final nums = RegExp(
     r'(\d+(?:\.\d+)?)',
   ).allMatches(it.name).map((m) => double.parse(m.group(1)!)).toList();
@@ -208,6 +213,36 @@ double skidVerticalSize(PlacedItem it) {
     default:
       return math.min(it.width, it.height);
   }
+}
+
+/// 평면 부품이 정면·좌측면·우측면 탭에서 차지하는 자리(그 탭 mm, 위가 0).
+/// 바닥에서 높이를 안 넣은 부품은 바닥에 놓인 것으로 본다.
+Rect skidViewRect(
+  PlacedItem it,
+  String view, {
+  required double planH,
+  required double viewH,
+}) {
+  final double v = skidVerticalSize(it);
+  final double elev = it.elevation ?? v / 2;
+  final double top = viewH - (elev + v / 2);
+  final (double l, double w) = switch (view) {
+    kSkidViewFront => (it.position.dx, it.width),
+    'left' => (it.position.dy, it.height),
+    _ => (planH - it.position.dy - it.height, it.height),
+  };
+  return Rect.fromLTWH(l, top, w, v);
+}
+
+/// 그 탭에서 부품이 보이는 방향: 부품 길이가 보는 면과 나란하면 옆모습, 보는 쪽으로
+/// 뻗어 있으면 끝모습(형강은 단면). 정션박스는 늘 옆모습.
+SkidFace skidViewFace(PlacedItem it, String view) {
+  if (it.shape == SkidShape.jb || !SkidShape.isSkid(it.shape)) {
+    return SkidFace.side;
+  }
+  final bool alongX = it.width >= it.height;
+  final bool viewSeesX = view == kSkidViewFront;
+  return alongX == viewSeesX ? SkidFace.side : SkidFace.end;
 }
 
 /// 정면·측면 탭에 연하게 보여 줄 평면 부품(바닥에서 높이를 넣은 것만).
