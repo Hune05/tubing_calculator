@@ -12,8 +12,6 @@ import 'korean_holidays.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tzdata;
 
-import 'package:tubing_calculator/main.dart'
-    show flutterLocalNotificationsPlugin;
 import '../../data/repositories/work_project_repository.dart';
 import '../../core/common_widgets/makita_time_picker.dart';
 import '../my_work_logs/screens/work_log_main_screen.dart';
@@ -103,8 +101,12 @@ const Map<int, String> kReminderOptions = {
 
 const Map<String, String> kRecurrenceLabels = {
   'none': "반복 없음",
-  'weekly': "매주 반복",
-  'monthly': "매월 반복",
+  'daily': "매일",
+  'weekdays': "평일마다",
+  'weekly': "매주",
+  'biweekly': "격주",
+  'monthly': "매월",
+  'yearly': "매년",
 };
 
 enum _ViewMode { month, week, day, timeline }
@@ -136,6 +138,9 @@ class _AgendaItem {
   final int spanIndex;
   final int spanTotal;
   final String? spanKey;
+  // 끝나는 시각(넣었을 때만)과 메모.
+  final DateTime? end;
+  final String note;
 
   // 프로젝트 일정은 프로젝트 고유색, 개인 일정은 카테고리색.
   Color get color => projectId != null
@@ -165,6 +170,8 @@ class _AgendaItem {
     this.spanIndex = 0,
     this.spanTotal = 1,
     this.spanKey,
+    this.end,
+    this.note = '',
   });
 }
 
@@ -213,6 +220,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   // 🚀 [2번 강화] 카테고리는 다중 선택(빈 집합 = 전체 표시), 프로젝트는
   // 단일 선택(null = 전체 프로젝트)으로 좁혀본다.
   final Set<String> _activeCategoryFilters = {};
+  // 완료한 일정을 목록에서 감춘다(달력 표시·건수는 그대로).
+  bool _hideCompleted = false;
   String? _activeProjectFilter;
 
   @override
@@ -281,6 +290,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   // 선택 안 하면(빈 집합/null) 전체를 보여준다.
   List<_AgendaItem> _applyFilters(List<_AgendaItem> items) {
     return items.where((item) {
+      if (_hideCompleted && item.isCompleted) return false;
       if (_activeCategoryFilters.isNotEmpty &&
           !_activeCategoryFilters.contains(item.category)) {
         return false;
@@ -371,8 +381,10 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     final Map<String, dynamic> completedMap = Map<String, dynamic>.from(
       data['completedOccurrences'] as Map? ?? {},
     );
+    final DateTime? baseEnd = hasTime ? readEndTime(data, base) : null;
+    final String note = (data['note'] as String?)?.trim() ?? '';
 
-    if (recurrence == 'none') {
+    if (!isRecurring(recurrence)) {
       // 🚀 [기간 일정] 출장처럼 여러 날에 걸친 일정은 endDate(마지막 날)까지
       // 하루씩 펼쳐서, 달력 마커/오늘 일정/목록이 매일 자연스럽게 잡히게
       // 한다. 시간은 첫날에만 있고 이후 날은 종일로 취급한다.
@@ -405,6 +417,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
             spanIndex: i,
             spanTotal: totalDays,
             spanKey: docId,
+            end: i == 0 ? baseEnd : null,
+            note: note,
           );
         });
       }
@@ -423,6 +437,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           placeAddress: placeAddress,
           placeLat: placeLat,
           placeLng: placeLng,
+          end: baseEnd,
+          note: note,
         ),
       ];
     }
@@ -436,6 +452,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         recurrence,
         rangeStart: rangeStart,
         rangeEnd: rangeEnd,
+        until: readUntil(data),
+        exceptions: readExceptions(data),
       ))
         _AgendaItem(
           key: 'personal_${docId}_${_normalize(cursor).toIso8601String()}',
@@ -451,6 +469,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           placeAddress: placeAddress,
           placeLat: placeLat,
           placeLng: placeLng,
+          end: occurrenceEnd(cursor, base, baseEnd),
+          note: note,
         ),
     ];
   }
@@ -518,18 +538,108 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     Map<String, dynamic> data,
   ) => schedulePersonalReminder(docId, data);
 
-  Future<void> _deletePersonalItem(String docId) async {
+  Future<void> _deletePersonalItem(
+    String docId, {
+    String recurrence = 'none',
+    DateTime? occurrence,
+  }) async {
+    final col = FirebaseFirestore.instance.collection(
+      kPersonalSchedulesCollection,
+    );
+    // 반복 일정은 "이 회차만 / 이후 모두 / 전체" 가운데 고른다.
+    if (isRecurring(recurrence) && occurrence != null) {
+      final scope = await _askRecurrenceScope(context, forDelete: true);
+      if (scope == null) return;
+      if (scope == 'one') {
+        await col.doc(docId).update({
+          'recurrenceExceptions': FieldValue.arrayUnion([
+            occurrenceKey(occurrence),
+          ]),
+        });
+        await _rescheduleDoc(docId);
+        return;
+      }
+      if (scope == 'following') {
+        await col.doc(docId).update({
+          'recurrenceUntil': untilBeforeOccurrence(
+            occurrence,
+          ).toIso8601String(),
+        });
+        await _rescheduleDoc(docId);
+        return;
+      }
+    }
+    if (!mounted) return;
     final confirmed = await confirmScheduleDelete(
       context,
       title: "일정 삭제",
-      message: "이 개인 일정을 삭제하시겠습니까? 되돌릴 수 없습니다.",
+      message: isRecurring(recurrence)
+          ? "이 반복 일정을 회차까지 모두 삭제합니다. 되돌릴 수 없습니다."
+          : "이 개인 일정을 삭제하시겠습니까? 되돌릴 수 없습니다.",
     );
     if (!confirmed) return;
-    await flutterLocalNotificationsPlugin.cancel(id: personalNotifId(docId));
-    await FirebaseFirestore.instance
-        .collection(kPersonalSchedulesCollection)
-        .doc(docId)
-        .delete();
+    await cancelPersonalReminders(docId);
+    await col.doc(docId).delete();
+  }
+
+  /// 옛 문서를 끊거나 회차를 뺀 뒤 그 문서의 알림을 다시 잡는다(끊긴 뒤 회차는 안 울리게).
+  Future<void> _rescheduleDoc(String docId) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection(kPersonalSchedulesCollection)
+          .doc(docId)
+          .get();
+      final data = doc.data();
+      if (data != null) await schedulePersonalReminder(docId, data);
+    } catch (e) {
+      debugPrint('알림 다시 잡기 실패: $e');
+    }
+  }
+
+  /// 반복 일정을 고치거나 지울 때 어디까지인지 묻는다. 'one' / 'following' / 'all' / null(취소).
+  Future<String?> _askRecurrenceScope(
+    BuildContext ctx, {
+    required bool forDelete,
+  }) {
+    final verb = forDelete ? "삭제" : "고치기";
+    return showDialog<String>(
+      context: ctx,
+      builder: (dctx) => AlertDialog(
+        backgroundColor: scheduleWhite,
+        surfaceTintColor: Colors.transparent,
+        title: Text(
+          "반복 일정 $verb",
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: scheduleText,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final o in const [
+              ('one', "이 회차만"),
+              ('following', "이 회차부터 이후 모두"),
+              ('all', "모든 회차"),
+            ])
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  o.$2,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                onTap: () => Navigator.pop(dctx, o.$1),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dctx),
+            child: const Text("취소", style: TextStyle(color: scheduleSubText)),
+          ),
+        ],
+      ),
+    );
   }
 
   // 🚀 [개인 일정 추가/수정] 제목·카테고리·날짜·시간·반복·알림을 한
@@ -537,6 +647,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   Future<void> _showAddPersonalSheet({
     String? docId,
     Map<String, dynamic>? existing,
+    // 반복 일정의 어느 회차에서 열었는지(회차만 고치기·이후 모두 고치기에 쓴다).
+    DateTime? occurrence,
   }) async {
     if (!_requireWorker()) return;
     final titleCtrl = TextEditingController(
@@ -554,16 +666,42 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         : '';
     String? titleError;
     String category = (existing?['category'] as String?) ?? '개인';
-    DateTime baseDate = existing != null
+    // 반복 일정의 시작(전체 고치기 때 이 날짜를 지킨다).
+    final DateTime? seriesBase = existing != null
         ? _asDateTime(existing['dateTime'])
+        : null;
+    final String oldRecurrence = (existing?['recurrence'] as String?) ?? 'none';
+    // 회차에서 열었으면 그 회차 날짜로 보여 준다(시각은 일정 것).
+    DateTime baseDate = seriesBase != null
+        ? (occurrence != null && isRecurring(oldRecurrence)
+              ? DateTime(
+                  occurrence.year,
+                  occurrence.month,
+                  occurrence.day,
+                  seriesBase.hour,
+                  seriesBase.minute,
+                )
+              : seriesBase)
         : _selectedDay;
     bool hasTime = existing?['hasTime'] != false;
     TimeOfDay time = TimeOfDay(hour: baseDate.hour, minute: baseDate.minute);
+    // 끝나는 시각(선택)·메모·알림 여러 개·반복 끝.
+    final DateTime? existingEnd = seriesBase != null && hasTime
+        ? readEndTime(existing!, seriesBase)
+        : null;
+    TimeOfDay? endTime = existingEnd == null
+        ? null
+        : TimeOfDay(hour: existingEnd.hour, minute: existingEnd.minute);
+    String? timeError;
+    final noteCtrl = TextEditingController(
+      text: existing?['note'] as String? ?? '',
+    );
+    final Set<int> reminders = {...readReminders(existing ?? const {})};
+    DateTime? recurrenceUntil = existing == null ? null : readUntil(existing);
     DateTime endDate = existing?['endDate'] != null
         ? _asDateTime(existing!['endDate'])
         : baseDate;
-    String recurrence = (existing?['recurrence'] as String?) ?? 'none';
-    int reminderMinutes = (existing?['reminderMinutesBefore'] as int?) ?? 0;
+    String recurrence = oldRecurrence;
     bool saving = false;
 
     await showModalBottomSheet(
@@ -812,6 +950,50 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                   ],
                                 ),
                               ),
+                            const SizedBox(height: 10),
+                            TextField(
+                              controller: noteCtrl,
+                              minLines: 1,
+                              maxLines: 3,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: scheduleText,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: "메모 (선택) — 준비물, 만날 사람 등",
+                                prefixIcon: const Icon(
+                                  Icons.notes_rounded,
+                                  size: 20,
+                                  color: scheduleSubText,
+                                ),
+                                filled: true,
+                                fillColor: const Color(0xFFF7F8F9),
+                                hintStyle: const TextStyle(
+                                  color: Color(0xFF6B7684),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFD1D6DB),
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFD1D6DB),
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(
+                                    color: scheduleTeal,
+                                    width: 1.6,
+                                  ),
+                                ),
+                              ),
+                            ),
                             const SizedBox(height: 16),
                             const Text(
                               "종류",
@@ -960,6 +1142,82 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                 ),
                               ],
                             ),
+                            if (hasTime) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: () async {
+                                        final picked =
+                                            await showMakitaTimePicker(
+                                              context: context,
+                                              initialTime:
+                                                  endTime ??
+                                                  TimeOfDay(
+                                                    hour: (time.hour + 1) % 24,
+                                                    minute: time.minute,
+                                                  ),
+                                              title: "끝나는 시간",
+                                            );
+                                        if (picked != null) {
+                                          setSheetState(() {
+                                            endTime = picked;
+                                            timeError = null;
+                                          });
+                                        }
+                                      },
+                                      icon: const Icon(
+                                        Icons.timer_outlined,
+                                        size: 16,
+                                        color: scheduleTeal,
+                                      ),
+                                      label: Text(
+                                        endTime == null
+                                            ? "끝나는 시간 (선택)"
+                                            : "끝 ${endTime!.format(context)}",
+                                        style: const TextStyle(
+                                          color: scheduleTeal,
+                                        ),
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        side: const BorderSide(
+                                          color: scheduleTeal,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (endTime != null)
+                                    IconButton(
+                                      tooltip: "끝나는 시간 지우기",
+                                      icon: const Icon(
+                                        Icons.close_rounded,
+                                        size: 18,
+                                        color: scheduleSubText,
+                                      ),
+                                      onPressed: () => setSheetState(() {
+                                        endTime = null;
+                                        timeError = null;
+                                      }),
+                                    ),
+                                ],
+                              ),
+                              if (timeError != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    top: 4,
+                                    left: 4,
+                                  ),
+                                  child: Text(
+                                    timeError!,
+                                    style: const TextStyle(
+                                      color: scheduleDanger,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                            ],
                             SwitchListTile(
                               contentPadding: EdgeInsets.zero,
                               value: !hasTime,
@@ -1095,41 +1353,134 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                 );
                               }).toList(),
                             ),
-                            const SizedBox(height: 20),
-                            if (hasTime) ...[
-                              const Text(
-                                "알림",
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF6B7684),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                children: kReminderOptions.entries.map((e) {
-                                  final bool selected =
-                                      reminderMinutes == e.key;
-                                  return ChoiceChip(
-                                    label: Text(e.value),
-                                    selected: selected,
-                                    onSelected: (_) => setSheetState(
-                                      () => reminderMinutes = e.key,
+                            if (isRecurring(recurrence)) ...[
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: () async {
+                                        final picked = await showDatePicker(
+                                          context: context,
+                                          initialDate:
+                                              recurrenceUntil ??
+                                              baseDate.add(
+                                                const Duration(days: 30),
+                                              ),
+                                          firstDate: DateTime(
+                                            baseDate.year,
+                                            baseDate.month,
+                                            baseDate.day,
+                                          ),
+                                          lastDate: DateTime(2035),
+                                        );
+                                        if (picked != null) {
+                                          setSheetState(
+                                            () => recurrenceUntil = picked,
+                                          );
+                                        }
+                                      },
+                                      icon: const Icon(
+                                        Icons.event_busy_outlined,
+                                        size: 16,
+                                        color: scheduleTeal,
+                                      ),
+                                      label: Text(
+                                        recurrenceUntil == null
+                                            ? "반복 끝 (계속)"
+                                            : "${recurrenceUntil!.year}.${recurrenceUntil!.month.toString().padLeft(2, '0')}.${recurrenceUntil!.day.toString().padLeft(2, '0')}까지",
+                                        style: const TextStyle(
+                                          color: scheduleTeal,
+                                        ),
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        side: const BorderSide(
+                                          color: scheduleTeal,
+                                        ),
+                                      ),
                                     ),
+                                  ),
+                                  if (recurrenceUntil != null)
+                                    IconButton(
+                                      tooltip: "반복 끝 지우기",
+                                      icon: const Icon(
+                                        Icons.close_rounded,
+                                        size: 18,
+                                        color: scheduleSubText,
+                                      ),
+                                      onPressed: () => setSheetState(
+                                        () => recurrenceUntil = null,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                            const SizedBox(height: 20),
+                            Text(
+                              hasTime ? "알림 (여러 개 가능)" : "알림 (종일)",
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF6B7684),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                Builder(
+                                  builder: (_) {
+                                    final bool none = reminders.isEmpty;
+                                    return ChoiceChip(
+                                      label: const Text("알림 없음"),
+                                      selected: none,
+                                      onSelected: (_) => setSheetState(
+                                        () => reminders.clear(),
+                                      ),
+                                      selectedColor: scheduleTeal,
+                                      labelStyle: TextStyle(
+                                        color: none
+                                            ? Colors.white
+                                            : scheduleText,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      backgroundColor: Colors.grey.shade100,
+                                    );
+                                  },
+                                ),
+                                for (final e
+                                    in (hasTime
+                                            ? kReminderOptions
+                                            : kAllDayReminderOptions)
+                                        .entries
+                                        .where((e) => e.key != 0))
+                                  FilterChip(
+                                    label: Text(e.value),
+                                    selected: reminders.contains(e.key),
+                                    onSelected: (on) => setSheetState(() {
+                                      if (on) {
+                                        if (reminders.length <
+                                            kMaxRemindersPerSchedule) {
+                                          reminders.add(e.key);
+                                        }
+                                      } else {
+                                        reminders.remove(e.key);
+                                      }
+                                    }),
                                     selectedColor: scheduleTeal,
+                                    checkmarkColor: Colors.white,
                                     labelStyle: TextStyle(
-                                      color: selected
+                                      color: reminders.contains(e.key)
                                           ? Colors.white
                                           : scheduleText,
                                       fontWeight: FontWeight.bold,
                                     ),
                                     backgroundColor: Colors.grey.shade100,
-                                  );
-                                }).toList(),
-                              ),
-                              const SizedBox(height: 12),
-                            ],
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
                             if (docId != null) ...[
                               const SizedBox(height: 4),
                               SizedBox(
@@ -1137,7 +1488,11 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                 child: TextButton.icon(
                                   onPressed: () async {
                                     Navigator.pop(ctx);
-                                    await _deletePersonalItem(docId);
+                                    await _deletePersonalItem(
+                                      docId,
+                                      recurrence: oldRecurrence,
+                                      occurrence: occurrence,
+                                    );
                                   },
                                   icon: const Icon(
                                     Icons.delete_outline_rounded,
@@ -1163,7 +1518,15 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                     setSheetState(() => titleError = err);
                                     return;
                                   }
-                                  final DateTime combined = hasTime
+                                  // 종일 일정은 시간 알림을, 시간 일정은 종일 알림을 쓸 수 없다(스위치를 바꾼 경우).
+                                  reminders.removeWhere(
+                                    (m) => hasTime
+                                        ? !kReminderOptions.containsKey(m)
+                                        : !kAllDayReminderOptions.containsKey(
+                                            m,
+                                          ),
+                                  );
+                                  DateTime combined = hasTime
                                       ? DateTime(
                                           baseDate.year,
                                           baseDate.month,
@@ -1176,6 +1539,65 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                           baseDate.month,
                                           baseDate.day,
                                         );
+                                  DateTime? combinedEnd;
+                                  if (hasTime && endTime != null) {
+                                    combinedEnd = DateTime(
+                                      baseDate.year,
+                                      baseDate.month,
+                                      baseDate.day,
+                                      endTime!.hour,
+                                      endTime!.minute,
+                                    );
+                                    if (!combinedEnd.isAfter(combined)) {
+                                      setSheetState(
+                                        () => timeError = "끝나는 시간이 시작보다 앞입니다.",
+                                      );
+                                      return;
+                                    }
+                                  }
+                                  // 반복 일정의 회차에서 열었으면 어디까지 고칠지 묻는다.
+                                  String scope = 'all';
+                                  if (docId != null &&
+                                      isRecurring(oldRecurrence) &&
+                                      occurrence != null) {
+                                    final s = await _askRecurrenceScope(
+                                      ctx,
+                                      forDelete: false,
+                                    );
+                                    if (s == null) return;
+                                    scope = s;
+                                    // 모든 회차를 고칠 때 날짜를 안 바꿨으면 시작일은 그대로 둔다
+                                    // (회차 날짜로 바꾸면 앞 회차가 사라진다).
+                                    final bool dateChanged =
+                                        _normalize(baseDate) !=
+                                        _normalize(occurrence);
+                                    if (scope == 'all' &&
+                                        !dateChanged &&
+                                        seriesBase != null) {
+                                      combined = hasTime
+                                          ? DateTime(
+                                              seriesBase.year,
+                                              seriesBase.month,
+                                              seriesBase.day,
+                                              time.hour,
+                                              time.minute,
+                                            )
+                                          : DateTime(
+                                              seriesBase.year,
+                                              seriesBase.month,
+                                              seriesBase.day,
+                                            );
+                                      if (combinedEnd != null) {
+                                        combinedEnd = DateTime(
+                                          seriesBase.year,
+                                          seriesBase.month,
+                                          seriesBase.day,
+                                          endTime!.hour,
+                                          endTime!.minute,
+                                        );
+                                      }
+                                    }
+                                  }
                                   // 반복이 없는 시간 일정은 저장 전에 같은 시간대 일정이 있는지 알려 준다.
                                   if (hasTime && recurrence == 'none') {
                                     final conflicts = conflictsWith(
@@ -1185,6 +1607,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                         hasTime: true,
                                         title: titleCtrl.text.trim(),
                                         isCompleted: false,
+                                        end: combinedEnd,
                                       ),
                                       _lastLite,
                                       excludeKeyPrefix: docId == null
@@ -1192,6 +1615,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                           : 'personal_$docId',
                                     );
                                     if (conflicts.isNotEmpty) {
+                                      if (!ctx.mounted) return;
                                       final go = await _confirmConflicts(
                                         ctx,
                                         conflicts,
@@ -1218,13 +1642,32 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                           ).toIso8601String()
                                         : null,
                                     'recurrence': recurrence,
+                                    'recurrenceUntil':
+                                        isRecurring(recurrence) &&
+                                            recurrenceUntil != null
+                                        ? DateTime(
+                                            recurrenceUntil!.year,
+                                            recurrenceUntil!.month,
+                                            recurrenceUntil!.day,
+                                          ).toIso8601String()
+                                        : null,
+                                    'endTime': combinedEnd?.toIso8601String(),
+                                    'note': noteCtrl.text.trim(),
                                     'owner': _currentWorker,
                                     'isCompleted':
                                         existing?['isCompleted'] ?? false,
                                     'completedOccurrences':
                                         existing?['completedOccurrences'] ??
                                         <String, dynamic>{},
-                                    'reminderMinutesBefore': reminderMinutes,
+                                    // 예전 칸(reminderMinutesBefore)도 같이 적어 예전 앱이 읽게 둔다.
+                                    'reminders': reminders.toList()..sort(),
+                                    'reminderMinutesBefore': hasTime
+                                        ? (reminders.isEmpty
+                                              ? 0
+                                              : reminders.reduce(
+                                                  (a, b) => a > b ? a : b,
+                                                ))
+                                        : 0,
                                     'updatedAt': FieldValue.serverTimestamp(),
                                   };
                                   if (saving) return;
@@ -1246,7 +1689,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                             (e) => debugPrint('일정 저장 실패: $e'),
                                           ),
                                     );
-                                  } else {
+                                  } else if (scope == 'all') {
                                     targetDocId = docId;
                                     // 완료 표시는 따로 저장한다. 시트를 연 뒤에 한 완료가
                                     // 시트 열 때 값으로 덮여 지워지던 것.
@@ -1256,6 +1699,52 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                       col
                                           .doc(docId)
                                           .update(data)
+                                          .catchError(
+                                            (e) => debugPrint('일정 저장 실패: $e'),
+                                          ),
+                                    );
+                                  } else {
+                                    // 이 회차만 / 이후 모두: 옛 문서는 그 자리에서 끊고 새 문서를 만든다.
+                                    final ref = col.doc();
+                                    targetDocId = ref.id;
+                                    data['createdAt'] =
+                                        FieldValue.serverTimestamp();
+                                    data['completedOccurrences'] =
+                                        <String, dynamic>{};
+                                    data['isCompleted'] = false;
+                                    data['recurrenceExceptions'] = null;
+                                    if (scope == 'one') {
+                                      data['recurrence'] = 'none';
+                                      data['recurrenceUntil'] = null;
+                                    }
+                                    unawaited(
+                                      ref
+                                          .set(data)
+                                          .catchError(
+                                            (e) => debugPrint('일정 저장 실패: $e'),
+                                          ),
+                                    );
+                                    unawaited(
+                                      col
+                                          .doc(docId)
+                                          .update(
+                                            scope == 'one'
+                                                ? {
+                                                    'recurrenceExceptions':
+                                                        FieldValue.arrayUnion([
+                                                          occurrenceKey(
+                                                            occurrence!,
+                                                          ),
+                                                        ]),
+                                                  }
+                                                : {
+                                                    'recurrenceUntil':
+                                                        untilBeforeOccurrence(
+                                                          occurrence!,
+                                                        ).toIso8601String(),
+                                                  },
+                                          )
+                                          .then((_) => _rescheduleDoc(docId))
                                           .catchError(
                                             (e) => debugPrint('일정 저장 실패: $e'),
                                           ),
@@ -3132,65 +3621,120 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
-          children: kScheduleColors.entries.map((e) {
-            final bool selected = _activeCategoryFilters.contains(e.key);
-            final bool dimmed = _activeCategoryFilters.isNotEmpty && !selected;
-            return Padding(
-              padding: const EdgeInsets.only(right: 10),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  setState(() {
-                    if (selected) {
-                      _activeCategoryFilters.remove(e.key);
-                    } else {
-                      _activeCategoryFilters.add(e.key);
-                    }
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? e.value.withValues(alpha: 0.12)
-                        : Colors.transparent,
+          children:
+              [
+                const MapEntry('__hide__', Colors.transparent),
+                ...kScheduleColors.entries,
+              ].map((e) {
+                if (e.key == '__hide__') return _buildHideCompletedChip();
+                final bool selected = _activeCategoryFilters.contains(e.key);
+                final bool dimmed =
+                    _activeCategoryFilters.isNotEmpty && !selected;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: InkWell(
                     borderRadius: BorderRadius.circular(20),
-                    border: selected
-                        ? Border.all(color: e.value.withValues(alpha: 0.4))
-                        : null,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: dimmed ? Colors.grey.shade300 : e.value,
-                          shape: BoxShape.circle,
-                        ),
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        if (selected) {
+                          _activeCategoryFilters.remove(e.key);
+                        } else {
+                          _activeCategoryFilters.add(e.key);
+                        }
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        e.key,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: selected ? FontWeight.bold : null,
-                          color: dimmed
-                              ? Colors.grey.shade400
-                              : Colors.grey.shade700,
-                        ),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? e.value.withValues(alpha: 0.12)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(20),
+                        border: selected
+                            ? Border.all(color: e.value.withValues(alpha: 0.4))
+                            : null,
                       ),
-                    ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: dimmed ? Colors.grey.shade300 : e.value,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            e.key,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: selected ? FontWeight.bold : null,
+                              color: dimmed
+                                  ? Colors.grey.shade400
+                                  : Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
+                );
+              }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHideCompletedChip() {
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: InkWell(
+        key: const Key('schedule_hide_completed'),
+        borderRadius: BorderRadius.circular(20),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setState(() => _hideCompleted = !_hideCompleted);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: _hideCompleted
+                ? scheduleTeal.withValues(alpha: 0.12)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: _hideCompleted
+                  ? scheduleTeal.withValues(alpha: 0.4)
+                  : const Color(0xFFD1D6DB),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _hideCompleted
+                    ? Icons.visibility_off_rounded
+                    : Icons.visibility_rounded,
+                size: 12,
+                color: _hideCompleted ? scheduleTeal : Colors.grey.shade600,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                "완료 숨김",
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: _hideCompleted ? FontWeight.bold : null,
+                  color: _hideCompleted ? scheduleTeal : Colors.grey.shade700,
                 ),
               ),
-            );
-          }).toList(),
+            ],
+          ),
         ),
       ),
     );
@@ -3454,7 +3998,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                       ),
                     if (item.hasTime)
                       Text(
-                        "${item.date.hour.toString().padLeft(2, '0')}:${item.date.minute.toString().padLeft(2, '0')}",
+                        formatTimeRange(item.date, item.end),
                         style: TextStyle(
                           fontSize: 11,
                           color: Colors.grey.shade600,
@@ -3484,6 +4028,15 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                       ),
                   ],
                 ),
+                if (item.note.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    item.note,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  ),
+                ],
               ],
             ),
           ),
@@ -3504,6 +4057,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                         _showAddPersonalSheet(
                           docId: doc.id,
                           existing: doc.data(),
+                          occurrence: item.date,
                         );
                       }
                     });
@@ -3629,6 +4183,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                         hasTime: it.hasTime,
                         title: it.title,
                         isCompleted: it.isCompleted,
+                        end: it.end,
                       ),
                   ];
                   _overlapKeys = overlappingKeys([
@@ -3639,6 +4194,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                         hasTime: it.hasTime,
                         title: it.title,
                         isCompleted: it.isCompleted,
+                        end: it.end,
                       ),
                   ]);
                   final todayItems = byDay[_normalize(DateTime.now())] ?? [];
@@ -3887,7 +4443,13 @@ Future<int> fetchTodayScheduleCount(String currentWorker) async {
           count++;
         }
       } else {
-        if (recurrenceOccursOn(base, recurrence, today)) {
+        if (recurrenceOccursOn(
+          base,
+          recurrence,
+          today,
+          until: readUntil(data),
+          exceptions: readExceptions(data),
+        )) {
           if (!isOccurrenceCompleted(completedMap, today)) count++;
         }
       }

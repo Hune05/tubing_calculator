@@ -78,7 +78,11 @@ void main() {
     test('알림 없음(0분)이면 취소만 한다', () async {
       await schedulePersonalReminder('doc1', data(minutes: 0), nowForTest: now);
       expect(calls.where((c) => c.startsWith('schedule')), isEmpty);
-      expect(calls.where((c) => c.startsWith('cancel')).length, 1);
+      // 알림이 여러 개일 수 있어 자리(최대 5개)를 모두 취소한다.
+      expect(
+        calls.where((c) => c.startsWith('cancel')).length,
+        kMaxRemindersPerSchedule,
+      );
     });
 
     test('날짜 칸이 없거나 글이 아니면 그 일정만 건너뛴다(예외 없음)', () async {

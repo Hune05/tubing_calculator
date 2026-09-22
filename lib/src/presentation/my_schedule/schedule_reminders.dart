@@ -24,6 +24,44 @@ bool _channelReady = false;
 // 문서 id마다 정해진 알림 아이디(같은 일정이면 항상 같은 값).
 int personalNotifId(String docId) => docId.hashCode & 0x7fffffff;
 
+// 알림이 여러 개면 둘째부터는 다른 아이디(문서 id에 번호를 붙여 만든다).
+const int kMaxRemindersPerSchedule = 5;
+int personalNotifIdAt(String docId, int index) =>
+    index == 0 ? personalNotifId(docId) : personalNotifId('$docId#$index');
+
+Future<void> cancelPersonalReminders(String docId) async {
+  for (var i = 0; i < kMaxRemindersPerSchedule; i++) {
+    await flutterLocalNotificationsPlugin.cancel(
+      id: personalNotifIdAt(docId, i),
+    );
+  }
+}
+
+/// 폰의 되풀이 예약으로 맞출 수 있는지. 반복 끝·뺀 회차가 있거나 격주·평일이면 한 번씩만 잡고
+/// 앱을 열 때 다시 잡는다(rescheduleDriftingMonthlyReminders).
+DateTimeComponents? repeatComponentsFor({
+  required String recurrence,
+  required DateTime start,
+  required int minutesBefore,
+  DateTime? until,
+  Set<String> exceptions = const {},
+}) {
+  if (until != null || exceptions.isNotEmpty) return null;
+  switch (recurrence) {
+    case 'daily':
+      return DateTimeComponents.time;
+    case 'weekly':
+      return DateTimeComponents.dayOfWeekAndTime;
+    case 'monthly':
+      return monthlyReminderKeepsDay(start, minutesBefore)
+          ? DateTimeComponents.dayOfMonthAndTime
+          : null;
+    case 'yearly':
+      return DateTimeComponents.dateAndTime;
+  }
+  return null;
+}
+
 void _ensureTz() {
   if (_tzReady) return;
   tzdata.initializeTimeZones();
@@ -54,54 +92,65 @@ Future<void> schedulePersonalReminder(
   Map<String, dynamic> data, {
   DateTime? nowForTest,
 }) async {
-  final int notifId = personalNotifId(docId);
-  await flutterLocalNotificationsPlugin.cancel(id: notifId);
+  await cancelPersonalReminders(docId);
 
   final String recurrence = (data['recurrence'] as String?) ?? 'none';
   // 날짜 칸이 없거나 글이 아니면(가져온 자료·옛 자료) 그 일정만 건너뛴다. 예전엔 여기서
   // 예외가 나서 나머지 일정 알림까지 전부 다시 잡히지 않았다.
   final DateTime? base = DateTime.tryParse(data['dateTime']?.toString() ?? '');
   if (base == null) return;
-  final int minutesBefore = (data['reminderMinutesBefore'] as int?) ?? 0;
-  DateTimeComponents? matchComponents;
-  if (recurrence == 'weekly') {
-    matchComponents = DateTimeComponents.dayOfWeekAndTime;
-  } else if (recurrence == 'monthly' &&
-      monthlyReminderKeepsDay(base, minutesBefore)) {
-    // 알림 날짜가 달마다 바뀌는 경우(1일 일정의 하루 전, 29~31일 일정)는 되풀이 예약하지 않고
-    // 다음 한 번만 잡는다. 내 일정 화면을 열 때 다시 잡는다(rescheduleDriftingMonthlyReminders).
-    matchComponents = DateTimeComponents.dayOfMonthAndTime;
-  }
-  final DateTime? remindAt = reminderTime(
-    base: base,
-    minutesBefore: minutesBefore,
-    recurrence: recurrence,
-    hasTime: data['hasTime'] != false,
-    now: nowForTest ?? DateTime.now(),
-  );
-  if (remindAt == null) return;
+  final bool hasTime = data['hasTime'] != false;
+  final DateTime start = hasTime
+      ? base
+      : DateTime(base.year, base.month, base.day);
+  final DateTime? until = readUntil(data);
+  final Set<String> exceptions = readExceptions(data);
+  final List<int> minutesList = readReminders(
+    data,
+  ).take(kMaxRemindersPerSchedule).toList();
+  final String body = (data['title'] as String?)?.trim().isNotEmpty == true
+      ? data['title'] as String
+      : '등록된 일정';
 
-  _ensureTz();
-  await _ensureChannel();
-  await flutterLocalNotificationsPlugin.zonedSchedule(
-    id: notifId,
-    title: kPersonalReminderTitle,
-    body: (data['title'] as String?)?.trim().isNotEmpty == true
-        ? data['title'] as String
-        : '등록된 일정',
-    scheduledDate: tz.TZDateTime.from(remindAt, tz.local),
-    notificationDetails: const NotificationDetails(
-      android: AndroidNotificationDetails(
-        kPersonalScheduleChannelId,
-        '내 일정 알림',
-        channelDescription: '개인 일정 알림',
-        importance: Importance.high,
-        priority: Priority.high,
+  for (var i = 0; i < minutesList.length; i++) {
+    final int minutesBefore = minutesList[i];
+    final DateTime? remindAt = reminderTime(
+      base: base,
+      minutesBefore: minutesBefore,
+      recurrence: recurrence,
+      hasTime: hasTime,
+      now: nowForTest ?? DateTime.now(),
+      allowAllDay: true,
+      until: until,
+      exceptions: exceptions,
+    );
+    if (remindAt == null) continue;
+    _ensureTz();
+    await _ensureChannel();
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+      id: personalNotifIdAt(docId, i),
+      title: kPersonalReminderTitle,
+      body: body,
+      scheduledDate: tz.TZDateTime.from(remindAt, tz.local),
+      notificationDetails: const NotificationDetails(
+        android: AndroidNotificationDetails(
+          kPersonalScheduleChannelId,
+          '내 일정 알림',
+          channelDescription: '개인 일정 알림',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
       ),
-    ),
-    androidScheduleMode: await reminderScheduleMode(),
-    matchDateTimeComponents: matchComponents,
-  );
+      androidScheduleMode: await reminderScheduleMode(),
+      matchDateTimeComponents: repeatComponentsFor(
+        recurrence: recurrence,
+        start: start,
+        minutesBefore: minutesBefore,
+        until: until,
+        exceptions: exceptions,
+      ),
+    );
+  }
 }
 
 // 알림 점검용: 알림이 필요한 개인 일정 수(expected)와 폰에 실제로 예약된 개수(scheduled).
@@ -136,14 +185,46 @@ bool _needsReminder(Map<String, dynamic> data, DateTime now) {
   if (raw is! String) return false;
   final base = DateTime.tryParse(raw);
   if (base == null) return false;
-  return reminderTime(
-        base: base,
-        minutesBefore: (data['reminderMinutesBefore'] as int?) ?? 0,
-        recurrence: (data['recurrence'] as String?) ?? 'none',
-        hasTime: data['hasTime'] != false,
-        now: now,
-      ) !=
-      null;
+  return readReminders(data).any(
+    (m) =>
+        reminderTime(
+          base: base,
+          minutesBefore: m,
+          recurrence: (data['recurrence'] as String?) ?? 'none',
+          hasTime: data['hasTime'] != false,
+          now: now,
+          allowAllDay: true,
+          until: readUntil(data),
+          exceptions: readExceptions(data),
+        ) !=
+        null,
+  );
+}
+
+/// 폰의 되풀이 예약으로 못 맞춰 한 번씩만 잡아 둔 일정인지(앱을 열 때 다음 회차를 다시 잡는다).
+bool needsOneShotReschedule(Map<String, dynamic> data) {
+  final recurrence = (data['recurrence'] as String?) ?? 'none';
+  if (!isRecurring(recurrence)) return false;
+  final raw = data['dateTime'];
+  final base = raw is String ? DateTime.tryParse(raw) : null;
+  if (base == null) return false;
+  final hasTime = data['hasTime'] != false;
+  final start = hasTime ? base : DateTime(base.year, base.month, base.day);
+  final until = readUntil(data);
+  final exceptions = readExceptions(data);
+  for (final m in readReminders(data)) {
+    if (repeatComponentsFor(
+          recurrence: recurrence,
+          start: start,
+          minutesBefore: m,
+          until: until,
+          exceptions: exceptions,
+        ) ==
+        null) {
+      return true;
+    }
+  }
+  return false;
 }
 
 Future<List<({String id, Map<String, dynamic> data})>> _personalDocs(
@@ -156,8 +237,8 @@ Future<List<({String id, Map<String, dynamic> data})>> _personalDocs(
   return [for (final d in snap.docs) (id: d.id, data: d.data())];
 }
 
-// 알림 날짜가 달마다 바뀌는 매달 반복 일정만 다시 예약한다(한 번씩만 예약해 두므로 지난 뒤에 다음 달 것을 잡는다).
-// 다시 예약한 일정 수를 돌려준다. 서버를 읽지 못하면 0.
+// 폰의 되풀이 예약으로 못 맞춰 한 번씩만 잡아 둔 반복 일정(날짜가 밀리는 매달, 격주·평일,
+// 반복 끝·뺀 회차가 있는 것)을 다시 예약한다. 앱을 열 때 부른다. 다시 예약한 수를 돌려준다.
 Future<int> rescheduleDriftingMonthlyReminders() async {
   try {
     final p = await SharedPreferences.getInstance();
@@ -165,18 +246,13 @@ Future<int> rescheduleDriftingMonthlyReminders() async {
     if (worker == null || worker.isEmpty) return 0;
     var n = 0;
     for (final d in await _personalDocs(worker)) {
-      if (d.data['recurrence'] != 'monthly') continue;
-      final raw = d.data['dateTime'];
-      final base = raw is String ? DateTime.tryParse(raw) : null;
-      if (base == null) continue;
-      final m = (d.data['reminderMinutesBefore'] as int?) ?? 0;
-      if (m <= 0 || monthlyReminderKeepsDay(base, m)) continue;
+      if (!needsOneShotReschedule(d.data)) continue;
       await schedulePersonalReminder(d.id, d.data);
       n++;
     }
     return n;
   } catch (e) {
-    debugPrint('매달 반복 알림 다시 예약 실패: $e');
+    debugPrint('반복 알림 다시 예약 실패: $e');
     return 0;
   }
 }
