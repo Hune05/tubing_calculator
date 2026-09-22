@@ -25,6 +25,8 @@ const List<String> kCloudSettingKeys = [
   'start_fit', 'end_fit', 'tail_length',
   // 전선관 (JSON 한 덩어리)
   'conduit_bender_settings_v1',
+  // 규격별로 기억해 둔 제원(튜브·전선관, JSON 한 덩어리씩)
+  'machine_spec_sets_v1', 'conduit_spec_sets_v1',
   // 튜브 컷팅
   'cutting_blade_kerf', 'cutting_stock_length',
 ];

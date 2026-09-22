@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -178,8 +179,16 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     // 저장한 테이크업·게인이 설정을 열 때마다 표 값으로 돌아갔다. 열 때는 저장된
     // 값 그대로 두고, 저장된 고르기가 목록에 없을 때만 표 값을 쓴다.
     if (_fixDropdownChoices()) _loadManufacturerDefaults();
+    _enteredValues = _currentSpecValues();
     loadConduitSpecSets().then((sets) {
-      if (mounted) _specSets = sets;
+      if (!mounted) return;
+      // 지금 조합은 화면에 든 값(마지막으로 저장한 설정)이 맞다. 예전 기록에는
+      // 스프링백·끝 여유가 없어서, 돌아왔을 때 기본값으로 바뀌지 않게 채워 둔다.
+      _specSets = {...sets, ..._specSets};
+      _specSets.putIfAbsent(_comboKey, () => _enteredValues);
+      if (!_unsavedKeys.contains(_comboKey)) {
+        _specSets[_comboKey] = {..._specSets[_comboKey]!, ..._enteredValues};
+      }
     });
   }
 
@@ -257,21 +266,64 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     return changed;
   }
 
+  /// 조합에 들어왔을 때의 값. 떠날 때 견줘서 고친 게 있으면 기억해 둔다.
+  Map<String, double> _enteredValues = {};
+
+  /// 고쳐 놓고 아직 저장하지 않은 다른 조합들. 저장 단추를 누르면 같이 저장한다.
+  final Set<String> _unsavedKeys = {};
+
+  /// 지금 조합의 값이 어디서 왔는지: true면 저장해 둔 값, false면 처음이라 기본값.
+  bool _fromSaved = true;
+
+  /// 벤더 종류·제조사·재질·규격 고르기. 바꾸기 전에 지금 조합에서 고친 값을
+  /// 기억해 둔다(저장 전에 규격을 바꿨다 돌아와도 고친 값이 남는다).
+  void _changeCombo(VoidCallback change) {
+    final now = _currentSpecValues();
+    if (!mapEquals(now, _enteredValues)) {
+      _specSets[_comboKey] = now;
+      _unsavedKeys.add(_comboKey);
+    }
+    setState(() {
+      change();
+      _updateDynamicDropdowns();
+    });
+  }
+
   /// 벤더 종류·제조사·재질·규격을 바꿨을 때. 그 조합으로 저장해 둔 값이 있으면
-  /// 그것을, 처음 고르는 조합이면 제조사 표 값을 넣는다.
+  /// 그것을, 처음 고르는 조합이면 제조사 표 값과 규격 기본 보정값을 넣는다.
   void _updateDynamicDropdowns() {
     _fixDropdownChoices();
     final saved = _specSets[_comboKey];
+    _fromSaved = saved != null;
     if (saved != null) {
+      _loadCorrectionDefaults();
       _applySpecSet(saved);
     } else {
       _loadManufacturerDefaults();
+      _loadCorrectionDefaults();
     }
+    _enteredValues = _currentSpecValues();
+  }
+
+  /// 규격 기본 스프링백·커플링 끝 여유(저장한 값이 없는 칸에만 남는다).
+  void _loadCorrectionDefaults() {
+    final d = conduitCorrectionDefaults(
+      conduitType: _conduitType,
+      conduitSize: _conduitSize,
+    );
+    _springbackController.text = _numText(d['springback']!);
+    _couplingAllowanceController.text = _numText(d['couplingAllowance']!);
   }
 
   String _numText(double v) => v.toString();
 
   void _applySpecSet(Map<String, double> v) {
+    if (v['springback'] != null) {
+      _springbackController.text = _numText(v['springback']!);
+    }
+    if (v['couplingAllowance'] != null) {
+      _couplingAllowanceController.text = _numText(v['couplingAllowance']!);
+    }
     if (v['clr'] != null) _clrController.text = _numText(v['clr']!);
     if (v['takeUp'] != null) _takeUpController.text = _numText(v['takeUp']!);
     if (v['gain'] != null) _gainController.text = _numText(v['gain']!);
@@ -291,6 +343,10 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
   Map<String, double> _currentSpecValues() {
     double? d(TextEditingController c) => double.tryParse(c.text);
     return {
+      if (d(_springbackController) != null)
+        'springback': d(_springbackController)!,
+      if (d(_couplingAllowanceController) != null)
+        'couplingAllowance': d(_couplingAllowanceController)!,
       if (d(_clrController) != null) 'clr': d(_clrController)!,
       if (d(_takeUpController) != null) 'takeUp': d(_takeUpController)!,
       if (d(_gainController) != null) 'gain': d(_gainController)!,
@@ -375,8 +431,21 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     }
   }
 
-  void _saveSettings() {
+  Future<void> _saveSettings() async {
     HapticFeedback.mediumImpact();
+    // 이 조합으로 넣은 제원을 기억해 둔다(규격을 바꿨다 돌아와도 그대로 나온다).
+    // 규격을 바꾸기 전에 고쳐 둔 다른 조합도 같이 저장한다. 서버에 올리기 전에
+    // 먼저 적어야 올라가는 설정에 같이 실린다.
+    final specValues = _currentSpecValues();
+    _specSets[_comboKey] = specValues;
+    _enteredValues = specValues;
+    final otherCount = _unsavedKeys.where((k) => k != _comboKey).length;
+    final toSave = {
+      for (final k in {..._unsavedKeys, _comboKey})
+        if (_specSets[k] != null) k: _specSets[k]!,
+    };
+    _unsavedKeys.clear();
+    _fromSaved = true;
     globalBenderSettings.value = {
       'benderType': _selectedTypeId,
       'manufacturer': _manufacturer,
@@ -403,23 +472,22 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
       'referenceMark': _referenceMark,
       'bendRadiusWarning': _bendRadiusWarning,
     };
-    saveGlobalBenderSettings();
-    // 이 조합으로 넣은 제원을 기억해 둔다(규격을 바꿨다 돌아와도 그대로 나온다).
-    final specValues = _currentSpecValues();
-    _specSets[_comboKey] = specValues;
-    saveConduitSpecSet(_comboKey, specValues);
-
+    if (mounted) setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text(
-          "해당 장비의 제원과 설정이 저장되었습니다.",
-          style: TextStyle(fontWeight: FontWeight.bold),
+        content: Text(
+          otherCount > 0
+              ? "$_conduitType $_conduitSize 설정을 저장했습니다. 고쳐 둔 다른 규격 $otherCount개도 같이 저장했습니다."
+              : "$_conduitType $_conduitSize 설정을 저장했습니다.",
+          style: const TextStyle(fontWeight: FontWeight.bold, color: pureWhite),
         ),
         backgroundColor: makitaTeal,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       ),
     );
+    await saveConduitSpecSets(toSave);
+    await saveGlobalBenderSettings();
   }
 
   void _showHelpDialog(String title, String content) {
@@ -659,11 +727,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
                 onChanged: (val) {
                   if (val != null) {
                     HapticFeedback.selectionClick();
-                    setState(() {
-                      _selectedTypeId = val;
-                      // 강제 규격 변경 로직 싹 다 제거! 무조건 유지.
-                      _updateDynamicDropdowns();
-                    });
+                    _changeCombo(() => _selectedTypeId = val);
                   }
                 },
               ),
@@ -703,10 +767,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
                 "데이터 파일에 등록된 제조사 목록입니다. 선택 시 해당 장비의 고유 치수(테이크업, 반경 등)가 자동 입력됩니다.",
             (v) {
               if (v != null) {
-                setState(() {
-                  _manufacturer = v;
-                  _updateDynamicDropdowns();
-                });
+                _changeCombo(() => _manufacturer = v);
               }
             },
           ),
@@ -717,10 +778,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             helpText: "선택한 제조사에서 지원하는 파이프 재질 목록입니다.",
             (v) {
               if (v != null) {
-                setState(() {
-                  _conduitType = v;
-                  _updateDynamicDropdowns();
-                });
+                _changeCombo(() => _conduitType = v);
               }
             },
           ),
@@ -731,13 +789,11 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             helpText: "작업할 전선관의 외경(KS 규격)을 선택하십시오.",
             (v) {
               if (v != null) {
-                setState(() {
-                  _conduitSize = v;
-                  _updateDynamicDropdowns();
-                });
+                _changeCombo(() => _conduitSize = v);
               }
             },
           ),
+          _buildComboNote(),
         ]),
         _buildSectionTitle("제원 수치 (수동)"),
         _buildSettingsCard([
@@ -893,10 +949,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             helpText: "데이터 파일에 등록된 유압식 장비 제조사 목록입니다.",
             (v) {
               if (v != null) {
-                setState(() {
-                  _manufacturer = v;
-                  _updateDynamicDropdowns();
-                });
+                _changeCombo(() => _manufacturer = v);
               }
             },
           ),
@@ -904,22 +957,17 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             v,
           ) {
             if (v != null) {
-              setState(() {
-                _conduitType = v;
-                _updateDynamicDropdowns();
-              });
+              _changeCombo(() => _conduitType = v);
             }
           }),
           _buildDropdownRow("규격 사이즈", _availableConduitSizes, _conduitSize, (
             v,
           ) {
             if (v != null) {
-              setState(() {
-                _conduitSize = v;
-                _updateDynamicDropdowns();
-              });
+              _changeCombo(() => _conduitSize = v);
             }
           }),
+          _buildComboNote(),
         ]),
         _buildSectionTitle("유압 실린더 제원"),
         _buildSettingsCard([
@@ -973,32 +1021,24 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
         _buildSettingsCard([
           _buildDropdownRow("제조사", _availableManufacturers, _manufacturer, (v) {
             if (v != null) {
-              setState(() {
-                _manufacturer = v;
-                _updateDynamicDropdowns();
-              });
+              _changeCombo(() => _manufacturer = v);
             }
           }),
           _buildDropdownRow("전선관 재질", _availableConduitTypes, _conduitType, (
             v,
           ) {
             if (v != null) {
-              setState(() {
-                _conduitType = v;
-                _updateDynamicDropdowns();
-              });
+              _changeCombo(() => _conduitType = v);
             }
           }),
           _buildDropdownRow("규격 사이즈", _availableConduitSizes, _conduitSize, (
             v,
           ) {
             if (v != null) {
-              setState(() {
-                _conduitSize = v;
-                _updateDynamicDropdowns();
-              });
+              _changeCombo(() => _conduitSize = v);
             }
           }),
+          _buildComboNote(),
         ]),
         _buildSectionTitle("노치 및 제원 (시카고)"),
         _buildSettingsCard([
@@ -1127,6 +1167,25 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
           ),
         ],
       ],
+    );
+  }
+
+  /// 규격 고르기 밑 한 줄: 지금 칸 값이 저장해 둔 값인지, 처음이라 기본값인지.
+  Widget _buildComboNote() {
+    final text = _fromSaved
+        ? "$_conduitType $_conduitSize: 저장해 둔 값입니다. 규격을 바꾸면 그 규격 값으로 바뀝니다."
+        : "$_conduitType $_conduitSize: 처음 고른 규격이라 기본값을 넣었습니다. 저장하면 이 규격 값으로 기억합니다.";
+    return Padding(
+      key: const Key('conduit_combo_note'),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12.5,
+          height: 1.4,
+          color: _fromSaved ? slate600 : const Color(0xFFB45309),
+        ),
+      ),
     );
   }
 

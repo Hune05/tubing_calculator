@@ -13,8 +13,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const String kConduitSpecSetsPrefsKey = 'conduit_spec_sets_v1';
 
-/// 조합마다 기억하는 칸(벤더 제원). 스프링백·커플링 같은 공통 보정은 넣지 않는다.
+/// 조합마다 기억하는 칸. 벤더 제원에 더해, 관 굵기에 따라 달라지는 스프링백·
+/// 커플링 끝 여유도 규격마다 따로 둔다(톱날 두께는 톱 쪽 값이라 한 벌).
 const List<String> kConduitSpecFields = [
+  'springback',
+  'couplingAllowance',
   'clr',
   'takeUp',
   'gain',
@@ -61,12 +64,50 @@ Future<Map<String, Map<String, double>>> loadConduitSpecSets() async {
 }
 
 /// [key] 조합의 제원을 적어 둔다(다른 조합은 그대로).
-Future<void> saveConduitSpecSet(String key, Map<String, double> values) async {
+Future<void> saveConduitSpecSet(String key, Map<String, double> values) =>
+    saveConduitSpecSets({key: values});
+
+/// 여러 조합을 한꺼번에 적어 둔다(다른 조합은 그대로).
+Future<void> saveConduitSpecSets(Map<String, Map<String, double>> sets) async {
   final all = await loadConduitSpecSets();
-  all[key] = {
-    for (final f in kConduitSpecFields)
-      if (values[f] != null) f: values[f]!,
-  };
+  sets.forEach((key, values) {
+    all[key] = {
+      for (final f in kConduitSpecFields)
+        if (values[f] != null) f: values[f]!,
+    };
+  });
   final prefs = await SharedPreferences.getInstance();
   await prefs.setString(kConduitSpecSetsPrefsKey, jsonEncode(all));
+}
+
+/// 처음 고르는 규격에 넣을 스프링백·커플링 끝 여유 기본값.
+///
+/// 제조사 표에는 이 두 값이 없어서 어림값을 쓴다. 관이 굵고 두꺼울수록 더 펴지고
+/// (박강 EMT < 후강·IMC·알루미늄), 나사 물림이 길어 끝 여유도 더 둔다. PVC는
+/// 열로 굽혀서 펴지지 않는다. 한 번 저장하면 그 규격은 저장한 값을 쓴다.
+Map<String, double> conduitCorrectionDefaults({
+  required String conduitType,
+  required String conduitSize,
+}) {
+  final size = double.tryParse(conduitSize.replaceAll(RegExp(r'[^0-9.]'), ''));
+  // 16·22 / 28·36 / 42·54 세 무리.
+  final step = size == null
+      ? 0
+      : size <= 22
+      ? 0
+      : size <= 36
+      ? 1
+      : 2;
+  final type = conduitType.trim().toLowerCase();
+  final double springback;
+  if (type == 'pvc') {
+    springback = 0;
+  } else if (type == 'emt') {
+    springback = 2.0 + step;
+  } else {
+    springback = 3.0 + step;
+  }
+  const allowance = [50.0, 60.0, 70.0];
+  final couplingAllowance = size != null && size <= 16 ? 40.0 : allowance[step];
+  return {'springback': springback, 'couplingAllowance': couplingAllowance};
 }
