@@ -31,15 +31,45 @@ class ModulePreset {
   const ModulePreset(this.name, this.width, this.height, {this.shape});
 }
 
-// 🚀 [수정] 실제 현장에서 쓰는 폭(40/60/80/100mm)만 남김.
-// 세로(길이)는 배선 경로에 따라 달라지므로 기본값만 두고, 배치 후
-// "모듈 속성 편집"에서 실제 길이에 맞게 조정하면 된다.
+// 🚀 배선 덕트 크기 = 폭×높이(mm). 도면(정면)에는 폭만큼 놓이고, 세로(길이)는 기본 200에서
+// 놓은 뒤 "모듈 속성 편집"에서 실제 길이로 고친다. 크기 목록은 국내 판넬 덕트 영신프라텍 DG 표준형
+// (yspt.co.kr, 길이 2m, 백색·회색) 24가지. 자주 쓰는 10가지를 먼저 보인다(국내 판넬 부품몰 재고 기준).
 const List<ModulePreset> kDuctPresets = [
-  ModulePreset("ABS덕트 40mm", 40, 200, shape: InstrumentShape.duct),
-  ModulePreset("ABS덕트 60mm", 60, 200, shape: InstrumentShape.duct),
-  ModulePreset("ABS덕트 80mm", 80, 200, shape: InstrumentShape.duct),
-  ModulePreset("ABS덕트 100mm", 100, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 25×40", 25, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 30×40", 30, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 40×40", 40, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 40×60", 40, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 60×60", 60, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 60×80", 60, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 80×80", 80, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 80×100", 80, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 100×80", 100, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 100×100", 100, 200, shape: InstrumentShape.duct),
 ];
+
+/// 덕트 나머지 크기(DG 표준형에서 kDuctPresets를 뺀 것).
+const List<ModulePreset> kDuctMorePresets = [
+  ModulePreset("ABS덕트 20×35", 20, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 60×40", 60, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 25×60", 25, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 30×60", 30, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 50×60", 50, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 80×60", 80, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 100×60", 100, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 30×80", 30, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 40×80", 40, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 50×80", 50, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 40×100", 40, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 60×100", 60, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 100×150", 100, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 150×100", 150, 200, shape: InstrumentShape.duct),
+];
+
+/// 덕트 고르기 창에 나오는 묶음(이름 → 크기 목록).
+const Map<String, List<ModulePreset>> kDuctPresetGroups = {
+  "자주 쓰는 크기 (폭×높이)": kDuctPresets,
+  "그 밖의 크기": kDuctMorePresets,
+};
 
 /// 계기(트랜스미터·스위치) 모듈. 정면에서 본 몸통 크기(2인치 브래킷 빼고)다.
 /// 제조사 도면의 외곽 치수를 mm로 옮겼다(2026-09 판). 제조사 이름 순서가 화면에 나오는 순서다.
@@ -56,6 +86,9 @@ const List<ModulePreset> kDuctPresets = [
 /// - 비카(WIKA) MA: PV 31.11(04/2022) p.8 MA·MAG·MAH 앞 그림. 가로 161 = 87+74(케이블 입구
 ///   포함, 브래킷 빼고). 세로 121 = 뚜껑 위~입구 중심 71(p.9) + 다이어프램 접속구 끝까지 50(p.8).
 ///   피스톤 감지는 +18(68), 용접 다이어프램 피스톤은 +38(88).
+/// - SOR: CAT216(Form 216, 07.26) p.21 NN·p.22 RN·p.28 B3, CAT468 p.14(101 차압 NN).
+///   세로는 상자 위~1/4" NPT 접속구 끝(1/2" NPT 피스톤형은 +13). 가로는 오른쪽 배관 허브 포함.
+///   스위치 한 벌(SPDT)·두 벌(DPDT) 외곽은 같다. 청색은 카탈로그에 없고 현장 모습 기준.
 const Map<String, List<ModulePreset>> kInstrumentPresets = {
   "요꼬가와": [
     ModulePreset("EJA110E DPT 수직배관", 175, 138, shape: InstrumentShape.dpSide),
@@ -84,6 +117,15 @@ const Map<String, List<ModulePreset>> kInstrumentPresets = {
     ModulePreset("2120 레벨 스위치 나일론", 141, 196, shape: InstrumentShape.fork),
     ModulePreset("2130 레벨 스위치", 120, 251, shape: InstrumentShape.fork),
     ModulePreset("2130 레벨 스위치 고온", 120, 418, shape: InstrumentShape.fork),
+  ],
+  "SOR": [
+    ModulePreset("6NN 압력 스위치", 108, 147, shape: InstrumentShape.sorPiston),
+    ModulePreset("12NN 압력 스위치 저압", 108, 150, shape: InstrumentShape.sorWide),
+    ModulePreset("54NN 압력 스위치", 108, 151, shape: InstrumentShape.sorDiaphragm),
+    ModulePreset("6RN 압력 스위치", 107, 172, shape: InstrumentShape.sorPiston),
+    ModulePreset("54RN 압력 스위치", 107, 176, shape: InstrumentShape.sorDiaphragm),
+    ModulePreset("6B3 방폭 압력 스위치", 150, 225, shape: InstrumentShape.sorExp),
+    ModulePreset("101NN 차압 스위치", 108, 154, shape: InstrumentShape.sorDp),
   ],
   "비카": [ModulePreset("MA 압력 스위치", 161, 121, shape: InstrumentShape.exdSwitch)],
 };

@@ -5241,7 +5241,23 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               affinity: Axis.horizontal,
             ),
             const SizedBox(height: 20),
-            _panelLabel("ABS 덕트 (폭 mm)"),
+            Row(
+              children: [
+                Expanded(child: _panelLabel("ABS 덕트 (폭×높이)")),
+                TextButton(
+                  onPressed: () => _showPresetSheet(
+                    title: "덕트 놓기",
+                    help:
+                        "폭×높이(mm)입니다. 도면에는 폭만큼 놓이고, 길이는 놓은 뒤 세로 칸에서 고칩니다. 누르면 지금 보이는 도면 가운데에 놓습니다.",
+                    groups: kDuctPresetGroups,
+                  ),
+                  child: const Text(
+                    "크기 전부",
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             // 🚀 ABS 배선덕트 - 폭이 정해진 자재라 배치 후 크기를 손으로 고칠
             // 필요 없이 원하는 폭을 바로 끌어다 놓는다(참고용 명목 폭,
@@ -6061,19 +6077,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               const SizedBox(width: 8),
               _buildInstrumentButton(),
               const SizedBox(width: 8),
-              // 🚀 ABS 배선덕트: 폭이 정해진 자재라 원하는 폭을 바로 끌어다 놓는다.
-              // (참고용 명목 폭 - 실제 발주 규격 확인 필요, kDuctPresets 주석 참고)
-              Expanded(
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: kDuctPresets.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final preset = kDuctPresets[index];
-                    return _dragTile(preset, (_) => _buildDuctChip(preset));
-                  },
-                ),
-              ),
+              _buildDuctButton(),
             ],
           ),
         ),
@@ -6392,9 +6396,37 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 
   // 좁은 화면 "계기" 단추: 누르면 제조사별 목록이 뜨고, 고르면 지금 보이는 도면 가운데에 놓는다.
   // (아래 칸 높이를 늘리면 도면이 좁아져서 끌어다 놓기 대신 목록으로 둔다.)
-  Widget _buildInstrumentButton() {
+  Widget _buildInstrumentButton() => _buildSheetButton(
+    key: const ValueKey("instrument_button"),
+    icon: Icons.speed_rounded,
+    label: "계기",
+    onTap: () => _showPresetSheet(
+      title: "계기 놓기",
+      help: "정면에서 본 몸통 크기입니다(2인치 브래킷 빼고). 누르면 지금 보이는 도면 가운데에 놓습니다.",
+      groups: kInstrumentPresets,
+    ),
+  );
+
+  Widget _buildDuctButton() => _buildSheetButton(
+    key: const ValueKey("duct_button"),
+    icon: Icons.view_week_rounded,
+    label: "덕트",
+    onTap: () => _showPresetSheet(
+      title: "덕트 놓기",
+      help:
+          "폭×높이(mm)입니다. 도면에는 폭만큼 놓이고, 길이는 놓은 뒤 세로 칸에서 고칩니다. 누르면 지금 보이는 도면 가운데에 놓습니다.",
+      groups: kDuctPresetGroups,
+    ),
+  );
+
+  Widget _buildSheetButton({
+    required Key key,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
     return Material(
-      key: const ValueKey("instrument_button"),
+      key: key,
       color: pureWhite,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -6402,17 +6434,17 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: _showInstrumentSheet,
-        child: const SizedBox(
+        onTap: onTap,
+        child: SizedBox(
           width: 76,
           height: 56,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.speed_rounded, size: 22, color: tossBlue),
+              Icon(icon, size: 22, color: tossBlue),
               Text(
-                "계기",
-                style: TextStyle(
+                label,
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
                   color: tossText,
@@ -6425,7 +6457,11 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     );
   }
 
-  Future<void> _showInstrumentSheet() async {
+  Future<void> _showPresetSheet({
+    required String title,
+    required String help,
+    required Map<String, List<ModulePreset>> groups,
+  }) async {
     final ModulePreset? picked = await showModalBottomSheet<ModulePreset>(
       context: context,
       isScrollControlled: true,
@@ -6441,9 +6477,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           controller: scroll,
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           children: [
-            const Text(
-              "계기 놓기",
-              style: TextStyle(
+            Text(
+              title,
+              style: const TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w900,
                 color: tossText,
@@ -6451,16 +6487,14 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             ),
             const SizedBox(height: 4),
             Text(
-              keepWords(
-                "정면에서 본 몸통 크기입니다(2인치 브래킷 빼고). 누르면 지금 보이는 도면 가운데에 놓습니다.",
-              ),
+              keepWords(help),
               style: const TextStyle(
                 fontSize: 14,
                 color: tossSubText,
                 height: 1.4,
               ),
             ),
-            for (final brand in kInstrumentPresets.entries) ...[
+            for (final brand in groups.entries) ...[
               const SizedBox(height: 16),
               _panelLabel(brand.key),
               for (final p in brand.value)
@@ -6475,10 +6509,16 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       color: tossText,
                     ),
                   ),
-                  trailing: Text(
-                    "${p.width.toInt()}×${p.height.toInt()}",
-                    style: const TextStyle(fontSize: 15, color: tossSubText),
-                  ),
+                  // 덕트는 이름에 폭×높이가 있고 도면 세로(길이)는 놓은 뒤 고치므로 크기를 따로 안 적는다.
+                  trailing: p.shape == InstrumentShape.duct
+                      ? null
+                      : Text(
+                          "${p.width.toInt()}×${p.height.toInt()}",
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: tossSubText,
+                          ),
+                        ),
                   onTap: () => Navigator.pop(ctx, p),
                 ),
             ],
@@ -6583,9 +6623,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             ),
           ),
           Text(
-            preset.width.toInt().toString(),
+            preset.name.replaceFirst("ABS덕트 ", ""),
             style: const TextStyle(
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: FontWeight.w900,
               color: tossText,
               height: 1.2,

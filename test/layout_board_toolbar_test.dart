@@ -350,8 +350,8 @@ void main() {
 
   testWidgets('태블릿 폭: 왼쪽 칸의 덕트를 옆으로 끌어 도면에 놓는다', (tester) async {
     await openWithDraft(tester, kTablet);
-    expect(onBoard('ABS덕트 80mm'), findsNothing);
-    final Offset from = tester.getCenter(find.text('80'));
+    expect(onBoard('ABS덕트 80×80'), findsNothing);
+    final Offset from = tester.getCenter(find.text('80×80'));
     final g = await tester.startGesture(from);
     for (int i = 0; i < 12; i++) {
       await g.moveBy(const Offset(40, -10));
@@ -359,7 +359,7 @@ void main() {
     }
     await g.up();
     await tester.pumpAndSettle();
-    expect(onBoard('ABS덕트 80mm'), findsOneWidget);
+    expect(onBoard('ABS덕트 80×80'), findsOneWidget);
     await disposeBoard(tester);
   });
 

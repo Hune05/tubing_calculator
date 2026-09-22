@@ -33,6 +33,22 @@ class InstrumentShape {
   /// 아래 받침판과 가운데 접속구. 원래 가로가 길다.
   static const String exdSwitch = 'exd_switch';
 
+  /// SOR 방수형(NN·RN) 압력 스위치: 네모 상자(뚜껑 나사 4개, 아래 양쪽 귀, 오른쪽 배관 허브),
+  /// 아래로 목·육각·접속구(피스톤).
+  static const String sorPiston = 'sor_piston';
+
+  /// SOR 작은 다이어프램(4·54).
+  static const String sorDiaphragm = 'sor_diaphragm';
+
+  /// SOR 저압 넓은 다이어프램(12·52, 지름 94.5 원판).
+  static const String sorWide = 'sor_wide';
+
+  /// SOR 101 차압: 상자 아래 둥근 차압 몸통, 아래 HI·옆 LO 구멍.
+  static const String sorDp = 'sor_dp';
+
+  /// SOR 방폭(B3·B6): 둥근 뚜껑 양옆 허브, 아래 네모 설정칸, 목·접속구.
+  static const String sorExp = 'sor_exp';
+
   /// 원래 가로가 긴 모양인지(돌려 놓았는지 가리는 데 쓴다).
   static bool isLandscape(String shape) =>
       shape == dpSide || shape == exdSwitch;
@@ -85,6 +101,13 @@ class InstrumentShapePainter extends CustomPainter {
         _duct(canvas, s);
       case InstrumentShape.exdSwitch:
         _exdSwitch(canvas, s);
+      case InstrumentShape.sorPiston:
+      case InstrumentShape.sorDiaphragm:
+      case InstrumentShape.sorWide:
+      case InstrumentShape.sorDp:
+        _sorBox(canvas, s, shape);
+      case InstrumentShape.sorExp:
+        _sorExp(canvas, s);
       default:
         _part(canvas, Offset.zero & s, _body, radius: 4);
     }
@@ -317,6 +340,149 @@ class InstrumentShapePainter extends CustomPainter {
       c,
       Rect.fromLTRB(cx - w * 0.08, h * 0.86, cx + w * 0.08, h * 0.93),
       Rect.fromLTRB(cx - w * 0.04, h * 0.93, cx + w * 0.04, h),
+    );
+  }
+
+  static const Color _sorBlue = Color(0xFFCFE3F3);
+
+  // SOR NN·RN(CAT216 p.21·22): 오른쪽 허브를 뺀 상자 폭은 전체의 약 0.82.
+  void _sorBox(Canvas c, Size s, String kind) {
+    final double w = s.width, h = s.height;
+    final double boxR = w * 0.82;
+    final double boxB = kind == InstrumentShape.sorPiston ? h * 0.66 : h * 0.6;
+    final double cx = boxR / 2;
+    _part(c, Rect.fromLTRB(0, 0, boxR, boxB), _sorBlue, radius: boxR * 0.08);
+    // 뚜껑 나사 4개
+    final double sr = math.min(boxR, boxB) * 0.035;
+    for (final dx in [0.1, 0.9]) {
+      for (final dy in [0.08, 0.84]) {
+        _circle(c, Offset(boxR * dx, boxB * dy), sr, _body);
+      }
+    }
+    // 오른쪽 배관 허브
+    _part(
+      c,
+      Rect.fromLTRB(boxR, boxB * 0.42, w, boxB * 0.62),
+      _metal,
+      radius: 1,
+    );
+    // 아래 양쪽 귀(긴 구멍)
+    for (final left in [true, false]) {
+      final Rect ear = left
+          ? Rect.fromLTRB(0, boxB * 0.9, boxR * 0.2, boxB + h * 0.03)
+          : Rect.fromLTRB(boxR * 0.8, boxB * 0.9, boxR, boxB + h * 0.03);
+      _part(c, ear, _sorBlue, radius: 2);
+    }
+    final double neckW = boxR * 0.4;
+    Rect hex(double top, double bottom) =>
+        Rect.fromLTRB(cx - boxR * 0.15, h * top, cx + boxR * 0.15, h * bottom);
+    Rect thread(double top) =>
+        Rect.fromLTRB(cx - boxR * 0.075, h * top, cx + boxR * 0.075, h);
+    switch (kind) {
+      case InstrumentShape.sorWide:
+        _part(
+          c,
+          Rect.fromLTRB(cx - neckW / 2, boxB, cx + neckW / 2, h * 0.7),
+          _metal,
+          radius: 0,
+        );
+        final Rect disc = Rect.fromLTRB(0, h * 0.7, boxR, h * 0.86);
+        _part(c, disc, _metal, radius: 3);
+        for (final px in [0.12, 0.35, 0.65, 0.88]) {
+          _circle(
+            c,
+            Offset(boxR * px, disc.center.dy),
+            math.min(boxR, h) * 0.025,
+            _body,
+          );
+        }
+        _hexAndThread(c, hex(0.86, 0.93), thread(0.93));
+      case InstrumentShape.sorDiaphragm:
+        _part(
+          c,
+          Rect.fromLTRB(cx - neckW / 2, boxB, cx + neckW / 2, h * 0.7),
+          _metal,
+          radius: 0,
+        );
+        _part(
+          c,
+          Rect.fromLTRB(cx - boxR * 0.26, h * 0.7, cx + boxR * 0.26, h * 0.85),
+          _metal,
+          radius: 4,
+        );
+        _hexAndThread(c, hex(0.85, 0.93), thread(0.93));
+      case InstrumentShape.sorDp:
+        _part(
+          c,
+          Rect.fromLTRB(cx - boxR * 0.15, boxB, cx + boxR * 0.15, h * 0.7),
+          _metal,
+          radius: 0,
+        );
+        final Rect body = Rect.fromLTRB(
+          cx - boxR * 0.3,
+          h * 0.7,
+          cx + boxR * 0.3,
+          h * 0.92,
+        );
+        _part(c, body, _metal, radius: 5);
+        // 옆 LO, 아래 HI
+        _part(
+          c,
+          Rect.fromLTRB(body.left - boxR * 0.1, h * 0.77, body.left, h * 0.85),
+          _metal,
+          radius: 0,
+        );
+        _part(
+          c,
+          Rect.fromLTRB(cx - boxR * 0.07, h * 0.92, cx + boxR * 0.07, h),
+          _metal,
+          radius: 0,
+        );
+      default:
+        _part(
+          c,
+          Rect.fromLTRB(cx - neckW / 2, boxB, cx + neckW / 2, h * 0.84),
+          _metal,
+          radius: 0,
+        );
+        _hexAndThread(c, hex(0.84, 0.92), thread(0.92));
+    }
+  }
+
+  // SOR B3·B6(CAT216 p.28): 둥근 뚜껑 약 Ø120 양옆 허브, 아래 설정칸 약 71×72.
+  void _sorExp(Canvas c, Size s) {
+    final double w = s.width, h = s.height;
+    final double hub = w * 0.1;
+    final double coverD = math.min(w - hub * 2, h * 0.54);
+    final Offset cc = Offset(w / 2, coverD / 2);
+    final double hubT = cc.dy - coverD * 0.1, hubB = cc.dy + coverD * 0.1;
+    _part(c, Rect.fromLTRB(0, hubT, hub + 2, hubB), _metal, radius: 1);
+    _part(c, Rect.fromLTRB(w - hub - 2, hubT, w, hubB), _metal, radius: 1);
+    _circle(c, cc, coverD / 2, _sorBlue);
+    _circle(c, cc, coverD * 0.38, _body);
+    final double boxW = w * 0.48;
+    final Rect set = Rect.fromLTRB(
+      w / 2 - boxW / 2,
+      coverD * 0.95,
+      w / 2 + boxW / 2,
+      h * 0.8,
+    );
+    _part(c, set, _sorBlue, radius: 3);
+    final double br = boxW * 0.05;
+    for (final dx in [0.14, 0.86]) {
+      for (final dy in [0.14, 0.86]) {
+        _circle(
+          c,
+          Offset(set.left + set.width * dx, set.top + set.height * dy),
+          br,
+          _body,
+        );
+      }
+    }
+    _hexAndThread(
+      c,
+      Rect.fromLTRB(w * 0.4, h * 0.8, w * 0.6, h * 0.9),
+      Rect.fromLTRB(w * 0.45, h * 0.9, w * 0.55, h),
     );
   }
 

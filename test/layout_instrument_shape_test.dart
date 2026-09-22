@@ -23,6 +23,11 @@ void main() {
       InstrumentShape.fork,
       InstrumentShape.duct,
       InstrumentShape.exdSwitch,
+      InstrumentShape.sorPiston,
+      InstrumentShape.sorDiaphragm,
+      InstrumentShape.sorWide,
+      InstrumentShape.sorDp,
+      InstrumentShape.sorExp,
       'unknown',
     ];
     for (final shape in shapes) {
