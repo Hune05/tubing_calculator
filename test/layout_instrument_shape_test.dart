@@ -21,6 +21,8 @@ void main() {
       InstrumentShape.dpSide,
       InstrumentShape.inline,
       InstrumentShape.fork,
+      InstrumentShape.duct,
+      InstrumentShape.exdSwitch,
       'unknown',
     ];
     for (final shape in shapes) {

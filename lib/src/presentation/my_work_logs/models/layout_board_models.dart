@@ -35,10 +35,10 @@ class ModulePreset {
 // 세로(길이)는 배선 경로에 따라 달라지므로 기본값만 두고, 배치 후
 // "모듈 속성 편집"에서 실제 길이에 맞게 조정하면 된다.
 const List<ModulePreset> kDuctPresets = [
-  ModulePreset("ABS덕트 40mm", 40, 200),
-  ModulePreset("ABS덕트 60mm", 60, 200),
-  ModulePreset("ABS덕트 80mm", 80, 200),
-  ModulePreset("ABS덕트 100mm", 100, 200),
+  ModulePreset("ABS덕트 40mm", 40, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 60mm", 60, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 80mm", 80, 200, shape: InstrumentShape.duct),
+  ModulePreset("ABS덕트 100mm", 100, 200, shape: InstrumentShape.duct),
 ];
 
 /// 계기(트랜스미터·스위치) 모듈. 정면에서 본 몸통 크기(2인치 브래킷 빼고)다.
@@ -53,6 +53,9 @@ const List<ModulePreset> kDuctPresets = [
 ///   00813-0100-4030 p.23(2120 나사형 표준 길이), 00813-0100-4130 p.23(2130).
 ///   3051 재래식 플랜지 세로 200은 ≈(2051은 197).
 /// - 로즈마운트 상표 압력 스위치는 없다(에머슨 압력 스위치는 ASCO 상표).
+/// - 비카(WIKA) MA: PV 31.11(04/2022) p.8 MA·MAG·MAH 앞 그림. 가로 161 = 87+74(케이블 입구
+///   포함, 브래킷 빼고). 세로 121 = 뚜껑 위~입구 중심 71(p.9) + 다이어프램 접속구 끝까지 50(p.8).
+///   피스톤 감지는 +18(68), 용접 다이어프램 피스톤은 +38(88).
 const Map<String, List<ModulePreset>> kInstrumentPresets = {
   "요꼬가와": [
     ModulePreset("EJA110E DPT 수직배관", 175, 138, shape: InstrumentShape.dpSide),
@@ -82,6 +85,7 @@ const Map<String, List<ModulePreset>> kInstrumentPresets = {
     ModulePreset("2130 레벨 스위치", 120, 251, shape: InstrumentShape.fork),
     ModulePreset("2130 레벨 스위치 고온", 120, 418, shape: InstrumentShape.fork),
   ],
+  "비카": [ModulePreset("MA 압력 스위치", 161, 121, shape: InstrumentShape.exdSwitch)],
 };
 
 abstract class MeasurePoint {

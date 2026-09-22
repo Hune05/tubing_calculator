@@ -26,8 +26,16 @@ class InstrumentShape {
   /// 포크 레벨 스위치: 둥근 머리, 목, 육각·나사, 두 갈래 포크.
   static const String fork = 'fork';
 
+  /// ABS 배선 덕트: 양쪽 벽에 빗살(전선 빼는 홈), 가운데 뚜껑. 원래 세로로 길다.
+  static const String duct = 'duct';
+
+  /// 비카 MA 같은 방폭 압력 스위치: 옆에서 본 둥근 통(청색), 왼쪽 케이블 입구,
+  /// 아래 받침판과 가운데 접속구. 원래 가로가 길다.
+  static const String exdSwitch = 'exd_switch';
+
   /// 원래 가로가 긴 모양인지(돌려 놓았는지 가리는 데 쓴다).
-  static bool isLandscape(String shape) => shape == dpSide;
+  static bool isLandscape(String shape) =>
+      shape == dpSide || shape == exdSwitch;
 }
 
 class InstrumentShapePainter extends CustomPainter {
@@ -73,6 +81,10 @@ class InstrumentShapePainter extends CustomPainter {
         _inline(canvas, s);
       case InstrumentShape.fork:
         _fork(canvas, s);
+      case InstrumentShape.duct:
+        _duct(canvas, s);
+      case InstrumentShape.exdSwitch:
+        _exdSwitch(canvas, s);
       default:
         _part(canvas, Offset.zero & s, _body, radius: 4);
     }
@@ -279,6 +291,48 @@ class InstrumentShapePainter extends CustomPainter {
         radius: tw / 2,
       );
     }
+  }
+
+  // 비카 MA 정면(PV 31.11 p.8 왼쪽 그림): 가운데 선이 왼쪽에서 87/161 자리.
+  void _exdSwitch(Canvas c, Size s) {
+    final double w = s.width, h = s.height;
+    const Color blue = Color(0xFFD6E4F5);
+    final double cx = w * 87 / 161;
+    // 뚜껑 위 도드라진 부분과 통
+    _part(c, Rect.fromLTRB(w * 0.36, 0, w * 0.82, h * 0.1), blue, radius: 2);
+    _part(c, Rect.fromLTRB(w * 0.14, h * 0.08, w, h * 0.2), blue, radius: 2);
+    _part(c, Rect.fromLTRB(w * 0.14, h * 0.2, w, h * 0.78), blue, radius: 3);
+    // 왼쪽 케이블 입구, 오른쪽 뚜껑 잠금 고리
+    _part(c, Rect.fromLTRB(0, h * 0.4, w * 0.15, h * 0.64), _metal, radius: 2);
+    _circle(c, Offset(w * 0.075, h * 0.52), math.min(w, h) * 0.05, _body);
+    _part(c, Rect.fromLTRB(w * 0.9, h * 0.44, w * 0.97, h * 0.6), _body);
+    // 받침판(볼트)과 접속구
+    final Rect base = Rect.fromLTRB(w * 0.12, h * 0.78, w, h * 0.86);
+    _part(c, base, _metal, radius: 1);
+    for (final px in [0.22, 0.4, 0.72, 0.9]) {
+      final double bx = w * px;
+      c.drawLine(Offset(bx, base.top), Offset(bx, base.bottom), _line);
+    }
+    _hexAndThread(
+      c,
+      Rect.fromLTRB(cx - w * 0.08, h * 0.86, cx + w * 0.08, h * 0.93),
+      Rect.fromLTRB(cx - w * 0.04, h * 0.93, cx + w * 0.04, h),
+    );
+  }
+
+  void _duct(Canvas c, Size s) {
+    final double w = s.width, h = s.height;
+    _part(c, Offset.zero & s, _metal, radius: 1);
+    // 양쪽 벽 두께와 빗살 간격(실물 홈 간격 12mm 안팎, 도면 1칸 = 1mm).
+    final double wall = math.min(w * 0.2, 10);
+    final double pitch = math.max(12, h / 40);
+    final Paint slot = _line..strokeWidth = math.max(1, strokeWidth * 0.8);
+    for (double y = pitch; y < h - pitch / 2; y += pitch) {
+      c.drawLine(Offset(0, y), Offset(wall, y), slot);
+      c.drawLine(Offset(w - wall, y), Offset(w, y), slot);
+    }
+    // 가운데 뚜껑
+    _part(c, Rect.fromLTRB(wall, 0, w - wall, h), _body, radius: 0);
   }
 
   @override
