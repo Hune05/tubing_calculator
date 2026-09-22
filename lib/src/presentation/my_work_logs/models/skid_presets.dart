@@ -9,6 +9,20 @@ import 'layout_board_models.dart';
 const String kLayoutKindCabinet = 'cabinet';
 const String kLayoutKindSkid = 'skid';
 
+/// 스키드 도면 탭: 평면(중판 자리 kPlateMain을 쓴다)·정면·좌측면·우측면.
+const String kSkidViewFront = 'front';
+const List<String> kSkidViewOrder = ['main', kSkidViewFront, 'left', 'right'];
+
+String skidViewLabel(String id) => switch (id) {
+  kSkidViewFront => '정면',
+  'left' => '좌측면',
+  'right' => '우측면',
+  _ => '평면',
+};
+
+/// 정면·측면 새 탭의 기본 높이(mm, 바닥~스키드 위 끝).
+const double kSkidDefaultHeight = 1500;
+
 /// 스키드 새 도면 기본 크기(길이 × 폭, mm).
 const double kSkidDefaultLength = 2400;
 const double kSkidDefaultWidth = 1200;

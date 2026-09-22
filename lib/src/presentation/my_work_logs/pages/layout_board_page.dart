@@ -485,15 +485,28 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     _plateId: _captureActivePlate(),
   };
 
-  Map<String, dynamic> _newSidePlate() => {
-    'panelWidth': 300.0,
-    'panelHeight':
-        (_allPlates()[kPlateMain]?['panelHeight'] as num?)?.toDouble() ??
-        _panelHeight,
-    'items': <dynamic>[],
-    'dimensions': <dynamic>[],
-    'backgroundOpacity': 0.5,
-  };
+  // 새 판(탭) 기본 크기. 캐비닛 측판 = 가로 300 × 중판 세로.
+  // 스키드 정면 = 스키드 길이 × 높이, 좌·우측면 = 스키드 폭 × 높이.
+  Map<String, dynamic> _newSidePlate([String? id]) {
+    final main = _allPlates()[kPlateMain];
+    final double mainW =
+        (main?['panelWidth'] as num?)?.toDouble() ?? _panelWidth;
+    final double mainH =
+        (main?['panelHeight'] as num?)?.toDouble() ?? _panelHeight;
+    final double w = !_isSkid ? 300.0 : (id == kSkidViewFront ? mainW : mainH);
+    return {
+      'panelWidth': w,
+      'panelHeight': _isSkid ? kSkidDefaultHeight : mainH,
+      'items': <dynamic>[],
+      'dimensions': <dynamic>[],
+      'backgroundOpacity': 0.5,
+    };
+  }
+
+  /// 탭 순서와 이름(캐비닛: 좌측판·중판·우측판, 스키드: 평면·정면·좌측면·우측면).
+  List<String> get _tabOrder => _isSkid ? kSkidViewOrder : kPlateOrder;
+  String _tabLabel(String id) => _isSkid ? skidViewLabel(id) : plateLabel(id);
+  bool get _showTabs => _isSkid || _sidePlatesOn;
 
   void _loadPlateFields(Map<String, dynamic> d) {
     _panelWidth = (d['panelWidth'] as num?)?.toDouble() ?? _panelWidth;
@@ -513,7 +526,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     if (id == _plateId) return;
     _plateStore[_plateId] = _captureActivePlate();
     _plateUndo[_plateId] = [List.of(_undoStack), List.of(_redoStack)];
-    final target = _plateStore.remove(id) ?? _newSidePlate();
+    final target = _plateStore.remove(id) ?? _newSidePlate(id);
     _plateId = id;
     _plateStore[id] = {
       for (final k in const ['bottomOffset', 'gap'])
@@ -532,6 +545,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     _dimensionStartPoint = null;
     _inspectorNameFor = null;
     _viewerController.value = Matrix4.identity();
+    if (_isSkid) _fitPending = true;
   }
 
   /// 저장할 때 붙이는 측판 칸(예전 앱은 이 칸을 모르고 중판만 읽는다).
@@ -542,8 +556,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     'sidePlatesOn': _sidePlatesOn,
     if (_cabinetDepth != null) 'cabinetDepth': _cabinetDepth,
     'sidePlates': {
-      for (final id in const [kPlateLeft, kPlateRight])
-        if (plates[id] != null) id: plates[id],
+      for (final e in plates.entries)
+        if (e.key != kPlateMain) e.key: e.value,
     },
   };
 
@@ -554,10 +568,11 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     _plateId = kPlateMain;
     final side = data['sidePlates'];
     if (side is Map) {
-      for (final id in const [kPlateLeft, kPlateRight]) {
-        final p = side[id];
-        if (p is Map) _plateStore[id] = Map<String, dynamic>.from(p);
-      }
+      side.forEach((id, p) {
+        if (p is Map && id != kPlateMain) {
+          _plateStore[id.toString()] = Map<String, dynamic>.from(p);
+        }
+      });
     }
     _sidePlatesOn = data['sidePlatesOn'] == true;
     _kind = data['kind'] == kLayoutKindSkid
@@ -594,14 +609,23 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
       child: Row(
         children: [
-          for (final id in kPlateOrder) ...[
+          for (final id in _tabOrder) ...[
             Expanded(
               child: ChoiceChip(
                 key: ValueKey("plate_tab_$id"),
                 label: SizedBox(
                   width: double.infinity,
-                  child: Text(plateLabel(id), textAlign: TextAlign.center),
+                  child: Text(
+                    _tabLabel(id),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.visible,
+                  ),
                 ),
+                // 탭이 넷(스키드)이면 좁아서 안쪽 여백을 줄인다.
+                labelPadding: EdgeInsets.zero,
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
                 selected: id == _plateId,
                 showCheckmark: false,
                 labelStyle: TextStyle(
@@ -618,7 +642,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 },
               ),
             ),
-            if (id != kPlateOrder.last) const SizedBox(width: 6),
+            if (id != _tabOrder.last) const SizedBox(width: 6),
           ],
         ],
       ),
@@ -1518,7 +1542,12 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 
       // 측판을 켰으면 좌측판·중판·우측판을 한 장씩 찍는다(판을 바꿔 그린 뒤 찍고 되돌린다).
       final String startPlate = _plateId;
-      final List<String> plateIds = _sidePlatesOn ? kPlateOrder : [_plateId];
+      final Set<String> made = {..._plateStore.keys, _plateId};
+      final List<String> plateIds = _isSkid
+          ? _tabOrder
+                .where((id) => id == kPlateMain || made.contains(id))
+                .toList()
+          : (_sidePlatesOn ? kPlateOrder : [_plateId]);
       final shots =
           <(String, Uint8List, double, double, List<PlacedDimension>)>[];
       for (final id in plateIds) {
@@ -1539,11 +1568,18 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       String qrData = "tubingcalc://layout?project=$_currentProjectId";
       for (final (plateId, imageBytes, plateW, plateH, plateDims) in shots) {
         final image = pw.MemoryImage(imageBytes);
-        final String plateName = switch (plateId) {
-          kPlateLeft => "Left Side Plate",
-          kPlateRight => "Right Side Plate",
-          _ => _sidePlatesOn ? "Main Plate" : "",
-        };
+        final String plateName = _isSkid
+            ? switch (plateId) {
+                kSkidViewFront => "Front View",
+                kPlateLeft => "Left View",
+                kPlateRight => "Right View",
+                _ => "Plan View",
+              }
+            : switch (plateId) {
+                kPlateLeft => "Left Side Plate",
+                kPlateRight => "Right Side Plate",
+                _ => _sidePlatesOn ? "Main Plate" : "",
+              };
 
         pdf.addPage(
           pw.Page(
@@ -4591,7 +4627,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   child: Column(
                     children: [
                       _buildWideModeBar(),
-                      if (_sidePlatesOn) _buildPlateTabs(),
+                      if (_showTabs) _buildPlateTabs(),
                       Expanded(child: _buildBoardCanvas(wide)),
                     ],
                   ),
@@ -4602,7 +4638,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           else
             Column(
               children: [
-                if (_sidePlatesOn) _buildPlateTabs(),
+                if (_showTabs) _buildPlateTabs(),
                 Expanded(child: _buildBoardCanvas(wide)),
                 // 하단 컨트롤 패널
                 _buildBottomPanel(),
@@ -4613,7 +4649,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           // 보고 있는 위치를 놓치지 않도록 구석에 작게 띄운다.
           if (_placedItems.isNotEmpty && _viewportSize != null)
             Positioned(
-              top: (wide ? 96 : 12) + (_sidePlatesOn ? 48 : 0),
+              top: (wide ? 96 : 12) + (_showTabs ? 48 : 0),
               right: wide ? _kWideInspectorWidth + 12 : 12,
               child: (_minimapOpen ?? wide)
                   ? Tooltip(
@@ -4817,7 +4853,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       icon: Icons.aspect_ratio_rounded,
                       label: _isSkid ? "스키드 크기 (길이 × 폭)" : "외함 사이즈 설정",
                       caption:
-                          "${_sidePlatesOn ? "${plateLabel(_plateId)} " : ""}지금 ${_panelWidth.toInt()} × ${_panelHeight.toInt()} mm",
+                          "${_showTabs ? "${_tabLabel(_plateId)} " : ""}지금 ${_panelWidth.toInt()} × ${_panelHeight.toInt()} mm",
                       onTap: () => run(_showPanelSettingsSheet),
                     ),
                     if (!_isSkid) ...[

@@ -82,4 +82,41 @@ void main() {
     expect(saved['panelWidth'], kSkidDefaultLength);
     expect(saved['panelHeight'], kSkidDefaultWidth);
   });
+
+  testWidgets('스키드는 평면·정면·좌측면·우측면 탭, 정면은 길이×1500으로 새로 생기고 저장된다', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'layout_board_onboarding_shown_v1': true,
+    });
+    tester.view.physicalSize = const Size(390, 844) * 2;
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      const MaterialApp(home: LayoutBoardPage(initialKind: kLayoutKindSkid)),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    for (final id in kSkidViewOrder) {
+      expect(find.byKey(ValueKey('plate_tab_$id')), findsOneWidget);
+    }
+    expect(find.text('정면'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('plate_tab_front')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('skid_jb')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('정션박스 300×300'));
+    await tester.pumpAndSettle();
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+    final prefs = await SharedPreferences.getInstance();
+    final saved = jsonDecode(prefs.getString('layout_board_draft_v1')!) as Map;
+    final front = (saved['sidePlates'] as Map)['front'] as Map;
+    expect(front['panelWidth'], kSkidDefaultLength);
+    expect(front['panelHeight'], kSkidDefaultHeight);
+    expect((front['items'] as List).single['name'], '정션박스 300×300');
+    expect(saved['items'], isEmpty); // 평면에는 안 들어갔다
+  });
 }
