@@ -58,7 +58,10 @@ Future<void> schedulePersonalReminder(
   await flutterLocalNotificationsPlugin.cancel(id: notifId);
 
   final String recurrence = (data['recurrence'] as String?) ?? 'none';
-  final DateTime base = DateTime.parse(data['dateTime'] as String);
+  // 날짜 칸이 없거나 글이 아니면(가져온 자료·옛 자료) 그 일정만 건너뛴다. 예전엔 여기서
+  // 예외가 나서 나머지 일정 알림까지 전부 다시 잡히지 않았다.
+  final DateTime? base = DateTime.tryParse(data['dateTime']?.toString() ?? '');
+  if (base == null) return;
   final int minutesBefore = (data['reminderMinutesBefore'] as int?) ?? 0;
   DateTimeComponents? matchComponents;
   if (recurrence == 'weekly') {
@@ -186,8 +189,12 @@ Future<int> rescheduleAllPersonalReminders() async {
   var n = 0;
   final now = DateTime.now();
   for (final d in await _personalDocs(worker)) {
-    await schedulePersonalReminder(d.id, d.data);
-    if (_needsReminder(d.data, now)) n++;
+    try {
+      await schedulePersonalReminder(d.id, d.data);
+      if (_needsReminder(d.data, now)) n++;
+    } catch (e) {
+      debugPrint('일정 ${d.id} 알림 다시 잡기 실패: $e');
+    }
   }
   return n;
 }

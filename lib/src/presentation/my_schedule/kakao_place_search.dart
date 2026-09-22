@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -75,10 +76,10 @@ Future<List<KakaoPlace>> searchKakaoPlaces(
     'size': '$size',
   });
   try {
-    final res = await http.get(
-      uri,
-      headers: {'Authorization': 'KakaoAK $kKakaoRestKey'},
-    );
+    // 통신이 약한 곳(발전소)에서 찾기 단추가 영영 도는 일이 없게 8초 뒤 그만둔다.
+    final res = await http
+        .get(uri, headers: {'Authorization': 'KakaoAK $kKakaoRestKey'})
+        .timeout(const Duration(seconds: 8));
     if (res.statusCode == 401 || res.statusCode == 403) {
       throw const KakaoSearchException(
         "카카오 키가 거부되었습니다(권한). 개발자 콘솔에서 키와 플랫폼 설정을 확인하십시오.",
@@ -90,6 +91,8 @@ Future<List<KakaoPlace>> searchKakaoPlaces(
     return parseKakaoPlaces(utf8.decode(res.bodyBytes));
   } on KakaoSearchException {
     rethrow;
+  } on TimeoutException {
+    throw const KakaoSearchException("통신이 느려 장소를 찾지 못했습니다. 다시 해 보십시오.");
   } catch (e) {
     throw KakaoSearchException("장소를 찾지 못했습니다: $e");
   }

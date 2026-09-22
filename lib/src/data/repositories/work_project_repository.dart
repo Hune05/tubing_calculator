@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const String kWorkProjectsCollection = 'my_projects';
 
@@ -55,7 +57,18 @@ class WorkProjectRepository {
   // 앞에 두던 것과 동일한 순서.
   Future<List<Map<String, dynamic>>> fetchAllProjects() async {
     await _migrateFromHiveIfNeeded();
-    final snapshot = await _col.orderBy('id', descending: true).get();
+    // 통신이 없으면 서버 확인이 끝나지 않아 목록이 영영 돌던 것: 6초 뒤 폰에 있는 것으로.
+    QuerySnapshot<Map<String, dynamic>> snapshot;
+    try {
+      snapshot = await _col
+          .orderBy('id', descending: true)
+          .get()
+          .timeout(const Duration(seconds: 6));
+    } on TimeoutException {
+      snapshot = await _col
+          .orderBy('id', descending: true)
+          .get(const GetOptions(source: Source.cache));
+    }
     return snapshot.docs.map((d) {
       final data = Map<String, dynamic>.from(d.data());
       data['id'] = d.id;
@@ -115,18 +128,34 @@ class WorkProjectRepository {
   // 다시 실행하지 않는다. Hive 데이터는 안전하게 그대로 남겨두고
   // (삭제하지 않음) 그냥 더 이상 읽지 않을 뿐이라, 뭔가 잘못돼도
   // 원본은 남아있다.
+  static const String _migratedFlag = 'hive_projects_migrated_v1';
+
   Future<void> _migrateFromHiveIfNeeded() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_migratedFlag) == true) return;
       final existing = await _col.limit(1).get();
-      if (existing.docs.isNotEmpty) return;
+      // 통신이 없어 폰 캐시(비어 있을 수 있음)로 답하면 판단하지 않는다. 예전엔 이때
+      // "서버에 없다"로 보고 옛 Hive 자료를 서버 것 위에 덮어썼다.
+      if (existing.metadata.isFromCache) return;
+      if (existing.docs.isNotEmpty) {
+        await prefs.setBool(_migratedFlag, true);
+        return;
+      }
 
       if (!Hive.isBoxOpen('projectsBox')) return;
       final box = Hive.box('projectsBox');
       final String? jsonString = box.get('projectList');
-      if (jsonString == null) return;
+      if (jsonString == null) {
+        await prefs.setBool(_migratedFlag, true);
+        return;
+      }
 
       final List<dynamic> decoded = jsonDecode(jsonString);
-      if (decoded.isEmpty) return;
+      if (decoded.isEmpty) {
+        await prefs.setBool(_migratedFlag, true);
+        return;
+      }
 
       final batch = _db.batch();
       for (final raw in decoded) {
@@ -138,6 +167,7 @@ class WorkProjectRepository {
         batch.set(_col.doc(id), project);
       }
       await batch.commit();
+      await prefs.setBool(_migratedFlag, true);
       debugPrint("✅ 내 프로젝트 ${decoded.length}건을 Firestore로 이전했습니다.");
     } catch (e) {
       debugPrint("⚠️ 내 프로젝트 Hive→Firestore 이전 실패: $e");

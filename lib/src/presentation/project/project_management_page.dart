@@ -61,7 +61,15 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
   // 다시 써서, 그 사이 다른 폰에서 넣은 일지·일정이 다른 프로젝트에서 지워질 수 있었다.
   void _saveData(int index) {
     if (index < 0 || index >= projects.length) return;
-    _projectRepo.upsertProject(projects[index]);
+    // 예전엔 저장 실패가 아무 표시 없이 사라졌다(화면은 저장된 것처럼 보였다).
+    _projectRepo.upsertProject(projects[index]).catchError((e) {
+      debugPrint('프로젝트 저장 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("저장하지 못했습니다. 통신을 확인하고 다시 해 보십시오.")),
+        );
+      }
+    });
   }
 
   Future<String?> _pickImageSource() async {
@@ -590,23 +598,26 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                   String textValue = punchCtrl.text.trim();
                   if (textValue.isNotEmpty || attachedImages.isNotEmpty) {
                     setState(() {
-                      projects[projectIndex]['punch_lists'].insert(0, {
-                        "id": DateTime.now().millisecondsSinceEpoch.toString(),
-                        "created_at": DateTime.now(),
-                        // 🚀 처리 완료 전까지 우선순위별 주기로 알림을
-                        // 보내기 위한 발송 시간 기록 (모바일 이슈 등록과 동일)
-                        "lastPunchReminderAt": null,
-                        "linkedScheduleId": null,
-                        "content": textValue.isEmpty
-                            ? "내용 없음 (사진 참조)"
-                            : textValue,
-                        "is_completed": false,
-                        "has_image": attachedImages.isNotEmpty,
-                        "image_path": attachedImages.isNotEmpty
-                            ? attachedImages.first
-                            : null,
-                        "image_paths": List.from(attachedImages),
-                      });
+                      ((projects[projectIndex]['punch_lists'] ??= <dynamic>[])
+                              as List)
+                          .insert(0, {
+                            "id": DateTime.now().millisecondsSinceEpoch
+                                .toString(),
+                            "created_at": DateTime.now(),
+                            // 🚀 처리 완료 전까지 우선순위별 주기로 알림을
+                            // 보내기 위한 발송 시간 기록 (모바일 이슈 등록과 동일)
+                            "lastPunchReminderAt": null,
+                            "linkedScheduleId": null,
+                            "content": textValue.isEmpty
+                                ? "내용 없음 (사진 참조)"
+                                : textValue,
+                            "is_completed": false,
+                            "has_image": attachedImages.isNotEmpty,
+                            "image_path": attachedImages.isNotEmpty
+                                ? attachedImages.first
+                                : null,
+                            "image_paths": List.from(attachedImages),
+                          });
                       _saveData(projectIndex);
                     });
                     Navigator.pop(ctx);
@@ -638,7 +649,8 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
 
   void _showDailyReportDialog(int projectIndex, {int? reportIndex}) {
     final bool isEdit = reportIndex != null;
-    final targetList = projects[projectIndex]['daily_reports'] as List;
+    final targetList =
+        (projects[projectIndex]['daily_reports'] ??= <dynamic>[]) as List;
     final existingData = isEdit ? targetList[reportIndex] : null;
 
     final TextEditingController pointCtrl = TextEditingController(
@@ -1039,7 +1051,9 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
     );
     if (confirm == true) {
       setState(() {
-        projects[projectIndex]['daily_reports'].removeAt(reportIndex);
+        (projects[projectIndex]['daily_reports'] as List?)?.removeAt(
+          reportIndex,
+        );
         _saveData(projectIndex);
       });
     }
@@ -1080,7 +1094,9 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
     );
 
     if (confirm != true) return;
+    bool progressOpen = false;
     if (mounted) {
+      progressOpen = true;
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -1108,6 +1124,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
         device: 'PC',
       );
       if (mounted) Navigator.pop(context);
+      progressOpen = false;
 
       // 🚀 [고침] 예전에는 못 찾은 자재가 있어도 "완료"라고만 하고 차감함으로
       // 표시해 버려서, 자재를 나중에 넣고 다시 누르면 이미 뺀 것까지 또 빠졌다.
@@ -1137,7 +1154,8 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
         );
       }
     } catch (e) {
-      if (mounted) Navigator.pop(context);
+      // 진행 창을 이미 닫은 뒤 실패하면 화면까지 닫히던 것.
+      if (mounted && progressOpen) Navigator.pop(context);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1559,7 +1577,9 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                     _saveData(index);
                   },
                   onViewDailyReportDetail: (reportIdx) {
-                    final report = project['daily_reports'][reportIdx];
+                    final report =
+                        (project['daily_reports'] as List? ??
+                        const [])[reportIdx];
                     List<dynamic> passImages =
                         report['image_paths'] ??
                         (report['image_path'] != null
@@ -1574,7 +1594,8 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                     );
                   },
                   onViewPunchDetail: (punchIdx) {
-                    final punch = project['punch_lists'][punchIdx];
+                    final punch =
+                        (project['punch_lists'] as List? ?? const [])[punchIdx];
                     List<dynamic> passImages =
                         punch['image_paths'] ??
                         (punch['image_path'] != null

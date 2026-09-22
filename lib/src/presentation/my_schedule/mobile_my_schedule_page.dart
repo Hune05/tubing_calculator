@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../my_work_logs/widgets/work_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -563,6 +564,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         : baseDate;
     String recurrence = (existing?['recurrence'] as String?) ?? 'none';
     int reminderMinutes = (existing?['reminderMinutesBefore'] as int?) ?? 0;
+    bool saving = false;
 
     await showModalBottomSheet(
       context: context,
@@ -1225,24 +1227,39 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                     'reminderMinutesBefore': reminderMinutes,
                                     'updatedAt': FieldValue.serverTimestamp(),
                                   };
-                                  String targetDocId;
+                                  if (saving) return;
+                                  saving = true;
+                                  final col = FirebaseFirestore.instance
+                                      .collection(kPersonalSchedulesCollection);
+                                  final String targetDocId;
+                                  // 통신이 없으면 서버 확인이 끝나지 않아 창이 안 닫히고, 다시 누르면
+                                  // 두 번 저장되던 것: 폰에 먼저 적히므로 기다리지 않고 닫는다.
                                   if (docId == null) {
                                     data['createdAt'] =
                                         FieldValue.serverTimestamp();
-                                    final ref = await FirebaseFirestore.instance
-                                        .collection(
-                                          kPersonalSchedulesCollection,
-                                        )
-                                        .add(data);
+                                    final ref = col.doc();
                                     targetDocId = ref.id;
+                                    unawaited(
+                                      ref
+                                          .set(data)
+                                          .catchError(
+                                            (e) => debugPrint('일정 저장 실패: $e'),
+                                          ),
+                                    );
                                   } else {
-                                    await FirebaseFirestore.instance
-                                        .collection(
-                                          kPersonalSchedulesCollection,
-                                        )
-                                        .doc(docId)
-                                        .update(data);
                                     targetDocId = docId;
+                                    // 완료 표시는 따로 저장한다. 시트를 연 뒤에 한 완료가
+                                    // 시트 열 때 값으로 덮여 지워지던 것.
+                                    data.remove('completedOccurrences');
+                                    data.remove('isCompleted');
+                                    unawaited(
+                                      col
+                                          .doc(docId)
+                                          .update(data)
+                                          .catchError(
+                                            (e) => debugPrint('일정 저장 실패: $e'),
+                                          ),
+                                    );
                                   }
                                   await _scheduleOrCancelReminder(
                                     targetDocId,
@@ -1613,14 +1630,18 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                             ),
                             const SizedBox(height: 16),
                             for (int i = 0; i < blueprint.length; i++)
-                              _buildTemplateItemRow(
-                                blueprint[i],
-                                onRemove: blueprint.length <= 1
-                                    ? null
-                                    : () => setSheetState(
-                                        () => blueprint.removeAt(i),
-                                      ),
-                                setSheetState: setSheetState,
+                              // 줄마다 키를 줘야 한 줄을 지웠을 때 다음 줄 글이 지운 줄 글로 남지 않는다.
+                              KeyedSubtree(
+                                key: ValueKey(identityHashCode(blueprint[i])),
+                                child: _buildTemplateItemRow(
+                                  blueprint[i],
+                                  onRemove: blueprint.length <= 1
+                                      ? null
+                                      : () => setSheetState(
+                                          () => blueprint.removeAt(i),
+                                        ),
+                                  setSheetState: setSheetState,
+                                ),
                               ),
                             const SizedBox(height: 8),
                             OutlinedButton.icon(
@@ -1781,12 +1802,17 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              const Text(
-                "기준일로부터",
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+              const Flexible(
+                child: Text(
+                  "기준일로부터",
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               IconButton(
                 icon: const Icon(Icons.remove_circle_outline, size: 18),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                 onPressed: () => setSheetState(
                   () => item['dayOffset'] = (item['dayOffset'] as int) - 1,
                 ),
@@ -1800,6 +1826,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
               ),
               IconButton(
                 icon: const Icon(Icons.add_circle_outline, size: 18),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                 onPressed: () => setSheetState(
                   () => item['dayOffset'] = (item['dayOffset'] as int) + 1,
                 ),
@@ -2814,6 +2842,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
             maxLines: 1,
             overflow: TextOverflow.clip,
             softWrap: false,
+            // 막대 높이가 고정(15)이라 글자 크게 설정에서 넘친다 → 이 글씨만 키우지 않는다.
+            textScaler: TextScaler.noScaling,
             style: const TextStyle(
               fontSize: 11,
               height: 1.15,
@@ -3025,11 +3055,15 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     final overdue = items.where(_isOverdue).length;
     final remaining = total - done;
     final ratio = total > 0 ? done / total : 0.0;
+    final DateTime todayN = _normalize(DateTime.now());
     final String periodLabel = switch (_viewMode) {
-      _ViewMode.day => "오늘",
+      _ViewMode.day =>
+        _normalize(_selectedDay) == todayN
+            ? "오늘"
+            : "${_selectedDay.month}월 ${_selectedDay.day}일",
       _ViewMode.week => "이번 주",
       _ViewMode.month => "이번 달",
-      _ViewMode.timeline => "이번 달",
+      _ViewMode.timeline => "이 기간",
     };
 
     return Container(
@@ -3840,8 +3874,8 @@ Future<int> fetchTodayScheduleCount(String currentWorker) async {
     for (final doc in personalSnap.docs) {
       final data = doc.data();
       if (data['dateTime'] == null) continue;
-      final DateTime base =
-          DateTime.tryParse(data['dateTime'] as String) ?? today;
+      final DateTime? base = _looseDate(data['dateTime']);
+      if (base == null) continue;
       final String recurrence = (data['recurrence'] as String?) ?? 'none';
       final Map<String, dynamic> completedMap = Map<String, dynamic>.from(
         data['completedOccurrences'] as Map? ?? {},

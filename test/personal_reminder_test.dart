@@ -81,6 +81,17 @@ void main() {
       expect(calls.where((c) => c.startsWith('cancel')).length, 1);
     });
 
+    test('날짜 칸이 없거나 글이 아니면 그 일정만 건너뛴다(예외 없음)', () async {
+      final bad = data()..remove('dateTime');
+      await schedulePersonalReminder('doc1', bad, nowForTest: now);
+      await schedulePersonalReminder(
+        'doc2',
+        data()..['dateTime'] = 12345,
+        nowForTest: now,
+      );
+      expect(calls.where((c) => c.startsWith('schedule')), isEmpty);
+    });
+
     test('종일 일정이거나 이미 지난 알림이면 예약하지 않는다', () async {
       await schedulePersonalReminder(
         'doc1',
