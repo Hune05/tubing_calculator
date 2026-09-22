@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/app_dialog.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 
 import '../../../core/engine/bend_path.dart';
@@ -349,10 +350,19 @@ class _MobileInputTabState extends State<MobileInputTab>
   void _executeAddSegment(double length, double angle, double rotation) {
     HapticFeedback.mediumImpact();
 
-    final newBend = {'length': length, 'angle': angle, 'rotation': rotation};
+    final Map<String, dynamic> newBend = {
+      'length': length,
+      'angle': angle,
+      'rotation': rotation,
+    };
 
     if (_editingIndex != null) {
-      MobileBendDataManager().updateBend(_editingIndex!, newBend);
+      // 고칠 때 다른 칸(U벤드 표시·시작 방향 등)은 그대로 둔다.
+      final list = MobileBendDataManager().bendList;
+      final Map<String, dynamic> old = _editingIndex! < list.length
+          ? list[_editingIndex!]
+          : const {};
+      MobileBendDataManager().updateBend(_editingIndex!, {...old, ...newBend});
       setState(() => _editingIndex = null);
     } else {
       MobileBendDataManager().addBend(newBend);
@@ -421,8 +431,22 @@ class _MobileInputTabState extends State<MobileInputTab>
     }
   }
 
-  void _clearAll() {
+  Future<void> _clearAll() async {
     HapticFeedback.heavyImpact();
+    final int n = MobileBendDataManager().bendList.length;
+    if (n == 0) return;
+    // 전선관 입력 탭과 같이 한 번 묻는다(한 번 눌러 목록이 다 사라졌다).
+    final bool? ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AppDialog(
+        title: "전체 지우기",
+        okText: "지우기",
+        onCancel: () => Navigator.pop(ctx, false),
+        onOk: () => Navigator.pop(ctx, true),
+        content: AppDialog.message("배관 목록 $n줄을 모두 지우겠습니까?\n(위의 ↶로 되돌릴 수 있습니다)"),
+      ),
+    );
+    if (ok != true || !mounted) return;
     MobileBendDataManager().clearBends();
     setState(() => _cancelEdit());
   }

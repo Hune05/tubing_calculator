@@ -315,31 +315,36 @@ class CutLengthCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                "${totalCut.round()}",
-                style: const TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.w900,
-                  color: _slate900,
-                  letterSpacing: -1,
-                  height: 1.0,
-                  fontFamily: 'monospace',
+          // 다섯 자리 길이·글자 크게에서 카드 밖으로 넘치지 않게(전선관 쪽과 같이 줄여 맞춘다).
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  "${totalCut.round()}",
+                  style: const TextStyle(
+                    fontSize: 36,
+                    fontWeight: FontWeight.w900,
+                    color: _slate900,
+                    letterSpacing: -1,
+                    height: 1.0,
+                    fontFamily: 'monospace',
+                  ),
                 ),
-              ),
-              const SizedBox(width: 4),
-              const Text(
-                "mm",
-                style: TextStyle(
-                  fontSize: 14,
-                  color: _slate600,
-                  fontWeight: FontWeight.bold,
+                const SizedBox(width: 4),
+                const Text(
+                  "mm",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: _slate600,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           ?under,
           for (final b in bottom) ...[

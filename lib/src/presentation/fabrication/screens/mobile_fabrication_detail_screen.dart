@@ -1101,6 +1101,7 @@ class _MobileFabricationDetailScreenState
             outerDiameter: pipeSizeToMm(_pipeSize),
             fittingDepth: MachineSpecs().fittingDepth,
             initialStartDir: _startDir,
+            useSavedDirection: false,
             startFit: _startFit,
             endFit: _endFit,
             isLightMode: _isExporting,

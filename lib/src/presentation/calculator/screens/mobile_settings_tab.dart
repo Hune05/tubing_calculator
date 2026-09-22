@@ -164,6 +164,17 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           springback: double.tryParse(_springbackController.text),
           cutMargin: double.tryParse(_cutMarginController.text),
         );
+        // 입력 탭의 "못 꺾는 방향" 검사는 AppSettingsController 값을 본다. 저장 전까지
+        // 거기가 0이면 R=1mm로 검사해 엉뚱하게 경고했다 → 읽어 온 값을 같이 넣는다(저장은 안 함).
+        final c = AppSettingsController();
+        final r = double.tryParse(_rController.text);
+        final g = double.tryParse(_gainController.text);
+        final t = double.tryParse(_takeUpController.text);
+        final f = double.tryParse(_fittingDepthController.text);
+        if (r != null && r > 0) c.bendRadius = r;
+        if (g != null) c.gain = g;
+        if (t != null) c.takeUp = t;
+        if (f != null) c.fittingDepth = f;
       });
     }
   }
@@ -2708,124 +2719,3 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
 }
 
 // ==========================================
-// 🚀 2. MakitaNumericInput 위젯 (분리 유지)
-// ==========================================
-class MakitaNumericInput extends StatelessWidget {
-  final String label;
-  final TextEditingController controller;
-  final String? helperText;
-  final bool? isAutoMode;
-  final ValueChanged<bool>? onModeChanged;
-  final VoidCallback onTap;
-
-  const MakitaNumericInput({
-    super.key,
-    required this.label,
-    required this.controller,
-    this.helperText,
-    this.isAutoMode,
-    this.onModeChanged,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    bool readOnly = isAutoMode == true;
-    Color getBgColor() {
-      if (readOnly) return Colors.grey.shade200;
-      if (isAutoMode != null && !isAutoMode!) return Colors.orange.shade50;
-      return Colors.white;
-    }
-
-    // 🚀 [수정] AUTO/MAN 버튼이 항상 고정 34px라 큰 화면(태블릿, 가로모드)
-    // 에서는 답답하게 작아 보였음. 화면 폭 비율로 계산하되, 폴더블 커버
-    // 화면처럼 아주 좁은 화면에서 오버플로우 나지 않을 최소값(34)과
-    // 너무 커지지 않을 최대값(64) 사이로 clamp한다.
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final double autoButtonWidth = (screenWidth * 0.11).clamp(34.0, 64.0);
-    final double fieldVerticalPadding = (screenWidth * 0.032).clamp(10.0, 16.0);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (label.isNotEmpty) ...[
-          Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 6),
-        ],
-        Row(
-          children: [
-            Expanded(
-              child: GestureDetector(
-                onTap: readOnly ? null : onTap,
-                child: AbsorbPointer(
-                  child: TextField(
-                    controller: controller,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: fieldVerticalPadding,
-                      ),
-                      border: OutlineInputBorder(
-                        borderSide: BorderSide(
-                          color: (isAutoMode != null && !isAutoMode!)
-                              ? Colors.orange.shade300
-                              : Colors.grey.shade400,
-                        ),
-                      ),
-                      filled: true,
-                      fillColor: getBgColor(),
-                    ),
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: readOnly ? Colors.black54 : Colors.black87,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            if (isAutoMode != null && onModeChanged != null) ...[
-              const SizedBox(width: 4),
-              // 🚀 [수정] 폴더블(갤럭시 Z 폴드) 커버 화면처럼 폭이 매우 좁은
-              // 기기(약 344dp)에서 이 버튼 때문에 Row 전체가 "RIGHT
-              // OVERFLOWED"를 냈음. 폭을 화면 비율로 계산해서 clamp하고
-              // FittedBox로 글자를 그 안에 맞춰서, 어떤 화면에서도 안
-              // 넘치면서 화면 크기에 비례해 보이게 한다.
-              InkWell(
-                onTap: () => onModeChanged!(!isAutoMode!),
-                child: Container(
-                  width: autoButtonWidth,
-                  padding: EdgeInsets.symmetric(vertical: fieldVerticalPadding),
-                  decoration: BoxDecoration(
-                    color: isAutoMode! ? makitaTeal : Colors.deepOrange,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      isAutoMode! ? "AUTO" : "MAN",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ],
-    );
-  }
-}

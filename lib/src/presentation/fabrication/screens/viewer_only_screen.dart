@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/pipe_visualizer.dart';
 
 class ViewerOnlyScreen extends StatefulWidget {
@@ -40,7 +41,8 @@ class _ViewerOnlyScreenState extends State<ViewerOnlyScreen> {
 
   @override
   void dispose() {
-    WakelockPlus.disable();
+    // 설정의 "화면 켜 두기"를 그대로 둔다(예전엔 여기서 무조건 꺼 버렸다).
+    WakelockPlus.toggle(enable: AppSettingsController().keepScreenOn);
     super.dispose();
   }
 

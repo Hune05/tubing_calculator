@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/data/machine_specs.dart';
+import '../tube_marking_rules.dart';
 import 'package:tubing_calculator/src/data/bend_data_manager.dart';
 import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
@@ -398,7 +400,7 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
         tail: _tailLength,
       );
     } catch (e) {
-      calcError = e.toString();
+      calcError = tubeEngineErrorText(e);
     }
 
     if (calcError != null || result == null) {
@@ -482,8 +484,13 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
     }
 
     // 꼬리는 엔진이 마지막 셋백을 빼고 더해 준다.
-    double totalCut = widget.bendList.isEmpty ? 0.0 : pureCutLength;
-    double diffAfterLastMark = totalCut - lastMarkingPoint;
+    // 폰·태블릿 마킹 탭과 같은 셈: 톱날 손실을 더하고, 마지막 벤드 뒤 곧은 길이는 규칙 함수로.
+    double totalCut = widget.bendList.isEmpty
+        ? 0.0
+        : pureCutLength + MachineSpecs().cutMargin;
+    double diffAfterLastMark = widget.bendList.isEmpty
+        ? 0.0
+        : straightAfterLastBend(steps, pureCutLength);
 
     return Scaffold(
       backgroundColor: slate100,

@@ -230,13 +230,18 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
             ),
           ),
         ),
-        Text(
-          "${v.toStringAsFixed(1)} mm",
-          style: const TextStyle(
-            color: _teal,
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-            fontFamily: 'monospace',
+        Flexible(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              "${v.toStringAsFixed(1)} mm",
+              style: const TextStyle(
+                color: _teal,
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                fontFamily: 'monospace',
+              ),
+            ),
           ),
         ),
         if (current > 0) ...[

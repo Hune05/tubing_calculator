@@ -558,40 +558,45 @@ class _MobileResultTabState extends State<MobileResultTab>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            CardLabelValue("반경(R)", "${radius.round()} mm"),
+            // 좁은 폰·글자 크게에서 넘치지 않게 양쪽을 줄일 수 있게 한다.
+            Flexible(child: CardLabelValue("반경(R)", "${radius.round()} mm")),
             Container(width: 1, height: 24, color: slate200),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  "피팅 (깊이 ${fittingDepth.round()}mm)",
-                  style: cardLabelStyle,
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    _buildToggleBtn(
-                      key: const Key('tube_start_fit'),
-                      title: "시작",
-                      isSelected: _includeStartFitting,
-                      onTap: () => setState(() {
-                        _includeStartFitting = !_includeStartFitting;
-                        MobileBendDataManager().startFit = _includeStartFitting;
-                      }),
-                    ),
-                    const SizedBox(width: 4),
-                    _buildToggleBtn(
-                      key: const Key('tube_end_fit'),
-                      title: "종료",
-                      isSelected: _includeEndFitting,
-                      onTap: () => setState(() {
-                        _includeEndFitting = !_includeEndFitting;
-                        MobileBendDataManager().endFit = _includeEndFitting;
-                      }),
-                    ),
-                  ],
-                ),
-              ],
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    "피팅 (깊이 ${fittingDepth.round()}mm)",
+                    style: cardLabelStyle,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      _buildToggleBtn(
+                        key: const Key('tube_start_fit'),
+                        title: "시작",
+                        isSelected: _includeStartFitting,
+                        onTap: () => setState(() {
+                          _includeStartFitting = !_includeStartFitting;
+                          MobileBendDataManager().startFit =
+                              _includeStartFitting;
+                        }),
+                      ),
+                      const SizedBox(width: 4),
+                      _buildToggleBtn(
+                        key: const Key('tube_end_fit'),
+                        title: "종료",
+                        isSelected: _includeEndFitting,
+                        onTap: () => setState(() {
+                          _includeEndFitting = !_includeEndFitting;
+                          MobileBendDataManager().endFit = _includeEndFitting;
+                        }),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -633,6 +638,9 @@ class _MobileResultTabState extends State<MobileResultTab>
     // 퀵 U-Bend로 넣은 90° 두 번(1: U자 시작, 2: 두 번째 90°).
     final int uBend = (item['uBend'] as num?)?.toInt() ?? 0;
 
+    // 22.5° 같은 반 각도는 현장 탭·PDF와 같이 소수로(전엔 23°로 보였다).
+    String _fmtAngle(double a) =>
+        a == a.roundToDouble() ? "${a.round()}" : a.toStringAsFixed(1);
     return StepMarkCard(
       isStraight: isStraight,
       markNum: markNum,
@@ -640,8 +648,8 @@ class _MobileResultTabState extends State<MobileResultTab>
       title: isStraight
           ? "직관 연장 마킹"
           : hasSpringback
-          ? "${angle.round()}° 벤딩 (실제 ${target.toStringAsFixed(1)}°)"
-          : "${angle.round()}° 벤딩",
+          ? "${_fmtAngle(angle)}° 벤딩 (실제 ${target.toStringAsFixed(1)}°)"
+          : "${_fmtAngle(angle)}° 벤딩",
       dirIcon: _getDirectionIcon(rotation),
       dirText: _getDirectionText(rotation),
       notes: [

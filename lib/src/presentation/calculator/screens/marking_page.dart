@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/data/machine_specs.dart';
 import 'package:tubing_calculator/src/data/bend_data_manager.dart';
 import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
@@ -46,8 +47,10 @@ class _MarkingPageState extends State<MarkingPage> {
   }
 
   Future<void> _refreshSettings() async {
+    // 제원만 다시 읽는다. loadSavedSettings()는 입력 목록까지 저장본으로 바꿔 놓아,
+    // 방금 넣은 줄(아직 저장 전)이 사라질 수 있었다.
     final dataManager = BendDataManager();
-    await dataManager.loadSavedSettings();
+    await MachineSpecs().load();
     if (mounted) {
       setState(() {
         _includeStartFitting = dataManager.startFit;

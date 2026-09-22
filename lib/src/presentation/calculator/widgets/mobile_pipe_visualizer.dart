@@ -12,6 +12,10 @@ class MobilePipeVisualizer extends StatefulWidget {
   final double tailLength;
   final int? selectedSegmentIndex;
   final String initialStartDir;
+
+  /// 폰에 적어 둔 시작 방향(계산기 마지막 값)을 덮어 쓸지. 보관함 도면은 도면에 적힌
+  /// 방향을 그대로 써야 하므로 false로 연다(예전엔 열기만 해도 도면 방향이 바뀌어 저장됐다).
+  final bool useSavedDirection;
   final ValueChanged<String>? onStartDirChanged;
   final bool isLightMode;
   final bool startFit;
@@ -36,6 +40,7 @@ class MobilePipeVisualizer extends StatefulWidget {
     this.selectedSegmentIndex,
     this.initialStartDir = 'RIGHT',
     this.onStartDirChanged,
+    this.useSavedDirection = true,
     this.isLightMode = false,
     this.startFit = false,
     this.endFit = false,
@@ -75,7 +80,7 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
   void initState() {
     super.initState();
     _startDir = widget.initialStartDir; // 1. 우선 기본값으로 세팅
-    _loadSavedDirection(); // 2. 🚀 기기에 저장된 방향이 있다면 무조건 덮어씌움
+    if (widget.useSavedDirection) _loadSavedDirection();
   }
 
   // 🚀 [추가됨] 앱을 껐다 켜도, 탭을 이동해도 무조건 기억하도록 로드하는 함수

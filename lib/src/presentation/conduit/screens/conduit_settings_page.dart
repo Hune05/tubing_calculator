@@ -185,6 +185,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
       // 지금 조합은 화면에 든 값(마지막으로 저장한 설정)이 맞다. 예전 기록에는
       // 스프링백·끝 여유가 없어서, 돌아왔을 때 기본값으로 바뀌지 않게 채워 둔다.
       _specSets = {...sets, ..._specSets};
+      _specSetsLoaded = true;
       _specSets.putIfAbsent(_comboKey, () => _enteredValues);
       if (!_unsavedKeys.contains(_comboKey)) {
         _specSets[_comboKey] = {..._specSets[_comboKey]!, ..._enteredValues};
@@ -236,6 +237,9 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
   /// 벤더 종류·제조사·재질·규격 조합마다 저장해 둔 제원.
   Map<String, Map<String, double>> _specSets = {};
 
+  /// 규격별 저장값을 다 읽었는지. 읽기 전에 규격을 바꾸면 표 기본값이 채워져 저장값을 덮었다.
+  bool _specSetsLoaded = false;
+
   String get _comboKey => conduitSpecKey(
     benderType: _selectedTypeId,
     manufacturer: _manufacturer,
@@ -278,6 +282,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
   /// 벤더 종류·제조사·재질·규격 고르기. 바꾸기 전에 지금 조합에서 고친 값을
   /// 기억해 둔다(저장 전에 규격을 바꿨다 돌아와도 고친 값이 남는다).
   void _changeCombo(VoidCallback change) {
+    if (!_specSetsLoaded) return; // 잠깐(저장값 읽는 동안)은 바꾸지 못한다.
     final now = _currentSpecValues();
     if (!mapEquals(now, _enteredValues)) {
       _specSets[_comboKey] = now;

@@ -206,6 +206,7 @@ class _CalculatorPageState extends State<CalculatorPage>
 
     if (!mounted) return;
     double? val = double.tryParse(controller.text);
+    controller.dispose();
     setState(() {
       _safeMargin = val ?? 0.0;
     });
@@ -227,6 +228,7 @@ class _CalculatorPageState extends State<CalculatorPage>
 
     if (!mounted) return;
     double? val = double.tryParse(controller.text);
+    controller.dispose();
     if (val != null) {
       setState(() {
         // 🚀 [수정] 음수 입력을 막고, 180°를 넘는 값도 클램프
@@ -259,6 +261,7 @@ class _CalculatorPageState extends State<CalculatorPage>
     );
 
     await Future.delayed(const Duration(milliseconds: 400));
+    if (!mounted) return;
 
     if (mode == "STRAIGHT" || mode == "직관 (Straight)") {
       await _executeMacro(val1, 0.0, targetRot, docId);
@@ -321,6 +324,7 @@ class _CalculatorPageState extends State<CalculatorPage>
     double rot,
     String docId,
   ) async {
+    if (!mounted) return;
     setState(() {
       _tempController.text = length.toStringAsFixed(1);
       _currentAngle = angle;

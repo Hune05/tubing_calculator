@@ -296,7 +296,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
               label: "실린더 푸시량(어림):",
               valueText: ramTravel > 0
                   ? "${ramTravel.toStringAsFixed(1)} mm · 첫 개는 재 보십시오"
-                  : "설정 입력 필요",
+                  : "설정에서 값을 넣으십시오",
               themeColor: ramBlue,
             )
           : null,
@@ -333,7 +333,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
           ? _buildExtraInfoBox(
               icon: AppGlyph.benderChicago,
               label: "기어/노치 진행:",
-              valueText: notches > 0 ? "$notches 칸 이동" : "설정 입력 필요",
+              valueText: notches > 0 ? "$notches 칸 이동" : "설정에서 값을 넣으십시오",
               themeColor: chicagoPurple,
             )
           : null,

@@ -917,7 +917,11 @@ class _ConduitInputTabState extends State<ConduitInputTab>
       'rotation': angle == 0.0 ? 0.0 : _selectedRotation!,
     };
     if (_editingIndex != null) {
-      manager.updateBend(_editingIndex!, bend);
+      // 고칠 때 다른 칸은 그대로 둔다.
+      final Map<String, dynamic> old = _editingIndex! < manager.bendList.length
+          ? manager.bendList[_editingIndex!]
+          : const {};
+      manager.updateBend(_editingIndex!, {...old, ...bend});
     } else {
       manager.addBend(bend);
     }

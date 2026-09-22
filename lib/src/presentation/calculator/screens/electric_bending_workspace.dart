@@ -49,8 +49,10 @@ class _ElectricBendingWorkspaceState extends State<ElectricBendingWorkspace> {
         List<Map<String, double>> loadedList = decoded.map((item) {
           return Map<String, double>.from(
             item.map(
-              (key, value) =>
-                  MapEntry(key.toString(), double.parse(value.toString())),
+              (key, value) => MapEntry(
+                key.toString(),
+                double.tryParse(value.toString()) ?? 0.0,
+              ),
             ),
           );
         }).toList();

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tubing_calculator/src/data/conduit_drawings.dart';
 import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
+import 'conduit_settings_page.dart' show globalBenderSettings;
 
 /// 보관함에 새로 저장하면 올린다(보관함 탭이 다시 읽는다).
 final ValueNotifier<int> conduitDrawingsRevision = ValueNotifier(0);
@@ -94,7 +95,11 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
   // 🚀 index 대신 고유 id를 사용하여 데이터 불러오기
   void _loadHistory(String id) {
     HapticFeedback.heavyImpact();
-    final targetItem = _savedDrawings.firstWhere((item) => item['id'] == id);
+    final targetItem = _savedDrawings.cast<Map?>().firstWhere(
+      (item) => item!['id'] == id,
+      orElse: () => null,
+    );
+    if (targetItem == null) return; // 목록이 새로 읽히는 사이 없어졌다
 
     showDialog(
       context: context,
@@ -148,6 +153,25 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                     // 🚀 [고침] 예전에는 알림만 띄우고 목록에 넣지 않았다.
                     ConduitDataManager().replaceAll(drawing.bends);
                     widget.onLoaded?.call();
+                    // 도면을 저장할 때 규격과 지금 설정 규격이 다르면 마킹이 다르게 나온다.
+                    final String savedSize =
+                        drawing.settings['conduitSize']?.toString() ?? '';
+                    final String nowSize =
+                        globalBenderSettings.value['conduitSize']?.toString() ??
+                        '';
+                    if (savedSize.isNotEmpty &&
+                        nowSize.isNotEmpty &&
+                        savedSize != nowSize) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            "이 도면은 $savedSize로 저장한 것입니다. 지금 설정은 $nowSize라 마킹이 다르게 나옵니다.",
+                          ),
+                          duration: const Duration(seconds: 5),
+                        ),
+                      );
+                      return;
+                    }
                     ScaffoldMessenger.of(context).hideCurrentSnackBar();
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
