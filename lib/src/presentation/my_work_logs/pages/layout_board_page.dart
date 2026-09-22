@@ -19,6 +19,9 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../core/utils/pdf_fonts.dart';
 
 import '../../../core/utils/image_picker_helper.dart' show ImagePickerHelper;
+import '../models/photo_store.dart'
+    show uploadLayoutBackground, downloadLayoutBackground;
+import '../../../core/utils/shared_drawing_inbox.dart' show SharedDrawingInbox;
 import '../models/instrument_shape_painter.dart';
 import '../models/layout_board_models.dart';
 import '../models/layout_plates.dart';
@@ -182,6 +185,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   // 그 위에 모듈/치수를 배치할 수 있는 기능. 불투명도를 낮춰서 배경
   // 사진과 겹쳐도 모듈이 잘 보이게 한다.
   String? _backgroundImagePath;
+  // 서버에 올린 배경 사진 주소. 사진을 바꾸면 비우고, 저장할 때 다시 올린다.
+  String? _backgroundImageUrl;
   double _backgroundOpacity = 0.5;
 
   /// 축척 맞추기로 정한 배경 사진 자리(도면 mm). 없으면 예전처럼 판에 맞춰 깐다.
@@ -543,6 +548,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     'items': _placedItems.map((e) => e.toJson()).toList(),
     'dimensions': _dimensions.map((e) => e.toJson()).toList(),
     'backgroundImagePath': _backgroundImagePath,
+    'backgroundImageUrl': _backgroundImageUrl,
     'backgroundOpacity': _backgroundOpacity,
     'backgroundRect': _backgroundRect == null
         ? null
@@ -557,6 +563,39 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     ..._plateStore,
     _plateId: _captureActivePlate(),
   };
+
+  /// 평면 부품을 지우면 정면·측면에서 그 부품을 기준으로 잰 치수(view_…)가 허공에 남는다.
+  /// 저장·탭 바꾸기 전에 그런 치수를 걷어 낸다.
+  void _dropOrphanViewDims() {
+    if (!_isSkid) return;
+    final plan = _plateId == kPlateMain
+        ? _placedItems
+        : layoutItemsFromData(_plateStore[kPlateMain] ?? const {});
+    final planIds = {for (final it in plan) it.id};
+    bool orphan(Map d) {
+      for (final k in const ['p1', 'p2']) {
+        final id = (d[k] as Map?)?['id']?.toString() ?? '';
+        if (id.startsWith('view_') && !planIds.contains(id.substring(5))) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    for (final e in _plateStore.entries) {
+      if (e.key == kPlateMain) continue;
+      final dims = e.value['dimensions'];
+      if (dims is List && dims.any((d) => d is Map && orphan(d))) {
+        e.value['dimensions'] = [
+          for (final d in dims)
+            if (!(d is Map && orphan(d))) d,
+        ];
+      }
+    }
+    if (_plateId != kPlateMain) {
+      _dimensions.removeWhere((d) => orphan(d.toJson()));
+    }
+  }
 
   // 새 판(탭) 기본 크기. 캐비닛 측판 = 가로 300 × 중판 세로.
   // 스키드 정면 = 스키드 길이 × 높이, 좌·우측면 = 스키드 폭 × 높이.
@@ -591,6 +630,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       ..clear()
       ..addAll(layoutDimensionsFromData(d));
     _backgroundImagePath = d['backgroundImagePath'] as String?;
+    _backgroundImageUrl = d['backgroundImageUrl'] as String?;
     _backgroundOpacity = (d['backgroundOpacity'] as num?)?.toDouble() ?? 0.5;
     _backgroundRect = drawingRectFromJson(d['backgroundRect']);
   }
@@ -598,9 +638,17 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   /// 보이는 판을 [id]로 바꾼다(setState 안에서 부른다). 되돌리기 기록도 판마다 따로.
   void _switchPlate(String id) {
     if (id == _plateId) return;
+    _dropOrphanViewDims();
     _plateStore[_plateId] = _captureActivePlate();
     _plateUndo[_plateId] = [List.of(_undoStack), List.of(_redoStack)];
     final target = _plateStore.remove(id) ?? _newSidePlate(id);
+    // 스키드 정면·측면 판 폭은 늘 평면 크기에서(스키드 크기를 바꿔도 따라오게).
+    if (_isSkid && id != kPlateMain) {
+      final main = _plateStore[kPlateMain];
+      final mainW = (main?['panelWidth'] as num?)?.toDouble() ?? _panelWidth;
+      final mainH = (main?['panelHeight'] as num?)?.toDouble() ?? _panelHeight;
+      target['panelWidth'] = id == kSkidViewFront ? mainW : mainH;
+    }
     _plateId = id;
     _plateStore[id] = {
       for (final k in const ['bottomOffset', 'gap'])
@@ -627,7 +675,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     Map<String, Map<String, dynamic>> plates,
   ) => {
     'kind': _kind,
-    if (_routes.isNotEmpty) 'routes': _routes.map((r) => r.toJson()).toList(),
+    'routes': _routes.map((r) => r.toJson()).toList(),
     'sidePlatesOn': _sidePlatesOn,
     if (!_showHiddenParts) 'showHiddenParts': false,
     if (_cabinetDepth != null) 'cabinetDepth': _cabinetDepth,
@@ -1143,6 +1191,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 
   Future<void> _saveDraftToPrefs() async {
     if (!_hasAnyContent) return;
+    _dropOrphanViewDims();
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_draftPrefsKey, jsonEncode(_buildSnapshotJson()));
@@ -1172,8 +1221,31 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       ..clear()
       ..addAll(layoutDimensionsFromData(data));
     _backgroundImagePath = data['backgroundImagePath'] as String?;
+    _backgroundImageUrl = data['backgroundImageUrl'] as String?;
     _backgroundOpacity = (data['backgroundOpacity'] as num?)?.toDouble() ?? 0.5;
     _backgroundRect = drawingRectFromJson(data['backgroundRect']);
+    _restoreMissingBackgrounds();
+  }
+
+  /// 다른 폰에서 올린 배경 사진(주소만 있고 폰에 파일이 없음)을 받아 깐다.
+  Future<void> _restoreMissingBackgrounds() async {
+    Future<String?> fetch(String? path, String? url) async {
+      if (url == null || url.isEmpty) return null;
+      if (path != null && await File(path).exists()) return null;
+      return downloadLayoutBackground(url);
+    }
+
+    final p = await fetch(_backgroundImagePath, _backgroundImageUrl);
+    if (p != null && mounted) setState(() => _backgroundImagePath = p);
+    for (final e in _plateStore.entries) {
+      final q = await fetch(
+        e.value['backgroundImagePath'] as String?,
+        e.value['backgroundImageUrl'] as String?,
+      );
+      if (q != null && mounted) {
+        setState(() => e.value['backgroundImagePath'] = q);
+      }
+    }
   }
 
   // 🚀 [추가] 새 도면으로 들어왔을 때(특정 프로젝트를 불러온 게 아닐 때)
@@ -1907,9 +1979,21 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           : FirebaseFirestore.instance
                 .collection('layouts')
                 .doc(_currentProjectId);
+      _dropOrphanViewDims();
       final plates = _allPlates();
+      // 배경 사진은 폰 안 경로라 다른 폰에서 안 보였다. 아직 안 올린 것은 올리고 주소를
+      // 같이 저장한다(통신 없으면 이번엔 건너뛰고 다음 저장 때 다시).
+      for (final e in plates.entries) {
+        final path = e.value['backgroundImagePath'] as String?;
+        final url = e.value['backgroundImageUrl'] as String?;
+        if (path == null || (url != null && url.isNotEmpty)) continue;
+        final up = await uploadLayoutBackground(docRef.id, path);
+        if (up == null) continue;
+        e.value['backgroundImageUrl'] = up;
+        if (e.key == _plateId) _backgroundImageUrl = up;
+      }
       final main = plates[kPlateMain]!;
-      await docRef.set({
+      final fields = {
         ...layoutSaveFields(
           projectId: docRef.id,
           projectName: projectName,
@@ -1922,11 +2006,24 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               (main['backgroundOpacity'] as num?)?.toDouble() ?? 0.5,
         ),
         'backgroundRect': main['backgroundRect'],
+        'backgroundImageUrl': main['backgroundImageUrl'],
         ..._sidePlateFields(plates),
         if (isNew) ...layoutOwnerFields(owner),
         if (isNew) 'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      };
+      // 예전엔 merge 저장이라 지운 경로·측판이 서버에 남았다. 있는 문서는 칸을 통째로 바꾼다.
+      // 통신이 없으면 폰에 적히고 나중에 올라가므로 10초 넘으면 그냥 진행한다.
+      Future<void> write() =>
+          isNew ? docRef.set(fields) : docRef.update(fields);
+      try {
+        await write().timeout(const Duration(seconds: 10), onTimeout: () {});
+      } on FirebaseException catch (e) {
+        if (e.code != 'not-found') rethrow;
+        await docRef
+            .set(fields)
+            .timeout(const Duration(seconds: 10), onTimeout: () {});
+      }
       _currentProjectId = docRef.id;
       _projectName = projectName;
       await _clearDraftPrefs();
@@ -2458,7 +2555,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     setState(() {
       for (final src in items) {
         final PlacedItem newItem = PlacedItem(
-          id: 'import_${DateTime.now().microsecondsSinceEpoch}_${src.id}',
+          id: newLayoutId('import_'),
           name: src.name,
           position: _snapToGrid(
             Offset(
@@ -2477,6 +2574,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           shape: src.shape,
           depth: src.depth,
           elevation: src.elevation,
+          flipped: src.flipped,
         );
         // 겹치는 자리면 조금씩 옮겨가며 빈 자리를 찾는다.
         while (_overlapsAny(newItem, newItem.position)) {
@@ -2524,7 +2622,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       );
 
       final newItem = PlacedItem(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: newLayoutId(),
         name: preset.name,
         position: _snapToGrid(Offset(clampedX, clampedY)),
         width: preset.width,
@@ -2602,7 +2700,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             _pushUndo();
             _dimensions.add(
               PlacedDimension(
-                id: DateTime.now().millisecondsSinceEpoch.toString(),
+                id: newLayoutId(),
                 p1: _dimensionStartPoint!,
                 p2: point,
                 type: _currentDimType,
@@ -3328,7 +3426,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     setState(() {
       for (final item in items) {
         final newItem = PlacedItem(
-          id: 'dup_${DateTime.now().microsecondsSinceEpoch}_${item.id}',
+          id: newLayoutId('dup_'),
           name: item.name,
           position: _snapToGrid(
             Offset(
@@ -3348,6 +3446,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           shape: item.shape,
           depth: item.depth,
           elevation: item.elevation,
+          // 뒤집기는 같이 옮기고, 잠금은 복제본에 붙이지 않는다(옮기려고 복제하니까).
+          flipped: item.flipped,
         );
         _placedItems.add(newItem);
         newIds.add(newItem.id);
@@ -3945,8 +4045,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               // 📋 모듈 복사
                               setState(() {
                                 final newItem = PlacedItem(
-                                  id: DateTime.now().millisecondsSinceEpoch
-                                      .toString(),
+                                  id: newLayoutId(),
                                   name: item.name,
                                   position: _snapToGrid(
                                     Offset(
@@ -4217,7 +4316,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                             widthCtrl.text,
                             (val) {
                               setState(() {
-                                item.width = (double.tryParse(val) ?? 80.0);
+                                item.width = (double.tryParse(val) ?? 80.0)
+                                    .clamp(1.0, 100000.0);
                                 item.position = Offset(
                                   item.position.dx.clamp(
                                     0.0,
@@ -4237,7 +4337,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                             heightCtrl.text,
                             (val) {
                               setState(() {
-                                item.height = (double.tryParse(val) ?? 80.0);
+                                item.height = (double.tryParse(val) ?? 80.0)
+                                    .clamp(1.0, 100000.0);
                                 item.position = Offset(
                                   item.position.dx,
                                   item.position.dy.clamp(
@@ -4386,9 +4487,19 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       _isSkid && _plateId == kPlateMain ? "스키드" : _tabLabel(_plateId);
 
   /// 공유로 받은 도면을 지금 탭 배경에 깔고 축척 맞추기를 띄운다.
-  void _takeSharedDrawing(String path) {
+  Future<void> _takeSharedDrawing(String path) async {
+    // 받은 자리(shared_drawings)는 쌓이기만 하므로 앱 사진 폴더로 옮기고 받은 자리는 비운다.
+    // 받은 자리(shared_drawings)에 있는 파일만 옮긴다(없는 파일·다른 자리는 그대로).
+    String kept = path;
+    if (path.replaceAll('\\', '/').contains('/shared_drawings/') &&
+        await File(path).exists()) {
+      kept = await ImagePickerHelper.keepPhoto(path);
+      if (kept != path) await SharedDrawingInbox.discardAll(path);
+    }
+    if (!mounted) return;
     setState(() {
-      _backgroundImagePath = path;
+      _backgroundImagePath = kept;
+      _backgroundImageUrl = null;
       _backgroundRect = null;
       _backgroundOpacity = 0.5;
     });
@@ -4572,6 +4683,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                 );
                                 setState(() {
                                   _backgroundImagePath = path;
+                                  _backgroundImageUrl = null;
                                   _backgroundRect = null;
                                 });
                               }
@@ -4735,9 +4847,18 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   }
 
   void _showMaterialSummarySheet() {
+    // 모든 탭(판)의 부품을 합쳐 센다(예전엔 지금 탭만 세서 측판·평면 것이 빠졌다).
     final Map<String, int> counts = {};
-    for (final item in _placedItems) {
-      counts[item.name] = (counts[item.name] ?? 0) + 1;
+    final Map<String, int> perTab = {};
+    var totalItems = 0;
+    for (final e in _allPlates().entries) {
+      final items = layoutItemsFromData(e.value);
+      if (items.isEmpty) continue;
+      perTab[_tabLabel(e.key)] = items.length;
+      totalItems += items.length;
+      for (final item in items) {
+        counts[item.name] = (counts[item.name] ?? 0) + 1;
+      }
     }
     final entries = counts.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
@@ -4750,7 +4871,12 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       for (final e in entries) {
         buf.writeln("- ${e.key} x ${e.value}개");
       }
-      buf.writeln("총 모듈 ${_placedItems.length}개");
+      buf.writeln("총 모듈 $totalItems개");
+      if (_showTabs && perTab.length > 1) {
+        buf.writeln(
+          "(${perTab.entries.map((e) => "${e.key} ${e.value}개").join(' · ')})",
+        );
+      }
       return buf.toString();
     }
 
@@ -4944,6 +5070,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     final heightCtrl = TextEditingController(
       text: _panelHeight.toInt().toString(),
     );
+    // 잘못 넣었을 때 창 안에 보이는 글(스낵바는 창 뒤에 가려 안 보인다).
+    final sizeError = ValueNotifier<String?>(null);
 
     showModalBottomSheet(
       context: context,
@@ -4987,7 +5115,11 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  keepWords("실제 중판(캐비닛)의 사이즈를 mm 단위로 입력하십시오."),
+                  keepWords(
+                    _isSkid
+                        ? "스키드 평면(길이 × 폭)을 mm로 넣으십시오. 정면·측면 판 폭도 따라 바뀝니다."
+                        : "실제 중판(캐비닛)의 사이즈를 mm 단위로 입력하십시오.",
+                  ),
                   style: TextStyle(color: tossSubText, fontSize: 14),
                 ),
                 const SizedBox(height: 28),
@@ -5012,17 +5144,43 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     ),
                   ],
                 ),
-                const SizedBox(height: 36),
+                ValueListenableBuilder<String?>(
+                  valueListenable: sizeError,
+                  builder: (_, err, _) => err == null
+                      ? const SizedBox(height: 36)
+                      : Padding(
+                          padding: const EdgeInsets.only(top: 12, bottom: 12),
+                          child: Text(
+                            keepWords(err),
+                            style: const TextStyle(
+                              color: warningRed,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                ),
                 SizedBox(
                   width: double.infinity,
                   height: 48,
                   child: ElevatedButton(
                     onPressed: () {
+                      final double? w = double.tryParse(widthCtrl.text.trim());
+                      final double? h = double.tryParse(heightCtrl.text.trim());
+                      // 0이나 글자를 넣으면 화면이 깨졌다(NaN). 막고 알린다.
+                      if (w == null ||
+                          h == null ||
+                          !w.isFinite ||
+                          !h.isFinite ||
+                          w < 10 ||
+                          h < 10) {
+                        sizeError.value = "가로·세로는 10mm 이상 숫자로 넣으십시오.";
+                        return;
+                      }
                       _pushUndo();
                       setState(() {
-                        _panelWidth = double.tryParse(widthCtrl.text) ?? 600.0;
-                        _panelHeight =
-                            double.tryParse(heightCtrl.text) ?? 800.0;
+                        _panelWidth = w;
+                        _panelHeight = h;
 
                         for (var item in _placedItems) {
                           item.position = Offset(
@@ -5685,12 +5843,13 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                 ),
                               ),
 
+                            // 경로 손잡이는 부품 아래에(정면·측면에서 부품을 잡으려다 경로가 열리지 않게).
+                            if (_isSkid && _mode == BoardMode.placeModule)
+                              ..._buildRouteHandles(),
                             if (_isSkid && _plateId != kPlateMain) ...[
                               ..._buildViewProxies(),
                               ..._buildHiddenOutlines(),
                             ],
-                            if (_isSkid && _mode == BoardMode.placeModule)
-                              ..._buildRouteHandles(),
                             ..._placedItems.map((item) {
                               final bool canDrag =
                                   _mode == BoardMode.placeModule &&
@@ -6670,7 +6829,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       (val) {
                         _pushUndo();
                         setState(() {
-                          item.width = (double.tryParse(val) ?? 80.0);
+                          item.width = (double.tryParse(val) ?? 80.0).clamp(
+                            1.0,
+                            100000.0,
+                          );
                           item.position = Offset(
                             item.position.dx.clamp(
                               0.0,
@@ -6691,7 +6853,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       (val) {
                         _pushUndo();
                         setState(() {
-                          item.height = (double.tryParse(val) ?? 80.0);
+                          item.height = (double.tryParse(val) ?? 80.0).clamp(
+                            1.0,
+                            100000.0,
+                          );
                           item.position = Offset(
                             item.position.dx,
                             item.position.dy.clamp(
@@ -8038,6 +8203,12 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   void _syncViewDimensions() {
     if (!_isSkid || _plateId == kPlateMain || _dimensions.isEmpty) return;
     final rects = {for (final p in _viewProxies) _viewPointId(p.it.id): p.rect};
+    _dimensions.removeWhere(
+      (d) => [
+        d.p1,
+        d.p2,
+      ].any((pt) => pt.id.startsWith('view_') && !rects.containsKey(pt.id)),
+    );
     for (final d in _dimensions) {
       for (final pt in [d.p1, d.p2]) {
         final Rect? r = rects[pt.id];
@@ -8072,7 +8243,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     HapticFeedback.mediumImpact();
     final (planW, planH) = _planSize;
     final tmp = PlacedItem(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: newLayoutId(),
       name: preset.name,
       position: Offset.zero,
       width: preset.width,
@@ -8210,6 +8381,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                 confirmLabel: "지우기",
                               );
                               if (!ok || !mounted) return;
+                              _pushUndo();
                               setState(() => _routes.remove(r));
                               setSheet(() {});
                               _saveDraftToPrefs();
@@ -8265,10 +8437,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   Future<void> _showRouteEditor(ConduitRoute? original) async {
     final route =
         original ??
-        ConduitRoute(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          name: "경로 ${_routes.length + 1}",
-        );
+        ConduitRoute(id: newLayoutId(), name: "경로 ${_routes.length + 1}");
     final saved = await SkidRouteEditorPage.open(
       context,
       route: route,
@@ -8280,6 +8449,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       initialView: _plateId,
     );
     if (saved == null || !mounted) return;
+    _pushUndo(); // 예전엔 경로 고침이 기록에 없어 되돌리기가 경로를 옛것으로 되돌렸다.
     setState(() {
       final i = _routes.indexWhere((e) => e.id == saved.id);
       if (i >= 0) {
@@ -8804,7 +8974,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   void _duplicateItem(PlacedItem item) {
     _pushUndo();
     final newItem = PlacedItem(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: newLayoutId(),
       name: item.name,
       position: _snapToGrid(
         Offset(

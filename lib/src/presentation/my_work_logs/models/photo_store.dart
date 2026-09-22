@@ -103,6 +103,50 @@ Future<File> _compressed(File src) async {
 }
 
 // 로컬 경로 사진을 올리고 URL을 돌려준다. 실패하면 null(로컬 경로 유지).
+/// 배치도 배경 사진을 서버에 올린다(폰 안 경로라 다른 폰에서 안 보이던 것).
+/// 통신 없음·실패면 null — 다음 저장 때 다시 시도한다.
+Future<String?> uploadLayoutBackground(
+  String layoutId,
+  String localPath,
+) async {
+  try {
+    final file = File(localPath);
+    if (!await file.exists()) return null;
+    final ref = FirebaseStorage.instance
+        .ref()
+        .child('layout_backgrounds')
+        .child(layoutId)
+        .child('${DateTime.now().microsecondsSinceEpoch}.jpg');
+    await ref
+        .putFile(await _compressed(file))
+        .timeout(const Duration(seconds: 20));
+    return await ref.getDownloadURL().timeout(const Duration(seconds: 8));
+  } catch (e) {
+    debugPrint('배경 사진 올리기 실패: $e');
+    return null;
+  }
+}
+
+/// 서버에 올린 배경 사진을 폰 사진 폴더로 받는다. 이미 받아 둔 것이 있으면 그것. 실패면 null.
+Future<String?> downloadLayoutBackground(String url) async {
+  try {
+    final dir = Directory(
+      '${(await getApplicationDocumentsDirectory()).path}/photos',
+    );
+    if (!await dir.exists()) await dir.create(recursive: true);
+    final dst = File('${dir.path}/bg_${url.hashCode.toRadixString(16)}.jpg');
+    if (await dst.exists()) return dst.path;
+    await FirebaseStorage.instance
+        .refFromURL(url)
+        .writeToFile(dst)
+        .timeout(const Duration(seconds: 30));
+    return dst.path;
+  } catch (e) {
+    debugPrint('배경 사진 받기 실패: $e');
+    return null;
+  }
+}
+
 Future<String?> uploadPhoto(String projectId, String localPath) async {
   try {
     final file = File(localPath);

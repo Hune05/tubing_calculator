@@ -726,6 +726,13 @@ abstract class MeasurePoint {
   Map<String, dynamic> toJson();
 }
 
+int _layoutIdSeq = 0;
+
+/// 부품·경로·치수 아이디. 밀리초만 쓰면 같은 순간에 둘이 생겨 겹칠 수 있어
+/// 마이크로초 뒤에 차례 번호를 붙인다. [prefix]는 'dup_'처럼 앞에 붙는 표시.
+String newLayoutId([String prefix = '']) =>
+    '$prefix${DateTime.now().microsecondsSinceEpoch}_${_layoutIdSeq++}';
+
 class PlacedItem implements MeasurePoint {
   @override
   final String id;

@@ -41,6 +41,24 @@ class SharedDrawingInbox {
     }
   }
 
+  /// 받은 도면을 앱 사진 폴더로 옮긴 뒤 부른다. 받은 자리(shared_drawings)의 파일을
+  /// 모두 지운다 — 예전엔 받을 때마다 쌓이기만 했다. 그 폴더가 아니면 아무것도 안 한다.
+  static Future<void> discardAll(String takenPath) async {
+    try {
+      final dir = File(takenPath).parent;
+      if (!dir.path.replaceAll('\\', '/').endsWith('/shared_drawings')) return;
+      await for (final e in dir.list(followLinks: false)) {
+        if (e is File) {
+          try {
+            await e.delete();
+          } catch (_) {}
+        }
+      }
+    } catch (e) {
+      debugPrint('받은 도면 정리 실패: $e');
+    }
+  }
+
   /// 앱이 떠 있을 때 공유가 새로 들어오면 [onReceived]를 부른다.
   static void listen(VoidCallback onReceived) {
     _ch.setMethodCallHandler((call) async {
