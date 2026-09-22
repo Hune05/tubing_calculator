@@ -228,6 +228,18 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 
   /// 판 가로·세로(W·H) 표기 글씨 크기(도면 mm). 16mm로 두면 스키드를 화면에 맞췄을 때
   /// 2px로 작아져서, 화면에서 12px 아래로 작아지지 않게 한다.
+  // 판 가로·세로 글자. 스키드는 어느 면인지 알 수 있게 길이·폭·높이로 쓴다
+  // (측면에서 "W: 1200"만 보이면 길이가 잘린 것처럼 보였다). 캐비닛은 W·H 그대로.
+  String get _sizeLabelW {
+    if (!_isSkid) return "W";
+    return _plateId == kPlateMain || _plateId == kSkidViewFront ? "길이" : "폭";
+  }
+
+  String get _sizeLabelH {
+    if (!_isSkid) return "H";
+    return _plateId == kPlateMain ? "폭" : "높이";
+  }
+
   double get _sizeLabelFont {
     final double z = _viewZoom;
     return z <= 0 ? 16 : math.max(16, 12 / z);
@@ -6266,7 +6278,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     key: const ValueKey("panel_w_label"),
                     top: -_sizeLabelFont * 1.6,
                     child: Text(
-                      "W: ${_panelWidth.toInt()} mm",
+                      "$_sizeLabelW: ${_panelWidth.toInt()} mm",
                       style: TextStyle(
                         color: Colors.blueGrey.shade700,
                         fontWeight: FontWeight.bold,
@@ -6280,7 +6292,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     child: RotatedBox(
                       quarterTurns: 3,
                       child: Text(
-                        "H: ${_panelHeight.toInt()} mm",
+                        "$_sizeLabelH: ${_panelHeight.toInt()} mm",
                         style: TextStyle(
                           color: Colors.blueGrey.shade700,
                           fontWeight: FontWeight.bold,
