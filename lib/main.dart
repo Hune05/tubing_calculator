@@ -213,6 +213,8 @@ class _MyAppState extends State<MyApp> {
     if (!SharedDrawingInbox.homeReady.value || _sharedDrawingBusy) return;
     _sharedDrawingBusy = true;
     try {
+      // take()는 받아 둔 것을 비우므로 화면이 준비된 뒤에만 가져간다.
+      if (appNavigatorKey.currentContext == null) return;
       final d = await SharedDrawingInbox.take();
       if (d == null) return;
       final String? path = await SharedDrawingInbox.toImagePath(d);
@@ -307,7 +309,11 @@ class _MyAppState extends State<MyApp> {
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF121212),
       ),
-      home: const DeepLinkHandler(child: DeviceRouter()),
+      // 딥링크 받는 위젯은 화면(route) 밖에 둔다. home에 두면 로딩 화면이 홈으로 바뀔 때
+      // 같이 버려져 그 뒤로는 QR 링크가 안 열렸다.
+      builder: (context, child) =>
+          DeepLinkHandler(child: child ?? const SizedBox()),
+      home: const DeviceRouter(),
       routes: {
         // 🚀 [수정] 폴더블 대응: MenuScreen을 바로 고정하지 않고
         // HomeMenuRouter를 거쳐서, 그 순간의 화면 크기(펼침/접힘)에 맞는
@@ -360,16 +366,17 @@ class _DeepLinkHandlerState extends State<DeepLinkHandler> {
     try {
       final initialUri = await _appLinks.getInitialAppLink();
       if (initialUri != null) {
-        if (initialUri.scheme == 'tubingapp' && initialUri.host == 'view') {
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (mounted) _handleViewerLink(initialUri);
-          });
-        } else if (initialUri.scheme == 'tubingcalc' &&
-            initialUri.host == 'layout') {
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (mounted) _handleLayoutLink(initialUri);
-          });
-        }
+        // 앱을 켜며 받은 링크는 홈 메뉴가 뜬 뒤에 연다. 예전엔 0.5초 뒤 열어서 로딩 화면이
+        // 홈으로 바뀌며 열린 화면을 덮어 버렸다.
+        _whenHomeReady(() {
+          if (!mounted) return;
+          if (initialUri.scheme == 'tubingapp' && initialUri.host == 'view') {
+            _handleViewerLink(initialUri);
+          } else if (initialUri.scheme == 'tubingcalc' &&
+              initialUri.host == 'layout') {
+            _handleLayoutLink(initialUri);
+          }
+        });
       }
     } catch (e) {
       debugPrint("초기 링크 로드 에러: $e");
@@ -384,6 +391,20 @@ class _DeepLinkHandlerState extends State<DeepLinkHandler> {
     });
   }
 
+  void _whenHomeReady(void Function() f) {
+    if (SharedDrawingInbox.homeReady.value) {
+      f();
+      return;
+    }
+    late VoidCallback l;
+    l = () {
+      if (!SharedDrawingInbox.homeReady.value) return;
+      SharedDrawingInbox.homeReady.removeListener(l);
+      f();
+    };
+    SharedDrawingInbox.homeReady.addListener(l);
+  }
+
   // 🚀 [신규] 배치도 QR 코드 스캔 링크(tubingcalc://layout?project=문서ID)
   // 처리 - 예전엔 이 딥링크를 받는 핸들러가 아예 없어서 QR을 스캔해도
   // 아무 반응이 없었다.
@@ -392,7 +413,7 @@ class _DeepLinkHandlerState extends State<DeepLinkHandler> {
       final String? projectId = uri.queryParameters['project'];
       if (projectId == null || projectId.isEmpty) return;
       if (mounted) {
-        Navigator.of(context).push(
+        appNavigatorKey.currentState?.push(
           MaterialPageRoute(
             builder: (context) => LayoutBoardPage(projectId: projectId),
           ),
@@ -436,7 +457,7 @@ class _DeepLinkHandlerState extends State<DeepLinkHandler> {
       }
 
       if (mounted) {
-        Navigator.of(context).push(
+        appNavigatorKey.currentState?.push(
           MaterialPageRoute(
             builder: (context) => ViewerOnlyScreen(
               project: proj,
@@ -466,9 +487,11 @@ class DeviceRouter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 홈 화면(HomeMenuRouter)과 같은 기준(짧은 변 600). 예전엔 가로로 든 폰이 태블릿
+    // 로딩 화면으로 가서 자동 로그인 없이 "로그인 필요"로 홈에 들어갔다.
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 600) {
+        if (constraints.biggest.shortestSide < 600) {
           return const MobileLoadingScreen();
         } else {
           return const LoadingScreen();

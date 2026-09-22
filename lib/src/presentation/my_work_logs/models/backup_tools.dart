@@ -46,10 +46,11 @@ dynamic _dec(dynamic v) {
 const String _kLayoutsCollectionName = 'layouts';
 const String _kPersonalSchedulesName = 'personal_schedules';
 
-Future<({List<dynamic> layouts, List<dynamic> schedules})>
+Future<({List<dynamic> layouts, List<dynamic> schedules, bool failed})>
 _collectExtras() async {
   final layouts = <dynamic>[];
   final schedules = <dynamic>[];
+  bool failed = false;
   try {
     final snap = await FirebaseFirestore.instance
         .collection(_kLayoutsCollectionName)
@@ -59,6 +60,7 @@ _collectExtras() async {
     }
   } catch (e) {
     recordError('배치도 백업', e);
+    failed = true;
   }
   try {
     final worker = (await SharedPreferences.getInstance()).getString(
@@ -75,8 +77,9 @@ _collectExtras() async {
     }
   } catch (e) {
     recordError('내 일정 백업', e);
+    failed = true;
   }
-  return (layouts: layouts, schedules: schedules);
+  return (layouts: layouts, schedules: schedules, failed: failed);
 }
 
 Future<File> createBackupFile(List<Map<String, dynamic>> projects) async {
@@ -86,6 +89,11 @@ Future<File> createBackupFile(List<Map<String, dynamic>> projects) async {
       .map((t) => t.toJson())
       .toList();
   final extras = await _collectExtras();
+  // 예전엔 통신이 없어 배치도·내 일정을 못 읽어도 빈 목록으로 "성공한" 백업 파일을 만들었고,
+  // 나중에 그 파일로 되돌리면 배치도·내 일정이 모두 사라졌다.
+  if (extras.failed) {
+    throw Exception('배치도·내 일정을 불러오지 못해 백업을 만들지 않았습니다. 통신을 확인하십시오.');
+  }
   final data = {
     'app': 'tubing_calculator',
     'version': _kBackupVersion,

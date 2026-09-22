@@ -56,14 +56,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _offsetShrinkController = TextEditingController();
 
   String get _unit => _isInch ? "inch" : "mm";
-  List<String> get _odList => SettingsController.getOdList(_isInch);
+  // 저장된 바깥지름이 목록에 없으면(12.7 같은 인치 관을 mm로) 목록에 끼워 넣는다. 예전엔
+  // 목록 첫 값(3.0)으로 바뀌어 저장돼 모든 화면의 관 굵기가 3mm가 됐다.
+  List<String> get _odList {
+    final base = SettingsController.getOdList(_isInch);
+    if (base.contains(_currentOD)) return base;
+    final v = double.tryParse(_currentOD);
+    if (v == null || v <= 0) return base;
+    return [...base, _currentOD]
+      ..sort((a, b) => double.parse(a).compareTo(double.parse(b)));
+  }
 
   bool get _isElectric => _benderType == "전동 (Electric)";
 
   @override
   void initState() {
     super.initState();
-    _currentOD = _odList.contains("12.7") ? "12.7" : _odList.first;
+    _currentOD = "12.7";
     _loadData();
   }
 
@@ -88,7 +97,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       String loadedOD = c.tubeOD.toString();
       if (!loadedOD.contains('.')) loadedOD += ".0";
-      _currentOD = _odList.contains(loadedOD) ? loadedOD : _odList.first;
+      _currentOD = (double.tryParse(loadedOD) ?? 0) > 0 ? loadedOD : "12.7";
 
       _autoStates['radius'] = c.autoRadius;
       _autoStates['takeUp'] = c.autoTakeUp;
@@ -153,7 +162,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     c.fittingDepth = double.tryParse(_fittingDepthController.text) ?? 0.0;
     c.markThickness = double.tryParse(_markThicknessController.text) ?? 0.0;
     c.offsetShrink = double.tryParse(_offsetShrinkController.text) ?? 0.0;
-    c.cutMargin = 0.0;
+    // cutMargin(톱날 손실)은 이 화면에 칸이 없다. 예전엔 여기서 0으로 덮어 컷팅 계산기의
+    // 값이 저장할 때마다 지워졌다.
     c.autoRadius = _autoStates['radius'] ?? true;
     c.autoTakeUp = _autoStates['takeUp'] ?? true;
     c.autoGain = _autoStates['gain'] ?? true;

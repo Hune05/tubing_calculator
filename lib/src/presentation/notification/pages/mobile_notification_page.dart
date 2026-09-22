@@ -83,8 +83,8 @@ class _MobileNotificationPageState extends State<MobileNotificationPage> {
 
   void _showDetail(DocumentReference ref, Map<String, dynamic> data) {
     _markAsRead(ref, data);
-    final title = data['title'] ?? '알림';
-    final content = (data['content'] ?? '') as String;
+    final title = (data['title'] ?? '알림').toString();
+    final content = (data['content'] ?? '').toString();
     final createdAt = data['createdAt'] as Timestamp?;
     final meta = _iconMeta(title);
 

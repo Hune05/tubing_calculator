@@ -60,6 +60,7 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
             .doc(widget.initialName)
             .get();
 
+        if (!mounted) return;
         if (doc.exists && doc.data() != null) {
           final data = doc.data()!;
           setState(() {
@@ -74,7 +75,7 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
         debugPrint("프로필 불러오기 실패: $e");
       }
     }
-    setState(() => _isLoading = false);
+    if (mounted) setState(() => _isLoading = false);
   }
 
   @override
@@ -417,6 +418,8 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
           }
 
           // 🔥 2. Firestore 'users' 컬렉션에 프로필 저장 (이름을 ID로 사용!)
+          // 통신이 없으면 서버 확인이 영영 안 끝나 저장 단추가 먹통이 됐다. 폰에 먼저 적히므로
+          // 5초 넘으면 그냥 진행한다(통신되면 올라간다).
           await FirebaseFirestore.instance
               .collection('users')
               .doc(userName)
@@ -426,7 +429,8 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
                 'role': _roleController.text.trim(),
                 'phoneNumber': phoneNumber, // 🔥 채팅방이랑 키값 일치시킴
                 'updatedAt': FieldValue.serverTimestamp(),
-              }, SetOptions(merge: true));
+              }, SetOptions(merge: true))
+              .timeout(const Duration(seconds: 5), onTimeout: () {});
 
           // 🔥 3. 기기 로컬 저장소(오프라인 대응용) 이름 갱신
           final prefs = await SharedPreferences.getInstance();

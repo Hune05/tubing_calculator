@@ -79,7 +79,9 @@ class _MobileVehicleManagementPageState
       final docId = doc.id;
       final number = data['number'] ?? '차량';
 
-      if (data['startTimeStamp'] == null || data['returnTimeStamp'] == null) {
+      // 글로 적힌 옛 자료가 하나라도 있으면 타이머마다 죽었다.
+      if (data['startTimeStamp'] is! Timestamp ||
+          data['returnTimeStamp'] is! Timestamp) {
         continue;
       }
 

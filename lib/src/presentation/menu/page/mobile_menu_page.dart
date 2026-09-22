@@ -958,29 +958,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
         ),
       );
     }
-    // 통신이 없어 못 불러온 경우: 눌러서 다시 부를 수 있게 한다.
-    if (_weatherFailed) {
-      return InkWell(
-        onTap: () {
-          setState(() {
-            _isWeatherLoaded = false;
-            _weatherFailed = false;
-          });
-          _fetchDetailedWeather();
-        },
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.refresh_rounded, size: 14, color: slate600),
-            SizedBox(width: 4),
-            Text(
-              "날씨를 불러오지 못했습니다. 누르면 다시 불러옵니다.",
-              style: TextStyle(color: slate600, fontSize: 12),
-            ),
-          ],
-        ),
-      );
-    }
     // 🚀 [삭제] 위에 있던 인사말 제목이 없어진 뒤로는 이 top 여백이
     // "동기화 중..." 상태(여백 없음)와 로드 완료 상태 사이에 불필요한
     // 위치 차이를 만들어서 없앴다.
@@ -989,9 +966,13 @@ class _MobileMenuPageState extends State<MobileMenuPage>
       children: [
         Row(
           children: [
-            Text(
-              "$_cityName $_currentTemp°C  /  $_weatherDesc",
-              style: const TextStyle(color: slate600, fontSize: 12),
+            // 동 이름이 길면("부산광역시 강서구") 344dp에서 넘쳤다.
+            Flexible(
+              child: Text(
+                "$_cityName $_currentTemp°C  /  $_weatherDesc",
+                style: const TextStyle(color: slate600, fontSize: 12),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             const SizedBox(width: 8),
             Container(width: 1, height: 10, color: Colors.grey.shade300),

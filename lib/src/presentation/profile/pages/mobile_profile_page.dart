@@ -54,12 +54,20 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
   Future<void> _saveUserToken(String userName) async {
     if (userName.isEmpty || userName == "로그인 필요") return;
     try {
-      String? token = await FirebaseMessaging.instance.getToken();
+      // 로딩 화면과 같이 5초 넘으면 그만둔다(통신 없을 때 영영 기다리지 않게).
+      String? token = await FirebaseMessaging.instance.getToken().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => null,
+      );
       if (token != null) {
-        await FirebaseFirestore.instance.collection('users').doc(userName).set({
-          'fcmToken': token,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userName)
+            .set({
+              'fcmToken': token,
+              'updatedAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true))
+            .timeout(const Duration(seconds: 5), onTimeout: () {});
       }
     } catch (e) {
       debugPrint("🚨 FCM 토큰 저장 에러: $e");

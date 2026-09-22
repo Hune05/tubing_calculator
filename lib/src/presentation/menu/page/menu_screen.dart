@@ -291,13 +291,21 @@ class MenuScreen extends StatelessWidget {
               String? jsonString = prefs.getString('saved_electric_bend_list');
 
               if (jsonString != null && jsonString.isNotEmpty) {
-                final List<dynamic> decoded = jsonDecode(jsonString);
-                electricList = decoded.map<Map<String, double>>((item) {
-                  final Map<String, dynamic> map = item as Map<String, dynamic>;
-                  return map.map(
-                    (key, value) => MapEntry(key, (value as num).toDouble()),
-                  );
-                }).toList();
+                // 저장된 글이 깨져 있어도 단추가 죽지 않게.
+                try {
+                  final List<dynamic> decoded = jsonDecode(jsonString);
+                  electricList = decoded.map<Map<String, double>>((item) {
+                    final Map<String, dynamic> map =
+                        item as Map<String, dynamic>;
+                    return map.map(
+                      (key, value) =>
+                          MapEntry(key, value is num ? value.toDouble() : 0.0),
+                    );
+                  }).toList();
+                } catch (e) {
+                  debugPrint('전동 벤딩 목록 읽기 실패: $e');
+                  electricList = [];
+                }
               }
 
               Navigator.push(

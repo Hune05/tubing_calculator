@@ -1,5 +1,6 @@
 import 'package:tubing_calculator/src/core/utils/shared_drawing_inbox.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tubing_calculator/src/presentation/menu/page/menu_screen.dart';
 import 'package:tubing_calculator/src/presentation/menu/page/mobile_menu_page.dart';
@@ -24,8 +25,24 @@ class HomeMenuRouter extends StatelessWidget {
       (_) => SharedDrawingInbox.markHomeReady(),
     );
     final bool isWide = MediaQuery.of(context).size.shortestSide >= 600;
-    return isWide
-        ? const MenuScreen()
-        : MobileMenuPage(currentWorker: currentWorker);
+    if (isWide) return const MenuScreen();
+    if (currentWorker != "로그인 필요") {
+      return MobileMenuPage(currentWorker: currentWorker);
+    }
+    // 이름 없이 열렸으면(/menu 경로) 폰에 적어 둔 이름을 쓴다. 예전엔 로그인이 풀린 것처럼 보였다.
+    return FutureBuilder<String?>(
+      future: SharedPreferences.getInstance().then(
+        (p) => p.getString('user_real_name'),
+      ),
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Scaffold(body: SizedBox.shrink());
+        }
+        final name = snap.data;
+        return MobileMenuPage(
+          currentWorker: name == null || name.isEmpty ? currentWorker : name,
+        );
+      },
+    );
   }
 }
