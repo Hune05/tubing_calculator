@@ -5275,6 +5275,40 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               ],
             ),
             const SizedBox(height: 20),
+            _panelLabel("밸브·피팅"),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _openValveSheet,
+                    icon: const Icon(Icons.tune_rounded, size: 20),
+                    label: const Text(
+                      "밸브",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _openFittingSheet,
+                    icon: const Icon(Icons.plumbing_rounded, size: 20),
+                    label: const Text(
+                      "피팅",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
             _panelLabel("계기 (정면 크기, 브래킷 빼고)"),
             for (final brand in kInstrumentPresets.entries) ...[
               const SizedBox(height: 10),
@@ -6066,19 +6100,28 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       children: [
         _panelLabel("끌어다 도면에 놓습니다"),
         const SizedBox(height: 8),
+        // 단추가 늘어 좁은 폰에서는 옆으로 민다(신규 모듈은 위로 끌어 놓는다).
         SizedBox(
           height: 64,
-          child: Row(
-            children: [
-              _dragTile(
-                const ModulePreset("신규 모듈", 80, 80),
-                (_) => _buildPaletteItem("신규 모듈"),
-              ),
-              const SizedBox(width: 8),
-              _buildInstrumentButton(),
-              const SizedBox(width: 8),
-              _buildDuctButton(),
-            ],
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _dragTile(
+                  const ModulePreset("신규 모듈", 80, 80),
+                  (_) => _buildPaletteItem("신규 모듈"),
+                  affinity: Axis.vertical,
+                ),
+                const SizedBox(width: 8),
+                _buildInstrumentButton(),
+                const SizedBox(width: 8),
+                _buildValveButton(),
+                const SizedBox(width: 8),
+                _buildFittingButton(),
+                const SizedBox(width: 8),
+                _buildDuctButton(),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 10),
@@ -6407,6 +6450,33 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     ),
   );
 
+  void _openFittingSheet() => _showPresetSheet(
+    title: "피팅 놓기",
+    help:
+        "하이록·스웨즈락 튜브 피팅을 옆에서 본 크기입니다(1/4\"·3/8\"·1/2\"는 두 회사 치수가 같습니다). 누르면 지금 보이는 도면 가운데에 놓습니다.",
+    groups: kFittingPresets,
+  );
+
+  void _openValveSheet() => _showPresetSheet(
+    title: "밸브 놓기",
+    help: "매니폴드 밸브를 정면(손잡이 쪽)에서 본 크기입니다. 누르면 지금 보이는 도면 가운데에 놓습니다.",
+    groups: kValvePresets,
+  );
+
+  Widget _buildFittingButton() => _buildSheetButton(
+    key: const ValueKey("fitting_button"),
+    icon: Icons.plumbing_rounded,
+    label: "피팅",
+    onTap: _openFittingSheet,
+  );
+
+  Widget _buildValveButton() => _buildSheetButton(
+    key: const ValueKey("valve_button"),
+    icon: Icons.tune_rounded,
+    label: "밸브",
+    onTap: _openValveSheet,
+  );
+
   Widget _buildDuctButton() => _buildSheetButton(
     key: const ValueKey("duct_button"),
     icon: Icons.view_week_rounded,
@@ -6436,7 +6506,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       child: InkWell(
         onTap: onTap,
         child: SizedBox(
-          width: 76,
+          width: 64,
           height: 56,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -6655,7 +6725,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     // 넓은 화면의 왼쪽 칸에서는 크게 보인다. 끄는 동안 떠다니는 복사본으로도
     // 쓰이므로 폭은 늘 고정값이어야 한다(무한 폭이면 오류가 난다).
     return Container(
-      width: large ? 228 : 76,
+      width: large ? 228 : 64,
       height: large ? 56 : 56,
       decoration: BoxDecoration(
         color: tossBlue.withValues(alpha: 0.06),

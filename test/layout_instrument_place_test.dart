@@ -74,4 +74,38 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
   });
+
+  testWidgets('피팅 목록에서 고르면 도면에 놓인다', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'layout_board_onboarding_shown_v1': true,
+    });
+    tester.view.physicalSize = const Size(390, 844) * 2;
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const MaterialApp(home: LayoutBoardPage()));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('fitting_button')));
+    await tester.pumpAndSettle();
+    expect(find.text('피팅 놓기'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('유니언 티 1/2"'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('유니언 티 1/2"'));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byType(InteractiveViewer),
+        matching: find.text('유니언 티 1/2"'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
 }

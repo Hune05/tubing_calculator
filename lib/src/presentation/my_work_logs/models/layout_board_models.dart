@@ -91,32 +91,62 @@ const Map<String, List<ModulePreset>> kDuctPresetGroups = {
 ///   스위치 한 벌(SPDT)·두 벌(DPDT) 외곽은 같다. 청색은 카탈로그에 없고 현장 모습 기준.
 const Map<String, List<ModulePreset>> kInstrumentPresets = {
   "요꼬가와": [
-    ModulePreset("EJA110E DPT 수직배관", 175, 138, shape: InstrumentShape.dpSide),
-    ModulePreset("EJA110E DPT 수평배관", 115, 175, shape: InstrumentShape.dp),
-    ModulePreset("EJA430E PT 수직배관", 175, 138, shape: InstrumentShape.dpSide),
-    ModulePreset("EJA430E PT 수평배관", 115, 175, shape: InstrumentShape.gp),
-    ModulePreset("EJA530E PT 인라인", 95, 159, shape: InstrumentShape.inline),
+    ModulePreset(
+      "EJA110E DPT 수직배관",
+      175,
+      138,
+      shape: InstrumentShape.ykVertical,
+    ),
+    ModulePreset(
+      "EJA110E DPT 수평배관",
+      115,
+      175,
+      shape: InstrumentShape.ykHorizontal,
+    ),
+    ModulePreset(
+      "EJA430E PT 수직배관",
+      175,
+      138,
+      shape: InstrumentShape.ykVertical,
+    ),
+    ModulePreset(
+      "EJA430E PT 수평배관",
+      115,
+      175,
+      shape: InstrumentShape.ykHorizontal,
+    ),
+    ModulePreset("EJA530E PT 인라인", 95, 159, shape: InstrumentShape.ykInline),
   ],
   "오토롤": [
-    ModulePreset("APT3100 DPT", 86, 194, shape: InstrumentShape.dp),
-    ModulePreset("APT3200 PT", 86, 160, shape: InstrumentShape.inline),
+    ModulePreset("APT3100 DPT", 86, 194, shape: InstrumentShape.autrolDp),
+    ModulePreset("APT3200 PT", 86, 160, shape: InstrumentShape.autrolPt),
   ],
   "로즈마운트": [
-    ModulePreset("3051CD DPT", 104, 181, shape: InstrumentShape.dp),
+    ModulePreset("3051CD DPT", 104, 181, shape: InstrumentShape.rmCoplanar),
     ModulePreset(
       "3051CD DPT 재래식 플랜지",
       115,
       200,
-      shape: InstrumentShape.dpTraditional,
+      shape: InstrumentShape.rmTraditional,
     ),
-    ModulePreset("3051CG PT", 104, 181, shape: InstrumentShape.gp),
-    ModulePreset("3051TG PT 인라인", 104, 183, shape: InstrumentShape.inline),
-    ModulePreset("2051CD DPT", 98, 179, shape: InstrumentShape.dp),
-    ModulePreset("2051TG PT 인라인", 98, 183, shape: InstrumentShape.inline),
-    ModulePreset("2120 레벨 스위치", 120, 220, shape: InstrumentShape.fork),
-    ModulePreset("2120 레벨 스위치 나일론", 141, 196, shape: InstrumentShape.fork),
-    ModulePreset("2130 레벨 스위치", 120, 251, shape: InstrumentShape.fork),
-    ModulePreset("2130 레벨 스위치 고온", 120, 418, shape: InstrumentShape.fork),
+    ModulePreset("3051CG PT", 104, 181, shape: InstrumentShape.rmCoplanar),
+    ModulePreset("3051TG PT 인라인", 104, 183, shape: InstrumentShape.rmInline),
+    ModulePreset("2051CD DPT", 98, 179, shape: InstrumentShape.rmCoplanar),
+    ModulePreset("2051TG PT 인라인", 98, 183, shape: InstrumentShape.rmInline),
+    ModulePreset("2120 레벨 스위치", 120, 220, shape: InstrumentShape.fork2120),
+    ModulePreset(
+      "2120 레벨 스위치 나일론",
+      141,
+      196,
+      shape: InstrumentShape.fork2120Nylon,
+    ),
+    ModulePreset("2130 레벨 스위치", 120, 251, shape: InstrumentShape.fork2130),
+    ModulePreset(
+      "2130 레벨 스위치 고온",
+      120,
+      418,
+      shape: InstrumentShape.fork2130Long,
+    ),
   ],
   "SOR": [
     ModulePreset("6NN 압력 스위치", 108, 147, shape: InstrumentShape.sorPiston),
@@ -129,6 +159,111 @@ const Map<String, List<ModulePreset>> kInstrumentPresets = {
   ],
   "비카": [ModulePreset("MA 압력 스위치", 161, 121, shape: InstrumentShape.exdSwitch)],
 };
+
+/// 튜브 피팅(이중 페럴 압착). 하이록 H-200TF(2020)·스웨즈락 MS-01-140(Rev AJ) 표 값으로,
+/// 1/4"·3/8"·1/2"는 두 회사 길이·너트 육각이 같다(너트 손으로 조인 상태).
+/// 옆에서 본 가로×세로(mm): 곧은 것은 전체 길이 × 너트 육각, 엘보·티·크로스는
+/// 가운데~끝 길이(A)에 몸통 육각 반을 더했다. 메일 엘보는 하이록 L·L1.
+const Map<String, List<ModulePreset>> kFittingPresets = {
+  "유니언": [
+    ModulePreset('유니언 1/4"', 41, 14, shape: InstrumentShape.fitUnion),
+    ModulePreset('유니언 3/8"', 45, 17, shape: InstrumentShape.fitUnion),
+    ModulePreset('유니언 1/2"', 51, 22, shape: InstrumentShape.fitUnion),
+  ],
+  "유니언 엘보": [
+    ModulePreset('유니언 엘보 1/4"', 33, 33, shape: InstrumentShape.fitElbow),
+    ModulePreset('유니언 엘보 3/8"', 38, 38, shape: InstrumentShape.fitElbow),
+    ModulePreset('유니언 엘보 1/2"', 46, 46, shape: InstrumentShape.fitElbow),
+  ],
+  "유니언 티": [
+    ModulePreset('유니언 티 1/4"', 54, 33, shape: InstrumentShape.fitTee),
+    ModulePreset('유니언 티 3/8"', 61, 38, shape: InstrumentShape.fitTee),
+    ModulePreset('유니언 티 1/2"', 72, 46, shape: InstrumentShape.fitTee),
+  ],
+  "유니언 크로스": [
+    ModulePreset('유니언 크로스 1/4"', 54, 54, shape: InstrumentShape.fitCross),
+    ModulePreset('유니언 크로스 3/8"', 61, 61, shape: InstrumentShape.fitCross),
+    ModulePreset('유니언 크로스 1/2"', 72, 72, shape: InstrumentShape.fitCross),
+  ],
+  "메일 커넥터": [
+    ModulePreset(
+      '메일 커넥터 1/4"×1/4" NPT',
+      38,
+      14,
+      shape: InstrumentShape.fitMale,
+    ),
+    ModulePreset(
+      '메일 커넥터 3/8"×3/8" NPT',
+      40,
+      17,
+      shape: InstrumentShape.fitMale,
+    ),
+    ModulePreset(
+      '메일 커넥터 1/2"×1/2" NPT',
+      49,
+      22,
+      shape: InstrumentShape.fitMale,
+    ),
+  ],
+  "메일 엘보": [
+    ModulePreset(
+      '메일 엘보 1/4"×1/4" NPT',
+      34,
+      30,
+      shape: InstrumentShape.fitMaleElbow,
+    ),
+    ModulePreset(
+      '메일 엘보 3/8"×3/8" NPT',
+      42,
+      35,
+      shape: InstrumentShape.fitMaleElbow,
+    ),
+    ModulePreset(
+      '메일 엘보 1/2"×1/2" NPT',
+      46,
+      43,
+      shape: InstrumentShape.fitMaleElbow,
+    ),
+  ],
+  "벌크헤드 유니언": [
+    ModulePreset('벌크헤드 유니언 1/4"', 58, 16, shape: InstrumentShape.fitBulkhead),
+    ModulePreset('벌크헤드 유니언 3/8"', 62, 19, shape: InstrumentShape.fitBulkhead),
+    ModulePreset('벌크헤드 유니언 1/2"', 71, 24, shape: InstrumentShape.fitBulkhead),
+  ],
+};
+
+/// 매니폴드·게이지 밸브. 정면(손잡이 쪽)에서 본 가로×세로, 손잡이 다 연 상태(카탈로그 "Open").
+/// 하이록 H-120MV(2023.3) p.11·13·18·23·28, 스웨즈락 MS-02-445(Rev G) p.6·10·12.
+/// 1-플랜지 직결형 세로는 블록 62 + 손잡이(열림 65/70 − 블록 가운데 31)로 셈했다.
+const Map<String, List<ModulePreset>> kValvePresets = {
+  "하이록": [
+    ModulePreset("VM2V 2밸브 매니폴드", 104, 85, shape: InstrumentShape.mv2),
+    ModulePreset("VM3V 3밸브 매니폴드", 192, 85, shape: InstrumentShape.mv3),
+    ModulePreset("VM3V1F 3밸브 직결", 192, 96, shape: InstrumentShape.mv3Flange),
+    ModulePreset("VM5V 5밸브 매니폴드", 192, 85, shape: InstrumentShape.mv5),
+    ModulePreset("VM5V1F 5밸브 직결", 192, 101, shape: InstrumentShape.mv5Flange),
+    ModulePreset("VGV 게이지 밸브 1/2\"", 67, 69, shape: InstrumentShape.gv1),
+    ModulePreset("VGV2 게이지 2밸브 1/2\"", 78, 138, shape: InstrumentShape.gv2),
+  ],
+  "스웨즈락": [
+    ModulePreset("V2 2밸브 매니폴드", 97, 78, shape: InstrumentShape.swV2),
+    ModulePreset("V3 3밸브 매니폴드", 229, 104, shape: InstrumentShape.swV3),
+    ModulePreset("V5 5밸브 매니폴드", 226, 78, shape: InstrumentShape.swV5),
+  ],
+};
+
+/// 예전(모양 여섯 가지 시절) 이름으로 저장된 계기는, 이름이 목록에 있으면
+/// 지금의 모델별 모양으로 바꿔 읽는다. 이름을 고친 것은 예전 모양 그대로 둔다.
+String? _upgradeShape(String? name, String? shape) {
+  const legacy = {'dp', 'gp', 'dp_trad', 'dp_side', 'inline', 'fork'};
+  if (shape == null || !legacy.contains(shape) || name == null) return shape;
+  for (final list in kInstrumentPresets.values) {
+    for (final p in list) {
+      if (p.name == name) return p.shape;
+    }
+  }
+  return shape;
+}
 
 abstract class MeasurePoint {
   Offset get center;
@@ -191,7 +326,7 @@ class PlacedItem implements MeasurePoint {
     width: (j['w'] as num?)?.toDouble() ?? 80.0,
     height: (j['h'] as num?)?.toDouble() ?? 80.0,
     isLocked: j['locked'] as bool? ?? false,
-    shape: j['shape'] as String?,
+    shape: _upgradeShape(j['name'] as String?, j['shape'] as String?),
   );
 }
 
