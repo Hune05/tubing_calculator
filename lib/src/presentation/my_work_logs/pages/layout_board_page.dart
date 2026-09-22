@@ -6455,6 +6455,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     help:
         "하이록·스웨즈락 튜브 피팅을 옆에서 본 크기입니다(1/4\"·3/8\"·1/2\"는 두 회사 치수가 같습니다). 누르면 지금 보이는 도면 가운데에 놓습니다.",
     groups: kFittingPresets,
+    sizeFilter: true,
   );
 
   void _openValveSheet() => _showPresetSheet(
@@ -6527,10 +6528,14 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     );
   }
 
+  // 피팅 고르기 창에서 마지막으로 고른 관 규격(창을 다시 열어도 그대로).
+  String _fittingSize = '1/2"';
+
   Future<void> _showPresetSheet({
     required String title,
     required String help,
     required Map<String, List<ModulePreset>> groups,
+    bool sizeFilter = false,
   }) async {
     final ModulePreset? picked = await showModalBottomSheet<ModulePreset>(
       context: context,
@@ -6539,60 +6544,96 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (ctx) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.6,
-        maxChildSize: 0.9,
-        builder: (ctx, scroll) => ListView(
-          controller: scroll,
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w900,
-                color: tossText,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: sizeFilter ? 0.8 : 0.6,
+          maxChildSize: 0.9,
+          builder: (ctx, scroll) => ListView(
+            controller: scroll,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  color: tossText,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              keepWords(help),
-              style: const TextStyle(
-                fontSize: 14,
-                color: tossSubText,
-                height: 1.4,
+              const SizedBox(height: 4),
+              Text(
+                keepWords(help),
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: tossSubText,
+                  height: 1.4,
+                ),
               ),
-            ),
-            for (final brand in groups.entries) ...[
-              const SizedBox(height: 16),
-              _panelLabel(brand.key),
-              for (final p in brand.value)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: _instrumentThumb(p, box: 48),
-                  title: Text(
-                    p.name,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: tossText,
-                    ),
-                  ),
-                  // 덕트는 이름에 폭×높이가 있고 도면 세로(길이)는 놓은 뒤 고치므로 크기를 따로 안 적는다.
-                  trailing: p.shape == InstrumentShape.duct
-                      ? null
-                      : Text(
-                          "${p.width.toInt()}×${p.height.toInt()}",
+              if (sizeFilter) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final size in kFittingSizes)
+                      ChoiceChip(
+                        key: ValueKey("fitting_size_$size"),
+                        label: Text(size),
+                        selected: size == _fittingSize,
+                        showCheckmark: false,
+                        labelStyle: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: size == _fittingSize ? pureWhite : tossText,
+                        ),
+                        selectedColor: tossBlue,
+                        backgroundColor: pureWhite,
+                        side: BorderSide(
+                          color: size == _fittingSize ? tossBlue : layoutLine,
+                        ),
+                        onSelected: (_) {
+                          setState(() => _fittingSize = size);
+                          setSheet(() {});
+                        },
+                      ),
+                  ],
+                ),
+              ],
+              for (final brand in groups.entries)
+                if (!sizeFilter ||
+                    brand.value.any(
+                      (p) => fittingTubeSize(p.name) == _fittingSize,
+                    )) ...[
+                  const SizedBox(height: 16),
+                  _panelLabel(brand.key),
+                  for (final p in brand.value)
+                    if (!sizeFilter || fittingTubeSize(p.name) == _fittingSize)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: _instrumentThumb(p, box: 48),
+                        title: Text(
+                          p.name,
                           style: const TextStyle(
                             fontSize: 15,
-                            color: tossSubText,
+                            fontWeight: FontWeight.w700,
+                            color: tossText,
                           ),
                         ),
-                  onTap: () => Navigator.pop(ctx, p),
-                ),
+                        // 덕트는 이름에 폭×높이가 있고 도면 세로(길이)는 놓은 뒤 고치므로 크기를 따로 안 적는다.
+                        trailing: p.shape == InstrumentShape.duct
+                            ? null
+                            : Text(
+                                "${p.width.toInt()}×${p.height.toInt()}",
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  color: tossSubText,
+                                ),
+                              ),
+                        onTap: () => Navigator.pop(ctx, p),
+                      ),
+                ],
             ],
-          ],
+          ),
         ),
       ),
     );

@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'fitting_spec.dart';
+
 // 🚀 배치도 계기 모듈의 정면 모양. 제조사 치수 도면(GS·PDS·카탈로그)의 앞 그림을 보고
 // 몸통·뚜껑·목·플랜지·육각·포크의 자리와 비율을 옮겼다. 치수를 재는 그림이 아니라
 // 알아보기 위한 그림이다(외곽은 모듈 가로×세로 그대로). 비율은 그림 안에서 0~1로 적는다.
@@ -117,7 +119,11 @@ class InstrumentShape {
   };
 
   /// 원래 가로가 긴 모양인지(돌려 놓았는지 가리는 데 쓴다).
-  static bool isLandscape(String shape) => _landscape.contains(shape);
+  static bool isLandscape(String shape) {
+    final Size? mm = fittingSpecSize(shape);
+    if (mm != null) return mm.width > mm.height;
+    return _landscape.contains(shape);
+  }
 }
 
 class InstrumentShapePainter extends CustomPainter {
@@ -230,7 +236,11 @@ class InstrumentShapePainter extends CustomPainter {
       case InstrumentShape.swV5:
         _swV(b, 5);
       default:
-        _part(canvas, Offset.zero & s, _body, radius: 4);
+        if (isFittingSpec(shape)) {
+          _fitSpec(canvas, s, shape);
+        } else {
+          _part(canvas, Offset.zero & s, _body, radius: 4);
+        }
     }
     canvas.restore();
   }
@@ -1006,6 +1016,301 @@ class InstrumentShapePainter extends CustomPainter {
         _handleFacing(b, 0.5 - 0.05, 0.3, mmW: 226, mmH: 56, lenMm: 20);
         _handleFacing(b, 0.5 + 0.05, 0.3, mmW: 226, mmH: 56, lenMm: 20);
         _handleFacing(b, 0.5, 0.72, mmW: 226, mmH: 56, lenMm: 20);
+    }
+  }
+
+  // ───────────────────────── 조각 목록으로 적은 피팅(fitting_spec.dart) ─────────────────────────
+
+  void _fitSpec(Canvas c, Size s, String shape) {
+    final Size? mm = fittingSpecSize(shape);
+    if (mm == null || mm.width <= 0 || mm.height <= 0) return;
+    // 가로·세로 같은 배율로(모양이 찌그러지지 않게), 칸 가운데에.
+    final double k = math.min(s.width / mm.width, s.height / mm.height);
+    c.save();
+    c.translate((s.width - mm.width * k) / 2, (s.height - mm.height * k) / 2);
+    if (shape.startsWith('fv:')) {
+      _valveSpec(c, k, parseValve(shape), mm);
+    } else if (shape.startsWith('fs:')) {
+      _fitStraight(c, k, mm, parseStraight(shape));
+    } else {
+      final (body, arms) = parseElbow(shape);
+      final Rect bb = elbowBounds(body, arms);
+      c.translate(-bb.left * k, -bb.top * k);
+      _fitElbowSpec(c, k, body, arms);
+    }
+    c.restore();
+  }
+
+  /// 한 조각을 [x0]~[x1](가로, 픽셀) 자리에 가운데 선 [cy], 높이 [hPx]로 그린다.
+  void _fitSeg(
+    Canvas c,
+    String kind,
+    double x0,
+    double x1,
+    double cy,
+    double hPx,
+  ) {
+    final Rect r = Rect.fromLTRB(x0, cy - hPx / 2, x1, cy + hPx / 2);
+    switch (kind) {
+      case 'n':
+      case 'h':
+      case 'f':
+      case 'l':
+        _hexH(c, r);
+      case 't':
+        _threadH(c, r);
+      default:
+        _part(c, r, _metal, radius: 0);
+    }
+  }
+
+  void _fitStraight(Canvas c, double k, Size mm, List<FitSeg> segs) {
+    final double cy = mm.height * k / 2;
+    double x = 0;
+    for (final s in segs) {
+      _fitSeg(c, s.kind, x, x + s.len * k, cy, s.h * k);
+      x += s.len * k;
+    }
+  }
+
+  void _fitElbowSpec(Canvas c, double k, double body, List<FitArm> arms) {
+    for (final a in arms) {
+      c.save();
+      final double angle = switch (a.dir) {
+        'l' => math.pi,
+        'd' => math.pi / 2,
+        'u' => -math.pi / 2,
+        'x' => math.pi * 3 / 4,
+        _ => 0.0,
+      };
+      c.rotate(angle);
+      // 가운데에서 +x 쪽으로 뻗은 팔을 그린다.
+      final double from = body / 2 * k * 0.9, to = a.len * k;
+      final double th = a.thick * k;
+      switch (a.kind) {
+        case 'n':
+          final double nut = math.min(a.thick * 0.8 * k, (to - from) * 0.7);
+          _part(
+            c,
+            Rect.fromLTRB(from, -th * 0.28, to - nut, th * 0.28),
+            _metal,
+            radius: 0,
+          );
+          _fitSeg(c, 'n', to - nut, to, 0, th);
+        case 't':
+          _part(
+            c,
+            Rect.fromLTRB(
+              from,
+              -th * 0.35,
+              from + (to - from) * 0.2,
+              th * 0.35,
+            ),
+            _metal,
+            radius: 0,
+          );
+          _fitSeg(c, 't', from + (to - from) * 0.2, to, 0, th);
+        default:
+          _fitSeg(c, 'h', from, to, 0, th);
+      }
+      c.restore();
+    }
+    final double bs = body * k;
+    _part(
+      c,
+      Rect.fromCenter(center: Offset.zero, width: bs, height: bs),
+      _metal,
+      radius: 2,
+    );
+  }
+
+  // ───────────────────────── 인라인 밸브(fitting_spec.dart "fv:") ─────────────────────────
+  // 하이록 밸브 카탈로그 앞 그림(손잡이가 위): 관 줄 위의 몸통, 양 끝 너트·암나사·수나사,
+  // 위로 보닛·축·손잡이. 좌표는 mm, 관 가운데 선이 y = top.
+
+  void _valveSpec(Canvas c, double k, Map<String, String> v, Size mm) {
+    final String kind = v['kind'] ?? '';
+    final double l = valveNum(v, 'L');
+    final double top = valveNum(v, 'top');
+    final double bot = valveNum(v, 'bot', 10);
+    final double pipe = valveNum(v, 'pipe', 17);
+    final String end = v['end'] ?? 'n';
+    Offset p(double x, double y) => Offset(x * k, y * k);
+    Rect r(double l0, double t0, double r0, double b0) =>
+        Rect.fromLTRB(l0 * k, t0 * k, r0 * k, b0 * k);
+
+    if (kind == 'relief') {
+      // 입구는 아래(가운데 x = bot), 출구는 오른쪽, 위로 스프링 통·조절 육각·둥근 뚜껑.
+      final double cx = bot, outY = top - valveNum(v, 'out', top * 0.4);
+      final double inTop = top - pipe * 0.9;
+      _part(
+        c,
+        r(
+          cx + bot * 0.8,
+          outY - pipe * 0.3,
+          l + bot - pipe * 0.8,
+          outY + pipe * 0.3,
+        ),
+        _metal,
+        radius: 0,
+      );
+      _hexH(
+        c,
+        r(l + bot - pipe * 0.8, outY - pipe / 2, l + bot, outY + pipe / 2),
+      );
+      _part(
+        c,
+        r(cx - bot * 0.45, outY + bot * 0.8, cx + bot * 0.45, inTop),
+        _metal,
+        radius: 0,
+      );
+      _hexV(c, r(cx - pipe / 2, inTop, cx + pipe / 2, top));
+      _part(
+        c,
+        r(0, outY - bot * 0.9, 2 * bot, outY + bot * 0.9),
+        _metal,
+        radius: 2,
+      );
+      _part(
+        c,
+        r(cx - bot * 0.6, bot * 1.5, cx + bot * 0.6, outY - bot * 0.9),
+        _body,
+        radius: 2,
+      );
+      _hexV(c, r(cx - bot * 0.75, bot * 0.9, cx + bot * 0.75, bot * 1.5));
+      c.drawOval(
+        r(cx - bot * 0.5, 0, cx + bot * 0.5, bot),
+        Paint()..color = _metal,
+      );
+      c.drawOval(r(cx - bot * 0.5, 0, cx + bot * 0.5, bot), _line);
+      return;
+    }
+
+    final double x0 = kind == 'ball' || kind == 'wing' ? 0 : (mm.width - l) / 2;
+    final double sx = x0 + l / 2; // 축(손잡이) 자리
+    // 몸통
+    final double bw = switch (kind) {
+      'ball' => math.max(l * 0.32, bot * 2),
+      'wing' => math.min(l * 0.42, bot * 2.4),
+      _ => math.min(l * 0.42, 32.0),
+    };
+    // 양 끝
+    for (final left in [true, false]) {
+      final double a = left ? x0 : sx + bw / 2;
+      final double b = left ? sx - bw / 2 : x0 + l;
+      if (b <= a) continue;
+      final double nutLen = math.min(pipe * 0.8, (b - a) * 0.7);
+      switch (end) {
+        case 'f':
+          _hexH(c, r(a, top - pipe / 2, b, top + pipe / 2));
+        case 'm':
+          final double tx0 = left ? a : a + (b - a) * 0.3;
+          final double tx1 = left ? b - (b - a) * 0.3 : b;
+          _threadH(c, r(tx0, top - pipe * 0.4, tx1, top + pipe * 0.4));
+          _hexH(
+            c,
+            r(left ? tx1 : a, top - pipe / 2, left ? b : tx0, top + pipe / 2),
+          );
+        default:
+          final double nx0 = left ? a : b - nutLen;
+          final double nx1 = left ? a + nutLen : b;
+          _part(
+            c,
+            r(
+              left ? nx1 : a,
+              top - pipe * 0.3,
+              left ? b : nx0,
+              top + pipe * 0.3,
+            ),
+            _metal,
+            radius: 0,
+          );
+          _hexH(c, r(nx0, top - pipe / 2, nx1, top + pipe / 2));
+      }
+    }
+    final double bodyTop = top - bot;
+    if (kind == 'ball') {
+      _hexH(c, r(sx - bw / 2, bodyTop, sx + bw / 2, top + bot));
+    } else {
+      _part(
+        c,
+        r(sx - bw / 2, bodyTop, sx + bw / 2, top + bot),
+        _metal,
+        radius: 2,
+      );
+      c.drawLine(p(sx - bw / 2, top), p(sx + bw / 2, top), _thin);
+    }
+
+    switch (kind) {
+      case 'ball':
+        // 짧은 축 위에서 비스듬히 올라 관과 나란히 뻗는 납작한 레버.
+        final double reach = valveNum(v, 'reach', 80);
+        final double th = math.min(6.0, top * 0.12);
+        _part(c, r(sx - 3, 1.5 * th, sx + 3, bodyTop), _metal, radius: 0);
+        final Path lever = Path()
+          ..moveTo(sx * k, (bodyTop - 2) * k)
+          ..lineTo((sx + 10) * k, th * k)
+          ..lineTo((sx + reach) * k, th * k)
+          ..lineTo((sx + reach) * k, 0)
+          ..lineTo((sx + 10 - th) * k, 0)
+          ..lineTo((sx - th) * k, (bodyTop - 2) * k)
+          ..close();
+        c.drawPath(lever, Paint()..color = _metal);
+        c.drawPath(lever, _line);
+      case 'wing':
+        // 보닛·패널 너트, 그 위 날개 손잡이(관과 나란히 한쪽으로).
+        final double reach = valveNum(v, 'reach', 50);
+        final double bonW = bw * 0.55;
+        _hexV(c, r(sx - bonW / 2, top * 0.35, sx + bonW / 2, bodyTop));
+        _part(
+          c,
+          r(sx - bonW * 0.35, top * 0.15, sx + bonW * 0.35, top * 0.35),
+          _metal,
+          radius: 0,
+        );
+        _part(
+          c,
+          r(sx - bonW * 0.5, 0, sx + reach, top * 0.17),
+          _body,
+          radius: top * 0.08,
+        );
+        for (
+          double x = sx + reach * 0.3;
+          x < sx + reach * 0.95;
+          x += reach * 0.15
+        ) {
+          c.drawLine(p(x, top * 0.03), p(x, top * 0.14), _thin);
+        }
+      default:
+        // 니들·유니언 보닛·토글: 보닛(나사) → 패킹 육각 → 가는 축 → 손잡이.
+        final double bonW = bw * (kind == 'gb' ? 0.7 : 0.5);
+        final double y1 = bodyTop - (top - bot) * 0.3;
+        _threadV(c, r(sx - bonW / 2, y1, sx + bonW / 2, bodyTop));
+        final double y2 = y1 - (top - bot) * 0.18;
+        _hexV(c, r(sx - bonW * 0.6, y2, sx + bonW * 0.6, y1));
+        if (kind == 'gb') {
+          _hexV(c, r(sx - bonW * 0.8, bodyTop - 8, sx + bonW * 0.8, bodyTop));
+        }
+        final double th = math.min(7.0, top * 0.1);
+        _part(c, r(sx - 2, th, sx + 2, y2), _metal, radius: 0);
+        if (kind == 'toggle') {
+          final Path lever = Path()
+            ..moveTo((sx - 2) * k, y2 * k)
+            ..lineTo((sx + 26) * k, 0)
+            ..lineTo((sx + 32) * k, th * 0.8 * k)
+            ..lineTo((sx + 4) * k, y2 * k)
+            ..close();
+          c.drawPath(lever, Paint()..color = _metal);
+          c.drawPath(lever, _line);
+        } else {
+          final double bar = valveNum(v, 'bar', 60);
+          _part(
+            c,
+            r(sx - bar / 2, 0, sx + bar / 2, th),
+            _metal,
+            radius: th / 2,
+          );
+        }
     }
   }
 

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:flutter/material.dart';
 
+import 'fitting_spec.dart';
 import 'instrument_shape_painter.dart';
 
 // 🚀 배치도(모바일·태블릿 두 화면)가 함께 쓰는 데이터 모양과 치수 계산.
@@ -164,7 +165,7 @@ const Map<String, List<ModulePreset>> kInstrumentPresets = {
 /// 1/4"·3/8"·1/2"는 두 회사 길이·너트 육각이 같다(너트 손으로 조인 상태).
 /// 옆에서 본 가로×세로(mm): 곧은 것은 전체 길이 × 너트 육각, 엘보·티·크로스는
 /// 가운데~끝 길이(A)에 몸통 육각 반을 더했다. 메일 엘보는 하이록 L·L1.
-const Map<String, List<ModulePreset>> kFittingPresets = {
+final Map<String, List<ModulePreset>> kFittingPresets = {
   "유니언": [
     ModulePreset('유니언 1/4"', 41, 14, shape: InstrumentShape.fitUnion),
     ModulePreset('유니언 3/8"', 45, 17, shape: InstrumentShape.fitUnion),
@@ -230,14 +231,264 @@ const Map<String, List<ModulePreset>> kFittingPresets = {
     ModulePreset('벌크헤드 유니언 3/8"', 62, 19, shape: InstrumentShape.fitBulkhead),
     ModulePreset('벌크헤드 유니언 1/2"', 71, 24, shape: InstrumentShape.fitBulkhead),
   ],
+  // ── 하이록 H-200TF(2020) 표 값을 조각 목록으로(fitting_spec.dart) ──
+  // p.13 리듀싱 유니언, p.25 벌크헤드 메일, p.26 45° 메일 엘보, p.27·28 메일 런·브랜치 티,
+  // p.29 피메일 커넥터, p.32 벌크헤드 피메일, p.33 피메일 엘보, p.34·35 피메일 런·브랜치 티,
+  // p.36 리듀서, p.38 벌크헤드 리듀서, p.42·45 메일·피메일 어댑터, p.46 포트 커넥터, p.65 캡.
+  // 어림: 어댑터 몸통 육각 길이 7, 벌크헤드 잠금 너트 6, 피메일 몸통 육각(1/4 NPT 11/16",
+  // 3/8 NPT 13/16", 1/2 NPT 1"). 나머지 길이·육각은 카탈로그 인쇄 값.
+  "리듀싱 유니언": [
+    fittingPreset(
+      '리듀싱 유니언 3/8"×1/4"',
+      'fs:n:14.2:17.5,h:16.3:15.9,n:12.7:14.3',
+    ),
+    fittingPreset(
+      '리듀싱 유니언 1/2"×1/4"',
+      'fs:n:17.5:22.2,h:16.8:20.6,n:12.7:14.3',
+    ),
+    fittingPreset(
+      '리듀싱 유니언 1/2"×3/8"',
+      'fs:n:17.5:22.2,h:16.8:20.6,n:14.2:17.5',
+    ),
+  ],
+  "피메일 커넥터": [
+    fittingPreset('피메일 커넥터 3/8"×1/4" NPT', 'fs:n:14.2:17.5,h:23.4:19.1'),
+    fittingPreset('피메일 커넥터 3/8"×3/8" NPT', 'fs:n:14.2:17.5,h:24.9:22.2'),
+    fittingPreset('피메일 커넥터 3/8"×1/2" NPT', 'fs:n:14.2:17.5,h:29.7:27'),
+    fittingPreset('피메일 커넥터 1/2"×1/4" NPT', 'fs:n:17.5:22.2,h:22.9:19.1'),
+    fittingPreset('피메일 커넥터 1/2"×3/8" NPT', 'fs:n:17.5:22.2,h:24.4:22.2'),
+    fittingPreset('피메일 커넥터 1/2"×1/2" NPT', 'fs:n:17.5:22.2,h:29.2:27'),
+  ],
+  "캡": [
+    fittingPreset('캡 3/8"', 'fs:n:14.2:17.5,h:11.5:15.9'),
+    fittingPreset('캡 1/2"', 'fs:n:17.5:22.2,h:11.7:20.6'),
+  ],
+  "리듀서": [
+    fittingPreset('리듀서 3/8"×1/4" 관', 'fs:n:14.2:17.5,h:12:15.9,s:15.2:6.4'),
+    fittingPreset('리듀서 3/8"×3/8" 관', 'fs:n:14.2:17.5,h:12.2:15.9,s:16.8:9.5'),
+    fittingPreset('리듀서 3/8"×1/2" 관', 'fs:n:14.2:17.5,h:11.4:15.9,s:22.9:12.7'),
+    fittingPreset('리듀서 1/2"×1/4" 관', 'fs:n:17.5:22.2,h:12.3:20.6,s:15.2:6.4'),
+    fittingPreset('리듀서 1/2"×3/8" 관', 'fs:n:17.5:22.2,h:12.4:20.6,s:16.8:9.5'),
+    fittingPreset('리듀서 1/2"×1/2" 관', 'fs:n:17.5:22.2,h:11.9:20.6,s:22.9:12.7'),
+  ],
+  "메일 어댑터": [
+    fittingPreset(
+      '메일 어댑터 3/8" 관×1/4" NPT',
+      'fs:s:16.8:9.5,h:7:14.3,t:15.1:13.7',
+    ),
+    fittingPreset(
+      '메일 어댑터 3/8" 관×3/8" NPT',
+      'fs:s:16.8:9.5,h:7:17.5,t:15.8:17.1',
+    ),
+    fittingPreset(
+      '메일 어댑터 3/8" 관×1/2" NPT',
+      'fs:s:16.8:9.5,h:7:22.2,t:21.4:21.3',
+    ),
+    fittingPreset(
+      '메일 어댑터 1/2" 관×1/4" NPT',
+      'fs:s:22.9:12.7,h:7:14.3,t:14.6:13.7',
+    ),
+    fittingPreset(
+      '메일 어댑터 1/2" 관×3/8" NPT',
+      'fs:s:22.9:12.7,h:7:17.5,t:15.1:17.1',
+    ),
+    fittingPreset(
+      '메일 어댑터 1/2" 관×1/2" NPT',
+      'fs:s:22.9:12.7,h:7:22.2,t:20.9:21.3',
+    ),
+  ],
+  "피메일 어댑터": [
+    fittingPreset('피메일 어댑터 3/8" 관×1/4" NPT', 'fs:s:16.8:9.5,h:21.3:19.1'),
+    fittingPreset('피메일 어댑터 3/8" 관×3/8" NPT', 'fs:s:16.8:9.5,h:23.6:22.2'),
+    fittingPreset('피메일 어댑터 3/8" 관×1/2" NPT', 'fs:s:16.8:9.5,h:29.9:27'),
+    fittingPreset('피메일 어댑터 1/2" 관×1/4" NPT', 'fs:s:22.9:12.7,h:20.5:19.1'),
+    fittingPreset('피메일 어댑터 1/2" 관×3/8" NPT', 'fs:s:22.9:12.7,h:22.6:22.2'),
+    fittingPreset('피메일 어댑터 1/2" 관×1/2" NPT', 'fs:s:22.9:12.7,h:28.9:27'),
+  ],
+  "포트 커넥터": [
+    fittingPreset('포트 커넥터 3/8"', 'fs:s:26.7:9.5'),
+    fittingPreset('포트 커넥터 1/2"', 'fs:s:36.3:12.7'),
+  ],
+  "벌크헤드 메일 커넥터": [
+    fittingPreset(
+      '벌크헤드 메일 커넥터 3/8"×1/4" NPT',
+      'fs:n:14.2:17.5,h:7:19.1,t:4.8:15.2,l:6:19.1,t:4.8:15.2,t:20.6:13.7',
+    ),
+    fittingPreset(
+      '벌크헤드 메일 커넥터 3/8"×3/8" NPT',
+      'fs:n:14.2:17.5,h:7:19.1,t:4.8:15.2,l:6:19.1,t:4.8:15.2,t:20.6:17.1',
+    ),
+    fittingPreset(
+      '벌크헤드 메일 커넥터 3/8"×1/2" NPT',
+      'fs:n:14.2:17.5,h:7:22.2,t:4.8:17.8,l:6:22.2,t:4.8:17.8,t:27:21.3',
+    ),
+    fittingPreset(
+      '벌크헤드 메일 커넥터 1/2"×3/8" NPT',
+      'fs:n:17.5:22.2,h:7:23.8,t:5.7:19,l:6:23.8,t:5.7:19,t:21.3:17.1',
+    ),
+    fittingPreset(
+      '벌크헤드 메일 커넥터 1/2"×1/2" NPT',
+      'fs:n:17.5:22.2,h:7:23.8,t:5.7:19,l:6:23.8,t:5.7:19,t:26.9:21.3',
+    ),
+  ],
+  "벌크헤드 피메일 커넥터": [
+    fittingPreset(
+      '벌크헤드 피메일 커넥터 3/8"×1/4" NPT',
+      'fs:n:14.2:17.5,h:7:19.1,t:4.8:15.2,l:6:19.1,t:4.8:15.2,h:18.3:19.1',
+    ),
+    fittingPreset(
+      '벌크헤드 피메일 커넥터 1/2"×3/8" NPT',
+      'fs:n:17.5:22.2,h:7:23.8,t:5.7:19,l:6:23.8,t:5.7:19,h:19.8:22.2',
+    ),
+    fittingPreset(
+      '벌크헤드 피메일 커넥터 1/2"×1/2" NPT',
+      'fs:n:17.5:22.2,h:7:23.8,t:5.7:19,l:6:23.8,t:5.7:19,h:24.6:27',
+    ),
+  ],
+  "벌크헤드 리듀서": [
+    fittingPreset(
+      '벌크헤드 리듀서 3/8"',
+      'fs:n:14.2:17.5,h:7:19.1,t:4.8:15.2,l:6:19.1,t:4.8:15.2,s:24.4:9.5',
+    ),
+    fittingPreset(
+      '벌크헤드 리듀서 1/2"',
+      'fs:n:17.5:22.2,h:7:23.8,t:5.7:19,l:6:23.8,t:5.7:19,s:31:12.7',
+    ),
+  ],
+  "45° 메일 엘보": [
+    fittingPreset(
+      '45° 메일 엘보 3/8"×1/4" NPT',
+      'fl:b=15.88;r=n,27.9,17.5;x=t,22.9,13.7',
+    ),
+    fittingPreset(
+      '45° 메일 엘보 3/8"×3/8" NPT',
+      'fl:b=20.64;r=n,29.2,17.5;x=t,24.1,17.1',
+    ),
+    fittingPreset(
+      '45° 메일 엘보 1/2"×3/8" NPT',
+      'fl:b=20.64;r=n,32,22.2;x=t,24.1,17.1',
+    ),
+    fittingPreset(
+      '45° 메일 엘보 1/2"×1/2" NPT',
+      'fl:b=20.64;r=n,32,22.2;x=t,29,21.3',
+    ),
+  ],
+  "메일 런 티": [
+    fittingPreset(
+      '메일 런 티 3/8"×1/4" NPT',
+      'fl:b=15.88;l=n,30.5,17.5;d=n,30.5,17.5;r=t,25.4,13.7',
+    ),
+    fittingPreset(
+      '메일 런 티 3/8"×3/8" NPT',
+      'fl:b=17.46;l=n,31.2,17.5;d=n,31.2,17.5;r=t,26.2,17.1',
+    ),
+    fittingPreset(
+      '메일 런 티 1/2"×3/8" NPT',
+      'fl:b=20.64;l=n,36.1,22.2;d=n,36.1,22.2;r=t,28.2,17.1',
+    ),
+    fittingPreset(
+      '메일 런 티 1/2"×1/2" NPT',
+      'fl:b=20.64;l=n,36.1,22.2;d=n,36.1,22.2;r=t,33,21.3',
+    ),
+  ],
+  "메일 브랜치 티": [
+    fittingPreset(
+      '메일 브랜치 티 3/8"×1/4" NPT',
+      'fl:b=15.88;l=n,30.5,17.5;r=n,30.5,17.5;d=t,25.4,13.7',
+    ),
+    fittingPreset(
+      '메일 브랜치 티 3/8"×3/8" NPT',
+      'fl:b=17.46;l=n,31.2,17.5;r=n,31.2,17.5;d=t,26.2,17.1',
+    ),
+    fittingPreset(
+      '메일 브랜치 티 1/2"×3/8" NPT',
+      'fl:b=20.64;l=n,36.1,22.2;r=n,36.1,22.2;d=t,28.2,17.1',
+    ),
+    fittingPreset(
+      '메일 브랜치 티 1/2"×1/2" NPT',
+      'fl:b=20.64;l=n,36.1,22.2;r=n,36.1,22.2;d=t,33,21.3',
+    ),
+  ],
+  "피메일 엘보": [
+    fittingPreset(
+      '피메일 엘보 3/8"×1/4" NPT',
+      'fl:b=17.5;r=n,31.2,17.5;d=f,22.4,17.5',
+    ),
+    fittingPreset(
+      '피메일 엘보 3/8"×3/8" NPT',
+      'fl:b=20.6;r=n,33.3,17.5;d=f,22.4,20.6',
+    ),
+    fittingPreset(
+      '피메일 엘보 3/8"×1/2" NPT',
+      'fl:b=25.4;r=n,36.1,17.5;d=f,28.4,25.4',
+    ),
+    fittingPreset(
+      '피메일 엘보 1/2"×1/4" NPT',
+      'fl:b=17.5;r=n,36.1,22.2;d=f,22.4,17.5',
+    ),
+    fittingPreset(
+      '피메일 엘보 1/2"×3/8" NPT',
+      'fl:b=20.6;r=n,36.1,22.2;d=f,22.4,20.6',
+    ),
+    fittingPreset(
+      '피메일 엘보 1/2"×1/2" NPT',
+      'fl:b=25.4;r=n,38.9,22.2;d=f,28.4,25.4',
+    ),
+  ],
+  "피메일 런 티": [
+    fittingPreset(
+      '피메일 런 티 3/8"×1/4" NPT',
+      'fl:b=17.5;l=n,31.2,17.5;d=n,31.2,17.5;r=f,22.4,17.5',
+    ),
+    fittingPreset(
+      '피메일 런 티 1/2"×3/8" NPT',
+      'fl:b=20.6;l=n,36.1,22.2;d=n,36.1,22.2;r=f,22.4,20.6',
+    ),
+    fittingPreset(
+      '피메일 런 티 1/2"×1/2" NPT',
+      'fl:b=25.4;l=n,38.9,22.2;d=n,38.9,22.2;r=f,28.4,25.4',
+    ),
+  ],
+  "피메일 브랜치 티": [
+    fittingPreset(
+      '피메일 브랜치 티 3/8"×1/4" NPT',
+      'fl:b=17.5;l=n,31.2,17.5;r=n,31.2,17.5;d=f,22.4,17.5',
+    ),
+    fittingPreset(
+      '피메일 브랜치 티 1/2"×1/4" NPT',
+      'fl:b=17.5;l=n,36.1,22.2;r=n,36.1,22.2;d=f,22.4,17.5',
+    ),
+    fittingPreset(
+      '피메일 브랜치 티 1/2"×3/8" NPT',
+      'fl:b=20.6;l=n,36.1,22.2;r=n,36.1,22.2;d=f,22.4,20.6',
+    ),
+    fittingPreset(
+      '피메일 브랜치 티 1/2"×1/2" NPT',
+      'fl:b=25.4;l=n,38.9,22.2;r=n,38.9,22.2;d=f,28.4,25.4',
+    ),
+  ],
 };
+
+/// 조각 목록(fitting_spec.dart)으로 적은 피팅. 가로×세로는 조각 길이에서 셈한다.
+ModulePreset fittingPreset(String name, String spec) {
+  final Size size = fittingSpecSize(spec) ?? const Size(40, 20);
+  double r(double v) => (v * 10).roundToDouble() / 10;
+  return ModulePreset(name, r(size.width), r(size.height), shape: spec);
+}
+
+/// 피팅 고르기 창의 관 규격 단추.
+const List<String> kFittingSizes = ['1/4"', '3/8"', '1/2"'];
+
+/// 피팅 이름에서 관 규격(이름에 처음 나오는 1/4"·3/8"·1/2")을 꺼낸다. 없으면 null.
+String? fittingTubeSize(String name) =>
+    RegExp(r'\d/\d"').firstMatch(name)?.group(0);
 
 /// 매니폴드·게이지 밸브. 스탠드에 단 모습을 앞(손잡이 쪽)에서 본 가로×세로 = 카탈로그 "Top"
 /// 그림. 가로는 양옆 격리 손잡이를 다 연 길이("Open"), 세로는 블록(직결형은 플랜지판 포함).
 /// 하이록 H-120MV(2023.3) p.11·13·18·23·28, 스웨즈락 MS-02-445(Rev G) p.6·10·12.
 /// 앞으로 튀어나오는 깊이(손잡이 열림)는 하이록 85, 스웨즈락 V3 104 안팎.
-const Map<String, List<ModulePreset>> kValvePresets = {
-  "하이록": [
+final Map<String, List<ModulePreset>> kValvePresets = {
+  "하이록 매니폴드·게이지 밸브": [
     ModulePreset("VM2V 2밸브 매니폴드", 104, 64, shape: InstrumentShape.mv2),
     ModulePreset("VM3V 3밸브 매니폴드", 192, 78, shape: InstrumentShape.mv3),
     ModulePreset("VM3V1F 3밸브 직결", 192, 97, shape: InstrumentShape.mv3Flange),
@@ -246,7 +497,114 @@ const Map<String, List<ModulePreset>> kValvePresets = {
     ModulePreset("VGV 게이지 밸브 1/2\"", 67, 32, shape: InstrumentShape.gv1),
     ModulePreset("VGV2 게이지 2밸브 1/2\"", 78, 32, shape: InstrumentShape.gv2),
   ],
-  "스웨즈락": [
+  // ── 하이록 밸브 카탈로그(앞 그림, 손잡이가 위, 다 연 상태) ──
+  // H-110BV p.3, H-112BV p.2, H-100NV p.4·5, H-102NV p.2, H-P100 p.1, H-TG100 p.3,
+  // H-700T p.2, H-RV100 p.2. 관 가운데~몸통 밑(bot)은 몸통 육각·네모 반으로 어림.
+  "하이록 볼 밸브": [
+    fittingPreset(
+      "110 볼 밸브 3/8\" 튜브",
+      'fv:ball;L=90;top=40;bot=10.3;end=n;reach=80;pipe=17.5',
+    ),
+    fittingPreset(
+      "110 볼 밸브 3/8\" 암나사",
+      'fv:ball;L=45;top=40;bot=10.3;end=f;reach=80;pipe=20.6',
+    ),
+    fittingPreset(
+      "110 볼 밸브 1/2\" 튜브",
+      'fv:ball;L=99;top=42;bot=13.5;end=n;reach=80;pipe=22.2',
+    ),
+    fittingPreset(
+      "110 볼 밸브 1/2\" 암나사",
+      'fv:ball;L=54.5;top=42;bot=13.5;end=f;reach=80;pipe=27',
+    ),
+    fittingPreset(
+      "112 패널 볼 밸브 3/8\" 튜브",
+      'fv:wing;L=77.8;top=52.8;bot=14;end=n;reach=51;pipe=17.5',
+    ),
+    fittingPreset(
+      "112 패널 볼 밸브 3/8\" 암나사",
+      'fv:wing;L=63.6;top=52.8;bot=14;end=f;reach=51;pipe=22',
+    ),
+    fittingPreset(
+      "112 패널 볼 밸브 1/2\" 튜브",
+      'fv:wing;L=100;top=67;bot=22;end=n;reach=77;pipe=22.2',
+    ),
+    fittingPreset(
+      "112 패널 볼 밸브 1/2\" 암나사",
+      'fv:wing;L=79.2;top=67;bot=22;end=f;reach=77;pipe=27',
+    ),
+  ],
+  "하이록 니들 밸브": [
+    fittingPreset(
+      "NV 니들 밸브 3/8\" 튜브",
+      'fv:needle;L=66.4;top=63.6;bot=14;end=n;bar=64;pipe=17.5',
+    ),
+    fittingPreset(
+      "NV 니들 밸브 3/8\" 암나사",
+      'fv:needle;L=56;top=63.6;bot=14;end=f;bar=64;pipe=22',
+    ),
+    fittingPreset(
+      "NV 니들 밸브 1/2\" 튜브",
+      'fv:needle;L=97;top=91.7;bot=16;end=n;bar=76;pipe=22.2',
+    ),
+    fittingPreset(
+      "NV 니들 밸브 1/2\" 암나사",
+      'fv:needle;L=76;top=91.7;bot=16;end=f;bar=76;pipe=27',
+    ),
+    fittingPreset(
+      "GB 유니언 보닛 니들 3/8\" 튜브",
+      'fv:gb;L=73;top=93.7;bot=14;end=n;bar=64;pipe=17.5',
+    ),
+    fittingPreset(
+      "GB 유니언 보닛 니들 3/8\" 암나사",
+      'fv:gb;L=57.2;top=93.7;bot=14;end=f;bar=64;pipe=22',
+    ),
+    fittingPreset(
+      "GB 유니언 보닛 니들 1/2\" 튜브",
+      'fv:gb;L=100;top=121.5;bot=16;end=n;bar=76;pipe=22.2',
+    ),
+    fittingPreset(
+      "GB 유니언 보닛 니들 1/2\" 암나사",
+      'fv:gb;L=79.4;top=121.5;bot=16;end=f;bar=76;pipe=27',
+    ),
+  ],
+  "하이록 플러그·토글 밸브": [
+    fittingPreset(
+      "P 플러그 밸브 3/8\" 튜브",
+      'fv:wing;L=68.4;top=40;bot=17.5;end=n;reach=40;pipe=17.5',
+    ),
+    fittingPreset(
+      "P 플러그 밸브 1/2\" 튜브",
+      'fv:wing;L=74;top=40;bot=17.5;end=n;reach=40;pipe=22.2',
+    ),
+    fittingPreset(
+      "P 플러그 밸브 1/2\" 암나사",
+      'fv:wing;L=73.2;top=40;bot=17.5;end=f;reach=40;pipe=27',
+    ),
+    fittingPreset(
+      "TG 토글 밸브 3/8\" 튜브",
+      'fv:toggle;L=65.5;top=90.4;bot=12;end=n;pipe=17.5',
+    ),
+    fittingPreset(
+      "TG 토글 밸브 1/2\" 튜브",
+      'fv:toggle;L=71.1;top=90.4;bot=12;end=n;pipe=22.2',
+    ),
+  ],
+  "하이록 체크·릴리프 밸브": [
+    fittingPreset("체크 밸브 3/8\" 튜브", 'fs:n:14.2:17.5,h:46.6:22.2,n:14.2:17.5'),
+    fittingPreset("체크 밸브 3/8\" 암나사", 'fs:h:68:22.2'),
+    fittingPreset("체크 밸브 1/2\" 튜브", 'fs:n:17.5:22.2,h:45.5:22.2,n:17.5:22.2'),
+    fittingPreset("체크 밸브 1/2\" 암나사", 'fs:h:85:28.6'),
+    fittingPreset(
+      "RV 릴리프 밸브 1/2\" 튜브",
+      'fv:relief;L=46.7;top=114;bot=14;out=46.7;pipe=22.2',
+    ),
+    fittingPreset(
+      "RV 릴리프 밸브 1/2\" 암나사",
+      'fv:relief;L=38;top=103;bot=14;out=35.7;pipe=27',
+    ),
+  ],
+  "스웨즈락 매니폴드": [
     ModulePreset("V2 2밸브 매니폴드", 97, 64, shape: InstrumentShape.swV2),
     ModulePreset("V3 3밸브 매니폴드", 229, 48, shape: InstrumentShape.swV3),
     ModulePreset("V5 5밸브 매니폴드", 226, 56, shape: InstrumentShape.swV5),
