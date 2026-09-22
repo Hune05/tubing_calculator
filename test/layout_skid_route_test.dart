@@ -218,6 +218,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(mini().route, hasLength(2)); // 저장 전에도 바로 그려진다
 
+    // 작은 도면을 누르면 크게 보기, 탭을 바꿔도 그려진다
+    await tester.tap(find.byKey(const ValueKey('route_mini_board')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('route_big_board')), findsOneWidget);
+    await tester.tap(find.text('정면').last);
+    await tester.pumpAndSettle();
+    expect(find.byType(InteractiveViewer), findsOneWidget);
+    Navigator.of(
+      tester.element(find.byKey(const ValueKey('route_big_board'))),
+    ).pop();
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byKey(const ValueKey('route_save')));
     await tester.pumpAndSettle();
     expect(result!.bends.single['length'], 700.0);

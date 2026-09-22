@@ -288,32 +288,137 @@ class _SkidRouteEditorPageState extends State<SkidRouteEditorPage> {
     ),
   );
 
-  Widget _buildMiniBoard() {
-    final Size board = _viewSize(_view);
+  Widget _buildMiniBoard() => GestureDetector(
+    key: const ValueKey("route_mini_board"),
+    onTap: _openBigBoard,
+    child: Stack(
+      children: [
+        Positioned.fill(child: _boardPaint(_view)),
+        const Positioned(
+          right: 8,
+          bottom: 6,
+          child: Icon(Icons.zoom_out_map_rounded, size: 22, color: tossSubText),
+        ),
+      ],
+    ),
+  );
+
+  // 작은 도면을 누르면 크게: 화면 전체에 같은 그림, 손가락으로 벌려 더 키운다. 탭도 바꾼다.
+  void _openBigBoard() {
+    String view = _view;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setBig) => Scaffold(
+            key: const ValueKey("route_big_board"),
+            backgroundColor: tossBg,
+            appBar: AppBar(
+              backgroundColor: pureWhite,
+              foregroundColor: tossText,
+              elevation: 0,
+              title: Text(
+                "${_route.name} · 크게 보기",
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            body: Column(
+              children: [
+                Container(
+                  color: pureWhite,
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: Row(
+                    children: [
+                      for (final id in kSkidViewOrder) ...[
+                        Expanded(
+                          child: ChoiceChip(
+                            label: SizedBox(
+                              width: double.infinity,
+                              child: Text(
+                                skidViewLabel(id),
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                softWrap: false,
+                              ),
+                            ),
+                            labelPadding: EdgeInsets.zero,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 2,
+                              vertical: 4,
+                            ),
+                            selected: id == view,
+                            showCheckmark: false,
+                            labelStyle: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: id == view ? pureWhite : tossText,
+                            ),
+                            selectedColor: tossBlue,
+                            backgroundColor: pureWhite,
+                            side: BorderSide(
+                              color: id == view ? tossBlue : layoutLine,
+                            ),
+                            onSelected: (_) => setBig(() => view = id),
+                          ),
+                        ),
+                        if (id != kSkidViewOrder.last) const SizedBox(width: 6),
+                      ],
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: InteractiveViewer(
+                    key: ValueKey("big_$view"),
+                    minScale: 1,
+                    maxScale: 12,
+                    child: SizedBox.expand(child: _boardPaint(view)),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 6, 16, 16),
+                  child: Text(
+                    "두 손가락으로 벌려 키우고, 끌어서 옮깁니다.",
+                    style: TextStyle(fontSize: 14, color: tossSubText),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _boardPaint(String view) {
+    final Size board = _viewSize(view);
     final plan = _planItems;
     Offset proj(vm.Vector3 p) => projectToView(
       p,
-      _view,
+      view,
       planW: _planW,
       planH: _planH,
       viewH: board.height,
     );
-    final viewItems = _view == kPlateMainId
+    final viewItems = view == kPlateMainId
         ? plan
-        : layoutItemsFromData(widget.plates[_view] ?? const {});
+        : layoutItemsFromData(widget.plates[view] ?? const {});
     return CustomPaint(
       size: Size.infinite,
       painter: SkidMiniViewPainter(
         board: board,
         items: viewItems,
-        ghosts: skidGhosts(plan, _view, planH: _planH, viewH: board.height),
+        ghosts: skidGhosts(plan, view, planH: _planH, viewH: board.height),
         others: [
           for (final r in widget.otherRoutes)
             if (r.id != _route.id) (r.points(plan).map(proj).toList(), r.od),
         ],
         route: _route.points(plan).map(proj).toList(),
         routeOd: _route.od,
-        version: "${_view}_${_json(_route)}",
+        version: "${view}_${_json(_route)}",
       ),
     );
   }
