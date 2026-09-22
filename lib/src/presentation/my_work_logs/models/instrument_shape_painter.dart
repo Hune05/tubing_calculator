@@ -104,6 +104,8 @@ class InstrumentShape {
     swV2,
     swV3,
     swV5,
+    gv1,
+    gv2,
     dpSide,
     ykVertical,
     exdSwitch,
@@ -834,31 +836,9 @@ class InstrumentShapePainter extends CustomPainter {
   }
 
   // ───────────────────────── 매니폴드·게이지 밸브 ─────────────────────────
-  // 하이록 H-120MV(2023)·스웨즈락 MS-02-445 "Front" 그림: 몸통 블록, 옆으로 나온 격리 밸브,
-  // 위로 선 균압·벤트 밸브. 손잡이는 다 연 상태(카탈로그 "Open" 치수)로 그린다.
-
-  /// 위로 선 밸브: 보닛 육각 → 가는 축 → 가로 T 손잡이. [x]는 가운데, [top]~[bottom] 세로.
-  void _stemUp(
-    _Box b,
-    double x,
-    double top,
-    double bottom, {
-    bool down = false,
-  }) {
-    final double len = bottom - top;
-    final double bw = 0.1 * b.h / b.w; // 보닛 폭(세로 길이 기준 비율)
-    double y(double f) => down ? bottom - len * f : top + len * f;
-    Rect span(double f0, double f1, double half) {
-      final double a = y(f0), c = y(f1);
-      return b.r(x - half, math.min(a, c), x + half, math.max(a, c));
-    }
-
-    _hexV(b.c, span(1, 0.62, bw * 0.55));
-    _part(b.c, span(0.62, 0.42, bw * 0.4), _metal, radius: 0);
-    _part(b.c, span(0.42, 0.34, bw * 0.55), _metal, radius: 1);
-    _part(b.c, span(0.34, 0.12, bw * 0.14), _metal, radius: 0);
-    _part(b.c, span(0.12, 0, bw * 1.3), _metal, radius: 3);
-  }
+  // 스탠드에 단 모습을 앞(손잡이 쪽)에서 본 그림 = 하이록 H-120MV(2023) "Top" 그림.
+  // 양옆 격리 밸브는 세로 T 손잡이, 앞으로 나온 균압·벤트 밸브는 손잡이 끝(T 막대)이 보인다.
+  // 손잡이는 다 연 상태(카탈로그 "Open" 치수)로 그린다.
 
   /// 옆으로 나온 밸브(격리): 보닛 → 축 → 세로 T 손잡이. [y]는 가운데.
   void _stemSide(_Box b, double y, double from, double to) {
@@ -876,13 +856,6 @@ class InstrumentShapePainter extends CustomPainter {
     _part(b.c, span(0.58, 0.66, bh * 0.55), _metal, radius: 1);
     _part(b.c, span(0.66, 0.88, bh * 0.14), _metal, radius: 0);
     _part(b.c, span(0.88, 1, bh * 1.3), _metal, radius: 3);
-  }
-
-  /// 블록 앞면의 접속구(나사 구멍).
-  void _port(_Box b, double x, double y, double rMm) {
-    final double r = math.min(rMm, math.min(b.w, b.h) * 0.12);
-    _circle(b.c, b.p(x, y), r, _body);
-    _circle(b.c, b.p(x, y), r * 0.45, _metal);
   }
 
   void _block(
@@ -904,80 +877,135 @@ class InstrumentShapePainter extends CustomPainter {
     }
   }
 
-  // 하이록 VM2VTV8N(p.18 Front 104×85): 왼쪽 블록 51, 위 벤트, 오른쪽 격리.
-  void _mv2(_Box b) {
-    const double bodyR = 51 / 104, bodyT = 1 - 32 / 85;
-    _stemUp(b, bodyR / 2, 0, bodyT);
-    _stemSide(b, (bodyT + 1) / 2, bodyR, 1);
-    _block(b, 0, bodyT, bodyR, 1);
-    _port(b, bodyR / 2, (bodyT + 1) / 2, 10);
+  /// 앞으로 나온 밸브의 손잡이 끝: 가로 T 막대와 가운데 축 머리. [x]·[y]는 가운데.
+  /// [lenMm]·[mmW]·[mmH]로 그림 크기에 맞춰 줄인다(손잡이 45mm, 막대 굵기 8mm).
+  void _handleFacing(
+    _Box b,
+    double x,
+    double y, {
+    required double mmW,
+    required double mmH,
+    double lenMm = 45,
+  }) {
+    final double half = b.w * lenMm / mmW / 2;
+    final double th = b.h * 8 / mmH;
+    final Offset c = b.p(x, y);
+    _part(
+      b.c,
+      Rect.fromCenter(center: c, width: half * 2, height: th),
+      _metal,
+      radius: th / 2,
+    );
+    _circle(b.c, c, th * 0.7, _body);
   }
 
-  // 하이록 VM3V·VM5V 원격형(p.23·28 Front 192×85): 가운데 블록 86, 양옆 격리.
+  /// 블록 윗면·아랫면의 NPT 접속구(옆에서 보여 빗금 칸).
+  void _npt(_Box b, double l, double r, double t, double bottom) {
+    _part(b.c, b.r(l, t, r, bottom), _body, radius: 0);
+    final int n = math.max(3, ((r - l) * b.w / 3).floor());
+    for (int i = 1; i < n; i++) {
+      final double x = l + (r - l) * i / n;
+      b.c.drawLine(b.p(x, t), b.p(x, bottom), _thin);
+    }
+  }
+
+  /// 설치 구멍.
+  void _hole(_Box b, double x, double y) =>
+      _circle(b.c, b.p(x, y), math.min(b.w, b.h) * 0.035, _body);
+
+  // 하이록 VM2VTV8N(p.18 Top 104×64): 왼쪽 블록 51, 오른쪽 격리, 앞으로 벤트.
+  void _mv2(_Box b) {
+    const double bodyR = 51 / 104;
+    _stemSide(b, 0.5, bodyR, 1);
+    _block(b, 0, 0, bodyR, 1);
+    _npt(b, 0.02, 0.1, 0.25, 0.75); // 옆 접속구
+    _npt(b, 0.2, 0.34, 0, 0.1); // 위 계기 쪽
+    _npt(b, 0.2, 0.34, 0.9, 1); // 아래 공정 쪽
+    _hole(b, 0.16, 0.13);
+    _hole(b, 0.16, 0.87);
+    _handleFacing(b, bodyR * 0.6, 0.5, mmW: 104, mmH: 64, lenMm: 40);
+  }
+
+  // 하이록 VM3V·VM5V(p.23·28 Top): 가운데 블록 86, 양옆 격리, 앞으로 균압(·벤트).
+  // 1-플랜지 직결형은 위쪽에 계기 플랜지판이 붙는다.
   void _mv35(_Box b, {required bool five, bool flange = false}) {
     const double bodyL = 53 / 192, bodyR = 139 / 192;
-    final double bodyT = flange ? 1 - 62 / (five ? 101 : 96) : 1 - 32 / 85;
-    final double midY = (bodyT + 1) / 2;
-    if (five) {
-      for (final x in [0.37, 0.5, 0.63]) {
-        _stemUp(b, x, 0, bodyT);
-      }
-    } else {
-      _stemUp(b, 0.5, 0, bodyT);
+    final double hMm = five ? (flange ? 113 : 86) : (flange ? 97 : 78);
+    final double flangeB = flange ? 1 - (five ? 86 : 78) / hMm : 0;
+    final double isoY = 1 - (five ? 32 : 31) / hMm;
+    _stemSide(b, isoY, bodyL, 0);
+    _stemSide(b, isoY, bodyR, 1);
+    _block(b, bodyL, flangeB, bodyR, 1);
+    if (flange) {
+      _part(b.c, b.r(bodyL, 0, bodyR, flangeB), _body, radius: 1);
+      _hole(b, 0.5, flangeB * 0.5);
     }
-    _stemSide(b, midY, bodyL, 0);
-    _stemSide(b, midY, bodyR, 1);
-    _block(b, bodyL, bodyT, bodyR, 1, bolts: flange);
-    _port(b, 0.5 - 27 / 192, midY, 10);
-    _port(b, 0.5 + 27 / 192, midY, 10);
-    if (five) _port(b, 0.5, midY + (1 - bodyT) * 0.12, 5);
+    // 공정 쪽(아래) 접속구 둘, 원격형은 계기 쪽(위)도 둘.
+    for (final x in [bodyL + 0.02, bodyR - 0.11]) {
+      _npt(b, x, x + 0.09, 1 - 10 / hMm, 1);
+      if (!flange) _npt(b, x, x + 0.09, flangeB, flangeB + 10 / hMm);
+    }
+    _hole(b, 0.5 - 12 / 192, isoY);
+    _hole(b, 0.5 + 12 / 192, isoY);
+    final double midT = flangeB + (1 - flangeB) * 0.28;
+    if (five) {
+      _handleFacing(b, 0.5 - 22 / 192, midT, mmW: 192, mmH: hMm, lenMm: 36);
+      _handleFacing(b, 0.5 + 22 / 192, midT, mmW: 192, mmH: hMm, lenMm: 36);
+      _handleFacing(
+        b,
+        0.5,
+        flangeB + (1 - flangeB) * 0.84,
+        mmW: 192,
+        mmH: hMm,
+        lenMm: 30,
+      );
+    } else {
+      _handleFacing(b, 0.5, midT, mmW: 192, mmH: hMm);
+    }
   }
 
-  // 하이록 VGVTVF8N 게이지 밸브(p.11, L 67 × O 69): 육각 몸통 위에 밸브 하나.
+  // 하이록 VGVTVF8N 게이지 밸브(p.11, L 67 × 육각 32): 앞으로 손잡이.
   void _gv1(_Box b) {
-    const double bodyT = 1 - 32 / 69;
-    _stemUp(b, 0.5, 0, bodyT);
-    _hexH(b.c, b.r(0, bodyT, 1, 1));
+    _hexH(b.c, b.r(0, 0, 1, 1));
+    _npt(b, 0, 0.14, 0.2, 0.8);
+    _npt(b, 0.86, 1, 0.2, 0.8);
+    _handleFacing(b, 0.5, 0.5, mmW: 67, mmH: 32, lenMm: 40);
   }
 
-  // 하이록 VGV2TV-F8N 게이지 2밸브(p.13, L 78 × O 138): 위 벤트, 아래 격리.
+  // 하이록 VGV2TV-F8N 게이지 2밸브(p.13, L 78 × 32 네모): 앞으로 벤트, 뒤로 격리.
   void _gv2(_Box b) {
-    const double half = 16 / 138;
-    _stemUp(b, 0.5, 0, 0.5 - half);
-    _stemUp(b, 0.5, 0.5 + half, 1, down: true);
-    _part(b.c, b.r(0, 0.5 - half, 1, 0.5 + half), _metal, radius: 1);
-    b.c.drawLine(b.p(0.12, 0.5 - half), b.p(0.12, 0.5 + half), _thin);
-    b.c.drawLine(b.p(0.88, 0.5 - half), b.p(0.88, 0.5 + half), _thin);
+    _part(b.c, b.r(0, 0, 1, 1), _metal, radius: 1);
+    _npt(b, 0, 0.14, 0.2, 0.8);
+    _npt(b, 0.86, 1, 0.2, 0.8);
+    _handleFacing(b, 0.5, 0.5, mmW: 78, mmH: 32, lenMm: 40);
   }
 
-  // 스웨즈락 V 시리즈(MS-02-445 p.6·10·12 Side): 격리 손잡이는 세로 T(블록 높이만큼).
+  // 스웨즈락 V 시리즈(MS-02-445 p.6·10·12 Top을 격리 축이 가로가 되게 돌린 것).
   void _swV(_Box b, int valves) {
     switch (valves) {
-      case 2: // SS-V2BF8 97×78: 오른쪽 블록, 왼쪽 격리, 위 벤트
-        const double l = 1 - 54 / 97, t = 0.42;
-        _stemUp(b, (l + 1) / 2, 0, t);
-        _stemSide(b, (t + 1) / 2, l, 0);
-        _block(b, l, t, 1, 1);
-        _port(b, (l + 1) / 2, (t + 1) / 2, 11);
-      case 3: // SS-V3NBF8 229×104
-        const double l = 70 / 229, r = 159 / 229, t = 1 - 63.5 / 104;
-        _stemUp(b, 0.5, 0, t);
-        _stemSide(b, (t + 1) / 2, l, 0);
-        _stemSide(b, (t + 1) / 2, r, 1);
-        _block(b, l, t, r, 1, bolts: true);
-        _port(b, 0.5 - 27 / 229, (t + 1) / 2, 11);
-        _port(b, 0.5 + 27 / 229, (t + 1) / 2, 11);
-      default: // SS-V5NBF8 226×78
-        const double l = 70 / 226, r = 156 / 226, t = 1 - 50.8 / 78;
-        for (final x in [0.44, 0.5, 0.56]) {
-          _stemUp(b, x, 0, t);
-        }
-        _stemSide(b, (t + 1) / 2, l, 0);
-        _stemSide(b, (t + 1) / 2, r, 1);
-        _block(b, l, t, r, 1);
-        _port(b, 0.5 - 27 / 226, (t + 1) / 2, 11);
-        _port(b, 0.5 + 27 / 226, (t + 1) / 2, 11);
-        _port(b, 0.5, (t + 1) / 2, 5);
+      case 2: // SS-V2BF8 97×64: 오른쪽 블록 54, 왼쪽 격리, 앞으로 벤트
+        const double l = 1 - 54 / 97;
+        _stemSide(b, 0.5, l, 0);
+        _block(b, l, 0, 1, 1);
+        _hole(b, l + 0.1, 0.15);
+        _hole(b, l + 0.1, 0.85);
+        _handleFacing(b, (l + 1) / 2 + 0.05, 0.5, mmW: 97, mmH: 64, lenMm: 32);
+      case 3: // SS-V3NBF8 229×48
+        const double l = 70 / 229, r = 159 / 229;
+        _stemSide(b, 0.5, l, 0);
+        _stemSide(b, 0.5, r, 1);
+        _block(b, l, 0, r, 1);
+        _hole(b, l + 0.04, 0.5);
+        _hole(b, r - 0.04, 0.5);
+        _handleFacing(b, 0.5, 0.5, mmW: 229, mmH: 48, lenMm: 32);
+      default: // SS-V5NBF8 226×56
+        const double l = 70 / 226, r = 156 / 226;
+        _stemSide(b, 0.5, l, 0);
+        _stemSide(b, 0.5, r, 1);
+        _block(b, l, 0, r, 1);
+        _handleFacing(b, 0.5 - 0.05, 0.3, mmW: 226, mmH: 56, lenMm: 20);
+        _handleFacing(b, 0.5 + 0.05, 0.3, mmW: 226, mmH: 56, lenMm: 20);
+        _handleFacing(b, 0.5, 0.72, mmW: 226, mmH: 56, lenMm: 20);
     }
   }
 

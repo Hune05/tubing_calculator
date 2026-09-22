@@ -232,23 +232,24 @@ const Map<String, List<ModulePreset>> kFittingPresets = {
   ],
 };
 
-/// 매니폴드·게이지 밸브. 정면(손잡이 쪽)에서 본 가로×세로, 손잡이 다 연 상태(카탈로그 "Open").
+/// 매니폴드·게이지 밸브. 스탠드에 단 모습을 앞(손잡이 쪽)에서 본 가로×세로 = 카탈로그 "Top"
+/// 그림. 가로는 양옆 격리 손잡이를 다 연 길이("Open"), 세로는 블록(직결형은 플랜지판 포함).
 /// 하이록 H-120MV(2023.3) p.11·13·18·23·28, 스웨즈락 MS-02-445(Rev G) p.6·10·12.
-/// 1-플랜지 직결형 세로는 블록 62 + 손잡이(열림 65/70 − 블록 가운데 31)로 셈했다.
+/// 앞으로 튀어나오는 깊이(손잡이 열림)는 하이록 85, 스웨즈락 V3 104 안팎.
 const Map<String, List<ModulePreset>> kValvePresets = {
   "하이록": [
-    ModulePreset("VM2V 2밸브 매니폴드", 104, 85, shape: InstrumentShape.mv2),
-    ModulePreset("VM3V 3밸브 매니폴드", 192, 85, shape: InstrumentShape.mv3),
-    ModulePreset("VM3V1F 3밸브 직결", 192, 96, shape: InstrumentShape.mv3Flange),
-    ModulePreset("VM5V 5밸브 매니폴드", 192, 85, shape: InstrumentShape.mv5),
-    ModulePreset("VM5V1F 5밸브 직결", 192, 101, shape: InstrumentShape.mv5Flange),
-    ModulePreset("VGV 게이지 밸브 1/2\"", 67, 69, shape: InstrumentShape.gv1),
-    ModulePreset("VGV2 게이지 2밸브 1/2\"", 78, 138, shape: InstrumentShape.gv2),
+    ModulePreset("VM2V 2밸브 매니폴드", 104, 64, shape: InstrumentShape.mv2),
+    ModulePreset("VM3V 3밸브 매니폴드", 192, 78, shape: InstrumentShape.mv3),
+    ModulePreset("VM3V1F 3밸브 직결", 192, 97, shape: InstrumentShape.mv3Flange),
+    ModulePreset("VM5V 5밸브 매니폴드", 192, 86, shape: InstrumentShape.mv5),
+    ModulePreset("VM5V1F 5밸브 직결", 192, 113, shape: InstrumentShape.mv5Flange),
+    ModulePreset("VGV 게이지 밸브 1/2\"", 67, 32, shape: InstrumentShape.gv1),
+    ModulePreset("VGV2 게이지 2밸브 1/2\"", 78, 32, shape: InstrumentShape.gv2),
   ],
   "스웨즈락": [
-    ModulePreset("V2 2밸브 매니폴드", 97, 78, shape: InstrumentShape.swV2),
-    ModulePreset("V3 3밸브 매니폴드", 229, 104, shape: InstrumentShape.swV3),
-    ModulePreset("V5 5밸브 매니폴드", 226, 78, shape: InstrumentShape.swV5),
+    ModulePreset("V2 2밸브 매니폴드", 97, 64, shape: InstrumentShape.swV2),
+    ModulePreset("V3 3밸브 매니폴드", 229, 48, shape: InstrumentShape.swV3),
+    ModulePreset("V5 5밸브 매니폴드", 226, 56, shape: InstrumentShape.swV5),
   ],
 };
 
