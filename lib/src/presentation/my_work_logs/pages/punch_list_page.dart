@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../widgets/voice_input_button.dart';
 import '../../../core/utils/image_picker_helper.dart'; // 🚀 경로 확인 필수!
 import '../widgets/photo_detail_modal.dart';
+import '../widgets/confirm_delete.dart';
 import 'floor_plan_pin_page.dart';
 import '../../my_schedule/schedule_logic.dart' show clampPickerInitial;
 
@@ -662,9 +663,18 @@ class _PunchListPageState extends State<PunchListPage> {
                               ),
                             ),
                             InkWell(
-                              onTap: () => setState(
-                                () => _attachedImages.removeAt(entry.key),
-                              ),
+                              onTap: () async {
+                                if (!await confirmDelete(
+                                  context,
+                                  title: "이 사진을 지우겠습니까?",
+                                )) {
+                                  return;
+                                }
+                                if (!mounted) return;
+                                setState(
+                                  () => _attachedImages.removeAt(entry.key),
+                                );
+                              },
                               child: Container(
                                 margin: const EdgeInsets.all(4),
                                 padding: const EdgeInsets.all(4),

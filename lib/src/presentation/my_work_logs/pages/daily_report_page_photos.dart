@@ -157,11 +157,17 @@ extension _DailyReportPhotos on _DailyReportPageState {
             top: 4,
             right: 4,
             child: GestureDetector(
-              onTap: () => setState(() {
-                _imageTags.remove(path);
-                _imageCaptions.remove(path);
-                _attachedImages.removeAt(index);
-              }),
+              onTap: () async {
+                if (!await confirmDelete(context, title: "이 사진을 지우겠습니까?")) {
+                  return;
+                }
+                if (!mounted) return;
+                setState(() {
+                  _imageTags.remove(path);
+                  _imageCaptions.remove(path);
+                  _attachedImages.removeAt(index);
+                });
+              },
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: const BoxDecoration(

@@ -248,10 +248,15 @@ Future<bool> uploadAllPhotos(Map<String, dynamic> log) async {
   final pid = log['id']?.toString();
   if (pid == null) return false;
   bool changed = false;
-  for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
+  // 올리는 동안(await) 사용자가 일지·이슈를 넣으면 같은 목록이 바뀌어 죽었다 → 복사본을 돈다.
+  for (final r in List.of(
+    (log['daily_reports'] as List? ?? []).whereType<Map>(),
+  )) {
     if (await uploadReportPhotos(pid, r)) changed = true;
   }
-  for (final p in (log['punch_lists'] as List? ?? []).whereType<Map>()) {
+  for (final p in List.of(
+    (log['punch_lists'] as List? ?? []).whereType<Map>(),
+  )) {
     final paths = <String>[
       for (final e in (p['image_paths'] as List? ?? [])) e.toString(),
     ];

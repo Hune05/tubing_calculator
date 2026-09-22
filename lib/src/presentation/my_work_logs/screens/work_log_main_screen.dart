@@ -175,7 +175,15 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   // 프로젝트가 Firestore 문서 하나하나로 나뉘어 있어서 "방금 바뀐
   // 프로젝트 하나만" 저장하면 된다.
   void _saveProject(Map<String, dynamic> log) {
-    _repo.upsertProject(log);
+    // 저장 실패가 아무 표시 없이 사라지던 것(화면은 저장된 것처럼 보였다).
+    _repo.upsertProject(log).catchError((e) {
+      debugPrint('프로젝트 저장 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("저장하지 못했습니다. 통신을 확인하고 다시 해 보십시오.")),
+        );
+      }
+    });
     // 작업 일지를 저장하면 오늘 알림을 내일로 미룬다.
     syncReportReminder(_workLogs);
   }
@@ -524,11 +532,12 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     );
     if (updated != null) {
       setState(() {
-        final idx = log['daily_reports'].indexOf(report);
+        final list = (log['daily_reports'] ??= <dynamic>[]) as List;
+        final idx = list.indexOf(report);
         if (report['unlockHistory'] != null) {
           updated['unlockHistory'] = report['unlockHistory'];
         }
-        if (idx != -1) log['daily_reports'][idx] = updated;
+        if (idx != -1) list[idx] = updated;
         applyReportEffects(log, updated);
       });
       _saveProject(log);
@@ -549,8 +558,18 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       ),
     );
     if (updated != null) {
-      setState(() => log['daily_reports'] = updated);
+      // 달력에서 고친 일지도 일지 탭과 같이 일정·이슈에 반영하고 사진을 올린다.
+      final before = List<Map<String, dynamic>>.from(
+        log['daily_reports'] ?? [],
+      );
+      setState(() {
+        log['daily_reports'] = updated;
+        for (final r in updated) {
+          if (!before.contains(r)) applyReportEffects(log, r);
+        }
+      });
       _saveProject(log);
+      _uploadReportPhotosFor(log, const {});
     }
   }
 
@@ -585,7 +604,10 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       newPunch['created_at'] = DateTime.now();
       newPunch['lastPunchReminderAt'] = null;
       newPunch['linkedScheduleId'] = null;
-      setState(() => log['punch_lists'].insert(0, newPunch));
+      setState(
+        () =>
+            ((log['punch_lists'] ??= <dynamic>[]) as List).insert(0, newPunch),
+      );
       _saveProject(log);
       _uploadReportPhotosFor(log, const {});
     }
@@ -887,8 +909,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     );
     if (updated != null) {
       setState(() {
-        final idx = log['punch_lists'].indexOf(punch);
-        if (idx != -1) log['punch_lists'][idx] = updated;
+        final list = (log['punch_lists'] ??= <dynamic>[]) as List;
+        final idx = list.indexOf(punch);
+        if (idx != -1) list[idx] = updated;
       });
       _saveProject(log);
     }
@@ -1067,7 +1090,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     );
     if (newReport != null) {
       setState(() {
-        log['daily_reports'].insert(0, newReport);
+        ((log['daily_reports'] ??= <dynamic>[]) as List).insert(0, newReport);
         applyReportEffects(log, newReport);
       });
       _saveProject(log);

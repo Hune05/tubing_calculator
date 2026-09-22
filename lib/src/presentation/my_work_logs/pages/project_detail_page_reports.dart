@@ -280,7 +280,9 @@ extension _ProjectDetailReports on _ProjectDetailPageState {
           Align(
             alignment: Alignment.centerLeft,
             child: _selectMode
-                ? Row(
+                // 좁은 폰에서 단추 넷이 한 줄에 안 들어가 넘쳤다 → 줄을 바꾼다.
+                ? Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       TextButton(
                         onPressed: () => setState(() {
@@ -303,7 +305,6 @@ extension _ProjectDetailReports on _ProjectDetailPageState {
                             : () => _lockReports(_sel.toList()),
                         child: const Text("확정"),
                       ),
-                      const Spacer(),
                       ElevatedButton(
                         onPressed: _sel.isEmpty ? null : _exportSelected,
                         style: ElevatedButton.styleFrom(

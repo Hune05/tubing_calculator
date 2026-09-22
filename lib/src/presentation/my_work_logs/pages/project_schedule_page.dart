@@ -245,10 +245,30 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
   }
 
   void _delete(Map<String, dynamic> item) {
+    final int idx = _schedules.indexWhere((s) => s['id'] == item['id']);
+    if (idx < 0) return;
     setState(() {
-      _schedules.removeWhere((s) => s['id'] == item['id']);
+      _schedules.removeAt(idx);
       _changed = true;
     });
+    // 한 번 눌러 지워지는 것이라 되돌리기를 준다(변경 이력·검사 결과도 같이 사라진다).
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(keepWords("일정을 지웠습니다.")),
+          persist: false,
+          action: SnackBarAction(
+            label: "되돌리기",
+            onPressed: () {
+              if (!mounted) return;
+              setState(() {
+                _schedules.insert(idx.clamp(0, _schedules.length), item);
+              });
+            },
+          ),
+        ),
+      );
   }
 
   String _formatDateTime(DateTime dt) {
@@ -379,8 +399,12 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (didPop, result) {},
+      // 폰 뒤로 가기로 나가도 고친 일정을 돌려준다(예전엔 아래 단추로만).
+      canPop: !_changed,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.pop(context, _schedules);
+      },
       child: Scaffold(
         backgroundColor: tossBg,
         appBar: AppBar(

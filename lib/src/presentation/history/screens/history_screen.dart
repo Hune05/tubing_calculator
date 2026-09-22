@@ -347,7 +347,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       ),
                                       const SizedBox(width: 4),
                                       Text(
-                                        "Total Cut: $cutDisplay mm",
+                                        "총 절단 길이 $cutDisplay mm",
                                         style: TextStyle(
                                           color: Colors.red.shade700,
                                           fontWeight: FontWeight.bold,
@@ -356,7 +356,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       ),
                                       const SizedBox(width: 12),
                                       Text(
-                                        "Size: ${item['pipe_size']}",
+                                        "규격 ${item['pipe_size']}",
                                         style: const TextStyle(
                                           color: slate600,
                                           fontWeight: FontWeight.bold,

@@ -185,6 +185,13 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
   }
 
   Future<void> _openReport(Map<String, dynamic> report) async {
+    // 확정된 일지는 여기서 고치면 확정 표시·기록이 없어진다. 일지 탭의 "확정 풀고 고치기"로.
+    if (report['locked'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(keepWords("확정된 일지입니다. 일지 탭에서 확정을 풀고 고치십시오."))),
+      );
+      return;
+    }
     final updated = await Navigator.push<Map<String, dynamic>>(
       context,
       WorkRoute(builder: (context) => DailyReportPage(existingData: report)),
@@ -192,7 +199,8 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
     if (updated == null) return;
     setState(() {
       final idx = _reports.indexOf(report);
-      if (idx != -1) _reports[idx] = updated;
+      // 일지 화면이 모르는 칸(확정 기록 등)은 원래 것을 그대로 가져간다.
+      if (idx != -1) _reports[idx] = {...report, ...updated};
       _changed = true;
     });
   }
@@ -277,8 +285,12 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
     }
 
     return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (didPop, result) {},
+      // 폰 뒤로 가기로 나가도 고친 일지를 돌려준다(예전엔 아래 단추로만).
+      canPop: !_changed,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.pop(context, _reports);
+      },
       child: Scaffold(
         backgroundColor: tossBg,
         appBar: AppBar(

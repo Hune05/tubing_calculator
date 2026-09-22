@@ -361,7 +361,7 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
         onProgress: (d, t) => progress.value = "사진 확인 중… $d / $t",
       );
       if (res.count > 0) {
-        progress.value = "폰에만 저장됨";
+        progress.value = "저장하는 중…";
         widget.actions.save();
         // 서버에 새 URL이 반영된 뒤에만 옛 파일을 지운다(최대 20초 대기).
         for (int i = 0; i < 100; i++) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../widgets/korean_text.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import '../widgets/photo_detail_modal.dart';
+import '../widgets/confirm_delete.dart';
 import '../models/photo_store.dart';
 import '../models/project_phase.dart'
     show issueWeeklyExcluded, setIssueWeeklyExcluded;
@@ -100,6 +101,12 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
   }
 
   Future<void> _addAfterPhotos() async {
+    if (_afterImages.length >= 6) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("사진은 6장까지 넣을 수 있습니다.")));
+      return;
+    }
     final paths = await ImagePickerHelper.pickImages(
       context,
       maxCount: 6 - _afterImages.length,
@@ -161,7 +168,15 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
                       top: 4,
                       right: 4,
                       child: GestureDetector(
-                        onTap: () => setState(() => _afterImages.removeAt(i)),
+                        onTap: () async {
+                          if (!await confirmDelete(
+                            context,
+                            title: "이 사진을 지우겠습니까?",
+                          )) {
+                            return;
+                          }
+                          if (mounted) setState(() => _afterImages.removeAt(i));
+                        },
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: const BoxDecoration(
@@ -220,8 +235,13 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
         (_punch['image_path'] != null ? [_punch['image_path']] : []);
 
     return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (didPop, result) {},
+      // 폰 뒤로 가기(제스처)로 나가도 고친 것을 돌려준다. 예전엔 위 화살표로만 돌려줘서
+      // "처리 완료로 저장" 뒤 뒤로 가기를 누르면 처리 내용·사진이 사라졌다.
+      canPop: !_changed,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.pop(context, _punch);
+      },
       child: Scaffold(
         backgroundColor: const Color(0xFFF2F4F6),
         appBar: AppBar(

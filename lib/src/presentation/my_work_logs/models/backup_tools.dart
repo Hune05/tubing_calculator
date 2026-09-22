@@ -169,10 +169,6 @@ RestorePlan planRestore(BackupPreview b, List<Map<String, dynamic>> current) {
   return RestorePlan(added, over, untouched.length);
 }
 
-// 같은 id의 프로젝트는 백업 내용으로 덮어쓴다. 성공한 프로젝트 수를 돌려준다.
-Future<int> restoreBackup(BackupPreview b) async =>
-    (await restoreBackupAll(b)).projects;
-
 // 프로젝트·템플릿·즐겨찾기에 더해 배치도와 내 일정도 되돌린다.
 Future<RestoreResult> restoreBackupAll(BackupPreview b) async {
   final repo = WorkProjectRepository();

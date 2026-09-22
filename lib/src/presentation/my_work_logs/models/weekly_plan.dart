@@ -375,11 +375,9 @@ ReportDoc buildWeeklyPlanDoc(
     ).where((p) => p['is_completed'] != true).toList();
     if (open.isEmpty) continue;
     // 기한이 지난 이슈를 위로 올리고 "기한 초과"로 표시한다.
-    int overdueDays(Map p) {
-      if (p['dueDate'] == null) return 0;
-      final d = today.difference(dayOnly(asDate(p['dueDate']))).inDays;
-      return d > 0 ? d : 0;
-    }
+    // 금주 요약 줄(_openIssueText)과 같은 셈(issueOverdueDays)을 쓴다 — 예전엔 따로 세어
+    // 같은 보고서 안에서 기한 초과 건수가 둘로 나왔다.
+    int overdueDays(Map p) => issueOverdueDays(p, today);
 
     open.sort((x, y) => overdueDays(y).compareTo(overdueDays(x)));
     final overdue = open.where((p) => overdueDays(p) > 0).length;

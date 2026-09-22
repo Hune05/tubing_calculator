@@ -250,9 +250,13 @@ class ProjectSummaryCard extends StatelessWidget {
     children: [
       Icon(icon, size: 14, color: c),
       const SizedBox(width: 4),
-      Text(
-        text,
-        style: TextStyle(color: c, fontSize: 12, fontWeight: FontWeight.w700),
+      // 긴 단계 이름이 카드 폭을 넘치지 않게.
+      Flexible(
+        child: Text(
+          text,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: c, fontSize: 12, fontWeight: FontWeight.w700),
+        ),
       ),
     ],
   );

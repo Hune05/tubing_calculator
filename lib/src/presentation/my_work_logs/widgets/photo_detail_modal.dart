@@ -168,7 +168,7 @@ class PhotoDetailModal extends StatelessWidget {
                             ),
                             child: Text(
                               keepWords(
-                                "👈 좌우로 스와이프 (${imagePaths!.length}장) 👉",
+                                "좌우로 넘겨서 보십시오 (${imagePaths!.length}장)",
                               ),
                               style: const TextStyle(
                                 color: pureWhite,

@@ -110,21 +110,30 @@ class _ReportStylePageState extends State<ReportStylePage> {
               : Image.memory(base64Decode(b64), fit: BoxFit.contain),
         ),
         const SizedBox(width: 10),
-        OutlinedButton(
-          onPressed: () => _drawSig(first),
-          child: Text(b64 == null ? "$label 손서명 그리기" : "다시 그리기"),
-        ),
-        if (b64 != null)
-          TextButton(
-            onPressed: () => setState(() {
-              if (first) {
-                _s.sig1B64 = null;
-              } else {
-                _s.sig2B64 = null;
-              }
-            }),
-            child: const Text("삭제"),
+        // 좁은 폰(344dp)에서 단추 둘이 한 줄에 안 들어가 넘쳤다 → 남은 폭 안에서 줄을 바꾼다.
+        Expanded(
+          child: Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: [
+              OutlinedButton(
+                onPressed: () => _drawSig(first),
+                child: Text(b64 == null ? "$label 손서명" : "다시 그리기"),
+              ),
+              if (b64 != null)
+                TextButton(
+                  onPressed: () => setState(() {
+                    if (first) {
+                      _s.sig1B64 = null;
+                    } else {
+                      _s.sig2B64 = null;
+                    }
+                  }),
+                  child: const Text("삭제"),
+                ),
+            ],
           ),
+        ),
       ],
     ),
   );
@@ -357,20 +366,26 @@ class _SignatureDialogState extends State<_SignatureDialog> {
       return;
     }
     final rec = ui.PictureRecorder();
-    final c = Canvas(rec, const Rect.fromLTWH(0, 0, _w, _h));
+    final double w = _boxWidth(context);
+    final c = Canvas(rec, Rect.fromLTWH(0, 0, w, _h));
     _paintStrokes(c);
-    final img = await rec.endRecording().toImage(_w.toInt(), _h.toInt());
+    final img = await rec.endRecording().toImage(w.toInt(), _h.toInt());
     final data = await img.toByteData(format: ui.ImageByteFormat.png);
     if (!mounted) return;
     Navigator.pop(context, base64Encode(data!.buffer.asUint8List()));
   }
 
+  // 좁은 폰에서는 창(300)이 화면보다 넓어 넘쳤다 → 화면 폭에 맞춘다.
+  double _boxWidth(BuildContext context) =>
+      (MediaQuery.sizeOf(context).width - 80).clamp(200.0, _w);
+
   @override
   Widget build(BuildContext context) {
+    final double w = _boxWidth(context);
     return AlertDialog(
       title: Text(keepWords("${widget.title} 손서명")),
       content: Container(
-        width: _w,
+        width: w,
         height: _h,
         decoration: BoxDecoration(
           border: Border.all(color: Colors.black26),
@@ -380,10 +395,7 @@ class _SignatureDialogState extends State<_SignatureDialog> {
           onPanStart: (d) => setState(() => _strokes.add([d.localPosition])),
           onPanUpdate: (d) =>
               setState(() => _strokes.last.add(d.localPosition)),
-          child: CustomPaint(
-            painter: _SigPainter(_strokes),
-            size: const Size(_w, _h),
-          ),
+          child: CustomPaint(painter: _SigPainter(_strokes), size: Size(w, _h)),
         ),
       ),
       actions: [

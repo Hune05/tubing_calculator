@@ -13,6 +13,7 @@ import 'package:tubing_calculator/src/core/common_widgets/makita_time_picker.dar
 // 🚀 [추가] 방금 만든 배치도 페이지 임포트
 import 'layout_board_page.dart';
 import '../widgets/photo_detail_modal.dart';
+import '../widgets/confirm_delete.dart';
 import 'floor_plan_pin_page.dart';
 import '../models/project_phase.dart';
 import '../models/report_tools.dart';

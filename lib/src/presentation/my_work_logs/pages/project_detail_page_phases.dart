@@ -265,28 +265,25 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
                   else
                     ...items.map(_phaseScheduleTile),
                   const SizedBox(height: 4),
-                  Row(
+                  // 좁은 폰에서 두 단추가 한 줄에 안 들어가 넘쳤다 → 줄을 바꾼다.
+                  Wrap(
                     children: [
-                      Expanded(
-                        child: TextButton.icon(
-                          onPressed: () => _run(
-                            () => widget.actions.openSchedule(
-                              phaseId: id,
-                              add: true,
-                            ),
+                      TextButton.icon(
+                        onPressed: () => _run(
+                          () => widget.actions.openSchedule(
+                            phaseId: id,
+                            add: true,
                           ),
-                          icon: const Icon(Icons.add_rounded, size: 18),
-                          label: const Text("세부 일정 추가"),
                         ),
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text("세부 일정 추가"),
                       ),
-                      Expanded(
-                        child: TextButton.icon(
-                          onPressed: () => _run(
-                            () => widget.actions.openSchedule(phaseId: id),
-                          ),
-                          icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                          label: const Text("일정 화면에서 보기"),
+                      TextButton.icon(
+                        onPressed: () => _run(
+                          () => widget.actions.openSchedule(phaseId: id),
                         ),
+                        icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                        label: const Text("일정 화면에서 보기"),
                       ),
                     ],
                   ),

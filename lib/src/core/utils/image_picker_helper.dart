@@ -1,5 +1,9 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color slate600 = Color(0xFF475569);
@@ -8,6 +12,24 @@ const Color pureWhite = Color(0xFFFFFFFF);
 
 class ImagePickerHelper {
   static final ImagePicker _picker = ImagePicker();
+
+  /// 고른 사진은 캐시 폴더에 오는데, 서버에 올리기 전에 폰이 캐시를 비우면 사진이 사라지고
+  /// 일지에는 없는 경로만 남았다. 앱 문서 폴더로 옮겨 둔다(못 옮기면 원래 경로).
+  static Future<String> keepPhoto(String path) async {
+    try {
+      final dir = Directory(
+        '${(await getApplicationDocumentsDirectory()).path}/photos',
+      );
+      if (!await dir.exists()) await dir.create(recursive: true);
+      final name = path.split(RegExp(r'[\\/]')).last;
+      final dst = '${dir.path}/${DateTime.now().microsecondsSinceEpoch}_$name';
+      await File(path).copy(dst);
+      return dst;
+    } catch (e) {
+      debugPrint('사진 보관 실패: $e');
+      return path;
+    }
+  }
 
   /// 카메라/갤러리 선택 바텀 시트를 띄우고, 선택된 이미지의 경로를 반환합니다.
   static Future<String?> pickImage(BuildContext context) async {
@@ -58,7 +80,7 @@ class ImagePickerHelper {
         source: source,
         imageQuality: 70, // 이미지 용량 최적화
       );
-      return image?.path;
+      return image == null ? null : await keepPhoto(image.path);
     }
     return null;
   }
@@ -117,9 +139,9 @@ class ImagePickerHelper {
         source: source,
         imageQuality: 70,
       );
-      return image == null ? [] : [image.path];
+      return image == null ? [] : [await keepPhoto(image.path)];
     }
     final images = await _picker.pickMultiImage(imageQuality: 70);
-    return images.take(maxCount).map((e) => e.path).toList();
+    return [for (final e in images.take(maxCount)) await keepPhoto(e.path)];
   }
 }
