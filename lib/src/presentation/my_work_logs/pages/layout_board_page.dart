@@ -5360,20 +5360,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               size: Size.infinite,
                               painter: GridPainter(gridSize: _gridSize),
                             ),
-                            CustomPaint(
-                              size: Size.infinite,
-                              painter: DimensionPainter(
-                                dimensions: _dimensions,
-                                activePoint: _dimensionStartPoint,
-                                panelWidth: _panelWidth,
-                                panelHeight: _panelHeight,
-                                version: _dimensionsVersion,
-                              ),
-                            ),
                             if (_isSkid) _buildSkidOverlay(),
                             if (_previewItem != null &&
                                 _mode == BoardMode.placeModule) ...[
-                              ..._buildGuidePaints(_previewItem!),
                               Positioned(
                                 left: _previewItem!.position.dx,
                                 top: _previewItem!.position.dy,
@@ -5383,12 +5372,6 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                 ),
                               ),
                             ],
-
-                            if (_activeItem != null &&
-                                _mode == BoardMode.placeModule)
-                              ..._buildGuidePaints(_activeItem!),
-                            if (_routeGuideItem != null)
-                              ..._buildGuidePaints(_routeGuideItem!),
 
                             // 🚀 [복원] 안내선 자체는 문제가
                             // 없었다 - 아래 _placedItems.map()의
@@ -5718,6 +5701,29 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                 ),
                               );
                             }),
+                            // 치수·가상선은 부품 위에 그린다. 부품 아래에 두면 부품이 벽에
+                            // 붙을수록 치수 글자가 부품 뒤로 들어가 가려졌다.
+                            IgnorePointer(
+                              child: CustomPaint(
+                                size: Size.infinite,
+                                painter: DimensionPainter(
+                                  dimensions: _dimensions,
+                                  activePoint: _dimensionStartPoint,
+                                  panelWidth: _panelWidth,
+                                  panelHeight: _panelHeight,
+                                  version: _dimensionsVersion,
+                                ),
+                              ),
+                            ),
+                            if (_mode == BoardMode.placeModule)
+                              for (final g in [
+                                _previewItem,
+                                _activeItem,
+                                _routeGuideItem,
+                              ])
+                                if (g != null)
+                                  for (final w in _buildGuidePaints(g))
+                                    IgnorePointer(child: w),
                             // 🚀 [신규] 완전히 빈 도면일 때, 처음
                             // 여는 사람이 뭘 해야 할지 막막하지
                             // 않도록 샘플 배치를 눌러보게 안내.

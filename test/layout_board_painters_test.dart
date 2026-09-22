@@ -40,6 +40,56 @@ void main() {
   const size = Size(300, 300);
   dimensionTests();
 
+  testWidgets('벽에 바짝 붙은 부품: 치수 숫자를 부품 위가 아니라 도면 안 비킨 자리에 적는다', (tester) async {
+    // 오른쪽 벽까지 20mm. 숫자 칸(70mm 안팎)이 사이에 안 들어가 예전엔 부품을 덮었다.
+    final item = mob.PlacedItem(
+      id: 'a',
+      name: 'A',
+      position: const Offset(80, 100),
+      width: 100,
+      height: 100,
+    );
+    final px = await paint(
+      tester,
+      mob.SmartGuidePainter(
+        item: item,
+        allItems: [item],
+        panelWidth: 200,
+        panelHeight: 300,
+        currentType: mob.DimensionType.edge,
+      ),
+      const Size(320, 300),
+    );
+    bool inkAt(int x, int y) {
+      final i = (y * 320 + x) * 4;
+      return px[i] < 200 || px[i + 1] < 200 || px[i + 2] < 200;
+    }
+
+    // 부품 오른쪽 안쪽(가로 150~178, 세로 125~175)에는 아무것도 안 그린다.
+    var inside = 0;
+    for (int y = 125; y < 175; y++) {
+      for (int x = 150; x < 178; x++) {
+        if (inkAt(x, y)) inside++;
+      }
+    }
+    expect(inside, 0);
+    // 숫자 칸은 도면(가로 200) 안, 부품 위나 아래 벽 쪽(가로 140~200)에 있다. 도면 밖은 잘려 안 보인다.
+    var beside = 0, beyond = 0;
+    for (int y = 0; y < 300; y++) {
+      if (y >= 100 && y < 200) continue;
+      for (int x = 140; x < 200; x++) {
+        if (inkAt(x, y)) beside++;
+      }
+    }
+    for (int y = 0; y < 300; y++) {
+      for (int x = 204; x < 320; x++) {
+        if (inkAt(x, y)) beyond++;
+      }
+    }
+    expect(beside, greaterThan(20));
+    expect(beyond, 0);
+  });
+
   testWidgets('모눈 그리기: 모바일·태블릿 같음, 예전 그림과 같음', (tester) async {
     final a = await paint(tester, mob.GridPainter(gridSize: 10), size);
     final b = await paint(tester, tab.GridPainter(gridSize: 10), size);
@@ -107,8 +157,8 @@ void main() {
 }
 
 const int gridHash = 3494248389;
-const int guideCenterHash = 4129728922;
-const int guideEdgeHash = 1031198377;
+const int guideCenterHash = 586061238; // 좁은 사이 숫자는 도면 안 비킨 자리에(2026-09-22)
+const int guideEdgeHash = 4074337249;
 
 // ── 치수선 그리기 ──
 Future<List<int>> _dims(WidgetTester tester, bool mobile) async {
@@ -213,4 +263,4 @@ void dimensionTests() {
   });
 }
 
-const int dimensionHash = 83402877;
+const int dimensionHash = 1234928501; // 리더선을 숫자 칸 테두리까지만(2026-09-22)

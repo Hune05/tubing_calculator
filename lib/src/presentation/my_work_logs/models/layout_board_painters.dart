@@ -31,6 +31,10 @@ class SmartGuidePainter extends CustomPainter {
     required this.currentType,
   });
 
+  // 네 방향 선을 모았다가 긴 것부터 그린다. 짧은 선(바짝 붙은 쪽)의 숫자는 자리가 없어
+  // 비켜 적는데, 먼저 적힌 숫자와도 안 겹치게 하려고 나중에 그린다.
+  final List<(Offset, Offset, double, Color, String)> _lines = [];
+
   void _drawGuideLine(
     Canvas canvas,
     Offset start,
@@ -39,11 +43,41 @@ class SmartGuidePainter extends CustomPainter {
     Color color,
     String prefix,
   ) {
-    drawCadDimensionLine(canvas, start, end, distance, color, prefix);
+    _lines.add((start, end, distance, color, prefix));
+  }
+
+  void _flushLines(Canvas canvas) {
+    final List<Rect> avoid = [
+      item.position & Size(item.width, item.height),
+      for (final o in allItems)
+        if (o.id != item.id) o.position & Size(o.width, o.height),
+    ];
+    // 제자리(선 옆 가운데)에 들어가는 숫자를 먼저, 비켜야 하는 숫자를 나중에.
+    bool fits((Offset, Offset, double, Color, String) l) =>
+        cadLabelFitsOnLine(l.$1, l.$2, l.$3, l.$5);
+    _lines.sort((a, b) {
+      final int fa = fits(a) ? 0 : 1, fb = fits(b) ? 0 : 1;
+      return fa != fb ? fa - fb : b.$3.compareTo(a.$3);
+    });
+    for (final (start, end, distance, color, prefix) in _lines) {
+      final Rect? placed = drawCadDimensionLine(
+        canvas,
+        start,
+        end,
+        distance,
+        color,
+        prefix,
+        avoid: avoid,
+        bounds: Offset.zero & Size(panelWidth, panelHeight),
+      );
+      if (placed != null) avoid.add(placed);
+    }
+    _lines.clear();
   }
 
   @override
   void paint(Canvas canvas, Size size) {
+    _lines.clear();
     Color c = currentType == DimensionType.center
         ? _guideCenterColor
         : _edgeDimColor;
@@ -161,6 +195,7 @@ class SmartGuidePainter extends CustomPainter {
         p,
       );
     }
+    _flushLines(canvas);
   }
 
   @override
@@ -206,7 +241,28 @@ class GridPainter extends CustomPainter {
 // 라벨로 통일. 예전엔 두꺼운 색상 알약(pill) 라벨이 10mm 미만
 // 거리에서는 아예 안 보였는데, 라벨을 선 옆으로 살짝 띄워서 거리와
 // 무관하게 항상 표시되게 한다.
-void drawCadDimensionLine(
+/// 치수 숫자 칸이 선 옆 가운데(제자리)에 들어가는지. [drawCadDimensionLine]과 같은 셈.
+bool cadLabelFitsOnLine(
+  Offset start,
+  Offset end,
+  double distance,
+  String prefix,
+) {
+  final double len = (end - start).distance;
+  if (len == 0) return true;
+  final tp = TextPainter(
+    text: TextSpan(
+      text: "$prefix ${distance.toInt()} mm",
+      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  final double ux = (end.dx - start.dx) / len, uy = (end.dy - start.dy) / len;
+  final double along = ux.abs() * (tp.width + 10) + uy.abs() * (tp.height + 6);
+  return along + 8 <= len;
+}
+
+Rect? drawCadDimensionLine(
   Canvas canvas,
   Offset start,
   Offset end,
@@ -214,8 +270,10 @@ void drawCadDimensionLine(
   Color color,
   String prefix, {
   double strokeWidth = 1.3,
+  List<Rect> avoid = const [],
+  Rect? bounds,
 }) {
-  if (distance < 1) return; // 사실상 붙어있으면 표시할 게 없음
+  if (distance < 1) return null; // 사실상 붙어있으면 표시할 게 없음
 
   final linePaint = Paint()
     ..color = color
@@ -235,7 +293,6 @@ void drawCadDimensionLine(
   canvas.drawLine(end - tick, end + tick, linePaint);
 
   final mid = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
-  final label = mid + Offset(px, py) * 15;
 
   final textSpan = TextSpan(
     text: "$prefix ${distance.toInt()} mm",
@@ -246,6 +303,57 @@ void drawCadDimensionLine(
     textDirection: TextDirection.ltr,
   )..layout();
 
+  // 숫자 칸이 선 길이보다 길면(부품이 벽·옆 부품에 바짝 붙었을 때) 선 옆 가운데에 두면
+  // 부품을 가린다. 그때는 [bounds](도면) 안에서 [avoid](움직이는 부품·옆 부품)와 안 겹치는 자리를
+  // 찾아 적는다: 끝점 너머 → 부품 위·아래(또는 옆)로 비켜서.
+  final double ux = len == 0 ? 0 : dx / len, uy = len == 0 ? 0 : dy / len;
+  final Size box = Size(textPainter.width + 10, textPainter.height + 6);
+  final double along = ux.abs() * box.width + uy.abs() * box.height;
+  Rect boxAt(Offset c) =>
+      Rect.fromCenter(center: c, width: box.width, height: box.height);
+  Offset keepIn(Offset c) {
+    final b = bounds;
+    if (b == null) return c;
+    final r = boxAt(c);
+    double sx = 0, sy = 0;
+    if (r.left < b.left) sx = b.left - r.left;
+    if (r.right > b.right) sx = b.right - r.right;
+    if (r.top < b.top) sy = b.top - r.top;
+    if (r.bottom > b.bottom) sy = b.bottom - r.bottom;
+    return c + Offset(sx, sy);
+  }
+
+  bool fits(Offset c) {
+    final r = boxAt(c);
+    if (bounds != null &&
+        (r.left < bounds.left - 0.5 ||
+            r.right > bounds.right + 0.5 ||
+            r.top < bounds.top - 0.5 ||
+            r.bottom > bounds.bottom + 0.5)) {
+      return false;
+    }
+    return !avoid.any(r.overlaps);
+  }
+
+  Offset label = mid + Offset(px, py) * 15;
+  Offset anchor = mid;
+  if (along + 8 > len) {
+    final candidates = <Offset>[
+      end + Offset(ux, uy) * (along / 2 + 8),
+      for (double k = 15; k <= 15 + 2000; k += 5) ...[
+        keepIn(mid + Offset(px, py) * k),
+        keepIn(mid - Offset(px, py) * k),
+      ],
+    ];
+    for (final c in candidates) {
+      if (fits(c)) {
+        label = c;
+        break;
+      }
+    }
+    if (label == candidates.first) anchor = end;
+  }
+
   final bgRect = RRect.fromRectAndRadius(
     Rect.fromCenter(
       center: label,
@@ -255,9 +363,14 @@ void drawCadDimensionLine(
     const Radius.circular(4),
   );
   // 라벨-치수선 연결용 짧은 리더선
+  // 리더선은 숫자 칸의 가장 가까운 테두리까지만(가운데로 그으면 비킨 칸일 때 부품을 가로지른다).
+  final Rect labelBox = boxAt(label);
   canvas.drawLine(
-    mid,
-    label,
+    anchor,
+    Offset(
+      anchor.dx.clamp(labelBox.left, labelBox.right),
+      anchor.dy.clamp(labelBox.top, labelBox.bottom),
+    ),
     Paint()
       ..color = color.withValues(alpha: 0.5)
       ..strokeWidth = 1,
@@ -274,6 +387,7 @@ void drawCadDimensionLine(
     canvas,
     Offset(label.dx - textPainter.width / 2, label.dy - textPainter.height / 2),
   );
+  return labelBox;
 }
 
 // 🚀 치수선 그리기. panelWidth/panelHeight 는 모바일 화면만 넘기며 다시 그릴지 판단할 때만 쓴다.
@@ -345,6 +459,9 @@ class DimensionPainter extends CustomPainter {
         dColor,
         labelPrefix,
         strokeWidth: dim.isSafetyCritical ? 2.4 : 1.3,
+        bounds: panelWidth > 0 && panelHeight > 0
+            ? Offset.zero & Size(panelWidth, panelHeight)
+            : null,
       );
 
       // 🚀 [신규] 치수선마다 번호 배지를 달아서, 도면이 복잡해져도
