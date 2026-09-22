@@ -53,6 +53,18 @@
                 <data android:scheme="tubingcalc" android:host="layout" />
             </intent-filter>
 
+            <!-- 카톡 등에서 도면 사진·PDF를 "공유"로 받는다(작업 배치도 배경에 깐다). -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
+
         </activity>
         
         <!-- 예약 알림을 실제로 화면에 띄우는 수신기. 이게 없으면 예약한 알림이 시간이 돼도 나오지 않는다. -->

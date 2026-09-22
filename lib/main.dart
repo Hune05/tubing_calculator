@@ -17,6 +17,9 @@ import 'firebase_options.dart';
 
 // 🚀 딥링크 패키지
 import 'package:app_links/app_links.dart';
+import 'package:tubing_calculator/src/core/utils/shared_drawing_inbox.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/shared_drawing_sheet.dart'
+    show openSharedDrawing;
 
 // 💡 프로젝트 화면 임포트들
 import 'package:tubing_calculator/src/core/utils/db_seeder.dart';
@@ -197,6 +200,34 @@ class _MyAppState extends State<MyApp> {
     _setupForegroundMessageListener();
     _setupBackgroundAndTerminatedMessageListener();
     _handleFCMToken();
+    // 카톡 등에서 공유로 받은 도면: 앱이 떠 있을 때 새로 들어오면, 그리고 앱을 켠 뒤
+    // 홈 메뉴가 뜨면(로딩 화면이 홈으로 바뀌면서 먼저 띄운 창을 덮지 않게) 가져간다.
+    SharedDrawingInbox.listen(_checkSharedDrawing);
+    SharedDrawingInbox.homeReady.addListener(_checkSharedDrawing);
+  }
+
+  bool _sharedDrawingBusy = false;
+
+  /// 공유로 받은 도면이 있으면 어느 배치도에 깔지 묻고 연다. PDF는 첫 쪽을 사진으로 바꾼다.
+  Future<void> _checkSharedDrawing() async {
+    if (!SharedDrawingInbox.homeReady.value || _sharedDrawingBusy) return;
+    _sharedDrawingBusy = true;
+    try {
+      final d = await SharedDrawingInbox.take();
+      if (d == null) return;
+      final String? path = await SharedDrawingInbox.toImagePath(d);
+      final ctx = appNavigatorKey.currentContext;
+      if (ctx == null || !ctx.mounted) return;
+      if (path == null) {
+        ScaffoldMessenger.maybeOf(
+          ctx,
+        )?.showSnackBar(const SnackBar(content: Text("받은 PDF를 열 수 없습니다.")));
+        return;
+      }
+      unawaited(openSharedDrawing(ctx, path));
+    } finally {
+      _sharedDrawingBusy = false;
+    }
   }
 
   void _handleFCMToken() async {

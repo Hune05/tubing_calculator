@@ -25,6 +25,8 @@ import '../models/skid_presets.dart';
 import '../models/elec_presets.dart';
 import '../models/skid_route.dart';
 import 'skid_route_editor_page.dart';
+import 'drawing_scale_page.dart';
+import '../models/drawing_scale.dart';
 import 'package:vector_math/vector_math_64.dart' as vm;
 import '../models/layout_board_owner.dart';
 import '../models/layout_board_painters.dart';
@@ -75,6 +77,17 @@ const double _kWideInspectorWidth = 320;
 bool layoutBoardUsesWideLayout(Size size) =>
     size.width >= kLayoutBoardWideWidth;
 
+/// 이어서 할 임시 저장(저장 안 하고 나간 배치도)이 있는지. 카톡으로 받은 도면을 어디에 깔지 물을 때 쓴다.
+Future<bool> layoutBoardHasDraft() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('layout_board_draft_v1') != null ||
+        prefs.getString('tablet_layout_board_draft_v1') != null;
+  } catch (_) {
+    return false;
+  }
+}
+
 // 🚀 데이터 모델과 치수 계산은 models/layout_board_models.dart 로 옮겼다(모바일·태블릿 공용).
 // ---------------------------------------------------------
 // 2. 메인 페이지 화면
@@ -93,11 +106,19 @@ class LayoutBoardPage extends StatefulWidget {
   /// 새 도면일 때 종류(캐비닛·스키드). 불러온 도면·이어한 임시 저장은 그 문서의 종류를 쓴다.
   final String initialKind;
 
+  /// 카톡 등에서 공유로 받은 도면 사진. 열리면 지금 탭 배경에 깔고 축척 맞추기를 띄운다.
+  final String? sharedDrawingPath;
+
+  /// 이어하기를 묻지 않고 정해 둔다: true 이어하기, false 새로 시작, null 물어보기.
+  final bool? resumeDraft;
+
   const LayoutBoardPage({
     super.key,
     this.projectId,
     this.attachToReport = false,
     this.initialKind = kLayoutKindCabinet,
+    this.sharedDrawingPath,
+    this.resumeDraft,
   });
 
   @override
@@ -159,6 +180,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   // 사진과 겹쳐도 모듈이 잘 보이게 한다.
   String? _backgroundImagePath;
   double _backgroundOpacity = 0.5;
+
+  /// 축척 맞추기로 정한 배경 사진 자리(도면 mm). 없으면 예전처럼 판에 맞춰 깐다.
+  Rect? _backgroundRect;
 
   // 🚀 [신규] 다중 선택 - 켜져 있는 동안 모듈을 탭하면 편집창 대신
   // 선택 목록에 추가/제거된다. 2개 이상 선택하면 하단 도구모음에서
@@ -243,6 +267,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             mounted &&
             !_hasAnyContent) {
           setState(_startNewSkid);
+        }
+        if (widget.sharedDrawingPath != null && mounted) {
+          _takeSharedDrawing(widget.sharedDrawingPath!);
         }
         _maybeShowOnboarding();
       });
@@ -495,6 +522,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     'dimensions': _dimensions.map((e) => e.toJson()).toList(),
     'backgroundImagePath': _backgroundImagePath,
     'backgroundOpacity': _backgroundOpacity,
+    'backgroundRect': _backgroundRect == null
+        ? null
+        : drawingRectToJson(_backgroundRect!),
   };
 
   Map<String, Map<String, dynamic>> _allPlates() => {
@@ -536,6 +566,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       ..addAll(layoutDimensionsFromData(d));
     _backgroundImagePath = d['backgroundImagePath'] as String?;
     _backgroundOpacity = (d['backgroundOpacity'] as num?)?.toDouble() ?? 0.5;
+    _backgroundRect = drawingRectFromJson(d['backgroundRect']);
   }
 
   /// 보이는 판을 [id]로 바꾼다(setState 안에서 부른다). 되돌리기 기록도 판마다 따로.
@@ -910,6 +941,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         'dimensions',
         'backgroundImagePath',
         'backgroundOpacity',
+        'backgroundRect',
       ])
         k: main[k],
       ..._sidePlateFields(plates),
@@ -1095,6 +1127,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       ..addAll(layoutDimensionsFromData(data));
     _backgroundImagePath = data['backgroundImagePath'] as String?;
     _backgroundOpacity = (data['backgroundOpacity'] as num?)?.toDouble() ?? 0.5;
+    _backgroundRect = drawingRectFromJson(data['backgroundRect']);
   }
 
   // 🚀 [추가] 새 도면으로 들어왔을 때(특정 프로젝트를 불러온 게 아닐 때)
@@ -1109,6 +1142,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       final data = jsonDecode(raw) as Map<String, dynamic>;
       if (!mounted) return false;
       final bool resume =
+          widget.resumeDraft ??
           await showDialog<bool>(
             context: context,
             barrierDismissible: false,
@@ -1801,6 +1835,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           backgroundOpacity:
               (main['backgroundOpacity'] as num?)?.toDouble() ?? 0.5,
         ),
+        'backgroundRect': main['backgroundRect'],
         ..._sidePlateFields(plates),
         if (isNew) ...layoutOwnerFields(owner),
         if (isNew) 'createdAt': FieldValue.serverTimestamp(),
@@ -4221,6 +4256,53 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   // 🚀 [신규] 실제 도면 사진(카톡으로 받은 배치도, 손그림 등)을 배경으로
   // 깔아두고 그 위에 모듈을 배치할 수 있게 하는 바텀시트. 불투명도를
   // 조절해서 사진과 모듈이 겹쳐도 알아보기 쉽게 한다.
+  /// 축척 맞추기 안내에 쓰는 판 이름.
+  String get _scaleTargetName =>
+      _isSkid && _plateId == kPlateMain ? "스키드" : _tabLabel(_plateId);
+
+  /// 공유로 받은 도면을 지금 탭 배경에 깔고 축척 맞추기를 띄운다.
+  void _takeSharedDrawing(String path) {
+    setState(() {
+      _backgroundImagePath = path;
+      _backgroundRect = null;
+      _backgroundOpacity = 0.5;
+    });
+    _saveDraftToPrefs();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _calibrateBackground();
+    });
+  }
+
+  /// 배경 사진 모서리 두 곳을 찍어 실제 mm에 맞춘다. 넣은 가로·세로로 판 크기도 맞춘다.
+  Future<void> _calibrateBackground() async {
+    final path = _backgroundImagePath;
+    if (path == null) return;
+    final r = await DrawingScalePage.open(
+      context,
+      imagePath: path,
+      widthMm: _panelWidth,
+      heightMm: _panelHeight,
+      targetName: _scaleTargetName,
+    );
+    if (r == null || !mounted) return;
+    setState(() {
+      _panelWidth = r.widthMm;
+      _panelHeight = r.heightMm;
+      _backgroundRect = r.rect;
+      _fitPending = true;
+    });
+    _saveDraftToPrefs();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          keepWords(
+            "도면을 가로 ${r.widthMm.toInt()} × 세로 ${r.heightMm.toInt()} mm에 맞췄습니다.",
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showBackgroundSheet() {
     showModalBottomSheet(
       context: context,
@@ -4315,6 +4397,41 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                         ],
                       ),
                     ],
+                    if (_backgroundImagePath != null) ...[
+                      const SizedBox(height: 4),
+                      FilledButton.icon(
+                        key: const ValueKey("background_scale"),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _calibrateBackground();
+                        },
+                        icon: const Icon(Icons.straighten_rounded),
+                        label: Text(
+                          _backgroundRect == null ? "축척 맞추기" : "축척 다시 맞추기",
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: tossBlue,
+                          minimumSize: const Size(40, 48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        keepWords(
+                          "도면에서 모서리 두 곳을 찍고 실제 가로·세로를 넣으면 도면이 실제 크기로 깔립니다.",
+                        ),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: tossSubText,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -4328,7 +4445,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                 setModalState(
                                   () => _backgroundImagePath = path,
                                 );
-                                setState(() => _backgroundImagePath = path);
+                                setState(() {
+                                  _backgroundImagePath = path;
+                                  _backgroundRect = null;
+                                });
                               }
                             },
                             icon: const Icon(
@@ -4360,7 +4480,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                 setModalState(
                                   () => _backgroundImagePath = null,
                                 );
-                                setState(() => _backgroundImagePath = null);
+                                setState(() {
+                                  _backgroundImagePath = null;
+                                  _backgroundRect = null;
+                                });
                               },
                               icon: const Icon(
                                 Icons.delete_outline,
@@ -5350,15 +5473,29 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           children: [
                             if (_backgroundImagePath != null &&
                                 File(_backgroundImagePath!).existsSync())
-                              Positioned.fill(
-                                child: Opacity(
-                                  opacity: _backgroundOpacity,
-                                  child: Image.file(
-                                    File(_backgroundImagePath!),
-                                    fit: BoxFit.contain,
-                                  ),
-                                ),
-                              ),
+                              // 축척을 맞췄으면 그 자리·크기(mm)에, 아니면 판에 맞춰 깐다.
+                              _backgroundRect != null
+                                  ? Positioned.fromRect(
+                                      key: const ValueKey("board_background"),
+                                      rect: _backgroundRect!,
+                                      child: Opacity(
+                                        opacity: _backgroundOpacity,
+                                        child: Image.file(
+                                          File(_backgroundImagePath!),
+                                          fit: BoxFit.fill,
+                                        ),
+                                      ),
+                                    )
+                                  : Positioned.fill(
+                                      key: const ValueKey("board_background"),
+                                      child: Opacity(
+                                        opacity: _backgroundOpacity,
+                                        child: Image.file(
+                                          File(_backgroundImagePath!),
+                                          fit: BoxFit.contain,
+                                        ),
+                                      ),
+                                    ),
                             CustomPaint(
                               size: Size.infinite,
                               painter: GridPainter(gridSize: _gridSize),

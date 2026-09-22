@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/utils/shared_drawing_inbox.dart';
 import 'package:flutter/material.dart';
 
 import 'package:tubing_calculator/src/presentation/menu/page/menu_screen.dart';
@@ -18,6 +19,10 @@ class HomeMenuRouter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 카톡 등에서 공유로 받아 둔 도면은 홈이 뜬 뒤에 연다(shared_drawing_inbox.dart).
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => SharedDrawingInbox.markHomeReady(),
+    );
     final bool isWide = MediaQuery.of(context).size.shortestSide >= 600;
     return isWide
         ? const MenuScreen()
