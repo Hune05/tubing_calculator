@@ -612,8 +612,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 // --- 참고 자료 (맨 아래) ---
                 _buildMenuButton(
                   context: context,
-                  title: "튜브 규격 및 실측 도표",
-                  subtitle: "3/8\", 1/2\" 외경·반지름 및 실측 가이드",
+                  title: "현장 자료·장비 사용법",
+                  subtitle: "튜브·전선관·형강 규격표, 벤더·톱 사용법, 앱 사용법",
                   icon: AppGlyph.tubeSpec,
                   iconColor: slate900,
                   onTap: () {
