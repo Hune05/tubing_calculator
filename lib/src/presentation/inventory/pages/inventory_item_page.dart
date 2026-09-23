@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../tube_cutting/cutting_pending_banner.dart';
 import '../../tube_cutting/cutting_theme.dart';
 import '../material_catalog.dart';
+import 'inventory_owner.dart';
 import 'material_catalog_store.dart';
 
 /// 자재 한 종을 한 장에 모아 보는 화면. 재고·규격·보관 위치·최근 기록을
@@ -137,8 +138,22 @@ class _Body extends StatelessWidget {
               _tag(data['maker'].toString()),
             if ((data['kind'] ?? '').toString().trim().isNotEmpty)
               _tag(data['kind'].toString()),
+            _tag(isSharedStock(data) ? "공용" : "내 것"),
           ],
         ),
+        // 내 것 ↔ 공용 돌리기. 남의 개인 재고는 목록에 안 나오므로 여기까지 오지 않는다.
+        if (!isSharedStock(data) || currentStockUid() != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              key: const Key('item_scope_toggle'),
+              onPressed: () => _toggleShared(context),
+              icon: const Icon(Icons.swap_horiz, size: 18),
+              label: Text(
+                isSharedStock(data) ? "내 재고로 가져오기" : "공용 재고로 돌리기",
+              ),
+            ),
+          ),
         const SizedBox(height: 20),
 
         // 재고 카드
@@ -393,8 +408,42 @@ class _Body extends StatelessWidget {
     }
   }
 
-  /// 재고 수량은 창고 숫자를 바꾸는 일이라, 바뀌는 내용을 한 번 보여 주고
-  /// 기록(자재 기록)에도 남긴다.
+  /// 이 자재를 내 개인 재고 ↔ 공용 재고로 돌린다(수량은 그대로).
+  Future<void> _toggleShared(BuildContext context) async {
+    final toShared = !isSharedStock(data);
+    final sure = await showCuttingConfirmDialog(
+      context,
+      title: toShared ? "공용 재고로 돌리겠습니까?" : "내 재고로 가져오겠습니까?",
+      message: toShared
+          ? "$_name — 같이 쓰는 사람 모두 보고 쓸 수 있게 됩니다."
+          : "$_name — 다른 사람 목록에서 안 보이게 됩니다.",
+      confirmLabel: toShared ? "공용으로" : "가져오기",
+    );
+    if (!sure) return;
+    try {
+      await _ref.update(
+        toShared
+            ? {
+                kStockOwnerUid: FieldValue.delete(),
+                kStockOwnerName: FieldValue.delete(),
+              }
+            : stockOwnerFields(
+                shared: false,
+                uid: currentStockUid(),
+                name: workerName,
+              ),
+      );
+      if (!context.mounted) return;
+      showCuttingSnack(
+        context,
+        toShared ? "공용 재고로 돌렸습니다." : "내 재고로 가져왔습니다.",
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      showCuttingSnack(context, "바꾸지 못했습니다.", isError: true);
+    }
+  }
+
   /// 쓴 만큼 빼거나 채운 만큼 더한다. 수량을 통째로 쓰지 않고 더하고 빼기만 해서
   /// 컷팅 차감과 겹쳐도 틀어지지 않는다. 재고와 기록은 한 번에 쓴다.
   Future<void> _moveQty(BuildContext context, {required bool use}) async {
@@ -479,6 +528,8 @@ class _Body extends StatelessWidget {
     }
   }
 
+  /// 재고 수량은 창고 숫자를 바꾸는 일이라, 바뀌는 내용을 한 번 보여 주고
+  /// 기록(자재 기록)에도 남긴다.
   Future<void> _editQty(BuildContext context) async {
     final ctrl = TextEditingController(text: '$_qty');
     final ok = await showDialog<bool>(
@@ -552,6 +603,7 @@ class _Body extends StatelessWidget {
       });
       batch.set(db.collection('inventory_logs').doc(), {
         'material_name': _name,
+        'item_id': docId,
         'type': diff > 0 ? 'IN' : 'OUT',
         'action': '재고 실사',
         'qty': diff.abs(),

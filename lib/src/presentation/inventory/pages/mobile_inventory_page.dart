@@ -12,6 +12,7 @@ import '../../tube_cutting/cutting_theme.dart'
 import '../material_catalog.dart' show materialCategoryLabel;
 import 'audit_delta.dart';
 import 'inventory_model.dart';
+import 'inventory_owner.dart';
 import 'inventory_item_card.dart';
 import 'material_catalog_page.dart';
 import 'mobile_inventory_ocr.dart';
@@ -537,7 +538,11 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
   bool _matchesFilter(DocumentSnapshot doc) =>
       _matchesMap((doc.data() as Map<String, dynamic>?) ?? {});
 
+  // 지금 앱을 쓰는 사람. 남의 개인 재고는 세지 않는다(목록에서 뺀다).
+  final String? _uid = currentStockUid();
+
   bool _matchesMap(Map<String, dynamic> m) {
+    if (!canSeeStock(m, _uid)) return false;
     if (_filter != 'ALL' && (m['category'] ?? '') != _filter) return false;
     if (_searchQuery.isEmpty) return true;
     final target =

@@ -173,26 +173,31 @@ extension _InventoryDialogsExt on _InventoryPageState {
               }
 
               try {
-                // 안전 증감 연산 처리
-                await _inventoryDb.doc(docId).update({
-                  'qty': FieldValue.increment(isDispatch ? -qty : qty),
-                });
-
+                // 프로젝트 재고 자리를 먼저 찾아 두고, 재고·프로젝트 재고·기록을 한 번에
+                // 쓴다. 예전엔 따로 써서 중간에 통신이 끊기면 재고만 줄고 기록이 없었다.
+                QuerySnapshot? projSnap;
                 if (isDispatch) {
-                  final snapshot = await _projectInventoryDb
+                  projSnap = await _projectInventoryDb
                       .where('project_name', isEqualTo: proj)
                       .where('material_name', isEqualTo: item['name'])
                       .limit(1)
                       .get();
-                  if (snapshot.docs.isNotEmpty) {
-                    await _projectInventoryDb
-                        .doc(snapshot.docs.first.id)
-                        .update({
-                          'qty': FieldValue.increment(qty),
-                          if (reason.isNotEmpty) 'reason': reason,
-                        });
+                }
+                final batch = FirebaseFirestore.instance.batch();
+                batch.update(_inventoryDb.doc(docId), {
+                  'qty': FieldValue.increment(isDispatch ? -qty : qty),
+                });
+                if (isDispatch) {
+                  if (projSnap != null && projSnap.docs.isNotEmpty) {
+                    batch.update(
+                      _projectInventoryDb.doc(projSnap.docs.first.id),
+                      {
+                        'qty': FieldValue.increment(qty),
+                        if (reason.isNotEmpty) 'reason': reason,
+                      },
+                    );
                   } else {
-                    await _projectInventoryDb.add({
+                    batch.set(_projectInventoryDb.doc(), {
                       'project_name': proj,
                       'material_name': item['name'],
                       'category': item['category'],
@@ -205,16 +210,22 @@ extension _InventoryDialogsExt on _InventoryPageState {
                     });
                   }
                 }
-
-                await _logsDb.add({
+                batch.set(_logsDb.doc(), {
                   'type': isDispatch ? 'OUT' : 'IN',
                   'project_name': isDispatch ? proj : '자재 창고 입고',
                   'material_name': item['name'],
+                  'item_id': docId,
                   'qty': qty,
                   'unit': item['unit'],
                   if (isDispatch && reason.isNotEmpty) 'reason': reason,
+                  'worker_name': _workerName,
+                  'device': 'PC',
                   'timestamp': FieldValue.serverTimestamp(),
                 });
+                await batch.commit().timeout(
+                  const Duration(seconds: 8),
+                  onTimeout: () {},
+                );
 
                 if (context.mounted) {
                   Navigator.pop(ctx);
@@ -389,31 +400,49 @@ extension _InventoryDialogsExt on _InventoryPageState {
                 }
 
                 try {
-                  if (currentProjQty - qty == 0) {
-                    await _projectInventoryDb.doc(docId).delete();
-                  } else {
-                    await _projectInventoryDb.doc(docId).update({
-                      'qty': FieldValue.increment(-qty),
-                    });
-                  }
-
                   String targetMatName = pItem['material_name'];
                   if (returnStatus != "정상" &&
                       !targetMatName.contains("($returnStatus)")) {
                     targetMatName = "$targetMatName ($returnStatus)";
                   }
 
-                  final snapshot = await _inventoryDb
+                  // 이름이 같은 재고 가운데 내 것 → 공용 차례로 고른다(남의 개인 재고 제외).
+                  final same = await _inventoryDb
                       .where('name', isEqualTo: targetMatName)
-                      .limit(1)
                       .get();
+                  QueryDocumentSnapshot? target;
+                  int? targetPref;
+                  for (final d in same.docs) {
+                    final pref = stockPreference(
+                      d.data() as Map<String, dynamic>,
+                      _uid,
+                    );
+                    if (pref == null) continue;
+                    if (targetPref == null || pref < targetPref) {
+                      target = d;
+                      targetPref = pref;
+                    }
+                  }
 
-                  if (snapshot.docs.isNotEmpty) {
-                    await _inventoryDb.doc(snapshot.docs.first.id).update({
+                  // 프로젝트 재고 빼기·창고 재고 넣기·기록을 한 번에 쓴다.
+                  final batch = FirebaseFirestore.instance.batch();
+                  if (currentProjQty - qty == 0) {
+                    batch.delete(_projectInventoryDb.doc(docId));
+                  } else {
+                    batch.update(_projectInventoryDb.doc(docId), {
+                      'qty': FieldValue.increment(-qty),
+                    });
+                  }
+
+                  final DocumentReference stockRef;
+                  if (target != null) {
+                    stockRef = target.reference;
+                    batch.update(stockRef, {
                       'qty': FieldValue.increment(qty),
                     });
                   } else {
-                    await _inventoryDb.add({
+                    stockRef = _inventoryDb.doc();
+                    batch.set(stockRef, {
                       "name": targetMatName,
                       "category": pItem['category'],
                       "maker": pItem['maker'] ?? "알수없음",
@@ -425,18 +454,31 @@ extension _InventoryDialogsExt on _InventoryPageState {
                       "is_dead_stock": returnStatus != "정상",
                       "is_reorder_needed": false,
                       "unit": pItem['unit'],
+                      // 반납으로 새로 생기는 재고는 반납한 사람의 개인 재고.
+                      ...stockOwnerFields(
+                        shared: false,
+                        uid: _uid,
+                        name: _workerName,
+                      ),
                       "createdAt": FieldValue.serverTimestamp(),
                     });
                   }
 
-                  await _logsDb.add({
+                  batch.set(_logsDb.doc(), {
                     'type': 'RETURN',
                     'project_name': pItem['project_name'],
                     'material_name': targetMatName,
+                    'item_id': stockRef.id,
                     'qty': qty,
                     'unit': pItem['unit'],
+                    'worker_name': _workerName,
+                    'device': 'PC',
                     'timestamp': FieldValue.serverTimestamp(),
                   });
+                  await batch.commit().timeout(
+                    const Duration(seconds: 8),
+                    onTimeout: () {},
+                  );
 
                   if (context.mounted) {
                     Navigator.pop(ctx);
@@ -708,6 +750,12 @@ extension _InventoryDialogsExt on _InventoryPageState {
                           "status": "정상",
                           "is_dead_stock": false,
                           "is_reorder_needed": false,
+                          // PC에서 새로 넣은 자재는 내 개인 재고(로그인 안 했으면 공용).
+                          ...stockOwnerFields(
+                            shared: false,
+                            uid: _uid,
+                            name: _workerName,
+                          ),
                           "createdAt": FieldValue.serverTimestamp(),
                         });
 

@@ -8,6 +8,7 @@ import '../../tube_cutting/cutting_theme.dart'
 import '../../tube_cutting/widgets/leftover_log_page.dart';
 import '../material_catalog.dart';
 import 'inventory_item_page.dart';
+import 'inventory_owner.dart';
 import 'inventory_view_logic.dart';
 import 'material_catalog_page.dart';
 import 'mobile_inventory_logs_page.dart';
@@ -40,6 +41,9 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
   String _selectedCategory = "ALL";
   // 켜면 최소 수량 아래로 내려간 자재만 본다.
   bool _shortOnly = false;
+  // 전체·내 것·공용. 남의 개인 재고는 어느 쪽에서도 안 보인다.
+  StockScope _scope = StockScope.all;
+  final String? _uid = currentStockUid();
   // 🚀 [추가] 재고 줄에 그 규격 잔재를 같이 보여 준다. 예전에는 잔재를
   // 따로 골라 봐야 해서, "새로 뺄까 잔재로 될까"를 한눈에 못 봤다.
   Map<String, LeftoverSummary> _leftoverBySpec = const {};
@@ -194,7 +198,37 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
           ),
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
+
+        // 내 재고·공용 재고 가르기
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            children: [
+              for (final s in StockScope.values)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    key: Key('scope_${s.name}'),
+                    label: Text(stockScopeLabel(s)),
+                    labelStyle: TextStyle(
+                      color: _scope == s ? pureWhite : slate600,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                    selected: _scope == s,
+                    selectedColor: makitaTeal,
+                    backgroundColor: slate100,
+                    showCheckmark: false,
+                    side: BorderSide.none,
+                    onSelected: (_) => setState(() => _scope = s),
+                  ),
+                ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
 
         // 🌟 카테고리 칩 (가로 스크롤, 그림자 제거)
         SizedBox(
@@ -265,21 +299,32 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                       );
                     }
 
+                    // 남의 개인 재고는 처음부터 뺀다.
+                    final visibleDocs = snapshot.data!.docs
+                        .where(
+                          (d) => canSeeStock(
+                            d.data() as Map<String, dynamic>,
+                            _uid,
+                          ),
+                        )
+                        .toList();
+
                     // 아직 서버로 못 올라간 저장이 몇 건인지(통신 없는 곳에서 고친 것).
-                    final pending = snapshot.data!.docs
+                    final pending = visibleDocs
                         .where((d) => d.metadata.hasPendingWrites)
                         .length;
 
                     // 최소 수량 아래로 내려간 자재가 몇 개인지(칸을 가리지 않고 센다).
-                    final shortCount = snapshot.data!.docs
+                    final shortCount = visibleDocs
                         .where(
                           (d) => isShortStock(d.data() as Map<String, dynamic>),
                         )
                         .length;
 
                     List<DocumentSnapshot>
-                    filteredDocs = snapshot.data!.docs.where((doc) {
+                    filteredDocs = visibleDocs.where((doc) {
                       final data = doc.data() as Map<String, dynamic>;
+                      if (!matchesStockScope(data, _uid, _scope)) return false;
                       bool categoryMatch =
                           _selectedCategory == "ALL" ||
                           data['category'] == _selectedCategory;

@@ -74,6 +74,31 @@ void main() {
     });
   });
 
+  group('이름이 같은 재고가 여럿이면', () {
+    // (이름, 주인) — 공용·내 것·남의 것이 같은 이름으로 있다.
+    const shared = ('유니온', '');
+    const mine = ('유니온', 'me');
+    const others = ('유니온', 'other');
+    int? rank((String, String) d) =>
+        d.$2 == 'me' ? 0 : (d.$2.isEmpty ? 1 : null);
+
+    test('내 것을 먼저 쓴다(순서와 상관없이)', () {
+      final lookup = materialLookup(
+        [shared, others, mine],
+        (d) => d.$1,
+        rank: rank,
+      );
+      expect(findMaterial(lookup, '유니온'), mine);
+    });
+
+    test('내 것이 없으면 공용, 남의 것은 안 쓴다', () {
+      final lookup = materialLookup([others, shared], (d) => d.$1, rank: rank);
+      expect(findMaterial(lookup, '유니온'), shared);
+      final onlyOthers = materialLookup([others], (d) => d.$1, rank: rank);
+      expect(findMaterial(onlyOthers, '유니온'), isNull);
+    });
+  });
+
   group('한 본 길이·단위도 이름이 조금 달라도 찾는다', () {
     test('따옴표 모양이 달라도 한 본 길이를 읽는다', () {
       final takes = stockTakesFromMaterials(

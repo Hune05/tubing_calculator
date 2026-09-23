@@ -93,6 +93,8 @@ extension InventoryTabsExt on _InventoryPageState {
 
               final docs = snapshot.data!.docs.where((d) {
                 final data = d.data() as Map<String, dynamic>;
+                // 남의 개인 재고는 안 보인다.
+                if (!canSeeStock(data, _uid)) return false;
                 bool catMatch =
                     _selectedFilterCategory == "ALL" ||
                     data['category'] == _selectedFilterCategory;

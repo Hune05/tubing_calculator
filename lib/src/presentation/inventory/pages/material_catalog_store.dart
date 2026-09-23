@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../material_catalog.dart';
+import 'inventory_owner.dart';
 
 // 자재 목록(카탈로그)은 서버에 둔다. 폰을 바꿔도, 다른 화면에서도 같은 목록을 본다.
 const String kMaterialCatalogCollection = 'material_catalog';
@@ -75,12 +76,23 @@ Future<int> addCatalogItemsToInventory(
   String maker = '',
   String location = '',
   String worker = '',
+  // 공용으로 넣을지. 아니면 넣는 사람의 개인 재고가 된다(로그인 안 했으면 공용).
+  bool shared = false,
 }) async {
+  final owner = stockOwnerFields(
+    shared: shared,
+    uid: currentStockUid(),
+    name: worker,
+  );
+  // 개인 재고는 사람마다 문서가 따로라 문서 이름에 주인을 붙인다.
+  final ownerTail = owner.isEmpty ? '' : '_u${owner[kStockOwnerUid]}';
   var added = 0;
   for (final item in items) {
-    final docId = maker.trim().isEmpty
-        ? 'cat_${item.id}'
-        : 'cat_${item.id}_${_slug(maker)}';
+    final docId =
+        (maker.trim().isEmpty
+            ? 'cat_${item.id}'
+            : 'cat_${item.id}_${_slug(maker)}') +
+        ownerTail;
     final ref = _inventory.doc(docId);
     final snap = await ref.get();
     if (snap.exists) continue;
@@ -98,12 +110,14 @@ Future<int> addCatalogItemsToInventory(
       'is_dead_stock': false,
       'is_reorder_needed': false,
       'catalogId': item.id,
+      ...owner,
       'createdAt': FieldValue.serverTimestamp(),
     });
     // 누가 언제 재고에 넣었는지 자재 기록에도 남긴다(수량은 0이라 재고는 안 움직인다).
     try {
       await FirebaseFirestore.instance.collection('inventory_logs').add({
         'material_name': item.name,
+        'item_id': docId,
         'action': '자재 등록',
         'type': 'INIT',
         'qty': 0,

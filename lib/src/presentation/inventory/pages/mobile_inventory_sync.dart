@@ -213,6 +213,12 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
             'is_dead_stock': false,
             'is_reorder_needed': false,
             'unit': 'EA',
+            // 재고조사에서 새로 넣은 자재는 내 개인 재고(로그인 안 했으면 공용).
+            ...stockOwnerFields(
+              shared: false,
+              uid: _uid,
+              name: widget.workerName,
+            ),
             'createdAt': FieldValue.serverTimestamp(),
           };
 
@@ -248,6 +254,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
             'type': 'INIT',
             'project_name': '현장 자재 등록',
             'material_name': itemName,
+            'item_id': newDocRef.id,
             'qty': data.qty,
             'unit': 'EA',
             'worker_name': widget.workerName,
@@ -311,6 +318,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
                 'action': '재고 실사',
                 'project_name': '현장 재고조사',
                 'material_name': dbData['name'],
+                'item_id': docId,
                 'qty': diff.abs(),
                 'sign': diff > 0 ? '+' : '-',
                 'unit': dbData['unit'] ?? 'EA',

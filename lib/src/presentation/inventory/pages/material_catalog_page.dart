@@ -120,6 +120,7 @@ class _CatalogBodyState extends State<_CatalogBody> {
         maker: answer.maker,
         location: answer.place,
         worker: widget.workerName,
+        shared: answer.shared,
       );
       await rememberMaker(answer.maker);
       if (!mounted) return;
@@ -139,6 +140,7 @@ class _CatalogBodyState extends State<_CatalogBody> {
 
   Future<_MakerPlace?> _askMakerAndPlace(int count, List<String> makers) async {
     var maker = '';
+    var shared = false;
     final place = TextEditingController();
     final typed = TextEditingController();
 
@@ -206,7 +208,19 @@ class _CatalogBodyState extends State<_CatalogBody> {
                       isDense: true,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 4),
+                  // 끄면 내 개인 재고, 켜면 같이 쓰는 공용 재고.
+                  SwitchListTile(
+                    key: const Key('catalog_shared'),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text("공용 재고로 넣기"),
+                    subtitle: Text(
+                      shared ? "같이 쓰는 사람 모두 봅니다." : "내 개인 재고로 넣습니다.",
+                    ),
+                    value: shared,
+                    onChanged: (v) => setInner(() => shared = v),
+                  ),
+                  const SizedBox(height: 4),
                   const Text(
                     "수량은 0으로 넣습니다. 재고조사나 반납으로 채웁니다.",
                     style: TextStyle(
@@ -237,7 +251,7 @@ class _CatalogBodyState extends State<_CatalogBody> {
     );
 
     if (ok != true) return null;
-    return _MakerPlace(maker, place.text);
+    return _MakerPlace(maker, place.text, shared: shared);
   }
 
   Future<void> _editItem(CatalogItem item) async {
@@ -551,5 +565,6 @@ class _CatalogBodyState extends State<_CatalogBody> {
 class _MakerPlace {
   final String maker;
   final String place;
-  const _MakerPlace(this.maker, this.place);
+  final bool shared;
+  const _MakerPlace(this.maker, this.place, {this.shared = false});
 }

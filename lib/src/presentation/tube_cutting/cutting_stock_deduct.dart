@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../inventory/pages/inventory_owner.dart';
+
 // 컷팅에서 쓴 자재를 창고 재고에서 뺄 때의 셈. 화면과 떼어 놓아서 검사할 수 있게 한다.
 
 /// 자재 이름을 견주기 좋게 다듬는다.
@@ -26,13 +28,30 @@ String normalizeMaterialName(String name) {
 
 /// 이름으로 재고 문서를 찾는 표를 만든다.
 /// 똑같은 이름을 먼저 보고, 없으면 다듬은 이름으로 한 번 더 본다.
-Map<String, T> materialLookup<T>(Iterable<T> docs, String Function(T) nameOf) {
+///
+/// [rank]를 주면 이름이 같은 문서 가운데 값이 작은 것을 쓰고, null인 문서는
+/// 아예 뺀다(내 재고 → 공용 차례, 남의 개인 재고는 안 씀). 값이 같으면 먼저 온 것.
+Map<String, T> materialLookup<T>(
+  Iterable<T> docs,
+  String Function(T) nameOf, {
+  int? Function(T)? rank,
+}) {
   final out = <String, T>{};
+  final best = <String, int>{};
+  void put(String key, T d, int r) {
+    final have = best[key];
+    if (have != null && have <= r) return;
+    out[key] = d;
+    best[key] = r;
+  }
+
   for (final d in docs) {
     final raw = nameOf(d).trim();
     if (raw.isEmpty) continue;
-    out.putIfAbsent(raw, () => d);
-    out.putIfAbsent(normalizeMaterialName(raw), () => d);
+    final r = rank == null ? 0 : rank(d);
+    if (r == null) continue;
+    put(raw, d, r);
+    put(normalizeMaterialName(raw), d, r);
   }
   return out;
 }
@@ -178,9 +197,17 @@ Future<StockInfo> loadStockInfo() async {
     final bars = <String, int>{};
     final units = <String, String>{};
     final qty = <String, int>{};
+    // 이름이 같으면 차감과 같은 문서(내 것 → 공용)를 읽는다. 남의 개인 재고는 뺀다.
+    final uid = currentStockUid();
+    final best = <String, int>{};
     for (final d in snap.docs) {
       final name = (d.data()['name'] as String?)?.trim() ?? '';
       if (name.isEmpty) continue;
+      final pref = stockPreference(d.data(), uid);
+      if (pref == null) continue;
+      final have = best[name];
+      if (have != null && have <= pref) continue;
+      best[name] = pref;
       final len = (d.data()['barLengthMm'] as num?)?.toInt() ?? 0;
       if (len > 0) bars[name] = len;
       final unit = (d.data()['unit'] as String?)?.trim() ?? '';
@@ -264,9 +291,12 @@ Future<void> undoStockTakes(
   }
 
   final all = await db.collection('inventory').get();
+  // 내 재고 → 공용 차례로 쓰고, 남의 개인 재고는 건드리지 않는다.
+  final uid = currentStockUid();
   final byName = materialLookup(
     all.docs,
     (d) => (d.data()['name'] as String?) ?? '',
+    rank: (d) => stockPreference(d.data(), uid),
   );
 
   final batch = db.batch();
@@ -281,6 +311,7 @@ Future<void> undoStockTakes(
     });
     batch.set(db.collection('inventory_logs').doc(), {
       'material_name': take.name,
+      'item_id': doc.id,
       'type': 'IN',
       'action': action,
       'qty': take.qty,
@@ -337,9 +368,12 @@ Future<StockDeductResult> deductStockTakes(
   final all = await db.collection('inventory').get();
   final offline = all.metadata.isFromCache;
 
+  // 내 재고 → 공용 차례로 쓰고, 남의 개인 재고는 건드리지 않는다.
+  final uid = currentStockUid();
   final byName = materialLookup(
     all.docs,
     (d) => (d.data()['name'] as String?) ?? '',
+    rank: (d) => stockPreference(d.data(), uid),
   );
 
   final batch = db.batch();
@@ -361,6 +395,7 @@ Future<StockDeductResult> deductStockTakes(
     });
     batch.set(db.collection('inventory_logs').doc(), {
       'material_name': take.name,
+      'item_id': doc.id,
       'type': 'OUT',
       'action': action,
       'qty': take.qty,

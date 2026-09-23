@@ -4,7 +4,10 @@ import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'inventory_constants.dart';
+import 'inventory_owner.dart';
 import 'inventory_view_logic.dart' show isShortStock;
 
 part 'inventory_tabs.dart';
@@ -50,6 +53,24 @@ class _InventoryPageState extends State<InventoryPage> {
   final CollectionReference _logsDb = FirebaseFirestore.instance.collection(
     'inventory_logs',
   );
+
+  // 지금 앱을 쓰는 사람. 남의 개인 재고는 안 보이고, 기록에 이름을 남긴다.
+  final String? _uid = currentStockUid();
+  String _workerName = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWorkerName();
+  }
+
+  Future<void> _loadWorkerName() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final name = p.getString('user_real_name') ?? '';
+      if (mounted) setState(() => _workerName = name);
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
