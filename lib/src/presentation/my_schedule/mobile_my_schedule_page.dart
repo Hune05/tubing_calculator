@@ -22,6 +22,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'schedule_backup.dart';
+import 'schedule_ics.dart';
 import 'schedule_search_dialog.dart';
 import 'schedule_logic.dart';
 import 'schedule_reminders.dart';
@@ -2813,6 +2814,29 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     }
   }
 
+  /// 구글·네이버·삼성 캘린더가 읽는 .ics 파일로 내보낸다(카톡·메일로 보내 그쪽 달력에 넣는다).
+  Future<void> _exportIcs() async {
+    try {
+      final docs = await _fetchMyPersonalDocs();
+      if (docs.isEmpty) {
+        _toast("내보낼 개인 일정이 없습니다.");
+        return;
+      }
+      final now = DateTime.now();
+      final dir = await getTemporaryDirectory();
+      final file = File(
+        '${dir.path}/my_schedules_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.ics',
+      );
+      await file.writeAsString(buildIcs(docs));
+      // ignore: deprecated_member_use
+      await Share.shareXFiles([
+        XFile(file.path, mimeType: 'text/calendar'),
+      ], text: '내 일정 (캘린더 파일)');
+    } catch (e) {
+      _toast("내보내기 실패: $e");
+    }
+  }
+
   Future<void> _importPersonal() async {
     if (!_requireWorker()) return;
     try {
@@ -3527,6 +3551,15 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
             _focusedDay = focused;
           });
         },
+        // 빈 날을 길게 누르면 그 날짜로 새 일정.
+        onDayLongPressed: (selected, focused) {
+          HapticFeedback.mediumImpact();
+          setState(() {
+            _selectedDay = selected;
+            _focusedDay = focused;
+          });
+          _showAddPersonalSheet();
+        },
         onPageChanged: (focused) {
           setState(() => _focusedDay = focused);
         },
@@ -4125,12 +4158,14 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                   _loadProjects();
                 }
                 if (v == 'export') _exportPersonal();
+                if (v == 'ics') _exportIcs();
                 if (v == 'import') _importPersonal();
               },
               itemBuilder: (_) => const [
                 PopupMenuItem(value: 'template', child: Text("일정 세트 템플릿")),
                 PopupMenuItem(value: 'refresh', child: Text("프로젝트 일정 새로고침")),
                 PopupMenuItem(value: 'export', child: Text("내 일정 내보내기")),
+                PopupMenuItem(value: 'ics', child: Text("캘린더 파일(.ics)로 보내기")),
                 PopupMenuItem(value: 'import', child: Text("내 일정 가져오기")),
               ],
             ),

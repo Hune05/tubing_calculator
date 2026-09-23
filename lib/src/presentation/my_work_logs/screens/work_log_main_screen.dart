@@ -669,14 +669,41 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         });
     }
     var res = out;
-    if (_showCompleted && _nameFilter.trim().isNotEmpty) {
+    if (_nameFilter.trim().isNotEmpty) {
       final q = _nameFilter.trim().toLowerCase();
       res = res
           .where((l) => (l['name']?.toString() ?? '').toLowerCase().contains(q))
           .toList();
     }
     if (_issueFilterOn) res = withOpenIssues(res);
+    // 맨 위 고정(pinned)은 정렬과 상관없이 위로.
+    final pinned = res.where(isProjectPinned).toList();
+    if (pinned.isNotEmpty) {
+      res = [...pinned, ...res.where((l) => !isProjectPinned(l))];
+    }
     return res;
+  }
+
+  // 진행중 탭이 4개 넘으면 검색 칸을 보여 준다(완료·보관 탭은 늘).
+  Widget _buildSearchField() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: TextField(
+        key: const Key('project_search'),
+        onChanged: (v) => setState(() => _nameFilter = v),
+        decoration: InputDecoration(
+          hintText: "프로젝트 이름 검색",
+          prefixIcon: const Icon(Icons.search_rounded, size: 20),
+          isDense: true,
+          filled: true,
+          fillColor: pureWhite,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+        ),
+      ),
+    );
   }
 
   // 완료된 프로젝트 중 미해결 이슈가 남은 것만 보기. 그런 프로젝트가 없어지면
@@ -1078,6 +1105,15 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
               title: const Text("일정 추가"),
               onTap: () => Navigator.pop(ctx, 'schedule'),
             ),
+            ListTile(
+              leading: Icon(
+                isProjectPinned(log)
+                    ? Icons.push_pin_rounded
+                    : Icons.push_pin_outlined,
+              ),
+              title: Text(isProjectPinned(log) ? "맨 위 고정 해제" : "맨 위 고정"),
+              onTap: () => Navigator.pop(ctx, 'pin'),
+            ),
           ],
         ),
       ),
@@ -1086,6 +1122,10 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     if (pick == 'report') await _addDailyReportFor(log);
     if (pick == 'issue') await _addPunchFor(log);
     if (pick == 'schedule') await _openSchedule(log, add: true);
+    if (pick == 'pin') {
+      setState(() => log['pinned'] = !isProjectPinned(log));
+      _saveProject(log);
+    }
   }
 
   Future<void> _addDailyReportFor(Map<String, dynamic> log) async {
@@ -1518,6 +1558,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                     _buildBackupBanner(),
                     if (!_showCompleted) _buildWeeklyReportCard(),
                     if (!_showCompleted) _buildDashboard(),
+                    if (!_showCompleted &&
+                        (_activeLogs.length > 4 || _nameFilter.isNotEmpty))
+                      _buildSearchField(),
                     if (_showCompleted) _buildDoneTools(),
                     if (_showCompleted)
                       Padding(

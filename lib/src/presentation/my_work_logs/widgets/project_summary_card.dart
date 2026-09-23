@@ -101,6 +101,15 @@ class ProjectSummaryCard extends StatelessWidget {
                     children: [
                       Row(
                         children: [
+                          if (log['pinned'] == true)
+                            const Padding(
+                              padding: EdgeInsets.only(right: 4),
+                              child: Icon(
+                                Icons.push_pin_rounded,
+                                size: 14,
+                                color: _tossSub,
+                              ),
+                            ),
                           Expanded(
                             child: Text(
                               log['name']?.toString() ?? '이름 없음',

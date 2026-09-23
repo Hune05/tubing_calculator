@@ -180,6 +180,9 @@ List<Map<String, dynamic>> withOpenIssues(List<Map<String, dynamic>> logs) =>
 // 이슈 목록 일괄 설정이 모두 이 두 함수만 거쳐 같은 값을 읽고 쓴다.
 bool issueWeeklyExcluded(Map p) => p['weeklyExclude'] == true;
 
+/// 목록 맨 위에 고정한 프로젝트인지(길게 눌러 고정).
+bool isProjectPinned(Map p) => p['pinned'] == true;
+
 void setIssueWeeklyExcluded(Map p, bool excluded) {
   if (excluded) {
     p['weeklyExclude'] = true;
