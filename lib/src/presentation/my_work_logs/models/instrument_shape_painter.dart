@@ -76,7 +76,7 @@ class InstrumentShape {
   /// SOR 저압 넓은 다이어프램(12·52, Ø94.5 원판).
   static const String sorWide = 'sor_wide';
 
-  /// SOR 101 차압(CAT468 p.14).
+  /// SOR 101 차압(CAT468 미대조, 고압·저압 접속구 둘을 아래로 그림).
   static const String sorDp = 'sor_dp';
 
   /// SOR 방폭(B3·B6, CAT216 p.28): 둥근 뚜껑, 아래 네모 설정칸.
@@ -126,12 +126,276 @@ class InstrumentShape {
 
   /// 원래 가로가 긴 모양인지(돌려 놓았는지 가리는 데 쓴다).
   static bool isLandscape(String shape) {
+    final String base = baseOf(shape);
     // 스키드 형강·전선관은 길이 방향이 가로, 정션박스는 네모라 돌리지 않는다.
-    if (SkidShape.isSkid(shape)) return shape != SkidShape.jb;
-    final Size? mm = fittingSpecSize(shape);
+    if (SkidShape.isSkid(base)) return base != SkidShape.jb;
+    final Size? mm = fittingSpecSize(base);
     if (mm != null) return mm.width > mm.height;
-    return _landscape.contains(shape);
+    return _landscape.contains(base);
   }
+
+  /// 돌린 횟수를 모르는 예전 부품: 칸의 가로·세로가 원래 모양과 반대면 90° 한 번 돌린 것.
+  static int inferredQuarterTurns(String shape, Size box) {
+    if (box.width == box.height) return 0;
+    return (box.width > box.height) != isLandscape(shape) ? 1 : 0;
+  }
+
+  // ── 브래킷 꼬리표 ──
+  /// 모양 이름 뒤에 붙이면 2인치 파이프 브래킷을 같이 그린다('rm_coplanar+br').
+  static const String bracketSuffix = '+br';
+
+  static bool hasBracket(String? shape) =>
+      shape != null && shape.endsWith(bracketSuffix);
+
+  /// 꼬리표를 뗀 본디 모양 이름. 모양을 비교하는 곳은 이 값을 쓴다.
+  static String baseOf(String shape) => hasBracket(shape)
+      ? shape.substring(0, shape.length - bracketSuffix.length)
+      : shape;
+
+  /// 브래킷을 붙일 수 있는 계기(트랜스미터).
+  static const Set<String> bracketable = {
+    ykHorizontal,
+    ykVertical,
+    ykInline,
+    autrolDp,
+    autrolPt,
+    rmCoplanar,
+    rmTraditional,
+    rmInline,
+  };
+}
+
+/// 브래킷 칸 안에서 계기가 차지하는 자리(비율). 칸은 계기보다 가로 ≈60·세로 ≈40 크다고 보고
+/// 좌우 ≈17%·위아래 ≈9%를 브래킷(파이프·판)에 준다(정확한 비례는 아니다).
+const double _kBracketInsetX = 0.17;
+const double _kBracketInsetY = 0.09;
+
+/// 돌리기·뒤집기 규칙. 그리기와 접속점 셈이 같은 규칙을 쓴다.
+/// - [turns] 시계 방향 90° 횟수(0~3). [natural]은 돌리기 전 그림 크기(홀수면 가로·세로 바뀜).
+/// - 뒤집기는 돌린 뒤 화면 기준 좌우([mirrorInNatural]가 false)로 한다.
+///   스키드 부품만 SkidPartPainter처럼 길이 방향(돌리기 전 기준)으로 뒤집는다.
+class _Orient {
+  final Size box;
+  final Size natural;
+  final int turns;
+  final bool mirror;
+  final bool mirrorInNatural;
+
+  const _Orient({
+    required this.box,
+    required this.natural,
+    required this.turns,
+    required this.mirror,
+    required this.mirrorInNatural,
+  });
+
+  /// [quarterTurns]가 null이면 예전처럼 칸 비율로 돌렸는지 어림한다.
+  /// 스키드 부품은 늘 어림 규칙(긴 쪽이 가로)을 쓴다.
+  factory _Orient.of(String base, Size box, int? quarterTurns, bool mirror) {
+    final bool skid = SkidShape.isSkid(base);
+    int turns;
+    if (quarterTurns == null || skid) {
+      turns = InstrumentShape.inferredQuarterTurns(base, box);
+    } else {
+      turns = quarterTurns % 4;
+    }
+    return _Orient(
+      box: box,
+      natural: turns.isOdd ? Size(box.height, box.width) : box,
+      turns: turns,
+      mirror: mirror,
+      mirrorInNatural: skid,
+    );
+  }
+
+  void apply(Canvas c) {
+    if (mirror && !mirrorInNatural) {
+      c.translate(box.width, 0);
+      c.scale(-1, 1);
+    }
+    if (turns != 0) {
+      c.translate(box.width / 2, box.height / 2);
+      c.rotate(turns * math.pi / 2);
+      c.translate(-natural.width / 2, -natural.height / 2);
+    }
+    if (mirror && mirrorInNatural) {
+      c.translate(natural.width, 0);
+      c.scale(-1, 1);
+    }
+  }
+
+  /// 돌리기 전 그림의 점을 칸(화면) 자리로.
+  Offset map(Offset p) {
+    Offset q = p;
+    if (mirror && mirrorInNatural) q = Offset(natural.width - q.dx, q.dy);
+    q -= Offset(natural.width / 2, natural.height / 2);
+    for (int i = 0; i < turns; i++) {
+      q = Offset(-q.dy, q.dx); // 화면(y 아래) 기준 시계 방향 90°
+    }
+    q += Offset(box.width / 2, box.height / 2);
+    if (mirror && !mirrorInNatural) q = Offset(box.width - q.dx, q.dy);
+    return q;
+  }
+}
+
+/// 튜브·전선관이 붙는 자리(접속점). 부품 칸 안의 픽셀 좌표(왼쪽 위가 0,0).
+/// 그리기와 같은 규칙으로 돌리고 뒤집어서 그림 위 자리와 맞는다.
+/// - 계기: 공정 접속구 끝(차압은 둘, 요꼬가와 수직 배관형은 왼쪽 캡슐 아래 둘,
+///   인라인·PT·포크·SOR·비카는 아래 나사 끝 하나)
+/// - 피팅: 너트·나사·관 팔의 끝마다 하나
+/// - 밸브: 양 끝(릴리프는 아래 입구 + 옆 출구)
+/// - 매니폴드·게이지 밸브: 양옆 격리 밸브 끝, 직결형은 위 플랜지 가운데도
+/// - 전기 부품·덕트·메모·스키드·모르는 모양: 없음
+List<Offset> shapeConnectionPoints(
+  String? shape,
+  Size size, {
+  int quarterTurns = 0,
+  bool mirror = false,
+}) {
+  if (shape == null || size.width <= 0 || size.height <= 0) return const [];
+  if (ElecShape.isElec(shape)) return const [];
+  final String base = InstrumentShape.baseOf(shape);
+  if (SkidShape.isSkid(base)) return const [];
+  final _Orient o = _Orient.of(base, size, quarterTurns, mirror);
+  final Size nat = o.natural;
+  List<Offset> pts;
+  if (InstrumentShape.hasBracket(shape) &&
+      InstrumentShape.bracketable.contains(base)) {
+    final Offset at = Offset(
+      nat.width * _kBracketInsetX,
+      nat.height * _kBracketInsetY,
+    );
+    final Size sub = Size(
+      nat.width * (1 - 2 * _kBracketInsetX),
+      nat.height * (1 - 2 * _kBracketInsetY),
+    );
+    pts = [for (final p in _naturalPoints(base, sub)) p + at];
+  } else {
+    pts = _naturalPoints(base, nat);
+  }
+  return [for (final p in pts) o.map(p)];
+}
+
+/// 돌리기 전 그림([s] 크기) 안의 접속점.
+List<Offset> _naturalPoints(String base, Size s) {
+  if (isFittingSpec(base)) return _specPoints(base, s);
+  final double w = s.width, h = s.height;
+  Offset p(double x, double y) => Offset(w * x, h * y);
+  switch (base) {
+    // 차압(접속구 둘)
+    case InstrumentShape.rmCoplanar:
+    case InstrumentShape.dp:
+    case InstrumentShape.gp:
+      return [p(0.3, 1), p(0.7, 1)]; // 코플래너 플랜지 아래 두 구멍(≈54 간격)
+    case InstrumentShape.rmTraditional:
+    case InstrumentShape.dpTraditional:
+      return [p(0.31, 0.94), p(0.85, 0.94)]; // 양옆 플랜지판 아래
+    case InstrumentShape.autrolDp:
+      return [p(0.17, 0.82), p(0.83, 0.82)]; // 타원 플랜지 가운데 접속구
+    case InstrumentShape.ykHorizontal:
+      return [p(0.21, 0.74), p(0.79, 0.74)];
+    case InstrumentShape.ykVertical:
+    case InstrumentShape.dpSide:
+      return [p(0.12, 1), p(0.3, 1)]; // 왼쪽 캡슐 아래 접속구 둘
+    case InstrumentShape.sorDp:
+      return [p(0.35, 1), p(0.65, 1)];
+    // 아래 나사 끝 하나
+    case InstrumentShape.rmInline:
+    case InstrumentShape.inline:
+      return [p(0.48, 1)];
+    case InstrumentShape.autrolPt:
+    case InstrumentShape.ykInline:
+    case InstrumentShape.sorPiston:
+    case InstrumentShape.sorDiaphragm:
+    case InstrumentShape.sorWide:
+    case InstrumentShape.sorExp:
+      return [p(0.5, 1)];
+    case InstrumentShape.exdSwitch:
+      return [p(87 / 161, 1)];
+    case InstrumentShape.fork2120:
+    case InstrumentShape.fork:
+    case InstrumentShape.fork2130:
+    case InstrumentShape.fork2130Long:
+      // 포크가 시작하는 나사 끝(_fork의 forkT와 같은 셈).
+      return [p(0.46, 1 - math.min(69, h * 0.32) / h)];
+    case InstrumentShape.fork2120Nylon:
+      return [p(0.42, 1 - math.min(69, h * 0.32) / h)];
+    // 튜브 피팅(옛 모양)
+    case InstrumentShape.fitUnion:
+    case InstrumentShape.fitMale:
+    case InstrumentShape.fitBulkhead:
+      return [p(0, 0.5), p(1, 0.5)];
+    case InstrumentShape.fitElbow:
+      return [p(1, 0.19), p(0.19, 1)];
+    case InstrumentShape.fitTee:
+      return [p(0, 0.19), p(1, 0.19), p(0.5, 1)];
+    case InstrumentShape.fitCross:
+      return [p(0, 0.5), p(1, 0.5), p(0.5, 0), p(0.5, 1)];
+    case InstrumentShape.fitMaleElbow:
+      return [p(0, 0.17), p(0.83, 1)];
+    // 매니폴드·게이지 밸브: 양옆 격리 밸브 끝(+ 직결형 위 플랜지)
+    case InstrumentShape.mv2:
+    case InstrumentShape.gv1:
+    case InstrumentShape.gv2:
+    case InstrumentShape.swV2:
+    case InstrumentShape.swV3:
+    case InstrumentShape.swV5:
+      return [p(0, 0.5), p(1, 0.5)];
+    case InstrumentShape.mv3:
+      return [p(0, 1 - 31 / 78), p(1, 1 - 31 / 78)];
+    case InstrumentShape.mv5:
+      return [p(0, 1 - 32 / 86), p(1, 1 - 32 / 86)];
+    case InstrumentShape.mv3Flange:
+      return [p(0, 1 - 31 / 97), p(1, 1 - 31 / 97), p(0.5, 0)];
+    case InstrumentShape.mv5Flange:
+      return [p(0, 1 - 32 / 113), p(1, 1 - 32 / 113), p(0.5, 0)];
+    default:
+      return const []; // 덕트·메모·모르는 모양
+  }
+}
+
+/// 조각 목록 피팅·밸브의 접속점. _fitSpec과 같은 배율·가운데 맞춤.
+List<Offset> _specPoints(String spec, Size s) {
+  final Size? mm = fittingSpecSize(spec);
+  if (mm == null || mm.width <= 0 || mm.height <= 0) return const [];
+  final double k = math.min(s.width / mm.width, s.height / mm.height);
+  final Offset at = Offset(
+    (s.width - mm.width * k) / 2,
+    (s.height - mm.height * k) / 2,
+  );
+  final List<Offset> raw;
+  if (spec.startsWith('fv:')) {
+    final v = parseValve(spec);
+    final double l = valveNum(v, 'L'), top = valveNum(v, 'top');
+    final double bot = valveNum(v, 'bot', 10);
+    if (v['kind'] == 'relief') {
+      final double outY = top - valveNum(v, 'out', top * 0.4);
+      raw = [Offset(bot, top), Offset(l + bot, outY)];
+    } else {
+      final String kind = v['kind'] ?? '';
+      final double x0 = kind == 'ball' || kind == 'wing'
+          ? 0
+          : (mm.width - l) / 2;
+      raw = [Offset(x0, top), Offset(x0 + l, top)];
+    }
+  } else if (spec.startsWith('fs:')) {
+    raw = [Offset(0, mm.height / 2), Offset(mm.width, mm.height / 2)];
+  } else {
+    final (body, arms) = parseElbow(spec);
+    final Rect bb = elbowBounds(body, arms);
+    raw = [
+      for (final a in arms)
+        switch (a.dir) {
+              'l' => Offset(-a.len, 0),
+              'd' => Offset(0, a.len),
+              'u' => Offset(0, -a.len),
+              'x' => Offset(-a.len * math.sqrt1_2, a.len * math.sqrt1_2),
+              _ => Offset(a.len, 0),
+            } -
+            bb.topLeft,
+    ];
+  }
+  return [for (final p in raw) at + p * k];
 }
 
 class InstrumentShapePainter extends CustomPainter {
@@ -139,38 +403,90 @@ class InstrumentShapePainter extends CustomPainter {
   final Color stroke;
   final double strokeWidth;
 
+  /// 시계 방향 90° 돌린 횟수(0~3). 칸은 이미 돌린 크기(90°마다 가로·세로 바뀜)라고 보고,
+  /// 그림은 돌리기 전 크기로 그린 뒤 칸 가운데를 축으로 돌린다.
+  /// null이면 예전 부품: 칸 비율로 돌렸는지 어림한다(InstrumentShape.inferredQuarterTurns).
+  final int? quarterTurns;
+
+  /// 돌린 뒤 화면 기준으로 좌우를 뒤집는다(스키드 부품은 길이 방향으로).
+  final bool mirror;
+
   const InstrumentShapePainter({
     required this.shape,
     this.stroke = const Color(0xFF64748B),
     this.strokeWidth = 1.5,
+    this.quarterTurns,
+    this.mirror = false,
   });
 
-  static const Color _body = Color(0xFFF8FAFC);
+  static const Color _bodyPlain = Color(0xFFF8FAFC);
   static const Color _metal = Color(0xFFE2E8F0);
   static const Color _glass = Color(0xFFDDEFF1);
   static const Color _sorBlue = Color(0xFFCFE3F3);
   static const Color _maBlue = Color(0xFFD6E4F5);
 
+  // 제조사별 몸통 색(옅게, 흑백 인쇄해도 선이 보이게). 피팅·밸브·전기 부품은 그대로.
+  static const Color _rmBlue = Color(0xFFD9E8F7); // 로즈마운트 파랑
+  static const Color _ykSilver = Color(0xFFE7EAEF); // 요꼬가와 은색
+  static const Color _autrolGrey = Color(0xFFEAEBED); // 오토롤 회색
+
+  /// 몸통 색. 제조사 모양이면 그 회사 색, 아니면 흰 바탕.
+  Color get _body => switch (InstrumentShape.baseOf(shape)) {
+    InstrumentShape.rmCoplanar ||
+    InstrumentShape.rmTraditional ||
+    InstrumentShape.rmInline ||
+    InstrumentShape.dp ||
+    InstrumentShape.gp ||
+    InstrumentShape.dpTraditional ||
+    InstrumentShape.inline ||
+    InstrumentShape.fork ||
+    InstrumentShape.fork2120 ||
+    InstrumentShape.fork2120Nylon ||
+    InstrumentShape.fork2130 ||
+    InstrumentShape.fork2130Long => _rmBlue,
+    InstrumentShape.ykHorizontal ||
+    InstrumentShape.ykVertical ||
+    InstrumentShape.ykInline ||
+    InstrumentShape.dpSide => _ykSilver,
+    InstrumentShape.autrolDp || InstrumentShape.autrolPt => _autrolGrey,
+    // SOR(_sorBlue)·비카(_maBlue)는 그리는 곳에서 이미 제 색을 칠한다.
+    _ => _bodyPlain,
+  };
+
   @override
   void paint(Canvas canvas, Size size) {
     if (size.width <= 0 || size.height <= 0) return;
-    // 전기 부품은 칸 크기 그대로 그린다(돌리지 않는다).
+    // 전기 부품은 칸 크기 그대로 그린다(돌리지도 뒤집지도 않는다).
     if (ElecShape.isElec(shape)) {
       _elec(_Box(canvas, size), shape);
       return;
     }
-    // 모듈을 90° 돌려 가로·세로가 바뀌었으면 그림도 돌려서 그린다.
-    final bool boxLandscape = size.width > size.height;
-    final bool rotate =
-        boxLandscape != InstrumentShape.isLandscape(shape) &&
-        size.width != size.height;
+    final String base = InstrumentShape.baseOf(shape);
+    final _Orient o = _Orient.of(base, size, quarterTurns, mirror);
     canvas.save();
-    Size s = size;
-    if (rotate) {
-      canvas.translate(size.width, 0);
-      canvas.rotate(math.pi / 2);
-      s = Size(size.height, size.width);
+    o.apply(canvas);
+    final Size s = o.natural;
+    if (InstrumentShape.hasBracket(shape) &&
+        InstrumentShape.bracketable.contains(base)) {
+      final _Box b = _Box(canvas, s);
+      _bracket(b);
+      // 계기는 브래킷 칸 안쪽에.
+      canvas.save();
+      canvas.translate(s.width * _kBracketInsetX, s.height * _kBracketInsetY);
+      final Size sub = Size(
+        s.width * (1 - 2 * _kBracketInsetX),
+        s.height * (1 - 2 * _kBracketInsetY),
+      );
+      _drawBase(canvas, sub, base);
+      canvas.restore();
+    } else {
+      _drawBase(canvas, s, base);
     }
+    canvas.restore();
+  }
+
+  /// 돌리기 전 크기 [s]에 본디 모양 [shape]를 그린다.
+  void _drawBase(Canvas canvas, Size s, String shape) {
     final _Box b = _Box(canvas, s);
     switch (shape) {
       case InstrumentShape.rmCoplanar:
@@ -257,7 +573,35 @@ class InstrumentShapePainter extends CustomPainter {
           _part(canvas, Offset.zero & s, _body, radius: 4);
         }
     }
-    canvas.restore();
+  }
+
+  /// 2인치 파이프 브래킷: 뒤에 세로 파이프, 계기 아래쪽에 가로 브래킷 판, 판 양 끝 U볼트 너트.
+  /// 비례는 ≈(로즈마운트 PDS 브래킷 그림을 보고 어림). 계기는 이 위에 그린다.
+  void _bracket(_Box b) {
+    final Canvas c = b.c;
+    // 세로 파이프(2" OD ≈ 계기 폭 절반쯤): 위·아래로 칸 끝까지.
+    const double pipeHalf = 0.17;
+    _part(c, b.r(0.5 - pipeHalf, 0, 0.5 + pipeHalf, 1), _metal, radius: 2);
+    c.drawLine(
+      b.p(0.5 - pipeHalf * 0.55, 0),
+      b.p(0.5 - pipeHalf * 0.55, 1),
+      _thin,
+    );
+    c.drawLine(
+      b.p(0.5 + pipeHalf * 0.55, 0),
+      b.p(0.5 + pipeHalf * 0.55, 1),
+      _thin,
+    );
+    // 브래킷 판(계기 아래쪽 뒤, 칸 폭 전부).
+    const double plateT = 0.6, plateB = 0.76;
+    _part(c, b.r(0, plateT, 1, plateB), _bodyPlain, radius: 1);
+    // 판 양 끝 U볼트 너트(계기 옆으로 보인다).
+    for (final x in [0.02, 1 - _kBracketInsetX + 0.02]) {
+      _hexV(
+        c,
+        b.r(x, plateT + 0.03, x + _kBracketInsetX - 0.04, plateB - 0.03),
+      );
+    }
   }
 
   Paint get _line => Paint()
@@ -680,11 +1024,15 @@ class InstrumentShapePainter extends CustomPainter {
         _hex(b.c, b.r(cx - 0.12, 0.84, cx + 0.12, 0.92));
         _thread(b.c, b.r(cx - 0.06, 0.92, cx + 0.06, 1));
       case InstrumentShape.sorDp:
+        // 101 차압: 상자 아래 목·육각, 넓은 다이어프램 몸통, 그 아래 고압·저압 접속구 둘.
+        // CAT468 미대조, 접속구 둘로 그림(예전엔 옆 허브 하나였다).
         _part(b.c, b.r(0.4, boxB, 0.6, 0.66), _metal, radius: 0);
         _hex(b.c, b.r(0.36, 0.66, 0.64, 0.71));
-        _part(b.c, b.r(0.22, 0.71, 0.78, 0.92), _metal, radius: 6);
-        _part(b.c, b.r(0.1, 0.77, 0.22, 0.86), _metal, radius: 0);
-        _part(b.c, b.r(cx - 0.06, 0.92, cx + 0.06, 1), _metal, radius: 0);
+        _part(b.c, b.r(0.16, 0.71, 0.84, 0.9), _metal, radius: 6);
+        for (final px in [0.35, 0.65]) {
+          _hex(b.c, b.r(px - 0.08, 0.9, px + 0.08, 0.95));
+          _thread(b.c, b.r(px - 0.05, 0.95, px + 0.05, 1));
+        }
       default:
         _part(b.c, b.r(0.34, boxB, 0.66, 0.9), _metal, radius: 0);
         _hex(b.c, b.r(cx - 0.16, 0.9, cx + 0.16, 0.96));
@@ -948,6 +1296,12 @@ class InstrumentShapePainter extends CustomPainter {
     _npt(b, 0.2, 0.34, 0.9, 1); // 아래 공정 쪽
     _hole(b, 0.16, 0.13);
     _hole(b, 0.16, 0.87);
+    // 앞으로 나온 벤트 밸브: 손잡이(Ø≈40)를 끝에서 본 점선 원으로 크게, 가운데 T 막대.
+    _dashedCircle(
+      b.c,
+      b.p(bodyR * 0.6, 0.5),
+      math.min(b.w * 20 / 104, b.h * 0.42),
+    );
     _handleFacing(b, bodyR * 0.6, 0.5, mmW: 104, mmH: 64, lenMm: 40);
   }
 
@@ -1014,6 +1368,12 @@ class InstrumentShapePainter extends CustomPainter {
         _block(b, l, 0, 1, 1);
         _hole(b, l + 0.1, 0.15);
         _hole(b, l + 0.1, 0.85);
+        // 앞으로 나온 벤트 밸브 손잡이를 점선 원으로(2밸브로 보이게).
+        _dashedCircle(
+          b.c,
+          b.p((l + 1) / 2 + 0.05, 0.5),
+          math.min(b.w * 20 / 97, b.h * 0.42),
+        );
         _handleFacing(b, (l + 1) / 2 + 0.05, 0.5, mmW: 97, mmH: 64, lenMm: 32);
       case 3: // SS-V3NBF8 229×48
         const double l = 70 / 229, r = 159 / 229;
@@ -1072,10 +1432,64 @@ class InstrumentShapePainter extends CustomPainter {
       case 'f':
       case 'l':
         _hexH(c, r);
+      case 'c':
+        // 체크 밸브 몸통: 육각에 흐름 화살표(왼쪽→오른쪽).
+        _hexH(c, r);
+        final double inset = math.min((x1 - x0) * 0.18, hPx * 0.5);
+        _arrow(c, Offset(x0 + inset, cy), Offset(x1 - inset, cy), hPx * 0.3);
       case 't':
         _threadH(c, r);
+      case 'p':
+        // 포트 커넥터: 관은 조금 가늘게, 가운데 턱(짧은 굵은 고리)은 조각 높이 그대로.
+        _part(
+          c,
+          Rect.fromLTRB(x0, cy - hPx * 0.38, x1, cy + hPx * 0.38),
+          _metal,
+          radius: 0,
+        );
+        final double ring = math.min((x1 - x0) * 0.22, hPx * 0.7);
+        _part(
+          c,
+          Rect.fromCenter(
+            center: Offset((x0 + x1) / 2, cy),
+            width: ring,
+            height: hPx,
+          ),
+          _metal,
+          radius: 1,
+        );
       default:
         _part(c, r, _metal, radius: 0);
+    }
+  }
+
+  /// 흐름 화살표: 줄과 채운 화살촉. [head]는 화살촉 길이(픽셀).
+  void _arrow(Canvas c, Offset from, Offset to, double head) {
+    final Offset d = to - from;
+    final double len = d.distance;
+    if (len <= 0) return;
+    final Offset u = d / len;
+    final Offset n = Offset(-u.dy, u.dx);
+    final double hl = math.min(head, len * 0.6);
+    final Offset tail = to - u * hl;
+    c.drawLine(from, tail, _line);
+    final Path tip = Path()
+      ..addPolygon([to, tail + n * hl * 0.5, tail - n * hl * 0.5], true);
+    c.drawPath(tip, Paint()..color = stroke);
+  }
+
+  /// 점선 동그라미(앞으로 나온 손잡이를 끝에서 본 모습).
+  void _dashedCircle(Canvas c, Offset o, double r) {
+    if (r <= 0) return;
+    const int n = 12;
+    for (int i = 0; i < n; i++) {
+      c.drawArc(
+        Rect.fromCircle(center: o, radius: r),
+        i * 2 * math.pi / n,
+        math.pi / n,
+        false,
+        _line,
+      );
     }
   }
 
@@ -1198,6 +1612,11 @@ class InstrumentShapePainter extends CustomPainter {
         Paint()..color = _metal,
       );
       c.drawOval(r(cx - bot * 0.5, 0, cx + bot * 0.5, bot), _line);
+      // 출구 관에 흐름 화살표(몸통 → 출구). 관이 짧으면 끝 너트까지 걸쳐 그린다.
+      final double ax0 = cx + bot * 0.95;
+      double ax1 = l + bot - pipe * 0.85;
+      if (ax1 - ax0 < pipe * 0.5) ax1 = l + bot - pipe * 0.15;
+      _arrow(c, p(ax0, outY), p(ax1, outY), pipe * 0.3 * k);
       return;
     }
 
@@ -1518,7 +1937,9 @@ class InstrumentShapePainter extends CustomPainter {
   bool shouldRepaint(covariant InstrumentShapePainter old) =>
       old.shape != shape ||
       old.stroke != stroke ||
-      old.strokeWidth != strokeWidth;
+      old.strokeWidth != strokeWidth ||
+      old.quarterTurns != quarterTurns ||
+      old.mirror != mirror;
 }
 
 /// 그림 안에서 0~1 비율로 자리를 적는 도우미.

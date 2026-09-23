@@ -21,12 +21,18 @@ class SkidPartPainter extends CustomPainter {
   /// 좌우를 뒤집어 그린다(우측면처럼 반대쪽에서 볼 때).
   final bool mirror;
 
+  /// 위에서 본 모습(top)만: 시계 방향 90° 돌린 횟수(0~3). 칸은 이미 돌린 크기라고 보고
+  /// 돌리기 전 크기(홀수면 가로·세로 바뀜)로 그린 뒤 칸 가운데를 축으로 돌린다.
+  /// null이면 예전처럼 칸이 세로로 길 때만 90° 돌린다. 옆·끝 모습에는 안 쓴다.
+  final int? quarterTurns;
+
   const SkidPartPainter({
     required this.shape,
     this.face = SkidFace.top,
     this.stroke = const Color(0xFF64748B),
     this.strokeWidth = 1.5,
     this.mirror = false,
+    this.quarterTurns,
   });
 
   @override
@@ -34,10 +40,18 @@ class SkidPartPainter extends CustomPainter {
     if (size.width <= 0 || size.height <= 0) return;
     canvas.save();
     Size s = size;
-    // 위에서 본 모습은 긴 쪽을 가로로 그린다. 칸이 세로로 길면(90° 돌려 놓음) 그림도 돌린다.
-    if (face == SkidFace.top &&
+    if (face == SkidFace.top && quarterTurns != null) {
+      final int q = quarterTurns! % 4;
+      if (q.isOdd) s = Size(size.height, size.width);
+      if (q != 0) {
+        canvas.translate(size.width / 2, size.height / 2);
+        canvas.rotate(q * math.pi / 2);
+        canvas.translate(-s.width / 2, -s.height / 2);
+      }
+    } else if (face == SkidFace.top &&
         shape != SkidShape.jb &&
         size.height > size.width) {
+      // 위에서 본 모습은 긴 쪽을 가로로 그린다. 칸이 세로로 길면(90° 돌려 놓음) 그림도 돌린다.
       canvas.translate(size.width, 0);
       canvas.rotate(math.pi / 2);
       s = Size(size.height, size.width);
@@ -57,7 +71,8 @@ class SkidPartPainter extends CustomPainter {
       old.face != face ||
       old.stroke != stroke ||
       old.strokeWidth != strokeWidth ||
-      old.mirror != mirror;
+      old.mirror != mirror ||
+      old.quarterTurns != quarterTurns;
 }
 
 const Color _body = Color(0xFFF8FAFC);

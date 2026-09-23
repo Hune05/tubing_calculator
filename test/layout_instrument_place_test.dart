@@ -20,7 +20,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('계기 놓기'), findsOneWidget);
     expect(find.text('요꼬가와'), findsOneWidget);
-    await tester.ensureVisible(find.text('APT3100 DPT'));
+    // 요꼬가와 묶음 뒤(브래킷 포함 프리셋이 늘어 화면 밖)라 목록을 내려서 찾는다.
+    await tester.scrollUntilVisible(
+      find.text('APT3100 DPT'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('APT3100 DPT'));
     await tester.pumpAndSettle();

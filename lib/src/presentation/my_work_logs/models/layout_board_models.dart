@@ -132,10 +132,53 @@ const Map<String, List<ModulePreset>> kInstrumentPresets = {
       shape: InstrumentShape.ykHorizontal,
     ),
     ModulePreset("EJA530E PT 인라인", 95, 159, shape: InstrumentShape.ykInline),
+    // 2인치 파이프 브래킷 포함: 몸통 크기 + 가로 ≈60·세로 ≈40(어림, 도면 값 아님).
+    ModulePreset(
+      "EJA110E DPT 수직배관 (브래킷)",
+      235,
+      178,
+      shape: '${InstrumentShape.ykVertical}${InstrumentShape.bracketSuffix}',
+    ),
+    ModulePreset(
+      "EJA110E DPT 수평배관 (브래킷)",
+      175,
+      215,
+      shape: '${InstrumentShape.ykHorizontal}${InstrumentShape.bracketSuffix}',
+    ),
+    ModulePreset(
+      "EJA430E PT 수직배관 (브래킷)",
+      235,
+      178,
+      shape: '${InstrumentShape.ykVertical}${InstrumentShape.bracketSuffix}',
+    ),
+    ModulePreset(
+      "EJA430E PT 수평배관 (브래킷)",
+      175,
+      215,
+      shape: '${InstrumentShape.ykHorizontal}${InstrumentShape.bracketSuffix}',
+    ),
+    ModulePreset(
+      "EJA530E PT 인라인 (브래킷)",
+      155,
+      199,
+      shape: '${InstrumentShape.ykInline}${InstrumentShape.bracketSuffix}',
+    ),
   ],
   "오토롤": [
     ModulePreset("APT3100 DPT", 86, 194, shape: InstrumentShape.autrolDp),
     ModulePreset("APT3200 PT", 86, 160, shape: InstrumentShape.autrolPt),
+    ModulePreset(
+      "APT3100 DPT (브래킷)",
+      146,
+      234,
+      shape: '${InstrumentShape.autrolDp}${InstrumentShape.bracketSuffix}',
+    ),
+    ModulePreset(
+      "APT3200 PT (브래킷)",
+      146,
+      200,
+      shape: '${InstrumentShape.autrolPt}${InstrumentShape.bracketSuffix}',
+    ),
   ],
   "로즈마운트": [
     ModulePreset("3051CD DPT", 104, 181, shape: InstrumentShape.rmCoplanar),
@@ -149,6 +192,42 @@ const Map<String, List<ModulePreset>> kInstrumentPresets = {
     ModulePreset("3051TG PT 인라인", 104, 183, shape: InstrumentShape.rmInline),
     ModulePreset("2051CD DPT", 98, 179, shape: InstrumentShape.rmCoplanar),
     ModulePreset("2051TG PT 인라인", 98, 183, shape: InstrumentShape.rmInline),
+    ModulePreset(
+      "3051CD DPT (브래킷)",
+      164,
+      221,
+      shape: '${InstrumentShape.rmCoplanar}${InstrumentShape.bracketSuffix}',
+    ),
+    ModulePreset(
+      "3051CD DPT 재래식 플랜지 (브래킷)",
+      175,
+      240,
+      shape: '${InstrumentShape.rmTraditional}${InstrumentShape.bracketSuffix}',
+    ),
+    ModulePreset(
+      "3051CG PT (브래킷)",
+      164,
+      221,
+      shape: '${InstrumentShape.rmCoplanar}${InstrumentShape.bracketSuffix}',
+    ),
+    ModulePreset(
+      "3051TG PT 인라인 (브래킷)",
+      164,
+      223,
+      shape: '${InstrumentShape.rmInline}${InstrumentShape.bracketSuffix}',
+    ),
+    ModulePreset(
+      "2051CD DPT (브래킷)",
+      158,
+      219,
+      shape: '${InstrumentShape.rmCoplanar}${InstrumentShape.bracketSuffix}',
+    ),
+    ModulePreset(
+      "2051TG PT 인라인 (브래킷)",
+      158,
+      223,
+      shape: '${InstrumentShape.rmInline}${InstrumentShape.bracketSuffix}',
+    ),
     ModulePreset("2120 레벨 스위치", 120, 220, shape: InstrumentShape.fork2120),
     ModulePreset(
       "2120 레벨 스위치 나일론",
@@ -321,8 +400,8 @@ final Map<String, List<ModulePreset>> kFittingPresets = {
     fittingPreset('피메일 어댑터 1/2" 관×1/2" NPT', 'fs:s:22.9:12.7,h:28.9:27'),
   ],
   "포트 커넥터": [
-    fittingPreset('포트 커넥터 3/8"', 'fs:s:26.7:9.5'),
-    fittingPreset('포트 커넥터 1/2"', 'fs:s:36.3:12.7'),
+    fittingPreset('포트 커넥터 3/8"', 'fs:p:26.7:9.5'),
+    fittingPreset('포트 커넥터 1/2"', 'fs:p:36.3:12.7'),
   ],
   "벌크헤드 메일 커넥터": [
     fittingPreset(
@@ -606,10 +685,11 @@ final Map<String, List<ModulePreset>> kValvePresets = {
     ),
   ],
   "하이록 체크·릴리프 밸브": [
-    fittingPreset("체크 밸브 3/8\" 튜브", 'fs:n:14.2:17.5,h:46.6:22.2,n:14.2:17.5'),
-    fittingPreset("체크 밸브 3/8\" 암나사", 'fs:h:68:22.2'),
-    fittingPreset("체크 밸브 1/2\" 튜브", 'fs:n:17.5:22.2,h:45.5:22.2,n:17.5:22.2'),
-    fittingPreset("체크 밸브 1/2\" 암나사", 'fs:h:85:28.6'),
+    // 체크 밸브 몸통은 c 조각(육각 + 흐름 화살표).
+    fittingPreset("체크 밸브 3/8\" 튜브", 'fs:n:14.2:17.5,c:46.6:22.2,n:14.2:17.5'),
+    fittingPreset("체크 밸브 3/8\" 암나사", 'fs:c:68:22.2'),
+    fittingPreset("체크 밸브 1/2\" 튜브", 'fs:n:17.5:22.2,c:45.5:22.2,n:17.5:22.2'),
+    fittingPreset("체크 밸브 1/2\" 암나사", 'fs:c:85:28.6'),
     fittingPreset(
       "RV 릴리프 밸브 1/2\" 튜브",
       'fv:relief;L=46.7;top=114;bot=14;out=46.7;pipe=22.2',
@@ -643,6 +723,20 @@ const Map<String, double> kPresetDepth = {
   '3051TG PT 인라인': 109,
   '2051CD DPT': 111,
   '2051TG PT 인라인': 111,
+  // 브래킷 포함(파이프는 뒤쪽이라 앞으로 나오는 깊이는 몸통과 같다).
+  'EJA110E DPT 수직배관 (브래킷)': 110,
+  'EJA110E DPT 수평배관 (브래킷)': 110,
+  'EJA430E PT 수직배관 (브래킷)': 110,
+  'EJA430E PT 수평배관 (브래킷)': 110,
+  'EJA530E PT 인라인 (브래킷)': 110,
+  'APT3100 DPT (브래킷)': 112,
+  'APT3200 PT (브래킷)': 112,
+  '3051CD DPT (브래킷)': 109,
+  '3051CD DPT 재래식 플랜지 (브래킷)': 109,
+  '3051CG PT (브래킷)': 109,
+  '3051TG PT 인라인 (브래킷)': 109,
+  '2051CD DPT (브래킷)': 111,
+  '2051TG PT 인라인 (브래킷)': 111,
   '2120 레벨 스위치': 100,
   '2120 레벨 스위치 나일론': 102,
   '2130 레벨 스위치': 100,
@@ -757,6 +851,12 @@ class PlacedItem implements MeasurePoint {
   /// 스키드 전선관 부속: 길이 방향으로 좌우를 뒤집어 놓음(허브가 반대쪽). 크기는 그대로.
   bool flipped;
 
+  /// 태그 번호(PT-101 같은 것). 없으면 null. 도면·자재 수량·PDF 표에 이름 앞에 적는다.
+  String? tag;
+
+  /// 돌린 각도(0·90·180·270, 시계 방향). null이면 예전처럼 가로·세로 비율로 가린다.
+  int? rotation;
+
   PlacedItem({
     required this.id,
     required this.name,
@@ -769,7 +869,16 @@ class PlacedItem implements MeasurePoint {
     this.depth,
     this.elevation,
     this.flipped = false,
+    this.tag,
+    this.rotation,
   });
+
+  /// 태그가 있으면 "태그 이름", 없으면 이름.
+  String get label =>
+      tag == null || tag!.trim().isEmpty ? name : "${tag!.trim()} $name";
+
+  /// 돌린 각도를 90° 단위로(0~3). null이면 null.
+  int? get quarterTurns => rotation == null ? null : ((rotation! ~/ 90) % 4);
 
   @override
   Offset get center =>
@@ -793,6 +902,8 @@ class PlacedItem implements MeasurePoint {
     if (depth != null) 'depth': depth,
     if (elevation != null) 'elev': elevation,
     if (flipped) 'flip': true,
+    if (tag != null && tag!.trim().isNotEmpty) 'tag': tag!.trim(),
+    if (rotation != null) 'rot': rotation,
   };
 
   factory PlacedItem.fromJson(Map<String, dynamic> j) => PlacedItem(
@@ -808,6 +919,10 @@ class PlacedItem implements MeasurePoint {
         _presetDepthByName(j['name'] as String?),
     elevation: (j['elev'] as num?)?.toDouble(),
     flipped: j['flip'] == true,
+    tag: (j['tag'] as String?)?.trim().isEmpty ?? true
+        ? null
+        : (j['tag'] as String).trim(),
+    rotation: (j['rot'] as num?)?.toInt(),
   );
 }
 
