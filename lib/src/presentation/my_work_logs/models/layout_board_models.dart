@@ -847,8 +847,9 @@ MeasurePoint _measurePointFromJson(Map<String, dynamic> j) {
 
 class PlacedDimension {
   final String id;
-  final MeasurePoint p1;
-  final MeasurePoint p2;
+  // 불러온 뒤 실제 부품 객체로 다시 잇는다(relinkDimensions). 그래서 final이 아니다.
+  MeasurePoint p1;
+  MeasurePoint p2;
   // 🚀 [수정] 기존 치수의 기준(센터/측면)을 그 자리에서 바꿀 수 있도록
   // final을 뗐다.
   DimensionType type;
@@ -897,6 +898,52 @@ class PlacedDimension {
     isSafetyCritical: j['isSafetyCritical'] as bool? ?? false,
   );
 }
+
+/// 저장본·되돌리기·탭 바꾸기에서 읽은 치수의 점은 저장 당시 좌표를 담은 별개 사본이라,
+/// 그 뒤 부품을 옮기면 치수선이 옛 자리에 남았다. 같은 아이디의 실제 부품 객체로 바꿔 끼워
+/// 치수선이 부품을 따라오게 한다. 정면·측면의 view_ 점은 그리기 때 따로 맞추므로 건드리지 않는다.
+/// 다시 이은 점의 수를 돌려준다.
+int relinkDimensions(List<PlacedDimension> dims, List<PlacedItem> items) {
+  if (dims.isEmpty || items.isEmpty) return 0;
+  final byId = {for (final it in items) it.id: it};
+  var n = 0;
+  for (final d in dims) {
+    final a = d.p1;
+    if (a is PlacedItem && !a.id.startsWith('view_')) {
+      final real = byId[a.id];
+      if (real != null && !identical(real, a)) {
+        d.p1 = real;
+        n++;
+      }
+    }
+    final b = d.p2;
+    if (b is PlacedItem && !b.id.startsWith('view_')) {
+      final real = byId[b.id];
+      if (real != null && !identical(real, b)) {
+        d.p2 = real;
+        n++;
+      }
+    }
+  }
+  return n;
+}
+
+/// 길이가 있는 부품(덕트·레일·형강·전선관)인지. 자재 수량에 길이 합을 같이 적는다.
+bool isLengthItem(PlacedItem it) {
+  final shape = it.shape ?? '';
+  if (shape == InstrumentShape.note) return false;
+  if (shape == InstrumentShape.duct) return true;
+  if (it.name.contains('레일') || it.name.contains('덕트')) return true;
+  return shape.startsWith('sk_') &&
+      !shape.startsWith('sk_cd_') &&
+      shape != 'sk_jb' &&
+      !shape.contains('coupling') &&
+      !shape.contains('union');
+}
+
+/// 부품의 길이(긴 변, mm).
+double itemLengthMm(PlacedItem it) =>
+    it.width >= it.height ? it.width : it.height;
 
 // 🚀 [정리] 손으로 앵커를 옮기는 기능은 폰에서 쓰기 부담스럽다는 판단으로
 // 제거하고, 센터/측면 자동 계산만 남겼다.

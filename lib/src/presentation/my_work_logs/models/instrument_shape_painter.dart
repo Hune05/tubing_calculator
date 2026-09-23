@@ -61,6 +61,9 @@ class InstrumentShape {
   /// ABS 배선 덕트: 양쪽 벽에 빗살(전선 빼는 홈), 가운데 뚜껑. 원래 세로로 길다.
   static const String duct = 'duct';
 
+  /// 도면 위에 적는 글자 상자(테두리 없이 글씨만). 자재 수량·간섭 확인에서는 뺀다.
+  static const String note = 'note';
+
   /// 비카 MA 방폭 압력 스위치(PV 31.11 p.8): 옆에서 본 청색 통, 왼쪽 케이블 입구.
   static const String exdSwitch = 'exd_switch';
 

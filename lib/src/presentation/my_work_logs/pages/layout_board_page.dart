@@ -135,7 +135,32 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     with WidgetsBindingObserver {
   double _panelWidth = 600.0;
   double _panelHeight = 800.0;
-  final double _gridSize = 5.0;
+  // 모눈 맞춤(mm). 0이면 끔. 더보기 → "모눈 맞춤"에서 고르고 폰에 저장한다.
+  double _gridSize = 5.0;
+  static const String _gridPrefsKey = 'layout_grid_mm';
+  static const List<double> _gridChoices = [0, 1, 5, 10];
+
+  Future<void> _loadGridPref() async {
+    try {
+      final v = (await SharedPreferences.getInstance()).getDouble(
+        _gridPrefsKey,
+      );
+      if (v != null && _gridChoices.contains(v) && mounted) {
+        setState(() => _gridSize = v);
+      }
+    } catch (_) {}
+  }
+
+  void _cycleGrid() {
+    final i = _gridChoices.indexOf(_gridSize);
+    final next = _gridChoices[(i + 1) % _gridChoices.length];
+    setState(() => _gridSize = next);
+    SharedPreferences.getInstance()
+        .then((p) => p.setDouble(_gridPrefsKey, next))
+        .catchError((_) => false);
+  }
+
+  String get _gridLabel => _gridSize <= 0 ? "끔" : "${_gridSize.toInt()}mm";
 
   BoardMode _mode = BoardMode.placeModule;
   DimensionType _currentDimType = DimensionType.center;
@@ -224,7 +249,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   }
 
   /// 치수·가상선·경로 이름 글씨 배율: 줄여 볼 때도 읽히는 크기로(dimensionMarkScale).
-  double get _markScale => dimensionMarkScale(_viewZoom);
+  /// PDF로 찍는 동안은 1로 고정한다(판마다 확대 배율이 달라 쪽마다 글씨 크기가 달랐다).
+  double get _markScale => _pdfCapture ? 1.0 : dimensionMarkScale(_viewZoom);
+  bool _pdfCapture = false;
 
   /// 판 가로·세로(W·H) 표기 글씨 크기(도면 mm). 16mm로 두면 스키드를 화면에 맞췄을 때
   /// 2px로 작아져서, 화면에서 12px 아래로 작아지지 않게 한다.
@@ -275,6 +302,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   @override
   void initState() {
     super.initState();
+    _loadGridPref();
     WidgetsBinding.instance.addObserver(this);
     _loadCustomPresets();
     // 🚀 확대/이동할 때마다 미니맵의 "현재 보는 영역" 표시가 따라
@@ -645,6 +673,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     _backgroundImageUrl = d['backgroundImageUrl'] as String?;
     _backgroundOpacity = (d['backgroundOpacity'] as num?)?.toDouble() ?? 0.5;
     _backgroundRect = drawingRectFromJson(d['backgroundRect']);
+    relinkDimensions(_dimensions, _placedItems);
   }
 
   /// 보이는 판을 [id]로 바꾼다(setState 안에서 부른다). 되돌리기 기록도 판마다 따로.
@@ -727,11 +756,19 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 
   ClashReport _clashReport() {
     final plates = _allPlates();
+    // 메모 글자는 물건이 아니라 간섭에서 뺀다.
+    Map<String, dynamic> noNotes(Map<String, dynamic> p) => {
+      ...p,
+      'items': [
+        for (final it in (p['items'] as List? ?? const []))
+          if (it is Map && it['shape'] != InstrumentShape.note) it,
+      ],
+    };
     PlateData? side(String id) => _sidePlatesOn && plates[id] != null
-        ? PlateData.fromJson(plates[id]!)
+        ? PlateData.fromJson(noNotes(plates[id]!))
         : null;
     return checkCabinetClashes(
-      main: PlateData.fromJson(plates[kPlateMain]!),
+      main: PlateData.fromJson(noNotes(plates[kPlateMain]!)),
       left: side(kPlateLeft),
       right: side(kPlateRight),
       cabinetDepth: _cabinetDepth,
@@ -1099,6 +1136,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             if (r is Map) ConduitRoute.fromJson(Map<String, dynamic>.from(r)),
         ]);
     }
+    relinkDimensions(_dimensions, _placedItems);
     _activeItem = null;
     _previewItem = null;
     _dimensionStartPoint = null;
@@ -1236,6 +1274,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     _backgroundImageUrl = data['backgroundImageUrl'] as String?;
     _backgroundOpacity = (data['backgroundOpacity'] as num?)?.toDouble() ?? 0.5;
     _backgroundRect = drawingRectFromJson(data['backgroundRect']);
+    relinkDimensions(_dimensions, _placedItems);
     _restoreMissingBackgrounds();
   }
 
@@ -1359,6 +1398,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   }
 
   Offset _snapToGrid(Offset offset) {
+    if (_gridSize <= 0) return offset;
     double dx = (offset.dx / _gridSize).round() * _gridSize;
     double dy = (offset.dy / _gridSize).round() * _gridSize;
     return Offset(dx, dy);
@@ -1444,6 +1484,15 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     for (final other in _placedItems) {
       if (other.id == dragging.id) continue;
       if (excludeIds != null && excludeIds.contains(other.id)) continue;
+      // 메모 글자는 자리를 차지하지 않는다. 스키드 평면에서는 형강 위에 JB·부속을 올리는
+      // 게 정상이라, 형강이거나 바닥에서 높이가 다르면 겹쳐도 된다(예전엔 높이를 몰라 막았다).
+      if (dragging.shape == InstrumentShape.note ||
+          other.shape == InstrumentShape.note) {
+        continue;
+      }
+      if (_isSkid && _plateId == kPlateMain && _skidStackOk(dragging, other)) {
+        continue;
+      }
       final Rect otherRect = Rect.fromLTWH(
         other.position.dx,
         other.position.dy,
@@ -1453,6 +1502,22 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       if (rect.overlaps(otherRect)) return true;
     }
     return false;
+  }
+
+  static const Set<String> _skidSteelShapes = {
+    SkidShape.beam,
+    SkidShape.channel,
+    SkidShape.angle,
+    SkidShape.square,
+    SkidShape.strut,
+  };
+
+  bool _skidStackOk(PlacedItem a, PlacedItem b) {
+    if (_skidSteelShapes.contains(a.shape) ||
+        _skidSteelShapes.contains(b.shape)) {
+      return true;
+    }
+    return (a.elevation ?? 0) != (b.elevation ?? 0);
   }
 
   // 모든 탭(판)·경로·치수선을 지운다. 되돌리기 기록에 다른 탭 것도 같이 담아 두어
@@ -1634,14 +1699,19 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       final data = doc.data();
       if (data == null) return true;
 
-      final List<PlacedItem> savedItems = ((data['items'] as List?) ?? [])
-          .map((e) => PlacedItem.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      // 모든 탭(중판·측판·평면·정면)의 부품을 견준다(예전엔 지금 탭과 서버 중판만 견줘
+      // 측판에서 저장하면 엉뚱한 추가·삭제 목록이 떴다).
+      final List<PlacedItem> savedItems = [
+        ...layoutItemsFromData(data),
+        for (final p in ((data['sidePlates'] as Map?) ?? const {}).values)
+          if (p is Map) ...layoutItemsFromData(Map<String, dynamic>.from(p)),
+      ];
       final Map<String, PlacedItem> savedById = {
         for (final i in savedItems) i.id: i,
       };
       final Map<String, PlacedItem> currentById = {
-        for (final i in _placedItems) i.id: i,
+        for (final p in _allPlates().values)
+          for (final i in layoutItemsFromData(p)) i.id: i,
       };
 
       final List<String> added = [];
@@ -1765,6 +1835,19 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           throw Exception("프로젝트 저장에 실패해 QR을 만들 수 없습니다");
         }
       }
+      // 고른 부품의 파란 테두리·안내선이 같이 찍히지 않게 찍기 전에 정리한다.
+      setState(() {
+        _activeItem = null;
+        _previewItem = null;
+        _multiSelectedIds = {};
+        for (final i in _placedItems) {
+          i.isSelected = false;
+        }
+        _alignGuideX = null;
+        _alignGuideY = null;
+        _pdfCapture = true;
+      });
+      await WidgetsBinding.instance.endOfFrame;
       if (!mounted) return;
       setState(() => _isSaving = true);
 
@@ -1969,6 +2052,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         context,
       ).showSnackBar(SnackBar(content: Text(keepWords("PDF 생성 오류: $e"))));
     } finally {
+      _pdfCapture = false;
       if (mounted) setState(() => _isSaving = false);
     }
   }
@@ -2282,6 +2366,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         _dimensions
           ..clear()
           ..addAll(layoutDimensionsFromData(data));
+        relinkDimensions(_dimensions, _placedItems);
       });
     }
 
@@ -2951,7 +3036,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   void _endRouteDrag() {
     final r = _draggingRoute;
     if (r == null) return;
-    double snap(double v) => (v / _gridSize).round() * _gridSize;
+    double snap(double v) =>
+        _gridSize <= 0 ? v : (v / _gridSize).round() * _gridSize;
     setState(() {
       r
         ..x = snap(r.x)
@@ -3417,14 +3503,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     setState(() {
       for (final i in items) {
         i.position = Offset(
-          (i.position.dx + direction.dx * _gridSize).clamp(
-            0.0,
-            math.max(0.0, _panelWidth - i.width),
-          ),
-          (i.position.dy + direction.dy * _gridSize).clamp(
-            0.0,
-            math.max(0.0, _panelHeight - i.height),
-          ),
+          (i.position.dx + direction.dx * (_gridSize > 0 ? _gridSize : 1))
+              .clamp(0.0, math.max(0.0, _panelWidth - i.width)),
+          (i.position.dy + direction.dy * (_gridSize > 0 ? _gridSize : 1))
+              .clamp(0.0, math.max(0.0, _panelHeight - i.height)),
         );
       }
     });
@@ -4533,11 +4615,25 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       targetName: _scaleTargetName,
     );
     if (r == null || !mounted) return;
+    // 외함 크기 설정과 같게: 되돌리기 한 단계, 판 밖으로 나간 부품은 안으로, 벽 치수는 지운다.
+    _pushUndo();
     setState(() {
       _panelWidth = r.widthMm;
       _panelHeight = r.heightMm;
       _backgroundRect = r.rect;
       _fitPending = true;
+      for (final item in _placedItems) {
+        item.position = Offset(
+          item.position.dx.clamp(0.0, math.max(0.0, _panelWidth - item.width)),
+          item.position.dy.clamp(
+            0.0,
+            math.max(0.0, _panelHeight - item.height),
+          ),
+        );
+      }
+      _dimensions.removeWhere(
+        (dim) => dim.p1 is WallPoint || dim.p2 is WallPoint,
+      );
     });
     _saveDraftToPrefs();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -4863,15 +4959,35 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     final Map<String, int> counts = {};
     final Map<String, int> perTab = {};
     var totalItems = 0;
+    // 덕트·레일·형강·전선관은 개수 옆에 길이 합도 적는다. 메모 글자는 세지 않는다.
+    final Map<String, double> lengthByName = {};
     for (final e in _allPlates().entries) {
-      final items = layoutItemsFromData(e.value);
+      final items = layoutItemsFromData(
+        e.value,
+      ).where((it) => it.shape != InstrumentShape.note).toList();
       if (items.isEmpty) continue;
       perTab[_tabLabel(e.key)] = items.length;
       totalItems += items.length;
       for (final item in items) {
         counts[item.name] = (counts[item.name] ?? 0) + 1;
+        if (isLengthItem(item)) {
+          lengthByName[item.name] =
+              (lengthByName[item.name] ?? 0) + itemLengthMm(item);
+        }
       }
     }
+    // 전선관 경로는 규격별 길이 합(꺾이는 점 사이 합).
+    final Map<int, double> routeLenBySize = {};
+    for (final r in _routes) {
+      routeLenBySize[r.size] = (routeLenBySize[r.size] ?? 0) + r.totalLength;
+    }
+    final List<(String, double)> lengthLines = [
+      for (final e in lengthByName.entries) (e.key, e.value),
+      for (final e in routeLenBySize.entries) ("전선관 경로 ${e.key}", e.value),
+    ]..sort((a, b) => b.$2.compareTo(a.$2));
+    String mm(double v) => v >= 1000
+        ? "${(v / 1000).toStringAsFixed(v % 1000 == 0 ? 0 : 1)}m"
+        : "${v.round()}mm";
     final entries = counts.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
@@ -4884,6 +5000,12 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         buf.writeln("- ${e.key} x ${e.value}개");
       }
       buf.writeln("총 모듈 $totalItems개");
+      if (lengthLines.isNotEmpty) {
+        buf.writeln("길이 합");
+        for (final l in lengthLines) {
+          buf.writeln("- ${l.$1}: ${mm(l.$2)}");
+        }
+      }
       if (_showTabs && perTab.length > 1) {
         buf.writeln(
           "(${perTab.entries.map((e) => "${e.key} ${e.value}개").join(' · ')})",
@@ -4974,6 +5096,44 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       },
                     ),
                   ),
+                if (lengthLines.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  const Text(
+                    "길이 합 (긴 변 기준, 경로는 꺾이는 점 사이 합)",
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: tossSubText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  for (final l in lengthLines)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              l.$1,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: tossText,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            mm(l.$2),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: tossBlue,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
                 const SizedBox(height: 12),
                 const Divider(height: 1, color: tossBg),
                 const SizedBox(height: 12),
@@ -4989,7 +5149,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     ),
                     const Spacer(),
                     Text(
-                      "${_placedItems.length}개",
+                      "$totalItems개",
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -5507,6 +5667,15 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           "${_showTabs ? "${_tabLabel(_plateId)} " : ""}지금 ${_panelWidth.toInt()} × ${_panelHeight.toInt()} mm",
                       onTap: () => run(_showPanelSettingsSheet),
                     ),
+                    layoutSheetRow(
+                      key: const ValueKey("grid_snap"),
+                      icon: Icons.grid_4x4_rounded,
+                      label: "모눈 맞춤: $_gridLabel",
+                      caption: _gridSize <= 0
+                          ? "끔 · 놓는 자리 그대로. 누르면 1mm"
+                          : "누를 때마다 끔 → 1 → 5 → 10mm",
+                      onTap: () => run(_cycleGrid),
+                    ),
                     if (_isSkid)
                       layoutSheetRow(
                         key: const ValueKey("toggle_hidden_parts"),
@@ -5808,7 +5977,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                     ),
                             CustomPaint(
                               size: Size.infinite,
-                              painter: GridPainter(gridSize: _gridSize),
+                              painter: GridPainter(
+                                gridSize: _gridSize > 0 ? _gridSize : 5.0,
+                              ),
                             ),
                             if (_isSkid) _buildSkidOverlay(),
                             if (_previewItem != null &&
@@ -6541,6 +6712,12 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             _dragTile(
               const ModulePreset("신규 모듈", 80, 80),
               (_) => _buildPaletteItem("신규 박스 모듈", large: true),
+              affinity: Axis.horizontal,
+            ),
+            const SizedBox(height: 8),
+            _dragTile(
+              const ModulePreset("메모", 160, 40, shape: InstrumentShape.note),
+              (_) => _buildPaletteItem("메모 글자", large: true),
               affinity: Axis.horizontal,
             ),
             const SizedBox(height: 20),
@@ -7571,6 +7748,18 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   const SizedBox(width: 8),
                   _buildFittingButton(),
                 ],
+                const SizedBox(width: 8),
+                // 도면 위에 글만 적는 상자("여기 트레이" 같은 말). 자재 수량에는 안 센다.
+                _dragTile(
+                  const ModulePreset(
+                    "메모",
+                    160,
+                    40,
+                    shape: InstrumentShape.note,
+                  ),
+                  (_) => _buildPaletteItem("메모 글자"),
+                  affinity: Axis.vertical,
+                ),
               ],
             ),
           ),
@@ -8018,7 +8207,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     final (_, planH) = _planSize;
     return [
       for (final p in skidViewLayout(
-        _planItems,
+        _planItems.where((it) => it.shape != InstrumentShape.note).toList(),
         _plateId,
         planH: planH,
         viewH: _panelHeight,
@@ -9115,6 +9304,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         ? centerDimColor
         : edgeDimColor;
 
+    if (item.shape == InstrumentShape.note) {
+      return _buildNoteItem(item, isMeasuringStart, activeColor);
+    }
     if (item.shape != null) {
       return _buildInstrumentItem(item, isMeasuringStart, activeColor);
     }
@@ -9176,6 +9368,41 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
         ),
+      ),
+    );
+  }
+
+  // 메모 글자: 테두리 없이 글씨만. 고르면 점선 테두리로 자리를 보여 준다.
+  Widget _buildNoteItem(
+    PlacedItem item,
+    bool isMeasuringStart,
+    Color activeColor,
+  ) {
+    final bool hi = item.isSelected || isMeasuringStart;
+    final double font = (item.height * 0.6).clamp(8.0, 60.0);
+    return Container(
+      width: item.width,
+      height: item.height,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: hi
+          ? BoxDecoration(
+              border: Border.all(
+                color: isMeasuringStart ? activeColor : tossBlue,
+                width: 1.5,
+              ),
+            )
+          : null,
+      alignment: Alignment.centerLeft,
+      child: Text(
+        item.name,
+        style: TextStyle(
+          fontSize: font,
+          fontWeight: FontWeight.w700,
+          color: isMeasuringStart ? activeColor : tossText,
+          height: 1.15,
+        ),
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }
