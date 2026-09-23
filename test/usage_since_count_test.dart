@@ -58,6 +58,15 @@ void main() {
       expect(r['유니온']!.net, 3);
     });
 
+    test('PC 반납(RETURN)도 들어온 것으로 센다', () {
+      final r = usageSinceLastCount([
+        log('유니온', type: 'RETURN', qty: 4),
+        log('유니온', qty: 5),
+      ]);
+      expect(r['유니온']!.out, 5);
+      expect(r['유니온']!.inQty, 4);
+    });
+
     test('자재를 새로 넣거나 지운 기록은 드나듦이 아니다', () {
       final r = usageSinceLastCount([
         log('유니온', action: '자재 등록', qty: 0),

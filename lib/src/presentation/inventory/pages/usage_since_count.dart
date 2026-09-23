@@ -72,7 +72,8 @@ Map<String, UsageSinceCount> usageSinceLastCount(
     final type = (log['type'] ?? '').toString();
     if (type == 'OUT') {
       out[name] = (out[name] ?? 0) + qty;
-    } else if (type == 'IN') {
+    } else if (type == 'IN' || type == 'RETURN') {
+      // 태블릿(PC) 반납은 'RETURN'으로 남는다. 예전엔 여기서 빠져 반납이 안 세졌다.
       into[name] = (into[name] ?? 0) + qty;
     }
   }

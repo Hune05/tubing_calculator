@@ -429,11 +429,15 @@ class _Body extends StatelessWidget {
 
     try {
       final diff = next - _qty;
-      await _ref.update({
-        'qty': next,
+      // 통째로 덮어쓰지 않고 차이만 더하고 뺀다. 창을 띄운 사이 컷팅 차감이 있어도
+      // 그것이 지워지지 않는다. 재고와 기록은 한 번에 쓴다.
+      final db = FirebaseFirestore.instance;
+      final batch = db.batch();
+      batch.update(_ref, {
+        'qty': FieldValue.increment(diff),
         'lastUpdated': FieldValue.serverTimestamp(),
       });
-      await FirebaseFirestore.instance.collection('inventory_logs').add({
+      batch.set(db.collection('inventory_logs').doc(), {
         'material_name': _name,
         'type': diff > 0 ? 'IN' : 'OUT',
         'action': '재고 실사',
@@ -445,6 +449,10 @@ class _Body extends StatelessWidget {
         'device': 'Mobile',
         'timestamp': FieldValue.serverTimestamp(),
       });
+      await batch.commit().timeout(
+        const Duration(seconds: 8),
+        onTimeout: () {},
+      );
       if (!context.mounted) return;
       showCuttingSnack(context, "$next$_unit으로 고쳤습니다.");
     } catch (_) {
@@ -531,7 +539,12 @@ class _RecentLogs extends StatelessWidget {
     final what = action.isNotEmpty
         ? action
         : (type == 'OUT' ? '불출' : (type == 'IN' ? '반납' : '변동'));
-    final sign = type == 'OUT' ? '-' : '+';
+    // 재고조사 기록(AUDIT)은 줄었는지 늘었는지를 'sign' 칸에 적는다. 예전엔 이 칸을
+    // 안 봐서 재고조사로 줄어든 것도 +로 보였다.
+    final signField = (m['sign'] ?? '').toString();
+    final sign = signField == '-' || signField == '+'
+        ? signField
+        : (type == 'OUT' ? '-' : '+');
     return "$what $sign$qty$unit${who.isEmpty ? '' : ' · $who'}";
   }
 

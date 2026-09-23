@@ -10,6 +10,7 @@ import '../../tube_cutting/cutting_pending_banner.dart';
 import '../../tube_cutting/cutting_theme.dart'
     show showCuttingConfirmDialog, showCuttingSnack;
 import '../material_catalog.dart' show materialCategoryLabel;
+import 'audit_delta.dart';
 import 'inventory_model.dart';
 import 'inventory_item_card.dart';
 import 'material_catalog_page.dart';
@@ -107,6 +108,8 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     ItemData item = ItemData();
     // 다른 기기가 소수로 적었어도 죽지 않게.
     item.qty = (docData['qty'] as num?)?.toInt() ?? 0;
+    // 세기 시작한 때의 장부 수량. 문서를 못 찾았으면(빈 칸) 모른다고 둔다.
+    item.bookQty = (docData['qty'] as num?)?.toInt();
     try {
       item.heatNo = docData['heatNo'] ?? '';
       item.maker = docData['maker'] ?? '';

@@ -75,10 +75,10 @@ extension InventoryTabsExt on _InventoryPageState {
         ),
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
-            stream: _inventoryDb
-                .orderBy('createdAt', descending: true)
-                .limit(300)
-                .snapshots(),
+            // 예전엔 서버에서 최근 300개만 받아서(createdAt 순) 카탈로그를 채운 뒤
+            // 옛 자재가 안 보였고, createdAt이 없는 옛 문서는 아예 빠졌다.
+            // 전부 받아 폰 현황처럼 여기서 정렬한다.
+            stream: _inventoryDb.snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return const Center(
@@ -117,7 +117,15 @@ extension InventoryTabsExt on _InventoryPageState {
                     data['name'].toString().toLowerCase().contains(
                       _searchQuery,
                     );
-              }).toList();
+              }).toList()
+                ..sort((a, b) {
+                  // 최근 넣은 것부터. createdAt이 없는 옛 문서는 맨 뒤.
+                  final ta = (a.data() as Map<String, dynamic>)['createdAt'];
+                  final tb = (b.data() as Map<String, dynamic>)['createdAt'];
+                  if (ta is! Timestamp) return tb is Timestamp ? 1 : 0;
+                  if (tb is! Timestamp) return -1;
+                  return tb.compareTo(ta);
+                });
 
               if (docs.isEmpty) {
                 return const Center(

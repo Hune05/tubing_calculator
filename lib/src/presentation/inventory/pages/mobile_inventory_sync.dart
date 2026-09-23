@@ -49,15 +49,29 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
         final m = snap.data() as Map<String, dynamic>?;
         name = (m?['name'] as String?) ?? name;
         unit = (m?['unit'] as String?) ?? unit;
-        before = (m?['qty'] as int?) ?? -1;
+        before = (m?['qty'] as num?)?.toInt() ?? -1;
       } catch (_) {}
 
       if (before < 0) {
         lines.add("$name — ${data.qty}$unit로 맞춤");
-      } else if (before == data.qty) {
-        lines.add("$name — ${data.qty}$unit (수량 그대로)");
+        continue;
+      }
+      final ad = auditDelta(
+        counted: data.qty,
+        book: data.bookQty,
+        server: before,
+      );
+      final moved = ad.movedSinceCount;
+      final movedNote = moved == 0
+          ? ""
+          : " (센 뒤 ${moved > 0 ? '+' : ''}$moved$unit 움직인 것 그대로 둠)";
+      final clampNote = ad.clamped ? " (0 아래라 0으로)" : "";
+      if (ad.delta == 0) {
+        lines.add("$name — $before$unit (수량 그대로)$movedNote");
       } else {
-        lines.add("$name — $before$unit → ${data.qty}$unit");
+        lines.add(
+          "$name — $before$unit → ${ad.after}$unit$movedNote$clampNote",
+        );
       }
     }
     return lines;
@@ -102,7 +116,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
                   ),
                 const SizedBox(height: 4),
                 const Text(
-                  "올리면 창고 재고가 이 수량으로 바뀝니다.",
+                  "센 수량과 셀 때 장부 수량의 차이만큼 고칩니다. 센 뒤 컷팅 등으로 움직인 것은 지우지 않습니다.",
                   style: TextStyle(
                     color: slate600,
                     fontSize: 13,
@@ -249,11 +263,18 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
           if (snapshot.exists) {
             Map<String, dynamic> dbData =
                 snapshot.data() as Map<String, dynamic>;
-            int systemQty = dbData['qty'] ?? 0;
-            int diff = data.qty - systemQty;
+            final int systemQty = (dbData['qty'] as num?)?.toInt() ?? 0;
+            // 센 값으로 덮어쓰지 않고 "센 값 − 셀 때 장부 값"만 더하고 뺀다.
+            final ad = auditDelta(
+              counted: data.qty,
+              book: data.bookQty,
+              server: systemQty,
+            );
+            final int diff = ad.delta;
 
-            // 🚀 기존 자재: 변경될 필수 데이터
-            Map<String, dynamic> updates = {'qty': data.qty};
+            Map<String, dynamic> updates = {
+              if (diff != 0) 'qty': FieldValue.increment(diff),
+            };
 
             // 🚀 기존 자재: 상세정보가 수정되었다면 전송 (증발 문제 해결 지점)
             try {

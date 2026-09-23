@@ -961,8 +961,13 @@ extension _InventoryDialogsExt on _InventoryPageState {
               }
 
               try {
-                await _inventoryDb.doc(docId).update({'qty': physicalQty});
-                await _logsDb.add({
+                // 통째로 덮어쓰지 않고 차이만 더하고 뺀다(창을 띄운 사이 컷팅 차감이
+                // 있어도 지워지지 않게). 재고와 기록은 한 번에 쓴다.
+                final batch = FirebaseFirestore.instance.batch();
+                batch.update(_inventoryDb.doc(docId), {
+                  'qty': FieldValue.increment(diff),
+                });
+                batch.set(_logsDb.doc(), {
                   'type': 'AUDIT',
                   'action': '재고 실사',
                   'project_name': '정기 재고 수정',
@@ -972,6 +977,10 @@ extension _InventoryDialogsExt on _InventoryPageState {
                   'unit': item['unit'],
                   'timestamp': FieldValue.serverTimestamp(),
                 });
+                await batch.commit().timeout(
+                  const Duration(seconds: 8),
+                  onTimeout: () {},
+                );
                 if (context.mounted) {
                   Navigator.pop(ctx);
                 }
