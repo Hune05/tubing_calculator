@@ -914,7 +914,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
             borderRadius: BorderRadius.circular(20),
           ),
           title: const Text(
-            "로그아웃할까요?",
+            "로그아웃하시겠습니까?",
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
