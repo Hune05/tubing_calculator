@@ -63,6 +63,10 @@ class ConduitRoute {
   /// 계산기 입력 목록과 같은 줄들: {length, angle, rotation}.
   List<Map<String, dynamic>> bends;
 
+  /// 끝 부품 id(평면). 있으면 마지막 꺾이는 점에서 나가는 방향으로 그 부품 가운데까지
+  /// 곧게 이어, 마지막 줄 길이를 손으로 안 넣어도 된다. 없거나 지워졌으면 마지막 꺾이는 점에서 끝.
+  String? endItemId;
+
   ConduitRoute({
     required this.id,
     required this.name,
@@ -73,6 +77,7 @@ class ConduitRoute {
     this.z = 0,
     this.startDir = 90,
     List<Map<String, dynamic>>? bends,
+    this.endItemId,
   }) : bends = bends ?? [];
 
   Map<String, dynamic> toJson() => {
@@ -85,6 +90,7 @@ class ConduitRoute {
     'z': z,
     'dir': startDir,
     'bends': bends,
+    if (endItemId != null) 'end': endItemId,
   };
 
   factory ConduitRoute.fromJson(Map<String, dynamic> j) => ConduitRoute(
@@ -100,9 +106,75 @@ class ConduitRoute {
       for (final b in (j['bends'] as List?) ?? const [])
         if (b is Map) Map<String, dynamic>.from(b),
     ],
+    endItemId: j['end'] as String?,
   );
 
   double get od => kThickConduitOd[size] ?? 26.5;
+
+  /// 계산기 공간 걷기(반경 0). 꺾이는 점과 끝 방향을 쓴다.
+  BendPath _path() => buildBendPath(
+    [
+      for (final b in bends)
+        PathSegment(
+          length: (b['length'] as num?)?.toDouble() ?? 0,
+          angle: (b['angle'] as num?)?.toDouble() ?? 0,
+          rotation: (b['rotation'] as num?)?.toDouble() ?? 0,
+        ),
+    ],
+    radius: 0,
+    startDirection: directionForName(routeDirName(startDir)),
+  );
+
+  /// 계산기 공간 벡터를 스키드 좌표로: (계산 x, 계산 z, 계산 y).
+  static vm.Vector3 _toSkid(vm.Vector3 c) => vm.Vector3(c.x, c.z, c.y);
+
+  /// 끝 부품까지 마지막 줄. [length]는 마지막 꺾이는 점에서 끝 방향으로 부품 가운데까지,
+  /// [miss]는 그 방향에서 부품 가운데가 비켜 난 거리(0이면 정확히 닿는다). 끝 부품이 없으면 null.
+  ({double length, double miss, PlacedItem item})? endRun(
+    List<PlacedItem> planItems,
+  ) {
+    if (endItemId == null) return null;
+    PlacedItem? it;
+    for (final e in planItems) {
+      if (e.id == endItemId) it = e;
+    }
+    if (it == null) return null;
+    final path = _path();
+    final s = startPoint(planItems);
+    final vm.Vector3 last = path.corners.isEmpty
+        ? s
+        : s + _toSkid(path.corners.last);
+    final vm.Vector3 dir = _toSkid(path.endDirection).normalized();
+    final target = vm.Vector3(
+      it.position.dx + it.width / 2,
+      it.position.dy + it.height / 2,
+      it.elevation ?? last.z,
+    );
+    final d = target - last;
+    final double len = d.dot(dir);
+    final double miss = (d - dir * len).length;
+    return (length: len < 0 ? 0 : len, miss: miss, item: it);
+  }
+
+  /// 꺾이는 점 사이 합 + 끝 부품까지 마지막 줄.
+  double totalLengthWith(List<PlacedItem> planItems) =>
+      totalLength + (endRun(planItems)?.length ?? 0);
+
+  /// 끝 부품 관련 경고: 끝 부품이 사라졌거나, 마지막 줄 방향에서 부품이 관 굵기보다 비켜 나 있다.
+  List<String> endWarnings(List<PlacedItem> planItems) {
+    if (endItemId == null) return const [];
+    final r = endRun(planItems);
+    if (r == null) return const ["끝 부품이 평면에 없습니다(지워졌거나 다른 도면)."];
+    if (r.miss > od) {
+      return [
+        "마지막 줄이 끝 부품 '${r.item.name}' 가운데에서 ${r.miss.round()}mm 비켜 갑니다. 방향이나 앞 줄 길이를 고치십시오.",
+      ];
+    }
+    if (r.length <= 0) {
+      return ["끝 부품 '${r.item.name}'이(가) 마지막 줄 방향 뒤에 있습니다."];
+    }
+    return const [];
+  }
 
   /// 시작점(스키드 좌표). 시작 모듈이 있으면 그 가운데·바닥에서 높이.
   vm.Vector3 startPoint(List<PlacedItem> planItems) {
@@ -118,25 +190,19 @@ class ConduitRoute {
     return vm.Vector3(x, y, z);
   }
 
-  /// 시작점과 꺾이는 점들(스키드 좌표).
+  /// 시작점과 꺾이는 점들(스키드 좌표). 끝 부품이 있으면 마지막 줄 끝점도 붙는다.
   List<vm.Vector3> points(List<PlacedItem> planItems) {
     final s = startPoint(planItems);
-    final path = buildBendPath(
-      [
-        for (final b in bends)
-          PathSegment(
-            length: (b['length'] as num?)?.toDouble() ?? 0,
-            angle: (b['angle'] as num?)?.toDouble() ?? 0,
-            rotation: (b['rotation'] as num?)?.toDouble() ?? 0,
-          ),
-      ],
-      radius: 0,
-      startDirection: directionForName(routeDirName(startDir)),
-    );
-    return [
+    final path = _path();
+    final pts = [
       s,
       for (final c in path.corners) vm.Vector3(s.x + c.x, s.y + c.z, s.z + c.y),
     ];
+    final end = endRun(planItems);
+    if (end != null && end.length > 0) {
+      pts.add(pts.last + _toSkid(path.endDirection).normalized() * end.length);
+    }
+    return pts;
   }
 
   /// 계산기가 알려 주는 경고(꺾을 수 없는 방향·짧은 구간 등, 반경 0 기준).

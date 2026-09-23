@@ -154,7 +154,11 @@ class _SkidRouteEditorPageState extends State<SkidRouteEditorPage> {
     final String from = it != null
         ? it.name
         : "가로 ${_route.x.toInt()} · 세로 ${_route.y.toInt()}";
-    return "시작: $from · 높이 ${z.toInt()} · ${routeDirLabel(_route.startDir)}";
+    final end = _route.endRun(plan);
+    final String to = end == null
+        ? ""
+        : " → 끝: ${end.item.name} (마지막 줄 ${end.length.round()})";
+    return "시작: $from · 높이 ${z.toInt()} · ${routeDirLabel(_route.startDir)}$to";
   }
 
   @override
@@ -205,7 +209,10 @@ class _SkidRouteEditorPageState extends State<SkidRouteEditorPage> {
               height: MediaQuery.sizeOf(context).height * 0.26,
               child: _buildMiniBoard(),
             ),
-            for (final w in _route.warnings())
+            for (final w in [
+              ..._route.warnings(),
+              ..._route.endWarnings(_planItems),
+            ])
               Container(
                 width: double.infinity,
                 color: warningRed.withValues(alpha: 0.08),
@@ -520,6 +527,28 @@ class _SkidRouteEditorPageState extends State<SkidRouteEditorPage> {
                   routeDirLabel,
                   (v) => setSheet(() => r.startDir = v),
                 ),
+                const SizedBox(height: 12),
+                _label("끝 부품 (고르면 마지막 줄을 그 부품 가운데까지 자동으로 잇습니다)"),
+                DropdownButton<String?>(
+                  key: const ValueKey("route_end_item"),
+                  isExpanded: true,
+                  value: plan.any((e) => e.id == r.endItemId)
+                      ? r.endItemId
+                      : null,
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text("없음 (마지막 꺾이는 점에서 끝)"),
+                    ),
+                    for (final it in plan)
+                      if (it.id != r.startItemId)
+                        DropdownMenuItem<String?>(
+                          value: it.id,
+                          child: Text(it.name, overflow: TextOverflow.ellipsis),
+                        ),
+                  ],
+                  onChanged: (v) => setSheet(() => r.endItemId = v),
+                ),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   key: const ValueKey("route_start_ok"),
@@ -549,6 +578,7 @@ class _SkidRouteEditorPageState extends State<SkidRouteEditorPage> {
         ..name = nameCtrl.text.trim().isEmpty ? r.name : nameCtrl.text.trim()
         ..size = r.size
         ..startItemId = r.startItemId
+        ..endItemId = r.endItemId
         ..startDir = r.startDir
         ..x = double.tryParse(xCtrl.text.trim()) ?? r.x
         ..y = double.tryParse(yCtrl.text.trim()) ?? r.y

@@ -174,6 +174,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   // 시작점으로 그대로 이어져서, 여러 지점을 순서대로 탭하는 것만으로
   // 연속된 치수선을 한 번에 그릴 수 있다(모듈을 일렬로 배치할 때 유용).
   bool _dimensionChainMode = false;
+  // 기준점 모드 - 첫 점을 그대로 두고 다음 점마다 새 치수를 낸다(한 기준에서 여러 부품까지, 누적 치수).
+  bool _dimensionBaselineMode = false;
   // 🚀 [신규] 대각선 모드 - 켜두면 새로 만드는 치수가 축 정렬 없이
   // 두 중심점을 직선으로 그대로 잇는다(실제 대각선 거리+각도).
   bool _dimensionDiagonalMode = false;
@@ -213,6 +215,80 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   // 서버에 올린 배경 사진 주소. 사진을 바꾸면 비우고, 저장할 때 다시 올린다.
   String? _backgroundImageUrl;
   double _backgroundOpacity = 0.5;
+  // 배경 사진 밝기(1 = 그대로, 1.6까지 밝게)와 흑백. 흐린 복사 도면을 읽기 좋게.
+  double _backgroundBrightness = 1.0;
+  bool _backgroundGray = false;
+
+  /// 밝기·흑백을 한 번에 거는 색 필터.
+  ColorFilter get _backgroundFilter {
+    final double b = _backgroundBrightness;
+    if (_backgroundGray) {
+      return ColorFilter.matrix([
+        0.2126 * b, 0.7152 * b, 0.0722 * b, 0, 0, //
+        0.2126 * b, 0.7152 * b, 0.0722 * b, 0, 0, //
+        0.2126 * b, 0.7152 * b, 0.0722 * b, 0, 0, //
+        0, 0, 0, 1, 0,
+      ]);
+    }
+    return ColorFilter.matrix([
+      b, 0, 0, 0, 0, //
+      0, b, 0, 0, 0, //
+      0, 0, b, 0, 0, //
+      0, 0, 0, 1, 0,
+    ]);
+  }
+
+  /// 배경 사진을 90° 시계 방향으로 돌려 새 파일로 저장하고 바꿔 깐다(큰 사진은 긴 변 2500px로 줄인다).
+  Future<void> _rotateBackground() async {
+    final path = _backgroundImagePath;
+    if (path == null) return;
+    try {
+      final bytes = await File(path).readAsBytes();
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      final ui.Image src = frame.image;
+      final double k = math.min(1.0, 2500 / math.max(src.width, src.height));
+      final int w = (src.height * k).round(), h = (src.width * k).round();
+      final rec = ui.PictureRecorder();
+      final c = Canvas(rec);
+      c.translate(w.toDouble(), 0);
+      c.rotate(math.pi / 2);
+      c.drawImageRect(
+        src,
+        Rect.fromLTWH(0, 0, src.width.toDouble(), src.height.toDouble()),
+        Rect.fromLTWH(0, 0, h.toDouble(), w.toDouble()),
+        Paint()..filterQuality = FilterQuality.medium,
+      );
+      final ui.Image out = await rec.endRecording().toImage(w, h);
+      final data = await out.toByteData(format: ui.ImageByteFormat.png);
+      if (data == null) throw Exception("그림 변환 실패");
+      final dir = await getTemporaryDirectory();
+      final f = File(
+        "${dir.path}/layout_bg_rot_${DateTime.now().millisecondsSinceEpoch}.png",
+      );
+      await f.writeAsBytes(data.buffer.asUint8List());
+      if (!mounted) return;
+      setState(() {
+        _backgroundImagePath = f.path;
+        _backgroundImageUrl = null;
+        // 축척을 맞춰 둔 자리는 가운데를 두고 가로·세로만 바꾼다.
+        final Rect? r = _backgroundRect;
+        if (r != null) {
+          _backgroundRect = Rect.fromCenter(
+            center: r.center,
+            width: r.height,
+            height: r.width,
+          );
+        }
+      });
+      _saveDraftToPrefs();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(keepWords("사진 돌리기 실패: $e"))));
+    }
+  }
 
   /// 축척 맞추기로 정한 배경 사진 자리(도면 mm). 없으면 예전처럼 판에 맞춰 깐다.
   Rect? _backgroundRect;
@@ -279,6 +355,14 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   // 임시 저장. 주기적으로 + 앱이 백그라운드로 갈 때 기기에만 저장해두고,
   // 정식으로 서버 저장을 하면 더 이상 필요 없으니 지운다.
   static const String _draftPrefsKey = 'layout_board_draft_v1';
+
+  // PDF 표제란 칸. 도면 번호·리비전은 도면(문서)에, 용지·방향은 폰에 기억한다.
+  String _drawingNo = "";
+  String _revision = "";
+  String _pdfPaper = 'A4';
+  bool _pdfLandscape = false;
+  static const String _pdfPaperPrefsKey = 'layout_pdf_paper';
+  static const String _pdfLandscapePrefsKey = 'layout_pdf_landscape';
   // 예전 태블릿 화면이 따로 쓰던 임시 저장 자리. 남아 있으면 이어서 열 수 있게 읽기만 한다.
   static const String _legacyTabletDraftPrefsKey =
       'tablet_layout_board_draft_v1';
@@ -303,12 +387,25 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   void initState() {
     super.initState();
     _loadGridPref();
+    SharedPreferences.getInstance()
+        .then((p) {
+          _pdfPaper = p.getString(_pdfPaperPrefsKey) ?? 'A4';
+          _pdfLandscape = p.getBool(_pdfLandscapePrefsKey) ?? false;
+        })
+        .catchError((_) {});
     WidgetsBinding.instance.addObserver(this);
     _loadCustomPresets();
     // 🚀 확대/이동할 때마다 미니맵의 "현재 보는 영역" 표시가 따라
     // 움직이도록 다시 그려준다.
+    // 미니맵·배율 글자는 스스로 다시 그린다(ValueListenableBuilder). 화면 전체는 글씨 배율이
+    // 눈에 띄게 바뀔 만큼(3% 넘게) 확대·축소됐을 때만 다시 그린다(예전엔 손가락 한 번에 수십 번).
     _viewerController.addListener(() {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      final double z = _viewZoom;
+      if ((z - _lastBuiltZoom).abs() > _lastBuiltZoom * 0.03) {
+        _lastBuiltZoom = z;
+        setState(() {});
+      }
     });
     if (widget.projectId != null) {
       _loadProject(widget.projectId!);
@@ -412,6 +509,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 e['name'] as String,
                 (e['width'] as num).toDouble(),
                 (e['height'] as num).toDouble(),
+                // 모양·깊이도 같이(예전 프리셋에는 없어서 네모로 놓였다).
+                shape: e['shape'] as String?,
+                depth: (e['depth'] as num?)?.toDouble(),
               ),
             )
             .toList();
@@ -427,7 +527,13 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         jsonEncode(
           _customPresets
               .map(
-                (p) => {'name': p.name, 'width': p.width, 'height': p.height},
+                (p) => {
+                  'name': p.name,
+                  'width': p.width,
+                  'height': p.height,
+                  if (p.shape != null) 'shape': p.shape,
+                  if (p.depth != null) 'depth': p.depth,
+                },
               )
               .toList(),
         ),
@@ -438,10 +544,15 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   Future<void> _saveAsCustomPreset(
     String name,
     double width,
-    double height,
-  ) async {
+    double height, {
+    String? shape,
+    double? depth,
+  }) async {
     setState(() {
-      _customPresets = [..._customPresets, ModulePreset(name, width, height)];
+      _customPresets = [
+        ..._customPresets,
+        ModulePreset(name, width, height, shape: shape, depth: depth),
+      ];
     });
     await _saveCustomPresets();
   }
@@ -581,6 +692,208 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   /// 이번 그리기에서 문제가 있는(간섭·깊이 초과) 모듈 id.
   Set<String> _problemIds = const {};
 
+  /// 마지막으로 화면 전체를 그린 확대 배율(확대 리스너가 견준다).
+  double _lastBuiltZoom = 1.0;
+
+  // ───── 저장본과 차이 보기: 불러오거나 저장한 때의 부품 자리(판별 id → 네모·이름) ─────
+  Map<String, Map<String, Rect>> _savedRects = {};
+  Map<String, Map<String, String>> _savedNames = {};
+  bool _showSavedDiff = false;
+
+  /// 저장 문서 모양(items + sidePlates)에서 기준 자리를 담아 둔다.
+  void _captureSavedBaseline(Map<String, dynamic> data) {
+    Map<String, Rect> rects(Map<String, dynamic> p) => {
+      for (final it in layoutItemsFromData(p)) it.id: it.boundingBox,
+    };
+    Map<String, String> names(Map<String, dynamic> p) => {
+      for (final it in layoutItemsFromData(p)) it.id: it.name,
+    };
+    _savedRects = {kPlateMain: rects(data)};
+    _savedNames = {kPlateMain: names(data)};
+    final side = data['sidePlates'];
+    if (side is Map) {
+      side.forEach((id, p) {
+        if (p is Map) {
+          final m = Map<String, dynamic>.from(p);
+          _savedRects[id.toString()] = rects(m);
+          _savedNames[id.toString()] = names(m);
+        }
+      });
+    }
+  }
+
+  /// 지금 판에서 저장본과 다른 것: 옮긴 부품(옛 자리→새 자리), 새 부품, 지운 부품(옛 자리·이름).
+  ({List<(Rect, Rect)> moved, List<Rect> added, List<(Rect, String)> removed})
+  _savedDiff() {
+    final old = _savedRects[_plateId] ?? const {};
+    final oldNames = _savedNames[_plateId] ?? const {};
+    final moved = <(Rect, Rect)>[];
+    final added = <Rect>[];
+    final removed = <(Rect, String)>[];
+    final seen = <String>{};
+    for (final it in _placedItems) {
+      if (it.shape == InstrumentShape.note) continue;
+      seen.add(it.id);
+      final Rect? o = old[it.id];
+      if (o == null) {
+        added.add(it.boundingBox);
+      } else if (o != it.boundingBox) {
+        moved.add((o, it.boundingBox));
+      }
+    }
+    old.forEach((id, r) {
+      if (!seen.contains(id)) removed.add((r, oldNames[id] ?? ""));
+    });
+    return (moved: moved, added: added, removed: removed);
+  }
+
+  // 간섭 확인·정면 셈은 부품이 바뀔 때만 다시 한다(예전엔 그릴 때마다 전부 다시 셌다).
+  String _clashKey = '';
+  ClashReport? _clashCache;
+  String _proxyKey = '';
+  List<({PlacedItem it, Rect rect, SkidFace face, bool mirror, double covered})>
+  _proxyCache = const [];
+
+  /// 부품 목록의 자리·크기·깊이를 한 줄로(바뀌었는지 가리는 열쇠).
+  static void _fingerprintItems(StringBuffer b, Iterable<dynamic> items) {
+    for (final it in items) {
+      if (it is PlacedItem) {
+        b
+          ..write(it.id)
+          ..write(':')
+          ..write(it.position.dx)
+          ..write(',')
+          ..write(it.position.dy)
+          ..write(',')
+          ..write(it.width)
+          ..write(',')
+          ..write(it.height)
+          ..write(',')
+          ..write(it.depth)
+          ..write(',')
+          ..write(it.elevation)
+          ..write(',')
+          ..write(it.shape)
+          ..write(',')
+          ..write(it.flipped)
+          ..write(';');
+      } else if (it is Map) {
+        b
+          ..write(it['id'])
+          ..write(':')
+          ..write(it['x'])
+          ..write(',')
+          ..write(it['y'])
+          ..write(',')
+          ..write(it['w'])
+          ..write(',')
+          ..write(it['h'])
+          ..write(',')
+          ..write(it['depth'])
+          ..write(',')
+          ..write(it['elev'])
+          ..write(',')
+          ..write(it['shape'])
+          ..write(',')
+          ..write(it['flip'])
+          ..write(';');
+      }
+    }
+  }
+
+  /// 간섭 확인 열쇠: 모든 판의 부품 + 깊이·측판 설정.
+  String _clashFingerprint() {
+    final b = StringBuffer()
+      ..write(_plateId)
+      ..write('|')
+      ..write(_sidePlatesOn)
+      ..write('|')
+      ..write(_cabinetDepth)
+      ..write('|')
+      ..write(_panelWidth)
+      ..write(',')
+      ..write(_panelHeight)
+      ..write('|');
+    _fingerprintItems(b, _placedItems);
+    for (final e in _plateStore.entries) {
+      b
+        ..write('#')
+        ..write(e.key)
+        ..write(e.value['panelWidth'])
+        ..write(',')
+        ..write(e.value['panelHeight'])
+        ..write(',')
+        ..write(e.value['bottomOffset'])
+        ..write(',')
+        ..write(e.value['gap'])
+        ..write('|');
+      _fingerprintItems(b, (e.value['items'] as List?) ?? const []);
+    }
+    return b.toString();
+  }
+
+  // ───── 스키드: 전선관 경로와 형강·정션박스가 겹치는지(경로 토막을 관 굵기 상자로 견준다) ─────
+  String _routeClashKey = '';
+  List<({ConduitRoute route, PlacedItem item})> _routeClashCache = const [];
+
+  List<({ConduitRoute route, PlacedItem item})> _skidRouteClashes() {
+    if (!_isSkid || _routes.isEmpty) return const [];
+    final plan = _planItems
+        .where((it) => it.shape != InstrumentShape.note)
+        .toList();
+    final kb = StringBuffer();
+    _fingerprintItems(kb, plan);
+    for (final r in _routes) {
+      kb.write(jsonEncode(r.toJson()));
+    }
+    final String key = kb.toString();
+    if (key == _routeClashKey) return _routeClashCache;
+    _routeClashKey = key;
+    final out = <({ConduitRoute route, PlacedItem item})>[];
+    for (final r in _routes) {
+      final pts = r.points(plan);
+      final double h = r.od / 2;
+      final seen = <String>{};
+      for (var i = 0; i + 1 < pts.length; i++) {
+        final a = pts[i], b = pts[i + 1];
+        final double x0 = math.min(a.x, b.x) - h, x1 = math.max(a.x, b.x) + h;
+        final double y0 = math.min(a.y, b.y) - h, y1 = math.max(a.y, b.y) + h;
+        final double z0 = math.min(a.z, b.z) - h, z1 = math.max(a.z, b.z) + h;
+        for (final it in plan) {
+          if (it.id == r.startItemId || it.id == r.endItemId) continue;
+          if (it.elevation == null || seen.contains(it.id)) continue;
+          final double v = skidVerticalSize(it);
+          final double ix0 = it.position.dx, ix1 = ix0 + it.width;
+          final double iy0 = it.position.dy, iy1 = iy0 + it.height;
+          final double iz0 = it.elevation! - v / 2, iz1 = it.elevation! + v / 2;
+          if (x0 < ix1 &&
+              x1 > ix0 &&
+              y0 < iy1 &&
+              y1 > iy0 &&
+              z0 < iz1 &&
+              z1 > iz0) {
+            seen.add(it.id);
+            out.add((route: r, item: it));
+          }
+        }
+      }
+    }
+    return _routeClashCache = out;
+  }
+
+  Set<String> _skidRouteClashProblemIds() => {
+    for (final c in _skidRouteClashes()) c.item.id,
+  };
+
+  ClashReport _clashReportCached() {
+    final key = _clashFingerprint();
+    if (_clashCache == null || key != _clashKey) {
+      _clashKey = key;
+      _clashCache = _clashReport();
+    }
+    return _clashCache!;
+  }
+
   Map<String, dynamic> _captureActivePlate() => {
     ...?_plateStore[_plateId],
     'panelWidth': _panelWidth,
@@ -593,6 +906,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     'backgroundRect': _backgroundRect == null
         ? null
         : drawingRectToJson(_backgroundRect!),
+    if (_backgroundBrightness != 1.0)
+      'backgroundBrightness': _backgroundBrightness,
+    if (_backgroundGray) 'backgroundGray': true,
   };
 
   /// 테스트에서 모든 탭(판)의 저장 모양을 본다.
@@ -673,6 +989,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     _backgroundImageUrl = d['backgroundImageUrl'] as String?;
     _backgroundOpacity = (d['backgroundOpacity'] as num?)?.toDouble() ?? 0.5;
     _backgroundRect = drawingRectFromJson(d['backgroundRect']);
+    _backgroundBrightness =
+        (d['backgroundBrightness'] as num?)?.toDouble() ?? 1.0;
+    _backgroundGray = d['backgroundGray'] == true;
     relinkDimensions(_dimensions, _placedItems);
   }
 
@@ -1059,6 +1378,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     return {
       'projectId': _currentProjectId,
       'projectName': _projectName,
+      if (_drawingNo.isNotEmpty) 'drawingNo': _drawingNo,
+      if (_revision.isNotEmpty) 'revision': _revision,
       for (final k in const [
         'panelWidth',
         'panelHeight',
@@ -1067,6 +1388,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         'backgroundImagePath',
         'backgroundOpacity',
         'backgroundRect',
+        'backgroundBrightness',
+        'backgroundGray',
       ])
         k: main[k],
       ..._sidePlateFields(plates),
@@ -1261,6 +1584,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   void _applySnapshotJson(Map<String, dynamic> data) {
     _currentProjectId = data['projectId'] as String?;
     _projectName = data['projectName'] as String? ?? "";
+    _drawingNo = data['drawingNo'] as String? ?? "";
+    _revision = data['revision'] as String? ?? "";
     _applySidePlateFields(data);
     _panelWidth = (data['panelWidth'] as num?)?.toDouble() ?? _panelWidth;
     _panelHeight = (data['panelHeight'] as num?)?.toDouble() ?? _panelHeight;
@@ -1274,6 +1599,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     _backgroundImageUrl = data['backgroundImageUrl'] as String?;
     _backgroundOpacity = (data['backgroundOpacity'] as num?)?.toDouble() ?? 0.5;
     _backgroundRect = drawingRectFromJson(data['backgroundRect']);
+    _backgroundBrightness =
+        (data['backgroundBrightness'] as num?)?.toDouble() ?? 1.0;
+    _backgroundGray = data['backgroundGray'] == true;
     relinkDimensions(_dimensions, _placedItems);
     _restoreMissingBackgrounds();
   }
@@ -1383,7 +1711,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       }
       final data = doc.data()!;
       data['projectId'] = doc.id;
-      setState(() => _applySnapshotJson(data));
+      setState(() {
+        _applySnapshotJson(data);
+        _captureSavedBaseline(data);
+      });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1491,6 +1822,11 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         continue;
       }
       if (_isSkid && _plateId == kPlateMain && _skidStackOk(dragging, other)) {
+        continue;
+      }
+      // DIN 레일 부품은 레일 위에 올라앉는 것이 정상이라 레일과는 겹쳐도 된다.
+      if ((_isRail(other) && _isRailPart(dragging)) ||
+          (_isRail(dragging) && _isRailPart(other))) {
         continue;
       }
       final Rect otherRect = Rect.fromLTWH(
@@ -1822,7 +2158,125 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     );
   }
 
+  /// PDF 용지·방향·도면 번호·리비전을 묻는다. 용지·방향은 폰에 기억한다. 취소하면 null.
+  Future<({String paper, bool landscape})?> _askPdfOptions() async {
+    String paper = _pdfPaper;
+    bool landscape = _pdfLandscape;
+    final noCtrl = TextEditingController(text: _drawingNo);
+    final revCtrl = TextEditingController(text: _revision);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          backgroundColor: pureWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            "PDF 만들기",
+            style: TextStyle(color: tossText, fontWeight: FontWeight.w800),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _panelLabel("용지"),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    for (final p in const ['A4', 'A3']) ...[
+                      ChoiceChip(
+                        key: ValueKey("pdf_paper_$p"),
+                        label: Text(p),
+                        selected: paper == p,
+                        selectedColor: tossBlue,
+                        labelStyle: TextStyle(
+                          color: paper == p ? pureWhite : tossText,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        onSelected: (_) => setDlg(() => paper = p),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    for (final (v, t) in const [
+                      (false, "세로"),
+                      (true, "가로"),
+                    ]) ...[
+                      ChoiceChip(
+                        key: ValueKey("pdf_land_$v"),
+                        label: Text(t),
+                        selected: landscape == v,
+                        selectedColor: tossBlue,
+                        labelStyle: TextStyle(
+                          color: landscape == v ? pureWhite : tossText,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        onSelected: (_) => setDlg(() => landscape = v),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _buildCoordinateInput(
+                  "도면 번호 (비워도 됨)",
+                  noCtrl.text,
+                  (_) {},
+                  controller: noCtrl,
+                ),
+                const SizedBox(height: 8),
+                _buildCoordinateInput(
+                  "리비전 (예: 0, A, 1)",
+                  revCtrl.text,
+                  (_) {},
+                  controller: revCtrl,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  keepWords(
+                    "그림은 1:5·1:10·1:20 같은 표준 축척 중 용지에 들어가는 가장 큰 것으로 찍고, 표제란에 축척과 자 눈금을 넣습니다.",
+                  ),
+                  style: const TextStyle(fontSize: 13, color: tossSubText),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("취소", style: TextStyle(color: tossSubText)),
+            ),
+            TextButton(
+              key: const ValueKey("pdf_go"),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text(
+                "만들기",
+                style: TextStyle(color: tossBlue, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return null;
+    _drawingNo = noCtrl.text.trim();
+    _revision = revCtrl.text.trim();
+    _pdfPaper = paper;
+    _pdfLandscape = landscape;
+    SharedPreferences.getInstance()
+        .then((p) async {
+          await p.setString(_pdfPaperPrefsKey, paper);
+          await p.setBool(_pdfLandscapePrefsKey, landscape);
+        })
+        .catchError((_) {});
+    _saveDraftToPrefs();
+    return (paper: paper, landscape: landscape);
+  }
+
   Future<void> _shareAsPdf(String projectName) async {
+    final opts = await _askPdfOptions();
+    if (opts == null || !mounted) return;
     setState(() => _isSaving = true);
     try {
       // 🚀 [버그 수정] QR에 실제 존재하지 않는 이름+시간 조합 문자열을
@@ -1870,7 +2324,16 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       .toList()
                 : [_plateId]);
       final shots =
-          <(String, Uint8List, double, double, List<PlacedDimension>)>[];
+          <
+            (
+              String,
+              Uint8List,
+              double,
+              double,
+              List<PlacedDimension>,
+              List<PlacedItem>,
+            )
+          >[];
       for (final id in plateIds) {
         if (id != _plateId) {
           setState(() => _switchPlate(id));
@@ -1879,7 +2342,14 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         }
         final bytes = await _capturePng();
         if (bytes == null) throw Exception("도면 캡처 실패");
-        shots.add((id, bytes, _panelWidth, _panelHeight, List.of(_dimensions)));
+        shots.add((
+          id,
+          bytes,
+          _panelWidth,
+          _panelHeight,
+          List.of(_dimensions),
+          List.of(_placedItems),
+        ));
       }
       if (_plateId != startPlate && mounted) {
         setState(() => _switchPlate(startPlate));
@@ -1889,8 +2359,56 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       final fonts = await loadKoreanPdfFonts();
       final pdf = pw.Document(theme: fonts.theme);
       String qrData = "tubingcalc://layout?project=$_currentProjectId";
-      for (final (plateId, imageBytes, plateW, plateH, plateDims) in shots) {
+      // 용지·방향(표제란·축척은 표준 축척 중 들어가는 가장 큰 것).
+      final PdfPageFormat baseFmt =
+          (opts.paper == 'A3' ? PdfPageFormat.a3 : PdfPageFormat.a4).copyWith(
+            marginLeft: 1.2 * PdfPageFormat.cm,
+            marginRight: 1.2 * PdfPageFormat.cm,
+            marginTop: 1.2 * PdfPageFormat.cm,
+            marginBottom: 1.0 * PdfPageFormat.cm,
+          );
+      final PdfPageFormat pageFmt = opts.landscape
+          ? baseFmt.landscape
+          : baseFmt;
+      final String author = (await loadLayoutOwner()).name ?? "";
+      final String today = DateTime.now().toString().split(' ')[0];
+      const double ptPerMm = 72 / 25.4;
+      for (final (plateId, imageBytes, plateW, plateH, plateDims, plateItems)
+          in shots) {
         final image = pw.MemoryImage(imageBytes);
+        // 머리글(약 78pt)·표제란(약 46pt)·사이 여백을 뺀 자리에 들어가는 표준 축척.
+        final double availW = pageFmt.availableWidth;
+        final double availH = pageFmt.availableHeight - 78 - 46 - 24;
+        final double scaleN = pdfStandardScale(plateW, plateH, availW, availH);
+        final double imgW = plateW / scaleN * ptPerMm;
+        final double imgH = plateH / scaleN * ptPerMm;
+        // 자 눈금: 1:20까지는 100mm, 더 작으면 1000mm.
+        final double rulerMm = scaleN <= 20 ? 100 : 1000;
+        final double rulerPt = rulerMm / scaleN * ptPerMm;
+        final String scaleText =
+            "1:${scaleN == scaleN.roundToDouble() ? scaleN.toInt() : scaleN}";
+        pw.Widget titleCell(String head, String body) => pw.Padding(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                head,
+                style: const pw.TextStyle(
+                  fontSize: 8,
+                  color: PdfColors.grey600,
+                ),
+              ),
+              pw.Text(
+                body.isEmpty ? "-" : body,
+                style: pw.TextStyle(
+                  fontSize: 11,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        );
         final String plateName = _isSkid
             ? switch (plateId) {
                 kSkidViewFront => "정면",
@@ -1906,7 +2424,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 
         pdf.addPage(
           pw.Page(
-            pageFormat: PdfPageFormat.a4,
+            pageFormat: pageFmt,
             build: (pw.Context context) {
               return pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -1920,31 +2438,31 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           pw.Text(
                             _isSkid ? "스키드 배치도" : "판넬 배치도",
                             style: pw.TextStyle(
-                              fontSize: 24,
+                              fontSize: 20,
                               fontWeight: pw.FontWeight.bold,
                             ),
                           ),
-                          pw.SizedBox(height: 8),
+                          pw.SizedBox(height: 4),
                           pw.Text(
                             "프로젝트: $projectName",
-                            style: const pw.TextStyle(fontSize: 14),
+                            style: const pw.TextStyle(fontSize: 12),
                           ),
                           pw.Text(
                             "${plateName.isEmpty ? "" : "$plateName · "}${_isSkid ? "스키드" : "판"} 크기: ${plateW.toInt()} × ${plateH.toInt()}mm",
-                            style: const pw.TextStyle(fontSize: 14),
+                            style: const pw.TextStyle(fontSize: 12),
                           ),
                           pw.Text(
-                            "만든 날: ${DateTime.now().toString().split('.')[0]}",
+                            "* QR 코드를 찍으면 앱에서 이 배치도가 열립니다.",
                             style: const pw.TextStyle(
-                              fontSize: 12,
+                              fontSize: 9,
                               color: PdfColors.grey600,
                             ),
                           ),
                         ],
                       ),
                       pw.Container(
-                        width: 80,
-                        height: 80,
+                        width: 64,
+                        height: 64,
                         child: pw.BarcodeWidget(
                           barcode: pw.Barcode.qrCode(),
                           data: qrData,
@@ -1952,18 +2470,88 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       ),
                     ],
                   ),
-                  pw.SizedBox(height: 20),
+                  pw.SizedBox(height: 12),
+                  // 그림은 표준 축척 크기 그대로(맞춰 늘리지 않는다).
                   pw.Expanded(
                     child: pw.Center(
-                      child: pw.Image(image, fit: pw.BoxFit.contain),
+                      child: pw.Container(
+                        width: imgW,
+                        height: imgH,
+                        child: pw.Image(image, fit: pw.BoxFit.fill),
+                      ),
                     ),
                   ),
-                  pw.SizedBox(height: 20),
-                  pw.Text(
-                    "* QR 코드를 찍으면 앱에서 이 배치도가 열립니다.",
-                    style: const pw.TextStyle(
-                      fontSize: 10,
-                      color: PdfColors.grey600,
+                  pw.SizedBox(height: 8),
+                  // 표제란: 도면 번호·리비전·작성자·날짜·축척·자 눈금.
+                  pw.Container(
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(
+                        color: PdfColors.grey700,
+                        width: 0.8,
+                      ),
+                    ),
+                    child: pw.Row(
+                      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                      children: [
+                        pw.Expanded(
+                          flex: 3,
+                          child: titleCell("도면 번호", _drawingNo),
+                        ),
+                        pw.Expanded(child: titleCell("리비전", _revision)),
+                        pw.Expanded(flex: 2, child: titleCell("작성자", author)),
+                        pw.Expanded(flex: 2, child: titleCell("날짜", today)),
+                        pw.Expanded(
+                          child: titleCell(
+                            "축척",
+                            "$scaleText ${opts.paper}${opts.landscape ? " 가로" : ""}",
+                          ),
+                        ),
+                        pw.Expanded(
+                          flex: 3,
+                          child: pw.Padding(
+                            padding: const pw.EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 4,
+                            ),
+                            child: pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              mainAxisAlignment: pw.MainAxisAlignment.center,
+                              children: [
+                                pw.Text(
+                                  "자 ${rulerMm.toInt()}mm",
+                                  style: const pw.TextStyle(
+                                    fontSize: 8,
+                                    color: PdfColors.grey600,
+                                  ),
+                                ),
+                                pw.SizedBox(height: 2),
+                                pw.Container(
+                                  width: rulerPt,
+                                  height: 6,
+                                  decoration: pw.BoxDecoration(
+                                    border: pw.Border.all(
+                                      color: PdfColors.black,
+                                      width: 0.8,
+                                    ),
+                                  ),
+                                  child: pw.Row(
+                                    children: [
+                                      for (var i = 0; i < 10; i++)
+                                        pw.Expanded(
+                                          child: pw.Container(
+                                            color: i.isEven
+                                                ? PdfColors.black
+                                                : PdfColors.white,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -1972,13 +2560,73 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           ),
         );
 
+        // 태그 번호를 적은 부품이 있으면 부품 목록표를 한 장 붙인다(태그·이름·크기·자리).
+        if (plateItems.any((it) => it.tag != null)) {
+          final listed =
+              plateItems
+                  .where((it) => it.shape != InstrumentShape.note)
+                  .toList()
+                ..sort((a, b) => (a.tag ?? "￿").compareTo(b.tag ?? "￿"));
+          pdf.addPage(
+            pw.MultiPage(
+              pageFormat: pageFmt,
+              build: (pw.Context context) => [
+                pw.Text(
+                  "부품 목록${plateName.isEmpty ? "" : " · $plateName"}",
+                  style: pw.TextStyle(
+                    fontSize: 18,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+                pw.Table(
+                  border: pw.TableBorder.all(
+                    color: PdfColors.grey400,
+                    width: 0.5,
+                  ),
+                  columnWidths: {
+                    0: const pw.FixedColumnWidth(70),
+                    1: const pw.FlexColumnWidth(),
+                    2: const pw.FixedColumnWidth(80),
+                    3: const pw.FixedColumnWidth(90),
+                  },
+                  children: [
+                    pw.TableRow(
+                      decoration: const pw.BoxDecoration(
+                        color: PdfColors.grey200,
+                      ),
+                      children: [
+                        _pdfCell("태그", bold: true),
+                        _pdfCell("이름", bold: true),
+                        _pdfCell("가로×세로", bold: true),
+                        _pdfCell("자리 (왼쪽·위)", bold: true),
+                      ],
+                    ),
+                    for (final it in listed)
+                      pw.TableRow(
+                        children: [
+                          _pdfCell(it.tag ?? ""),
+                          _pdfCell(it.name),
+                          _pdfCell("${it.width.toInt()}×${it.height.toInt()}"),
+                          _pdfCell(
+                            "${it.position.dx.toInt()} · ${it.position.dy.toInt()}",
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }
+
         // 🚀 [신규] 치수선이 있으면 도면 사진 뒤에 번호별 치수 목록표를
         // 추가 페이지로 붙여서, 도면이 복잡해도 사진 속 번호 배지와
         // 대조해가며 확인할 수 있게 한다.
         if (plateDims.isNotEmpty) {
           pdf.addPage(
             pw.Page(
-              pageFormat: PdfPageFormat.a4,
+              pageFormat: pageFmt,
               build: (pw.Context context) {
                 return pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -2103,6 +2751,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         ),
         'backgroundRect': main['backgroundRect'],
         'backgroundImageUrl': main['backgroundImageUrl'],
+        'backgroundBrightness': main['backgroundBrightness'],
+        'backgroundGray': main['backgroundGray'],
+        'drawingNo': _drawingNo,
+        'revision': _revision,
         ..._sidePlateFields(plates),
         if (isNew) ...layoutOwnerFields(owner),
         if (isNew) 'createdAt': FieldValue.serverTimestamp(),
@@ -2122,6 +2774,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       }
       _currentProjectId = docRef.id;
       _projectName = projectName;
+      _captureSavedBaseline(fields);
       await _clearDraftPrefs();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2203,14 +2856,20 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   : nameCtrl.text.trim();
               Navigator.pop(ctx);
               try {
+                // 중판(평면)은 예전 칸에, 측판·경로·종류는 저장 문서와 같은 칸에(예전엔
+                // 지금 보는 탭만 담겨 측판에서 저장하면 측판이 중판으로 들어갔다).
+                _dropOrphanViewDims();
+                final plates = _allPlates();
+                final main = plates[kPlateMain]!;
                 await FirebaseFirestore.instance
                     .collection('layout_templates')
                     .add({
                       'name': name,
-                      'panelWidth': _panelWidth,
-                      'panelHeight': _panelHeight,
-                      'items': _placedItems.map((e) => e.toJson()).toList(),
-                      'dimensions': _dimensions.map((e) => e.toJson()).toList(),
+                      'panelWidth': main['panelWidth'],
+                      'panelHeight': main['panelHeight'],
+                      'items': main['items'],
+                      'dimensions': main['dimensions'],
+                      ..._sidePlateFields(plates),
                       'createdAt': FieldValue.serverTimestamp(),
                     });
                 if (!mounted) return;
@@ -2357,6 +3016,11 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     void doApply() {
       _pushUndo();
       setState(() {
+        // 측판·경로가 담긴 템플릿(kind 칸이 있는 것)은 중판으로 가서 전부 갈아 끼운다.
+        if (data.containsKey('kind')) {
+          if (_plateId != kPlateMain) _switchPlate(kPlateMain);
+          _applySidePlateFields(data);
+        }
         _panelWidth = (data['panelWidth'] as num?)?.toDouble() ?? _panelWidth;
         _panelHeight =
             (data['panelHeight'] as num?)?.toDouble() ?? _panelHeight;
@@ -2368,6 +3032,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           ..addAll(layoutDimensionsFromData(data));
         relinkDimensions(_dimensions, _placedItems);
       });
+      _saveDraftToPrefs();
     }
 
     if (!_hasAnyContent) {
@@ -2672,6 +3337,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           depth: src.depth,
           elevation: src.elevation,
           flipped: src.flipped,
+          tag: src.tag,
+          rotation: src.rotation,
         );
         // 겹치는 자리면 조금씩 옮겨가며 빈 자리를 찾는다.
         while (_overlapsAny(newItem, newItem.position)) {
@@ -2728,6 +3395,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         shape: preset.shape,
         depth: preset.depthOrGuess,
       );
+      _snapToRail(newItem);
 
       _placedItems.add(newItem);
       _activeItem = newItem;
@@ -2809,7 +3477,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         }
         // 🚀 체인 모드면 방금 찍은 점을 다음 구간의 시작점으로 그대로
         // 이어가서 계속 탭하는 것만으로 연속 치수선이 만들어지게 한다.
-        _dimensionStartPoint = _dimensionChainMode ? point : null;
+        _dimensionStartPoint = _dimensionChainMode
+            ? point
+            : (_dimensionBaselineMode ? _dimensionStartPoint : null);
       }
     });
   }
@@ -3542,6 +4212,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           elevation: item.elevation,
           // 뒤집기는 같이 옮기고, 잠금은 복제본에 붙이지 않는다(옮기려고 복제하니까).
           flipped: item.flipped,
+          tag: item.tag,
+          rotation: item.rotation,
         );
         _placedItems.add(newItem);
         newIds.add(newItem.id);
@@ -3970,6 +4642,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     final TextEditingController nameCtrl = TextEditingController(
       text: item.name,
     );
+    final TextEditingController tagCtrl = TextEditingController(
+      text: item.tag ?? "",
+    );
     final TextEditingController widthCtrl = TextEditingController(
       text: item.width.toInt().toString(),
     );
@@ -4042,8 +4717,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     ),
                     const SizedBox(height: 20),
 
-                    if (SkidShape.isFitting(item.shape)) ...[
-                      // 전선관 부속(곤질레다·커플링·유니온)은 허브 방향을 바꿀 수 있다.
+                    if (_canFlip(item)) ...[
+                      // 그림이 있는 부품은 좌우를 뒤집을 수 있다(부속은 허브 방향, 엘보·밸브는 나사 방향).
                       ElevatedButton.icon(
                         key: const ValueKey("flip_button"),
                         onPressed: () {
@@ -4081,24 +4756,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                         Expanded(
                           child: ElevatedButton.icon(
                             onPressed: () {
-                              // 🔄 90도 회전 (가로 세로 길이 교환)
-                              setState(() {
-                                double temp = item.width;
-                                item.width = item.height;
-                                item.height = temp;
-
-                                // 회전 후 도면 밖으로 나가지 않게 위치 보정
-                                item.position = Offset(
-                                  item.position.dx.clamp(
-                                    0.0,
-                                    math.max(0.0, _panelWidth - item.width),
-                                  ),
-                                  item.position.dy.clamp(
-                                    0.0,
-                                    math.max(0.0, _panelHeight - item.height),
-                                  ),
-                                );
-                              });
+                              // 90° 회전: 가로·세로를 바꾸고 각도 칸도 90 더한다(넓은 화면과 같은 함수).
+                              _rotateItem(item);
                               // 바텀시트의 텍스트 필드 값도 함께 업데이트
                               setModalState(() {
                                 widthCtrl.text = item.width.toInt().toString();
@@ -4106,7 +4765,6 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                     .toInt()
                                     .toString();
                               });
-                              HapticFeedback.lightImpact();
                             },
                             icon: const Icon(
                               Icons.rotate_90_degrees_cw_rounded,
@@ -4163,6 +4821,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                   depth: item.depth,
                                   elevation: item.elevation,
                                   flipped: item.flipped,
+                                  tag: item.tag,
+                                  rotation: item.rotation,
                                 );
                                 _placedItems.add(newItem);
                               });
@@ -4301,6 +4961,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                 : item.name,
                             item.width,
                             item.height,
+                            shape: item.shape,
+                            depth: item.depth,
                           );
                           HapticFeedback.lightImpact();
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -4392,6 +5054,17 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                         });
                       },
                     ),
+                    const SizedBox(height: 12),
+                    _buildTagField(item, tagCtrl),
+                    if (_buildRailLengthHint(item, () {}) != null) ...[
+                      const SizedBox(height: 12),
+                      _buildRailLengthHint(item, () {
+                        setModalState(() {
+                          widthCtrl.text = item.width.toInt().toString();
+                          heightCtrl.text = item.height.toInt().toString();
+                        });
+                      })!,
+                    ],
                     const SizedBox(height: 28),
                     const Text(
                       "모듈 크기 (가로 x 세로)",
@@ -4689,7 +5362,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     const SizedBox(height: 4),
                     Text(
                       keepWords(
-                        "카톡으로 받은 실제 도면 사진을 배경에 깔고 그 위에 모듈을\n배치할 수 있습니다.",
+                        "카톡으로 받은 실제 도면 사진을 배경에 깔고 그 위에 모듈을\n배치할 수 있습니다. PDF 도면은 카톡에서 사진으로 저장해서 받으십시오.",
                       ),
                       style: TextStyle(
                         fontSize: 14,
@@ -4736,6 +5409,77 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                 setModalState(() => _backgroundOpacity = v);
                                 setState(() => _backgroundOpacity = v);
                               },
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.light_mode_outlined,
+                            size: 18,
+                            color: tossSubText,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            "밝기",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: tossText,
+                            ),
+                          ),
+                          Expanded(
+                            child: Slider(
+                              key: const ValueKey("background_brightness"),
+                              value: _backgroundBrightness,
+                              min: 0.6,
+                              max: 1.6,
+                              activeColor: tossBlue,
+                              onChanged: (v) {
+                                setModalState(() => _backgroundBrightness = v);
+                                setState(() => _backgroundBrightness = v);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: SwitchListTile(
+                              key: const ValueKey("background_gray"),
+                              contentPadding: EdgeInsets.zero,
+                              dense: true,
+                              title: const Text(
+                                "흑백으로",
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: tossText,
+                                ),
+                              ),
+                              value: _backgroundGray,
+                              activeThumbColor: tossBlue,
+                              onChanged: (v) {
+                                setModalState(() => _backgroundGray = v);
+                                setState(() => _backgroundGray = v);
+                              },
+                            ),
+                          ),
+                          TextButton.icon(
+                            key: const ValueKey("background_rotate"),
+                            onPressed: () async {
+                              await _rotateBackground();
+                              setModalState(() {});
+                            },
+                            icon: const Icon(
+                              Icons.rotate_90_degrees_cw_rounded,
+                              size: 18,
+                            ),
+                            label: const Text(
+                              "90° 돌리기",
+                              style: TextStyle(fontWeight: FontWeight.w800),
                             ),
                           ),
                         ],
@@ -4961,6 +5705,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     var totalItems = 0;
     // 덕트·레일·형강·전선관은 개수 옆에 길이 합도 적는다. 메모 글자는 세지 않는다.
     final Map<String, double> lengthByName = {};
+    // 이름별 태그 번호(있는 것만).
+    final Map<String, List<String>> tagsByName = {};
     for (final e in _allPlates().entries) {
       final items = layoutItemsFromData(
         e.value,
@@ -4970,6 +5716,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       totalItems += items.length;
       for (final item in items) {
         counts[item.name] = (counts[item.name] ?? 0) + 1;
+        if (item.tag != null) {
+          (tagsByName[item.name] ??= []).add(item.tag!);
+        }
         if (isLengthItem(item)) {
           lengthByName[item.name] =
               (lengthByName[item.name] ?? 0) + itemLengthMm(item);
@@ -4979,7 +5728,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     // 전선관 경로는 규격별 길이 합(꺾이는 점 사이 합).
     final Map<int, double> routeLenBySize = {};
     for (final r in _routes) {
-      routeLenBySize[r.size] = (routeLenBySize[r.size] ?? 0) + r.totalLength;
+      routeLenBySize[r.size] =
+          (routeLenBySize[r.size] ?? 0) + r.totalLengthWith(_planItems);
     }
     final List<(String, double)> lengthLines = [
       for (final e in lengthByName.entries) (e.key, e.value),
@@ -4997,7 +5747,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         "[${_projectName.isNotEmpty ? _projectName : '작업 배치도'} 자재 수량]",
       );
       for (final e in entries) {
-        buf.writeln("- ${e.key} x ${e.value}개");
+        final tags = tagsByName[e.key];
+        buf.writeln(
+          "- ${e.key} x ${e.value}개${tags == null ? "" : " (${tags.join(', ')})"}",
+        );
       }
       buf.writeln("총 모듈 $totalItems개");
       if (lengthLines.isNotEmpty) {
@@ -5074,7 +5827,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                             children: [
                               Expanded(
                                 child: Text(
-                                  e.key,
+                                  tagsByName[e.key] == null
+                                      ? e.key
+                                      : "${e.key}\n${tagsByName[e.key]!.join(', ')}",
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w700,
@@ -5421,8 +6176,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     if (_lastWide != null && _lastWide != wide) _onLayoutShapeChanged(wide);
     _lastWide = wide;
     _problemIds = _sidePlatesOn || _cabinetDepth != null
-        ? _clashReport().problemIds(_plateId)
-        : const {};
+        ? _clashReportCached().problemIds(_plateId)
+        : (_isSkid && _routes.isNotEmpty
+              ? _skidRouteClashProblemIds()
+              : const {});
 
     return Scaffold(
       backgroundColor: tossBg,
@@ -5462,15 +6219,26 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             Positioned(
               top: (wide ? 96 : 12) + (_showTabs ? 48 : 0),
               right: wide ? _kWideInspectorWidth + 12 : 12,
-              child: (_minimapOpen ?? wide)
-                  ? Tooltip(
-                      message: "미니맵 접기",
-                      child: GestureDetector(
-                        onTap: () => setState(() => _minimapOpen = false),
-                        child: _buildMinimap(),
-                      ),
-                    )
-                  : _buildMinimapButton(),
+              // 확대·이동은 미니맵과 배율 글자만 다시 그린다(예전엔 화면 전체를 다시 그렸다).
+              child: ValueListenableBuilder<Matrix4>(
+                valueListenable: _viewerController,
+                builder: (_, _, _) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    (_minimapOpen ?? wide)
+                        ? Tooltip(
+                            message: "미니맵 접기",
+                            child: GestureDetector(
+                              onTap: () => setState(() => _minimapOpen = false),
+                              child: _buildMinimap(),
+                            ),
+                          )
+                        : _buildMinimapButton(),
+                    const SizedBox(height: 4),
+                    _buildZoomLabel(),
+                  ],
+                ),
+              ),
             ),
           // 🚀 [추가] 저장된 프로젝트를 불러오는 동안 화면을 덮어서 빈
           // 도면이 잠깐 보였다가 내용이 채워지는 깜빡임을 막는다.
@@ -5724,6 +6492,19 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       label: "자재 수량",
                       onTap: () => run(_showMaterialSummarySheet),
                     ),
+                    if (_savedRects.isNotEmpty)
+                      layoutSheetRow(
+                        key: const ValueKey("toggle_saved_diff"),
+                        icon: Icons.difference_outlined,
+                        label: "저장본과 차이 보기",
+                        caption: _showSavedDiff
+                            ? "켜짐 · 옮긴 부품의 옛 자리는 점선, 지운 부품은 붉은 점선"
+                            : "꺼짐 · 마지막 저장본에서 무엇이 바뀌었는지 도면에 그립니다",
+                        onTap: () => run(
+                          () =>
+                              setState(() => _showSavedDiff = !_showSavedDiff),
+                        ),
+                      ),
                     layoutSheetRow(
                       icon: Icons.palette_outlined,
                       label: "색상 범례",
@@ -5959,9 +6740,12 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                       rect: _backgroundRect!,
                                       child: Opacity(
                                         opacity: _backgroundOpacity,
-                                        child: Image.file(
-                                          File(_backgroundImagePath!),
-                                          fit: BoxFit.fill,
+                                        child: ColorFiltered(
+                                          colorFilter: _backgroundFilter,
+                                          child: Image.file(
+                                            File(_backgroundImagePath!),
+                                            fit: BoxFit.fill,
+                                          ),
                                         ),
                                       ),
                                     )
@@ -5969,9 +6753,12 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                       key: const ValueKey("board_background"),
                                       child: Opacity(
                                         opacity: _backgroundOpacity,
-                                        child: Image.file(
-                                          File(_backgroundImagePath!),
-                                          fit: BoxFit.contain,
+                                        child: ColorFiltered(
+                                          colorFilter: _backgroundFilter,
+                                          child: Image.file(
+                                            File(_backgroundImagePath!),
+                                            fit: BoxFit.contain,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -6282,6 +7069,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                   onPanEnd: canDrag
                                       ? (details) {
                                           setState(() {
+                                            // DIN 레일 부품을 레일 위에 놓으면 세로 자리를 레일에 맞춘다.
+                                            if (_groupDragOrigins.isEmpty) {
+                                              _snapToRail(item);
+                                            }
                                             // 넓은 화면에서는 오른쪽 칸이 이 모듈을 계속 보여 주도록 선택을 남긴다.
                                             if (!wide) _activeItem = null;
                                             _alignGuideX = null;
@@ -6304,6 +7095,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                       clipBehavior: Clip.none,
                                       children: [
                                         _buildBoardItem(item),
+                                        // 크기 손잡이: 2배 넘게 키웠을 때만, 고른 부품 오른쪽 아래(화면에서 40dp).
+                                        if (_showResizeHandle(item))
+                                          _buildResizeHandle(item),
                                         if (item.isLocked)
                                           Positioned(
                                             right: -2,
@@ -6327,6 +7121,17 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                 ),
                               );
                             }),
+                            // 저장본과 차이: 옮긴 부품의 옛 자리·지운 부품은 점선, 새 부품은 초록 점선.
+                            if (_showSavedDiff && !_pdfCapture)
+                              IgnorePointer(
+                                child: CustomPaint(
+                                  size: Size.infinite,
+                                  painter: _SavedDiffPainter(
+                                    diff: _savedDiff(),
+                                    markScale: _markScale,
+                                  ),
+                                ),
+                              ),
                             // 치수·가상선은 부품 위에 그린다. 부품 아래에 두면 부품이 벽에
                             // 붙을수록 치수 글자가 부품 뒤로 들어가 가려졌다.
                             IgnorePointer(
@@ -6974,6 +7779,19 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     setState(() => item.name = val.isEmpty ? "이름 없음" : val),
               ),
               const SizedBox(height: 12),
+              _buildInspectorInput(
+                "태그 번호 (PT-101 같은 것, 비워도 됨)",
+                fieldKey: ValueKey("${item.id}_태그"),
+                item.tag ?? "",
+                (val) => setState(
+                  () => item.tag = val.trim().isEmpty ? null : val.trim(),
+                ),
+              ),
+              if (_buildRailLengthHint(item, () {}) != null) ...[
+                const SizedBox(height: 12),
+                _buildRailLengthHint(item, () {})!,
+              ],
+              const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
@@ -6984,7 +7802,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       accent: true,
                     ),
                   ),
-                  if (SkidShape.isFitting(item.shape)) ...[
+                  if (_canFlip(item)) ...[
                     const SizedBox(width: 8),
                     Expanded(
                       child: _inspectorButton(
@@ -7128,7 +7946,13 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 icon: Icons.star_border_rounded,
                 label: "이 크기를 내 프리셋으로 저장",
                 onTap: () {
-                  _saveAsCustomPreset(item.name, item.width, item.height);
+                  _saveAsCustomPreset(
+                    item.name,
+                    item.width,
+                    item.height,
+                    shape: item.shape,
+                    depth: item.depth,
+                  );
                   HapticFeedback.lightImpact();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -7256,8 +8080,18 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 label: "체인",
                 selected: _dimensionChainMode,
                 color: tossBlue,
-                onTap: () =>
-                    setState(() => _dimensionChainMode = !_dimensionChainMode),
+                onTap: _toggleChainMode,
+              ),
+            ),
+            const SizedBox(width: 8),
+            // 기준점: 첫 점을 붙잡아 두고 다음 점마다 새 치수(누적 치수).
+            Expanded(
+              child: _toolToggle(
+                icon: Icons.push_pin_outlined,
+                label: "기준점",
+                selected: _dimensionBaselineMode,
+                color: tossBlue,
+                onTap: _toggleBaselineMode,
               ),
             ),
             const SizedBox(width: 8),
@@ -7327,11 +8161,67 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     );
   }
 
+  // 체인과 기준점은 같이 켤 수 없다(둘 다 "다음 점" 규칙이라 하나만).
+  void _toggleChainMode() => setState(() {
+    _dimensionChainMode = !_dimensionChainMode;
+    if (_dimensionChainMode) _dimensionBaselineMode = false;
+  });
+
+  void _toggleBaselineMode() => setState(() {
+    _dimensionBaselineMode = !_dimensionBaselineMode;
+    if (_dimensionBaselineMode) _dimensionChainMode = false;
+    if (!_dimensionBaselineMode) _dimensionStartPoint = null;
+  });
+
   // 치수 재기 안내 한 줄(좁은 화면 아래 칸과 넓은 화면 오른쪽 칸이 같이 쓴다).
   String _dimensionHint() {
+    if (_dimensionStartPoint != null && _dimensionBaselineMode) {
+      return "기준점: 다음 지점마다 기준점에서 잰 치수가 하나씩 생깁니다. '첫 지점 취소'로 기준을 풉니다.";
+    }
     if (_dimensionStartPoint != null) return "다음 지점을 누르면 치수선이 이어집니다.";
     if (_dimensionChainMode) return "체인: 지점을 계속 누르면 이어서 잽니다.";
+    if (_dimensionBaselineMode) {
+      return "기준점: 처음 누른 지점이 기준으로 남고, 다음 지점마다 치수가 생깁니다.";
+    }
     return "잴 두 지점(모듈 또는 벽면)을 차례로 누르십시오. 치수선을 누르면 고칩니다.";
+  }
+
+  /// 태그 번호 칸(좁은 화면 편집창). 비우면 없앤다.
+  Widget _buildTagField(PlacedItem item, TextEditingController ctrl) {
+    return TextField(
+      key: const ValueKey("item_tag_field"),
+      controller: ctrl,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: tossText,
+      ),
+      decoration: InputDecoration(
+        labelText: "태그 번호 (PT-101 같은 것, 비워도 됨)",
+        labelStyle: const TextStyle(
+          color: tossSubText,
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+        ),
+        floatingLabelStyle: const TextStyle(
+          color: tossBlue,
+          fontSize: 15,
+          fontWeight: FontWeight.w800,
+        ),
+        filled: true,
+        fillColor: tossBg,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+      ),
+      onChanged: (val) =>
+          setState(() => item.tag = val.trim().isEmpty ? null : val.trim()),
+    );
   }
 
   // 모듈 이름 밑 한 줄: 캐비닛은 깊이, 스키드는 바닥에서 높이.
@@ -7522,6 +8412,37 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             width: 48,
             height: 48,
             child: Icon(Icons.map_outlined, color: tossText, size: 24),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 확대 배율 글자(미니맵 아래). 누르면 화면에 맞춘다.
+  Widget _buildZoomLabel() {
+    final double z = _viewZoom;
+    final String text = z >= 10
+        ? "${z.toStringAsFixed(0)}×"
+        : (z >= 1 ? "${z.toStringAsFixed(1)}×" : "${z.toStringAsFixed(2)}×");
+    return Tooltip(
+      message: "확대 배율 · 누르면 화면에 맞춥니다",
+      child: GestureDetector(
+        onTap: () => setState(_fitBoardToView),
+        child: Container(
+          key: const ValueKey("zoom_label"),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: pureWhite.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: tossSubText.withValues(alpha: 0.4)),
+          ),
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: tossText,
+            ),
           ),
         ),
       ),
@@ -8205,7 +9126,19 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   get _viewProxies {
     if (!_isSkid || _plateId == kPlateMain) return const [];
     final (_, planH) = _planSize;
-    return [
+    // 평면 부품이 그대로면 지난번 셈을 쓴다(한 번 그릴 때 여러 번 부른다).
+    final kb = StringBuffer()
+      ..write(_plateId)
+      ..write('|')
+      ..write(_panelHeight)
+      ..write('|')
+      ..write(planH)
+      ..write('|');
+    _fingerprintItems(kb, _planItems);
+    final String key = kb.toString();
+    if (key == _proxyKey) return _proxyCache;
+    _proxyKey = key;
+    return _proxyCache = [
       for (final p in skidViewLayout(
         _planItems.where((it) => it.shape != InstrumentShape.note).toList(),
         _plateId,
@@ -8562,7 +9495,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                             ),
                           ),
                           subtitle: Text(
-                            "${r.bends.length}줄 · 꺾이는 점 사이 합 ${r.totalLength.toInt()} mm",
+                            "${r.bends.length}줄 · 길이 합 ${r.totalLengthWith(_planItems).toInt()} mm"
+                            "${r.endRun(_planItems) == null ? "" : " · 끝: ${r.endRun(_planItems)!.item.name}"}"
+                            "${_skidRouteClashes().any((c) => c.route.id == r.id) ? "\n⚠ 형강·부품과 겹칩니다: ${_skidRouteClashes().where((c) => c.route.id == r.id).map((c) => c.item.name).toSet().join(', ')}" : ""}",
                             style: const TextStyle(
                               fontSize: 14,
                               color: tossSubText,
@@ -9150,9 +10085,208 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   }
 
   // 90° 돌리기(가로·세로 바꾸기). 도면 밖으로 나가지 않게 위치를 맞춘다.
+  // ───── DIN 레일 붙이기 ─────
+  static bool _isRail(PlacedItem it) =>
+      it.shape == 'el_rail' || it.name.contains("DIN 레일");
+
+  /// 레일에 다는 전기 부품(단자대·차단기·릴레이 …). 레일 자체는 아니다.
+  static bool _isRailPart(PlacedItem it) =>
+      it.shape != null && it.shape!.startsWith('el_') && !_isRail(it);
+
+  /// 부품 가운데가 레일 위(가로 안, 세로로 40mm 안)에 오면 세로 자리를 레일 가운데에 맞춘다.
+  void _snapToRail(PlacedItem item) {
+    if (!_isRailPart(item)) return;
+    final double cx = item.position.dx + item.width / 2;
+    final double cy = item.position.dy + item.height / 2;
+    for (final rail in _placedItems) {
+      if (rail.id == item.id || !_isRail(rail)) continue;
+      final Rect r = rail.boundingBox;
+      // 세로로 긴 레일(돌려 놓은 것)은 가로 자리를 맞춘다.
+      final bool vertical = rail.height > rail.width;
+      if (vertical) {
+        if (cy < r.top || cy > r.bottom || (cx - r.center.dx).abs() > 40) {
+          continue;
+        }
+        item.position = Offset(
+          (r.center.dx - item.width / 2).clamp(
+            0.0,
+            math.max(0.0, _panelWidth - item.width),
+          ),
+          item.position.dy,
+        );
+      } else {
+        if (cx < r.left || cx > r.right || (cy - r.center.dy).abs() > 40) {
+          continue;
+        }
+        item.position = Offset(
+          item.position.dx,
+          (r.center.dy - item.height / 2).clamp(
+            0.0,
+            math.max(0.0, _panelHeight - item.height),
+          ),
+        );
+      }
+      return;
+    }
+  }
+
+  /// 레일에 붙은 부품들의 폭 합(레일 길이 제안).
+  double _railPartsWidth(PlacedItem rail) {
+    final Rect r = rail.boundingBox;
+    final bool vertical = rail.height > rail.width;
+    double sum = 0;
+    for (final it in _placedItems) {
+      if (!_isRailPart(it)) continue;
+      final Offset c = it.center;
+      if (vertical
+          ? (c.dy >= r.top &&
+                c.dy <= r.bottom &&
+                (c.dx - r.center.dx).abs() <= 40)
+          : (c.dx >= r.left &&
+                c.dx <= r.right &&
+                (c.dy - r.center.dy).abs() <= 40)) {
+        sum += vertical ? it.height : it.width;
+      }
+    }
+    return sum;
+  }
+
+  /// 레일 편집칸 아래 한 줄: 붙은 부품 폭 합과 "이 길이로" 단추. 레일이 아니거나 붙은 것이 없으면 null.
+  Widget? _buildRailLengthHint(PlacedItem item, VoidCallback onApplied) {
+    if (!_isRail(item)) return null;
+    final double sum = _railPartsWidth(item);
+    if (sum <= 0) return null;
+    final bool vertical = item.height > item.width;
+    final double now = vertical ? item.height : item.width;
+    // 양 끝 여유 20mm.
+    final double suggest = (sum + 40).ceilToDouble();
+    return Container(
+      key: const ValueKey("rail_length_hint"),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: tossBg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              keepWords(
+                "붙은 부품 폭 합 ${sum.toInt()}mm (여유 포함 ${suggest.toInt()}) · 지금 레일 ${now.toInt()}",
+              ),
+              style: const TextStyle(
+                fontSize: 13,
+                color: tossText,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: now == suggest
+                ? null
+                : () {
+                    _pushUndo();
+                    setState(() {
+                      if (vertical) {
+                        item.height = suggest;
+                      } else {
+                        item.width = suggest;
+                      }
+                    });
+                    onApplied();
+                  },
+            child: const Text(
+              "이 길이로",
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ───── 크기 손잡이(2배 넘게 키웠을 때) ─────
+  ({double w, double h})? _resizeStart;
+  Offset _resizeRaw = Offset.zero;
+
+  bool _showResizeHandle(PlacedItem item) =>
+      item.isSelected &&
+      !item.isLocked &&
+      !_pdfCapture &&
+      _mode == BoardMode.placeModule &&
+      !_multiSelectMode &&
+      _viewZoom >= 2.0;
+
+  Widget _buildResizeHandle(PlacedItem item) {
+    // 화면에서 40dp가 되게 도면 단위로 환산한다.
+    final double s = 40 / _viewZoom;
+    return Positioned(
+      right: -s / 2,
+      bottom: -s / 2,
+      child: GestureDetector(
+        key: ValueKey("resize_${item.id}"),
+        behavior: HitTestBehavior.opaque,
+        onPanStart: (_) {
+          _pushUndo();
+          _resizeStart = (w: item.width, h: item.height);
+          _resizeRaw = Offset.zero;
+        },
+        onPanUpdate: (d) {
+          final st = _resizeStart;
+          if (st == null) return;
+          _resizeRaw += d.delta;
+          setState(() {
+            final Offset want = _snapToGrid(
+              Offset(st.w + _resizeRaw.dx, st.h + _resizeRaw.dy),
+            );
+            item.width = want.dx.clamp(
+              5.0,
+              math.max(5.0, _panelWidth - item.position.dx),
+            );
+            item.height = want.dy.clamp(
+              5.0,
+              math.max(5.0, _panelHeight - item.position.dy),
+            );
+          });
+        },
+        onPanEnd: (_) {
+          _resizeStart = null;
+          _saveDraftToPrefs();
+        },
+        child: Container(
+          width: s,
+          height: s,
+          decoration: BoxDecoration(
+            color: pureWhite,
+            shape: BoxShape.circle,
+            border: Border.all(color: tossBlue, width: 2 / _viewZoom),
+          ),
+          child: Icon(
+            Icons.open_in_full_rounded,
+            size: s * 0.5,
+            color: tossBlue,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 지금 돌아가 있는 각도(90° 단위). 각도 칸이 없는 예전 부품은 그림처럼 가로·세로 비율로 가린다.
+  int _effectiveTurns(PlacedItem item) {
+    if (item.quarterTurns != null) return item.quarterTurns!;
+    final String? s = item.shape;
+    if (s == null || s.isEmpty || SkidShape.isSkid(s)) return 0;
+    return InstrumentShape.inferredQuarterTurns(
+      s,
+      Size(item.width, item.height),
+    );
+  }
+
+  /// 90° 시계 방향으로 돌린다. 가로·세로를 바꾸고 각도 칸을 90 더한다(0→90→180→270→0).
   void _rotateItem(PlacedItem item) {
     _pushUndo();
     setState(() {
+      item.rotation = ((_effectiveTurns(item) + 1) % 4) * 90;
       final double temp = item.width;
       item.width = item.height;
       item.height = temp;
@@ -9164,7 +10298,18 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     HapticFeedback.lightImpact();
   }
 
-  /// 전선관 부속을 길이 방향으로 좌우 뒤집는다(허브가 반대쪽). 크기·자리는 그대로.
+  /// 좌우 뒤집기를 보일 부품: 그림이 있는 것(메모 글자·덕트·전기 부품은 뒤집을 것이 없다).
+  bool _canFlip(PlacedItem item) {
+    final String? s = item.shape;
+    if (s == null || s.isEmpty) return false;
+    if (SkidShape.isFitting(s)) return true;
+    if (SkidShape.isSkid(s)) return false;
+    if (s == InstrumentShape.note || s == InstrumentShape.duct) return false;
+    if (s.startsWith('el_')) return false;
+    return true;
+  }
+
+  /// 부품을 길이 방향으로 좌우 뒤집는다(부속은 허브가 반대쪽). 크기·자리는 그대로.
   void _flipItem(PlacedItem item) {
     _pushUndo();
     setState(() => item.flipped = !item.flipped);
@@ -9241,8 +10386,18 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 label: "체인",
                 selected: _dimensionChainMode,
                 color: tossBlue,
-                onTap: () =>
-                    setState(() => _dimensionChainMode = !_dimensionChainMode),
+                onTap: _toggleChainMode,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 3,
+              child: _toolToggle(
+                icon: Icons.push_pin_outlined,
+                label: "기준점",
+                selected: _dimensionBaselineMode,
+                color: tossBlue,
+                onTap: _toggleBaselineMode,
               ),
             ),
             const SizedBox(width: 8),
@@ -9394,7 +10549,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           : null,
       alignment: Alignment.centerLeft,
       child: Text(
-        item.name,
+        item.tag == null ? item.name : "${item.tag}\n${item.name}",
         style: TextStyle(
           fontSize: font,
           fontWeight: FontWeight.w700,
@@ -9451,19 +10606,40 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               _problemIds.contains(item.id)
                           ? 2.5
                           : 1.5,
+                      // 각도 칸이 있으면 그대로(0·90·180·270), 없으면 예전처럼 비율로 가린다.
+                      quarterTurns: item.quarterTurns,
+                      mirror: item.flipped,
                     ),
             ),
           ),
+          // 고른 부품은 튜브가 붙는 자리(접속점)를 점으로 보인다.
+          if (item.isSelected && !_pdfCapture)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: _PortDotsPainter(
+                    points: shapeConnectionPoints(
+                      item.shape,
+                      Size(item.width, item.height),
+                      quarterTurns: _effectiveTurns(item),
+                      mirror: item.flipped,
+                    ),
+                    radius: math.max(2.0, 6.0 / _viewZoom),
+                  ),
+                ),
+              ),
+            ),
           Center(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
               color: pureWhite.withValues(alpha: small ? 0.55 : 0.85),
               child: Text(
-                _itemCaption(item) == null ||
-                        small ||
-                        item.shape == InstrumentShape.duct
-                    ? item.name
-                    : "${item.name}\n${_itemCaption(item)}",
+                (item.tag == null ? "" : "${item.tag}\n") +
+                    (_itemCaption(item) == null ||
+                            small ||
+                            item.shape == InstrumentShape.duct
+                        ? item.name
+                        : "${item.name}\n${_itemCaption(item)}"),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: small ? 8 : 11,
@@ -9474,7 +10650,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   height: 1.15,
                   letterSpacing: -0.3,
                 ),
-                maxLines: small ? 2 : 3,
+                maxLines: small ? (item.tag == null ? 2 : 3) : 4,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -9650,6 +10826,121 @@ class _InspectorNumberFieldState extends State<_InspectorNumberField> {
 }
 
 /// 가려진 부품 테두리(숨은선): 회색 점선 네모.
+/// PDF 표준 축척 중 [plateW]×[plateH](mm)가 [availW]×[availH](pt) 안에 들어가는 가장 큰 것(1:N의 N).
+double pdfStandardScale(
+  double plateW,
+  double plateH,
+  double availW,
+  double availH,
+) {
+  const double ptPerMm = 72 / 25.4;
+  for (final n in const [1, 2, 2.5, 5, 10, 20, 25, 50, 100, 200, 500]) {
+    if (plateW / n * ptPerMm <= availW && plateH / n * ptPerMm <= availH) {
+      return n.toDouble();
+    }
+  }
+  return 1000;
+}
+
+/// 고른 부품의 접속점(튜브가 붙는 자리)을 작은 점으로.
+class _PortDotsPainter extends CustomPainter {
+  final List<Offset> points;
+  final double radius;
+  const _PortDotsPainter({required this.points, required this.radius});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.isEmpty) return;
+    final fill = Paint()..color = const Color(0xFFF59E0B);
+    final ring = Paint()
+      ..color = pureWhite
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = radius * 0.4;
+    for (final p in points) {
+      canvas.drawCircle(p, radius, fill);
+      canvas.drawCircle(p, radius, ring);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PortDotsPainter old) =>
+      old.radius != radius || old.points.length != points.length;
+}
+
+/// 저장본과 지금 도면의 차이를 그린다. 옮긴 부품: 옛 자리 회색 점선 + 새 자리까지 가는 선,
+/// 새 부품: 초록 점선, 지운 부품: 붉은 점선과 이름.
+class _SavedDiffPainter extends CustomPainter {
+  final ({
+    List<(Rect, Rect)> moved,
+    List<Rect> added,
+    List<(Rect, String)> removed,
+  })
+  diff;
+  final double markScale;
+  const _SavedDiffPainter({required this.diff, required this.markScale});
+
+  void _dashedRect(Canvas c, Rect r, Paint p) {
+    final double dash = p.strokeWidth * 5, gap = p.strokeWidth * 3;
+    void line(Offset a, Offset b) {
+      final double len = (b - a).distance;
+      if (len <= 0) return;
+      final Offset d = (b - a) / len;
+      for (double t = 0; t < len; t += dash + gap) {
+        c.drawLine(a + d * t, a + d * math.min(t + dash, len), p);
+      }
+    }
+
+    line(r.topLeft, r.topRight);
+    line(r.topRight, r.bottomRight);
+    line(r.bottomRight, r.bottomLeft);
+    line(r.bottomLeft, r.topLeft);
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double sw = 1.2 * markScale.clamp(1.0, 3.0);
+    final grey = Paint()
+      ..color = const Color(0xFF64748B)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = sw;
+    final green = Paint()
+      ..color = const Color(0xFF16A34A)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = sw;
+    final red = Paint()
+      ..color = warningRed
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = sw;
+    for (final (old, now) in diff.moved) {
+      _dashedRect(canvas, old, grey);
+      canvas.drawLine(old.center, now.center, grey);
+      canvas.drawCircle(now.center, sw * 1.5, grey..style = PaintingStyle.fill);
+      grey.style = PaintingStyle.stroke;
+    }
+    for (final r in diff.added) {
+      _dashedRect(canvas, r.inflate(sw * 2), green);
+    }
+    for (final (r, name) in diff.removed) {
+      _dashedRect(canvas, r, red);
+      final tp = TextPainter(
+        text: TextSpan(
+          text: "지움 $name",
+          style: TextStyle(
+            color: warningRed,
+            fontSize: 10 * markScale.clamp(1.0, 3.0),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: math.max(40, r.width));
+      tp.paint(canvas, r.topLeft + Offset(2, 2));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SavedDiffPainter old) => true;
+}
+
 class _HiddenOutlinePainter extends CustomPainter {
   final double strokeWidth;
   const _HiddenOutlinePainter({required this.strokeWidth});
