@@ -189,6 +189,35 @@ class _Body extends StatelessWidget {
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
+              // 재고조사까지 안 가고 바로 "몇 개 썼다/채웠다"를 적는다.
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      key: const Key('item_use'),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                      ),
+                      onPressed: () => _moveQty(context, use: true),
+                      icon: const Icon(Icons.remove, size: 18),
+                      label: const Text("씀"),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      key: const Key('item_fill'),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                      ),
+                      onPressed: () => _moveQty(context, use: false),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text("채움"),
+                    ),
+                  ),
+                ],
+              ),
               if (short)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
@@ -366,6 +395,90 @@ class _Body extends StatelessWidget {
 
   /// 재고 수량은 창고 숫자를 바꾸는 일이라, 바뀌는 내용을 한 번 보여 주고
   /// 기록(자재 기록)에도 남긴다.
+  /// 쓴 만큼 빼거나 채운 만큼 더한다. 수량을 통째로 쓰지 않고 더하고 빼기만 해서
+  /// 컷팅 차감과 겹쳐도 틀어지지 않는다. 재고와 기록은 한 번에 쓴다.
+  Future<void> _moveQty(BuildContext context, {required bool use}) async {
+    final ctrl = TextEditingController(text: '1');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(use ? "몇 $_unit 썼습니까?" : "몇 $_unit 채웠습니까?"),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 40,
+            fontWeight: FontWeight.w800,
+            color: CuttingColors.primaryDark,
+          ),
+          decoration: const InputDecoration(border: InputBorder.none),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("취소"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: CuttingColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(use ? "뺍니다" : "더합니다"),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    final n = int.tryParse(ctrl.text.trim());
+    if (n == null || n <= 0) return;
+    if (!context.mounted) return;
+    if (use && n > _qty) {
+      showCuttingSnack(
+        context,
+        "재고($_qty$_unit)보다 많이 뺄 수 없습니다. 수량 고치기로 맞추십시오.",
+        isError: true,
+      );
+      return;
+    }
+
+    try {
+      final db = FirebaseFirestore.instance;
+      final batch = db.batch();
+      batch.update(_ref, {
+        'qty': FieldValue.increment(use ? -n : n),
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+      batch.set(db.collection('inventory_logs').doc(), {
+        'material_name': _name,
+        'item_id': docId,
+        'type': use ? 'OUT' : 'IN',
+        'action': use ? '사용' : '채움',
+        'qty': n,
+        'unit': _unit,
+        'worker_name': workerName,
+        'project_name': use ? '자재 화면에서 씀' : '자재 화면에서 채움',
+        'device': 'Mobile',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+      await batch.commit().timeout(
+        const Duration(seconds: 8),
+        onTimeout: () {},
+      );
+      if (!context.mounted) return;
+      showCuttingSnack(
+        context,
+        use ? "$n$_unit 뺐습니다." : "$n$_unit 더했습니다.",
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      showCuttingSnack(context, "적지 못했습니다.", isError: true);
+    }
+  }
+
   Future<void> _editQty(BuildContext context) async {
     final ctrl = TextEditingController(text: '$_qty');
     final ok = await showDialog<bool>(
