@@ -44,7 +44,8 @@ class ModulePreset {
   });
 
   /// 깊이를 모를 때 모양에서 어림한다(덕트는 이름의 높이, 피팅은 가장 굵은 육각).
-  double? get depthOrGuess => depth ?? guessPresetDepth(this);
+  double? get depthOrGuess =>
+      depth ?? kPresetDepth[name] ?? guessPresetDepth(this);
 }
 
 // 🚀 배선 덕트 크기 = 폭×높이(mm). 도면(정면)에는 폭만큼 놓이고, 세로(길이)는 기본 200에서

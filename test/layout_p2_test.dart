@@ -237,4 +237,37 @@ void main() {
     expect(again.single['w'], 181);
     expect(again.single['h'], 104);
   });
+  testWidgets('PDF 만들기 창: 폰 폭에서 안 넘치고 취소하면 그대로', (tester) async {
+    await pumpBoard(tester, {
+      'kind': kLayoutKindCabinet,
+      'projectName': 'TEST',
+      'panelWidth': 600.0,
+      'panelHeight': 400.0,
+      'items': [
+        {
+          'type': 'item',
+          'id': 'a',
+          'name': 'x',
+          'x': 10,
+          'y': 10,
+          'w': 50,
+          'h': 50,
+        },
+      ],
+      'dimensions': <Map<String, dynamic>>[],
+    });
+    await tester.tap(find.byIcon(Icons.save_alt_rounded).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('QR 도면 PDF로 공유'));
+    await tester.pumpAndSettle();
+    expect(find.text('PDF 만들기'), findsOneWidget);
+    expect(find.byKey(const ValueKey('pdf_paper_A3')), findsOneWidget);
+    expect(find.byKey(const ValueKey('pdf_land_true')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('pdf_paper_A3')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+    expect(find.text('PDF 만들기'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -33,7 +33,8 @@ void main() {
     expect(
       find.descendant(
         of: find.byType(InteractiveViewer),
-        matching: find.text('APT3100 DPT'),
+        // 놓자마자 깊이(112)가 채워져 이름 밑에 '깊이 112'가 붙는다.
+        matching: find.textContaining('APT3100 DPT'),
       ),
       findsOneWidget,
     );

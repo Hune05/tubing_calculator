@@ -2183,39 +2183,37 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               children: [
                 _panelLabel("용지"),
                 const SizedBox(height: 6),
-                Row(
+                // 폰 폭에서는 넷이 한 줄에 안 들어가 줄을 바꾼다(예전엔 오른쪽이 잘렸다).
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
                   children: [
-                    for (final p in const ['A4', 'A3']) ...[
+                    for (final p in const ['A4', 'A3'])
                       ChoiceChip(
                         key: ValueKey("pdf_paper_$p"),
                         label: Text(p),
                         selected: paper == p,
                         selectedColor: tossBlue,
+                        showCheckmark: false,
                         labelStyle: TextStyle(
                           color: paper == p ? pureWhite : tossText,
                           fontWeight: FontWeight.w800,
                         ),
                         onSelected: (_) => setDlg(() => paper = p),
                       ),
-                      const SizedBox(width: 8),
-                    ],
-                    for (final (v, t) in const [
-                      (false, "세로"),
-                      (true, "가로"),
-                    ]) ...[
+                    for (final (v, t) in const [(false, "세로"), (true, "가로")])
                       ChoiceChip(
                         key: ValueKey("pdf_land_$v"),
                         label: Text(t),
                         selected: landscape == v,
                         selectedColor: tossBlue,
+                        showCheckmark: false,
                         labelStyle: TextStyle(
                           color: landscape == v ? pureWhite : tossText,
                           fontWeight: FontWeight.w800,
                         ),
                         onSelected: (_) => setDlg(() => landscape = v),
                       ),
-                      const SizedBox(width: 8),
-                    ],
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -4730,9 +4728,11 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           size: 18,
                           color: tossBlue,
                         ),
-                        label: const Text(
-                          "좌우 뒤집기 (허브 반대쪽)",
-                          style: TextStyle(
+                        label: Text(
+                          SkidShape.isFitting(item.shape)
+                              ? "좌우 뒤집기 (허브 반대쪽)"
+                              : "좌우 뒤집기",
+                          style: const TextStyle(
                             color: tossBlue,
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
