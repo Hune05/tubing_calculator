@@ -1743,12 +1743,14 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   // ValueKey(item.id) 부여).
   Offset _snapToAlignment(PlacedItem dragging, Offset proposed) {
     const double snapThreshold = 6.0;
+    // 가운데는 부품 기준점(접속구 가운데, 없으면 상자 가운데)으로 견준다.
+    final Offset ref = itemRefCenterOffset(dragging);
     final double left = proposed.dx;
     final double right = proposed.dx + dragging.width;
-    final double centerX = proposed.dx + dragging.width / 2;
+    final double centerX = proposed.dx + ref.dx;
     final double top = proposed.dy;
     final double bottom = proposed.dy + dragging.height;
-    final double centerY = proposed.dy + dragging.height / 2;
+    final double centerY = proposed.dy + ref.dy;
 
     bool rangesOverlap(
       double aStart,

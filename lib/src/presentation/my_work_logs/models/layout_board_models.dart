@@ -821,6 +821,46 @@ abstract class MeasurePoint {
   Map<String, dynamic> toJson();
 }
 
+/// 부품 상자 왼쪽 위에서 기준점(접속구 가운데)까지의 거리. 접속구가 없으면 상자 가운데.
+///
+/// 접속구마다 관이 나가는 쪽(가장 가까운 변)을 본다. 위·아래 변으로 나가는 관은 세로 축(x),
+/// 왼쪽·오른쪽 변으로 나가는 관은 가로 축(y)을 준다. 기준 x = 세로 축들의 평균(없으면 접속구
+/// x 평균), 기준 y = 가로 축들의 평균(없으면 접속구 y 평균). 그래서 곧은 피팅·밸브는 관 축 위
+/// 가운데, 엘보·티는 관 축이 만나는 몸통 모서리, 아래로 관이 나가는 계기는 접속구 가운데가 된다.
+Offset itemRefCenterOffset(PlacedItem it) {
+  final Offset box = Offset(it.width / 2, it.height / 2);
+  final String? s = it.shape;
+  if (s == null || s.isEmpty || it.width <= 0 || it.height <= 0) return box;
+  final Size size = Size(it.width, it.height);
+  final int turns =
+      it.quarterTurns ?? InstrumentShape.inferredQuarterTurns(s, size);
+  final List<Offset> ports = shapeConnectionPoints(
+    s,
+    size,
+    quarterTurns: turns,
+    mirror: it.flipped,
+  );
+  if (ports.isEmpty) return box;
+  double sx = 0, sy = 0;
+  final vx = <double>[], hy = <double>[];
+  for (final p in ports) {
+    sx += p.dx;
+    sy += p.dy;
+    final double dl = p.dx, dr = it.width - p.dx;
+    final double dt = p.dy, db = it.height - p.dy;
+    final double side = math.min(dl, dr), vert = math.min(dt, db);
+    if (vert <= side) {
+      vx.add(p.dx);
+    } else {
+      hy.add(p.dy);
+    }
+  }
+  double mean(List<double> l) => l.reduce((a, b) => a + b) / l.length;
+  final double x = vx.isNotEmpty ? mean(vx) : sx / ports.length;
+  final double y = hy.isNotEmpty ? mean(hy) : sy / ports.length;
+  return Offset(x, y);
+}
+
 int _layoutIdSeq = 0;
 
 /// 부품·경로·치수 아이디. 밀리초만 쓰면 같은 순간에 둘이 생겨 겹칠 수 있어
@@ -881,9 +921,15 @@ class PlacedItem implements MeasurePoint {
   /// 돌린 각도를 90° 단위로(0~3). null이면 null.
   int? get quarterTurns => rotation == null ? null : ((rotation! ~/ 90) % 4);
 
-  @override
-  Offset get center =>
+  /// 상자 가운데(자리 + 가로·세로 반).
+  Offset get boxCenter =>
       Offset(position.dx + width / 2, position.dy + height / 2);
+
+  /// 센터 치수·가상선·맞춤 안내선의 기준점. 접속구(튜브 붙는 자리)가 있는 부품은 접속구
+  /// 가운데(관 축이 만나는 점), 없는 부품은 상자 가운데. 비대칭 부품(수직 배관 계기·엘보·
+  /// 손잡이 달린 밸브)은 상자 가운데가 배관 중심과 다르기 때문이다.
+  @override
+  Offset get center => position + itemRefCenterOffset(this);
 
   @override
   Rect get boundingBox =>
@@ -1068,21 +1114,23 @@ double itemLengthMm(PlacedItem it) =>
 ) {
   final Rect r1 = dim.p1.boundingBox;
   final Rect r2 = dim.p2.boundingBox;
+  // 센터는 부품의 기준점(접속구 가운데, 없으면 상자 가운데). 벽 점은 그 자리.
+  final Offset c1 = dim.p1.center;
+  final Offset c2 = dim.p2.center;
 
   // 🚀 [신규] 대각선 모드면 축 정렬 없이 두 중심점을 직선 그대로 잇는다.
   if (dim.isDiagonal) {
-    final Offset p1 = r1.center;
-    final Offset p2 = r2.center;
-    return (p1: p1, p2: p2, distance: (p1 - p2).distance);
+    return (p1: c1, p2: c2, distance: (c1 - c2).distance);
   }
 
-  final double dxCenter = (r1.center.dx - r2.center.dx).abs();
-  final double dyCenter = (r1.center.dy - r2.center.dy).abs();
+  final double dxCenter = (c1.dx - c2.dx).abs();
+  final double dyCenter = (c1.dy - c2.dy).abs();
 
   if (dim.type == DimensionType.center) {
-    Offset p1 = r1.center;
-    Offset p2 = r2.center;
-    p2 = dxCenter > dyCenter ? Offset(p2.dx, p1.dy) : Offset(p1.dx, p2.dy);
+    final Offset p1 = c1;
+    final Offset p2 = dxCenter > dyCenter
+        ? Offset(c2.dx, c1.dy)
+        : Offset(c1.dx, c2.dy);
     return (p1: p1, p2: p2, distance: (p1 - p2).distance);
   }
 
