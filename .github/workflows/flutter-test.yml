@@ -1,0 +1,29 @@
+# 올릴 때마다 테스트를 돌린다. 결과는 GitHub(폰 앱 포함)에서 커밋 옆 초록 체크/빨간 X로 보인다.
+name: flutter test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.9
+          channel: stable
+          cache: true
+
+      - name: 패키지 받기
+        run: flutter pub get
+
+      # 오류(error)만 실패로 본다. 경고·안내는 목록만 남긴다.
+      - name: 코드 검사
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: 테스트
+        run: flutter test
