@@ -88,6 +88,38 @@ void main() {
       await c.close();
     });
 
+    testWidgets('모양 고정이면 폰을 눕혀도 기포관 그대로', (tester) async {
+      final c = await pumpPage(tester, (s) => LevelPage(source: s));
+      await send(tester, c, g * sinD(3), g * cosD(3), 0); // 세움
+      await tester.tap(find.byKey(const Key('level_pose_lock')));
+      await tester.pump();
+      for (int i = 0; i < 40; i++) {
+        await send(tester, c, 0, 0, g); // 눕힘
+      }
+      expect(find.byKey(const Key('level_tube')), findsOneWidget);
+      expect(find.byKey(const Key('level_bullseye')), findsNothing);
+      await c.close();
+    });
+
+    testWidgets('메뉴: 소수점 끄기·소리 끄기가 폰에 남는다', (tester) async {
+      final c = await pumpPage(tester, (s) => LevelPage(source: s));
+      await send(tester, c, g * sinD(3), g * cosD(3), 0);
+      await tester.tap(find.byKey(const Key('level_menu')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text("소수점 보이기"));
+      await tester.pumpAndSettle();
+      expect(find.text("3°"), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('level_menu')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text("수평이면 소리"));
+      await tester.pumpAndSettle();
+      final p = await SharedPreferences.getInstance();
+      expect(p.getBool(kLevelDecimalsKey), isFalse);
+      expect(p.getBool(kLevelSoundKey), isFalse);
+      await c.close();
+    });
+
     testWidgets('센서 값이 안 오면 "읽을 수 없습니다"', (tester) async {
       final c = await pumpPage(
         tester,

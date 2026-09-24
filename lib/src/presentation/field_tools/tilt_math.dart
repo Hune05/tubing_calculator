@@ -94,9 +94,10 @@ double slopeIn(double deg, SlopeUnit u) {
 }
 
 /// 화면에 보일 글. 도는 소수 한 자리, 퍼센트는 두 자리, mm/m는 한 자리.
-String formatSlope(double deg, SlopeUnit u) {
+/// [decimals]를 끄면 한 자리씩 줄인다(도·mm/m는 정수, 퍼센트는 한 자리).
+String formatSlope(double deg, SlopeUnit u, {bool decimals = true}) {
   final v = slopeIn(deg, u);
-  final digits = u == SlopeUnit.percent ? 2 : 1;
+  final digits = (u == SlopeUnit.percent ? 2 : 1) - (decimals ? 0 : 1);
   final s = v.abs().toStringAsFixed(digits);
   return '$s${slopeUnitLabel(u)}';
 }

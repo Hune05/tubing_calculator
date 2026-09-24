@@ -75,6 +75,12 @@ void main() {
       expect(formatSlope(deg, SlopeUnit.degree), '0.6°');
     });
 
+    test('소수점을 끄면 한 자리씩 줄인다', () {
+      expect(formatSlope(3.04, SlopeUnit.degree, decimals: false), '3°');
+      expect(formatSlope(45, SlopeUnit.percent, decimals: false), '100.0%');
+      expect(formatSlope(45, SlopeUnit.mmPerM, decimals: false), '1000mm/m');
+    });
+
     test('기울어진 쪽과 상관없이 크기만 보인다', () {
       expect(formatSlope(-2.04, SlopeUnit.degree), '2.0°');
     });

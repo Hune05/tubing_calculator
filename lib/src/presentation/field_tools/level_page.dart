@@ -21,6 +21,8 @@ const Color _liquid = Color(0xFFD9F99D);
 
 const String kLevelCalibKey = 'field_level_calib_v1';
 const String kLevelUnitKey = 'field_level_unit_v1';
+const String kLevelSoundKey = 'field_level_sound_v1';
+const String kLevelDecimalsKey = 'field_level_decimals_v1';
 
 class LevelPage extends StatefulWidget {
   /// 센서 흐름. 비우면 폰 가속도 센서(검사에서는 가짜 흐름을 넣는다).
@@ -51,6 +53,9 @@ class _LevelPageState extends State<LevelPage> {
   bool _hold = false;
   bool _wasLevel = false;
   SlopeUnit _unit = SlopeUnit.degree;
+  bool _sound = true; // 수평이 되면 딸깍 소리
+  bool _decimals = true; // 소수점 보이기
+  bool _poseLocked = false; // 눕힘·세움 자동 바뀜 멈추기
 
   // 영점: flat_x, flat_y, upright_x, sideways_y (°)
   Map<String, double> _calib = {};
@@ -77,8 +82,12 @@ class _LevelPageState extends State<LevelPage> {
       final p = await SharedPreferences.getInstance();
       final raw = p.getString(kLevelCalibKey);
       final unit = p.getInt(kLevelUnitKey);
+      final sound = p.getBool(kLevelSoundKey);
+      final decimals = p.getBool(kLevelDecimalsKey);
       if (!mounted) return;
       setState(() {
+        if (sound != null) _sound = sound;
+        if (decimals != null) _decimals = decimals;
         if (raw != null) {
           _calib = (jsonDecode(raw) as Map).map(
             (k, v) => MapEntry(k.toString(), (v as num).toDouble()),
@@ -96,6 +105,8 @@ class _LevelPageState extends State<LevelPage> {
       final p = await SharedPreferences.getInstance();
       await p.setString(kLevelCalibKey, jsonEncode(_calib));
       await p.setInt(kLevelUnitKey, _unit.index);
+      await p.setBool(kLevelSoundKey, _sound);
+      await p.setBool(kLevelDecimalsKey, _decimals);
     } catch (_) {}
   }
 
@@ -107,10 +118,14 @@ class _LevelPageState extends State<LevelPage> {
     setState(() {
       _noSensor = false;
       _last = v;
-      _pose = poseFor(v.x, v.y, v.z, current: _pose);
+      if (!_poseLocked) _pose = poseFor(v.x, v.y, v.z, current: _pose);
     });
     final level = _isLevelNow();
-    if (level && !_wasLevel) HapticFeedback.selectionClick();
+    if (level && !_wasLevel) {
+      HapticFeedback.selectionClick();
+      // 폰의 "터치음"이 꺼져 있으면 소리가 안 날 수 있다(시스템 소리를 쓴다).
+      if (_sound) SystemSound.play(SystemSoundType.click);
+    }
     _wasLevel = level;
   }
 
@@ -228,6 +243,44 @@ class _LevelPageState extends State<LevelPage> {
               side: BorderSide.none,
             ),
           ),
+          IconButton(
+            key: const Key('level_pose_lock'),
+            tooltip: _poseLocked ? "모양 고정 풀기" : "모양 고정",
+            onPressed: () {
+              setState(() => _poseLocked = !_poseLocked);
+              _snack(
+                _poseLocked
+                    ? "지금 모양($_poseLabel)으로 고정했습니다. 폰을 돌려도 안 바뀝니다."
+                    : "폰을 놓는 모양에 따라 다시 자동으로 바뀝니다.",
+              );
+            },
+            icon: Icon(
+              _poseLocked ? Icons.screen_lock_rotation : Icons.screen_rotation,
+              color: _poseLocked ? Colors.orange : _ink,
+            ),
+          ),
+          PopupMenuButton<String>(
+            key: const Key('level_menu'),
+            onSelected: (v) {
+              setState(() {
+                if (v == 'sound') _sound = !_sound;
+                if (v == 'decimals') _decimals = !_decimals;
+              });
+              _savePrefs();
+            },
+            itemBuilder: (context) => [
+              CheckedPopupMenuItem(
+                value: 'sound',
+                checked: _sound,
+                child: const Text("수평이면 소리"),
+              ),
+              CheckedPopupMenuItem(
+                value: 'decimals',
+                checked: _decimals,
+                child: const Text("소수점 보이기"),
+              ),
+            ],
+          ),
         ],
       ),
       body: SafeArea(child: _noSensor ? _noSensorView() : _levelView()),
@@ -286,7 +339,7 @@ class _LevelPageState extends State<LevelPage> {
         : FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              _last == null ? "--" : formatSlope(a, _unit),
+              _last == null ? "--" : formatSlope(a, _unit, decimals: _decimals),
               key: const Key('level_value'),
               style: big.copyWith(fontSize: 72),
             ),
@@ -316,6 +369,16 @@ class _LevelPageState extends State<LevelPage> {
                 const Text(
                   "· 영점 맞춤",
                   style: TextStyle(color: _teal, fontWeight: FontWeight.w700),
+                ),
+              ],
+              if (_poseLocked) ...[
+                const SizedBox(width: 8),
+                const Text(
+                  "· 모양 고정",
+                  style: TextStyle(
+                    color: Colors.orange,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ],
               if (_hold) ...[
@@ -353,7 +416,10 @@ class _LevelPageState extends State<LevelPage> {
       const SizedBox(height: 4),
       FittedBox(
         fit: BoxFit.scaleDown,
-        child: Text(_last == null ? "--" : formatSlope(v, _unit), style: style),
+        child: Text(
+          _last == null ? "--" : formatSlope(v, _unit, decimals: _decimals),
+          style: style,
+        ),
       ),
     ],
   );
