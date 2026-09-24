@@ -256,8 +256,17 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     if (m == 1) {
       a = "90";
     } else if (m == 2) {
-      v2 = _val2Ctrls[m].text;
-      a = _angleCtrls[m].text;
+      // 오프셋은 높이와 각도만 보낸다. 이동 길이로 넣었으면(역산) 폰이 셈한 각도를
+      // 보낸다 — 화면 글(소수 한 자리)이 아니라 셈 값 그대로 보내 이동 길이가 어긋나지 않게.
+      if (_innerTabs[m] == 1) {
+        final h = double.tryParse(v1) ?? 0;
+        final d = double.tryParse(_val2Ctrls[m].text) ?? 0;
+        a = (h > 0 && d >= h)
+            ? (math.asin(h / d) * 180 / math.pi).toStringAsFixed(4)
+            : "";
+      } else {
+        a = _angleCtrls[m].text;
+      }
     } else if (m == 3) {
       if (_innerTabs[m] == 1) v2 = _val2Ctrls[m].text;
       a = _angleCtrls[m].text;
@@ -274,10 +283,15 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
   /// 보낼 수 없는 값이면 까닭(태블릿과 같은 셈으로 본다).
   String? _sendProblem(int m) {
     final v = _sendValues(m);
+    // 오프셋 역산은 이동 길이를 보내지 않지만, "이동이 높이보다 짧다"를 알려 주려고
+    // 확인할 때는 넣은 이동 길이도 같이 본다.
+    final checkVal2 = (m == 2 && _innerTabs[m] == 1)
+        ? _val2Ctrls[m].text
+        : v.val2;
     return remoteInputProblem(
       mode: _modes[m]['key'] as String,
       val1: double.tryParse(v.val1) ?? 0,
-      val2: double.tryParse(v.val2) ?? 0,
+      val2: double.tryParse(checkVal2) ?? 0,
       angle: double.tryParse(v.angle) ?? 0,
       saddlePoints: _saddlePoints(m),
     );

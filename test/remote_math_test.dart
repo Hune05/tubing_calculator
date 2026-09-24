@@ -64,6 +64,13 @@ void main() {
       expect(l.angle, closeTo(30, 0.01));
     });
 
+    test('역산 각도(소수 넷째 자리)를 보내면 태블릿 이동 길이가 넣은 값과 같다', () {
+      // 폰: 높이 100, 이동 173 → 각도 = asin(100/173)을 넷째 자리까지 보냄.
+      const sent = 35.3124; // asin(100/173) = 35.31243…°
+      final l = remoteLineFor(mode: 'OFFSET', val1: 100, angle: sent)!;
+      expect(l.length, closeTo(173, 0.01));
+    });
+
     test('이동이 높이보다 짧으면 90°로 만들지 않고 막는다', () {
       expect(
         remoteInputProblem(mode: 'OFFSET', val1: 100, val2: 80),
