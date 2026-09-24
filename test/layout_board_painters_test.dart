@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -166,8 +167,13 @@ void main() {
 }
 
 const int gridHash = 3494248389;
-const int guideCenterHash = 586061238; // 좁은 사이 숫자는 도면 안 비킨 자리에(2026-09-22)
-const int guideEdgeHash = 4074337249;
+// 글자가 들어간 그림은 글꼴 그리기가 운영체제마다 달라 픽셀이 조금 다르다. 그래서 리눅스
+// (클라우드·GitHub 자동 검사)는 따로 기준값을 둔다. 리눅스 값은 3c66aef(이 값을 바꾸기 전
+// 코드)에서 뽑은 것이라 "예전 그림과 같음"의 뜻은 그대로다. 다른 운영체제는 원래 값.
+final int guideCenterHash = Platform.isLinux
+    ? 1384960267
+    : 586061238; // 좁은 사이 숫자는 도면 안 비킨 자리에(2026-09-22)
+final int guideEdgeHash = Platform.isLinux ? 3032469857 : 4074337249;
 
 // ── 치수선 그리기 ──
 Future<List<int>> _dims(WidgetTester tester, bool mobile) async {
@@ -275,4 +281,6 @@ void dimensionTests() {
   });
 }
 
-const int dimensionHash = 526321441; // 가장자리 숫자 칸은 도면 안으로(2026-09-22)
+final int dimensionHash = Platform.isLinux
+    ? 3563752021
+    : 526321441; // 가장자리 숫자 칸은 도면 안으로(2026-09-22)
