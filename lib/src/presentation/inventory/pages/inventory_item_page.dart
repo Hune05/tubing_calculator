@@ -149,9 +149,7 @@ class _Body extends StatelessWidget {
               key: const Key('item_scope_toggle'),
               onPressed: () => _toggleShared(context),
               icon: const Icon(Icons.swap_horiz, size: 18),
-              label: Text(
-                isSharedStock(data) ? "내 재고로 가져오기" : "공용 재고로 돌리기",
-              ),
+              label: Text(isSharedStock(data) ? "내 재고로 가져오기" : "공용 재고로 돌리기"),
             ),
           ),
         const SizedBox(height: 20),
@@ -434,10 +432,7 @@ class _Body extends StatelessWidget {
               ),
       );
       if (!context.mounted) return;
-      showCuttingSnack(
-        context,
-        toShared ? "공용 재고로 돌렸습니다." : "내 재고로 가져왔습니다.",
-      );
+      showCuttingSnack(context, toShared ? "공용 재고로 돌렸습니다." : "내 재고로 가져왔습니다.");
     } catch (_) {
       if (!context.mounted) return;
       showCuttingSnack(context, "바꾸지 못했습니다.", isError: true);
@@ -518,10 +513,7 @@ class _Body extends StatelessWidget {
         onTimeout: () {},
       );
       if (!context.mounted) return;
-      showCuttingSnack(
-        context,
-        use ? "$n$_unit 뺐습니다." : "$n$_unit 더했습니다.",
-      );
+      showCuttingSnack(context, use ? "$n$_unit 뺐습니다." : "$n$_unit 더했습니다.");
     } catch (_) {
       if (!context.mounted) return;
       showCuttingSnack(context, "적지 못했습니다.", isError: true);

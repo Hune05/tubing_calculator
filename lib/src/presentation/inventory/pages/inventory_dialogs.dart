@@ -437,9 +437,7 @@ extension _InventoryDialogsExt on _InventoryPageState {
                   final DocumentReference stockRef;
                   if (target != null) {
                     stockRef = target.reference;
-                    batch.update(stockRef, {
-                      'qty': FieldValue.increment(qty),
-                    });
+                    batch.update(stockRef, {'qty': FieldValue.increment(qty)});
                   } else {
                     stockRef = _inventoryDb.doc();
                     batch.set(stockRef, {

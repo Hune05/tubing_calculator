@@ -270,7 +270,7 @@ class ProfileStore {
           .doc(name)
           .set({
             'fcmToken': token,
-            if (uid != null) 'uid': uid,
+            'uid': ?uid,
             'updatedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true))
           .timeout(const Duration(seconds: 5), onTimeout: () {});

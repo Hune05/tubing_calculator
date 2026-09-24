@@ -369,10 +369,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _isTransmitting = false);
-      _snack(
-        "통신이 없어 보내지 않았습니다. 폰과 태블릿 모두 통신이 있어야 합니다.",
-        Colors.red.shade700,
-      );
+      _snack("통신이 없어 보내지 않았습니다. 폰과 태블릿 모두 통신이 있어야 합니다.", Colors.red.shade700);
       return;
     }
 

@@ -91,43 +91,43 @@ extension InventoryTabsExt on _InventoryPageState {
                 );
               }
 
-              final docs = snapshot.data!.docs.where((d) {
-                final data = d.data() as Map<String, dynamic>;
-                // 남의 개인 재고는 안 보인다.
-                if (!canSeeStock(data, _uid)) return false;
-                bool catMatch =
-                    _selectedFilterCategory == "ALL" ||
-                    data['category'] == _selectedFilterCategory;
-                bool makerMatch =
-                    _selectedFilterMaker == "ALL" ||
-                    data['maker'] == _selectedFilterMaker;
-                bool isDead = data['is_dead_stock'] == true;
-                bool isReorder = data['is_reorder_needed'] == true;
+              final docs =
+                  snapshot.data!.docs.where((d) {
+                    final data = d.data() as Map<String, dynamic>;
+                    // 남의 개인 재고는 안 보인다.
+                    if (!canSeeStock(data, _uid)) return false;
+                    bool catMatch =
+                        _selectedFilterCategory == "ALL" ||
+                        data['category'] == _selectedFilterCategory;
+                    bool makerMatch =
+                        _selectedFilterMaker == "ALL" ||
+                        data['maker'] == _selectedFilterMaker;
+                    bool isDead = data['is_dead_stock'] == true;
+                    bool isReorder = data['is_reorder_needed'] == true;
 
-                bool statusMatch = false;
-                if (_stockFilterStatus == 0) {
-                  statusMatch = !isDead && !isReorder;
-                } else if (_stockFilterStatus == 1) {
-                  statusMatch = isDead;
-                } else if (_stockFilterStatus == 2) {
-                  statusMatch = !isDead && isReorder;
-                }
+                    bool statusMatch = false;
+                    if (_stockFilterStatus == 0) {
+                      statusMatch = !isDead && !isReorder;
+                    } else if (_stockFilterStatus == 1) {
+                      statusMatch = isDead;
+                    } else if (_stockFilterStatus == 2) {
+                      statusMatch = !isDead && isReorder;
+                    }
 
-                return catMatch &&
-                    makerMatch &&
-                    statusMatch &&
-                    data['name'].toString().toLowerCase().contains(
-                      _searchQuery,
-                    );
-              }).toList()
-                ..sort((a, b) {
-                  // 최근 넣은 것부터. createdAt이 없는 옛 문서는 맨 뒤.
-                  final ta = (a.data() as Map<String, dynamic>)['createdAt'];
-                  final tb = (b.data() as Map<String, dynamic>)['createdAt'];
-                  if (ta is! Timestamp) return tb is Timestamp ? 1 : 0;
-                  if (tb is! Timestamp) return -1;
-                  return tb.compareTo(ta);
-                });
+                    return catMatch &&
+                        makerMatch &&
+                        statusMatch &&
+                        data['name'].toString().toLowerCase().contains(
+                          _searchQuery,
+                        );
+                  }).toList()..sort((a, b) {
+                    // 최근 넣은 것부터. createdAt이 없는 옛 문서는 맨 뒤.
+                    final ta = (a.data() as Map<String, dynamic>)['createdAt'];
+                    final tb = (b.data() as Map<String, dynamic>)['createdAt'];
+                    if (ta is! Timestamp) return tb is Timestamp ? 1 : 0;
+                    if (tb is! Timestamp) return -1;
+                    return tb.compareTo(ta);
+                  });
 
               if (docs.isEmpty) {
                 return const Center(

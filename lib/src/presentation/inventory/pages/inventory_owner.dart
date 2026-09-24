@@ -35,11 +35,7 @@ bool canSeeStock(Map<String, dynamic> d, String? uid) =>
     isSharedStock(d) || isMyStock(d, uid);
 
 /// 목록 칩(전체·내 것·공용)에 맞는지. 남의 개인 재고는 어느 칩에서도 안 보인다.
-bool matchesStockScope(
-  Map<String, dynamic> d,
-  String? uid,
-  StockScope scope,
-) {
+bool matchesStockScope(Map<String, dynamic> d, String? uid, StockScope scope) {
   if (!canSeeStock(d, uid)) return false;
   return switch (scope) {
     StockScope.all => true,

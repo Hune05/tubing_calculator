@@ -169,17 +169,17 @@ class _CalculatorPageState extends State<CalculatorPage>
           _remoteFirstSnapshot = false;
           return;
         }
-        final added = [
-          for (final change in snapshot.docChanges)
-            if (change.type == DocumentChangeType.added &&
-                !change.doc.metadata.hasPendingWrites)
-              change.doc.data(),
-        ].whereType<Map<String, dynamic>>().toList()
-          ..sort(
-            (a, b) => ((a['timestamp'] as num?) ?? 0).compareTo(
-              (b['timestamp'] as num?) ?? 0,
-            ),
-          );
+        final added =
+            [
+              for (final change in snapshot.docChanges)
+                if (change.type == DocumentChangeType.added &&
+                    !change.doc.metadata.hasPendingWrites)
+                  change.doc.data(),
+            ].whereType<Map<String, dynamic>>().toList()..sort(
+              (a, b) => ((a['timestamp'] as num?) ?? 0).compareTo(
+                (b['timestamp'] as num?) ?? 0,
+              ),
+            );
         _remoteQueue.addAll(added);
         _processRemoteQueue();
       },
@@ -197,7 +197,7 @@ class _CalculatorPageState extends State<CalculatorPage>
       await FirebaseFirestore.instance
           .collection('remote_commands')
           .doc(docId)
-          .update({'status': status, if (why != null) 'reason': why});
+          .update({'status': status, 'reason': ?why});
     } catch (e) {
       debugPrint("상태 업데이트 실패: $e");
     }

@@ -321,8 +321,9 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                         )
                         .length;
 
-                    List<DocumentSnapshot>
-                    filteredDocs = visibleDocs.where((doc) {
+                    List<DocumentSnapshot> filteredDocs = visibleDocs.where((
+                      doc,
+                    ) {
                       final data = doc.data() as Map<String, dynamic>;
                       if (!matchesStockScope(data, _uid, _scope)) return false;
                       bool categoryMatch =
