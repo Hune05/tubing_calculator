@@ -3,6 +3,26 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/profile/profile_tools.dart';
 
 void main() {
+  group('이름 주인', () {
+    test('주인 uid가 안 적힌 옛 문서·없는 문서는 쓸 수 있다', () {
+      expect(nameOwnerProblem(null, 'me'), isNull);
+      expect(nameOwnerProblem({'name': '홍길동'}, 'me'), isNull);
+      expect(nameOwnerProblem({'uid': ''}, 'me'), isNull);
+    });
+
+    test('내 uid가 적힌 이름은 쓸 수 있다', () {
+      expect(nameOwnerProblem({'uid': 'me'}, 'me'), isNull);
+    });
+
+    test('다른 사람 uid가 적힌 이름은 막는다', () {
+      expect(nameOwnerProblem({'uid': 'other'}, 'me'), isNotNull);
+    });
+
+    test('내 uid를 모르면(로그인 못 함) 막지 않는다', () {
+      expect(nameOwnerProblem({'uid': 'other'}, null), isNull);
+    });
+  });
+
   group('이름 검사', () {
     test('보통 이름은 통과, 빈 것·긴 것·/·로그인 필요는 막는다', () {
       expect(userNameProblem('홍길동'), isNull);

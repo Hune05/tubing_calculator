@@ -4,9 +4,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tubing_calculator/src/core/utils/settings_cloud.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // 🔥 추가됨
 import 'package:firebase_messaging/firebase_messaging.dart'; // 🔥 추가됨
 import 'package:tubing_calculator/src/presentation/menu/page/home_menu_router.dart';
+import 'package:tubing_calculator/src/presentation/profile/profile_tools.dart';
 
 class MobileLoadingScreen extends StatefulWidget {
   const MobileLoadingScreen({super.key});
@@ -49,32 +49,17 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
       final prefs = await SharedPreferences.getInstance();
       String? savedName = prefs.getString('user_real_name');
       if (savedName != null && savedName.isNotEmpty && savedName != "로그인 필요") {
-        await FirebaseFirestore.instance.collection('users').doc(savedName).set(
-          {'fcmToken': newToken, 'updatedAt': FieldValue.serverTimestamp()},
-          SetOptions(merge: true),
-        );
+        // 남이 주인인 이름 문서에는 올리지 않는다(ProfileStore가 확인한다).
+        await ProfileStore.instance.saveToken(savedName);
       }
     });
   }
 
-  // 🚀 공통 FCM 토큰 저장 함수 추가
+  // 알림 토큰 저장. 익명으로라도 uid를 받아 두고, 이름 문서 주인이 나일 때만 올린다.
   Future<void> _saveUserToken(String userName) async {
     if (userName == "로그인 필요") return;
-    try {
-      String? token = await FirebaseMessaging.instance.getToken().timeout(
-        const Duration(seconds: 5),
-        onTimeout: () => null,
-      );
-      if (token != null) {
-        await FirebaseFirestore.instance.collection('users').doc(userName).set({
-          'fcmToken': token,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-        debugPrint("✅ FCM 토큰 업데이트 완료: $userName");
-      }
-    } catch (e) {
-      debugPrint("🚨 FCM 토큰 저장 에러: $e");
-    }
+    await ensureSignedIn();
+    await ProfileStore.instance.saveToken(userName);
   }
 
   // 이 화면을 떠나는 길은 하나뿐이게 한다(안전망과 겹쳐 두 번 넘어가지 않게).
@@ -122,7 +107,7 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
         final OAuthCredential credential = GoogleAuthProvider.credential(
           idToken: googleAuth.idToken,
         );
-        await FirebaseAuth.instance.signInWithCredential(credential);
+        await signInOrLinkGoogle(credential);
 
         // 새로 깔아서 폰에 설정이 없으면 서버에 올려 둔 설정을 받는다
         // (통신이 없으면 5초만 기다리고 넘어간다).

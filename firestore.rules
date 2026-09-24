@@ -1,0 +1,74 @@
+rules_version = '2';
+
+// Firestore 권한 규칙 (2026-09-24).
+//
+// ⚠️ 올리기 전에 먼저 확인할 것
+//   이 규칙은 "로그인한 사람만" 읽고 쓰게 한다. "이름만 넣고 시작"한 사람은 익명 로그인으로
+//   uid를 받으므로, Firebase 콘솔 → Authentication → 로그인 방법에서 "익명"이 켜져 있어야 한다.
+//   꺼진 채로 이 규칙을 올리면 구글 로그인을 안 한 사람은 서버를 전혀 못 쓴다.
+//   firebase.json에는 일부러 연결하지 않았다(`firebase deploy`로 함수만 올리다가 규칙이
+//   같이 올라가지 않게). 콘솔 → Firestore → 규칙에 붙여 넣어 올린다.
+//
+// 무엇을 막나
+//   - users/{이름}: 문서에 적힌 uid의 주인만 고친다(남의 이름으로 사진·연락처·알림 토큰을
+//     바꾸지 못하게). uid가 안 적힌 옛 문서는 누구든 처음 쓰는 사람이 주인이 된다.
+//   - inventory: ownerUid가 있으면 그 사람만 고치고 지운다. 없으면(공용) 누구나.
+//   - 나머지 모음: 로그인한 사람이면 읽고 쓴다(지금 앱이 쓰는 그대로).
+//
+// 못 막는 것(앱이 가려 줌)
+//   - 남의 개인 재고 "읽기". 앱이 재고 모음을 통째로 읽어 폰에서 거르기 때문에, 문서마다
+//     읽기를 막으면 목록 전체가 안 열린다. 막으려면 앱 쿼리를 "공용 + 내 것" 두 번으로
+//     나눠야 한다(docs/프로필_현업도구_비교_2026-09-24.md 6절).
+//   - 서버 함수(functions/)는 관리자 권한이라 이 규칙과 상관없이 동작한다.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function me() {
+      return request.auth.uid;
+    }
+
+    // 주인 칸이 없거나 비었으면 공용.
+    function noOwner(data) {
+      return !('ownerUid' in data) || data.ownerUid == null || data.ownerUid == '';
+    }
+
+    function ownerOk(data) {
+      return noOwner(data) || data.ownerUid == me();
+    }
+
+    // 사용자 문서에 주인 uid가 아직 안 적혔는지.
+    function nameFree(data) {
+      return !('uid' in data) || data.uid == null || data.uid == '';
+    }
+
+    match /users/{name} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && (nameFree(request.resource.data) || request.resource.data.uid == me());
+      allow update: if signedIn()
+        && (nameFree(resource.data) || resource.data.uid == me())
+        && (nameFree(request.resource.data) || request.resource.data.uid == me());
+      allow delete: if signedIn()
+        && !nameFree(resource.data) && resource.data.uid == me();
+    }
+
+    match /inventory/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && ownerOk(request.resource.data);
+      allow update: if signedIn()
+        && ownerOk(resource.data) && ownerOk(request.resource.data);
+      allow delete: if signedIn() && ownerOk(resource.data);
+    }
+
+    // 나머지 모음(하위 모음 포함). users·inventory는 위 규칙만 따른다
+    // (규칙은 하나라도 허락하면 통과라서 여기서 빼 둬야 위 규칙이 먹힌다).
+    match /{coll}/{rest=**} {
+      allow read, write: if signedIn() && !(coll in ['users', 'inventory']);
+    }
+  }
+}

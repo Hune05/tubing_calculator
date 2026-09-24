@@ -76,7 +76,8 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
       final credential = GoogleAuthProvider.credential(
         idToken: account.authentication.idToken,
       );
-      await FirebaseAuth.instance.signInWithCredential(credential);
+      // 익명 계정이면 그 계정에 구글을 이어 uid를 그대로 둔다("내 것"을 잃지 않게).
+      await signInOrLinkGoogle(credential);
       final got = await SettingsCloudSync.instance.restore();
       if (got == 0) await SettingsCloudSync.instance.backup();
       if (mounted) setState(() {});
@@ -99,7 +100,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
       final OAuthCredential credential = GoogleAuthProvider.credential(
         idToken: account.authentication.idToken,
       );
-      await FirebaseAuth.instance.signInWithCredential(credential);
+      await signInOrLinkGoogle(credential);
 
       // 폰에 설정이 없으면 서버 것을 받고, 폰에만 있으면 서버에 올려 둔다.
       final got = await SettingsCloudSync.instance.restore();
@@ -159,6 +160,12 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                 final problem = userNameProblem(realName);
                 if (problem != null) {
                   error.value = problem;
+                  return;
+                }
+                // 로그인 안 했으면 익명으로라도 uid를 받고, 남이 쓰는 이름인지 본다.
+                final taken = await _store.claimName(realName);
+                if (taken != null) {
+                  error.value = taken;
                   return;
                 }
                 await _store.saveName(realName);
@@ -250,6 +257,11 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
 
   Future<void> _applyRename(String newName) async {
     final old = _displayName;
+    final taken = await _store.claimName(newName);
+    if (taken != null) {
+      _showSnackBar(taken, isError: true);
+      return;
+    }
     await _store.renameUser(old, newName);
     if (!mounted) return;
     setState(() => _displayName = newName);
@@ -922,9 +934,13 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
               letterSpacing: -0.5,
             ),
           ),
-          content: const Text(
-            "이 폰에서 이름과 알림을 지웁니다. 폰에 저장된 일지·설정은 그대로 남습니다.",
-            style: TextStyle(fontSize: 15, color: slate600, height: 1.4),
+          content: Text(
+            isAnonymousUser()
+                ? "이 폰에서 이름과 알림을 지웁니다. 폰에 저장된 일지·설정은 그대로 남습니다.\n\n"
+                      "구글 계정을 잇지 않았으므로, 로그아웃하면 '내 것'으로 넣은 재고·배치도를 "
+                      "다시 찾을 수 없습니다. 먼저 구글 계정을 이으십시오."
+                : "이 폰에서 이름과 알림을 지웁니다. 폰에 저장된 일지·설정은 그대로 남습니다.",
+            style: const TextStyle(fontSize: 15, color: slate600, height: 1.4),
           ),
           actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           actions: [

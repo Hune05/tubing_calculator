@@ -59,6 +59,75 @@ String loginMethodLabel({required bool googleLinked, String? email}) {
   return e.isEmpty ? "구글 계정" : "구글 계정 · $e";
 }
 
+/// 이 이름 문서를 내가 쓸 수 있는지. 쓸 수 없으면 까닭(한국어), 쓸 수 있으면 null.
+///
+/// 사용자 문서는 이름이 열쇠라, 예전엔 남의 이름을 넣으면 그 사람 문서(사진·연락처·
+/// 알림)를 그대로 가져갔다. 이제 문서에 주인 uid를 적어 두고, 다른 uid가 적힌 이름은
+/// 막는다. uid가 안 적힌 옛 문서와, 내 uid를 모를 때(로그인 못 함)는 막지 않는다.
+String? nameOwnerProblem(Map<String, dynamic>? doc, String? myUid) {
+  final owner = (doc?['uid'] as String?)?.trim() ?? '';
+  final me = (myUid ?? '').trim();
+  if (owner.isEmpty || me.isEmpty || owner == me) return null;
+  return "이미 다른 사람이 쓰는 이름입니다. 다른 이름을 넣으십시오.";
+}
+
+/// 지금 로그인한 사람의 uid. 없으면(로그인 안 함·읽기 실패) null.
+String? currentUid() {
+  try {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    return (uid == null || uid.isEmpty) ? null : uid;
+  } catch (_) {
+    return null;
+  }
+}
+
+/// 로그인이 안 되어 있으면 익명으로 로그인해 uid를 받는다. 이미 되어 있으면 그대로.
+///
+/// "이름만 넣고 시작"한 사람도 uid가 있어야 배치도·재고의 "내 것"이 생긴다.
+/// 통신이 없거나 Firebase 콘솔에서 익명 로그인이 꺼져 있으면 null을 주고 예전처럼
+/// 이름만으로 쓴다(앱은 그대로 돈다). 다음에 앱을 열 때 다시 시도한다.
+Future<String?> ensureSignedIn() async {
+  final have = currentUid();
+  if (have != null) return have;
+  try {
+    final cred = await FirebaseAuth.instance.signInAnonymously().timeout(
+      const Duration(seconds: 4),
+    );
+    return cred.user?.uid;
+  } catch (e) {
+    debugPrint("익명 로그인 건너뜀: $e");
+    return null;
+  }
+}
+
+/// 지금 계정이 익명(이름만 넣고 시작)인지.
+bool isAnonymousUser() {
+  try {
+    return FirebaseAuth.instance.currentUser?.isAnonymous ?? false;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// 구글 로그인. 익명 계정이면 새로 로그인하지 않고 그 계정에 구글을 이어서 uid를
+/// 그대로 둔다(익명 때 만든 "내 것" 재고·배치도를 잃지 않게). 그 구글 계정이 이미
+/// 다른 uid로 쓰이고 있으면 그 계정으로 로그인한다.
+Future<UserCredential> signInOrLinkGoogle(AuthCredential credential) async {
+  final u = FirebaseAuth.instance.currentUser;
+  if (u != null && u.isAnonymous) {
+    try {
+      return await u.linkWithCredential(credential);
+    } on FirebaseAuthException catch (e) {
+      if (e.code != 'credential-already-in-use' &&
+          e.code != 'email-already-in-use' &&
+          e.code != 'provider-already-linked') {
+        rethrow;
+      }
+    }
+  }
+  return FirebaseAuth.instance.signInWithCredential(credential);
+}
+
 /// 사용자 문서 한 벌. 없는 칸은 빈 글.
 class UserProfile {
   final String name;
@@ -146,10 +215,52 @@ class ProfileStore {
       }, SetOptions(merge: true))
       .timeout(const Duration(seconds: 5), onTimeout: () {});
 
+  /// 이 이름을 내가 쓰겠다고 적는다. 다른 사람(uid)이 이미 쓰는 이름이면 까닭을 준다.
+  /// 통신이 없어 확인을 못 하면 막지 않는다(현장에서 시작은 되게). 문서에 내 uid를 적는다.
+  Future<String?> claimName(String name) async {
+    if (isGuest(name)) return null;
+    final uid = await ensureSignedIn();
+    Map<String, dynamic>? data;
+    try {
+      data = (await _users.doc(name).get().timeout(const Duration(seconds: 3)))
+          .data();
+    } catch (_) {
+      data = null; // 확인 못 함 — 막지 않는다
+    }
+    final problem = nameOwnerProblem(data, uid);
+    if (problem != null) return problem;
+    if (uid != null) {
+      // 기다리지 않는다(통신 없으면 폰에 적혀 있다가 나중에 올라간다). 이름 넣기 창이
+      // 통신 없는 곳에서 오래 멈추지 않게.
+      _users
+          .doc(name)
+          .set({
+            'name': name,
+            'uid': uid,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true))
+          .catchError((e) => debugPrint("이름 주인 적기 실패: $e"));
+    }
+    return null;
+  }
+
   /// 이 폰의 알림 토큰을 그 이름 문서에 올린다.
+  /// 그 이름 문서에 다른 사람 uid가 적혀 있으면 올리지 않는다(남의 알림을 가로채지 않게).
   Future<void> saveToken(String name) async {
     if (isGuest(name)) return;
     try {
+      final uid = currentUid();
+      if (uid != null) {
+        try {
+          final snap = await _users
+              .doc(name)
+              .get()
+              .timeout(const Duration(seconds: 5));
+          if (nameOwnerProblem(snap.data(), uid) != null) return;
+        } catch (_) {
+          // 확인 못 하면 예전처럼 올린다(통신 없으면 어차피 폰에 머문다).
+        }
+      }
       final token = await FirebaseMessaging.instance.getToken().timeout(
         const Duration(seconds: 5),
         onTimeout: () => null,
@@ -159,6 +270,7 @@ class ProfileStore {
           .doc(name)
           .set({
             'fcmToken': token,
+            if (uid != null) 'uid': uid,
             'updatedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true))
           .timeout(const Duration(seconds: 5), onTimeout: () {});
@@ -195,6 +307,8 @@ class ProfileStore {
           .set({
             ...data,
             'name': newName,
+            // 새 이름 문서의 주인은 지금 나(옛 문서에 uid가 없었어도).
+            if (currentUid() != null) 'uid': currentUid(),
             'updatedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true))
           .timeout(const Duration(seconds: 5), onTimeout: () {});

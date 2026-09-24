@@ -48,6 +48,8 @@ import 'package:tubing_calculator/src/presentation/my_work_logs/screens/work_log
     show WorkLogMainScreen;
 import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/work_theme.dart'
     show WorkRoute;
+import 'package:tubing_calculator/src/presentation/profile/profile_tools.dart'
+    show ensureSignedIn;
 
 // 알림을 눌렀을 때 화면을 열기 위한 전역 내비게이터.
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
@@ -182,6 +184,9 @@ void main() async {
 
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   await initializeDateFormatting('ko_KR', null); // 달력 등 한글 요일/월 이름
+  // "이름만 넣고 시작"한 사람도 uid가 있게 익명 로그인을 뒤에서 시도한다(이미 로그인했으면
+  // 그대로). 통신이 없거나 콘솔에서 익명 로그인이 꺼져 있으면 조용히 넘어간다.
+  unawaited(ensureSignedIn());
   runApp(const MyApp());
 }
 

@@ -96,6 +96,11 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
     if (renamed) {
       final ok = await _confirmRename(newName);
       if (ok != true) return;
+      final taken = await _store.claimName(newName);
+      if (taken != null) {
+        if (mounted) setState(() => _nameError = taken);
+        return;
+      }
     }
 
     setState(() => _isSaving = true);
