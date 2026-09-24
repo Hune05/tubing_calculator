@@ -1,6 +1,5 @@
 // lib/src/presentation/calculator/screens/calculator_page.dart
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,6 +15,7 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_rol
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_pipe_visualizer.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_parallel_shrink_bottom_sheet.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:tubing_calculator/src/presentation/calculator/remote_math.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
@@ -71,7 +71,9 @@ class _CalculatorPageState extends State<CalculatorPage>
   bool _isAutoProcessing = false;
 
   StreamSubscription<QuerySnapshot>? _remoteSubscription;
-  late int _listenerStartTime;
+  // 첫 스냅샷은 화면을 열기 전에 쌓여 있던 명령이라 실행하지 않는다(폰·태블릿 시계를
+  // 견주지 않는다 — 예전엔 폰 시계가 늦으면 새 명령을 옛 것으로 보고 버렸다).
+  bool _remoteFirstSnapshot = true;
 
   // 🚀 [수정] 같은 스냅샷에 여러 명령이 한꺼번에 들어와도 유실되지 않도록 큐로 처리
   final List<Map<String, dynamic>> _remoteQueue = [];
@@ -112,7 +114,6 @@ class _CalculatorPageState extends State<CalculatorPage>
     AppSettingsController().ensureLoaded();
     AppSettingsController().addListener(_onSettingsChanged);
 
-    _listenerStartTime = DateTime.now().millisecondsSinceEpoch;
     _startRemoteListener();
   }
 
@@ -145,30 +146,61 @@ class _CalculatorPageState extends State<CalculatorPage>
     }
   }
 
-  void _startRemoteListener() {
-    _remoteSubscription = FirebaseFirestore.instance
+  /// 리모컨 명령 듣기. 이 기기에 적힌 이름이 있으면 그 이름이 보낸 명령만 받는다
+  /// (예전엔 모두의 명령이 계산기를 연 모든 기기에 들어갔다). 이름이 없으면 전부.
+  Future<void> _startRemoteListener() async {
+    String myName = '';
+    try {
+      final p = await SharedPreferences.getInstance();
+      myName = (p.getString('user_real_name') ?? '').trim();
+    } catch (_) {}
+    if (myName == '로그인 필요') myName = '';
+    if (!mounted) return;
+
+    Query<Map<String, dynamic>> q = FirebaseFirestore.instance
         .collection('remote_commands')
-        .where('timestamp', isGreaterThan: _listenerStartTime)
-        .orderBy('timestamp', descending: false)
-        .snapshots()
-        .listen(
-          (snapshot) {
-            for (var change in snapshot.docChanges) {
-              if (change.type == DocumentChangeType.added) {
-                final data = change.doc.data();
-                if (data != null) {
-                  // 🚀 [수정] 즉시 처리하지 않고 큐에 쌓은 뒤 순차 처리 -> 동시 도착 시 유실 방지
-                  _remoteQueue.add(data);
-                }
-              }
-            }
-            _processRemoteQueue();
-          },
-          // 🚀 [수정] 스트림 에러 발생 시 조용히 죽지 않도록 로그를 남김
-          onError: (error, stackTrace) {
-            debugPrint("원격 명령 리스너 오류: $error");
-          },
-        );
+        .where('status', isEqualTo: 'pending');
+    if (myName.isNotEmpty) q = q.where('sender', isEqualTo: myName);
+
+    _remoteSubscription = q.snapshots().listen(
+      (snapshot) {
+        if (_remoteFirstSnapshot) {
+          // 화면을 열기 전에 와 있던 것(태블릿이 꺼져 있을 때 보낸 것)은 실행하지 않는다.
+          _remoteFirstSnapshot = false;
+          return;
+        }
+        final added = [
+          for (final change in snapshot.docChanges)
+            if (change.type == DocumentChangeType.added &&
+                !change.doc.metadata.hasPendingWrites)
+              change.doc.data(),
+        ].whereType<Map<String, dynamic>>().toList()
+          ..sort(
+            (a, b) => ((a['timestamp'] as num?) ?? 0).compareTo(
+              (b['timestamp'] as num?) ?? 0,
+            ),
+          );
+        _remoteQueue.addAll(added);
+        _processRemoteQueue();
+      },
+      // 🚀 [수정] 스트림 에러 발생 시 조용히 죽지 않도록 로그를 남김
+      onError: (error, stackTrace) {
+        debugPrint("원격 명령 리스너 오류: $error");
+      },
+    );
+  }
+
+  /// 리모컨 명령에 결과를 적는다(폰이 기다린다).
+  Future<void> _markRemote(String docId, String status, [String? why]) async {
+    if (docId.isEmpty) return;
+    try {
+      await FirebaseFirestore.instance
+          .collection('remote_commands')
+          .doc(docId)
+          .update({'status': status, if (why != null) 'reason': why});
+    } catch (e) {
+      debugPrint("상태 업데이트 실패: $e");
+    }
   }
 
   // 🚀 [추가] 원격 명령 큐를 하나씩 순차적으로 처리
@@ -263,40 +295,39 @@ class _CalculatorPageState extends State<CalculatorPage>
     await Future.delayed(const Duration(milliseconds: 400));
     if (!mounted) return;
 
-    if (mode == "STRAIGHT" || mode == "직관 (Straight)") {
-      await _executeMacro(val1, 0.0, targetRot, docId);
-    } else if (mode == "BEND_90" || mode == "90° 벤딩") {
-      await _executeMacro(val1, 90.0, targetRot, docId);
-    } else if (mode == "OFFSET" || mode == "오프셋") {
-      double d = 0;
-      double finalAngle = angle;
-      if (angle > 0) {
-        double sinVal = math.sin(angle * (math.pi / 180));
-        d = sinVal == 0 ? val1 : val1 / sinVal;
-      } else if (val2 > 0) {
-        d = val2;
-        finalAngle =
-            math.asin((val1 / val2).clamp(-1.0, 1.0)) * (180 / math.pi);
+    // 폰 미리보기와 같은 셈(remote_math.dart). 값이 맞지 않으면 90° 같은 엉뚱한 값을
+    // 넣지 않고 폰에 "실패"와 까닭을 돌려준다.
+    final String m = normalizeRemoteMode(mode);
+    // 새들 3점/4점. 예전 폰은 이 칸을 안 보냈다 — 그때는 예전 태블릿처럼 각도 그대로(4점 셈).
+    final int saddlePoints = (data['saddlePoints'] as num?)?.toInt() ?? 4;
+    final problem = remoteInputProblem(
+      mode: m,
+      val1: val1,
+      val2: val2,
+      angle: angle,
+      saddlePoints: saddlePoints,
+    );
+    final line = remoteLineFor(
+      mode: m,
+      val1: val1,
+      val2: val2,
+      angle: angle,
+      saddlePoints: saddlePoints,
+    );
+    if (line == null) {
+      await _markRemote(docId, 'failed', problem ?? "넣을 수 없는 값입니다.");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("리모컨 값을 넣지 못했습니다: ${problem ?? ''}"),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+        setState(() => _isAutoProcessing = false);
       }
-      await _executeMacro(d, finalAngle, targetRot, docId);
-    } else if (mode == "SADDLE" || mode == "새들") {
-      double d = val1;
-      if (angle > 0) {
-        double sinVal = math.sin(angle * (math.pi / 180));
-        d = sinVal == 0 ? val1 : val1 / sinVal;
-      }
-      await _executeMacro(d, angle, targetRot, docId);
-    } else if (mode == "ROLLING" || mode == "롤링 오프셋") {
-      double trueH = math.sqrt((val1 * val1) + (val2 * val2));
-      double d = trueH;
-      if (angle > 0) {
-        double sinVal = math.sin(angle * (math.pi / 180));
-        d = sinVal == 0 ? trueH : trueH / sinVal;
-      }
-      await _executeMacro(d, angle, targetRot, docId);
-    } else {
-      setState(() => _isAutoProcessing = false);
+      return;
     }
+    await _executeMacro(line.length, line.angle, targetRot, docId);
   }
 
   double _parseDirectionToRotation(String dir) {
@@ -338,16 +369,7 @@ class _CalculatorPageState extends State<CalculatorPage>
     // 🚀 [수정] 실제 적용 성공 여부를 받아서 원격 쪽에 정확한 상태를 전달
     final bool success = _handleApply();
 
-    if (docId.isNotEmpty) {
-      try {
-        await FirebaseFirestore.instance
-            .collection('remote_commands')
-            .doc(docId)
-            .update({'status': success ? 'completed' : 'failed'});
-      } catch (e) {
-        debugPrint("상태 업데이트 실패: $e");
-      }
-    }
+    await _markRemote(docId, success ? 'completed' : 'failed');
 
     setState(() => _isAutoProcessing = false);
   }

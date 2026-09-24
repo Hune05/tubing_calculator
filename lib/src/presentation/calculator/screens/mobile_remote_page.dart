@@ -7,6 +7,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 // 💡 셋팅값을 불러오기 위해 SettingsManager 임포트
 import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/presentation/profile/profile_tools.dart'
+    show currentUid;
+import '../remote_math.dart';
 import '../widgets/remote_widgets.dart';
 
 // 🎨 화이트 & 마키타 테마 컬러
@@ -61,6 +65,11 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
 
   final List<Map<String, dynamic>> _historyLogs = [];
 
+  // 보낸 사람 이름. 태블릿·PC는 같은 이름이 보낸 명령만 받는다.
+  String _senderName = '';
+  // 보낸 명령의 결과(태블릿 반영)를 기다리는 듣기. 화면을 나가면 닫는다.
+  final List<StreamSubscription> _resultSubs = [];
+
   @override
   void initState() {
     super.initState();
@@ -88,6 +97,15 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     _angleFocusNodes = List.generate(_modeCount, (_) => FocusNode());
 
     _loadRadiusSetting();
+    _loadSenderName();
+  }
+
+  Future<void> _loadSenderName() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final n = (p.getString('user_real_name') ?? '').trim();
+      if (mounted) setState(() => _senderName = n == '로그인 필요' ? '' : n);
+    } catch (_) {}
   }
 
   Future<void> _loadRadiusSetting() async {
@@ -117,6 +135,9 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
       _val1FocusNodes[i].dispose();
       _val2FocusNodes[i].dispose();
       _angleFocusNodes[i].dispose();
+    }
+    for (final sub in _resultSubs) {
+      sub.cancel();
     }
     _pageController.dispose();
     super.dispose();
@@ -227,144 +248,195 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     return true;
   }
 
+  /// 지금 모드에서 보낼 값(높이·폭/이동/롤·각도). 확인과 보내기가 같이 쓴다.
+  ({String val1, String val2, String angle}) _sendValues(int m) {
+    String v1 = _val1Ctrls[m].text;
+    String v2 = "";
+    String a = "";
+    if (m == 1) {
+      a = "90";
+    } else if (m == 2) {
+      v2 = _val2Ctrls[m].text;
+      a = _angleCtrls[m].text;
+    } else if (m == 3) {
+      if (_innerTabs[m] == 1) v2 = _val2Ctrls[m].text;
+      a = _angleCtrls[m].text;
+    } else if (m == 4) {
+      v2 = _val2Ctrls[m].text;
+      a = _innerTabs[m] == 0 ? _angleCtrls[m].text : _result2Ctrls[m].text;
+    }
+    return (val1: v1, val2: v2, angle: a);
+  }
+
+  /// 새들 3점(원형)=안쪽 탭 0, 4점=탭 1.
+  int _saddlePoints(int m) => _innerTabs[m] == 0 ? 3 : 4;
+
+  /// 보낼 수 없는 값이면 까닭(태블릿과 같은 셈으로 본다).
+  String? _sendProblem(int m) {
+    final v = _sendValues(m);
+    return remoteInputProblem(
+      mode: _modes[m]['key'] as String,
+      val1: double.tryParse(v.val1) ?? 0,
+      val2: double.tryParse(v.val2) ?? 0,
+      angle: double.tryParse(v.angle) ?? 0,
+      saddlePoints: _saddlePoints(m),
+    );
+  }
+
+  void _setLogStatus(String id, String status, [String? why]) {
+    if (!mounted) return;
+    setState(() {
+      final log = _historyLogs.firstWhere(
+        (l) => l['id'] == id,
+        orElse: () => <String, dynamic>{},
+      );
+      if (log.isNotEmpty) {
+        log['status'] = status;
+        if (why != null) log['reason'] = why;
+      }
+    });
+  }
+
+  void _snack(String msg, Color color) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _sendData() async {
     if (_isTransmitting) return;
+    int m = _currentMode;
+
+    final problem = _sendProblem(m);
+    if (problem != null) {
+      _snack(problem, Colors.red.shade700);
+      return;
+    }
+
     HapticFeedback.heavyImpact();
     setState(() => _isTransmitting = true);
 
-    int m = _currentMode;
-    String sendVal1 = "";
-    String sendVal2 = "";
-    String sendAngle = "";
-
-    if (m == 0) {
-      sendVal1 = _val1Ctrls[m].text;
-    } else if (m == 1) {
-      sendVal1 = _val1Ctrls[m].text;
-      sendAngle = "90";
-    } else if (m == 2) {
-      sendVal1 = _val1Ctrls[m].text;
-      if (_innerTabs[m] == 0) {
-        sendVal2 = _val2Ctrls[m].text;
-        sendAngle = _angleCtrls[m].text;
-      } else {
-        sendVal2 = _val2Ctrls[m].text;
-        sendAngle = _angleCtrls[m].text;
-      }
-    } else if (m == 3) {
-      sendVal1 = _val1Ctrls[m].text;
-      if (_innerTabs[m] == 1) sendVal2 = _val2Ctrls[m].text;
-      sendAngle = _angleCtrls[m].text;
-    } else if (m == 4) {
-      sendVal1 = _val1Ctrls[m].text;
-      sendVal2 = _val2Ctrls[m].text;
-      if (_innerTabs[m] == 0) {
-        sendAngle = _angleCtrls[m].text;
-      } else {
-        sendAngle = _result2Ctrls[m].text;
-      }
-    }
-
+    final v = _sendValues(m);
     final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final id = timestamp.toString();
 
-    final newRecord = {
-      "id": timestamp.toString(),
+    final newRecord = <String, dynamic>{
+      "id": id,
       "time":
           "${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}",
       "mode": _modes[m]['key'],
       "modeName": _modes[m]['name'],
       "color": _modes[m]['color'].value,
-      "val1": sendVal1,
-      "val2": sendVal2,
-      "angle": sendAngle,
+      "val1": v.val1,
+      "val2": v.val2,
+      "angle": v.angle,
       "dir": _selectedDirs[m],
+      if (m == 3) "saddlePoints": _saddlePoints(m),
       "status": "pending",
       "timestamp": timestamp,
     };
 
+    final db = FirebaseFirestore.instance;
+    final ref = db.collection('remote_commands').doc(id);
+
+    // 1) 통신 확인. 통신이 없는데 쓰면 폰에 쌓였다가 나중에(엉뚱한 때) 태블릿에서
+    //    실행될 수 있고, 예전엔 "전송 중" 장막이 영영 안 걷혔다.
+    try {
+      await db
+          .collection('remote_commands')
+          .limit(1)
+          .get(const GetOptions(source: Source.server))
+          .timeout(const Duration(seconds: 4));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isTransmitting = false);
+      _snack(
+        "통신이 없어 보내지 않았습니다. 폰과 태블릿 모두 통신이 있어야 합니다.",
+        Colors.red.shade700,
+      );
+      return;
+    }
+
+    if (!mounted) return;
     setState(() => _historyLogs.insert(0, newRecord));
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          "서버로 데이터 전송 중...",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: makitaTeal,
-        behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: 1),
-      ),
-    );
-
+    // 2) 보내기
     try {
-      await FirebaseFirestore.instance
-          .collection('remote_commands')
-          .doc(timestamp.toString())
-          .set(newRecord);
-
-      FirebaseFirestore.instance
-          .collection('remote_commands')
-          .doc(timestamp.toString())
-          .snapshots()
-          .listen((docSnapshot) {
-            if (docSnapshot.exists &&
-                docSnapshot.data()!['status'] == 'completed') {
-              if (mounted) {
-                setState(() {
-                  var targetLog = _historyLogs.firstWhere(
-                    (log) => log['id'] == timestamp.toString(),
-                    orElse: () => <String, dynamic>{},
-                  );
-                  if (targetLog.isNotEmpty) targetLog['status'] = "completed";
-                });
-              }
-            }
-          });
-
-      if (!mounted) return;
-      HapticFeedback.mediumImpact();
-
-      setState(() {
-        _isTransmitting = false;
-        _isInputFinishedList[m] = false;
-        _selectedDirs[m] = "UP";
-        _innerTabs[m] = 0;
-        _val1Ctrls[m].clear();
-        _val2Ctrls[m].clear();
-        _angleCtrls[m].clear();
-        _result1Ctrls[m].clear();
-        _result2Ctrls[m].clear();
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text(
-            "태블릿 전송 완료!",
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          backgroundColor: Colors.green.shade700,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 1),
-        ),
-      );
+      await ref
+          .set({
+            ...newRecord,
+            // 태블릿·PC는 같은 이름이 보낸 것만 받는다.
+            if (_senderName.isNotEmpty) "sender": _senderName,
+            if (currentUid() != null) "uid": currentUid(),
+            "sentAt": FieldValue.serverTimestamp(),
+          })
+          .timeout(const Duration(seconds: 6));
     } catch (e) {
-      setState(() {
-        _isTransmitting = false;
-        _historyLogs.firstWhere(
-          (log) => log['id'] == newRecord['id'],
-        )['status'] = "failed";
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            "전송 실패: $e",
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          backgroundColor: Colors.red.shade700,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      if (!mounted) return;
+      setState(() => _isTransmitting = false);
+      _setLogStatus(id, "failed", "보내지 못함");
+      _snack("보내지 못했습니다. 통신을 확인하십시오.", Colors.red.shade700);
+      return;
     }
+
+    if (!mounted) return;
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _isTransmitting = false;
+      _isInputFinishedList[m] = false;
+      _selectedDirs[m] = "UP";
+      _innerTabs[m] = 0;
+      _val1Ctrls[m].clear();
+      _val2Ctrls[m].clear();
+      _angleCtrls[m].clear();
+      _result1Ctrls[m].clear();
+      _result2Ctrls[m].clear();
+    });
+    _snack("보냈습니다. 태블릿 반영을 기다립니다.", makitaTeal);
+
+    // 3) 태블릿이 넣었는지 기다린다(완료·실패·응답 없음).
+    StreamSubscription? sub;
+    Timer? timer;
+    void finish() {
+      timer?.cancel();
+      sub?.cancel();
+      _resultSubs.remove(sub);
+    }
+
+    final listening = ref.snapshots().listen((snap) {
+      final data = snap.data();
+      final status = data?['status'];
+      if (status == 'completed') {
+        finish();
+        _setLogStatus(id, "completed");
+        _snack("태블릿에 들어갔습니다.", Colors.green.shade700);
+      } else if (status == 'failed') {
+        finish();
+        final why = (data?['reason'] ?? '').toString();
+        _setLogStatus(id, "failed", why.isEmpty ? null : why);
+        _snack(
+          why.isEmpty ? "태블릿이 넣지 못했습니다." : "태블릿이 넣지 못했습니다: $why",
+          Colors.red.shade700,
+        );
+      }
+    }, onError: (_) {});
+    sub = listening;
+    _resultSubs.add(listening);
+    timer = Timer(const Duration(seconds: 12), () {
+      finish();
+      _setLogStatus(id, "no_response", "태블릿 응답 없음");
+      // 나중에 태블릿이 열려도 실행되지 않게 표시해 둔다.
+      ref.update({'status': 'expired'}).catchError((_) {});
+      _snack(
+        "태블릿이 받지 않았습니다. 계산기 화면이 열려 있는지, 같은 이름으로 쓰는지 확인하십시오.",
+        Colors.orange.shade800,
+      );
+    });
   }
 
   @override
@@ -569,6 +641,13 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
+                HapticFeedback.lightImpact();
+                return;
+              }
+              // 태블릿과 같은 셈으로 미리 본다(예: 이동이 높이보다 짧은 오프셋).
+              final problem = _sendProblem(index);
+              if (problem != null) {
+                _snack(problem, Colors.redAccent.shade700);
                 HapticFeedback.lightImpact();
                 return;
               }
@@ -984,6 +1063,9 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                         itemBuilder: (context, index) {
                           var log = _historyLogs[index];
                           bool isCompleted = log['status'] == 'completed';
+                          bool isFailed =
+                              log['status'] == 'failed' ||
+                              log['status'] == 'no_response';
 
                           String subtitleText = "H/L: ${log['val1']}";
                           if (log['val2'] != "") {
@@ -991,6 +1073,9 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                           }
                           if (log['angle'] != "") {
                             subtitleText += " / 각도: ${log['angle']}°";
+                          }
+                          if ((log['reason'] ?? '').toString().isNotEmpty) {
+                            subtitleText += "\n${log['reason']}";
                           }
 
                           return ListTile(
@@ -1035,9 +1120,13 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                             trailing: Icon(
                               isCompleted
                                   ? Icons.check_circle_rounded
+                                  : isFailed
+                                  ? Icons.error_outline_rounded
                                   : Icons.schedule_rounded,
                               color: isCompleted
                                   ? Colors.green.shade600
+                                  : isFailed
+                                  ? Colors.red.shade600
                                   : Colors.orange.shade600,
                               size: 28,
                             ),
