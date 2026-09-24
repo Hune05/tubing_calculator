@@ -43,6 +43,8 @@ import 'package:tubing_calculator/src/presentation/vehicle/pages/mobile_vehicle_
 
 // 🚀 7. 신규 알림 내역 페이지 임포트
 import 'package:tubing_calculator/src/presentation/notification/pages/mobile_notification_page.dart';
+import 'package:tubing_calculator/src/presentation/field_tools/level_page.dart';
+import 'package:tubing_calculator/src/presentation/field_tools/protractor_page.dart';
 
 const Color tossBlue = Color(0xFF3182F6);
 const Color purpleBadge = Color(0xFF8A2BE2);
@@ -409,7 +411,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 _buildMenuButton(
                   context: context,
                   title: "전선관 벤딩 마킹 계산기",
-                  subtitle: "장비 프로필 설정 · 자이로 각도기 · 마킹 뷰어",
+                  subtitle: "장비 프로필 설정 · 마킹 뷰어",
                   icon: AppGlyph.conduitBend,
                   iconColor: Colors.blueGrey, // 메인 기능이므로 파란색 강조
                   badgeText: "Smart",
@@ -600,6 +602,36 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       context,
                       MaterialPageRoute(
                         builder: (context) => const MobileRemotePage(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMenuButton(
+                  context: context,
+                  title: "수평계",
+                  subtitle: "기포 수평계 · 배관 구배(%·mm/m) · 영점 맞추기",
+                  icon: AppGlyph.level,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LevelPage(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMenuButton(
+                  context: context,
+                  title: "각도기",
+                  subtitle: "벤딩 각도 재기 · 화면 각도기",
+                  icon: AppGlyph.protractor,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ProtractorPage(),
                       ),
                     );
                   },

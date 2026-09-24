@@ -143,6 +143,13 @@ enum AppGlyph {
 
   /// 시카고식 벤더: 톱니(노치) 바퀴 + 레버.
   benderChicago,
+
+  // ── 현장 도구 ──
+  /// 수평계: 기포관 + 가운데 기포.
+  level,
+
+  /// 각도기: 반원 눈금 + 팔.
+  protractor,
 }
 
 /// 기본 아이콘(IconData)과 직접 그린 아이콘(AppGlyph)을 같은 자리에 쓸 때.
@@ -953,6 +960,32 @@ class _AppIconPainter extends CustomPainter {
         arrowHeadV(const Offset(12, 9), -1);
         rr(5, 15.2, 14, 5.8, 1.4, soft);
         rr(5, 15.2, 14, 5.8, 1.4);
+
+      case AppGlyph.level:
+        rr(2.5, 8, 19, 8, 4, soft);
+        rr(2.5, 8, 19, 8, 4);
+        l(9, 6, 9, 18);
+        l(15, 6, 15, 18);
+        canvas.drawCircle(const Offset(12, 12), 2.2, fill);
+
+      case AppGlyph.protractor:
+        final arc = Path()
+          ..moveTo(3, 18)
+          ..arcToPoint(const Offset(21, 18), radius: const Radius.circular(9))
+          ..close();
+        canvas.drawPath(arc, soft);
+        canvas.drawPath(arc, line);
+        for (final deg in [30.0, 60.0, 90.0, 120.0, 150.0]) {
+          final t = deg * math.pi / 180;
+          l(
+            12 + math.cos(t) * 9,
+            18 - math.sin(t) * 9,
+            12 + math.cos(t) * 7,
+            18 - math.sin(t) * 7,
+          );
+        }
+        l(12, 18, 18.5, 11.5);
+        canvas.drawCircle(const Offset(12, 18), 1.2, fill);
 
       case AppGlyph.benderChicago:
         const cc = Offset(10, 14);
