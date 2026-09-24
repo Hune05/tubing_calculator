@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'level_painters.dart';
 import 'tilt_math.dart';
 import 'tilt_sensor.dart';
 
@@ -128,6 +129,8 @@ class _ProtractorPageState extends State<ProtractorPage> {
 
   // ── ① 벤딩 각도 재기 ──
 
+  // NixGame "각도 측정" 모양: 화면을 흰·파랑으로 나누는 선이 진짜 수직을 가리키고,
+  // 기준을 잡으면 기준선과 지금 선 사이가 빨간 쐐기, 그 각이 굽힌 각이다.
   Widget _bendTab() {
     if (_noSensor) {
       return const Center(
@@ -144,174 +147,166 @@ class _ProtractorPageState extends State<ProtractorPage> {
     }
     final hasRef = _reference != null;
     final bend = hasRef ? angleDiff(_rotation, _reference!).abs() : null;
-    final shown = hasRef ? bend! : _edgeTilt(_rotation);
-    // 단추는 아래에 붙여 두고(작은 폰에서도 안 가려지게) 설명만 스크롤한다.
-    return Column(
-      children: [
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 24,
-                  horizontal: 16,
+    final tilt = _edgeTilt(_rotation);
+    return LayoutBuilder(
+      builder: (context, box) {
+        final size = box.biggest;
+        final c = size.center(Offset.zero);
+        final up = upOnScreen(_rotation);
+        final right = Offset(-up.dy, up.dx);
+        TextStyle big(Color color, double fs) => TextStyle(
+          fontSize: fs,
+          fontWeight: FontWeight.w500,
+          color: _tooFlat ? _grey : color,
+          height: 1,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        );
+        Widget at(Offset p, Widget child) => Positioned(
+          left: p.dx - 110,
+          top: p.dy - 45,
+          width: 220,
+          height: 90,
+          child: IgnorePointer(
+            child: Center(
+              child: FittedBox(fit: BoxFit.scaleDown, child: child),
+            ),
+          ),
+        );
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: CustomPaint(
+                painter: SplitLevelPainter(
+                  rotationDeg: _rotation,
+                  referenceDeg: _reference,
                 ),
-                decoration: BoxDecoration(
-                  color: _bg,
-                  borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            // 흰 쪽: 지금 폰 옆면 기울기(작게)
+            at(
+              c - right * (size.width * 0.22) - up * (size.height * 0.10),
+              Text(
+                _last == null ? "--" : "${tilt.toStringAsFixed(1)}°",
+                key: const Key('bend_tilt'),
+                style: big(kLevelBlue, hasRef ? 40 : 60),
+              ),
+            ),
+            // 파랑 쪽: 굽힌 각(크게)
+            if (hasRef)
+              at(
+                c + right * (size.width * 0.20) + up * (size.height * 0.08),
+                Text(
+                  _last == null ? "--" : "${bend!.toStringAsFixed(1)}°",
+                  key: const Key('bend_value'),
+                  style: big(Colors.white, 64),
                 ),
-                child: Column(
-                  children: [
-                    Text(
-                      hasRef ? "굽힌 각도" : "지금 폰 옆면의 기울기",
-                      style: const TextStyle(
-                        color: _grey,
-                        fontWeight: FontWeight.w700,
-                      ),
+              ),
+            // 위쪽 안내·경고
+            Positioned(
+              top: 12,
+              left: 12,
+              right: 12,
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  _pill(
+                    hasRef
+                        ? "② 굽힌 다리에 대면 굽힌 각입니다"
+                        : "① 폰을 세워 긴 옆면을 곧은 다리에 대고 '기준 잡기'",
+                    _ink,
+                  ),
+                  if (hasRef && _last != null)
+                    _pill(
+                      "두 다리 사이 각 ${(180 - bend!).toStringAsFixed(1)}°",
+                      kLevelBlue,
+                      key: const Key('bend_inner'),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _last == null ? "--" : "${shown.toStringAsFixed(1)}°",
-                      key: const Key('bend_value'),
-                      style: TextStyle(
-                        fontSize: 76,
-                        fontWeight: FontWeight.w900,
-                        color: _tooFlat ? _grey : (hasRef ? _teal : _ink),
-                        height: 1,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
+                  if (_hold) _pill("고정됨", Colors.orange),
+                  if (_tooFlat)
+                    _pill(
+                      "폰을 세워서 관에 대십시오. 눕히면 각을 잴 수 없습니다.",
+                      _orange,
+                      key: const Key('bend_too_flat'),
                     ),
-                    if (hasRef && _last != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        "두 다리 사이 각 ${(180 - bend!).toStringAsFixed(1)}°",
-                        key: const Key('bend_inner'),
-                        style: const TextStyle(color: _grey, fontSize: 15),
+                ],
+              ),
+            ),
+            // 아래 단추
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 16,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      key: const Key('bend_reference'),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(54),
+                        backgroundColor: kLevelBlue,
                       ),
-                    ],
-                    if (_hold) ...[
-                      const SizedBox(height: 6),
-                      const Text(
-                        "고정됨",
-                        style: TextStyle(
-                          color: Colors.orange,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                    if (_tooFlat) ...[
-                      const SizedBox(height: 10),
-                      const Text(
-                        "폰을 세워서 관에 대십시오. 눕히면 각을 잴 수 없습니다.",
-                        key: Key('bend_too_flat'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: _orange,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
+                      onPressed: (_last == null || _tooFlat)
+                          ? null
+                          : () {
+                              HapticFeedback.mediumImpact();
+                              setState(() {
+                                _hold = false;
+                                _reference = _rotation;
+                              });
+                            },
+                      icon: const Icon(Icons.flag_outlined),
+                      label: Text(hasRef ? "기준 다시" : "기준 잡기"),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  RoundToolButton(
+                    key: const Key('bend_hold'),
+                    icon: _hold ? Icons.lock_open : Icons.pause,
+                    tooltip: _hold ? "고정 풀기" : "값 고정",
+                    color: _hold ? Colors.orange : kLevelBlue,
+                    active: _hold,
+                    onTap: _last == null
+                        ? null
+                        : () => setState(() => _hold = !_hold),
+                  ),
+                  if (hasRef) ...[
+                    const SizedBox(width: 8),
+                    RoundToolButton(
+                      key: const Key('bend_clear'),
+                      icon: Icons.restart_alt,
+                      tooltip: "기준 지우기",
+                      onTap: () => setState(() {
+                        _reference = null;
+                        _hold = false;
+                      }),
+                    ),
                   ],
-                ),
+                ],
               ),
-              const SizedBox(height: 20),
-              _step(
-                1,
-                "폰을 세워 긴 옆면을 관의 한쪽 다리(곧은 쪽)에 대고 '기준 잡기'를 누릅니다.",
-                done: hasRef,
-              ),
-              _step(2, "그대로 폰을 굽힌 다리에 옮겨 댑니다. 위 숫자가 굽힌 각도입니다.", done: false),
-              _step(3, "폰 화면이 굽힘 면과 나란해야(세워져 있어야) 맞습니다.", done: false),
-              if (hasRef)
-                TextButton(
-                  key: const Key('bend_clear'),
-                  onPressed: () => setState(() {
-                    _reference = null;
-                    _hold = false;
-                  }),
-                  child: const Text("기준 지우기"),
-                ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  key: const Key('bend_reference'),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(54),
-                    backgroundColor: _teal,
-                  ),
-                  onPressed: (_last == null || _tooFlat)
-                      ? null
-                      : () {
-                          HapticFeedback.mediumImpact();
-                          setState(() {
-                            _hold = false;
-                            _reference = _rotation;
-                          });
-                        },
-                  icon: const Icon(Icons.flag_outlined),
-                  label: Text(hasRef ? "기준 다시 잡기" : "기준 잡기"),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  key: const Key('bend_hold'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(54),
-                    foregroundColor: _hold ? Colors.orange : _teal,
-                  ),
-                  onPressed: _last == null
-                      ? null
-                      : () => setState(() => _hold = !_hold),
-                  icon: Icon(_hold ? Icons.lock_open : Icons.lock),
-                  label: Text(_hold ? "고정 풀기" : "값 고정"),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 
-  /// 기준이 없을 때 보여 줄 값: 폰 옆면이 수평에서 얼마나 기울었는지(0~90°).
-  double _edgeTilt(double rotation) {
-    final r = rotation.abs() % 180;
-    final d = r > 90 ? 180 - r : r;
-    return 90 - d;
-  }
-
-  Widget _step(int n, String text, {required bool done}) => Padding(
-    padding: const EdgeInsets.only(bottom: 10),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CircleAvatar(
-          radius: 12,
-          backgroundColor: done ? _teal : _bg,
-          child: Text(
-            "$n",
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              color: done ? Colors.white : _grey,
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(text, style: const TextStyle(color: _ink, height: 1.45)),
-        ),
-      ],
+  Widget _pill(String text, Color color, {Key? key}) => Container(
+    key: key,
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.94),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 13),
     ),
   );
+
+  /// 폰이 가장 가까운 수직·수평에서 벗어난 각(0~45°). NixGame "각도 측정"의 작은 숫자.
+  double _edgeTilt(double rotation) =>
+      angleDiff(rotation, (rotation / 90).round() * 90.0).abs();
 
   // ── ② 화면 각도기 ──
 

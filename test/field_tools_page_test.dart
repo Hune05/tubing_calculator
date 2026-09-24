@@ -35,6 +35,16 @@ Future<void> send(
   await tester.pump();
 }
 
+/// 설정(오른쪽 아래 톱니) → 단위 고르기 → 닫기.
+Future<void> pickUnit(WidgetTester tester, String unitName) async {
+  await tester.tap(find.byKey(const Key('level_settings')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(Key('unit_$unitName')));
+  await tester.pumpAndSettle();
+  await tester.tapAt(const Offset(10, 10)); // 시트 밖을 눌러 닫기
+  await tester.pumpAndSettle();
+}
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
@@ -54,7 +64,7 @@ void main() {
       expect(find.byKey(const Key('level_tube')), findsOneWidget);
       expect(find.byKey(const Key('level_value')), findsOneWidget);
       expect(find.text("3.0°"), findsOneWidget);
-      expect(find.text("기포 쪽이 높습니다"), findsOneWidget);
+      expect(find.text("수평입니다"), findsNothing);
       await c.close();
     });
 
@@ -62,8 +72,7 @@ void main() {
       final c = await pumpPage(tester, (s) => LevelPage(source: s));
       final deg = math.atan(0.02) * 180 / math.pi; // 2% 구배
       await send(tester, c, g * sinD(deg), g * cosD(deg), 0);
-      await tester.tap(find.byKey(const Key('level_unit')));
-      await tester.pump();
+      await pickUnit(tester, 'percent');
       expect(find.text("2.00%"), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('level_calibrate')));
@@ -101,22 +110,44 @@ void main() {
       await c.close();
     });
 
-    testWidgets('메뉴: 소수점 끄기·소리 끄기가 폰에 남는다', (tester) async {
+    testWidgets('설정: 소수점 끄기·소리 끄기가 폰에 남는다', (tester) async {
       final c = await pumpPage(tester, (s) => LevelPage(source: s));
       await send(tester, c, g * sinD(3), g * cosD(3), 0);
-      await tester.tap(find.byKey(const Key('level_menu')));
+      await tester.tap(find.byKey(const Key('level_settings')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text("소수점 보이기"));
+      await tester.tap(find.byKey(const Key('set_decimals')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('set_sound')));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
       expect(find.text("3°"), findsOneWidget);
-
-      await tester.tap(find.byKey(const Key('level_menu')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text("수평이면 소리"));
-      await tester.pumpAndSettle();
       final p = await SharedPreferences.getInstance();
       expect(p.getBool(kLevelDecimalsKey), isFalse);
       expect(p.getBool(kLevelSoundKey), isFalse);
+      await c.close();
+    });
+
+    testWidgets('자 길이 맞추기: 밀어서 맞추면 폰에 남는다', (tester) async {
+      final c = await pumpPage(tester, (s) => LevelPage(source: s));
+      await send(tester, c, 0, g, 0);
+      expect(find.byKey(const Key('level_ruler')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('level_settings')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('set_ruler')));
+      await tester.pumpAndSettle();
+      final before = tester.getSize(find.byKey(const Key('ruler_card'))).width;
+      await tester.drag(
+        find.byKey(const Key('ruler_slider')),
+        const Offset(60, 0),
+      );
+      await tester.pumpAndSettle();
+      final after = tester.getSize(find.byKey(const Key('ruler_card'))).width;
+      expect(after, greaterThan(before));
+      await tester.tap(find.byKey(const Key('ruler_ok')));
+      await tester.pumpAndSettle();
+      final p = await SharedPreferences.getInstance();
+      expect(p.getDouble(kRulerDpPerMmKey), closeTo(after / 54, 0.01));
       await c.close();
     });
 
@@ -140,8 +171,17 @@ void main() {
       for (int i = 0; i < 60; i++) {
         await send(tester, c, g * sinD(45), g * cosD(45), 0); // 둘째 다리
       }
-      expect(find.text("45.0°"), findsOneWidget);
+      String textOf(String key) =>
+          tester.widget<Text>(find.byKey(Key(key))).data!;
+      expect(textOf('bend_value'), "45.0°");
       expect(find.text("두 다리 사이 각 135.0°"), findsOneWidget);
+
+      // 30° 더 돌리면 굽힌 각 75.0°, 폰 옆면 기울기는 15.0°(값이 따로 논다).
+      for (int i = 0; i < 60; i++) {
+        await send(tester, c, g * sinD(75), g * cosD(75), 0);
+      }
+      expect(textOf('bend_value'), "75.0°");
+      expect(textOf('bend_tilt'), "15.0°");
       await c.close();
     });
 
@@ -204,10 +244,7 @@ void main() {
         (x: -g, y: 2.0, z: 0.0),
       ]) {
         await send(tester, c, v.x, v.y, v.z);
-        await tester.tap(find.byKey(const Key('level_unit')));
-        await tester.pump();
-        await tester.tap(find.byKey(const Key('level_unit')));
-        await tester.pump(); // mm/m(가장 긴 글자)
+        await pickUnit(tester, 'mmPerM'); // 가장 긴 글자
         expect(tester.takeException(), isNull);
       }
       await c.close();

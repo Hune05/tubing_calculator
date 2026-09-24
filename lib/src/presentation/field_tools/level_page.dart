@@ -1,28 +1,32 @@
-// 수평계. 플레이 스토어에서 많이 쓰는 기포 수평계 앱의 모양을 따랐다:
-// 눕히면 둥근 기포(두 방향), 세우면 기포관(한 방향), 큰 숫자, 수평이면 초록.
-// 배관 구배를 보려고 %·mm/m 단위, 영점 맞추기, 값 고정을 둔다.
+// 수평계. NixGame "Bubble Level, Spirit Level"(플레이 스토어 500만+) 모양을 따랐다:
+//  세우면 화면 전체가 흰·파랑 두 색으로 나뉘고 경계선이 진짜 수직을 가리킨다(빨간 쐐기 =
+//  폰 축과의 차이), 눕히면 초록 화면에 큰 원 기포, 왼쪽 가장자리 cm 자, 오른쪽 아래 흰
+//  동그라미 단추(설정·영점·고정), 오른쪽 위 모드 단추(A = 자동).
+// 배관 구배를 보려고 %·mm/m 단위도 둔다.
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'level_painters.dart';
 import 'tilt_math.dart';
 import 'tilt_sensor.dart';
 
-const Color _teal = Color(0xFF007580);
 const Color _ink = Color(0xFF191F28);
 const Color _grey = Color(0xFF8B95A1);
-const Color _bg = Color(0xFFF2F4F6);
 const Color _ok = Color(0xFF16A34A);
-const Color _okSoft = Color(0xFFDCFCE7);
-const Color _liquid = Color(0xFFD9F99D);
 
 const String kLevelCalibKey = 'field_level_calib_v1';
 const String kLevelUnitKey = 'field_level_unit_v1';
 const String kLevelSoundKey = 'field_level_sound_v1';
 const String kLevelDecimalsKey = 'field_level_decimals_v1';
+const String kRulerDpPerMmKey = 'field_ruler_dp_per_mm_v1';
+
+/// 안드로이드 기준(160 논리 픽셀 = 1인치). 폰마다 조금 달라 "자 맞추기"로 고친다.
+const double kDefaultDpPerMm = 160 / 25.4;
 
 class LevelPage extends StatefulWidget {
   /// 센서 흐름. 비우면 폰 가속도 센서(검사에서는 가짜 흐름을 넣는다).
@@ -56,6 +60,7 @@ class _LevelPageState extends State<LevelPage> {
   bool _sound = true; // 수평이 되면 딸깍 소리
   bool _decimals = true; // 소수점 보이기
   bool _poseLocked = false; // 눕힘·세움 자동 바뀜 멈추기
+  double _dpPerMm = kDefaultDpPerMm; // 자 눈금
 
   // 영점: flat_x, flat_y, upright_x, sideways_y (°)
   Map<String, double> _calib = {};
@@ -84,8 +89,10 @@ class _LevelPageState extends State<LevelPage> {
       final unit = p.getInt(kLevelUnitKey);
       final sound = p.getBool(kLevelSoundKey);
       final decimals = p.getBool(kLevelDecimalsKey);
+      final ruler = p.getDouble(kRulerDpPerMmKey);
       if (!mounted) return;
       setState(() {
+        if (ruler != null && ruler > 0) _dpPerMm = ruler;
         if (sound != null) _sound = sound;
         if (decimals != null) _decimals = decimals;
         if (raw != null) {
@@ -107,6 +114,7 @@ class _LevelPageState extends State<LevelPage> {
       await p.setInt(kLevelUnitKey, _unit.index);
       await p.setBool(kLevelSoundKey, _sound);
       await p.setBool(kLevelDecimalsKey, _decimals);
+      await p.setDouble(kRulerDpPerMmKey, _dpPerMm);
     } catch (_) {}
   }
 
@@ -195,14 +203,6 @@ class _LevelPageState extends State<LevelPage> {
     _snack("영점을 지웠습니다.");
   }
 
-  void _cycleUnit() {
-    setState(
-      () =>
-          _unit = SlopeUnit.values[(_unit.index + 1) % SlopeUnit.values.length],
-    );
-    _savePrefs();
-  }
-
   void _snack(String msg) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -219,6 +219,401 @@ class _LevelPageState extends State<LevelPage> {
     TiltPose.sideways => "옆으로 세워서 · 긴 변",
   };
 
+  /// 세웠을 때 폰 축(0·90·180·-90)과, 그 축에서 진짜 수직까지 돌아간 각(그림용).
+  (double axis, double dev) _edgeGeometry(double a) {
+    final r = screenRotation(_last!.x, _last!.y);
+    final axis = (r / 90).round() * 90.0;
+    // 표시 각(a, 영점 반영)을 화면 돌림 방향으로 바꾼다.
+    final sgn = switch (axis) {
+      0 => 1.0,
+      90 => -1.0,
+      -90 => 1.0,
+      _ => -1.0, // ±180
+    };
+    return (axis, sgn * a);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: _noSensor
+          ? SafeArea(child: _noSensorView())
+          : LayoutBuilder(builder: (context, c) => _levelView(c.biggest)),
+    );
+  }
+
+  Widget _noSensorView() => Stack(
+    children: [
+      const Center(
+        key: Key('level_no_sensor'),
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text(
+            "이 기기에서는 기울기 센서를 읽을 수 없습니다.\n폰에서 여십시오.",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16, color: _grey, height: 1.5),
+          ),
+        ),
+      ),
+      Positioned(top: 8, left: 8, child: BackButton(color: _ink)),
+    ],
+  );
+
+  Widget _levelView(Size size) {
+    final (a, b) = _angles();
+    final level = _last != null && isLevel(a) && isLevel(b);
+    final flat = _pose == TiltPose.flat;
+    final c = size.center(Offset.zero);
+    String fmt(double v) =>
+        _last == null ? "--" : formatSlope(v, _unit, decimals: _decimals);
+
+    final children = <Widget>[];
+
+    if (flat) {
+      children.add(
+        Positioned.fill(
+          child: CustomPaint(
+            key: const Key('level_bullseye'),
+            painter: BubbleLevelPainter(
+              // 기포는 높은 쪽으로: 오른쪽이 높으면 오른쪽, 위쪽이 높으면 위(화면 y는 아래로 +).
+              bubble: Offset(bubbleOffset(a), -bubbleOffset(b)),
+              level: level,
+            ),
+          ),
+        ),
+      );
+      // NixGame처럼 좌우 값은 오른쪽 위, 앞뒤 값은 왼쪽 아래.
+      children.add(
+        _number(
+          fmt(a),
+          Offset(size.width * 0.70, size.height * 0.30),
+          Colors.white,
+          key: const Key('level_value_x'),
+          caption: "좌우",
+        ),
+      );
+      children.add(
+        _number(
+          fmt(b),
+          Offset(size.width * 0.38, size.height * 0.70),
+          Colors.white,
+          key: const Key('level_value_y'),
+          caption: "앞뒤",
+        ),
+      );
+    } else {
+      final (axis, dev) = _last == null ? (0.0, 0.0) : _edgeGeometry(a);
+      final rot = axis + dev;
+      children.add(
+        Positioned.fill(
+          child: CustomPaint(
+            key: const Key('level_tube'),
+            painter: SplitLevelPainter(
+              rotationDeg: rot,
+              referenceDeg: level ? null : axis,
+            ),
+          ),
+        ),
+      );
+      // 숫자는 흰 쪽에, 글자는 진짜 위쪽을 향하게(옆으로 세우면 돌려서).
+      final up = upOnScreen(rot);
+      final right = Offset(-up.dy, up.dx);
+      final at = c - right * (size.width * 0.20) - up * (size.height * 0.06);
+      children.add(
+        _number(
+          fmt(a),
+          at,
+          kLevelBlue,
+          key: const Key('level_value'),
+          turn: axis * math.pi / 180,
+          big: true,
+        ),
+      );
+    }
+
+    // 왼쪽 cm 자(화면 맨 위가 0)
+    children.add(
+      Positioned(
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: 46,
+        child: Container(
+          color: flat
+              ? Colors.transparent
+              : Colors.white.withValues(alpha: 0.92),
+          child: CustomPaint(
+            key: const Key('level_ruler'),
+            painter: EdgeRulerPainter(
+              dpPerMm: _dpPerMm,
+              color: flat ? Colors.white : kLevelBlue,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // 위쪽 알림(수평·영점·고정·모양 고정)
+    final tags = <Widget>[
+      if (_last == null) _tag("센서를 읽는 중입니다", _grey),
+      if (level) _tag("수평입니다", _ok, key: const Key('level_status')),
+      if (_calibrated) _tag("영점 맞춤", kLevelBlue),
+      if (_poseLocked) _tag("모양 고정 · $_poseLabel", Colors.orange),
+      if (_hold) _tag("고정됨", Colors.orange),
+    ];
+    children.add(
+      Positioned(
+        top: MediaQuery.paddingOf(context).top + 12,
+        left: 56,
+        right: 110,
+        child: Wrap(spacing: 6, runSpacing: 6, children: tags),
+      ),
+    );
+
+    // 오른쪽 위: 모드(A = 자동 / 자물쇠) + 나가기
+    final btnColor = flat ? kLevelGreen : kLevelBlue;
+    children.add(
+      Positioned(
+        top: MediaQuery.paddingOf(context).top + 8,
+        right: 12,
+        child: Row(
+          children: [
+            RoundToolButton(
+              key: const Key('level_pose_lock'),
+              icon: _poseLocked ? Icons.lock : Icons.hdr_auto,
+              tooltip: _poseLocked ? "모양 고정 풀기" : "모양 고정",
+              color: btnColor,
+              active: _poseLocked,
+              onTap: () {
+                setState(() => _poseLocked = !_poseLocked);
+                _snack(
+                  _poseLocked
+                      ? "지금 모양($_poseLabel)으로 고정했습니다. 폰을 돌려도 안 바뀝니다."
+                      : "폰을 놓는 모양에 따라 다시 자동으로 바뀝니다.",
+                );
+              },
+            ),
+            const SizedBox(width: 8),
+            RoundToolButton(
+              key: const Key('level_back'),
+              icon: Icons.close,
+              tooltip: "닫기",
+              color: btnColor,
+              onTap: () => Navigator.of(context).maybePop(),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // 오른쪽 아래: 설정 · 영점 · 값 고정
+    children.add(
+      Positioned(
+        right: 16,
+        bottom: MediaQuery.paddingOf(context).bottom + 96,
+        child: Column(
+          children: [
+            RoundToolButton(
+              key: const Key('level_settings'),
+              icon: Icons.settings,
+              tooltip: "설정",
+              color: btnColor,
+              onTap: _openSettings,
+            ),
+            const SizedBox(height: 14),
+            RoundToolButton(
+              key: const Key('level_calibrate'),
+              icon: Icons.center_focus_strong,
+              tooltip: "영점 맞추기 (길게 누르면 지움)",
+              color: btnColor,
+              onTap: _last == null ? null : _calibrate,
+              onLongPress: _clearCalib,
+            ),
+            const SizedBox(height: 14),
+            RoundToolButton(
+              key: const Key('level_hold'),
+              icon: _hold ? Icons.lock_open : Icons.pause,
+              tooltip: _hold ? "고정 풀기" : "값 고정",
+              color: _hold ? Colors.orange : btnColor,
+              active: _hold,
+              onTap: _last == null
+                  ? null
+                  : () => setState(() => _hold = !_hold),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return Stack(children: children);
+  }
+
+  Widget _tag(String text, Color color, {Key? key}) => Container(
+    key: key,
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.92),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 13),
+    ),
+  );
+
+  /// 큰 숫자 하나를 [at] 가운데에 둔다.
+  Widget _number(
+    String text,
+    Offset at,
+    Color color, {
+    Key? key,
+    String? caption,
+    double turn = 0,
+    bool big = false,
+  }) {
+    final style = TextStyle(
+      fontSize: big ? 64 : 52,
+      fontWeight: FontWeight.w500,
+      color: color,
+      height: 1,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return Positioned(
+      left: at.dx - 120,
+      top: at.dy - 50,
+      width: 240,
+      height: 100,
+      child: IgnorePointer(
+        child: Transform.rotate(
+          angle: turn,
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (caption != null)
+                    Text(
+                      caption,
+                      style: TextStyle(
+                        color: color.withValues(alpha: 0.8),
+                        fontSize: 14,
+                      ),
+                    ),
+                  Text(text, key: key, style: style),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── 설정 ──
+
+  Future<void> _openSettings() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      showDragHandle: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) {
+          void update(VoidCallback f) {
+            setState(f);
+            setSheet(() {});
+            _savePrefs();
+          }
+
+          return SafeArea(
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              children: [
+                const Text(
+                  "단위",
+                  style: TextStyle(fontWeight: FontWeight.w800, color: _ink),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final u in SlopeUnit.values)
+                      ChoiceChip(
+                        key: Key('unit_${u.name}'),
+                        label: Text(switch (u) {
+                          SlopeUnit.degree => "도(°)",
+                          SlopeUnit.percent => "퍼센트(%)",
+                          SlopeUnit.mmPerM => "구배(mm/m)",
+                        }),
+                        selected: _unit == u,
+                        onSelected: (_) => update(() => _unit = u),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  key: const Key('set_sound'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text("수평이면 소리"),
+                  subtitle: const Text("폰 터치음이 꺼져 있으면 안 날 수 있습니다"),
+                  value: _sound,
+                  onChanged: (v) => update(() => _sound = v),
+                ),
+                SwitchListTile(
+                  key: const Key('set_decimals'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text("소수점 보이기"),
+                  value: _decimals,
+                  onChanged: (v) => update(() => _decimals = v),
+                ),
+                ListTile(
+                  key: const Key('set_ruler'),
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.straighten),
+                  title: const Text("자 길이 맞추기"),
+                  subtitle: const Text("신용카드를 화면에 대고 맞춥니다"),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _openRulerCalibration();
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// 신용카드를 화면에 세워 대고(가로 54mm × 세로 85.6mm), 그림 상자가 카드와 같아지게
+  /// 맞춘다. 카드 긴 변은 폰 폭보다 길어서 세워서 댄다.
+  Future<void> _openRulerCalibration() async {
+    final v = await Navigator.of(context).push<double>(
+      MaterialPageRoute(
+        builder: (_) => RulerCalibrationPage(initial: _dpPerMm),
+      ),
+    );
+    if (v != null && mounted) {
+      setState(() => _dpPerMm = v);
+      _savePrefs();
+    }
+  }
+}
+
+/// 자 길이 맞추기 화면.
+class RulerCalibrationPage extends StatefulWidget {
+  final double initial;
+  const RulerCalibrationPage({super.key, required this.initial});
+
+  @override
+  State<RulerCalibrationPage> createState() => _RulerCalibrationPageState();
+}
+
+class _RulerCalibrationPageState extends State<RulerCalibrationPage> {
+  late double _v = widget.initial.clamp(4.5, 8.5);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -226,404 +621,62 @@ class _LevelPageState extends State<LevelPage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
-        elevation: 0,
         foregroundColor: _ink,
-        title: const Text(
-          "수평계",
-          style: TextStyle(fontWeight: FontWeight.w800, color: _ink),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: ActionChip(
-              key: const Key('level_unit'),
-              label: Text("단위 ${slopeUnitLabel(_unit)}"),
-              onPressed: _cycleUnit,
-              backgroundColor: _bg,
-              side: BorderSide.none,
-            ),
-          ),
-          IconButton(
-            key: const Key('level_pose_lock'),
-            tooltip: _poseLocked ? "모양 고정 풀기" : "모양 고정",
-            onPressed: () {
-              setState(() => _poseLocked = !_poseLocked);
-              _snack(
-                _poseLocked
-                    ? "지금 모양($_poseLabel)으로 고정했습니다. 폰을 돌려도 안 바뀝니다."
-                    : "폰을 놓는 모양에 따라 다시 자동으로 바뀝니다.",
-              );
-            },
-            icon: Icon(
-              _poseLocked ? Icons.screen_lock_rotation : Icons.screen_rotation,
-              color: _poseLocked ? Colors.orange : _ink,
-            ),
-          ),
-          PopupMenuButton<String>(
-            key: const Key('level_menu'),
-            onSelected: (v) {
-              setState(() {
-                if (v == 'sound') _sound = !_sound;
-                if (v == 'decimals') _decimals = !_decimals;
-              });
-              _savePrefs();
-            },
-            itemBuilder: (context) => [
-              CheckedPopupMenuItem(
-                value: 'sound',
-                checked: _sound,
-                child: const Text("수평이면 소리"),
-              ),
-              CheckedPopupMenuItem(
-                value: 'decimals',
-                checked: _decimals,
-                child: const Text("소수점 보이기"),
-              ),
-            ],
-          ),
-        ],
+        title: const Text("자 길이 맞추기"),
       ),
-      body: SafeArea(child: _noSensor ? _noSensorView() : _levelView()),
-    );
-  }
-
-  Widget _noSensorView() => const Center(
-    key: Key('level_no_sensor'),
-    child: Padding(
-      padding: EdgeInsets.all(32),
-      child: Text(
-        "이 기기에서는 기울기 센서를 읽을 수 없습니다.\n폰에서 여십시오.",
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 16, color: _grey, height: 1.5),
-      ),
-    ),
-  );
-
-  Widget _levelView() {
-    final (a, b) = _angles();
-    final level = _last != null && isLevel(a) && isLevel(b);
-    return Column(
-      children: [
-        _readout(a, b, level),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: LayoutBuilder(
-              builder: (context, c) => _vial(c.biggest, a, b, level),
-            ),
-          ),
-        ),
-        _buttons(),
-      ],
-    );
-  }
-
-  Widget _readout(double a, double b, bool level) {
-    final big = TextStyle(
-      fontSize: 56,
-      fontWeight: FontWeight.w900,
-      color: level ? _ok : _ink,
-      height: 1,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
-    final Widget numbers = _pose == TiltPose.flat
-        ? Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Expanded(child: _axisNumber("좌우", a, big)),
-              const SizedBox(width: 12),
-              Expanded(child: _axisNumber("앞뒤", b, big)),
-            ],
-          )
-        // 좁은 폰·긴 값(예: 1000.0mm/m)에서도 넘치지 않게 글자를 줄여 맞춘다.
-        : FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              _last == null ? "--" : formatSlope(a, _unit, decimals: _decimals),
-              key: const Key('level_value'),
-              style: big.copyWith(fontSize: 72),
-            ),
-          );
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-      decoration: BoxDecoration(
-        color: level ? _okSoft : _bg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        children: [
-          Wrap(
-            alignment: WrapAlignment.center,
-            children: [
-              Text(
-                _poseLabel,
-                style: const TextStyle(
-                  color: _grey,
-                  fontWeight: FontWeight.w700,
-                ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
+              child: Text(
+                "신용카드(교통카드)를 세로로 세워 아래 상자 위에 대고, 상자가 카드와 같아지게 밉니다.",
+                style: TextStyle(color: _grey, height: 1.4),
               ),
-              if (_calibrated) ...[
-                const SizedBox(width: 8),
-                const Text(
-                  "· 영점 맞춤",
-                  style: TextStyle(color: _teal, fontWeight: FontWeight.w700),
-                ),
-              ],
-              if (_poseLocked) ...[
-                const SizedBox(width: 8),
-                const Text(
-                  "· 모양 고정",
-                  style: TextStyle(
-                    color: Colors.orange,
-                    fontWeight: FontWeight.w800,
+            ),
+            Expanded(
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Container(
+                    key: const Key('ruler_card'),
+                    width: 54 * _v,
+                    height: 85.6 * _v,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: kLevelBlue, width: 2),
+                      borderRadius: BorderRadius.circular(3.2 * _v),
+                    ),
                   ),
                 ),
-              ],
-              if (_hold) ...[
-                const SizedBox(width: 8),
-                const Text(
-                  "· 고정됨",
-                  style: TextStyle(
-                    color: Colors.orange,
-                    fontWeight: FontWeight.w800,
+              ),
+            ),
+            Slider(
+              key: const Key('ruler_slider'),
+              min: 4.5,
+              max: 8.5,
+              value: _v,
+              onChanged: (x) => setState(() => _v = x),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              child: Row(
+                children: [
+                  TextButton(
+                    onPressed: () => setState(() => _v = kDefaultDpPerMm),
+                    child: const Text("처음 값으로"),
                   ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 10),
-          numbers,
-          const SizedBox(height: 8),
-          Text(
-            _last == null ? "센서를 읽는 중입니다" : (level ? "수평입니다" : "기포 쪽이 높습니다"),
-            key: const Key('level_status'),
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: level ? _ok : _grey,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _axisNumber(String label, double v, TextStyle style) => Column(
-    children: [
-      Text(label, style: const TextStyle(color: _grey, fontSize: 13)),
-      const SizedBox(height: 4),
-      FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          _last == null ? "--" : formatSlope(v, _unit, decimals: _decimals),
-          style: style,
-        ),
-      ),
-    ],
-  );
-
-  Widget _vial(Size size, double a, double b, bool level) {
-    switch (_pose) {
-      case TiltPose.flat:
-        final d = size.shortestSide;
-        return Center(
-          child: SizedBox(
-            width: d,
-            height: d,
-            child: CustomPaint(
-              key: const Key('level_bullseye'),
-              painter: _BullseyePainter(
-                // 기포는 높은 쪽으로: 오른쪽이 높으면 오른쪽, 위쪽이 높으면 위(화면 y는 아래로 +).
-                bubble: Offset(bubbleOffset(a), -bubbleOffset(b)),
-                level: level,
+                  const Spacer(),
+                  FilledButton(
+                    key: const Key('ruler_ok'),
+                    onPressed: () => Navigator.pop(context, _v),
+                    child: const Text("맞춤"),
+                  ),
+                ],
               ),
             ),
-          ),
-        );
-      case TiltPose.upright:
-        return Center(
-          child: SizedBox(
-            width: size.width,
-            height: 90,
-            child: CustomPaint(
-              key: const Key('level_tube'),
-              painter: _TubePainter(offset: bubbleOffset(a), level: level),
-            ),
-          ),
-        );
-      case TiltPose.sideways:
-        return Center(
-          child: SizedBox(
-            width: 90,
-            height: size.height,
-            child: CustomPaint(
-              key: const Key('level_tube'),
-              painter: _TubePainter(
-                offset: -bubbleOffset(a), // 위쪽이 높으면 기포가 위로
-                level: level,
-                vertical: true,
-              ),
-            ),
-          ),
-        );
-    }
-  }
-
-  Widget _buttons() => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-    child: Row(
-      children: [
-        Expanded(
-          child: GestureDetector(
-            onLongPress: _clearCalib,
-            child: OutlinedButton.icon(
-              key: const Key('level_calibrate'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
-                foregroundColor: _teal,
-              ),
-              onPressed: _last == null ? null : _calibrate,
-              icon: const Icon(Icons.adjust),
-              label: const Text("영점 맞추기"),
-            ),
-          ),
+          ],
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: FilledButton.icon(
-            key: const Key('level_hold'),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(52),
-              backgroundColor: _hold ? Colors.orange : _teal,
-            ),
-            onPressed: _last == null
-                ? null
-                : () => setState(() => _hold = !_hold),
-            icon: Icon(_hold ? Icons.lock_open : Icons.lock),
-            label: Text(_hold ? "고정 풀기" : "값 고정"),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-/// 둥근 기포(눕혔을 때).
-class _BullseyePainter extends CustomPainter {
-  final Offset bubble; // -1~1
-  final bool level;
-  _BullseyePainter({required this.bubble, required this.level});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final c = size.center(Offset.zero);
-    final r = size.shortestSide / 2 - 4;
-    canvas.drawCircle(c, r, Paint()..color = level ? _okSoft : _liquid);
-    final ring = Paint()
-      ..style = PaintingStyle.stroke
-      ..color = _ink.withValues(alpha: 0.25)
-      ..strokeWidth = 1.5;
-    canvas.drawCircle(c, r, ring..strokeWidth = 3);
-    ring.strokeWidth = 1.5;
-    for (final f in [0.66, 0.33]) {
-      canvas.drawCircle(c, r * f, ring);
-    }
-    canvas.drawLine(c - Offset(r, 0), c + Offset(r, 0), ring);
-    canvas.drawLine(c - Offset(0, r), c + Offset(0, r), ring);
-    final br = r * 0.16;
-    final pos = c + Offset(bubble.dx, bubble.dy) * (r - br);
-    canvas.drawCircle(pos, br, Paint()..color = Colors.white);
-    canvas.drawCircle(
-      pos,
-      br,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3
-        ..color = level ? _ok : _ink.withValues(alpha: 0.5),
-    );
-    // 가운데 과녁(기포가 들어가야 할 자리)
-    canvas.drawCircle(
-      c,
-      br * 1.15,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..color = level ? _ok : _teal,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_BullseyePainter old) =>
-      old.bubble != bubble || old.level != level;
-}
-
-/// 기포관(세웠을 때). [vertical]이면 세로로 그린다.
-class _TubePainter extends CustomPainter {
-  final double offset; // -1~1
-  final bool level;
-  final bool vertical;
-  _TubePainter({
-    required this.offset,
-    required this.level,
-    this.vertical = false,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final long = vertical ? size.height : size.width;
-    final short = vertical ? size.width : size.height;
-    canvas.save();
-    if (vertical) {
-      canvas.translate(size.width, 0);
-      canvas.rotate(1.5707963267948966);
-    }
-    final rect = Rect.fromLTWH(0, short * 0.15, long, short * 0.7);
-    final rr = RRect.fromRectAndRadius(rect, Radius.circular(rect.height / 2));
-    canvas.drawRRect(rr, Paint()..color = level ? _okSoft : _liquid);
-    canvas.drawRRect(
-      rr,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3
-        ..color = _ink.withValues(alpha: 0.25),
-    );
-    final bw = rect.height * 1.3;
-    final mid = rect.center.dx;
-    // 가운데 두 줄(기포가 이 사이에 오면 수평)
-    final mark = Paint()
-      ..color = level ? _ok : _teal
-      ..strokeWidth = 2.5;
-    for (final dx in [-bw / 2 - 4, bw / 2 + 4]) {
-      canvas.drawLine(
-        Offset(mid + dx, rect.top - 6),
-        Offset(mid + dx, rect.bottom + 6),
-        mark,
-      );
-    }
-    final travel = (long - bw) / 2 - rect.height / 2;
-    final bx = mid + offset * travel;
-    final bubble = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset(bx, rect.center.dy),
-        width: bw,
-        height: rect.height * 0.72,
       ),
-      Radius.circular(rect.height),
     );
-    canvas.drawRRect(bubble, Paint()..color = Colors.white);
-    canvas.drawRRect(
-      bubble,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3
-        ..color = level ? _ok : _ink.withValues(alpha: 0.5),
-    );
-    canvas.restore();
   }
-
-  @override
-  bool shouldRepaint(_TubePainter old) =>
-      old.offset != offset || old.level != level || old.vertical != vertical;
 }
