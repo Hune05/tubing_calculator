@@ -136,6 +136,59 @@ void main() {
     expect(p[kDeletedIdsKey], ['x']);
   });
 
+  group('지운 항목이 되살아나지 않는다', () {
+    Map<String, dynamic> server() => {
+      'schedules': [
+        {'id': 's1', 'title': '가'},
+        {'id': 's2', 'title': '나'},
+      ],
+      'phases': [
+        {'id': 'p1'},
+        {'id': 'p2'},
+      ],
+    };
+
+    test('목록을 바꿀 때 빠진 일정은 지운 것으로 적고, 합쳐도 안 돌아온다', () {
+      final local = server();
+      // 일정 화면에서 s2를 지우고 돌아옴
+      replaceItemList(local, 'schedules', [
+        {'id': 's1', 'title': '가'},
+      ]);
+      expect(local[kDeletedIdsKey], ['s2']);
+      final merged = mergeProjectDocs(local: local, server: server());
+      expect([for (final m in merged['schedules'] as List) m['id']], ['s1']);
+    });
+
+    test('예전처럼 지운 표시가 없으면 되살아난다(고치기 전 동작 확인용)', () {
+      final local = server();
+      local['schedules'] = [
+        {'id': 's1', 'title': '가'},
+      ];
+      final merged = mergeProjectDocs(local: local, server: server());
+      expect((merged['schedules'] as List).length, 2);
+    });
+
+    test('단계를 지우며 표시하면 합쳐도 안 돌아온다', () {
+      final local = server();
+      markItemDeleted(local, 'p2');
+      local['phases'] = [
+        {'id': 'p1'},
+      ];
+      final merged = mergeProjectDocs(local: local, server: server());
+      expect([for (final m in merged['phases'] as List) m['id']], ['p1']);
+    });
+
+    test('새로 넣은 것·그대로 둔 것은 지운 것으로 적지 않는다', () {
+      final local = server();
+      replaceItemList(local, 'schedules', [
+        {'id': 's1'},
+        {'id': 's2'},
+        {'id': 's3'},
+      ]);
+      expect(local[kDeletedIdsKey], isNull);
+    });
+  });
+
   group('작성자 도장', () {
     test('새로 만들면 author, 고치면 updatedBy', () {
       final r = <String, dynamic>{};

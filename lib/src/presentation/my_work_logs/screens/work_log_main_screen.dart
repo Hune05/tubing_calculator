@@ -578,7 +578,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         log['daily_reports'] ?? [],
       );
       setState(() {
-        log['daily_reports'] = updated;
+        replaceItemList(log, 'daily_reports', updated);
         for (final r in updated) {
           if (!before.contains(r)) {
             stampAuthor(r, currentWorkerName.value, created: false);
@@ -862,7 +862,8 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     );
     if (updated != null) {
       setState(() {
-        log['schedules'] = updated;
+        // 지운 일정은 지운 것으로 적어 둔다(다음 저장 때 되살아나지 않게).
+        replaceItemList(log, 'schedules', updated);
       });
       _saveProject(log);
     }

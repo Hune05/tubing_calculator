@@ -125,6 +125,26 @@ void markItemDeleted(Map<String, dynamic> project, String? id) {
   project[kDeletedIdsKey] = list;
 }
 
+/// 목록([key])을 새것으로 바꾸면서, 새것에 없는 옛 항목은 지운 것으로 적는다.
+///
+/// 예전엔 [markItemDeleted]를 부르는 곳이 없어서, 일정·단계·일지를 지워도 다음 저장 때
+/// 서버에 남은 것과 합쳐지며 되살아났다(혼자 폰 한 대로 써도 생겼다).
+void replaceItemList(
+  Map<String, dynamic> project,
+  String key,
+  List<Map<String, dynamic>> newList,
+) {
+  final keep = <String>{
+    for (final m in newList)
+      if (_idOf(m) != null) _idOf(m)!,
+  };
+  for (final m in (project[key] as List?) ?? const []) {
+    final id = _idOf(m);
+    if (id != null && !keep.contains(id)) markItemDeleted(project, id);
+  }
+  project[key] = newList;
+}
+
 /// 일지·이슈에 누가 언제 썼는지 남긴다. 새로 만들 때는 author·createdAtBy, 고칠 때는 updatedBy.
 /// [who]가 비어 있으면 이름은 안 적고 시각만 적는다.
 void stampAuthor(

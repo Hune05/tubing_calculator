@@ -10,6 +10,8 @@ import 'project_list_item.dart';
 import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
 import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/models/project_merge.dart'
+    show markItemDeleted;
 
 // 🚀 [수정 완료] 새로 만든 Workspace를 import 합니다!
 import 'package:tubing_calculator/src/presentation/calculator/screens/electric_bending_workspace.dart'
@@ -1056,9 +1058,15 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
     );
     if (confirm == true) {
       setState(() {
-        (projects[projectIndex]['daily_reports'] as List?)?.removeAt(
-          reportIndex,
-        );
+        final reports = projects[projectIndex]['daily_reports'] as List?;
+        if (reports != null && reportIndex < reports.length) {
+          final r = reports[reportIndex];
+          // 지운 일지는 지운 것으로 적어 둔다(다음 저장 때 되살아나지 않게).
+          if (r is Map) {
+            markItemDeleted(projects[projectIndex], r['id']?.toString());
+          }
+          reports.removeAt(reportIndex);
+        }
         _saveData(projectIndex);
       });
     }

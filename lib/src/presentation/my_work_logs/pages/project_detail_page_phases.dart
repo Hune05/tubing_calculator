@@ -330,6 +330,8 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
 
   void _deletePhase(Map<String, dynamic> p) {
     final id = p['id'].toString();
+    // 지운 단계는 지운 것으로 적어 둔다(다음 저장 때 되살아나지 않게).
+    markItemDeleted(log, id);
     final list = phasesOf(log)..removeWhere((e) => e['id'] == id);
     setPhases(log, list);
     // 이 단계의 일정은 지우지 않고 "단계 없음"으로 돌린다.
