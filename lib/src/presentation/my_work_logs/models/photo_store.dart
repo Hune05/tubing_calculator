@@ -158,8 +158,11 @@ Future<String?> uploadPhoto(String projectId, String localPath) async {
         .child('project_photos')
         .child(projectId)
         .child(name);
-    await ref.putFile(await _compressed(file));
-    return await ref.getDownloadURL();
+    // 통신이 없으면 끝나지 않아 그 프로젝트가 다시 시도에서 빠졌다(배경 사진과 같게 제한).
+    await ref
+        .putFile(await _compressed(file))
+        .timeout(const Duration(seconds: 20));
+    return await ref.getDownloadURL().timeout(const Duration(seconds: 8));
   } catch (e) {
     debugPrint('사진 업로드 실패: $e');
     recordError('사진 업로드', e);

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_stock_deduct.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -10,6 +9,8 @@ import 'project_list_item.dart';
 import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
 import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/models/photo_store.dart'
+    show PhotoImage, uploadAllPhotos;
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/project_merge.dart'
     show currentWorkerName, editedReport, markItemDeleted, unlockReport;
 
@@ -64,7 +65,8 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
   void _saveData(int index) {
     if (index < 0 || index >= projects.length) return;
     // 예전엔 저장 실패가 아무 표시 없이 사라졌다(화면은 저장된 것처럼 보였다).
-    _projectRepo.upsertProject(projects[index]).catchError((e) {
+    final project = projects[index];
+    _projectRepo.upsertProject(project).catchError((e) {
       debugPrint('프로젝트 저장 실패: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -72,6 +74,13 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
         );
       }
     });
+    // 🚀 [고침] PC에서 붙인 사진은 PC 안 경로로만 저장돼 폰·다른 PC에서 안 보였다(점검 28번).
+    // 폰과 같이 서버에 올리고 문서를 주소로 바꾼다. 실패하면 경로가 남아 다음 저장 때 다시.
+    uploadAllPhotos(project)
+        .then((changed) {
+          if (changed) return _projectRepo.upsertProject(project);
+        })
+        .catchError((e) => debugPrint('PC 사진 올리기 실패: $e'));
   }
 
   Future<String?> _pickImageSource() async {
@@ -542,8 +551,8 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                                   children: [
                                     ClipRRect(
                                       borderRadius: BorderRadius.circular(8),
-                                      child: Image.file(
-                                        File(path),
+                                      child: PhotoImage(
+                                        path,
                                         width: 100,
                                         height: 100,
                                         fit: BoxFit.cover,
@@ -874,8 +883,8 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                                     children: [
                                       ClipRRect(
                                         borderRadius: BorderRadius.circular(8),
-                                        child: Image.file(
-                                          File(path),
+                                        child: PhotoImage(
+                                          path,
                                           width: 100,
                                           height: 100,
                                           fit: BoxFit.cover,
@@ -1502,8 +1511,8 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                                 child: InteractiveViewer(
                                   minScale: 1.0,
                                   maxScale: 5.0,
-                                  child: Image.file(
-                                    File(imagePaths[index]),
+                                  child: PhotoImage(
+                                    imagePaths[index],
                                     width: double.infinity,
                                     height: double.infinity,
                                     fit: BoxFit.contain,
