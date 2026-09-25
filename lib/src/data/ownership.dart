@@ -77,3 +77,19 @@ Future<Map<String, dynamic>?> readMySettings(
   final old = await col.doc(base).get().timeout(timeout);
   return old.data();
 }
+
+/// 공용 ↔ 내 것을 바꾼다. 공용으로 돌릴 때는 칸을 지우지 않고 비워 둔다
+/// (옛 사본이 합칠 때 주인을 되살리지 않게). 바뀐 뒤 공용이면 true.
+Future<bool> toggleSharedDoc(
+  DocumentReference<Map<String, dynamic>> ref,
+  Map data, {
+  String? name,
+}) async {
+  final toShared = !isSharedDoc(data);
+  await ref.update(
+    toShared
+        ? {kOwnerUid: '', kOwnerName: ''}
+        : ownerFieldsFor(shared: false, uid: currentUid(), name: name),
+  );
+  return toShared;
+}

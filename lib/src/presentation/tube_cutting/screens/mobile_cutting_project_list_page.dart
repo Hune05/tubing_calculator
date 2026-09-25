@@ -205,6 +205,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
     BuildContext context,
     String docId,
     CuttingProject project,
+    Map<String, dynamic> data,
   ) {
     HapticFeedback.mediumImpact();
     showModalBottomSheet(
@@ -276,6 +277,46 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                   );
                 },
               ),
+              if (currentUid() != null)
+                ListTile(
+                  leading: Icon(
+                    isSharedDoc(data)
+                        ? Icons.person_outline_rounded
+                        : Icons.groups_outlined,
+                    color: CuttingColors.primary,
+                  ),
+                  title: Text(
+                    isSharedDoc(data) ? "내 것으로 가져오기" : "공용으로 돌리기",
+                    style: const TextStyle(
+                      color: CuttingColors.textPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  subtitle: Text(
+                    isSharedDoc(data) ? "나만 보고 고칩니다" : "이 앱을 쓰는 모두가 보고 고칩니다",
+                  ),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    try {
+                      final shared = await toggleSharedDoc(
+                        FirebaseFirestore.instance
+                            .collection(kCuttingProjectsCollection)
+                            .doc(docId),
+                        data,
+                      );
+                      if (context.mounted) {
+                        showCuttingSnack(
+                          context,
+                          shared ? "공용으로 돌렸습니다." : "내 것으로 가져왔습니다.",
+                        );
+                      }
+                    } catch (_) {
+                      if (context.mounted) {
+                        showCuttingSnack(context, "바꾸지 못했습니다.", isError: true);
+                      }
+                    }
+                  },
+                ),
               ListTile(
                 leading: const Icon(
                   Icons.delete_outline,
@@ -550,7 +591,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                   child: InkWell(
                     onTap: () => _openProject(context, doc.id, project),
                     onLongPress: () =>
-                        _showItemActions(context, doc.id, project),
+                        _showItemActions(context, doc.id, project, data),
                     borderRadius: BorderRadius.circular(20),
                     child: Container(
                       padding: const EdgeInsets.all(20),
@@ -633,8 +674,12 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                               Icons.more_vert_rounded,
                               color: CuttingColors.textSecondary,
                             ),
-                            onPressed: () =>
-                                _showItemActions(context, doc.id, project),
+                            onPressed: () => _showItemActions(
+                              context,
+                              doc.id,
+                              project,
+                              data,
+                            ),
                           ),
                         ],
                       ),
