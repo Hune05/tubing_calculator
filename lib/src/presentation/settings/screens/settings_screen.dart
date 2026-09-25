@@ -408,28 +408,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildSwitchRow(
-    String label,
-    bool value,
-    ValueChanged<bool> onChanged,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          SettingLabel(text: label),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: Colors.white,
-            activeTrackColor: makitaTeal,
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildUnitToggle() {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
@@ -550,15 +528,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         icon: Icons.straighten,
         child: Column(
           children: [
+            // 🚀 [정리] "기본 회전"·"마커 정렬"·"마킹선 두께"·"진동"·"기록 자동 저장"은 저장만 되고
+            // 셈·화면 어디에서도 읽지 않았다. 칸을 숨기고 저장 값은 둔다(폰 설정 탭과 같게).
             TwoColumnRow(
               left: _buildLockedMeasurementMode(),
-              right: _buildDropdownWithHelper(
-                label: "기본 회전",
-                value: _defaultRotation,
-                items: const ["CW (시계방향)", "CCW (반시계)"],
-                onChanged: (val) => setState(() => _defaultRotation = val!),
-                helperText: "※ 도면 기준 벤딩 진행 방향",
-              ),
+              right: const SizedBox.shrink(),
             ),
             const SizedBox(height: 12),
             TwoColumnRow(
@@ -570,17 +544,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               right: _isElectric
                   ? const SizedBox.shrink()
-                  : _buildDropdownWithHelper(
-                      label: "마커 정렬 (Marking)",
-                      value: _benderMark,
-                      items: const [
-                        "0 (기본/다양한 각도)",
-                        "L (90도 정방향)",
-                        "R (90도 역방향)",
-                      ],
-                      onChanged: (val) => setState(() => _benderMark = val!),
-                      helperText:
-                          "• 0 : 모든 각도 대응\n• L : 90도 정방향\n• R : 90도 역방향",
+                  : const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text(
+                        "※ 마킹은 벤더의 0 눈금에 맞춰 셈합니다(L·R 눈금은 쓰지 않습니다).",
+                        style: TextStyle(fontSize: 12, color: Colors.black54),
+                      ),
                     ),
             ),
           ],
@@ -709,35 +678,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
       SettingSection(
-        title: "4. 오차 보정 및 앱 설정",
+        title: "4. 오차 보정",
         icon: Icons.settings_suggest,
         child: Column(
           children: [
-            if (!_isElectric) ...[
+            if (!_isElectric)
               TwoColumnRow(
                 left: _buildNumpadInput(
-                  "마킹선 두께 [mm]",
-                  _markThicknessController,
-                  helperText: "※ 마커 펜촉 미세 오차 보정",
-                ),
-                right: _buildNumpadInput(
                   "오프셋 축소 [mm]",
                   _offsetShrinkController,
                   helperText: "※ 간섭 회피용 여유 축소값",
                 ),
+                right: const SizedBox.shrink(),
+              )
+            else
+              const Text(
+                "전동 벤더는 따로 보정할 칸이 없습니다.",
+                style: TextStyle(fontSize: 13, color: Colors.black54),
               ),
-              const Divider(color: Colors.black12, height: 24),
-            ],
-            _buildSwitchRow(
-              "진동 피드백 (Haptic)",
-              _useHaptic,
-              (val) => setState(() => _useHaptic = val),
-            ),
-            _buildSwitchRow(
-              "기록 자동 저장 (History)",
-              _saveHistory,
-              (val) => setState(() => _saveHistory = val),
-            ),
           ],
         ),
       ),

@@ -116,9 +116,9 @@ void main() {
 
       await tester.tap(find.text('열기'));
       await tester.pumpAndSettle();
-      final sw = find.byType(Switch).first;
-      await tester.ensureVisible(sw);
-      await tester.tap(sw);
+      final inch = find.text('inch').first;
+      await tester.ensureVisible(inch);
+      await tester.tap(inch);
       await tester.pumpAndSettle();
       await back(tester);
       // 예전: 묻지 않고 닫혀 고친 설정이 사라졌다.

@@ -59,4 +59,36 @@ void main() {
     // 두께는 inch로(1.27mm = 0.05inch)
     expect(hasField('0.05'), isTrue);
   });
+
+  testWidgets(
+    '셈에 안 쓰는 설정(기본 회전·마커 정렬·마킹선 두께·진동·기록 자동 저장)은 안 보이고, 0 눈금 안내가 있다(점검 32번)',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'benderType': '수동 (Hand)',
+        'benderMark': 'L (90도 정방향)',
+      });
+      MachineSpecs().resetForTest();
+      await AppSettingsController().load();
+      await tester.binding.setSurfaceSize(const Size(900, 4000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: MobileSettingsTab())),
+      );
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      for (final label in [
+        '기본 회전',
+        '마커 정렬',
+        '마킹선 두께 [mm]',
+        '진동 피드백 (Haptic)',
+        '기록 자동 저장 (History)',
+      ]) {
+        expect(find.text(label), findsNothing, reason: label);
+      }
+      expect(find.byKey(const Key('mark_zero_note')), findsOneWidget);
+      // 저장해 둔 값은 지우지 않는다(나중에 셈에 연결할 때 그대로 쓴다).
+      expect(AppSettingsController().benderMark, 'L (90도 정방향)');
+    },
+  );
 }

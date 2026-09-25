@@ -1181,16 +1181,8 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       _sectionTitle("배관 조립 및 마킹 기준"),
       _settingsCard([
         _buildLockedMeasurementMode(),
-        _buildDropdownWithAdvancedHelper(
-          label: "기본 회전",
-          helpTitle: "기본 회전 방향",
-          helpContent:
-              "도면을 그릴 때 기본으로 적용될 파이프의 회전 방향입니다. CW(시계방향) 또는 CCW(반시계)를 설정합니다.",
-          value: _defaultRotation,
-          items: const ["CW (시계방향)", "CCW (반시계)"],
-          onChanged: (val) => setState(() => _defaultRotation = val!),
-          helperText: "※ 도면 기준 방향",
-        ),
+        // 🚀 [정리] "기본 회전"·"마커 정렬"·"마킹선 두께"·"진동"·"기록 자동 저장"은 저장만 되고
+        // 셈·화면 어디에서도 읽지 않았다(고른 대로 된다고 믿게 만든다). 칸을 숨기고 저장 값은 둔다.
         _buildNumpadInputWithHelp(
           "피팅 삽입 깊이 [mm]",
           "피팅 삽입 깊이 (Insertion Depth)",
@@ -1199,18 +1191,15 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           key: 'fittingDepth',
           helperText: "※ 전체 체결 기준",
         ),
-        _isElectric
-            ? const SizedBox.shrink()
-            : _buildDropdownWithAdvancedHelper(
-                label: "마커 정렬",
-                helpTitle: "마커 정렬 기준",
-                helpContent:
-                    "벤더기에 파이프를 고정할 때, 그은 선(마킹)을 어디에 맞출지 결정합니다.\n보통 0(기본/Center)을 기준으로 맞춥니다.",
-                value: _benderMark,
-                items: const ["0 (기본/다양한 각도)", "L (90도 정방향)", "R (90도 역방향)"],
-                onChanged: (val) => setState(() => _benderMark = val!),
-                helperText: "• 0: 기본\n• L/R: 90도 전용",
-              ),
+        if (!_isElectric)
+          const Padding(
+            key: Key('mark_zero_note'),
+            padding: EdgeInsets.fromLTRB(4, 8, 4, 4),
+            child: Text(
+              "※ 마킹은 벤더의 0 눈금에 맞춰 셈합니다(L·R 눈금은 쓰지 않습니다).",
+              style: TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ),
       ]),
       _sectionTitle("벤더 장비 제원"),
       _settingsCard([
@@ -1347,13 +1336,6 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       _settingsCard([
         if (!_isElectric) ...[
           _buildNumpadInputWithHelp(
-            "마킹선 두께 [mm]",
-            "마킹선 두께 보정",
-            "네임펜이나 마커로 파이프에 선을 그을 때, 선의 두께(약 1~2mm) 때문에 생기는 미세 오차를 보정합니다.",
-            _markThicknessController,
-            helperText: "※ 마커 펜촉 미세 보정",
-          ),
-          _buildNumpadInputWithHelp(
             "오프셋 축소 [mm]",
             "오프셋 축소 (간섭 회피 여유)",
             "연속 S자 벤딩(오프셋)을 할 때, 파이프를 반대로 뒤집어 기계에 넣으면 기존에 꺾인 부위가 기계 몸통(바디/슈)에 닿아 안 들어가는 경우가 생깁니다.\n이를 피하기 위해 빗변 기장을 강제로 살짝 밀어주는 여유 길이입니다.",
@@ -1385,16 +1367,6 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             activeThumbColor: Colors.white,
             activeTrackColor: makitaTeal,
           ),
-        ),
-        _buildSwitchRow(
-          "진동 피드백 (Haptic)",
-          _useHaptic,
-          (val) => setState(() => _useHaptic = val),
-        ),
-        _buildSwitchRow(
-          "기록 자동 저장 (History)",
-          _saveHistory,
-          (val) => setState(() => _saveHistory = val),
         ),
         // 🚀 [수정] 토글 즉시 AppSettingsController를 통해서만 wakelock을
         // 적용한다 (다른 화면이 제멋대로 enable()을 부르지 않으므로,
