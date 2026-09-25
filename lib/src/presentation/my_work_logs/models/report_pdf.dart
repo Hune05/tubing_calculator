@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import '../../../core/utils/pdf_fonts.dart';
 import 'dart:io';
@@ -20,13 +21,39 @@ import 'report_tools.dart';
 // 🚀 보고서 PDF 만들기·공유·정리.
 Future<Uint8List?> loadPhotoBytes(String path) => _pdfPhotoBytes(path);
 
+/// 서버 사진 한 장을 받는 곳(테스트에서 바꿔 끼운다).
+@visibleForTesting
+Future<Uint8List?> Function(String url) remotePhotoFetcher = (url) =>
+    FirebaseStorage.instance.refFromURL(url).getData(15 * 1024 * 1024);
+
+/// 서버 사진 한 장을 기다리는 최대 시간.
+const Duration kPhotoFetchTimeout = Duration(seconds: 10);
+
+// 한 장이 시간을 넘기면 통신이 없다고 보고 잠깐 서버 사진을 건너뛴다.
+DateTime? _remotePhotosOffUntil;
+
+@visibleForTesting
+void resetRemotePhotoState() => _remotePhotosOffUntil = null;
+
+/// 🚀 [고침] 예전에는 사진마다 제한 시간이 없어, 통신이 없는 곳에서 사진 넣은 PDF(최대
+/// 48장)가 사진마다 Storage 다시 시도를 기다리며 오래 멈췄다. 한 장 10초까지만 기다리고,
+/// 넘기면 1분 동안 나머지 서버 사진은 바로 건너뛴다(PDF에는 사진 없이 나온다).
+Future<Uint8List?> _remotePhotoBytes(String url) async {
+  final off = _remotePhotosOffUntil;
+  if (off != null && DateTime.now().isBefore(off)) return null;
+  try {
+    return await remotePhotoFetcher(url).timeout(kPhotoFetchTimeout);
+  } on TimeoutException {
+    _remotePhotosOffUntil = DateTime.now().add(const Duration(minutes: 1));
+    return null;
+  }
+}
+
 Future<Uint8List?> _pdfPhotoBytes(String path) async {
   try {
     Uint8List? bytes;
     if (isRemotePhoto(path)) {
-      bytes = await FirebaseStorage.instance
-          .refFromURL(path)
-          .getData(15 * 1024 * 1024);
+      bytes = await _remotePhotoBytes(path);
     } else {
       final f = File(path);
       if (await f.exists()) bytes = await f.readAsBytes();

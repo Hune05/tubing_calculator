@@ -624,7 +624,12 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
     );
   }
 
+  // PDF를 만드는 중인지(두 번 누르기 막고 "만드는 중"을 보인다).
+  bool _pdfBusy = false;
+
   Future<void> _pdf(ReportDoc doc) async {
+    if (_pdfBusy) return;
+    setState(() => _pdfBusy = true);
     try {
       await shareReportPdf(doc, withPhotos: _photos);
     } catch (e) {
@@ -633,6 +638,8 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
           context,
         ).showSnackBar(SnackBar(content: Text(keepWords("PDF 생성 실패: $e"))));
       }
+    } finally {
+      if (mounted) setState(() => _pdfBusy = false);
     }
   }
 
@@ -968,14 +975,25 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
+                    // 🚀 [고침] 예전에는 만드는 동안 아무 표시가 없어 여러 번 눌렀다.
                     child: ElevatedButton.icon(
-                      onPressed: () => _pdf(doc),
+                      key: const Key('weekly_pdf'),
+                      onPressed: _pdfBusy ? null : () => _pdf(doc),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _teal,
                         foregroundColor: Colors.white,
                       ),
-                      icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-                      label: const Text("PDF"),
+                      icon: _pdfBusy
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                      label: Text(_pdfBusy ? "만드는 중…" : "PDF"),
                     ),
                   ),
                 ],
