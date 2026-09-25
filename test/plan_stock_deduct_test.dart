@@ -11,6 +11,28 @@ import 'package:tubing_calculator/src/presentation/tube_cutting/widgets/cutting_
 
 void main() {
   group('뺄 본 셈', () {
+    test('단위 "M"(PC 대문자)·"미터"도 m로 뺀다(U-A X1)', () {
+      expect(isMeterUnit('M'), isTrue);
+      expect(isMeterUnit(' 미터 '), isTrue);
+      expect(isMeterUnit('본'), isFalse);
+      final t = stockTakesForBars(
+        {
+          '튜브 1/2"': [6000],
+        },
+        unitByName: {'튜브 1/2"': 'M'},
+      ).single;
+      // 예전: 대문자 M은 m로 안 봐서 1(M)만 뺐다.
+      expect(t.qty, 6);
+      expect(t.unit, 'm');
+      final old = stockTakesFromMaterials(
+        [
+          {'type': 'TUBE', 'db_name': 'T', 'qty_mm': 6000},
+        ],
+        unitByName: {'T': 'M'},
+      ).single;
+      expect(old.qty, 6);
+    });
+
     test('창고가 m로 세면 본 길이를 더해 m로, 본으로 세면 본수로', () {
       final takes = stockTakesForBars(
         {

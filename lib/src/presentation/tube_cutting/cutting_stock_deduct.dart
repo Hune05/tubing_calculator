@@ -78,6 +78,13 @@ class StockTake {
   });
 }
 
+/// 미터로 세는 단위인지("m", "M", "미터"). 🚀 [고침] PC 자재 등록은 "M"(대문자)으로
+/// 저장해서, 소문자만 보던 차감이 6m 한 본을 써도 1만 뺐다.
+bool isMeterUnit(String unit) {
+  final u = unit.trim().toLowerCase();
+  return u == 'm' || u == '미터' || u == 'meter';
+}
+
 /// 튜브 한 본의 기본 길이(mm).
 /// 자재마다 길이가 다르면 [barLengthByName]으로 따로 넘긴다.
 const int kTubeBarMm = 6000;
@@ -116,7 +123,7 @@ List<StockTake> stockTakesFromMaterials(
     if (!isTube) {
       qty = ((m['qty_ea'] as num?) ?? 0).round();
       unit = stockUnit.isEmpty ? 'EA' : stockUnit;
-    } else if (stockUnit == 'm') {
+    } else if (isMeterUnit(stockUnit)) {
       qty = _ceilDiv(mm, 1000);
       unit = 'm';
     } else {
@@ -535,7 +542,7 @@ List<StockTake> stockTakesForBars(
     if (name.isEmpty) continue;
     final stockUnit = (_pick(unitByName, name) ?? '').trim();
     final known = e.value.every((l) => l > 0);
-    if (stockUnit == 'm' && known) {
+    if (isMeterUnit(stockUnit) && known) {
       final mm = e.value.fold(0.0, (s, l) => s + l).round();
       out.add(
         StockTake(name: name, qty: _ceilDiv(mm, 1000), unit: 'm', spec: e.key),
@@ -545,7 +552,7 @@ List<StockTake> stockTakesForBars(
         StockTake(
           name: name,
           qty: e.value.length,
-          unit: stockUnit.isEmpty || stockUnit == 'm' ? '본' : stockUnit,
+          unit: stockUnit.isEmpty || isMeterUnit(stockUnit) ? '본' : stockUnit,
           spec: e.key,
         ),
       );

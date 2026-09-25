@@ -643,10 +643,11 @@ extension _InventoryDialogsExt on _InventoryPageState {
                       _buildPopupDropdown(
                         "단위",
                         selectedUnit,
-                        ["EA", "본", "BOX", "M"],
+                        ["EA", "본", "BOX", "m"],
                         (v) {
                           setSheetState(() {
-                            if (selectedCategory != "TUBE") selectedUnit = v!;
+                            // 튜브도 m로 세는 창고가 있어 고를 수 있게 한다(분류를 튜브로 바꾸면 "본"이 기본).
+                            selectedUnit = v!;
                           });
                         },
                       ),
