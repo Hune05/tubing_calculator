@@ -6,6 +6,11 @@ name: 폰 설치용 APK 빌드
 
 on:
   workflow_dispatch:
+  # workflow_dispatch는 main에 합쳐지기 전엔 GitHub가 "실행" 버튼을 못 띄운다.
+  # 그 전까지는 이 브랜치에 올릴 때마다 자동으로 돌게 push도 같이 건다.
+  push:
+    branches: [claude/github-check-8mamub]
+    paths: [.github/workflows/build-phone-apk.yml]
 
 permissions:
   contents: write
