@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,7 +12,12 @@ const String kLeftoversPrefsKey = 'cutting_leftovers_v1';
 class Leftover {
   final String label; // 규격. 규격 구분이 없는 화면은 빈 문자열
   final double length; // mm
-  const Leftover(this.label, this.length);
+  // 잔재 한 개를 가리키는 이름표. 서버에서 한 개씩 빼고 더할 때 쓴다(예전 자료는 빈 글).
+  // 같은 규격·같은 길이 잔재가 여러 개여도 어느 것을 썼는지 알 수 있다.
+  final String id;
+  const Leftover(this.label, this.length, {this.id = ''});
+
+  Leftover withId(String newId) => Leftover(label, length, id: newId);
 
   @override
   bool operator ==(Object other) =>
@@ -19,22 +26,57 @@ class Leftover {
   @override
   int get hashCode => Object.hash(label, length);
 
-  // 저장 형식: "길이\u001F규격"
-  String encode() => '${length.toStringAsFixed(0)}\u001F$label';
+  // 저장 형식: "길이\u001F규격" (+ "\u001E이름표")
+  String encode() =>
+      '${length.toStringAsFixed(0)}\u001F$label${id.isEmpty ? '' : '\u001E$id'}';
 
   static Leftover? decode(String raw) {
     final i = raw.indexOf('\u001F');
     if (i < 0) return null;
     final len = double.tryParse(raw.substring(0, i));
     if (len == null || len <= 0) return null;
-    return Leftover(raw.substring(i + 1), len);
+    var rest = raw.substring(i + 1);
+    var id = '';
+    final j = rest.indexOf('\u001E');
+    if (j >= 0) {
+      id = rest.substring(j + 1);
+      rest = rest.substring(0, j);
+    }
+    return Leftover(rest, len, id: id);
   }
+
+  /// 서버에 적는 모양. 한 개씩 뺄 때(arrayRemove) 적은 것과 똑같아야 하므로 한 곳에서 만든다.
+  Map<String, Object> toServer() => {
+    'id': id,
+    'label': label,
+    'length': length.toDouble(),
+  };
 }
+
+final math.Random _rand = math.Random();
+
+/// 새 잔재 이름표(겹치지 않을 만큼 길게).
+String newLeftoverId() =>
+    '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}'
+    '${_rand.nextInt(1 << 30).toRadixString(36)}';
+
+/// 이름표가 없는 잔재에 이름표를 붙인다.
+List<Leftover> withLeftoverIds(List<Leftover> list) => [
+  for (final l in list) l.id.isEmpty ? l.withId(newLeftoverId()) : l,
+];
 
 // 잔재를 어디에 둘지 갈아끼울 수 있게 해 둔다. 앱은 서버(Firestore)를 쓰고, 테스트는 폰(prefs)을 쓴다.
 abstract class LeftoverStore {
   Future<List<Leftover>> load();
   Future<void> save(List<Leftover> all);
+
+  /// 쓴 잔재([used])만 빼고 새 잔재([added])만 더한다. 목록을 통째로 덮어쓰지 않아서,
+  /// 창을 연 뒤 다른 폰이나 형강 화면에서 바꾼 잔재가 사라지지 않는다.
+  /// 두 목록 모두 이름표가 있어야 한다.
+  Future<void> change({
+    List<Leftover> used = const [],
+    List<Leftover> added = const [],
+  });
 }
 
 // 폰에만 두는 방식(예전 방식). 테스트와 서버로 옮기기 전 자료를 읽는 데 쓴다.
@@ -54,6 +96,15 @@ class PrefsLeftoverStore implements LeftoverStore {
     await p.setStringList(kLeftoversPrefsKey, [
       for (final l in all) l.encode(),
     ]);
+  }
+
+  @override
+  Future<void> change({
+    List<Leftover> used = const [],
+    List<Leftover> added = const [],
+  }) async {
+    final now = await load();
+    await save(applyLeftoverChange(now, used: used, added: added));
   }
 }
 
@@ -80,9 +131,18 @@ class FirestoreLeftoverStore implements LeftoverStore {
           Leftover(
             (e['label'] as String?) ?? '',
             (e['length'] as num?)?.toDouble() ?? 0,
+            id: (e['id'] as String?) ?? '',
           ),
     ]..removeWhere((l) => l.length <= 0);
-    if (list.isNotEmpty) return list;
+    if (list.isNotEmpty) {
+      // 예전 자료(이름표 없음)는 한 번 이름표를 붙여 다시 적는다. 그래야 한 개씩 뺄 수 있다.
+      if (list.any((l) => l.id.isEmpty)) {
+        final fixed = withLeftoverIds(list);
+        await save(fixed);
+        return fixed;
+      }
+      return list;
+    }
     // 서버가 비어 있으면, 폰에 있던 잔재를 한 번 옮긴다(예전 자료를 잃지 않게).
     return _moveFromPhoneIfNeeded();
   }
@@ -110,12 +170,31 @@ class FirestoreLeftoverStore implements LeftoverStore {
     // 8초 넘으면 그냥 진행한다(통신되면 올라간다).
     await _doc
         .set({
-          'items': [
-            for (final l in all) {'label': l.label, 'length': l.length},
-          ],
+          'items': [for (final l in withLeftoverIds(all)) l.toServer()],
           'updatedAt': FieldValue.serverTimestamp(),
         })
         .timeout(const Duration(seconds: 8), onTimeout: () {});
+  }
+
+  @override
+  Future<void> change({
+    List<Leftover> used = const [],
+    List<Leftover> added = const [],
+  }) async {
+    if (used.isEmpty && added.isEmpty) return;
+    // 한 문서의 같은 칸에 빼기·더하기를 한 번에 못 하므로 한 묶음에 두 번 적는다(순서대로 적용).
+    final batch = FirebaseFirestore.instance.batch();
+    if (used.isNotEmpty) {
+      batch.set(_doc, {
+        'items': FieldValue.arrayRemove([for (final l in used) l.toServer()]),
+      }, SetOptions(merge: true));
+    }
+    batch.set(_doc, {
+      if (added.isNotEmpty)
+        'items': FieldValue.arrayUnion([for (final l in added) l.toServer()]),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    await batch.commit().timeout(const Duration(seconds: 8), onTimeout: () {});
   }
 }
 
@@ -125,6 +204,53 @@ LeftoverStore leftoverStore = FirestoreLeftoverStore();
 Future<List<Leftover>> loadLeftovers() => leftoverStore.load();
 
 Future<void> saveLeftovers(List<Leftover> all) => leftoverStore.save(all);
+
+/// 쓴 잔재를 빼고 새 잔재를 더한다(한 개씩). 이름표가 없는 새 잔재에는 붙여서
+/// 돌려준다(되돌리기에서 그 잔재를 다시 뺄 때 쓴다).
+Future<List<Leftover>> changeLeftovers({
+  List<Leftover> used = const [],
+  List<Leftover> added = const [],
+}) async {
+  final withIds = withLeftoverIds(added);
+  await leftoverStore.change(used: used, added: withIds);
+  return withIds;
+}
+
+/// 열 때 목록([before])과 고친 목록([after])을 견줘 뺀 것·더한 것을 찾는다.
+/// 잔재 관리 창·재고 화면에서 지우거나 더한 것만 서버에 적으려고 쓴다.
+({List<Leftover> removed, List<Leftover> added}) diffLeftovers(
+  List<Leftover> before,
+  List<Leftover> after,
+) {
+  final keep = [...after];
+  final removed = <Leftover>[];
+  for (final b in before) {
+    final i = b.id.isNotEmpty
+        ? keep.indexWhere((a) => a.id == b.id)
+        : keep.indexWhere((a) => a.id.isEmpty && a == b);
+    if (i >= 0) {
+      keep.removeAt(i);
+    } else {
+      removed.add(b);
+    }
+  }
+  return (removed: removed, added: keep);
+}
+
+/// 계획에서 쓴 잔재(규격·길이)를 지금 목록의 잔재 한 개씩에 맞춘다(이름표를 얻으려고).
+List<Leftover> pickLeftovers(List<Leftover> have, List<Leftover> want) {
+  final pool = [...have];
+  final out = <Leftover>[];
+  for (final w in want) {
+    final i = pool.indexOf(w);
+    if (i < 0) {
+      out.add(w);
+      continue;
+    }
+    out.add(pool.removeAt(i));
+  }
+  return out;
+}
 
 // 잔재 목록을 규격별로 묶는다(화면에서 규격마다 머리글을 두려고). 규격은 처음 나온 순서, 같은 규격 안에서는
 // 긴 잔재부터. [indices]는 원래 목록에서의 위치라서 지울 때 그대로 쓴다.
@@ -162,7 +288,14 @@ List<Leftover> applyLeftoverChange(
 }) {
   final out = [...current];
   for (final u in used) {
-    final i = out.indexOf(u);
+    // 이름표가 있으면 그 잔재를, 없으면 같은 규격·길이 하나를 뺀다.
+    // 이름표가 있는데 못 찾으면 다른 곳에서 이미 뺀 잔재라 그냥 둔다(예전 자료만 길이로 찾는다).
+    var i = u.id.isEmpty ? -1 : out.indexWhere((x) => x.id == u.id);
+    if (i < 0) {
+      i = u.id.isEmpty
+          ? out.indexOf(u)
+          : out.indexWhere((x) => x.id.isEmpty && x == u);
+    }
     if (i >= 0) out.removeAt(i);
   }
   out.addAll(added);

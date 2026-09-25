@@ -92,8 +92,10 @@ Future<void> showCuttingOptimizationSheet(
   // 뺀 본수 자체를 적어 두고 견준다. 기준 길이·섞어 쓰기를 바꿔 본수가 달라지면
   // 다시 뺄 수 있고, 같은 본수면 창을 다시 열어도 "뺐습니다"로 나온다.
   String deductedSig = deductedBarsSig;
-  // 이 창에서 저장하기 직전의 잔재 목록(되돌리기용). 저장하지 않았거나 되돌린 뒤에는 null.
-  List<Leftover>? savedFrom;
+  // 이 창에서 방금 저장한 것(되돌리기용): 쓴 잔재와 새로 더한 잔재. 저장하지 않았거나
+  // 되돌린 뒤에는 null. 되돌릴 때도 이것만 도로 넣고 빼서, 그사이 다른 곳에서 바꾼
+  // 잔재를 건드리지 않는다.
+  ({List<Leftover> used, List<Leftover> added})? lastSaved;
   // 방금 저장하면서 적은 잔재 기록의 id(되돌리기에서 그 기록을 지운다).
   String? lastLogId;
   double stockNow = initialStockLength;
@@ -425,23 +427,26 @@ Future<void> showCuttingOptimizationSheet(
               // 통신이 느릴 때 두 번 누르면 잔재가 두 번 빠지고 두 번 더해졌다.
               if (leftoversSaving || leftoversSaved) return;
               leftoversSaving = true;
-              final used = [
+              // 계획에서 쓴 잔재를 목록의 잔재 한 개씩에 맞춘다(이름표로 그것만 뺀다).
+              final used = pickLeftovers(leftovers, [
                 for (final e in results.entries)
                   for (final b in e.value.leftoverBars)
                     Leftover(e.key, b.stockLength),
-              ];
-              final added = [
-                for (final e in results.entries)
-                  for (final len in e.value.keepableScraps())
-                    Leftover(e.key, len),
-              ];
-              savedFrom = [...leftovers];
+              ]);
+              final added = await changeLeftovers(
+                used: used,
+                added: [
+                  for (final e in results.entries)
+                    for (final len in e.value.keepableScraps())
+                      Leftover(e.key, len),
+                ],
+              );
+              lastSaved = (used: used, added: added);
               leftovers = applyLeftoverChange(
                 leftovers,
                 used: used,
                 added: added,
               );
-              await saveLeftovers(leftovers);
               lastLogId = await appendLeftoverLog(
                 source: leftoverLogSource,
                 used: used,
@@ -457,12 +462,21 @@ Future<void> showCuttingOptimizationSheet(
                 );
               }
             },
-            onUndo: savedFrom == null
+            onUndo: lastSaved == null
                 ? null
                 : () async {
-                    leftovers = savedFrom!;
-                    savedFrom = null;
-                    await saveLeftovers(leftovers);
+                    final back = lastSaved!;
+                    lastSaved = null;
+                    // 더했던 잔재를 빼고 썼던 잔재를 도로 넣는다(같은 이름표로).
+                    await leftoverStore.change(
+                      used: back.added,
+                      added: back.used,
+                    );
+                    leftovers = applyLeftoverChange(
+                      leftovers,
+                      used: back.added,
+                      added: back.used,
+                    );
                     if (lastLogId != null) await removeLeftoverLog(lastLogId!);
                     lastLogId = null;
                     onLeftoversSaveUndone?.call();
@@ -484,8 +498,17 @@ Future<void> showCuttingOptimizationSheet(
                 groups.keys.toList(),
               );
               if (changed != null) {
-                leftovers = changed;
-                await saveLeftovers(leftovers);
+                // 지우거나 더한 것만 적는다(통째로 덮으면 다른 곳에서 바꾼 잔재가 사라진다).
+                final d = diffLeftovers(leftovers, changed);
+                final added = await changeLeftovers(
+                  used: d.removed,
+                  added: d.added,
+                );
+                leftovers = applyLeftoverChange(
+                  leftovers,
+                  used: d.removed,
+                  added: added,
+                );
                 setSheetState(() {
                   leftoversSaved = false;
                   results = compute(stockNow);

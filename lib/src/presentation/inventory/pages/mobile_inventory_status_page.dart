@@ -662,11 +662,14 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
     );
     if (!ok) return;
     final all = [...(_leftovers ?? const <Leftover>[])];
-    final i = all.indexWhere((x) => x.label == l.label && x.length == l.length);
+    final i = l.id.isNotEmpty
+        ? all.indexWhere((x) => x.id == l.id)
+        : all.indexWhere((x) => x.label == l.label && x.length == l.length);
     if (i < 0) return;
-    all.removeAt(i);
+    final gone = all.removeAt(i);
     try {
-      await saveLeftovers(all);
+      // 이 잔재 하나만 뺀다(목록을 통째로 덮으면 다른 폰에서 바꾼 잔재가 사라진다).
+      await leftoverStore.change(used: [gone]);
       if (!mounted) return;
       setState(() {
         _leftovers = all;
