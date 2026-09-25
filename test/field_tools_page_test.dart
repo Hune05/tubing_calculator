@@ -269,6 +269,23 @@ void main() {
       await c.close();
     });
 
+    testWidgets('U2 수평계: 큰 숫자가 왼쪽 자 밑에 깔리지 않는다', (tester) async {
+      for (final w in [320.0, 360.0]) {
+        final c = StreamController<TiltSample>.broadcast();
+        await tester.binding.setSurfaceSize(Size(w, 640));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(
+          MaterialApp(home: LevelPage(source: () => c.stream)),
+        );
+        await send(tester, c, g * sinD(-12.3), g * cosD(12.3), 0); // 세움
+        final ruler = tester.getRect(find.byKey(const Key('level_ruler')));
+        final value = tester.getRect(find.byKey(const Key('level_value')));
+        expect(value.left, greaterThanOrEqualTo(ruler.right), reason: '$w');
+        expect(value.right, lessThanOrEqualTo(w), reason: '$w');
+        await c.close();
+      }
+    });
+
     testWidgets('각도기: 두 탭', (tester) async {
       final c = StreamController<TiltSample>.broadcast();
       await small(tester, ProtractorPage(source: () => c.stream));

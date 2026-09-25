@@ -293,7 +293,11 @@ class _LevelPageState extends State<LevelPage> {
     ],
   );
 
+  // 수평계 화면 폭(숫자가 자 밑에 깔리지 않게 자리를 잡을 때 쓴다).
+  double _areaWidth = 400;
+
   Widget _levelView(Size size) {
+    _areaWidth = size.width;
     final (a, b) = _angles();
     final level = _last != null && isLevel(a) && isLevel(b);
     final flat = _pose == TiltPose.flat;
@@ -512,10 +516,20 @@ class _LevelPageState extends State<LevelPage> {
       height: 1,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
+    // 🚀 [고침] 좁은 폰(320·360 폭)에서 큰 숫자 왼쪽이 왼쪽 자(46) 밑에 깔렸다.
+    // 숫자 칸을 자 오른쪽 안으로 줄이고 옮긴다(옆으로 돌린 글은 칸 높이가 가로 폭).
+    const rulerRight = 46.0 + 8;
+    const edge = 8.0;
+    final areaW = _areaWidth;
+    final boxW = math.min(240.0, areaW - rulerRight - edge);
+    final sideways = math.sin(turn).abs() > 0.5;
+    final half = (sideways ? 100.0 : boxW) / 2;
+    final lo = rulerRight + half, hi = areaW - edge - half;
+    final cx = lo <= hi ? at.dx.clamp(lo, hi) : at.dx;
     return Positioned(
-      left: at.dx - 120,
+      left: cx - boxW / 2,
       top: at.dy - 50,
-      width: 240,
+      width: boxW,
       height: 100,
       child: IgnorePointer(
         child: Transform.rotate(
