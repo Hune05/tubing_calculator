@@ -1,14 +1,26 @@
 // 현장 자료·장비 사용법 화면이 같이 쓰는 카드·표·줄.
-import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
+//
+// 색은 고정 상수가 아니라 현장 보기(보통/햇빛/야간, field_view.dart)를 따르는
+// getter다 - 이 화면도 벤더 옆에서, 야외에서 펴 보는 화면이라 D-D 팀에 넣었다.
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-const Color refTeal = AppColors.brand;
-const Color refWhite = Color(0xFFFFFFFF);
-const Color refBg = AppColors.background;
-const Color refTextMain = AppColors.text;
-const Color refTextSub = AppColors.textSub;
-const Color refHighlight = Color(0xFFE8F3F4);
+import '../../../core/theme/field_view.dart';
+
+Color get refTeal => fc.brand;
+Color get refOnTeal => fc.onBrand;
+Color get refWhite => fc.surface;
+Color get refBg => fc.background;
+Color get refTextMain => fc.text;
+Color get refTextSub => fc.textSub;
+Color get refHighlight => fc.brandSoft;
+Color get refWarnBg => fieldSoft(Colors.red.shade50, (p) => p.danger);
+Color get refWarnBorder =>
+    fieldPick(Colors.red.shade200, sunlight: fc.danger, night: fc.danger);
+Color get refWarnIcon =>
+    fieldPick(Colors.red.shade700, sunlight: fc.danger, night: fc.danger);
+Color get refWarnText =>
+    fieldPick(Colors.redAccent, sunlight: fc.danger, night: fc.danger);
 
 /// 숫자를 소수 [digits]자리까지, 끝의 0은 떼고 보여 준다(12.70 → 12.7, 38.0 → 38).
 String refNum(double v, [int digits = 1]) {
@@ -53,21 +65,21 @@ Widget refWarnBox(String text) {
   return Container(
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: Colors.red.shade50,
+      color: refWarnBg,
       borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: Colors.red.shade200),
+      border: Border.all(color: refWarnBorder),
     ),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(Icons.warning_amber_rounded, color: Colors.red.shade700, size: 20),
+        Icon(Icons.warning_amber_rounded, color: refWarnIcon, size: 20),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: Colors.redAccent,
+              color: refWarnText,
               fontWeight: FontWeight.bold,
               height: 1.4,
             ),
@@ -90,16 +102,12 @@ Widget refTipBox(String text) {
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(
-          Icons.check_circle_outline_rounded,
-          color: refTeal,
-          size: 20,
-        ),
+        Icon(Icons.check_circle_outline_rounded, color: refTeal, size: 20),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               color: refTeal,
               fontWeight: FontWeight.bold,
@@ -151,7 +159,7 @@ Widget refCard({
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
                   color: refTextMain,
@@ -164,7 +172,7 @@ Widget refCard({
           const SizedBox(height: 6),
           Text(
             subtitle,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: refTextSub,
@@ -209,7 +217,7 @@ Widget refExpandCard({
         ),
         title: Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w800,
             color: refTextMain,
@@ -219,7 +227,7 @@ Widget refExpandCard({
             ? null
             : Text(
                 subtitle,
-                style: const TextStyle(fontSize: 12, color: refTextSub),
+                style: TextStyle(fontSize: 12, color: refTextSub),
               ),
         children: children,
       ),
@@ -246,8 +254,8 @@ Widget refButtonGuide({
           ),
           child: Text(
             btnName,
-            style: const TextStyle(
-              color: refWhite,
+            style: TextStyle(
+              color: refBg,
               fontSize: 12,
               fontWeight: FontWeight.bold,
             ),
@@ -257,7 +265,7 @@ Widget refButtonGuide({
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               "• 목적: ",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
@@ -268,7 +276,7 @@ Widget refButtonGuide({
             Expanded(
               child: Text(
                 purpose,
-                style: const TextStyle(fontSize: 13, color: refTextSub),
+                style: TextStyle(fontSize: 13, color: refTextSub),
               ),
             ),
           ],
@@ -277,7 +285,7 @@ Widget refButtonGuide({
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               "• 조작: ",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
@@ -288,7 +296,7 @@ Widget refButtonGuide({
             Expanded(
               child: Text(
                 action,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   color: refTextMain,
                   fontWeight: FontWeight.w500,
@@ -304,7 +312,7 @@ Widget refButtonGuide({
 }
 
 /// 카드 안 항목 사이 옅은 선.
-Widget refGap() => const Divider(height: 24, color: refBg);
+Widget refGap() => Divider(height: 24, color: refBg);
 
 /// 왼쪽 제목, 오른쪽 설명.
 Widget refDataRow(String title, String desc) {
@@ -317,7 +325,7 @@ Widget refDataRow(String title, String desc) {
           width: 104,
           child: Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,
               color: refTextMain,
@@ -329,7 +337,7 @@ Widget refDataRow(String title, String desc) {
         Expanded(
           child: Text(
             desc,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: refTextSub,
@@ -353,14 +361,11 @@ Widget refStep(int n, String text) {
           width: 22,
           height: 22,
           alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            color: refTeal,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: refTeal, shape: BoxShape.circle),
           child: Text(
             "$n",
-            style: const TextStyle(
-              color: refWhite,
+            style: TextStyle(
+              color: refOnTeal,
               fontSize: 12,
               fontWeight: FontWeight.w800,
             ),
@@ -370,7 +375,7 @@ Widget refStep(int n, String text) {
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               color: refTextMain,
               fontWeight: FontWeight.w500,
@@ -388,11 +393,7 @@ Widget refSectionTitle(String text) => Padding(
   padding: const EdgeInsets.only(top: 6, bottom: 8),
   child: Text(
     text,
-    style: const TextStyle(
-      fontWeight: FontWeight.bold,
-      fontSize: 15,
-      color: refTextMain,
-    ),
+    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: refTextMain),
   ),
 );
 
@@ -463,9 +464,9 @@ Widget refTable({
         const SizedBox(height: 8),
         Text(
           footer,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11,
-            color: Colors.redAccent,
+            color: refWarnText,
             fontWeight: FontWeight.w500,
             height: 1.4,
           ),
@@ -492,7 +493,7 @@ Widget refChips({
           onSelected: (_) => onSelected(it),
           selectedColor: refTeal,
           labelStyle: TextStyle(
-            color: it == selected ? refWhite : refTextMain,
+            color: it == selected ? refOnTeal : refTextMain,
             fontWeight: FontWeight.w700,
             fontSize: 13,
           ),
