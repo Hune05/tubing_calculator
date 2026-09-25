@@ -146,6 +146,23 @@ class ProjectSummaryCard extends StatelessWidget {
                               "완료됨",
                               style: TextStyle(color: _tossSub, fontSize: 12),
                             ),
+                          // 🚀 [고침] 빠른 작업이 길게 누르기로만 열려 있는 줄 몰랐다.
+                          if (onLongPress != null)
+                            SizedBox(
+                              width: 32,
+                              height: 28,
+                              child: IconButton(
+                                key: const Key('project_card_more'),
+                                padding: EdgeInsets.zero,
+                                tooltip: "빠른 작업",
+                                icon: const Icon(
+                                  Icons.more_vert_rounded,
+                                  size: 20,
+                                  color: _tossSub,
+                                ),
+                                onPressed: onLongPress,
+                              ),
+                            ),
                         ],
                       ),
                       const SizedBox(height: 4),

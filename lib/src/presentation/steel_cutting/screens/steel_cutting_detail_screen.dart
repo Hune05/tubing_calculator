@@ -1167,7 +1167,13 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
           ),
+          // 🚀 [고침] 튜브 화면과 아이콘 순서가 반대였다(튜브: 톱날, 기록). 튜브에 맞춘다.
           actions: [
+            IconButton(
+              tooltip: "톱날 손실 설정",
+              icon: const AppIcon(AppGlyph.tubeCut),
+              onPressed: _showKerfDialog,
+            ),
             IconButton(
               tooltip: "변경 기록",
               icon: const Icon(Icons.history_rounded),
@@ -1180,11 +1186,6 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                   ),
                 );
               },
-            ),
-            IconButton(
-              tooltip: "톱날 손실 설정",
-              icon: const AppIcon(AppGlyph.tubeCut),
-              onPressed: _showKerfDialog,
             ),
           ],
         ),

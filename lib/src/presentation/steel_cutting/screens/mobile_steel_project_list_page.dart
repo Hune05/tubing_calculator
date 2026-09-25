@@ -522,9 +522,16 @@ class MobileSteelProjectListPage extends StatelessWidget {
                               ],
                             ),
                           ),
-                          const Icon(
-                            Icons.chevron_right_rounded,
-                            color: CuttingColors.textSecondary,
+                          // 🚀 [고침] 기록·재고·삭제 메뉴가 길게 누르기로만 열려 있는 줄 몰랐다.
+                          IconButton(
+                            key: const Key('steel_project_more'),
+                            tooltip: "메뉴",
+                            icon: const Icon(
+                              Icons.more_vert_rounded,
+                              color: CuttingColors.textSecondary,
+                            ),
+                            onPressed: () =>
+                                _showItemActions(context, doc.id, project.name),
                           ),
                         ],
                       ),

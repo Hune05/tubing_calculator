@@ -950,6 +950,17 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                             color: _teal,
                           ),
                         ),
+                        // 🚀 [고침] 밀어서 빼는 기능이 있는 줄 알 길이 없었다.
+                        if (widget.onIssueChanged != null &&
+                            (s.issueRefs?.isNotEmpty ?? false))
+                          Padding(
+                            key: const Key('weekly_swipe_hint'),
+                            padding: const EdgeInsets.only(top: 2, bottom: 4),
+                            child: Text(
+                              keepWords("이슈를 왼쪽으로 밀면 이번 주 보고에서 뺍니다."),
+                              style: const TextStyle(color: _sub, fontSize: 12),
+                            ),
+                          ),
                         const SizedBox(height: 8),
                         for (final i in _visibleLines(s)) _lineWidget(s, i),
                       ],

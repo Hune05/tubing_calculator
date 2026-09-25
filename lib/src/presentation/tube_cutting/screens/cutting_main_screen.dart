@@ -32,7 +32,8 @@ import '../cutting_math.dart'
 import '../cutting_optimizer.dart';
 import '../cutting_plan_rows.dart';
 import '../cutting_plan_settings.dart';
-import '../cutting_firestore_helper.dart' show tubeMaterialName, pendingTubeEntries;
+import '../cutting_firestore_helper.dart'
+    show tubeMaterialName, pendingTubeEntries;
 import '../cutting_stock_deduct.dart';
 import '../cutting_theme.dart';
 import '../../inventory/pages/mobile_inventory_ocr.dart';
