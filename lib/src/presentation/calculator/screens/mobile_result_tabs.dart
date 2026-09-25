@@ -830,12 +830,15 @@ class _MobileViewerTabState extends State<MobileViewerTab>
                   children: [
                     Icon(Icons.threed_rotation, color: makitaTeal, size: 20),
                     SizedBox(width: 10),
-                    Text(
-                      "ISO 3D 도면 뷰어 (드래그하여 회전)",
-                      style: TextStyle(
-                        color: slate900,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
+                    // 좁은 폰·글씨 크게에서 넘쳤다.
+                    Expanded(
+                      child: Text(
+                        "ISO 3D 도면 뷰어 (드래그하여 회전)",
+                        style: TextStyle(
+                          color: slate900,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],

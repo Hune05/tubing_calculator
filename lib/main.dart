@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -342,9 +343,7 @@ class _MyAppState extends State<MyApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF121212),
-      ),
+      theme: buildAppTheme(),
       // 딥링크 받는 위젯은 화면(route) 밖에 둔다. home에 두면 로딩 화면이 홈으로 바뀔 때
       // 같이 버려져 그 뒤로는 QR 링크가 안 열렸다.
       builder: (context, child) =>

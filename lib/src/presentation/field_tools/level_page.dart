@@ -519,7 +519,8 @@ class _LevelPageState extends State<LevelPage> {
     // 🚀 [고침] 좁은 폰(320·360 폭)에서 큰 숫자 왼쪽이 왼쪽 자(46) 밑에 깔렸다.
     // 숫자 칸을 자 오른쪽 안으로 줄이고 옮긴다(옆으로 돌린 글은 칸 높이가 가로 폭).
     const rulerRight = 46.0 + 8;
-    const edge = 8.0;
+    // 오른쪽 단추 줄(설정·영점·값 고정: 오른쪽 16 + 폭 52)과도 겹치지 않게.
+    const edge = 16.0 + 52 + 8;
     final areaW = _areaWidth;
     final boxW = math.min(240.0, areaW - rulerRight - edge);
     final sideways = math.sin(turn).abs() > 0.5;

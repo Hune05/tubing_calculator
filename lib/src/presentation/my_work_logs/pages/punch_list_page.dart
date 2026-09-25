@@ -416,12 +416,15 @@ class _PunchListPageState extends State<PunchListPage> {
                       children: [
                         Icon(Icons.map_outlined, color: tossSubText, size: 20),
                         SizedBox(width: 10),
-                        Text(
-                          "도면 불러와서 위치 찍기 (선택)",
-                          style: TextStyle(
-                            color: tossSubText,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
+                        // 좁은 폰·글씨 크게에서 넘쳤다.
+                        Expanded(
+                          child: Text(
+                            "도면 불러와서 위치 찍기 (선택)",
+                            style: TextStyle(
+                              color: tossSubText,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
                       ],

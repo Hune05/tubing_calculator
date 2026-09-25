@@ -18,6 +18,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/tilt_sensor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_frame.dart';
+import 'package:tubing_calculator/src/core/theme/app_theme.dart';
 import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
 import 'package:tubing_calculator/src/data/models/steel_cutting_project_model.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_calculator_page.dart';
@@ -212,6 +213,8 @@ Future<void> audit(WidgetTester tester, String name, Cfg cfg) async {
     tester.view.padding = const FakeViewPadding(top: 72, bottom: 48);
     await tester.pumpWidget(
       MaterialApp(
+        // 앱과 같은 테마로 띄운다(예전: 기본 밝은 테마라 실제 앱과 달랐다).
+        theme: buildAppTheme(),
         builder: (context, child) => AppFrame(
           child: MediaQuery(
             data: MediaQuery.of(
@@ -443,7 +446,8 @@ void main() {
     await Firebase.initializeApp();
     const kr = 'assets/fonts/NotoSansKR-Regular.ttf';
     await font('Roboto', kr);
-    await font('NotoSansKR', kr);
+    // 앱 테마 글꼴(굵기가 바뀌는 가변 글꼴).
+    await font('NotoSansKR', 'assets/fonts/NotoSansKR-VariableFont_wght.ttf');
     await font(
       'MaterialIcons',
       '/opt/flutter-sdk/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',

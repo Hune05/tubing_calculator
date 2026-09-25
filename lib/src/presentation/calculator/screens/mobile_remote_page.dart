@@ -513,12 +513,15 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
 
   // 🌟 토스 감성: 크고 시원한 헤더
   Widget _buildHeader(Color modeColor) {
+    // 높이를 110으로 묶어 두면 글씨를 크게 한 폰에서 아래가 넘쳤다. 최소 높이만 둔다.
     return Container(
-      height: 110, // 여백 확장
+      constraints: const BoxConstraints(minHeight: 110),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       width: double.infinity,
       color: modeColor,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             "좌우로 스와이프하여 모드 변경",
@@ -529,13 +532,16 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            _modes[_currentMode]['name'],
-            style: const TextStyle(
-              fontSize: 30, // 폰트 크기 확대
-              fontWeight: FontWeight.w900, // 폰트 굵기 극대화
-              letterSpacing: -0.5, // 세련된 자간
-              color: pureWhite,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              _modes[_currentMode]['name'],
+              style: const TextStyle(
+                fontSize: 30, // 폰트 크기 확대
+                fontWeight: FontWeight.w900, // 폰트 굵기 극대화
+                letterSpacing: -0.5, // 세련된 자간
+                color: pureWhite,
+              ),
             ),
           ),
         ],
