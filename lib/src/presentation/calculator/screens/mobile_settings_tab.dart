@@ -179,6 +179,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         if (g != null) c.gain = g;
         if (t != null) c.takeUp = t;
         if (f != null) c.fittingDepth = f;
+        setState(_markSaved);
       });
     }
   }
@@ -227,6 +228,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     c.warnShoeInterference = _warnShoeInterference;
 
     await c.save();
+    if (mounted) setState(_markSaved);
 
     MobileBendDataManager().updateMachineSpecs(
       takeUp90: double.tryParse(_takeUpController.text) ?? 0.0,
@@ -375,6 +377,72 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     }
   }
 
+  // 🚀 [고침] 값을 바꿔도 "저장"을 누르기 전에는 계산에 안 들어가는데, 그런 줄을
+  // 알 표시가 없었다(마킹 탭은 옛 값으로 나왔다). 마지막으로 저장(또는 불러온) 값과
+  // 지금 화면 값을 견줘, 다르면 저장 단추와 안내 글로 알린다.
+  Map<String, String>? _savedValues;
+
+  Map<String, String> _formValues() => {
+    'od': _currentOD,
+    'inch': '$_isInch',
+    'material': _tubeMaterial,
+    'brand': _benderBrand,
+    'type': _benderType,
+    'rotation': _defaultRotation,
+    'fitting': _fittingType,
+    'mark': _benderMark,
+    'haptic': '$_useHaptic',
+    'history': '$_saveHistory',
+    'screenOn': '$_keepScreenOn',
+    'warnShoe': '$_warnShoeInterference',
+    'wt': _wtController.text.trim(),
+    'radius': _rController.text.trim(),
+    'takeUp': _takeUpController.text.trim(),
+    'springback': _springbackController.text.trim(),
+    'gain': _gainController.text.trim(),
+    'minStraight': _minStraightController.text.trim(),
+    'benderOffset': _benderOffsetController.text.trim(),
+    'fittingDepth': _fittingDepthController.text.trim(),
+    'markThickness': _markThicknessController.text.trim(),
+    'offsetShrink': _offsetShrinkController.text.trim(),
+    'cutMargin': _cutMarginController.text.trim(),
+    for (final e in _autoStates.entries) 'auto_${e.key}': '${e.value}',
+  };
+
+  void _markSaved() => _savedValues = _formValues();
+
+  /// 저장하지 않은 바뀐 값이 있다.
+  bool get _hasUnsaved {
+    final saved = _savedValues;
+    if (saved == null) return false;
+    final now = _formValues();
+    return now.entries.any((e) => saved[e.key] != e.value);
+  }
+
+  /// 저장하지 않은 다른 칸은 두고 연신율(게인)만 저장한다.
+  /// 🚀 [고침] 게인 보정 "넣기"가 저장 안 한 다른 칸까지 같이 저장했다.
+  Future<void> _saveGainOnly(double v) async {
+    final c = AppSettingsController();
+    c.gain = v;
+    c.autoGain = false;
+    await c.save();
+    MobileBendDataManager().updateMachineSpecs(gain90: v);
+    final saved = _savedValues;
+    if (saved != null) {
+      saved['gain'] = _gainController.text.trim();
+      saved['auto_gain'] = 'false';
+    }
+    if (mounted) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("연신율만 저장했습니다. 다른 바꾼 값은 아직 저장하지 않았습니다."),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   /// 한 번 꺾어 재 본 값으로 연신율을 잡는 단추.
   /// 벤더나 관이 바뀌면 표 값이 안 맞는다. 재 본 값으로 바로 고쳐 쓴다.
   Widget _calibrateButton() {
@@ -386,11 +454,17 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         onPressed: () => MobileGainCalibrationSheet.show(
           context,
           onApply: (v) {
+            // 다른 칸에 저장 안 한 값이 있으면 연신율만 저장한다.
+            final others = _hasUnsaved;
             _gainController.text = v.toStringAsFixed(1);
             // 재 본 값이므로 AUTO(제원으로 계산)를 끄고 이 값을 쓴다.
             _autoStates['gain'] = false;
             if (mounted) setState(() {});
-            _saveData();
+            if (others) {
+              _saveGainOnly(double.parse(v.toStringAsFixed(1)));
+            } else {
+              _saveData();
+            }
           },
         ),
         icon: const Icon(Icons.straighten, size: 18),
@@ -779,24 +853,79 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           color: slate100,
           child: SafeArea(
             top: false,
-            child: SizedBox(
-              width: double.infinity,
-              height: 54,
-              child: ElevatedButton(
-                onPressed: _saveData,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: makitaTeal,
-                  foregroundColor: pureWhite,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  "설정 저장 및 적용",
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-                ),
-              ),
+            // 칸 글이 바뀔 때마다 저장 안 한 값이 있는지 다시 본다.
+            child: AnimatedBuilder(
+              animation: Listenable.merge([
+                _wtController,
+                _rController,
+                _takeUpController,
+                _springbackController,
+                _gainController,
+                _minStraightController,
+                _benderOffsetController,
+                _fittingDepthController,
+                _markThicknessController,
+                _offsetShrinkController,
+                _cutMarginController,
+              ]),
+              builder: (context, _) {
+                final unsaved = _hasUnsaved;
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (unsaved)
+                      Padding(
+                        key: const Key('settings_unsaved'),
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.edit_note_rounded,
+                              size: 18,
+                              color: Colors.orange.shade800,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                "바꾼 값은 저장해야 계산·마킹에 들어갑니다.",
+                                style: TextStyle(
+                                  color: Colors.orange.shade900,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: ElevatedButton(
+                        key: const Key('settings_save'),
+                        onPressed: _saveData,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: unsaved
+                              ? Colors.orange.shade800
+                              : makitaTeal,
+                          foregroundColor: pureWhite,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          unsaved ? "바꾼 값 저장하고 적용" : "설정 저장 및 적용",
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ),

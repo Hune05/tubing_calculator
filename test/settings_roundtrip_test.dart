@@ -60,7 +60,8 @@ void main() {
     await tester.enterText(fieldWithText('25.0'), '26.5');
     await tester.enterText(fieldWithText('12.0'), '13.5');
     await tester.pump();
-    final save = find.text('설정 저장 및 적용');
+    // 바꾼 값이 있으면 글이 "바꾼 값 저장하고 적용"으로 바뀌므로 키로 찾는다.
+    final save = find.byKey(const Key('settings_save'));
     await tester.ensureVisible(save);
     await tester.pump();
     await tester.tap(save);
