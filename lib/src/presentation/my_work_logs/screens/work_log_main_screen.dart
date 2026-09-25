@@ -543,7 +543,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     if (updated != null) {
       setState(() {
         final list = (log['daily_reports'] ??= <dynamic>[]) as List;
-        final idx = list.indexOf(report);
+        final idx = indexOfItem(list, report);
         if (report['unlockHistory'] != null) {
           updated['unlockHistory'] = report['unlockHistory'];
         }
@@ -552,7 +552,12 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         updated['author'] ??= report['author'];
         updated['authoredAt'] ??= report['authoredAt'];
         stampAuthor(updated, currentWorkerName.value, created: false);
-        if (idx != -1) list[idx] = updated;
+        // 목록에서 못 찾아도(다른 폰에서 지웠거나 합쳐지며 바뀜) 고친 것을 버리지 않는다.
+        if (idx != -1) {
+          list[idx] = updated;
+        } else {
+          list.insert(0, updated);
+        }
         applyReportEffects(log, updated);
       });
       _saveProject(log);
@@ -957,9 +962,14 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     if (updated != null) {
       setState(() {
         final list = (log['punch_lists'] ??= <dynamic>[]) as List;
-        final idx = list.indexOf(punch);
+        final idx = indexOfItem(list, punch);
         stampAuthor(updated, currentWorkerName.value, created: false);
-        if (idx != -1) list[idx] = updated;
+        // 목록에서 못 찾아도 고친 것을 버리지 않는다.
+        if (idx != -1) {
+          list[idx] = updated;
+        } else {
+          list.add(updated);
+        }
       });
       _saveProject(log);
     }

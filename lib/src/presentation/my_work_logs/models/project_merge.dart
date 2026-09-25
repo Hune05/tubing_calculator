@@ -125,6 +125,17 @@ void markItemDeleted(Map<String, dynamic> project, String? id) {
   project[kDeletedIdsKey] = list;
 }
 
+/// 목록에서 [item]의 자리. 같은 객체가 없으면(그 사이 다른 폰 것과 합쳐져 목록이 새로
+/// 만들어졌으면) 아이디로 찾는다. 예전엔 같은 객체만 찾아서, 못 찾으면 고친 것이 말없이
+/// 버려졌다.
+int indexOfItem(List list, Map item) {
+  final i = list.indexOf(item);
+  if (i != -1) return i;
+  final id = _idOf(item);
+  if (id == null) return -1;
+  return list.indexWhere((m) => _idOf(m) == id);
+}
+
 /// 목록([key])을 새것으로 바꾸면서, 새것에 없는 옛 항목은 지운 것으로 적는다.
 ///
 /// 예전엔 [markItemDeleted]를 부르는 곳이 없어서, 일정·단계·일지를 지워도 다음 저장 때

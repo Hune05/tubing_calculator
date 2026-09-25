@@ -189,6 +189,48 @@ void main() {
     });
   });
 
+  group('고친 항목 자리 찾기', () {
+    test('같은 객체가 있으면 그 자리', () {
+      final a = {'id': 'a'};
+      final list = [
+        {'id': 'x'},
+        a,
+      ];
+      expect(indexOfItem(list, a), 1);
+    });
+
+    test('목록이 새로 만들어졌어도(합치기 뒤) 아이디로 찾는다', () {
+      final original = {'id': 'r1', 'text': '옛'};
+      final list = [
+        {'id': 'r0'},
+        {'id': 'r1', 'text': '옛'}, // 같은 내용, 다른 객체
+      ];
+      expect(list.indexOf(original), -1); // 예전 방식은 못 찾아 고친 것을 버렸다
+      expect(indexOfItem(list, original), 1);
+    });
+
+    test('아이디도 없으면 -1', () {
+      expect(
+        indexOfItem(
+          [
+            {'id': 'a'},
+          ],
+          {'text': '아이디 없음'},
+        ),
+        -1,
+      );
+      expect(
+        indexOfItem(
+          [
+            {'id': 'a'},
+          ],
+          {'id': 'b'},
+        ),
+        -1,
+      );
+    });
+  });
+
   group('작성자 도장', () {
     test('새로 만들면 author, 고치면 updatedBy', () {
       final r = <String, dynamic>{};
