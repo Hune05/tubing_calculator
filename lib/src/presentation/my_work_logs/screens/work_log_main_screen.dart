@@ -198,6 +198,36 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     syncReportReminder(_workLogs);
   }
 
+  /// 작업 일지를 저장하고 결과를 알린다.
+  /// 🚀 [고침] 저장해도 "저장했습니다"가 없어, 통신이 없으면 폰에만 있는지도 몰랐다.
+  /// 몇 초 안에 서버에 닿으면 "저장했습니다", 아니면 폰에 두었다가 올린다고 알린다.
+  void _saveReportWithNotice(Map<String, dynamic> log) {
+    final done = _repo
+        .upsertProject(log)
+        .then<bool?>(
+          (_) => true,
+          onError: (Object e) {
+            debugPrint('프로젝트 저장 실패: $e');
+            return null;
+          },
+        );
+    syncReportReminder(_workLogs);
+    Future.any<bool?>([
+      done,
+      Future<bool?>.delayed(reportSaveNoticeWait, () => false),
+    ]).then((ok) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(reportSaveNotice(ok)),
+            duration: Duration(seconds: ok == true ? 2 : 5),
+          ),
+        );
+    });
+  }
+
   // 저장한 작업 일지의 사진을 백그라운드로 클라우드에 올리고, 성공하면 문서를 URL로
   // 갱신한다(실패하면 로컬 경로가 그대로 남아 다음 실행 때 다시 시도).
   Future<void> _uploadReportPhotosFor(
@@ -564,7 +594,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         }
         applyReportEffects(log, updated);
       });
-      _saveProject(log);
+      _saveReportWithNotice(log);
       _uploadReportPhotosFor(log, updated);
     }
   }
@@ -595,7 +625,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           }
         }
       });
-      _saveProject(log);
+      _saveReportWithNotice(log);
       _uploadReportPhotosFor(log, const {});
     }
   }
@@ -1171,7 +1201,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         ((log['daily_reports'] ??= <dynamic>[]) as List).insert(0, newReport);
         applyReportEffects(log, newReport);
       });
-      _saveProject(log);
+      _saveReportWithNotice(log);
       _uploadReportPhotosFor(log, newReport);
     }
   }

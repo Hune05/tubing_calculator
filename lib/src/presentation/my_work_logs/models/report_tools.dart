@@ -530,3 +530,13 @@ Future<void> shareReportText(ReportDoc doc) async {
 }
 
 // 요약 이미지 등 다른 곳에서 사진 바이트가 필요할 때(줄여서 돌려준다).
+
+/// 작업 일지를 저장한 뒤 "저장했습니다"를 띄우기까지 서버를 기다리는 시간.
+const Duration reportSaveNoticeWait = Duration(seconds: 4);
+
+/// 작업 일지 저장 알림 글. [ok]: true면 서버에 닿음, false면 아직(통신 없음), null이면 실패.
+String reportSaveNotice(bool? ok) => switch (ok) {
+  true => "작업 일지를 저장했습니다.",
+  false => "작업 일지를 폰에 저장했습니다. 통신이 되면 자동으로 올라갑니다.",
+  null => "저장하지 못했습니다. 통신을 확인하고 다시 해 보십시오.",
+};

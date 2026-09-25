@@ -1315,6 +1315,38 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
           ],
         ),
         actions: [
+          // 🚀 [고침] 저장 대기 표시가 메인 목록에만 있어, 일지를 쓰는 이 화면에서는
+          // 통신이 없을 때 폰에만 있는지 알 수 없었다.
+          ValueListenableBuilder<int>(
+            valueListenable: WorkProjectRepository.pendingWrites,
+            builder: (context, pending, _) => pending == 0
+                ? const SizedBox.shrink()
+                : Tooltip(
+                    message: "서버에 저장하는 중입니다. 통신이 없으면 연결될 때 자동으로 올라갑니다.",
+                    child: Padding(
+                      key: const Key('project_pending_sync'),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Row(
+                        children: const [
+                          Icon(
+                            Icons.cloud_upload_outlined,
+                            size: 18,
+                            color: tossBlue,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            "저장 중",
+                            style: TextStyle(
+                              color: tossBlue,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+          ),
           PopupMenuButton<String>(
             tooltip: "더보기",
             onSelected: (v) {
