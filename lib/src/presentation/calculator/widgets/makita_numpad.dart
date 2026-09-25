@@ -12,21 +12,31 @@ const Color pureWhite = Color(0xFFFFFFFF);
 class MakitaNumpad extends StatefulWidget {
   final TextEditingController controller;
   final VoidCallback? onApply;
+
+  /// 머리의 X(닫기). 없으면 [onApply]와 같다(태블릿 화면에 붙박은 숫자판).
+  final VoidCallback? onCancel;
   final String title;
 
   const MakitaNumpad({
     super.key,
     required this.controller,
     this.onApply,
+    this.onCancel,
     this.title = "수치 입력",
   });
 
+  /// 숫자판 창. "적용"을 눌러야 새 값이 남는다.
+  /// 🚀 [고침] 예전에는 누를 때마다 칸이 바뀌고(첫 키에 원래 값을 지움), 머리의 X도
+  /// "적용"과 같아서, 잘못 누르고 X·바깥 누르기·뒤로 가기로 닫아도 틀린 값이 남았다.
+  /// 이제 X·바깥·뒤로는 열 때 값으로 되돌린다.
   static Future<void> show(
     BuildContext context, {
     required TextEditingController controller,
     required String title,
-  }) {
-    return showModalBottomSheet<void>(
+  }) async {
+    final original = controller.text;
+    var applied = false;
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -45,11 +55,16 @@ class MakitaNumpad extends StatefulWidget {
           child: MakitaNumpad(
             controller: controller,
             title: title,
-            onApply: () => Navigator.pop(context),
+            onApply: () {
+              applied = true;
+              Navigator.pop(context);
+            },
+            onCancel: () => Navigator.pop(context),
           ),
         ),
       ),
     );
+    if (!applied && controller.text != original) controller.text = original;
   }
 
   @override
@@ -182,7 +197,8 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
               ),
               if (widget.onApply != null)
                 GestureDetector(
-                  onTap: widget.onApply,
+                  key: const Key('numpad_close'),
+                  onTap: widget.onCancel ?? widget.onApply,
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
