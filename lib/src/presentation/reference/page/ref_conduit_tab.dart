@@ -286,7 +286,155 @@ class RefConduitTab extends StatelessWidget {
         const SizedBox(height: 16),
 
         refCard(
-          title: "9. 전선관 현장에서 지키는 것",
+          title: "9. 전선관·후렉시블 관통 구멍(홀쏘) 최소 지름",
+          subtitle: "위 1번 바깥지름 + 통과 여유 — 실제 홀쏘 규격은 제조사 카탈로그에서 이 값 이상으로 고른다",
+          icon: LucideIcons.circleDot,
+          iconColor: Colors.indigo,
+          children: [
+            refTable(
+              headers: ["호칭", "바깥지름\n(mm)", "최소 홀쏘\n지름(mm)"],
+              rows: [
+                for (final e in kThickConduitOd.entries)
+                  ["${e.key}", refNum(e.value), refNum(e.value + 3)],
+              ],
+              footer: "※ 최소 홀쏘 지름 = 바깥지름 + 3mm(관을 헐렁하게 통과시킬 여유). "
+                  "관에 커플링·부싱을 끼운 채로 넣거나 후렉시블이면 그 부속 바깥지름이 더 크므로, "
+                  "실제 부속을 관에 대 보고 그보다 한 단계 큰 홀쏘를 고른다.",
+            ),
+            refGap(),
+            refWarnBox(
+              "홀쏘·유볼트 규격은 제조사 카탈로그마다 실제 판매 치수가 다릅니다. 이 표는 \"이 지름보다 "
+              "작으면 안 된다\"는 최소값이고, 정확한 판매 규격(예: 22mm·25mm 홀쏘 중 어느 것)은 현장에서 "
+              "쓰는 카탈로그로 확인해야 합니다.",
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        refCard(
+          title: "10. 유볼트(U밴드) 고르는 법",
+          subtitle: "정확한 로드 지름·규격 표는 카탈로그마다 달라 넣지 않았습니다",
+          icon: LucideIcons.anchor,
+          iconColor: Colors.deepOrange,
+          children: [
+            refStep(
+              1,
+              "유볼트는 감싸는 관의 바깥지름(위 1번 표)에 맞춰 고릅니다 — 관이 헐렁하면 흔들리고, 꽉 조이면 관이 눌립니다.",
+            ),
+            refStep(
+              2,
+              "판매처마다 \"16C용\", \"25C용\"처럼 전선관 호칭으로 파는 경우가 많아, 관 호칭만 맞추면 대개 맞습니다.",
+            ),
+            refStep(
+              3,
+              "로드(볼트) 지름·나사 규격까지는 제조사마다 달라 이 화면에 표로 넣지 않았습니다 — 쓰시는 유볼트 "
+              "카탈로그를 알려주시면 그 규격으로 표를 만들겠습니다.",
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        refCard(
+          title: "11. 탭 사이즈별 홀가공 지름(탭 드릴)",
+          subtitle: "미터 보통 나사(ISO), 75% 나사 물림 기준 — 정판·전산볼트 구멍에 쓴다",
+          icon: LucideIcons.settings2,
+          iconColor: Colors.blueGrey,
+          children: [
+            refTable(
+              headers: ["탭(나사)", "피치(mm)", "드릴 지름(mm)"],
+              rows: const [
+                ["M4", "0.7", "3.3"],
+                ["M5", "0.8", "4.2"],
+                ["M6", "1.0", "5.0"],
+                ["M8", "1.25", "6.8"],
+                ["M10", "1.5", "8.5"],
+                ["M12", "1.75", "10.2"],
+                ["M14", "2.0", "12.0"],
+                ["M16", "2.0", "14.0"],
+                ["M20", "2.5", "17.5"],
+                ["M24", "3.0", "21.0"],
+              ],
+              footer: "※ 드릴 지름 ≈ 나사 지름 − 피치(ISO 미터 보통 나사, 75% 물림 기준값). "
+                  "탭이 부러지기 쉬운 재질(스테인리스 등)이면 표보다 0.1~0.2mm 큰 드릴을 쓰기도 합니다.",
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        refCard(
+          title: "12. 볼트 머리·렌치(스패너) 사이즈",
+          subtitle: "ISO 미터 육각머리·육각소켓(옥타곤) 표준값 — 유볼트·전산볼트 체결에 쓴다",
+          icon: LucideIcons.wrench,
+          iconColor: Colors.brown,
+          children: [
+            refSectionTitle("육각머리 볼트·너트 (렌치·스패너, mm)"),
+            refTable(
+              headers: ["볼트", "렌치 사이즈"],
+              rows: const [
+                ["M4", "7"],
+                ["M5", "8"],
+                ["M6", "10"],
+                ["M8", "13"],
+                ["M10", "17"],
+                ["M12", "19"],
+                ["M14", "22"],
+                ["M16", "24"],
+                ["M20", "30"],
+                ["M24", "36"],
+              ],
+            ),
+            const SizedBox(height: 12),
+            refSectionTitle("육각소켓(육각렌치, 볼트머리 안쪽) mm"),
+            refTable(
+              headers: ["볼트", "육각렌치 사이즈"],
+              rows: const [
+                ["M4", "3"],
+                ["M5", "4"],
+                ["M6", "5"],
+                ["M8", "6"],
+                ["M10", "8"],
+                ["M12", "10"],
+                ["M16", "14"],
+              ],
+              footer: "※ 육각머리(볼트를 바깥에서 감싸 돌리는 렌치·스패너)와 육각소켓(볼트머리 안쪽에 "
+                  "박힌 육각렌치용) 볼트는 서로 다른 규격입니다 — 어느 쪽 볼트인지 보고 표를 고릅니다.",
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        refCard(
+          title: "13. 전선관·후렉시블 부속 이름 정리",
+          subtitle: "커플링·곤질레다 외에 자주 쓰는 이음·고정 자재",
+          icon: LucideIcons.link2,
+          iconColor: Colors.teal,
+          children: [
+            refDataRow(
+              "로크너트(Lock Nut)",
+              "관을 박스에 끼운 뒤 안쪽에서 조여 고정하는 너트. 보통 관 하나에 안팎 두 개(밖 하나·안 하나) 씁니다.",
+            ),
+            refDataRow(
+              "부싱(Bushing)",
+              "관 끝, 로크너트 안쪽에 끼워 전선 피복이 관 절단면에 쓸리지 않게 막아 줍니다(절연부싱).",
+            ),
+            refDataRow(
+              "후렉시블 커넥터",
+              "후렉시블(가용전선관)을 박스·관에 연결하는 부속. 나사로 물리는 것과 밴드로 조이는 것이 있습니다.",
+            ),
+            refDataRow(
+              "새들·스트랩(Saddle/Strap)",
+              "관을 벽·구조물에 고정하는 클립. 관 하나짜리(원새들)와 여러 개를 나란히 잡는 것(콤비네이션)이 있습니다.",
+            ),
+            refDataRow(
+              "니플(Nipple)",
+              "양 끝에 나사만 있는 짧은 관 이음쇠. 박스와 박스가 가까울 때 커플링 대신 씁니다.",
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        refCard(
+          title: "14. 전선관 현장에서 지키는 것",
           subtitle: "전선관은 튜브보다 굵어 실수 하나가 크다",
           icon: LucideIcons.alertTriangle,
           iconColor: Colors.redAccent,
