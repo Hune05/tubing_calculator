@@ -12,6 +12,8 @@ library;
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart';
+import 'package:tubing_calculator/src/core/common_widgets/app_frame.dart'
+    show kAppSystemUiMode;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tubing_calculator/src/presentation/field/field_marking.dart';
@@ -164,7 +166,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   /// 묶지 않으므로 풀어 준다(기울기 도구와 같게).
   void _restorePortrait() {
     SystemChrome.setPreferredOrientations(const []);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setEnabledSystemUIMode(kAppSystemUiMode);
   }
 
   void _close() {

@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:ui' show PlatformDispatcher;
 import 'package:tubing_calculator/src/core/utils/error_log.dart';
 import 'package:tubing_calculator/src/core/utils/startup_guard.dart';
+import 'package:tubing_calculator/src/core/common_widgets/app_frame.dart';
 
 // 🚀 Hive 로컬 DB 연동
 import 'package:hive_flutter/hive_flutter.dart';
@@ -210,7 +211,8 @@ void main() async {
   // 알림 준비가 실패해도(윈도우 PC 등) 앱은 켜진다.
   await startupStep('알림 준비', setupFlutterNotifications);
 
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  // 상태 표시줄을 보이게 둔다(현장 탭만 몰입 모드). 화면은 AppFrame이 그 밑으로 안 들어가게 한다.
+  SystemChrome.setEnabledSystemUIMode(kAppSystemUiMode);
   await initializeDateFormatting('ko_KR', null); // 달력 등 한글 요일/월 이름
   // "이름만 넣고 시작"한 사람도 uid가 있게 익명 로그인을 뒤에서 시도한다(이미 로그인했으면
   // 그대로). 통신이 없거나 콘솔에서 익명 로그인이 꺼져 있으면 조용히 넘어간다.
@@ -346,7 +348,7 @@ class _MyAppState extends State<MyApp> {
       // 딥링크 받는 위젯은 화면(route) 밖에 둔다. home에 두면 로딩 화면이 홈으로 바뀔 때
       // 같이 버려져 그 뒤로는 QR 링크가 안 열렸다.
       builder: (context, child) =>
-          DeepLinkHandler(child: child ?? const SizedBox()),
+          AppFrame(child: DeepLinkHandler(child: child ?? const SizedBox())),
       home: const DeviceRouter(),
       routes: {
         // 🚀 [수정] 폴더블 대응: MenuScreen을 바로 고정하지 않고

@@ -6,6 +6,11 @@ import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/electric_bending_workspace.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/electric_marking_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_project_list_page.dart';
+import 'package:tubing_calculator/src/presentation/conduit/screens/main_navigation_page.dart';
+import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart';
+import 'package:tubing_calculator/src/presentation/profile/pages/mobile_profile_page.dart';
+import 'package:tubing_calculator/src/presentation/profile/profile_tools.dart'
+    show ProfileStore, kGuestName;
 
 // 💡 슬레이트 컬러 정의 (눈이 편안한 짙은 회색 톤)
 const Color makitaTeal = Color(0xFF007580);
@@ -378,6 +383,49 @@ class MenuScreen extends StatelessWidget {
               context,
               MaterialPageRoute(
                 builder: (context) => const LayoutBoardProjectListPage(),
+              ),
+            );
+          },
+        ),
+        // 🚀 [추가] 폰 홈에만 있던 것들. PC에서는 이름을 넣을 곳(프로필)이 없어 내 일정이
+        // "프로필 수정에서 이름을 먼저 등록하십시오"라고만 했다.
+        _buildGridCard(
+          context,
+          icon: Icons.electrical_services_rounded,
+          title: '전선관 벤딩',
+          subtitle: '장비 프로필 · 마킹 뷰어',
+          iconColor: Colors.blueGrey,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ConduitMainNavigation()),
+          ),
+        ),
+        _buildGridCard(
+          context,
+          icon: Icons.menu_book_rounded,
+          title: '현장 자료',
+          subtitle: '규격표 · 벤더·톱 사용법',
+          iconColor: makitaTeal,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const TubeReferencePage()),
+          ),
+        ),
+        _buildGridCard(
+          context,
+          icon: Icons.person_rounded,
+          title: '프로필',
+          subtitle: '이름 · 구글 계정 · 설정 보관',
+          iconColor: makitaTeal,
+          onTap: () async {
+            final name = await ProfileStore.instance.savedName() ?? '';
+            if (!context.mounted) return;
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => MobileProfilePage(
+                  currentWorker: name.isEmpty ? kGuestName : name,
+                ),
               ),
             );
           },
