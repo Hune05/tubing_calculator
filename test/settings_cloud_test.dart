@@ -45,7 +45,8 @@ void main() {
       'gain': 12.0,
       'isInch': false,
       'conduit_bender_settings_v1': '{"benderType":"hand"}',
-      'cutting_blade_kerf': 3.0,
+      'cutting_blade_kerf': 0.0,
+      'cutting_blade_kerf_steel': 3.0,
       'user_real_name': '작업자',
       'mobile_bend_list': '[...]',
     });
@@ -53,7 +54,9 @@ void main() {
     final m = collectLocalSettings(prefs);
     expect(m['bendRadius'], 38.1);
     expect(m['conduit_bender_settings_v1'], '{"benderType":"hand"}');
-    expect(m['cutting_blade_kerf'], 3.0);
+    // 튜브·형강 톱날 손실을 따로 보관한다.
+    expect(m['cutting_blade_kerf'], 0.0);
+    expect(m['cutting_blade_kerf_steel'], 3.0);
     expect(m.containsKey('user_real_name'), isFalse);
     expect(m.containsKey('mobile_bend_list'), isFalse);
   });

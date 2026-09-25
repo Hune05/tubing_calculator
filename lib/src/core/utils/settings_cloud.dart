@@ -29,6 +29,8 @@ const List<String> kCloudSettingKeys = [
   'machine_spec_sets_v1', 'conduit_spec_sets_v1',
   // 튜브 컷팅
   'cutting_blade_kerf', 'cutting_stock_length',
+  // 형강 컷팅(톱날 손실을 튜브와 따로)
+  'cutting_blade_kerf_steel',
 ];
 
 /// 이 키 중 하나라도 폰에 있으면 "설정한 적이 있다"고 본다.

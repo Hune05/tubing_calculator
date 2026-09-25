@@ -91,7 +91,10 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   // 컷팅 화면(cutting_main_screen.dart)과 같은 SharedPreferences 키를
   // 그대로 공유한다 - 톱을 바꾸지 않는 한 두 화면에서 각각 새로 입력할
   // 필요가 없다.
-  static const String _kerfPrefsKey = 'cutting_blade_kerf';
+  // 형강 톱은 튜브 커터와 따로 기억한다. 예전엔 한 칸('cutting_blade_kerf')을 같이 써서,
+  // 형강 톱 3mm를 넣으면 튜브 계산에도 3mm씩 들어갔다.
+  static const String _kerfPrefsKey = 'cutting_blade_kerf_steel';
+  static const String _oldSharedKerfKey = 'cutting_blade_kerf';
   // 칩: 전체 + 지금 항목에 있는 종류만(없는 종류 칩은 두지 않는다).
   List<String> get _categories {
     final present = <String>{};
@@ -450,7 +453,9 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
 
   Future<void> _loadBladeKerf() async {
     final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getDouble(_kerfPrefsKey);
+    // 처음 한 번은 예전 같이 쓰던 값을 이어받는다(바꾸기 전까지 결과가 그대로이게).
+    final saved =
+        prefs.getDouble(_kerfPrefsKey) ?? prefs.getDouble(_oldSharedKerfKey);
     if (saved != null && mounted) setState(() => _bladeKerf = saved);
   }
 
