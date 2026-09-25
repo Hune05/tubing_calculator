@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'daily_report_page.dart';
 import '../models/report_tools.dart' show reportDateOf;
+import '../models/attendance.dart';
 
 const Color tossBlue = AppColors.brand; // 🚀 마키타 틸로 통일
 const Color tossText = AppColors.text;
@@ -310,9 +311,10 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
         // 데이터와 둘 다 안전하게 처리한다.
         final dynamic wt = r['work_type'];
         final String workTypeStr = wt is List ? wt.join('/') : (wt ?? '');
+        final tag = attendanceTag(Map<String, dynamic>.from(r));
 
         buffer.writeln(
-          "$key ($workTypeStr, ${r['worker_count'] ?? 1}명${overtime ? ', 야간' : ''}) "
+          "$key ($workTypeStr, ${r['worker_count'] ?? 1}명${overtime ? ', 야간' : ''}${tag.isEmpty ? '' : ', $tag'}) "
           "- 벤딩 ${pts}pt / 결선 $wiring개소",
         );
         final note = r['note']?.toString() ?? '';

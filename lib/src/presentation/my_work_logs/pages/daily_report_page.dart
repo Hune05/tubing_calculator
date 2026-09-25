@@ -19,6 +19,7 @@ import '../widgets/confirm_delete.dart';
 import 'floor_plan_pin_page.dart';
 import '../models/project_phase.dart';
 import '../models/report_tools.dart';
+import '../models/attendance.dart';
 import '../models/photo_store.dart';
 import '../widgets/voice_input_button.dart';
 import 'photo_annotate_page.dart';
@@ -98,6 +99,10 @@ class _DailyReportPageState extends State<DailyReportPage> {
     '검사/테스트',
   ];
   int _workerCount = 1;
+  // 🚀 [추가] 근태(연차·월차·반차·조퇴·특근) - 공수 계산에 반영된다.
+  String _attendanceType = kAttendanceNormal;
+  TimeOfDay? _checkIn;
+  TimeOfDay? _checkOut;
   bool _isOvertime = false;
   // 🚀 [추가] 연장/야간 작업을 했을 때, 몇 시부터 몇 시까지 했는지도
   // 입력할 수 있게 - 단순 여부(boolean)만으로는 나중에 얼마나 초과
@@ -223,6 +228,11 @@ class _DailyReportPageState extends State<DailyReportPage> {
       }
       if (_selectedWorkTypes.isEmpty) _selectedWorkTypes.add('신규 설치');
       _workerCount = widget.existingData!['worker_count'] ?? 1;
+      _attendanceType =
+          widget.existingData!['attendance_type']?.toString() ??
+          kAttendanceNormal;
+      _checkIn = _parseTimeOfDay(widget.existingData!['check_in']);
+      _checkOut = _parseTimeOfDay(widget.existingData!['check_out']);
       _isOvertime = widget.existingData!['is_overtime'] ?? false;
       _overtimeStart = _parseTimeOfDay(widget.existingData!['overtime_start']);
       _overtimeEnd = _parseTimeOfDay(widget.existingData!['overtime_end']);
@@ -650,6 +660,8 @@ class _DailyReportPageState extends State<DailyReportPage> {
       }
       if (_selectedWorkTypes.isEmpty) _selectedWorkTypes.add('신규 설치');
       _workerCount = prev['worker_count'] ?? _workerCount;
+      _attendanceType =
+          prev['attendance_type']?.toString() ?? _attendanceType;
       _isOvertime = prev['is_overtime'] ?? _isOvertime;
       final prevPhases = reportIds(prev, 'workedPhaseIds');
       if (prevPhases.isNotEmpty) {
@@ -747,6 +759,29 @@ class _DailyReportPageState extends State<DailyReportPage> {
     int endMin = _overtimeEnd!.hour * 60 + _overtimeEnd!.minute;
     if (endMin <= startMin) endMin += 24 * 60; // 자정 넘김
     return (endMin - startMin) / 60.0;
+  }
+
+  double? get _workedHours => workedHoursOf(
+    _checkIn != null ? _formatTimeOfDay(_checkIn!) : null,
+    _checkOut != null ? _formatTimeOfDay(_checkOut!) : null,
+  );
+
+  Future<void> _pickAttendanceTime({required bool isStart}) async {
+    final picked = await showMakitaTimePicker(
+      context: context,
+      title: isStart ? "출근 시간" : "퇴근 시간",
+      initialTime:
+          (isStart ? _checkIn : _checkOut) ??
+          TimeOfDay(hour: isStart ? 8 : 17, minute: 0),
+    );
+    if (picked == null) return;
+    setState(() {
+      if (isStart) {
+        _checkIn = picked;
+      } else {
+        _checkOut = picked;
+      }
+    });
   }
 
   Future<void> _pickOvertimeTime({required bool isStart}) async {
@@ -962,9 +997,14 @@ class _DailyReportPageState extends State<DailyReportPage> {
     );
   }
 
-  Widget _timeBox(String label, TimeOfDay? t, bool isStart) => Expanded(
+  Widget _timeBox(
+    String label,
+    TimeOfDay? t,
+    bool isStart, {
+    VoidCallback? onTap,
+  }) => Expanded(
     child: InkWell(
-      onTap: () => _pickOvertimeTime(isStart: isStart),
+      onTap: onTap ?? () => _pickOvertimeTime(isStart: isStart),
       borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -975,14 +1015,18 @@ class _DailyReportPageState extends State<DailyReportPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              t != null ? _formatTimeOfDay(t) : label,
-              style: TextStyle(
-                color: t != null ? tossText : tossSubText,
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
+            Flexible(
+              child: Text(
+                t != null ? _formatTimeOfDay(t) : label,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: t != null ? tossText : tossSubText,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
               ),
             ),
+            const SizedBox(width: 4),
             const Icon(Icons.access_time_rounded, size: 16, color: tossSubText),
           ],
         ),
@@ -1184,6 +1228,68 @@ class _DailyReportPageState extends State<DailyReportPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Text(
+                    "근태",
+                    style: TextStyle(
+                      color: tossSubText,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: kAttendanceTypes.map((type) {
+                      final sel = _attendanceType == type;
+                      return _selChip(
+                        type,
+                        sel,
+                        () => setState(() => _attendanceType = type),
+                      );
+                    }).toList(),
+                  ),
+                  if (!isFullDayLeave(_attendanceType)) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        _timeBox(
+                          "출근 시간",
+                          _checkIn,
+                          true,
+                          onTap: () => _pickAttendanceTime(isStart: true),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          child: Text(
+                            "~",
+                            style: TextStyle(color: tossSubText),
+                          ),
+                        ),
+                        _timeBox(
+                          "퇴근 시간",
+                          _checkOut,
+                          false,
+                          onTap: () => _pickAttendanceTime(isStart: false),
+                        ),
+                      ],
+                    ),
+                    if (_workedHours != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          keepWords(
+                            "근무 시간: ${_workedHours!.toStringAsFixed(1)}시간",
+                          ),
+                          style: const TextStyle(
+                            color: makitaTeal,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                  ],
+                  const SizedBox(height: 16),
                   if (widget.phases.isNotEmpty) ...[
                     const Text(
                       "작업한 단계",

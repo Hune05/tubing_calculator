@@ -144,7 +144,7 @@ class _RetroOverviewPageState extends State<RetroOverviewPage> {
     }
 
     // 단계 이름별 평균(작업일 / 인원-일 / 계획일)
-    final Map<String, List<(int, int, int)>> byPhase = {};
+    final Map<String, List<(int, double, int)>> byPhase = {};
     for (final l in done) {
       for (final p in phasesOf(l)) {
         final st = phaseWorkStats(l, p['id'].toString());
@@ -402,7 +402,7 @@ class _RetroOverviewPageState extends State<RetroOverviewPage> {
                             ),
                             Text(
                               "작업 ${(e.value.fold<int>(0, (a, v) => a + v.$1) / e.value.length).toStringAsFixed(1)}일 · "
-                              "${(e.value.fold<int>(0, (a, v) => a + v.$2) / e.value.length).toStringAsFixed(1)}인·일",
+                              "${(e.value.fold<double>(0, (a, v) => a + v.$2) / e.value.length).toStringAsFixed(1)}인·일",
                               style: const TextStyle(
                                 color: _teal,
                                 fontWeight: FontWeight.w800,

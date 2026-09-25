@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../models/attendance.dart';
 import '../models/project_phase.dart';
 import '../widgets/work_log_card.dart';
 import '../models/report_tools.dart';
@@ -572,7 +573,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       phaseLines.add(
         line(
           p['name'].toString(),
-          "계획 $plannedDays일 → 작업 ${st.days}일 (${st.manDays}인·일)",
+          "계획 $plannedDays일 → 작업 ${st.days}일 (${formatManDays(st.manDays)}인·일)",
         ),
       );
     }
@@ -1045,7 +1046,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
   String _workStatText(String phaseId) {
     final st = phaseWorkStats(log, phaseId);
     if (st.days == 0) return "";
-    return "  ·  투입 ${st.days}일 (${st.manDays}인·일)";
+    return "  ·  투입 ${st.days}일 (${formatManDays(st.manDays)}인·일)";
   }
 
   // ───────────────────────── 작업 일지 선택 내보내기 ─────────────────────────

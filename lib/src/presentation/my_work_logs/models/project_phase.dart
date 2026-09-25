@@ -2,6 +2,8 @@ import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:flutter/painting.dart' show Color;
 
+import 'attendance.dart';
+
 // 🚀 프로젝트마다 고정된 색(같은 프로젝트는 언제나 같은 색) - 프로젝트 목록,
 // 내 일정 관리 달력/타임라인이 같은 색을 쓰도록 한 곳에 둔다.
 const List<Color> kProjectPalette = [
@@ -449,17 +451,19 @@ bool applyReportEffects(Map<String, dynamic> log, Map report) {
   return changed;
 }
 
-// 단계별 실제 투입: 작업 일지 일수 / 투입 인원-일(명 x 일).
-({int days, int manDays}) phaseWorkStats(
+// 단계별 실제 투입: 작업 일지 일수 / 투입 인원-일(명 x 일). 연차·월차인 날은
+// 공수에서 빼고, 반차는 반만 센다(attendance.dart의 manDaysOf).
+({int days, double manDays}) phaseWorkStats(
   Map<String, dynamic> log,
   String phaseId,
 ) {
-  int days = 0, manDays = 0;
+  int days = 0;
+  double manDays = 0;
   for (final r in (log['daily_reports'] as List? ?? [])) {
     if (r is! Map) continue;
     if (reportIds(r, 'workedPhaseIds').contains(phaseId)) {
       days++;
-      manDays += (r['worker_count'] as num?)?.toInt() ?? 1;
+      manDays += manDaysOf(Map<String, dynamic>.from(r));
     }
   }
   return (days: days, manDays: manDays);

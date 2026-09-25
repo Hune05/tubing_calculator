@@ -1,3 +1,4 @@
+import 'attendance.dart';
 import 'project_phase.dart';
 import 'report_style.dart';
 import 'report_tools.dart';
@@ -49,14 +50,14 @@ List<String> _actualLines(Map<String, dynamic> log, WeekRange w) {
     return w.contains(reportDateOf(r));
   }).toList()..sort((a, b) => reportDateOf(a).compareTo(reportDateOf(b)));
 
-  int manDays = 0;
+  double manDays = 0;
   final done = <String>[];
   final scheduleTitle = {
     for (final s in schedulesOf(log))
       s['id'].toString(): (s['title'] ?? s['type'] ?? '').toString(),
   };
   for (final r in reports) {
-    manDays += (r['worker_count'] as num?)?.toInt() ?? 1;
+    manDays += manDaysOf(Map<String, dynamic>.from(r));
     final d = reportDateOf(r);
     final types = r['work_type'] is List
         ? (r['work_type'] as List).join('·')
@@ -70,7 +71,7 @@ List<String> _actualLines(Map<String, dynamic> log, WeekRange w) {
     }
   }
   if (reports.isNotEmpty) {
-    lines.add('  → 작업 ${reports.length}일 · 투입 $manDays인·일');
+    lines.add('  → 작업 ${reports.length}일 · 투입 ${formatManDays(manDays)}인·일');
   }
   if (done.isNotEmpty) lines.add('  ✓ 완료한 일정: ${done.toSet().join(', ')}');
 
@@ -162,12 +163,13 @@ String _openIssueText(Map<String, dynamic> log) {
 
 // 금주 한눈에 보는 요약: 작업일수·투입, 완료한 일정, 이슈 신규/처리.
 List<String> _summaryLines(List<Map<String, dynamic>> logs, WeekRange w) {
-  int days = 0, manDays = 0, doneSchedules = 0, created = 0, resolved = 0;
+  int days = 0, doneSchedules = 0, created = 0, resolved = 0;
+  double manDays = 0;
   for (final log in logs) {
     for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
       if (!w.contains(reportDateOf(r))) continue;
       days++;
-      manDays += (r['worker_count'] as num?)?.toInt() ?? 1;
+      manDays += manDaysOf(Map<String, dynamic>.from(r));
       doneSchedules += reportIds(r, 'completedScheduleIds').length;
     }
     for (final p in _weeklyIssues(log)) {
@@ -182,7 +184,7 @@ List<String> _summaryLines(List<Map<String, dynamic>> logs, WeekRange w) {
     }
   }
   return [
-    '  · 작업 $days일(작업 일지 기준) · 투입 $manDays인·일',
+    '  · 작업 $days일(작업 일지 기준) · 투입 ${formatManDays(manDays)}인·일',
     '  · 완료한 일정 $doneSchedules건',
     '  · 이슈 신규 $created건 · 처리 $resolved건',
     // 프로젝트가 여러 개면 한 줄씩 현황(카톡 텍스트로 보낼 때 한눈에 보이게).

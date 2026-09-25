@@ -4,6 +4,7 @@ import 'report_style.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'attendance.dart';
 import 'project_phase.dart';
 
 export 'search_tools.dart';
@@ -229,7 +230,7 @@ ReportDoc buildReportDoc(
   };
   final dayLines = <String>[];
   final Map<String, int> phaseDays = {};
-  int manDays = 0;
+  double manDays = 0;
   final completedTitles = <String>[];
   final scheduleTitle = {
     for (final s in schedulesOf(log))
@@ -240,10 +241,12 @@ ReportDoc buildReportDoc(
         ? (r['work_type'] as List).join('·')
         : (r['work_type']?.toString() ?? '');
     final workers = (r['worker_count'] as num?)?.toInt() ?? 1;
-    manDays += workers;
+    manDays += manDaysOf(Map<String, dynamic>.from(r));
     final pt = (r['points'] as num?)?.toInt() ?? 0;
     final wp = (r['wiring_points'] as num?)?.toInt() ?? 0;
+    final tag = attendanceTag(Map<String, dynamic>.from(r));
     final extra = [
+      if (tag.isNotEmpty) tag,
       if (pt > 0) '벤딩 ${pt}pt',
       if (wp > 0) '결선 $wp개소',
       if (r['is_overtime'] == true) '연장',
@@ -278,7 +281,7 @@ ReportDoc buildReportDoc(
   final sections = <ReportSection>[
     ReportSection('진행 현황', overview),
     ReportSection(
-      '작업 내역 (${reports.length}일, 투입 $manDays인·일)',
+      '작업 내역 (${reports.length}일, 투입 ${formatManDays(manDays)}인·일)',
       dayLines.isEmpty ? ['이 기간에 작성된 작업 일지가 없습니다.'] : dayLines,
     ),
   ];

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../models/attendance.dart';
 import '../models/project_phase.dart';
 import '../models/report_tools.dart';
 
@@ -79,7 +80,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
   // ───────────── 내보내기 ─────────────
   Future<void> _exportCsv() async {
     final b = StringBuffer('﻿');
-    b.writeln('프로젝트,날짜,작업유형,인원,연장시간,벤딩pt,결선개소,작업단계,특이사항');
+    b.writeln('프로젝트,날짜,근태,작업유형,인원,연장시간,벤딩pt,결선개소,작업단계,특이사항');
     String q(String s) => '"${s.replaceAll('"', '""').replaceAll('\n', ' ')}"';
     for (final (l, r) in _reports) {
       final names = {
@@ -93,6 +94,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
         [
           q(l['name']?.toString() ?? ''),
           '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}',
+          q(attendanceTypeOf(Map<String, dynamic>.from(r))),
           q(types),
           r['worker_count'] ?? 1,
           r['overtime_hours'] ?? 0,
@@ -138,14 +140,14 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
           for (final m in s.months)
             ReportChartRow(
               '${m.substring(0, 4)}년 ${int.parse(m.substring(5))}월',
-              s.monthMan[m]!.toDouble(),
-              '${s.monthMan[m]} 인·일',
+              s.monthMan[m]!,
+              '${formatManDays(s.monthMan[m]!)} 인·일',
             ),
         ]),
     ];
     final sections = <ReportSection>[
       ReportSection('요약 (${_periodLabels[_period]})', [
-        '작업일수 ${s.days}일 / 투입 ${s.manDays}인·일 / 하루 평균 ${s.days == 0 ? 0 : (s.manDays / s.days).toStringAsFixed(1)}명',
+        '작업일수 ${s.days}일 / 투입 ${formatManDays(s.manDays)}인·일 / 하루 평균 ${s.days == 0 ? 0 : (s.manDays / s.days).toStringAsFixed(1)}명',
         '연장/야간 ${s.otHours.toStringAsFixed(1)}시간 / 벤딩 ${s.pt.round()}pt / 결선 ${s.wiring.round()}개소',
       ]),
       ReportSection(_logs.length == 1 ? '단계별 투입' : '프로젝트별 투입', [
@@ -153,7 +155,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
       ]),
       ReportSection('월별 투입 인원-일', [
         for (final m in s.months)
-          '· ${m.substring(0, 4)}년 ${int.parse(m.substring(5))}월: ${s.monthMan[m]}인·일',
+          '· ${m.substring(0, 4)}년 ${int.parse(m.substring(5))}월: ${formatManDays(s.monthMan[m]!)}인·일',
       ]),
     ];
     await shareReportPdf(
@@ -173,7 +175,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
     final s = _Summary();
     s.days = reports.length;
     for (final (_, r) in reports) {
-      final w = (r['worker_count'] as num?)?.toInt() ?? 1;
+      final w = manDaysOf(Map<String, dynamic>.from(r));
       s.manDays += w;
       s.otHours += _num(r['overtime_hours']);
       s.pt += _num(r['points']);
@@ -188,11 +190,12 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
       final log = _logs.first;
       for (final p in phasesOf(log)) {
         final id = p['id'].toString();
-        int d = 0, m = 0;
+        int d = 0;
+        double m = 0;
         for (final (_, r) in reports) {
           if (reportIds(r, 'workedPhaseIds').contains(id)) {
             d++;
-            m += (r['worker_count'] as num?)?.toInt() ?? 1;
+            m += manDaysOf(Map<String, dynamic>.from(r));
           }
         }
         final st = phaseStart(p), e = phaseEnd(p);
@@ -202,8 +205,8 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
         s.rows.add(
           _Row(
             p['name'].toString(),
-            m.toDouble(),
-            "$d일 · $m인·일",
+            m,
+            "$d일 · ${formatManDays(m)}인·일",
             planned > 0 ? "계획 $planned일" : "",
           ),
         );
@@ -212,15 +215,15 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
     } else {
       for (final log in _logs) {
         final rs = reports.where((e) => identical(e.$1, log)).map((e) => e.$2);
-        final m = rs.fold<int>(
+        final m = rs.fold<double>(
           0,
-          (a, r) => a + ((r['worker_count'] as num?)?.toInt() ?? 1),
+          (a, r) => a + manDaysOf(Map<String, dynamic>.from(r)),
         );
         s.rows.add(
           _Row(
             log['name']?.toString() ?? '이름 없음',
-            m.toDouble(),
-            "${rs.length}일 · $m인·일",
+            m,
+            "${rs.length}일 · ${formatManDays(m)}인·일",
             "",
           ),
         );
@@ -233,7 +236,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
   Widget build(BuildContext context) {
     final s = _summarize();
     final maxRow = s.rows.fold<double>(0, (a, r) => r.value > a ? r.value : a);
-    final maxMonth = s.monthMan.values.fold<int>(0, (a, b) => b > a ? b : a);
+    final maxMonth = s.monthMan.values.fold<double>(0, (a, b) => b > a ? b : a);
     final maxPlan = s.plan.fold<int>(
       0,
       (a, p) => [a, p.$2, p.$3].reduce((x, y) => x > y ? x : y),
@@ -455,7 +458,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
               runSpacing: 10,
               children: [
                 tile("작업일수", "${s.days}일"),
-                tile("투입 인원-일", "${s.manDays} 인·일"),
+                tile("투입 인원-일", "${formatManDays(s.manDays)} 인·일"),
                 tile("하루 평균 인원", (s.manDays / s.days).toStringAsFixed(1)),
                 tile("연장/야간", "${s.otHours.toStringAsFixed(1)}시간"),
                 tile("벤딩 합계", "${s.pt.round()} pt"),
@@ -604,9 +607,9 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
               for (final m in s.months)
                 bar(
                   "${m.substring(0, 4)}년 ${int.parse(m.substring(5))}월",
-                  s.monthMan[m]!.toDouble(),
-                  maxMonth.toDouble(),
-                  "${s.monthMan[m]} 인·일",
+                  s.monthMan[m]!,
+                  maxMonth,
+                  "${formatManDays(s.monthMan[m]!)} 인·일",
                   "",
                 ),
             ]),
@@ -619,9 +622,9 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
 
 class _Summary {
   int days = 0;
-  int manDays = 0;
+  double manDays = 0;
   double otHours = 0, pt = 0, wiring = 0;
-  final Map<String, int> monthMan = {};
+  final Map<String, double> monthMan = {};
   List<String> months = [];
   final List<_Row> rows = [];
   final List<(String, int, int)> plan = []; // 이름, 계획일, 실제일

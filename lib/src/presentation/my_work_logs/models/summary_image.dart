@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'attendance.dart';
 import 'project_phase.dart';
 import 'report_style.dart';
 import 'report_tools.dart';
@@ -245,8 +246,9 @@ Future<File> createSummaryImage(Map<String, dynamic> log) async {
       color: theme,
       weight: FontWeight.w900,
     ).paint(c, Offset(pad, y));
+    final tag = attendanceTag(Map<String, dynamic>.from(r));
     final t = tp(
-      '${r['worker_count'] ?? 1}명 · $line',
+      '${r['worker_count'] ?? 1}명${tag.isEmpty ? '' : ' · $tag'} · $line',
       30,
       maxWidth: w - pad * 2 - 130,
       maxLines: 2,

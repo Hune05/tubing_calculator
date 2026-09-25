@@ -232,6 +232,10 @@ extension _DailyReportSubmit on _DailyReportPageState {
           : _reportDay.toIso8601String().substring(0, 10),
       "work_type": _selectedWorkTypes.toList(),
       "worker_count": _workerCount,
+      "attendance_type": _attendanceType,
+      "check_in": _checkIn != null ? _formatTimeOfDay(_checkIn!) : null,
+      "check_out": _checkOut != null ? _formatTimeOfDay(_checkOut!) : null,
+      "worked_hours": _workedHours,
       "is_overtime": _isOvertime,
       // 🚀 [추가] 연장/야간 작업 시간대 - 껐으면 기록도 지운다.
       "overtime_start": _isOvertime && _overtimeStart != null

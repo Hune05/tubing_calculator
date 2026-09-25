@@ -15,6 +15,7 @@ import 'report_style.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'attendance.dart';
 import 'project_phase.dart';
 import 'report_tools.dart';
 
@@ -186,12 +187,13 @@ List<pw.Widget> _photoRows(List<(Uint8List, String)> items) {
 // 프로젝트 완료 시 마무리 보고서: 전체 기간 보고서에 총 통계와 결과 정리를 더한다.
 ReportDoc buildFinalReportDoc(Map<String, dynamic> log) {
   DateTime? first;
-  int days = 0, manDays = 0, points = 0, wiring = 0;
+  int days = 0, points = 0, wiring = 0;
+  double manDays = 0;
   for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
     final d = reportDateOf(r);
     if (first == null || d.isBefore(first)) first = d;
     days++;
-    manDays += (r['worker_count'] as num?)?.toInt() ?? 1;
+    manDays += manDaysOf(Map<String, dynamic>.from(r));
     points += (r['points'] as num?)?.toInt() ?? 0;
     wiring += (r['wiring_points'] as num?)?.toInt() ?? 0;
   }
@@ -208,7 +210,7 @@ ReportDoc buildFinalReportDoc(Map<String, dynamic> log) {
   doc.sections.insert(
     1,
     ReportSection('총 통계', [
-      '· 작업 $days일 · 총 투입 $manDays인·일',
+      '· 작업 $days일 · 총 투입 ${formatManDays(manDays)}인·일',
       if (points > 0) '· 벤딩 총 $points pt',
       if (wiring > 0) '· 결선 총 $wiring개소',
       '· 이슈 ${punches.length}건 중 $resolved건 처리',
