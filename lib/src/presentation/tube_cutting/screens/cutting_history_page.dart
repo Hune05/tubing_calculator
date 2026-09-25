@@ -94,7 +94,8 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
         // 저장할 때 톱날 손실도 합계에 들어갔으니 지울 때도 같이 뺀다.
         'totalTubeUsed': FieldValue.increment(-record.usedWithKerf),
         'cutCount': FieldValue.increment(-record.multiplier),
-        if (materials != null)
+        // 예전 기록만 튜브가 materials에 들어 있다.
+        if (materials != null && record.tubeInMaterials)
           'materials': subtractMaterialsUsage(
             materials,
             0,

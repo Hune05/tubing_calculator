@@ -31,6 +31,8 @@ import '../cutting_math.dart'
     show cutBreakdownText, cutLengthMm, parseLengthInput, safeFileName;
 import '../cutting_optimizer.dart';
 import '../cutting_plan_rows.dart';
+import '../cutting_firestore_helper.dart' show tubeMaterialName;
+import '../cutting_stock_deduct.dart';
 import '../cutting_theme.dart';
 import '../../inventory/pages/mobile_inventory_ocr.dart';
 import '../cutting_fitting_favorites.dart';
@@ -300,6 +302,16 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 🚀 [고침] 예전에는 이것이 없어서, 잔재를 저장하고 창을 다시 열면 방금
   // 나온 잔재를 쓰는 계획으로 바뀌고 같은 컷팅을 또 저장할 수 있었다.
   String _leftoverSavedSig = '';
+
+  // 재단 계획 창에서 재고에서 뺀 새 원자재(규격별 본마다 길이)와, 그때의 결과 줄 모양.
+  // 줄 모양이 지금과 같을 때만 "이미 뺀 것"으로 본다(잔재 저장과 같은 방식).
+  BarsBySpec _stockDeducted = {};
+  String _stockDeductedSig = '';
+  BarsBySpec get _stockDeductedNow =>
+      _stockDeductedSig.isNotEmpty && _stockDeductedSig == _linesSig
+      ? _stockDeducted
+      : const {};
+
   String get _linesSig => _resultLines().map((l) => l.key).join('|');
   bool get _leftoversSaved =>
       _leftoverSavedSig.isNotEmpty && _leftoverSavedSig == _linesSig;
@@ -338,6 +350,16 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       leftoverLogSource: '튜브 컷팅 · ${widget.project.name}',
       jobLogName: '튜브 컷팅 · ${widget.project.name}',
       kerf: _bladeKerf,
+      // 🚀 [추가] 튜브도 형강처럼 재단 계획의 새 원자재 본수로 재고에서 뺀다
+      // (잔재에서 자른 것은 빠지지 않는다).
+      deductedBars: _stockDeductedNow,
+      onDeductStock: _deductTubeStock,
+      onUndoDeductStock: _undoTubeStock,
+      onStockDeducted: (m) {
+        _stockDeducted = m;
+        _stockDeductedSig = m.isEmpty ? '' : _linesSig;
+        _saveDraftState();
+      },
       onStockLengthChanged: (parsed) {
         setState(() => _stockLength = parsed);
         SharedPreferences.getInstance()
@@ -345,6 +367,90 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             .then((_) => SettingsCloudSync.instance.backup());
       },
     );
+  }
+
+  /// 재단 계획의 규격 이름("튜브 1/2\"", 규격 모르면 "")을 재고 이름으로.
+  String _tubeStockName(String spec) =>
+      spec.trim().isEmpty ? tubeMaterialName('') : spec.trim();
+
+  /// 재단 계획 창의 "재고에서 빼기". 규격별 새 원자재를 창고 재고에서 빼고,
+  /// 실제로 뺀 규격만 돌려준다.
+  Future<BarsBySpec?> _deductTubeStock(BarsBySpec bars) async {
+    final stock = await loadStockInfo();
+    final takes = stockTakesForBars(
+      bars,
+      nameOf: _tubeStockName,
+      unitByName: stock.unitByName,
+    );
+    if (takes.isEmpty) return null;
+    final lines = [
+      for (final t in takes) "${t.name} ${t.qty}${t.unit}",
+    ].join('\n');
+    final warning = shortStockWarning(takes, stock.qtyByName);
+    if (!mounted) return null;
+    final ok = await showCuttingConfirmDialog(
+      context,
+      title: "재고에서 빼겠습니까?",
+      message: warning.isEmpty
+          ? "$lines\n\n창고 재고에서 위 수량을 빼고 자재 기록에 남깁니다."
+          : "$lines\n\n창고 재고에서 위 수량을 빼고 자재 기록에 남깁니다.\n\n$warning",
+      confirmLabel: "빼기",
+      icon: Icons.inventory_2_outlined,
+    );
+    if (!ok) return null;
+    try {
+      final result = await deductStockTakes(
+        takes,
+        projectName: '튜브 컷팅 · ${widget.project.name}',
+        action: '튜브 재단',
+        projectId: widget.project.id,
+      );
+      if (mounted) {
+        showCuttingSnack(context, result.message, isError: !result.allDone);
+      }
+      return deductedPart(bars, result.done);
+    } catch (_) {
+      if (mounted) {
+        showCuttingSnack(context, "재고에서 빼지 못했습니다.", isError: true);
+      }
+      return null;
+    }
+  }
+
+  /// 재단 계획 창의 "되돌리기". 이제까지 뺀 튜브를 도로 넣는다.
+  Future<bool> _undoTubeStock(BarsBySpec bars) async {
+    final stock = await loadStockInfo();
+    final takes = stockTakesForBars(
+      bars,
+      nameOf: _tubeStockName,
+      unitByName: stock.unitByName,
+    );
+    if (takes.isEmpty || !mounted) return false;
+    final lines = [
+      for (final t in takes) "${t.name} ${t.qty}${t.unit}",
+    ].join('\n');
+    final ok = await showCuttingConfirmDialog(
+      context,
+      title: "뺀 것을 도로 넣겠습니까?",
+      message: "$lines\n\n창고 재고에 위 수량을 도로 넣고 자재 기록에 남깁니다.",
+      confirmLabel: "도로 넣기",
+      icon: Icons.undo,
+    );
+    if (!ok) return false;
+    try {
+      await undoStockTakes(
+        takes,
+        projectName: '튜브 컷팅 · ${widget.project.name}',
+        projectId: widget.project.id,
+      );
+      if (mounted) showCuttingSnack(context, "재고에 도로 넣었습니다.");
+      return true;
+    } catch (_) {
+      if (mounted) {
+        showCuttingSnack(context, "도로 넣지 못했습니다.", isError: true);
+      }
+      return false;
+    }
   }
 
   // 🚀 [4번 강화, 신규] 컷팅 지시서를 PDF로 만들어 공유한다. 예전엔 이
@@ -715,6 +821,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         'groupSameLengths': _groupSameLengths,
         'doneKeys': _doneKeys.toList(),
         'leftoverSavedSig': _leftoverSavedSig,
+        'stockDeductedSig': _stockDeductedSig,
+        'stockDeducted': encodeDeductedBars(_stockDeducted),
         'tubeSpec': _tubeSpec,
         'lengthUnit': _lengthUnit,
         'points': _points.map((p) {
@@ -768,6 +876,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             );
           _lengthUnit = stateData['lengthUnit'] ?? "mm";
           _leftoverSavedSig = (stateData['leftoverSavedSig'] as String?) ?? '';
+          _stockDeductedSig = (stateData['stockDeductedSig'] as String?) ?? '';
+          _stockDeducted = decodeDeductedBars(
+            (stateData['stockDeducted'] as String?) ?? '',
+          );
 
           if (stateData['points'] != null) {
             for (var p in _points) {
@@ -2142,6 +2254,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       setMultiplier: _setMultiplier,
       doneKeys: {..._doneKeys},
       leftoverSig: _leftoverSavedSig,
+      stockSig: _stockDeductedSig,
+      stockBars: _stockDeducted,
+      linesSig: _linesSig,
     );
 
     setState(() {
@@ -2170,16 +2285,25 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       _setMultiplier = 1;
       _doneKeys.clear();
       // 기록까지 저장했으면 새 작업이다. 같은 길이를 다시 넣어도 잔재를
-      // 저장할 수 있게 한다.
+      // 저장하고 재고에서 뺄 수 있게 한다.
       _leftoverSavedSig = '';
+      _stockDeductedSig = '';
+      _stockDeducted = {};
       _calculate();
     });
 
     final kerfNote = plan.kerfLossMm > 0
         ? " (톱날 손실 ${plan.kerfLossMm.toStringAsFixed(1)}mm 포함)"
         : "";
+    // 튜브는 재단 계획 창에서 새 원자재 본수로 뺀다. 아직 안 뺐으면 알려 준다.
+    final tubeNote =
+        widget.onSaveCallback != null &&
+            (snapshot.stockSig.isEmpty ||
+                snapshot.stockSig != snapshot.linesSig)
+        ? "\n튜브 재고는 재단 계획 창의 '재고에서 빼기'로 뺍니다."
+        : "";
     final msg =
-        "튜브 총 ${plan.finalTotalMm.toStringAsFixed(1)}mm$kerfNote와 부속 ${plan.fittingCount}개를 저장했습니다.";
+        "튜브 총 ${plan.finalTotalMm.toStringAsFixed(1)}mm$kerfNote와 부속 ${plan.fittingCount}개를 저장했습니다.$tubeNote";
     if (canUndo) {
       final messenger = ScaffoldMessenger.of(context);
       _undoMessenger = messenger;
@@ -2243,6 +2367,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         ..clear()
         ..addAll(s.doneKeys);
       _leftoverSavedSig = s.leftoverSig;
+      _stockDeductedSig = s.stockSig;
+      _stockDeducted = s.stockBars;
       _calculate();
     });
     showCuttingSnack(context, "저장을 취소하고 입력을 되돌렸습니다.");
@@ -4036,6 +4162,10 @@ class _SavedSnapshot {
   final int setMultiplier;
   final Set<String> doneKeys;
   final String leftoverSig;
+  final String stockSig;
+  final BarsBySpec stockBars;
+  // 저장할 때의 결과 줄 모양(재고에서 뺀 것이 이 줄 것인지 견줄 때).
+  final String linesSig;
 
   const _SavedSnapshot({
     required this.plan,
@@ -4043,5 +4173,8 @@ class _SavedSnapshot {
     required this.setMultiplier,
     required this.doneKeys,
     this.leftoverSig = '',
+    this.stockSig = '',
+    this.stockBars = const {},
+    this.linesSig = '',
   });
 }

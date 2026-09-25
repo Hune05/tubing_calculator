@@ -2,7 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_firestore_helper.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_leftovers.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_optimizer.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_stock_deduct.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/widgets/cutting_optimization_sheet.dart';
 
@@ -69,6 +72,65 @@ void main() {
       expect(part, {
         'A': [6000.0],
       });
+    });
+  });
+
+  group('튜브: 재단 계획 본수로 뺀다(점검 4번)', () {
+    test('3500mm × 3개는 한 본에 하나씩 3본(예전 길이 합 올림은 2본)', () {
+      final plan = optimizeCutting(
+        pieces: [3500, 3500, 3500],
+        stockLength: 6000,
+      );
+      final need = {
+        '튜브 1/2"': [for (final b in plan.bars) b.stockLength],
+      };
+      expect(stockTakesForBars(need).single.qty, 3);
+      // 예전 방식
+      final old = stockTakesFromMaterials([
+        {'type': 'TUBE', 'db_name': '튜브 1/2"', 'qty_mm': 10500},
+      ]);
+      expect(old.single.qty, 2);
+    });
+
+    test('잔재에서 자른 조각은 새 본으로 빼지 않는다', () {
+      final plan = optimizeCutting(
+        pieces: [1000],
+        stockLength: 6000,
+        leftovers: [5000],
+      );
+      expect(plan.bars, isEmpty); // 뺄 새 원자재 없음(예전: 1본 차감)
+    });
+
+    test('저장할 때 튜브 길이는 materials에 쌓지 않고 부속만', () {
+      final m = materialsAfterSession(
+        [
+          {'type': 'TUBE', 'db_name': '튜브 1/2"', 'qty_mm': 800.0},
+        ],
+        [
+          {'db_name': '[HY-LOK] 1/2" Union', 'qty': 2, 'spec': '1/2"'},
+        ],
+      );
+      // 예전에 쌓인 튜브는 그대로(목록에서 전처럼 뺄 수 있다), 새 튜브는 안 더한다.
+      expect(m.firstWhere((e) => e['type'] == 'TUBE')['qty_mm'], 800.0);
+      expect(m.firstWhere((e) => e['type'] == 'FITTING')['qty_ea'], 2);
+    });
+
+    test('컷팅 기록: 새 기록은 튜브가 materials에 없다고 적고, 예전 기록은 있다고 읽는다', () {
+      final r = CutRecord(
+        id: '',
+        projectId: 'p',
+        timestamp: DateTime(2026, 9, 25),
+        tubeSize: '1/2"',
+        originalLength: 1000,
+        startFitting: 'A',
+        endFitting: 'B',
+        cutLength: 950,
+        tubeInMaterials: false,
+      );
+      expect(CutRecord.fromMap('x', r.toMap()).tubeInMaterials, isFalse);
+      final legacy = Map<String, dynamic>.from(r.toMap())
+        ..remove('tubeInMaterials');
+      expect(CutRecord.fromMap('y', legacy).tubeInMaterials, isTrue);
     });
   });
 

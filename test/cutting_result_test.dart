@@ -430,6 +430,25 @@ Union Cross 1/2" × 2''');
       expect(draft['doneKeys'], isEmpty);
     });
 
+    testWidgets('튜브 재단 계획 창에도 "재고에서 빼기"가 있다(점검 4번)', (tester) async {
+      tester.view.physicalSize = const Size(1080, 4000);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      await open(tester);
+      await fill(tester, ['600', '900']);
+      await tester.tap(find.text('결과'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('result_btn_optimize')));
+      await tester.pumpAndSettle();
+      // 예전: 튜브 창에는 없어서 목록의 "재고 차감"(길이 합 ÷ 한 본 올림)으로만 뺐다.
+      final btn = find.byKey(const Key('stock_deduct'));
+      await tester.ensureVisible(btn);
+      expect(find.text('재고에서 빼기'), findsOneWidget);
+      // 누르지는 않는다 — 실제 창고 재고를 건드리는 동작이다.
+      await tester.tapAt(const Offset(180, 20));
+      await tester.pumpAndSettle();
+    });
+
     testWidgets('재단 계획에서 잔재를 저장하면 잘랐음 표시가 맞춰지고, 되돌리면 원래대로', (tester) async {
       tester.view.physicalSize = const Size(1080, 4000);
       tester.view.devicePixelRatio = 3.0;

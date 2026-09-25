@@ -153,6 +153,17 @@ Map<String, double> tubeUsageBySize(List<CutRecord> cutRecords) {
   return bySize;
 }
 
+/// 저장 한 번에 "아직 재고에서 안 뺀 사용량"(materials)에 더할 것: 부속만.
+/// 🚀 [고침] 예전에는 튜브도 길이 합으로 쌓았다가 목록의 "재고 차감"에서 한 본
+/// 길이로 나눠 올림해 뺐다. 3500mm × 3개면 재단 계획은 3본인데 2본만 빠졌고,
+/// 잔재에서 자른 것도 새 본으로 또 빠졌다. 튜브는 이제 형강처럼 재단 계획 창의
+/// "재고에서 빼기"로 새 원자재 본수만큼 뺀다(잔재에서 자른 것은 안 빠진다).
+/// 예전에 쌓인 튜브 길이는 그대로 두어 목록에서 전처럼 뺄 수 있다.
+List<Map<String, dynamic>> materialsAfterSession(
+  List<dynamic> existing,
+  List<Map<String, dynamic>> fittingsList,
+) => mergeMaterialsUsage(existing, 0, fittingsList);
+
 /// CuttingMainScreen의 onSaveCallback에서 호출한다. 프로젝트 누적치
 /// (totalTubeUsed/cutCount/usedFittings/lastCutAt)를 갱신하고, 재고 차감에
 /// 쓸 materials를 누적하고, 이번 "완료"로 생성된 CutRecord들을 서브컬렉션에
@@ -170,12 +181,9 @@ Future<void> saveCuttingSession({
 
   final snap = await docRef.get();
   final existingMaterials = (snap.data()?['materials'] as List?) ?? [];
-  final bySize = tubeUsageBySize(cutRecords);
-  final mergedMaterials = mergeMaterialsUsage(
+  final mergedMaterials = materialsAfterSession(
     existingMaterials,
-    totalTubeLength,
     fittingsList,
-    tubeLengthBySize: bySize.isEmpty ? null : bySize,
   );
 
   // 합계·사용량과 컷팅 기록을 한 묶음으로 쓴다. 예전엔 합계 쓰기가 서버 답을 기다린 뒤에야
@@ -190,7 +198,7 @@ Future<void> saveCuttingSession({
   });
   final recordsRef = docRef.collection(kCutRecordsSubcollection);
   for (final record in cutRecords) {
-    batch.set(recordsRef.doc(), record.toMap());
+    batch.set(recordsRef.doc(), {...record.toMap(), 'tubeInMaterials': false});
   }
   await batch.commit();
 }
@@ -212,20 +220,12 @@ Future<void> undoCuttingSession({
 
   final snap = await docRef.get();
   final existingMaterials = (snap.data()?['materials'] as List?) ?? [];
-  // 🚀 [고침] 저장할 때와 같은 규격별 길이로 뺀다. 예전에는 규격 없이
-  // 전체 길이(톱날 손실 포함)를 첫 튜브 줄에서만 빼서, 규격이 섞이면 다른
-  // 규격 줄이 그대로 남고 톱날 손실만큼 더 빠졌다.
-  final bySize = tubeUsageBySize(cutRecords);
+  // 저장할 때 부속만 더했으므로(튜브는 재단 계획에서 뺀다) 부속만 뺀다.
   await docRef.update({
     'totalTubeUsed': project.totalTubeUsed,
     'cutCount': project.cutCount,
     'usedFittings': project.usedFittings,
-    'materials': subtractMaterialsUsage(
-      existingMaterials,
-      totalTubeLength,
-      fittingsList,
-      tubeLengthBySize: bySize.isEmpty ? null : bySize,
-    ),
+    'materials': subtractMaterialsUsage(existingMaterials, 0, fittingsList),
     // 되돌린 뒤 누적이 0이면 "마지막 작업" 날짜도 지운다(저장한 적이 없는 것으로 돌아간다).
     if (project.cutCount <= 0 && project.totalTubeUsed <= 1e-6)
       'lastCutAt': FieldValue.delete(),

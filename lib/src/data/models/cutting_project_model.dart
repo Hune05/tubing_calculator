@@ -104,6 +104,11 @@ class CutRecord {
   // 예전 기록은 0이라 예전처럼 cutLength만 빠진다.
   final double kerf;
 
+  // 이 기록의 튜브 길이가 "아직 재고에서 안 뺀 사용량"(작업의 materials)에 들어갔는지.
+  // 예전 기록은 true. 이제 튜브는 재단 계획 창에서 새 원자재 본수로 빼므로 false로
+  // 적는다(기록을 지울 때 materials에서 빼지 않게).
+  final bool tubeInMaterials;
+
   // 누적 합계(totalTubeUsed)에서 이 기록이 차지하는 길이.
   double get usedWithKerf => (cutLength + kerf) * multiplier;
 
@@ -121,6 +126,7 @@ class CutRecord {
     this.startDeduction = 0.0,
     this.endDeduction = 0.0,
     this.kerf = 0.0,
+    this.tubeInMaterials = true,
   });
 
   Map<String, dynamic> toMap() {
@@ -137,6 +143,7 @@ class CutRecord {
       'startDeduction': startDeduction,
       'endDeduction': endDeduction,
       if (kerf > 0) 'kerf': kerf,
+      if (!tubeInMaterials) 'tubeInMaterials': false,
     };
   }
 
@@ -162,6 +169,7 @@ class CutRecord {
       startDeduction: (map['startDeduction'] as num?)?.toDouble() ?? 0.0,
       endDeduction: (map['endDeduction'] as num?)?.toDouble() ?? 0.0,
       kerf: (map['kerf'] as num?)?.toDouble() ?? 0.0,
+      tubeInMaterials: map['tubeInMaterials'] != false,
     );
   }
 }
