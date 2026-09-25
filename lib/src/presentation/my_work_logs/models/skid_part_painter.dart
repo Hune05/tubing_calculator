@@ -3,7 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import 'skid_presets.dart' show SkidShape;
+import 'skid_presets.dart' show SkidShape, skidTurnsOnly;
 
 // 🚀 스키드 부품(형강·정션박스·곤질레다·커플링·유니온 커플링)을 보는 방향마다 그린다.
 // - top: 위에서 본 모습(평면). 긴 쪽이 가로, 칸이 세로로 길면 돌려서 그린다.
@@ -51,6 +51,7 @@ class SkidPartPainter extends CustomPainter {
       }
     } else if (face == SkidFace.top &&
         shape != SkidShape.jb &&
+        !skidTurnsOnly(shape) &&
         size.height > size.width) {
       // 위에서 본 모습은 긴 쪽을 가로로 그린다. 칸이 세로로 길면(90° 돌려 놓음) 그림도 돌린다.
       canvas.translate(size.width, 0);
@@ -257,7 +258,10 @@ void _jb(_P p, SkidFace face) {
 
 // ───────────────────────── 곤질레다(삼화기전 F-7) ─────────────────────────
 // 허브: 왼쪽 끝(endL)·오른쪽 끝(endR)·옆 위(sideA)·옆 아래(sideB)·뒤(back, 뚜껑 반대 = 아래).
-// LB: 끝 + 뒤, LL: 끝 + 옆 위, LR: 끝 + 옆 아래, LT: 양 끝 + 옆 아래, LC: 양 끝, LX: 양 끝 + 양 옆.
+// LB: 끝 + 뒤, LL: 끝 + 옆 아래, LR: 끝 + 옆 위, LT: 양 끝 + 옆 아래, LC: 양 끝, LX: 양 끝 + 양 옆.
+// LL·LR은 뚜껑을 보고 끝 허브를 위로 두었을 때 옆 허브가 왼쪽이면 LL, 오른쪽이면 LR이다(삼화
+// 카탈로그 사진·Crouse-Hinds Form 7 도면). 위에서 본 그림은 끝 허브가 왼쪽이라 LL은 옆 아래.
+// 옆·끝에서 보면 허브 아래면이 몸통 뒷면과 한 선이다(JK·대승 도면) — 허브가 뒤쪽으로 붙는다.
 
 class _Hubs {
   // 곤질레다는 모두 왼쪽 끝 허브가 있다.
@@ -273,8 +277,8 @@ class _Hubs {
 
 _Hubs _hubsOf(String shape) => switch (shape) {
   SkidShape.cdLB => const _Hubs(back: true),
-  SkidShape.cdLL => const _Hubs(sideA: true),
-  SkidShape.cdLR => const _Hubs(sideB: true),
+  SkidShape.cdLL => const _Hubs(sideB: true),
+  SkidShape.cdLR => const _Hubs(sideA: true),
   SkidShape.cdLT => const _Hubs(endR: true, sideB: true),
   SkidShape.cdLX => const _Hubs(endR: true, sideA: true, sideB: true),
   _ => const _Hubs(endR: true), // LC
@@ -296,7 +300,7 @@ void _condulet(_P p, String shape, SkidFace face) {
     final (double x0, double bw) = _bandOf(hb, w);
     final double bh = hb.back ? h * 0.7 : h;
     final double hd = math.min(bw, bh) * 0.72;
-    final Offset cc = Offset(x0 + bw / 2, bh / 2);
+    final Offset cc = Offset(x0 + bw / 2, bh - hd / 2);
     if (hb.sideA) p.part(Rect.fromLTWH(0, cc.dy - hd / 2, x0, hd), _metal, 1);
     if (hb.sideB) {
       p.part(
@@ -325,8 +329,9 @@ void _condulet(_P p, String shape, SkidFace face) {
     y0 = 0;
     bh = hb.back ? h * 0.7 : h;
   }
-  final double cy = y0 + bh / 2;
   final double hd = bh * 0.72;
+  // 위에서 보면 허브가 몸통 폭 가운데, 옆에서 보면 뒷면(아래)에 붙는다.
+  final double cy = face == SkidFace.top ? y0 + bh / 2 : bh - hd / 2;
   // 옆·뒤 허브 자리: LL·LR·LB는 막힌 쪽 끝, LT·LX는 가운데.
   final double hx = hb.endR ? (bl + br) / 2 : br - bh * 0.55;
   void endHub(double x) {
@@ -373,8 +378,8 @@ void _condulet(_P p, String shape, SkidFace face) {
     p.part(Rect.fromLTRB(bl, 0, br, bh * 0.14), _cover, 2);
     // 보는 쪽을 향한 옆 허브는 동그라미로 보인다.
     if (hb.sideA || hb.sideB) {
-      p.circle(Offset(hx, cy + bh * 0.05), hd * 0.42, _metal);
-      p.circle(Offset(hx, cy + bh * 0.05), hd * 0.26, _body);
+      p.circle(Offset(hx, cy), hd * 0.42, _metal);
+      p.circle(Offset(hx, cy), hd * 0.26, _body);
     }
   }
 }

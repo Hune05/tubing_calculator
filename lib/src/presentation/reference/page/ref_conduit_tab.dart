@@ -73,7 +73,7 @@ class RefConduitTab extends StatelessWidget {
           children: [
             refSectionTitle("후강 전선관 (앱 규격 16~54)"),
             refTable(
-              headers: ["호칭", "바깥지름\n(mm)", "곤질레다\n몸통 길이(mm)", "커플링\n길이(mm)"],
+              headers: ["호칭", "바깥지름\n(mm)", "곤질레다 LB\n길이(mm)", "커플링\n길이(mm)"],
               rows: [
                 for (final e in kThickConduitOd.entries)
                   [
@@ -241,27 +241,36 @@ class RefConduitTab extends StatelessWidget {
 
         refExpandCard(
           title: "8. 곤질레다·커플링 (삼화기전 F-7)",
-          subtitle: "배치도 부속 크기. 카탈로그에 몸통 치수가 없어 대략값 — 실제를 재서 편집 칸에서 고칩니다.",
+          subtitle:
+              "배치도 부속 크기. 삼화는 치수를 공개하지 않아 같은 모양인 국산 곤질레다(JK) 표 값입니다. 실물과 다르면 편집 칸에서 고칩니다.",
           icon: LucideIcons.box,
           iconColor: Colors.teal,
           children: [
             refSectionTitle("종류(허브 방향)"),
             refDataRow("LB", "뒤로 빠짐. 벽 관통·직각 꺾임에 제일 흔함"),
-            refDataRow("LL / LR", "왼쪽 / 오른쪽으로 빠짐(뚜껑을 보고)"),
+            refDataRow("LL / LR", "뚜껑을 보고 끝 허브를 위로 두면 옆 허브가 왼쪽(LL) / 오른쪽(LR)"),
             refDataRow("LT", "T자. 양옆 + 한쪽 끝"),
             refDataRow("LC", "일자(C). 양 끝 통과, 뚜껑으로 선 넣기"),
             refDataRow("LX", "십자. 네 방향"),
             const SizedBox(height: 12),
-            refSectionTitle("곤질레다 몸통 (mm, 대략)"),
+            refSectionTitle("곤질레다 (mm, JK 표)"),
             refTable(
-              headers: ["규격", "길이", "폭", "높이", "허브 돌출"],
+              headers: [
+                "규격",
+                "LB·LL·LR\n길이",
+                "LC·LT·LX\n길이",
+                "폭",
+                "높이",
+                "허브\n돌출",
+              ],
               rows: [
                 for (final e in kConduletSize.entries)
-                  ["${e.key}", for (final v in e.value) refNum(v)],
+                  ["${e.key}", for (final v in e.value.take(5)) refNum(v)],
               ],
+              footer: "높이는 뚜껑 포함. LB는 뒤 허브만큼, LL·LR·LT는 옆 허브만큼 더 큽니다.",
             ),
             const SizedBox(height: 12),
-            refSectionTitle("커플링 · 유니온 커플링(EUF) (mm, 대략)"),
+            refSectionTitle("커플링(KS 후강) · 유니온 커플링(EUF, 암+암) (mm)"),
             refTable(
               headers: ["규격", "커플링\n길이", "커플링\n외경", "유니온\n길이", "유니온\n너트 외경"],
               rows: [
@@ -291,7 +300,8 @@ class RefConduitTab extends StatelessWidget {
                 for (final e in kThickConduitOd.entries)
                   ["${e.key}", refNum(e.value), refNum(e.value + 3)],
               ],
-              footer: "※ 최소 홀쏘 지름 = 바깥지름 + 3mm(관을 헐렁하게 통과시킬 여유). "
+              footer:
+                  "※ 최소 홀쏘 지름 = 바깥지름 + 3mm(관을 헐렁하게 통과시킬 여유). "
                   "관에 커플링·부싱을 끼운 채로 넣거나 후렉시블이면 그 부속 바깥지름이 더 크므로, "
                   "실제 부속을 관에 대 보고 그보다 한 단계 큰 홀쏘를 고른다.",
             ),
@@ -347,7 +357,8 @@ class RefConduitTab extends StatelessWidget {
                 ["M20", "2.5", "17.5"],
                 ["M24", "3.0", "21.0"],
               ],
-              footer: "※ 드릴 지름 ≈ 나사 지름 − 피치(ISO 미터 보통 나사, 75% 물림 기준값). "
+              footer:
+                  "※ 드릴 지름 ≈ 나사 지름 − 피치(ISO 미터 보통 나사, 75% 물림 기준값). "
                   "탭이 부러지기 쉬운 재질(스테인리스 등)이면 표보다 0.1~0.2mm 큰 드릴을 쓰기도 합니다.",
             ),
           ],
@@ -389,7 +400,8 @@ class RefConduitTab extends StatelessWidget {
                 ["M12", "10"],
                 ["M16", "14"],
               ],
-              footer: "※ 육각머리(볼트를 바깥에서 감싸 돌리는 렌치·스패너)와 육각소켓(볼트머리 안쪽에 "
+              footer:
+                  "※ 육각머리(볼트를 바깥에서 감싸 돌리는 렌치·스패너)와 육각소켓(볼트머리 안쪽에 "
                   "박힌 육각렌치용) 볼트는 서로 다른 규격입니다 — 어느 쪽 볼트인지 보고 표를 고릅니다.",
             ),
           ],

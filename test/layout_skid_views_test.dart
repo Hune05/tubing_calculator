@@ -34,11 +34,23 @@ void main() {
       for (final p in list) {
         expect(SkidShape.isFitting(p.shape), isTrue);
         expect(p.depth, isNotNull);
-        expect(p.width, greaterThan(p.height)); // 긴 쪽이 가로
+        // 곤질레다는 긴 쪽이 가로. 커플링·유니온은 지름이 더 클 수 있어 돌린 횟수로 본다.
+        if (SkidShape.isCondulet(p.shape)) {
+          expect(p.width, greaterThan(p.height));
+        } else {
+          expect(skidTurnsOnly(p.shape), isTrue);
+        }
       }
     }
     ModulePreset pick(String group, int size) => kSkidFittingPresets[group]!
         .firstWhere((p) => p.name.endsWith(' $size'));
+    // 표 값(JK 곤질레다·KS 커플링·대승 DA-UF 유니온): ㄱ자형과 곧은형은 길이가 다르다.
+    expect([pick('곤질레다 LB', 16).width, pick('곤질레다 LB', 16).depth], [125, 66]);
+    expect(pick('곤질레다 LL', 16).height, 60);
+    expect(pick('곤질레다 LC', 36).width, 197);
+    expect(pick('곤질레다 LT', 36).width, 197);
+    expect([pick('커플링', 54).width, pick('커플링', 54).height], [64, 68]);
+    expect([pick('유니온 커플링', 28).width, pick('유니온 커플링', 28).height], [47, 53]);
     // 옆 허브가 있으면 위에서 본 폭이, 뒤 허브(LB)가 있으면 높이가 커진다.
     expect(pick('곤질레다 LL', 22).height, greaterThan(pick('곤질레다 LC', 22).height));
     expect(pick('곤질레다 LX', 22).height, greaterThan(pick('곤질레다 LL', 22).height));
@@ -574,5 +586,47 @@ void main() {
       if ((two[k] - withJb[k]).abs() > 40) diff2++;
     }
     expect(diff2, greaterThan(20)); // 안 가려진 1/3과 점선이 그려졌다
+  });
+
+  test('커플링·유니온은 칸 비율이 아니라 돌린 횟수로 방향을 본다(지름이 길이보다 크다)', () {
+    final u = kSkidFittingPresets['유니온 커플링']!.firstWhere(
+      (p) => p.name.endsWith(' 54'),
+    );
+    expect(u.height, greaterThan(u.width)); // 63 × 82
+    PlacedItem item({int? rotation}) => PlacedItem(
+      id: 'u',
+      name: u.name,
+      position: Offset.zero,
+      width: rotation == 90 ? u.height : u.width,
+      height: rotation == 90 ? u.width : u.height,
+      shape: u.shape,
+      depth: u.depth,
+      rotation: rotation,
+    );
+    // 놓은 그대로면 길이가 x 방향: 정면에서는 옆모습, 좌측면에서는 끝모습.
+    expect(skidViewFace(item(), kSkidViewFront), SkidFace.side);
+    expect(skidViewFace(item(), 'left'), SkidFace.end);
+    expect(skidViewFace(item(rotation: 90), kSkidViewFront), SkidFace.end);
+    expect(
+      InstrumentShape.inferredQuarterTurns(u.shape!, Size(u.width, u.height)),
+      0,
+    );
+    // 곤질레다는 예전처럼 칸 비율로 가린다(세로로 길면 y 방향).
+    final lb = kSkidFittingPresets['곤질레다 LB']!.first;
+    expect(
+      skidViewFace(
+        PlacedItem(
+          id: 'b',
+          name: lb.name,
+          position: Offset.zero,
+          width: lb.height,
+          height: lb.width,
+          shape: lb.shape,
+          depth: lb.depth,
+        ),
+        kSkidViewFront,
+      ),
+      SkidFace.end,
+    );
   });
 }

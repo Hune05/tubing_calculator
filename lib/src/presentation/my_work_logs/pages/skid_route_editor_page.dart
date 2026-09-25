@@ -704,6 +704,7 @@ class SkidMiniViewPainter extends CustomPainter {
         SkidPartPainter(
           shape: it.shape!,
           mirror: it.flipped,
+          quarterTurns: skidTurnsOnly(it.shape) ? (it.quarterTurns ?? 0) : null,
           strokeWidth: 0.8,
         ).paint(canvas, rr.size);
         canvas.restore();

@@ -3,8 +3,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/layout_board_models.dart';
 
 void main() {
-  test('계기 모듈은 다섯 제조사, 크기는 모두 양수, 이름은 겹치지 않는다', () {
-    expect(kInstrumentPresets.keys, ['요꼬가와', '오토롤', '로즈마운트', 'SOR', '비카']);
+  test('계기 모듈은 여섯 제조사, 크기는 모두 양수, 이름은 겹치지 않는다', () {
+    expect(kInstrumentPresets.keys, [
+      '요꼬가와',
+      '오토롤',
+      '로즈마운트',
+      'SOR',
+      '비카',
+      'UE',
+    ]);
     final names = <String>{};
     for (final list in kInstrumentPresets.values) {
       expect(list, isNotEmpty);
@@ -29,6 +36,21 @@ void main() {
     expect([find('2120 레벨 스위치').width, find('2120 레벨 스위치').height], [120, 220]);
     expect([find('6NN 압력 스위치').width, find('6NN 압력 스위치').height], [108, 147]);
     expect([find('MA 압력 스위치').width, find('MA 압력 스위치').height], [161, 121]);
+    // UE 도면 숫자(100-B p13·120-B p21·22, A-12709·A-12107·A-12456).
+    expect(
+      [find('H100 압력 스위치').width, find('H100 압력 스위치').height],
+      [101.6, 168.3],
+    );
+    expect(
+      [find('J120 방폭 압력 스위치').width, find('J120 방폭 압력 스위치').height],
+      [134.6, 184.2],
+    );
+    expect(
+      [find('J120K 방폭 차압 스위치').width, find('J120K 방폭 차압 스위치').height],
+      [219, 192.5],
+    );
+    expect(kPresetDepth['J120 방폭 압력 스위치'], 109);
+    expect(kPresetDepth['H100 압력 스위치'], 59.4);
   });
 
   test('ABS 덕트는 빗살 모양으로 그린다', () {

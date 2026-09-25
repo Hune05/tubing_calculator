@@ -83,6 +83,32 @@ class InstrumentShape {
   /// SOR 방폭(B3·B6, CAT216 p.28): 둥근 뚜껑, 아래 네모 설정칸.
   static const String sorExp = 'sor_exp';
 
+  // ── UE(United Electric) 압력·차압 스위치(100-B p13, 120-B p21·22, 모델별 도면 A-번호) ──
+  /// UE H100 방수형(피스톤 701~706, 다이어프램 190~194, A-12709·A-12705): 네모 뚜껑(대각 나사 둘),
+  /// 뚜껑 아래 설치 귀 둘, 테이퍼 목, 아래 육각.
+  static const String ueH100 = 'ue_h100';
+
+  /// UE H100 저압 다이어프램(183~186, A-12848): 목 아래 플랜지 블록·볼트.
+  static const String ueH100Flange = 'ue_h100_flange';
+
+  /// UE H100K 차압(544~548, A-13417): 넓은 다이어프램 몸통, 양 끝 옆 접속구(왼쪽 HIGH·오른쪽 LOW).
+  static const String ueH100k = 'ue_h100k';
+
+  /// UE J120 방폭 벨로즈(126~164, A-12107): 둥근 뚜껑·명판, 뒤 네모 귀판, 왼쪽 허브·오른쪽 보스.
+  static const String ueJ120 = 'ue_j120';
+
+  /// UE J120 방폭 피스톤(701~705, 다이어프램 190~194도 같은 외곽, A-12452·A-12453).
+  static const String ueJ120Piston = 'ue_j120_piston';
+
+  /// UE J120K 방폭 차압 벨로즈(147·157, A-12456): 가운데 감지 상자, 양옆 벨로즈 통, 양 끝 접속구.
+  static const String ueJ120k = 'ue_j120k';
+
+  /// UE J120K 방폭 저차압 다이어프램(540~543, A-13418).
+  static const String ueJ120kDia = 'ue_j120k_dia';
+
+  /// UE H121 방폭(701~705, A-12464): 위 설정 캡, 오른쪽 전선관 보스 하나.
+  static const String ueH121 = 'ue_h121';
+
   // ── 튜브 피팅(하이록 H-200TF·스웨즈락 MS-01-140, 옆에서 본 모습) ──
   static const String fitUnion = 'fit_union';
   static const String fitElbow = 'fit_elbow';
@@ -118,6 +144,7 @@ class InstrumentShape {
     dpSide,
     ykVertical,
     exdSwitch,
+    ueJ120k,
     fitUnion,
     fitTee,
     fitMale,
@@ -138,6 +165,8 @@ class InstrumentShape {
   /// 돌린 횟수를 모르는 예전 부품: 칸의 가로·세로가 원래 모양과 반대면 90° 한 번 돌린 것.
   static int inferredQuarterTurns(String shape, Size box) {
     if (box.width == box.height) return 0;
+    // 커플링·유니온은 지름이 길이보다 클 수 있어 비율로 가리지 않는다(돌린 횟수만 본다).
+    if (skidTurnsOnly(baseOf(shape))) return 0;
     return (box.width > box.height) != isLandscape(shape) ? 1 : 0;
   }
 
@@ -313,6 +342,22 @@ List<Offset> _naturalPoints(String base, Size s) {
       return [p(0.5, 1)];
     case InstrumentShape.exdSwitch:
       return [p(87 / 161, 1)];
+    // UE: 아래 육각 가운데, 차압은 양 끝 옆 접속구(왼쪽 HIGH·오른쪽 LOW).
+    case InstrumentShape.ueH100:
+    case InstrumentShape.ueH100Flange:
+      return [p(0.5, 1)];
+    case InstrumentShape.ueJ120:
+      return [p(0.541, 1)];
+    case InstrumentShape.ueJ120Piston:
+      return [p(0.539, 1)];
+    case InstrumentShape.ueH121:
+      return [p(0.48, 1)];
+    case InstrumentShape.ueH100k:
+      return [p(0, 0.923), p(1, 0.838)];
+    case InstrumentShape.ueJ120k:
+      return [p(0, 0.81), p(1, 0.81)];
+    case InstrumentShape.ueJ120kDia:
+      return [p(0, 0.912), p(1, 0.844)];
     case InstrumentShape.fork2120:
     case InstrumentShape.fork:
     case InstrumentShape.fork2130:
@@ -425,6 +470,10 @@ class InstrumentShapePainter extends CustomPainter {
   static const Color _glass = Color(0xFFDDEFF1);
   static const Color _sorBlue = Color(0xFFCFE3F3);
   static const Color _maBlue = Color(0xFFD6E4F5);
+  static const Color _ueBlue = Color(0xFFC4D8EA); // UE 파랑(실물은 진한 파랑, 옅게)
+  static const Color _uePlate = Color(0xFFA3ADBB); // UE 120 뚜껑의 검은 명판(옅게)
+  static const Color _ftBody = Color(0xFFB4BCC8); // 고정식 단자대 검은 몸통(옅게)
+  static const Color _estopRed = Color(0xFFF5C6C6); // 비상 누름버튼 붉은 머리(옅게)
 
   // 제조사별 몸통 색(옅게, 흑백 인쇄해도 선이 보이게). 피팅·밸브·전기 부품은 그대로.
   static const Color _rmBlue = Color(0xFFD9E8F7); // 로즈마운트 파랑
@@ -545,6 +594,16 @@ class InstrumentShapePainter extends CustomPainter {
         _sorBox(b, shape);
       case InstrumentShape.sorExp:
         _sorExp(b);
+      case InstrumentShape.ueH100:
+      case InstrumentShape.ueH100Flange:
+      case InstrumentShape.ueH100k:
+        _ueH100(b, shape);
+      case InstrumentShape.ueJ120:
+      case InstrumentShape.ueJ120Piston:
+      case InstrumentShape.ueJ120k:
+      case InstrumentShape.ueJ120kDia:
+      case InstrumentShape.ueH121:
+        _ueJ120(b, shape);
       case InstrumentShape.fitUnion:
         _fitUnion(b);
       case InstrumentShape.fitElbow:
@@ -1087,6 +1146,186 @@ class InstrumentShapePainter extends CustomPainter {
     _part(b.c, b.r(0.39, 0.72, 0.61, 0.9), _metal, radius: 0);
     _hex(b.c, b.r(0.36, 0.9, 0.64, 0.96));
     _thread(b.c, b.r(0.44, 0.96, 0.56, 1));
+  }
+
+  // ───────────────────────── UE(United Electric) 압력·차압 스위치 ─────────────────────────
+  // 모델별 도면(A-12709·12705·12848·13417·12107·12452·12453·12456·13418·12464)의 앞 그림.
+  // UE 도면의 앞 그림은 뚜껑을 뗀 모습이라, 뚜껑 외곽은 옆 그림에서 옮겼다. 비율은 잰 값(≈).
+
+  /// H100 계열: 4" 네모 뚜껑(대각 나사 둘·명판), 뚜껑 아래 설치 귀 둘(구멍 간격 69.9),
+  /// 파란 테이퍼 목, 아래 감지부(육각 / 플랜지 블록 / 차압 다이어프램).
+  void _ueH100(_Box b, String kind) {
+    final Canvas c = b.c;
+    final bool flange = kind == InstrumentShape.ueH100Flange;
+    final bool dp = kind == InstrumentShape.ueH100k;
+    final double coverB = flange ? 0.529 : (dp ? 0.469 : 0.604);
+    final double earB = flange ? 0.603 : (dp ? 0.539 : 0.682);
+    final double neckB = flange ? 0.806 : (dp ? 0.716 : 0.915);
+    final double m = math.min(b.w, b.h);
+    for (final (l, r) in const [(0.075, 0.235), (0.767, 0.927)]) {
+      _part(c, b.r(l, coverB - 0.02, r, earB), _ueBlue, radius: 3);
+      _circle(c, b.p((l + r) / 2, (coverB + earB) / 2), m * 0.03, _bodyPlain);
+    }
+    _poly(c, [
+      b.p(0.293, coverB),
+      b.p(0.679, coverB),
+      b.p(0.670, neckB),
+      b.p(0.313, neckB),
+    ], _ueBlue);
+    _part(c, b.r(0, 0, 1, coverB), _ueBlue, radius: b.w * 0.04);
+    _part(
+      c,
+      b.r(0.22, coverB * 0.13, 0.8, coverB * 0.58),
+      _bodyPlain,
+      radius: 1,
+    );
+    _circle(c, b.p(0.087, coverB * 0.116), m * 0.025, _metal);
+    _circle(c, b.p(0.902, coverB * 0.917), m * 0.025, _metal);
+    if (flange) {
+      _part(c, b.r(0.262, 0.806, 0.732, 0.821), _metal, radius: 0);
+      _part(c, b.r(0.157, 0.821, 0.849, 0.913), _metal, radius: 2);
+      for (final x in const [0.22, 0.45, 0.68]) {
+        _part(c, b.r(x, 0.913, x + 0.09, 0.94), _metal, radius: 0);
+      }
+      _hex(c, b.r(0.34, 0.913, 0.65, 1));
+    } else if (dp) {
+      _part(c, b.r(0.31, 0.716, 0.69, 0.771), _metal, radius: 0);
+      for (final (l, r) in const [(0.09, 0.21), (0.44, 0.57), (0.79, 0.91)]) {
+        _part(c, b.r(l, 0.771, r, 0.798), _metal, radius: 0);
+        _part(c, b.r(l, 0.961, r, 1), _metal, radius: 0);
+      }
+      _part(c, b.r(0.037, 0.798, 0.963, 0.961), _metal, radius: 3);
+      c.drawLine(b.p(0.037, 0.877), b.p(0.963, 0.877), _thin);
+      // 양 끝 옆 접속구(1/8" NPT): 왼쪽 HIGH는 아래 반, 오른쪽 LOW는 위 반.
+      _part(c, b.r(0, 0.9, 0.037, 0.946), _metal, radius: 0);
+      _part(c, b.r(0.963, 0.815, 1, 0.861), _metal, radius: 0);
+    } else {
+      _hex(c, b.r(0.365, 0.915, 0.631, 1));
+    }
+  }
+
+  /// 120 계열(J120·J120K·H121): 아래 감지부를 먼저 그리고, 방폭 몸통·둥근 뚜껑을 위에 얹는다.
+  void _ueJ120(_Box b, String kind) {
+    final Canvas c = b.c;
+    // 칸 크기(mm)와 뚜껑 가운데(mm, 칸 왼쪽 위에서).
+    final (double wMm, double hMm, Offset cMm) = switch (kind) {
+      InstrumentShape.ueJ120Piston => (134.6, 188.6, const Offset(72.5, 62.4)),
+      InstrumentShape.ueJ120k => (219.0, 192.5, const Offset(109.5, 61.6)),
+      InstrumentShape.ueJ120kDia => (152.4, 237.1, const Offset(76.2, 62.1)),
+      InstrumentShape.ueH121 => (129.9, 211.1, const Offset(62.7, 83.0)),
+      _ => (134.6, 184.2, const Offset(72.5, 62.5)),
+    };
+    void bolts(double t, double btm, List<(double, double)> xs) {
+      for (final (l, r) in xs) {
+        _part(c, b.r(l, t, r, btm), _metal, radius: 0);
+      }
+    }
+
+    switch (kind) {
+      case InstrumentShape.ueJ120Piston:
+        _part(c, b.r(0.34, 0.602, 0.735, 0.667), _metal, radius: 1);
+        bolts(0.667, 0.688, const [(0.351, 0.429), (0.655, 0.729)]);
+        _part(c, b.r(0.376, 0.688, 0.412, 0.825), _metal, radius: 0); // 벤트 관
+        _part(c, b.r(0.412, 0.688, 0.666, 0.934), _metal, radius: 2);
+        _hex(c, b.r(0.439, 0.934, 0.639, 1));
+      case InstrumentShape.ueJ120k:
+        _part(c, b.r(0.381, 0.58, 0.619, 0.646), _metal, radius: 0);
+        // 양옆 벨로즈 통(바깥 끝이 둥글다)과 양 끝 접속구 육각(왼쪽 HIGH·오른쪽 LOW).
+        final double can = 0.035 * b.h;
+        _part(c, b.r(0.068, 0.686, 0.26, 0.927), _metal, radius: can);
+        _part(c, b.r(0.742, 0.686, 0.932, 0.927), _metal, radius: can);
+        for (final (l, r) in const [(0.0, 0.068), (0.932, 1.0)]) {
+          _part(c, b.r(l, 0.757, r, 0.854), _metal, radius: 1);
+          c.drawLine(b.p(l, 0.79), b.p(r, 0.79), _thin);
+          c.drawLine(b.p(l, 0.822), b.p(r, 0.822), _thin);
+        }
+        bolts(0.74, 0.87, const [(0.26, 0.294), (0.708, 0.742)]);
+        _part(c, b.r(0.603, 0.968, 0.666, 1), _metal, radius: 0);
+        // 가운데 감지 상자(파랑, 모서리 나사 넷, 안쪽 뚜껑).
+        _part(c, b.r(0.294, 0.646, 0.708, 0.968), _ueBlue, radius: 3);
+        _part(c, b.r(0.33, 0.69, 0.672, 0.925), _ueBlue, radius: 2);
+        for (final x in const [0.312, 0.69]) {
+          for (final y in const [0.668, 0.946]) {
+            _circle(c, b.p(x, y), math.min(b.w, b.h) * 0.012, _metal);
+          }
+        }
+      case InstrumentShape.ueJ120kDia:
+        _part(c, b.r(0.3, 0.5, 0.7, 0.526), _metal, radius: 1);
+        bolts(0.526, 0.545, const [(0.33, 0.4), (0.6, 0.67)]);
+        _part(c, b.r(0.36, 0.545, 0.388, 0.65), _metal, radius: 0); // 벤트 관
+        _part(c, b.r(0.388, 0.545, 0.609, 0.738), _metal, radius: 1);
+        _part(c, b.r(0.38, 0.738, 0.62, 0.757), _metal, radius: 0);
+        _part(c, b.r(0.3, 0.757, 0.7, 0.789), _metal, radius: 0);
+        const edges = [(0.03, 0.12), (0.29, 0.37), (0.63, 0.71), (0.88, 0.96)];
+        bolts(0.789, 0.81, edges);
+        bolts(0.933, 1, edges);
+        _part(c, b.r(0, 0.81, 1, 0.933), _metal, radius: 3);
+        c.drawLine(b.p(0, 0.877), b.p(1, 0.877), _thin);
+        // 양 끝 접속구(1/8" NPT): 왼쪽 HIGH는 아래 반, 오른쪽 LOW는 위 반.
+        final double pr = math.min(b.w, b.h) * 0.018;
+        _circle(c, b.p(0.02, 0.912), pr, _bodyPlain);
+        _circle(c, b.p(0.98, 0.844), pr, _bodyPlain);
+      case InstrumentShape.ueH121:
+        // 위 설정 캡(돔·판·목)과 왼쪽 접지 나사.
+        _part(c, b.r(0.277, 0.06, 0.682, 0.109), _ueBlue, radius: 0);
+        _part(c, b.r(0.261, 0.045, 0.699, 0.065), _metal, radius: 1);
+        _part(c, b.r(0.37, 0, 0.585, 0.055), _ueBlue, radius: b.w * 0.05);
+        _part(c, b.r(0, 0.52, 0.08, 0.57), _metal, radius: 1);
+        _part(c, b.r(0.277, 0.652, 0.682, 0.698), _metal, radius: 1);
+        bolts(0.698, 0.718, const [(0.3, 0.37), (0.59, 0.66)]);
+        _part(c, b.r(0.307, 0.718, 0.347, 0.84), _metal, radius: 0); // 벤트 관
+        _part(c, b.r(0.347, 0.718, 0.614, 0.937), _metal, radius: 2);
+        _hex(c, b.r(0.374, 0.937, 0.586, 1));
+      default:
+        // J120 벨로즈(126~164): 아래 모서리를 깎은 벨로즈 통.
+        _part(c, b.r(0.34, 0.617, 0.735, 0.655), _metal, radius: 1);
+        bolts(0.655, 0.675, const [(0.36, 0.44), (0.64, 0.72)]);
+        _poly(c, [
+          b.p(0.366, 0.675),
+          b.p(0.721, 0.675),
+          b.p(0.721, 0.88),
+          b.p(0.69, 0.912),
+          b.p(0.397, 0.912),
+          b.p(0.366, 0.88),
+        ], _metal);
+        _hex(c, b.r(0.457, 0.912, 0.625, 1));
+    }
+    _ueHousing(
+      b,
+      cMm,
+      b.w / wMm,
+      b.h / hMm,
+      leftHub: kind != InstrumentShape.ueH121,
+    );
+  }
+
+  /// 120 계열 방폭 몸통(A-12452·A-12107 기준, mm는 뚜껑 가운데에서): 뒤 네모 귀판 92.6×114,
+  /// 왼쪽 3/4" 전선관 허브(마개, H121은 없음), 오른쪽 보스, 둥근 뚜껑 Ø≈125와 검은 명판.
+  void _ueHousing(
+    _Box b,
+    Offset cMm,
+    double sx,
+    double sy, {
+    required bool leftHub,
+  }) {
+    final Canvas c = b.c;
+    Offset at(double x, double y) =>
+        Offset((cMm.dx + x) * sx, (cMm.dy + y) * sy);
+    Rect rr(double l, double t, double r, double btm) =>
+        Rect.fromPoints(at(l, t), at(r, btm));
+    _part(c, rr(-46.3, -57.5, 46.3, 56.5), _ueBlue, radius: 3);
+    if (leftHub) _part(c, rr(-72.5, 5.5, -58.5, 39.5), _ueBlue, radius: 1);
+    _part(c, rr(48.5, -22.5, 62.1, 15.5), _ueBlue, radius: 1);
+    final double r = 62.5 * math.min(sx, sy);
+    final Offset cc = at(0, 0);
+    _circle(c, cc, r, _ueBlue);
+    for (int i = 0; i < 12; i++) {
+      final double a = i * math.pi / 6;
+      final Offset d = Offset(math.cos(a), math.sin(a));
+      c.drawLine(cc + d * r * 0.88, cc + d * r, _thin);
+    }
+    _circle(c, cc, r * 0.72, _uePlate);
+    _circle(c, cc, r * 0.12, _ueBlue);
   }
 
   // ───────────────────────── 튜브 피팅(하이록·스웨즈락) ─────────────────────────
@@ -1943,10 +2182,81 @@ class InstrumentShapePainter extends CustomPainter {
         for (double x = 12; x < w - 12; x += 25) {
           _part(c, Rect.fromLTWH(x, h * 0.4, 12, h * 0.2), _body, radius: 2);
         }
+      case ElecShape.ft:
+        _fixedTb(b, n?.round() ?? 1);
+      case ElecShape.lamp:
+      case ElecShape.pb:
+      case ElecShape.estop:
+      case ElecShape.selector:
+        _doorPart(b, kind);
       case ElecShape.pswitch:
         _pswitch(b);
       default:
         _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
+    }
+  }
+
+  /// 고정식 단자대(용성 FT·건흥 KH-6020 카탈로그 그림): 검은 몸통, 양 끝 설치 구멍 블록(≈10),
+  /// 극마다 격벽 줄과 위·아래 나사 둘, 가운데 흰 표시 띠.
+  void _fixedTb(_Box b, int poles) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    final int n = math.max(1, poles);
+    // 끝 블록 폭: 한 극 ≈12, 양 끝 ≈10씩(길이 = 극 수 × 12 + 20)의 비율.
+    final double end = w * 10 / (n * 12 + 20);
+    _part(c, Rect.fromLTWH(0, 0, w, h), _ftBody, radius: 2);
+    final double hr = math.min(end, h) * 0.22;
+    for (final x in [end / 2, w - end / 2]) {
+      _circle(c, Offset(x, h / 2), hr, _bodyPlain);
+    }
+    final double pitch = (w - 2 * end) / n;
+    for (int i = 0; i <= n; i++) {
+      final double x = end + pitch * i;
+      c.drawLine(Offset(x, 0), Offset(x, h), _thin);
+    }
+    _part(
+      c,
+      Rect.fromLTWH(end, h * 0.4, w - 2 * end, h * 0.2),
+      _bodyPlain,
+      radius: 0,
+    );
+    final double sr = math.min(pitch * 0.3, h * 0.12);
+    for (int i = 0; i < n; i++) {
+      final double x = end + pitch * (i + 0.5);
+      for (final y in [0.2, 0.8]) {
+        _circle(c, Offset(x, h * y), sr, _metal);
+      }
+    }
+  }
+
+  /// 문짝 부품(용성 Ø22·Ø25·Ø30 카탈로그 앞 그림): 둥근 베젤 안에 렌즈·버튼·버섯 머리·손잡이.
+  void _doorPart(_Box b, String kind) {
+    final Canvas c = b.c;
+    final Offset cc = b.p(0.5, 0.5);
+    final double r = math.min(b.w, b.h) / 2;
+    switch (kind) {
+      case ElecShape.estop:
+        // 붉은 버섯 머리(Ø40.3)가 베젤을 덮는다.
+        _circle(c, cc, r, _estopRed);
+        _circle(c, cc, r * 0.7, _estopRed);
+      case ElecShape.selector:
+        _circle(c, cc, r, _metal);
+        _circle(c, cc, r * 0.78, _bodyPlain);
+        // 손잡이(가로 막대)
+        _part(
+          c,
+          Rect.fromCenter(center: cc, width: r * 1.5, height: r * 0.36),
+          _metal,
+          radius: r * 0.1,
+        );
+      case ElecShape.pb:
+        _circle(c, cc, r, _metal);
+        _circle(c, cc, r * 0.78, _bodyPlain);
+        _circle(c, cc, r * 0.62, _bodyPlain);
+      default:
+        // 표시등: 베젤 고리 + 유리 렌즈.
+        _circle(c, cc, r, _metal);
+        _circle(c, cc, r * 0.77, _glass);
     }
   }
 

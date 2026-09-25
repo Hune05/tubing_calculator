@@ -106,6 +106,11 @@ const Map<String, List<ModulePreset>> kDuctPresetGroups = {
 /// - SOR: CAT216(Form 216, 07.26) p.21 NN·p.22 RN·p.28 B3, CAT468 p.14(101 차압 NN).
 ///   세로는 상자 위~1/4" NPT 접속구 끝(1/2" NPT 피스톤형은 +13). 가로는 오른쪽 배관 허브 포함.
 ///   스위치 한 벌(SPDT)·두 벌(DPDT) 외곽은 같다. 청색은 카탈로그에 없고 현장 모습 기준.
+/// - UE(United Electric): 100-B p13·120-B p21·22 표와 모델별 도면(A-12709 H100-701~706,
+///   A-12848 H100-183~186, A-13417 H100K-544~548, A-12107 J120-126~164, A-12452 J120-701~705,
+///   A-12456 J120K-147·157, A-13418 J120K-540~543, A-12464 H121-701~705). 가로·세로는 도면 숫자
+///   (뚜껑 포함, 몸통 위~접속구 끝). H100-190~194(다이어프램)는 H100-701~706과, J120-190~194는
+///   J120-701~705와 외곽이 같다. 차압은 접속구가 양 끝 옆(왼쪽 HIGH·오른쪽 LOW).
 const Map<String, List<ModulePreset>> kInstrumentPresets = {
   "요꼬가와": [
     ModulePreset(
@@ -254,6 +259,31 @@ const Map<String, List<ModulePreset>> kInstrumentPresets = {
     ModulePreset("101NN 차압 스위치", 108, 154, shape: InstrumentShape.sorDp),
   ],
   "비카": [ModulePreset("MA 압력 스위치", 161, 121, shape: InstrumentShape.exdSwitch)],
+  "UE": [
+    ModulePreset("H100 압력 스위치", 101.6, 168.3, shape: InstrumentShape.ueH100),
+    ModulePreset(
+      "H100 압력 스위치 저압",
+      101.6,
+      192.1,
+      shape: InstrumentShape.ueH100Flange,
+    ),
+    ModulePreset("H100K 차압 스위치", 101.6, 216.6, shape: InstrumentShape.ueH100k),
+    ModulePreset("J120 방폭 압력 스위치", 134.6, 184.2, shape: InstrumentShape.ueJ120),
+    ModulePreset(
+      "J120 방폭 압력 스위치 피스톤",
+      134.6,
+      188.6,
+      shape: InstrumentShape.ueJ120Piston,
+    ),
+    ModulePreset("J120K 방폭 차압 스위치", 219, 192.5, shape: InstrumentShape.ueJ120k),
+    ModulePreset(
+      "J120K 방폭 저차압 스위치",
+      152.4,
+      237.1,
+      shape: InstrumentShape.ueJ120kDia,
+    ),
+    ModulePreset("H121 방폭 압력 스위치", 129.9, 211.1, shape: InstrumentShape.ueH121),
+  ],
 };
 
 /// 튜브 피팅(이중 페럴 압착). 하이록 H-200TF(2020)·스웨즈락 MS-01-140(Rev AJ) 표 값으로,
@@ -750,6 +780,15 @@ const Map<String, double> kPresetDepth = {
   '6B3 방폭 압력 스위치': 110,
   '101NN 차압 스위치': 60,
   'MA 압력 스위치': 136,
+  // UE: 100 계열 59.4(H100K는 다이어프램 93.7), 120 계열 109, H121 132(도면 숫자).
+  'H100 압력 스위치': 59.4,
+  'H100 압력 스위치 저압': 59.4,
+  'H100K 차압 스위치': 93.7,
+  'J120 방폭 압력 스위치': 109,
+  'J120 방폭 압력 스위치 피스톤': 109,
+  'J120K 방폭 차압 스위치': 109,
+  'J120K 방폭 저차압 스위치': 109,
+  'H121 방폭 압력 스위치': 132,
   'VM2V 2밸브 매니폴드': 85,
   'VM3V 3밸브 매니폴드': 85,
   'VM3V1F 3밸브 직결': 96,

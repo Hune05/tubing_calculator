@@ -154,50 +154,67 @@ final Map<String, List<ModulePreset>> kSkidJbPresets = {
 
 // ── 전선관 부속: 삼화기전 F-7 곤질레다·커플링·유니온 커플링 ──
 // 종류·규격은 삼화기전 카탈로그(F-7 TYPE: LB·LL·LR·LT·LTB·LX·LC, 16~104)를 따른다.
-// 카탈로그에 몸통 치수가 없어서 치수는 같은 모양(Form 7)의 대략 값이다. 실제 제품을 재서
-// 다르면 놓은 뒤 편집 칸에서 고친다.
+// 삼화는 몸통 치수를 공개하지 않는다(홈페이지·카탈로그 2019-ED1 p.32~41을 그림까지 확인,
+// 2026-09-26). 그래서 같은 모양(Ex e, 타원 몸통·뚜껑 나사 둘)인 국산 JK(정광, 경진전기 판매)
+// 곤질레다 표 값을 쓴다 — LB·LL·LR·LC·LT 표의 A(폭)·B(높이)·C(길이). 우정·대승공업 표와도
+// 22~54에서 몇 mm 안에서 맞는다. LX는 JK 표가 없어 폭 = 몸통 + 옆 허브 둘로 셈했다.
+// 삼화 실물과 다르면 놓은 뒤 편집 칸에서 고친다.
 // 크기: 가로 = 길이(끝 허브 포함), 세로 = 위에서 본 폭(옆 허브 포함), 깊이 = 바닥에서 본 높이
 // (뚜껑이 위를 보게, 뒤 허브 포함). 스키드에서 PlacedItem.depth는 이 높이로 쓴다.
 
-/// 규격별 곤질레다 몸통 [길이, 몸통 폭, 몸통 높이, 옆·뒤 허브가 튀어나온 길이] (mm, 대략).
+/// 규격별 곤질레다 [ㄱ자형(LB·LL·LR) 길이, 곧은형(LC·LT·LX) 길이, 몸통 폭, 몸통 높이(뚜껑 포함),
+/// 옆 허브 돌출, 뒤 허브 돌출] (mm). JK 표: 옆 돌출 = LL의 A − LC의 A, 뒤 돌출 = LB의 B − LC의 B.
 const Map<int, List<double>> kConduletSize = {
-  16: [110, 42, 45, 20],
-  22: [125, 48, 50, 22],
-  28: [150, 58, 60, 26],
-  36: [185, 71, 73, 30],
-  42: [195, 79, 80, 32],
-  54: [240, 92, 95, 36],
+  16: [125, 146, 40, 46, 20, 20],
+  22: [134, 156, 45, 53, 22, 21],
+  28: [161, 187, 59, 63, 27, 28],
+  36: [171, 197, 68, 73, 27, 27],
+  42: [190, 215, 74, 83, 26, 27],
+  54: [216, 243, 85, 100, 25, 26],
 };
 
-/// 규격별 커플링 [길이, 바깥지름] (mm, 대략). 길이가 늘 바깥지름보다 길게 둔다(그림이 긴 쪽을 가로로 그린다).
+/// 규격별 커플링 [길이, 바깥지름] (mm). KS 후강 커플링 표(대일전기조명 KS 제품 표, JIS C 8330
+/// 후강 커플링 표와 같다). 삼화 SVC는 KS C 8460 인증품이고 치수는 공개하지 않는다.
+/// 54는 지름(68)이 길이(64)보다 커서, 커플링은 칸 비율이 아니라 돌린 횟수로 방향을 본다.
 const Map<int, List<double>> kCouplingSize = {
-  16: [40, 27],
-  22: [44, 33],
-  28: [50, 40],
-  36: [56, 50],
-  42: [62, 56],
-  54: [74, 69],
+  16: [38, 25],
+  22: [44, 31],
+  28: [50, 37.5],
+  36: [56, 48.5],
+  42: [56, 54.5],
+  54: [64, 68],
 };
 
-/// 규격별 유니온 커플링(방폭 유니온 EUF) [길이, 너트 바깥지름] (mm, 대략).
+/// 규격별 유니온 커플링(방폭 유니온, 삼화 EUF = 암+암) [길이, 너트 최대 외경] (mm).
+/// 삼화 치수가 없어 국산 대승공업 DA-UF(암+암) 표 값. 28부터는 너트 지름이 길이보다 크다.
 const Map<int, List<double>> kUnionSize = {
-  16: [58, 42],
-  22: [64, 50],
-  28: [70, 60],
-  36: [80, 72],
-  42: [84, 80],
-  54: [100, 96],
+  16: [41, 38],
+  22: [45, 44],
+  28: [47, 53],
+  36: [52, 62],
+  42: [52, 70],
+  54: [63, 82],
 };
+
+/// 칸 가로·세로 비율로 돌린 것을 어림하지 않고 돌린 횟수(각도 칸)만 보는 스키드 부품.
+/// 커플링·유니온은 지름이 길이보다 클 수 있어서, "긴 쪽이 길이 방향"이라는 어림이 틀린다.
+bool skidTurnsOnly(String? s) =>
+    s == SkidShape.coupling || s == SkidShape.union;
 
 ModulePreset _condulet(String type, String shape, int size) {
   final d = kConduletSize[size]!;
-  final double l = d[0], w = d[1], h = d[2], p = d[3];
+  final bool elbow =
+      shape == SkidShape.cdLB ||
+      shape == SkidShape.cdLL ||
+      shape == SkidShape.cdLR;
+  final double l = elbow ? d[0] : d[1];
+  final double w = d[2], h = d[3], side = d[4], back = d[5];
   final double planW = switch (shape) {
-    SkidShape.cdLL || SkidShape.cdLR || SkidShape.cdLT => w + p,
-    SkidShape.cdLX => w + 2 * p,
+    SkidShape.cdLL || SkidShape.cdLR || SkidShape.cdLT => w + side,
+    SkidShape.cdLX => w + 2 * side,
     _ => w,
   };
-  final double high = shape == SkidShape.cdLB ? h + p : h;
+  final double high = shape == SkidShape.cdLB ? h + back : h;
   return ModulePreset("곤질레다 $type $size", l, planW, shape: shape, depth: high);
 }
 

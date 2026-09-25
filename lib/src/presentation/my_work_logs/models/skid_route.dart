@@ -355,7 +355,10 @@ SkidFace skidViewFace(PlacedItem it, String view) {
   if (it.shape == SkidShape.jb || !SkidShape.isSkid(it.shape)) {
     return SkidFace.side;
   }
-  final bool alongX = it.width >= it.height;
+  // 커플링·유니온은 지름이 길이보다 클 수 있어, 칸 비율 대신 돌린 횟수로 길이 방향을 본다.
+  final bool alongX = skidTurnsOnly(it.shape)
+      ? (it.quarterTurns ?? 0).isEven
+      : it.width >= it.height;
   final bool viewSeesX = view == kSkidViewFront;
   return alongX == viewSeesX ? SkidFace.side : SkidFace.end;
 }

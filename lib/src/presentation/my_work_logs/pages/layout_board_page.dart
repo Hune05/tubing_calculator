@@ -9639,7 +9639,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   ) => _showPresetSheet(
     title: title,
     help: groups == kSkidFittingPresets
-        ? "삼화기전 F-7 곤질레다와 커플링·유니온 커플링입니다. 치수는 대략입니다(카탈로그에 몸통 치수가 없습니다). 위에서 본 길이×폭(mm)으로 놓이고, 높이는 정면에서 끌어 맞추거나 편집 칸에 넣으십시오."
+        ? "삼화기전 F-7 곤질레다와 커플링·유니온 커플링입니다. 삼화는 치수를 공개하지 않아 곤질레다는 같은 모양인 국산(JK) 표, 커플링은 KS 표, 유니온은 국산(대승) 표 값입니다. 위에서 본 길이×폭(mm)으로 놓이고, 높이는 정면에서 끌어 맞추거나 편집 칸에 넣으십시오."
         : groups == kSkidJbPresets
         ? "위에서 본 가로×세로(mm)입니다. 누르면 지금 보이는 도면 가운데에 놓습니다. 바닥에서 높이는 놓은 뒤 편집 칸에 넣으십시오."
         : "위에서 본 폭(mm)으로, 길이 1000으로 놓입니다. 놓은 뒤 편집 칸에서 실제 길이로 고치고, 세로로 쓰려면 돌리십시오.",
@@ -10584,6 +10584,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   ? SkidPartPainter(
                       shape: item.shape!,
                       mirror: item.flipped,
+                      // 커플링·유니온은 칸 비율로 못 가려서 각도 칸을 그대로 준다.
+                      quarterTurns: skidTurnsOnly(item.shape)
+                          ? (item.quarterTurns ?? 0)
+                          : null,
                       stroke: color,
                       strokeWidth:
                           item.isSelected ||
