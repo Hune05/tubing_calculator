@@ -147,6 +147,72 @@ void main() {
     expect(badM, lessThan(w * h * 0.03));
   });
 
+  test('전기 부품(단자대·차단기·전원 등)도 90°씩 돌리면 그림 자체가 돌아간다(찌그러지지 않는다)', () async {
+    // 예전 버그: paint()가 전기 부품만 돌리기를 통째로 건너뛰고 칸 크기(이미 90°마다
+    // 가로·세로가 바뀐 크기)를 "원래 크기"인 것처럼 그려서, 극 간격 같은 안쪽 비율이
+    // 통째로 눌려 찌그러져 보였다. 여기서는 "원래 크기로 그린 그림을 통째로 90°씩
+    // 돌린 raster"와 "quarterTurns를 줘서 실제로 그린 그림"이 같은지 픽셀로 비교한다.
+    const Size natural = Size(160, 60); // 단자대처럼 가로가 긴 비율
+    final int w = natural.width.toInt(), h = natural.height.toInt();
+
+    // box[bx][by] = orig[by][origH-1-bx] (시계 방향 90°, orig 크기 origW×origH).
+    List<int> rotateOnce(List<int> orig, int origW, int origH) {
+      final int newW = origH, newH = origW;
+      final out = List<int>.filled(orig.length, 0);
+      for (int by = 0; by < newH; by++) {
+        for (int bx = 0; bx < newW; bx++) {
+          final int ny = origH - 1 - bx, nx = by;
+          final int src = (ny * origW + nx) * 4;
+          final int dst = (by * newW + bx) * 4;
+          for (int ch = 0; ch < 4; ch++) {
+            out[dst + ch] = orig[src + ch];
+          }
+        }
+      }
+      return out;
+    }
+
+    for (final shape in [
+      '${ElecShape.tb}:6',
+      '${ElecShape.mcb}:1', // 새로 추가한 서킷 프로텍터(GCP-32AN)와 같은 모양
+      '${ElecShape.mcb}:2',
+      ElecShape.mccb,
+      ElecShape.psu,
+      ElecShape.relay,
+      ElecShape.mc,
+      ElecShape.spd,
+      ElecShape.iso,
+      ElecShape.rail,
+      ElecShape.pswitch, // 새로 추가한 압력 스위치(둥근 모양)
+    ]) {
+      final a = await _pixels(
+        natural,
+        (c) => InstrumentShapePainter(shape: shape).paint(c, natural),
+      );
+      List<int> expected = a;
+      int curW = w, curH = h;
+      for (int turn = 1; turn <= 3; turn++) {
+        expected = rotateOnce(expected, curW, curH);
+        final int newW = curH, newH = curW;
+        curW = newW;
+        curH = newH;
+        final Size box = Size(curW.toDouble(), curH.toDouble());
+        final actual = await _pixels(
+          box,
+          (c) => InstrumentShapePainter(
+            shape: shape,
+            quarterTurns: turn,
+          ).paint(c, box),
+        );
+        int diff = 0;
+        for (int k = 0; k < actual.length; k += 4) {
+          if ((actual[k] - expected[k]).abs() > 40) diff++;
+        }
+        expect(diff, lessThan(curW * curH * 0.05), reason: '$shape turn$turn');
+      }
+    }
+  });
+
   test('접속점은 모든 프리셋에서 칸 안(또는 테두리)에 있다', () {
     for (final p in _allPresets()) {
       for (int q = 0; q < 4; q++) {

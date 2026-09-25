@@ -457,9 +457,23 @@ class InstrumentShapePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (size.width <= 0 || size.height <= 0) return;
-    // 전기 부품은 칸 크기 그대로 그린다(돌리지도 뒤집지도 않는다).
+    // 전기 부품: 뒤집지는 않지만(DIN 레일 부품은 좌우로 뒤집을 게 없다) 돌리기는 다른 모양과
+    // 똑같이 칸 가운데를 축으로 돌린다. 예전에는 여기서 칸 크기(size)를 그대로 "원래 크기"로
+    // 써서 _elec을 불렀는데, 90°·270°로 돌면 칸은 이미 가로·세로가 바뀐 크기라서(레이아웃
+    // 판(layout_board_page.dart)의 _rotateItem이 item.width·height를 미리 맞바꾼다) 극 간격
+    // 같은 안쪽 비율이 통째로 틀어져 그림이 찌그러져 보였다(회전이 아니라 눌림). 다른 모양들처럼
+    // "돌리기 전 크기(natural)"로 그린 뒤 canvas를 돌려야 옳다.
     if (ElecShape.isElec(shape)) {
-      _elec(_Box(canvas, size), shape);
+      final int turns = (quarterTurns ?? 0) % 4;
+      final Size natural = turns.isOdd ? Size(size.height, size.width) : size;
+      canvas.save();
+      if (turns != 0) {
+        canvas.translate(size.width / 2, size.height / 2);
+        canvas.rotate(turns * math.pi / 2);
+        canvas.translate(-natural.width / 2, -natural.height / 2);
+      }
+      _elec(_Box(canvas, natural), shape);
+      canvas.restore();
       return;
     }
     final String base = InstrumentShape.baseOf(shape);
@@ -1810,7 +1824,7 @@ class InstrumentShapePainter extends CustomPainter {
   }
 
   // ───────────────────────── 전기 부품(DIN 레일) 정면 ─────────────────────────
-  // 칸 크기 그대로(돌리지 않는다). 단자대·차단기는 극마다 세로 줄.
+  // [b]는 이미 "돌리기 전 크기"로 맞춘 칸이다(paint()에서 처리). 단자대·차단기는 극마다 세로 줄.
 
   void _elec(_Box b, String shape) {
     final Canvas c = b.c;
@@ -1929,9 +1943,23 @@ class InstrumentShapePainter extends CustomPainter {
         for (double x = 12; x < w - 12; x += 25) {
           _part(c, Rect.fromLTWH(x, h * 0.4, 12, h * 0.2), _body, radius: 2);
         }
+      case ElecShape.pswitch:
+        _pswitch(b);
       default:
         _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
     }
+  }
+
+  /// 방폭형 압력 스위치(둥근 몸통, 사진 어림값 — 위 elec_presets.dart 머리말 참고): 리브
+  /// 뚜껑(_ribCover, 다른 계기의 둥근 뚜껑과 같은 그림)과 아래로 뻗은 공정 접속 목·육각·나사.
+  void _pswitch(_Box b) {
+    final double r = math.min(b.w, b.h) * 0.42;
+    final Offset center = b.p(0.5, 0.42);
+    _ribCover(b.c, center, r, lcd: true);
+    const double cx = 0.5;
+    _part(b.c, b.r(cx - 0.06, 0.78, cx + 0.06, 0.88), _metal, radius: 0);
+    _hex(b.c, b.r(cx - 0.13, 0.88, cx + 0.13, 0.95));
+    _thread(b.c, b.r(cx - 0.06, 0.95, cx + 0.06, 1));
   }
 
   @override
