@@ -1,6 +1,7 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import '../widgets/app_dialog.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 
@@ -26,7 +27,6 @@ const Color slate900 = AppColors.text;
 const Color slate600 = AppColors.textSub;
 const Color slate100 = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
-const Color _slate800 = Color(0xFF1E293B);
 
 /// 튜브 "직관+각도"로 넣을 수 있는 가장 큰 각.
 ///
@@ -731,12 +731,11 @@ class _MobileInputTabState extends State<MobileInputTab>
                     _buildHeader(bendList.length),
                     Expanded(
                       child: bendList.isEmpty
-                          ? const Center(
-                              child: Text(
-                                "아래에서 수치와 방향을 입력해\n배관을 조립해 주십시오.",
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: slate600, height: 1.5),
-                              ),
+                          // (D-C) 전선관 입력 탭과 같은 빈 화면.
+                          ? const EmptyState(
+                              icon: Icons.add_road_rounded,
+                              title: "설계된 배관이 없습니다",
+                              message: "아래에서 수치와 방향을 넣고\n추가를 누르십시오.",
                             )
                           : ReorderableListView.builder(
                               padding: const EdgeInsets.symmetric(
@@ -1319,31 +1318,11 @@ class _MobileInputTabState extends State<MobileInputTab>
                           ),
                           if (_editingIndex == null) ...[
                             const SizedBox(height: 16),
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                onPressed: _showSpecialBendingMenu,
-                                icon: const Icon(
-                                  Icons.build_circle,
-                                  color: _slate800,
-                                ),
-                                label: const Text(
-                                  "특수 벤딩 툴 (오프셋/새들 등)",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: _slate800,
-                                  ),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                  ),
-                                  side: const BorderSide(color: slate600),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                              ),
+                            AppButton.secondary(
+                              label: "특수 벤딩 툴 (오프셋/새들 등)",
+                              icon: Icons.build_circle_outlined,
+                              expand: true,
+                              onPressed: _showSpecialBendingMenu,
                             ),
                           ],
                         ],

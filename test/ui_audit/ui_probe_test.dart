@@ -208,6 +208,9 @@ Future<void> audit(WidgetTester tester, String name, Cfg cfg) async {
     );
   };
   try {
+    // 시험 환경은 그림자 대신 검은 선을 그린다(debugDisableShadows). 그래서 떠 있는 단추가
+    // 검정 두꺼운 테두리처럼 찍혔다. 스크린샷은 실제 앱처럼 그림자로 그린다.
+    debugDisableShadows = false;
     tester.view.physicalSize = cfg.size * 3;
     tester.view.devicePixelRatio = 3;
     tester.view.padding = const FakeViewPadding(top: 72, bottom: 48);
@@ -477,7 +480,12 @@ void main() {
   for (final e in screens.entries) {
     for (final cfg in e.value.$2) {
       testWidgets('${e.key} · ${cfg.name}', skip: !kAuditOn, (tester) async {
-        await audit(tester, e.key, cfg);
+        try {
+          await audit(tester, e.key, cfg);
+        } finally {
+          // 시험 틀이 끝에 이 값이 켜져 있는지 확인한다.
+          debugDisableShadows = true;
+        }
         await tester.pumpWidget(const SizedBox());
         await tester.pump(const Duration(seconds: 1));
         tester.view.reset();

@@ -1,5 +1,6 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_stock_deduct.dart';
 
@@ -12,7 +13,7 @@ class CuttingColors {
   CuttingColors._();
 
   static const Color primary = AppColors.brand; // 마키타 틸 (주요 액션)
-  static const Color primaryDark = Color(0xFF004D54);
+  static const Color primaryDark = kAppSnackSuccess;
   static const Color primarySoft = Color(0xFFE1EEEF); // 틸 배경(칩/배지용)
   static const Color background = Color(0xFFF0F3F5);
   static const Color surface = Colors.white;
@@ -21,7 +22,7 @@ class CuttingColors {
   static const Color textPrimary = AppColors.text;
   static const Color textSecondary = AppColors.textSub;
 
-  static const Color danger = Color(0xFFE0432B); // 삭제/간섭/오류
+  static const Color danger = AppColors.danger; // 삭제/간섭/오류
   static const Color dangerSoft = Color(0xFFFDECEA);
   static const Color warning = AppColors.caution; // 대기/주의
   static const Color warningSoft = Color(0xFFFFF3DF);
@@ -48,6 +49,7 @@ Widget cuttingDialogIcon(Object icon, {Color? color}) {
 /// 동작(삭제 등)은 [danger]를 true로 줘서 아이콘·확인 버튼을 빨간색으로,
 /// 그 외에는 브랜드 틸 색으로 통일해서 "이 버튼을 누르면 위험한가
 /// 아닌가"를 색만 보고 바로 알 수 있게 한다.
+/// (D-C) 모양은 공용 창(AppConfirmDialog)이 그린다.
 Future<bool> showCuttingConfirmDialog(
   BuildContext context, {
   required String title,
@@ -56,76 +58,17 @@ Future<bool> showCuttingConfirmDialog(
   String cancelLabel = "취소",
   bool danger = false,
   Object icon = Icons.help_outline_rounded,
-}) async {
-  final Color accent = danger ? CuttingColors.danger : CuttingColors.primary;
-  final result = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      backgroundColor: CuttingColors.surface,
-      // 폰에서도 글이 좁게 접히지 않도록 팝업을 넓게 쓴다.
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Row(
-        children: [
-          cuttingDialogIcon(icon, color: accent),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                color: CuttingColors.textPrimary,
-                fontWeight: FontWeight.w800,
-                fontSize: 17,
-              ),
-            ),
-          ),
-        ],
-      ),
-      content: SingleChildScrollView(
-        child: Text(
-          message,
-          // 🚀 [고침] 빼는 수량 목록 같은 확인할 숫자가 옅은 회색이라 햇빛 아래서
-          // 읽기 어려웠다. 본문은 진한 글씨로.
-          style: const TextStyle(
-            color: CuttingColors.textPrimary,
-            fontSize: 15,
-            height: 1.45,
-          ),
-        ),
-      ),
-      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: Text(
-            cancelLabel,
-            style: const TextStyle(
-              color: CuttingColors.textSecondary,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: accent,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-          onPressed: () => Navigator.pop(ctx, true),
-          child: Text(
-            confirmLabel,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ],
-    ),
+}) {
+  final Color accent = danger ? AppColors.danger : AppColors.brand;
+  return showAppConfirm(
+    context,
+    title: title,
+    message: message,
+    okText: confirmLabel,
+    cancelText: cancelLabel,
+    destructive: danger,
+    icon: anyIcon(icon, color: accent, size: 26),
   );
-  return result == true;
 }
 
 /// 재고 차감 결과를 알린다. 다 뺐으면 짧은 알림, 못 뺀 것·마이너스가 있으면
@@ -139,37 +82,12 @@ Future<void> showStockDeductResult(
     showCuttingSnack(context, result.message);
     return;
   }
-  await showDialog<void>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      key: const Key('stock_deduct_result'),
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.transparent,
-      title: const Text(
-        "재고 빼기 결과 확인",
-        style: TextStyle(fontWeight: FontWeight.w800),
-      ),
-      content: SingleChildScrollView(
-        child: Text(
-          "${result.message}\n\n${result.detail}",
-          style: const TextStyle(
-            color: CuttingColors.textPrimary,
-            fontSize: 15,
-            height: 1.45,
-          ),
-        ),
-      ),
-      actions: [
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: CuttingColors.primary,
-            foregroundColor: Colors.white,
-          ),
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text("확인"),
-        ),
-      ],
-    ),
+  await showAppNotice(
+    context,
+    dialogKey: const Key('stock_deduct_result'),
+    title: "재고 빼기 결과 확인",
+    message: "${result.message}\n\n${result.detail}",
+    icon: const Icon(Icons.inventory_2_outlined),
   );
 }
 
@@ -181,67 +99,31 @@ void showCuttingSnack(
   String message, {
   bool isError = false,
 }) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      backgroundColor: isError
-          ? CuttingColors.danger
-          : CuttingColors.primaryDark,
-      content: Row(
-        children: [
-          Icon(
-            isError
-                ? Icons.error_outline_rounded
-                : Icons.check_circle_outline_rounded,
-            color: Colors.white,
-            size: 20,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
+  showAppSnack(
+    context,
+    message,
+    kind: isError ? AppSnackKind.error : AppSnackKind.success,
   );
 }
 
 /// [2번 강화] 구간 삭제/복제처럼 되돌리고 싶을 수 있는 동작 뒤에 띄우는
 /// "실행 취소" 스낵바. 예전엔 삭제/복제가 확인 없이 바로 실행돼서, 실수로
 /// 누르면 되돌릴 방법이 전혀 없었다.
+/// (D-C) 🚀 [고침] 단추 달린 알림은 Flutter가 기본으로 계속 띄워 두어(persist) 시간이
+/// 지나도 화면을 가렸다. 공용 알림은 시간이 되면 사라진다(기본 6초).
 void showCuttingUndoSnack(
   BuildContext context,
   String message, {
   required VoidCallback onUndo,
-  Duration duration = const Duration(seconds: 4),
+  Duration duration = kAppUndoSnackDuration,
 }) {
-  ScaffoldMessenger.of(context).clearSnackBars();
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      backgroundColor: CuttingColors.primaryDark,
-      duration: duration,
-      content: Text(
-        message,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      action: SnackBarAction(
-        label: "실행 취소",
-        textColor: CuttingColors.warningSoft,
-        onPressed: onUndo,
-      ),
-    ),
+  showAppSnack(
+    context,
+    message,
+    kind: AppSnackKind.undo,
+    onUndo: onUndo,
+    undoLabel: "실행 취소",
+    duration: duration,
   );
 }
 

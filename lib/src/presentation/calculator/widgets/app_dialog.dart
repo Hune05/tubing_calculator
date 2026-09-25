@@ -5,13 +5,15 @@ library;
 
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 
 const Color _teal = AppColors.brand;
 const Color _slate900 = AppColors.text;
 const Color _slate600 = AppColors.textSub;
 const Color _slate100 = AppColors.background;
-const Color _red = Color(0xFFDC2626);
 
+/// (D-C) 모양은 공용 창(AppConfirmDialog)이 그린다. 부르는 곳을 고치지 않도록 이름과
+/// 인자는 그대로 둔다.
 class AppDialog extends StatelessWidget {
   final String title;
   final Widget content;
@@ -36,77 +38,20 @@ class AppDialog extends StatelessWidget {
     this.destructive = false,
   });
 
-  /// 창 안 글(회색, 줄 간격 넉넉히).
-  static Widget message(String text) => Text(
-    text,
-    style: const TextStyle(color: _slate600, fontSize: 15, height: 1.5),
-  );
+  /// 창 안 글(진한 글씨, 줄 간격 넉넉히).
+  static Widget message(String text) => AppConfirmDialog.message(text);
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontWeight: FontWeight.w800,
-          fontSize: 20,
-          color: _slate900,
-        ),
-      ),
+    return AppConfirmDialog(
+      title: title,
       content: content,
-      actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-      actions: [
-        Row(
-          children: [
-            Expanded(
-              child: TextButton(
-                onPressed: onCancel,
-                style: TextButton.styleFrom(
-                  backgroundColor: _slate100,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: Text(
-                  cancelText,
-                  style: const TextStyle(
-                    color: _slate600,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton(
-                key: okKey,
-                onPressed: onOk,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: destructive ? _red : _teal,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: Text(
-                  okText,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
+      okText: okText,
+      cancelText: cancelText,
+      onOk: onOk,
+      onCancel: onCancel,
+      destructive: destructive,
+      okKey: okKey,
     );
   }
 }
@@ -142,18 +87,13 @@ Future<bool> confirmDeleteDialog(
   BuildContext context, {
   required String message,
   String title = "삭제 확인",
-}) async {
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AppDialog(
-      title: title,
-      okText: "삭제",
-      destructive: true,
-      okKey: const Key('confirm_delete_ok'),
-      onCancel: () => Navigator.pop(ctx, false),
-      onOk: () => Navigator.pop(ctx, true),
-      content: AppDialog.message(message),
-    ),
+}) {
+  return showAppConfirm(
+    context,
+    title: title,
+    message: message,
+    okText: "삭제",
+    destructive: true,
+    okKey: const Key('confirm_delete_ok'),
   );
-  return ok == true;
 }

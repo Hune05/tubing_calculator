@@ -2,6 +2,7 @@ import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../widgets/work_theme.dart';
 import '../widgets/korean_text.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 // debugPrint 사용을 위해 추가
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 
@@ -1668,7 +1669,8 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: tossBlue))
+          // (D-C) 가운데 빙글이 대신 카드 모양 자리.
+          ? const LoadingList(key: Key('work_log_loading'))
           : Builder(
               builder: (context) {
                 final visibleLogs = _sortedLogs(

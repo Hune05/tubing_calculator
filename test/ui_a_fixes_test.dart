@@ -1,6 +1,7 @@
 // UI·UX 점검 묶음 U-A(숫자·자료) 고침 확인.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/app_dialog.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_logs_page.dart';
@@ -83,7 +84,7 @@ void main() {
           ),
         ),
       );
-      expect(okColor(d), d ? const Color(0xFFDC2626) : const Color(0xFF007580));
+      expect(okColor(d), d ? AppColors.danger : AppColors.brand);
     }
   });
 

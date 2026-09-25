@@ -1,5 +1,6 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart';
 
@@ -228,63 +229,12 @@ class _ConduitInputTabState extends State<ConduitInputTab>
     );
   }
 
+  // (D-C) 튜브 입력 탭과 같은 빈 화면(공용 EmptyState).
   Widget _buildEmptyState() {
-    return Center(
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.all(24.0),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-          decoration: BoxDecoration(
-            color: pureWhite,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: slate600.withValues(alpha: 0.15),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: slate900.withValues(alpha: 0.02),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: slate100,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.add_road_rounded,
-                  size: 40,
-                  color: slate600.withValues(alpha: 0.5),
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                "설계된 배관이 없습니다",
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 18,
-                  color: slate900,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                "아래에서 배관 형태와 길이를\n넣고 추가를 누르십시오.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: slate600, height: 1.5, fontSize: 14),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return const EmptyState(
+      icon: Icons.add_road_rounded,
+      title: "설계된 배관이 없습니다",
+      message: "아래에서 배관 형태와 길이를\n넣고 추가를 누르십시오.",
     );
   }
 
@@ -877,26 +827,11 @@ class _ConduitInputTabState extends State<ConduitInputTab>
               if (_editingIndex == null) ...[
                 const SizedBox(height: 16),
 
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showSpecialToolsSheet(context, manager),
-                    icon: const Icon(Icons.build_circle, color: slate800),
-                    label: const Text(
-                      "특수 벤딩 툴 (오프셋/새들 등)",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: slate800,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      side: const BorderSide(color: slate600),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
+                AppButton.secondary(
+                  label: "특수 벤딩 툴 (오프셋/새들 등)",
+                  icon: Icons.build_circle_outlined,
+                  expand: true,
+                  onPressed: () => _showSpecialToolsSheet(context, manager),
                 ),
               ],
             ],

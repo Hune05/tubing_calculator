@@ -2,6 +2,7 @@ import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:async';
 import '../my_work_logs/widgets/work_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -4201,9 +4202,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           ],
         ),
         body: _loadingProjects
-            ? const Center(
-                child: CircularProgressIndicator(color: scheduleTeal),
-              )
+            // (D-C) 가운데 빙글이 대신 카드 모양 자리.
+            ? const LoadingList(key: Key('schedule_loading'))
             : StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection(kPersonalSchedulesCollection)
