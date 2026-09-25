@@ -1077,6 +1077,11 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                           bool isFailed =
                               log['status'] == 'failed' ||
                               log['status'] == 'no_response';
+                          final Color leadColor = isCompleted
+                              ? Color(log['color'])
+                              : isFailed
+                              ? Colors.red.shade600
+                              : Colors.orange.shade600;
 
                           String subtitleText = "H/L: ${log['val1']}";
                           if (log['val2'] != "") {
@@ -1094,17 +1099,24 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                               horizontal: 24,
                               vertical: 12,
                             ), // 패딩 넉넉하게
+                            // 🚀 [고침] 앞 아이콘이 늘 ✓라 실패한 전송도 된 것처럼
+                            // 보였다. 뒤 아이콘과 같이 상태를 따른다.
                             leading: Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: Color(
-                                  log['color'],
-                                ).withValues(alpha: 0.1), // 배경을 투명하게
+                                color: leadColor.withValues(
+                                  alpha: 0.1,
+                                ), // 배경을 투명하게
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
-                                Icons.check_rounded,
-                                color: Color(log['color']),
+                                isCompleted
+                                    ? Icons.check_rounded
+                                    : isFailed
+                                    ? Icons.error_outline_rounded
+                                    : Icons.schedule_rounded,
+                                key: const Key('remote_log_lead'),
+                                color: leadColor,
                                 size: 20,
                               ),
                             ),
