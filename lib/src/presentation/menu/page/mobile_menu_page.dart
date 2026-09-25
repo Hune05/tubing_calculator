@@ -96,6 +96,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   String _rainEnd = "";
   double _totalRain = 0.0;
   bool _isWeatherLoaded = false;
+  // 위치를 몰라 부산 날씨를 보인다(화면에 알린다).
+  bool _locationUnknown = false;
 
   @override
   void initState() {
@@ -181,10 +183,14 @@ class _MobileMenuPageState extends State<MobileMenuPage>
         return null;
       }
 
+      // 🚀 [고침] 통신·GPS가 약하면 위치 8초 + 날씨 8초로 최대 16초 빈칸이었다.
+      // 마지막으로 알던 위치가 있으면 바로 쓰고, 없을 때만 짧게 기다린다.
+      final last = await Geolocator.getLastKnownPosition();
+      if (last != null) return last;
       return await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.low,
-          timeLimit: Duration(seconds: 8),
+          timeLimit: Duration(seconds: 5),
         ),
       );
     } catch (e) {
@@ -236,6 +242,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
       // 현재 위치가 있으면 그걸 쓰고 없으면 부산으로 폴백하도록 바꿨다 -
       // 현장을 옮겨 다니는 작업 특성상 지금 있는 곳 날씨가 더 쓸모 있다.
       final position = await _determinePosition();
+      if (mounted) setState(() => _locationUnknown = position == null);
       final double lat = position?.latitude ?? 35.1795;
       final double lon = position?.longitude ?? 129.0756; // 부산 좌표(폴백)
 
@@ -892,9 +899,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
           return StreamBuilder<QuerySnapshot>(
             stream: _notices,
             builder: (context, noticeSnap) {
-              if (noticeSnap.connectionState == ConnectionState.waiting) {
-                return const SizedBox(height: 60);
-              }
+              // 🚀 [고침] 공지를 기다리는 동안(통신이 없으면 오래) 머리 칸이 통째로
+              // 비어 있었다. 기다리는 동안은 날씨를 먼저 보인다.
 
               final activeNotices = noticeSnap.hasData
                   ? noticeSnap.data!.docs
@@ -910,16 +916,52 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                     activeNotices.first.data() as Map<String, dynamic>;
                 String noticeTitle = noticeData['title'] ?? "새로운 사내 공지가 있습니다.";
 
+                // 🚀 [고침] 공지가 있으면 날씨·비 예보가 통째로 사라졌다. 공지 아래에 같이 둔다.
+                Widget withWeather(Widget notice) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    notice,
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      key: const Key('home_weather_under_notice'),
+                      onTap: _openWeatherApp,
+                      child: _buildWeatherWidget(),
+                    ),
+                  ],
+                );
+
                 if (noticeTitle.contains("회식") || noticeTitle.contains("회의")) {
-                  return _buildHeaderContent(
-                    title: noticeTitle.contains("회의")
-                        ? "회의 일정 공지가\n등록되어 있습니다."
-                        : "회식 일정 공지가\n등록되어 있습니다.",
-                    titleIcon: LucideIcons.bellRing,
-                    subText: "터치하여 전체 알림을 확인하십시오.",
+                  return withWeather(
+                    _buildHeaderContent(
+                      title: noticeTitle.contains("회의")
+                          ? "회의 일정 공지가\n등록되어 있습니다."
+                          : "회식 일정 공지가\n등록되어 있습니다.",
+                      titleIcon: LucideIcons.bellRing,
+                      subText: "터치하여 전체 알림을 확인하십시오.",
+                      isActionable: true,
+                      onTap: () {
+                        HapticFeedback.heavyImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => MobileNotificationPage(
+                              currentWorker: widget.currentWorker,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                }
+
+                return withWeather(
+                  _buildHeaderContent(
+                    title: "새로운 사내 공지가\n등록되었습니다.",
+                    titleIcon: LucideIcons.clipboardList,
+                    subText: noticeTitle,
                     isActionable: true,
                     onTap: () {
-                      HapticFeedback.heavyImpact();
+                      HapticFeedback.lightImpact();
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -929,25 +971,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         ),
                       );
                     },
-                  );
-                }
-
-                return _buildHeaderContent(
-                  title: "새로운 사내 공지가\n등록되었습니다.",
-                  titleIcon: LucideIcons.clipboardList,
-                  subText: noticeTitle,
-                  isActionable: true,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => MobileNotificationPage(
-                          currentWorker: widget.currentWorker,
-                        ),
-                      ),
-                    );
-                  },
+                  ),
                 );
               }
 
@@ -1020,9 +1044,18 @@ class _MobileMenuPageState extends State<MobileMenuPage>
 
   Widget _buildWeatherWidget() {
     if (!_isWeatherLoaded) {
-      return const Text(
-        "날씨 정보 동기화 중...",
-        style: TextStyle(color: slate600, fontSize: 12),
+      return const Row(
+        key: Key('home_weather_loading'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(strokeWidth: 2, color: slate600),
+          ),
+          SizedBox(width: 8),
+          Text("날씨 불러오는 중…", style: TextStyle(color: slate600, fontSize: 12)),
+        ],
       );
     }
     // 통신이 없어 못 불러온 경우: 눌러서 다시 부를 수 있게 한다.
@@ -1040,9 +1073,12 @@ class _MobileMenuPageState extends State<MobileMenuPage>
           children: [
             Icon(Icons.refresh_rounded, size: 14, color: slate600),
             SizedBox(width: 4),
-            Text(
-              "날씨를 불러오지 못했습니다. 누르면 다시 불러옵니다.",
-              style: TextStyle(color: slate600, fontSize: 12),
+            // 좁은 폰(320)에서 16px 넘쳤다.
+            Flexible(
+              child: Text(
+                "날씨를 불러오지 못했습니다. 누르면 다시 불러옵니다.",
+                style: TextStyle(color: slate600, fontSize: 12),
+              ),
             ),
           ],
         ),
@@ -1059,7 +1095,10 @@ class _MobileMenuPageState extends State<MobileMenuPage>
             // 동 이름이 길면("부산광역시 강서구") 344dp에서 넘쳤다.
             Flexible(
               child: Text(
-                "$_cityName $_currentTemp°C  /  $_weatherDesc",
+                // 🚀 [고침] 위치를 모르면 말없이 부산 날씨였다. 그렇다고 적고,
+                // 누르면 위치를 묻는다.
+                "${_locationUnknown ? '$_cityName(위치 모름)' : _cityName} "
+                "$_currentTemp°C  /  $_weatherDesc",
                 style: const TextStyle(color: slate600, fontSize: 12),
                 overflow: TextOverflow.ellipsis,
               ),
