@@ -219,6 +219,12 @@ class _DailyReportPageState extends State<DailyReportPage> {
     }
 
     _loadFavs();
+    if (_isEdit) {
+      // 처음 모양을 적어 두고, 나갈 때 바뀌었으면 묻는다(지난 일지는 임시 저장을 안 한다).
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _initialEditSig = _editSig(),
+      );
+    }
     if (!_isEdit && widget.draftKey != null) {
       _draftTimer = Timer.periodic(
         const Duration(seconds: 3),
@@ -586,6 +592,16 @@ class _DailyReportPageState extends State<DailyReportPage> {
   String _lastDraft = '';
   bool _submitted = false;
 
+  // 지난 일지 고치기: 열었을 때 모양. 나갈 때 이것과 다르면 버릴지 묻는다.
+  String? _initialEditSig;
+  String _editSig() =>
+      (_draftJson() ?? '').replaceFirst(RegExp(r'"savedAt":"[^"]*",'), '');
+  bool get _hasUnsavedEdit =>
+      _isEdit &&
+      !_submitted &&
+      _initialEditSig != null &&
+      _editSig() != _initialEditSig;
+
   @override
   void dispose() {
     _draftTimer?.cancel();
@@ -950,8 +966,29 @@ class _DailyReportPageState extends State<DailyReportPage> {
     ),
   );
 
+  /// 🚀 [고침] 지난 일지를 고치다가 뒤로 가기(위 화살표·폰 뒤로)를 한 번 누르면
+  /// 묻지 않고 닫혀 고친 것이 사라졌다. 바뀐 것이 있으면 한 번 묻는다.
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_isEdit,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final leave =
+            !_hasUnsavedEdit ||
+            await confirmDelete(
+              context,
+              title: "고친 것을 버리겠습니까?",
+              message: "저장하지 않고 나가면 고친 내용이 사라집니다.",
+              confirmLabel: "버리기",
+            );
+        if (leave && context.mounted) Navigator.pop(context);
+      },
+      child: _buildPage(context),
+    );
+  }
+
+  Widget _buildPage(BuildContext context) {
     final String prevPlan =
         (_latestPrev?['next_day_plan'] as String?)?.trim() ?? '';
     final String dateLabel = _isEdit
@@ -969,7 +1006,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
             color: tossText,
             size: 20,
           ),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.maybePop(context),
         ),
         title: Column(
           children: [

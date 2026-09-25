@@ -63,6 +63,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   bool get _isElectric => _benderType == "전동 (Electric)";
 
+  // 마지막으로 읽거나 저장한 때의 모양. 나갈 때 이것과 다르면 버릴지 묻는다.
+  String? _savedSig;
+  String _formSig() => [
+    _isInch,
+    _useHaptic,
+    _saveHistory,
+    _tubeMaterial,
+    _benderBrand,
+    _benderType,
+    _defaultRotation,
+    _fittingType,
+    _benderMark,
+    _currentOD,
+    for (final k in _autoStates.keys.toList()..sort()) '$k=${_autoStates[k]}',
+    for (final c in [
+      _wtController,
+      _rController,
+      _takeUpController,
+      _springbackController,
+      _gainController,
+      _minStraightController,
+      _benderOffsetController,
+      _fittingDepthController,
+      _markThicknessController,
+      _offsetShrinkController,
+    ])
+      c.text,
+  ].join('|');
+  bool get _hasUnsaved => _savedSig != null && _formSig() != _savedSig;
+
   @override
   void initState() {
     super.initState();
@@ -125,6 +155,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     });
     _onSpecsChanged();
+    _savedSig = _formSig();
   }
 
   // 🚀 [수정] "저장" 버튼을 누르면 이 화면의 초안 값들을 AppSettingsController에
@@ -167,6 +198,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // keepScreenOn / warnShoeInterference: 이 화면엔 UI가 없으므로 손대지 않는다.
 
     await c.save();
+    _savedSig = _formSig();
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2187,6 +2219,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final double screenWidth = MediaQuery.of(context).size.width;
     final bool isWideScreen = screenWidth > 800;
 
+    // 🚀 [고침] 저장(적용)하지 않고 뒤로 가면 고친 제원이 말없이 사라졌다. 바뀐 것이 있으면 묻는다.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (!_hasUnsaved) {
+          Navigator.pop(context);
+          return;
+        }
+        final choice = await showDialog<String>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text("적용하지 않은 설정이 있습니다"),
+            content: const Text("나가기 전에 적용하시겠습니까?"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text("계속 고치기"),
+              ),
+              TextButton(
+                key: const Key('settings_discard'),
+                onPressed: () => Navigator.pop(ctx, 'discard'),
+                child: const Text(
+                  "버리고 나가기",
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+              TextButton(
+                key: const Key('settings_apply_leave'),
+                onPressed: () => Navigator.pop(ctx, 'save'),
+                child: const Text("적용하고 나가기"),
+              ),
+            ],
+          ),
+        );
+        if (choice == 'save') await _saveData();
+        if (choice != null && context.mounted) Navigator.pop(context);
+      },
+      child: _buildScaffold(context, isWideScreen),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context, bool isWideScreen) {
     return Scaffold(
       appBar: AppBar(
         elevation: 2,

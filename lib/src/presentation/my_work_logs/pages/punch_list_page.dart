@@ -271,8 +271,36 @@ class _PunchListPageState extends State<PunchListPage> {
     );
   }
 
+  /// 쓰던 것이 있는지(위치·내용·사진·도면 핀).
+  bool get _hasInput =>
+      _locationCtrl.text.trim().isNotEmpty ||
+      _punchCtrl.text.trim().isNotEmpty ||
+      _attachedImages.isNotEmpty ||
+      _pinDx != null;
+
+  /// 🚀 [고침] 새 이슈를 쓰다가 뒤로 가기를 한 번 누르면 묻지 않고 닫혀
+  /// 결함 글과 사진(최대 10장)이 한 번에 사라졌다. 쓴 것이 있으면 묻는다.
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final leave =
+            !_hasInput ||
+            await confirmDelete(
+              context,
+              title: "쓰던 이슈를 버리겠습니까?",
+              message: "등록하지 않고 나가면 쓴 내용과 사진이 사라집니다.",
+              confirmLabel: "버리기",
+            );
+        if (leave && context.mounted) Navigator.pop(context);
+      },
+      child: _buildPage(context),
+    );
+  }
+
+  Widget _buildPage(BuildContext context) {
     return Scaffold(
       backgroundColor: pureWhite,
       appBar: AppBar(
@@ -284,7 +312,7 @@ class _PunchListPageState extends State<PunchListPage> {
             color: tossText,
             size: 20,
           ),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.maybePop(context),
         ),
         title: const Text(
           "이슈 등록",
