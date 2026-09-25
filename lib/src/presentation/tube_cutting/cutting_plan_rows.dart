@@ -25,22 +25,34 @@ String piecesText(List<double> pieces) {
 
 const List<String> kPlanHeaders = ['원자재', '자를 길이(mm)', '사용(mm)', '남는 길이(mm)'];
 
-// 잔재가 먼저, 새 원자재가 그다음. 남는 길이는 톱날 손실을 뺀 값이다.
-List<List<String>> planRows(CuttingOptimizationResult r) {
+// 이름표가 있으면 "PT1→PT2 1200 + PT3→PT4 800"처럼 조각마다(같은 길이도 따로).
+String labeledPiecesText(List<double> pieces, List<String> labels) {
+  if (labels.every((l) => l.isEmpty)) return piecesText(pieces);
+  return [
+    for (var i = 0; i < pieces.length; i++)
+      i < labels.length && labels[i].isNotEmpty
+          ? '${labels[i]} ${_mm(pieces[i])}'
+          : _mm(pieces[i]),
+  ].join(' + ');
+}
+
+// 잔재가 먼저, 새 원자재가 그다음. 남는 길이는 톱날 손실(과 끝 다듬기)을 뺀 값이다.
+// [labels]는 [잔재 배치..., 새 원자재 배치...] 순서의 본별 조각 이름표(없어도 된다).
+List<List<String>> planRows(
+  CuttingOptimizationResult r, {
+  List<List<String>> labels = const [],
+}) {
   final rows = <List<String>>[];
-  for (final b in r.leftoverBars) {
+  final bars = [...r.leftoverBars, ...r.bars];
+  var n = 0;
+  for (var i = 0; i < bars.length; i++) {
+    final b = bars[i];
+    final lbl = i < labels.length ? labels[i] : const <String>[];
     rows.add([
-      '잔재 ${_mm(b.stockLength)}',
-      piecesText(b.pieces),
-      _mm(b.usedLength),
-      _mm(b.remainderWithKerf(r.kerf)),
-    ]);
-  }
-  for (var i = 0; i < r.bars.length; i++) {
-    final b = r.bars[i];
-    rows.add([
-      '${i + 1}번 (${_mm(b.stockLength)})',
-      piecesText(b.pieces),
+      b.isLeftover
+          ? '잔재 ${_mm(b.stockLength)}'
+          : '${++n}번 (${_mm(b.stockLength)})',
+      labeledPiecesText(b.pieces, lbl),
       _mm(b.usedLength),
       _mm(b.remainderWithKerf(r.kerf)),
     ]);

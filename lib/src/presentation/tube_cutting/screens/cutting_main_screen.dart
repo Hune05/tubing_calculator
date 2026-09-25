@@ -31,6 +31,7 @@ import '../cutting_math.dart'
     show cutBreakdownText, cutLengthMm, parseLengthInput, safeFileName;
 import '../cutting_optimizer.dart';
 import '../cutting_plan_rows.dart';
+import '../cutting_plan_settings.dart';
 import '../cutting_firestore_helper.dart' show tubeMaterialName;
 import '../cutting_stock_deduct.dart';
 import '../cutting_theme.dart';
@@ -287,6 +288,22 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     return byTubeSize;
   }
 
+  // [_collectRequiredPiecesByTubeSize]와 같은 순서의 조각 이름표("PT1→PT2").
+  Map<String, List<String>> _collectPieceLabelsByTubeSize() {
+    final Map<String, List<String>> byTubeSize = {};
+    final specs = _segmentSpecs();
+    for (int i = 0; i < _points.length - 1; i++) {
+      final p = _points[i];
+      if (p.c2cController.text.isEmpty || p.calculatedCut <= 0) continue;
+      final key = specs[i].isEmpty ? "" : "튜브 ${specs[i]}";
+      final list = byTubeSize.putIfAbsent(key, () => []);
+      for (int k = 0; k < _setMultiplier; k++) {
+        list.add("PT${i + 1}→PT${i + 2}");
+      }
+    }
+    return byTubeSize;
+  }
+
   // 🚀 [형강 컷팅 신규 기능 대비 리팩터링] 이 시트 자체는 이제 공용
   // widgets/cutting_optimization_sheet.dart로 옮겼다 - 튜브 라인이 아니라
   // 단순 길이 목록만 있는 화면(형강/찬넬/앵글 컷팅)에서도 똑같은 다중
@@ -342,6 +359,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     await showCuttingOptimizationSheet(
       context,
       groupedPieces: _collectRequiredPiecesByTubeSize(),
+      pieceLabels: _collectPieceLabelsByTubeSize(),
+      exportName: '튜브 컷팅 ${widget.project.name}',
       initialStockLength: _stockLength,
       mixPrefsKey: kTubeMixPrefsKey,
       onLeftoversSaved: _onLeftoversSaved,
@@ -592,6 +611,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         ...diagramBody.skip(1),
       ];
       final List<pw.Widget> planWidgets = [];
+      final planSettings = await loadCutPlanSettings();
+      final pieceLabels = _collectPieceLabelsByTubeSize();
       for (final e in groups.entries) {
         final groupLeftovers = [
           for (final l in leftovers)
@@ -603,13 +624,19 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                 stockLengths: mixLengths,
                 kerf: _bladeKerf,
                 leftovers: groupLeftovers,
+                endTrim: planSettings.endTrim,
               )
             : optimizeCutting(
                 pieces: e.value,
                 stockLength: _stockLength,
                 kerf: _bladeKerf,
                 leftovers: groupLeftovers,
+                endTrim: planSettings.endTrim,
               );
+        final lbl = pieceLabels[e.key];
+        final barLabels = lbl != null && lbl.length == e.value.length
+            ? labelsForBars([...r.leftoverBars, ...r.bars], e.value, lbl)
+            : const <List<String>>[];
         // 제목·요약·표를 한 덩어리로 묶어 쪽 경계에서 표 머리만 따로 남지 않게 한다.
         planWidgets.addAll(
           keepTogether([
@@ -626,7 +653,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             if (r.bars.isNotEmpty || r.leftoverBars.isNotEmpty)
               pw.TableHelper.fromTextArray(
                 headers: kPlanHeaders,
-                data: planRows(r),
+                data: planRows(r, labels: barLabels),
                 headerStyle: pw.TextStyle(
                   fontWeight: pw.FontWeight.bold,
                   font: koreanBold,

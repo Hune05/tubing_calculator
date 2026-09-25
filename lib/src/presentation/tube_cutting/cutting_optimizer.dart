@@ -15,15 +15,20 @@ class StockBarPlan {
   final double stockLength;
   // 새 원자재가 아니라 잔재에서 나온 배치인지.
   final bool isLeftover;
+  // 첫 절단 전에 끝을 다듬어 버리는 길이(새 원자재만). 로스로 센다.
+  final double trim;
 
-  StockBarPlan(this.stockLength, {this.isLeftover = false});
+  StockBarPlan(this.stockLength, {this.isLeftover = false, this.trim = 0});
 
   double get usedLength => pieces.fold(0.0, (sum, p) => sum + p);
   double get wasteLength => (stockLength - usedLength).clamp(0.0, stockLength);
 
   // 톱날 손실까지 뺀, 실제로 남는 길이(보수적으로 조각마다 한 번씩 뺀다).
   double remainderWithKerf(double kerf) =>
-      (stockLength - usedLength - kerf * pieces.length).clamp(0.0, stockLength);
+      (stockLength - usedLength - trim - kerf * pieces.length).clamp(
+        0.0,
+        stockLength,
+      );
 }
 
 class CuttingOptimizationResult {
@@ -74,6 +79,7 @@ CuttingOptimizationResult optimizeCuttingMixed({
   required List<double> stockLengths,
   double kerf = 0.0,
   List<double> leftovers = const [],
+  double endTrim = 0.0,
 }) {
   final lens = ({...stockLengths.where((l) => l > 0)}.toList())..sort();
   if (lens.isEmpty) {
@@ -84,6 +90,7 @@ CuttingOptimizationResult optimizeCuttingMixed({
     stockLength: lens.last,
     kerf: kerf,
     leftovers: leftovers,
+    endTrim: endTrim,
   );
   if (lens.length == 1) return longest;
 
@@ -91,14 +98,16 @@ CuttingOptimizationResult optimizeCuttingMixed({
   final shrunk = <StockBarPlan>[];
   for (final b in longest.bars) {
     // 조각 하나짜리 본은 조각이 들어가기만 하면 된다(톱날은 남는 끝에서 먹는다).
-    final need = b.pieces.length == 1
-        ? b.pieces.first
-        : b.pieces.fold(0.0, (s, p) => s + p + kerf);
+    final need =
+        endTrim +
+        (b.pieces.length == 1
+            ? b.pieces.first
+            : b.pieces.fold(0.0, (s, p) => s + p + kerf));
     final fit = lens.firstWhere(
       (l) => need <= l + 1e-6,
       orElse: () => lens.last,
     );
-    shrunk.add(StockBarPlan(fit)..pieces.addAll(b.pieces));
+    shrunk.add(StockBarPlan(fit, trim: endTrim)..pieces.addAll(b.pieces));
   }
   var best = CuttingOptimizationResult(
     bars: shrunk,
@@ -122,6 +131,7 @@ CuttingOptimizationResult optimizeCuttingMixed({
       stockLength: l,
       kerf: kerf,
       leftovers: leftovers,
+      endTrim: endTrim,
     );
     // 짧은 길이 하나로는 못 자르는 조각이 더 생기면 비교하지 않는다(빠진 조각으로 싸 보이면 안 된다).
     if (single.oversizedPieces.length != longest.oversizedPieces.length) {
@@ -140,12 +150,36 @@ const int _kExactNodeLimit = 200000;
 /// 그만큼 더 소모되는 것으로 보수적으로 계산한다(실제로는 마지막 조각엔
 /// 손실이 없을 수도 있지만, 부족한 것보다 여유 있게 잡는 게 현장에 안전하다).
 /// [leftovers]는 남아 있는 잔재 길이들(같은 규격만 넘긴다).
+///
+/// [endTrim]: 새 원자재마다 첫 절단 전에 끝을 다듬어 버리는 길이(찌그러진 끝·녹 등).
+/// 잔재는 이미 톱으로 자른 끝이라 다듬지 않는다.
 CuttingOptimizationResult optimizeCutting({
   required List<double> pieces,
   required double stockLength,
   double kerf = 0.0,
   List<double> leftovers = const [],
+  double endTrim = 0.0,
 }) {
+  if (endTrim > 0 && endTrim < stockLength) {
+    // 다듬은 만큼 짧은 원자재로 배치하고, 본은 원래 길이 + 다듬은 길이로 돌려놓는다.
+    final r = optimizeCutting(
+      pieces: pieces,
+      stockLength: stockLength - endTrim,
+      kerf: kerf,
+      leftovers: leftovers,
+    );
+    return CuttingOptimizationResult(
+      bars: [
+        for (final b in r.bars)
+          StockBarPlan(stockLength, trim: endTrim)..pieces.addAll(b.pieces),
+      ],
+      leftoverBars: r.leftoverBars,
+      stockLength: stockLength,
+      kerf: kerf,
+      oversizedPieces: r.oversizedPieces,
+      savedBars: r.savedBars,
+    );
+  }
   final List<double> oversized = [];
   final List<double> valid = [];
   // 원자재 한 본을 거의 통째로 쓰는 조각. 혼자 한 본에 들어가면 톱날 손실은
@@ -318,4 +352,29 @@ List<List<double>>? _search(
   }
 
   return dfs(0) ? bins : null;
+}
+
+/// 본마다 조각 이름표(예: "PT1→PT2", 형강 항목 메모)를 붙인다. 같은 길이 조각은 서로
+/// 바꿔도 되므로, 입력 순서대로 길이가 같은 이름표를 하나씩 가져간다.
+/// [pieces]와 [labels]는 같은 순서·같은 개수(배치에 넘긴 조각 목록 그대로).
+List<List<String>> labelsForBars(
+  List<StockBarPlan> bars,
+  List<double> pieces,
+  List<String> labels,
+) {
+  final pool = <({double len, String label})>[
+    for (var i = 0; i < pieces.length && i < labels.length; i++)
+      (len: pieces[i], label: labels[i]),
+  ];
+  return [
+    for (final b in bars)
+      [
+        for (final p in b.pieces)
+          () {
+            final i = pool.indexWhere((e) => (e.len - p).abs() < 1e-6);
+            if (i < 0) return '';
+            return pool.removeAt(i).label;
+          }(),
+      ],
+  ];
 }

@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'dart:io';
 import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_logs_page.dart';
 
 import '../cutting_leftover_log.dart';
 import '../cutting_leftovers.dart';
 import '../cutting_optimizer.dart';
+import '../cutting_plan_settings.dart';
 import '../cutting_stock_deduct.dart';
 import '../cutting_theme.dart';
 import 'leftover_log_page.dart';
@@ -60,6 +64,10 @@ Future<void> showCuttingOptimizationSheet(
   Future<bool> Function(BarsBySpec bars)? onUndoDeductStock,
   // 이 작업에 쓴 자재 기록을 볼 때 걸러 쓸 작업 이름(비우면 단추를 안 보인다).
   String jobLogName = '',
+  // 조각 이름표(예: "PT1→PT2", 형강 항목 메모). [groupedPieces]와 같은 열쇠·같은 순서.
+  Map<String, List<String>>? pieceLabels,
+  // CSV 파일 이름 앞부분.
+  String exportName = '재단계획',
 }) async {
   final Map<String, List<double>> groups =
       (groupedPieces != null && groupedPieces.isNotEmpty)
@@ -74,6 +82,17 @@ Future<void> showCuttingOptimizationSheet(
 
   final ctrl = TextEditingController(
     text: initialStockLength.toStringAsFixed(0),
+  );
+  // 끝 다듬기·쓸 만한 잔재 최소 길이·가진 원자재 본수(폰에 기억).
+  var planSettings = await loadCutPlanSettings();
+  var owned = await loadOwnedBars();
+  final trimCtrl = TextEditingController(
+    text: planSettings.endTrim > 0
+        ? planSettings.endTrim.toStringAsFixed(0)
+        : '',
+  );
+  final minLeftCtrl = TextEditingController(
+    text: planSettings.minLeftover.toStringAsFixed(0),
   );
   // 잔재(이전에 자르고 남겨 둔 것). 켜 두면 같은 규격의 잔재부터 먼저 쓴다.
   final loaded = await tryLoadLeftovers();
@@ -140,6 +159,7 @@ Future<void> showCuttingOptimizationSheet(
               pieces: e.value,
               stockLengths: mixSel.toList(),
               kerf: kerf,
+              endTrim: planSettings.endTrim,
               leftovers: useLeftovers
                   ? [
                       for (final l in leftovers)
@@ -151,6 +171,7 @@ Future<void> showCuttingOptimizationSheet(
               pieces: e.value,
               stockLength: stock,
               kerf: kerf,
+              endTrim: planSettings.endTrim,
               leftovers: useLeftovers
                   ? [
                       for (final l in leftovers)
@@ -160,6 +181,20 @@ Future<void> showCuttingOptimizationSheet(
             ),
   };
   Map<String, CuttingOptimizationResult> results = compute(stockNow);
+
+  // 규격별 본마다 조각 이름표([잔재 배치..., 새 원자재 배치...] 순서).
+  List<List<String>> labelsOf(String key) {
+    final lbl = pieceLabels?[key];
+    final pcs = groups[key];
+    final r = results[key];
+    if (lbl == null || pcs == null || r == null || lbl.length != pcs.length) {
+      return const [];
+    }
+    return labelsForBars([...r.leftoverBars, ...r.bars], pcs, lbl);
+  }
+
+  List<String> labelAt(List<List<String>> l, int i) =>
+      i < l.length ? l[i] : const [];
 
   await showModalBottomSheet(
     context: context,
@@ -390,7 +425,126 @@ Future<void> showCuttingOptimizationSheet(
                 ),
               ),
             ],
+            for (final line in ownedShortage({
+              for (final e in results.entries) e.key: e.value.barCount,
+            }, owned))
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  line,
+                  style: const TextStyle(
+                    color: CuttingColors.danger,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
           ],
+        );
+
+        // 🚀 [추가] 재단 설정·내보내기 카드(목록 맨 아래): 끝 다듬기·남길 잔재 최소 길이,
+        // 가진 원자재 본수, CSV. 위 머리를 키우면 배치가 안 보여서 목록 안에 둔다.
+        final settingsCard = Container(
+          key: const Key('plan_settings_card'),
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: CuttingColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "재단 설정 · 내보내기",
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              // 🚀 [추가] 끝 다듬기·쓸 만한 잔재 최소 길이(폰에 기억, 지시서 PDF도 같은 값).
+              Row(
+                children: [
+                  Expanded(
+                    child: _smallNumField(
+                      key: const Key('plan_end_trim'),
+                      controller: trimCtrl,
+                      label: "끝 다듬기",
+                      onSubmitted: (v) {
+                        planSettings = CutPlanSettings(
+                          endTrim: v,
+                          minLeftover: planSettings.minLeftover,
+                        );
+                        saveCutPlanSettings(planSettings);
+                        setSheetState(() {
+                          leftoversSaved = false;
+                          results = compute(stockNow);
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _smallNumField(
+                      key: const Key('plan_min_leftover'),
+                      controller: minLeftCtrl,
+                      label: "남길 잔재 최소",
+                      onSubmitted: (v) {
+                        planSettings = CutPlanSettings(
+                          endTrim: planSettings.endTrim,
+                          minLeftover: v,
+                        );
+                        saveCutPlanSettings(planSettings);
+                        setSheetState(() => leftoversSaved = false);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // 🚀 [추가] 가진 원자재 본수(선택). 넣으면 모자란 규격을 알린다.
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  for (final key in groups.keys)
+                    ActionChip(
+                      key: Key('owned_$key'),
+                      label: Text(
+                        "${key.isEmpty ? '가진 원자재' : key} "
+                        "${owned[key] == null ? '본수 넣기' : '${owned[key]}본'}",
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      onPressed: () async {
+                        final n = await _askOwnedBars(ctx, key, owned[key]);
+                        if (n == null) return;
+                        setSheetState(() {
+                          if (n <= 0) {
+                            owned.remove(key);
+                          } else {
+                            owned[key] = n;
+                          }
+                        });
+                        saveOwnedBars(owned);
+                      },
+                    ),
+                  TextButton.icon(
+                    key: const Key('plan_csv'),
+                    onPressed: () => _shareCsv(
+                      ctx,
+                      planCsv(
+                        results,
+                        labels: {for (final k in groups.keys) k: labelsOf(k)},
+                      ),
+                      exportName,
+                    ),
+                    icon: const Icon(Icons.table_view_outlined, size: 16),
+                    label: const Text("CSV로 내보내기"),
+                  ),
+                ],
+              ),
+            ],
+          ),
         );
 
         final List<Widget> barWidgets = [];
@@ -450,7 +604,9 @@ Future<void> showCuttingOptimizationSheet(
                 used: used,
                 added: [
                   for (final e in results.entries)
-                    for (final len in e.value.keepableScraps())
+                    for (final len in e.value.keepableScraps(
+                      minLength: planSettings.minLeftover,
+                    ))
                       Leftover(e.key, len),
                 ],
               );
@@ -532,6 +688,7 @@ Future<void> showCuttingOptimizationSheet(
         );
         if (!isGroupedView) {
           final r = results['']!;
+          final lbl = labelsOf('');
           for (int i = 0; i < r.leftoverBars.length; i++) {
             barWidgets.add(
               _buildOptBarCard(
@@ -539,17 +696,25 @@ Future<void> showCuttingOptimizationSheet(
                 i,
                 showLength: mix,
                 kerf: kerf,
+                labels: labelAt(lbl, i),
               ),
             );
           }
           for (int i = 0; i < r.bars.length; i++) {
             barWidgets.add(
-              _buildOptBarCard(r.bars[i], i, showLength: mix, kerf: kerf),
+              _buildOptBarCard(
+                r.bars[i],
+                i,
+                showLength: mix,
+                kerf: kerf,
+                labels: labelAt(lbl, r.leftoverBars.length + i),
+              ),
             );
           }
         } else {
           for (final entry in groups.entries) {
             final r = results[entry.key]!;
+            final lbl = labelsOf(entry.key);
             barWidgets.add(_buildGroupSummaryHeader(entry.key, r));
             for (int i = 0; i < r.leftoverBars.length; i++) {
               barWidgets.add(
@@ -558,12 +723,19 @@ Future<void> showCuttingOptimizationSheet(
                   i,
                   showLength: mix,
                   kerf: kerf,
+                  labels: labelAt(lbl, i),
                 ),
               );
             }
             for (int i = 0; i < r.bars.length; i++) {
               barWidgets.add(
-                _buildOptBarCard(r.bars[i], i, showLength: mix, kerf: kerf),
+                _buildOptBarCard(
+                  r.bars[i],
+                  i,
+                  showLength: mix,
+                  kerf: kerf,
+                  labels: labelAt(lbl, r.leftoverBars.length + i),
+                ),
               );
             }
             if (r.bars.isEmpty && r.leftoverBars.isEmpty) {
@@ -579,6 +751,8 @@ Future<void> showCuttingOptimizationSheet(
             }
           }
         }
+
+        barWidgets.add(settingsCard);
 
         Widget barsHeader() => const Padding(
           padding: EdgeInsets.only(bottom: 8),
@@ -796,6 +970,7 @@ Widget _buildOptBarCard(
   int index, {
   bool showLength = false,
   double kerf = 0.0,
+  List<String> labels = const [],
 }) {
   final double ratio = bar.stockLength > 0
       ? (bar.usedLength / bar.stockLength).clamp(0.0, 1.0)
@@ -837,10 +1012,14 @@ Widget _buildOptBarCard(
             ),
             const SizedBox(width: 10),
             Expanded(
+              // 🚀 [추가] 조각 이름표(PT1→PT2, 형강 항목 메모)를 길이 앞에 붙인다.
               child: Text(
-                bar.pieces
-                    .map((p) => "${p.toStringAsFixed(0)}mm")
-                    .join("  +  "),
+                [
+                  for (var i = 0; i < bar.pieces.length; i++)
+                    i < labels.length && labels[i].isNotEmpty
+                        ? "${labels[i]} ${bar.pieces[i].toStringAsFixed(0)}mm"
+                        : "${bar.pieces[i].toStringAsFixed(0)}mm",
+                ].join("  +  "),
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -1233,4 +1412,81 @@ Future<List<Leftover>?> _manageLeftovers(
       ),
     ),
   );
+}
+
+Widget _smallNumField({
+  required Key key,
+  required TextEditingController controller,
+  required String label,
+  required ValueChanged<double> onSubmitted,
+}) => TextField(
+  key: key,
+  controller: controller,
+  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+  onSubmitted: (t) =>
+      onSubmitted((double.tryParse(t.trim()) ?? 0).clamp(0, 5000)),
+  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+  decoration: InputDecoration(
+    isDense: true,
+    labelText: label,
+    suffixText: "mm",
+    filled: true,
+    fillColor: Colors.grey.shade100,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide.none,
+    ),
+  ),
+);
+
+/// 가진 원자재 본수를 묻는다. 비우면 0(지우기), 닫으면 null.
+Future<int?> _askOwnedBars(BuildContext context, String spec, int? now) {
+  final c = TextEditingController(text: now?.toString() ?? '');
+  return showDialog<int>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text("${spec.isEmpty ? '원자재' : spec} 가진 본수"),
+      content: TextField(
+        key: const Key('owned_input'),
+        controller: c,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        decoration: const InputDecoration(
+          hintText: "비우면 지웁니다",
+          suffixText: "본",
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text("취소"),
+        ),
+        TextButton(
+          key: const Key('owned_ok'),
+          onPressed: () => Navigator.pop(ctx, int.tryParse(c.text.trim()) ?? 0),
+          child: const Text("확인"),
+        ),
+      ],
+    ),
+  );
+}
+
+/// 재단 계획 CSV를 파일로 만들어 공유 창을 연다.
+Future<void> _shareCsv(BuildContext context, String csv, String name) async {
+  try {
+    final dir = await getTemporaryDirectory();
+    final d = DateTime.now();
+    String two(int v) => v.toString().padLeft(2, '0');
+    final safe = name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+    final file = File(
+      '${dir.path}/${safe}_${d.year}${two(d.month)}${two(d.day)}_${two(d.hour)}${two(d.minute)}.csv',
+    );
+    await file.writeAsString(csv);
+    // ignore: deprecated_member_use
+    await Share.shareXFiles([XFile(file.path)], text: name);
+  } catch (e) {
+    if (context.mounted) {
+      showCuttingSnack(context, "CSV를 만들지 못했습니다.", isError: true);
+    }
+  }
 }

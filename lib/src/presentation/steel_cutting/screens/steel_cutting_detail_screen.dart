@@ -23,6 +23,7 @@ import '../../tube_cutting/cutting_math.dart' show fmtMm, safeFileName;
 import '../../tube_cutting/cutting_optimizer.dart';
 import '../../tube_cutting/cutting_pending_banner.dart';
 import '../../tube_cutting/cutting_stock_deduct.dart';
+import '../../tube_cutting/cutting_plan_settings.dart';
 import '../../tube_cutting/cutting_plan_rows.dart';
 import '../../tube_cutting/cutting_result_logic.dart';
 import '../../tube_cutting/cutting_result_view.dart';
@@ -199,11 +200,13 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       final mix = await loadMixLengths(kSteelMixPrefsKey);
       final m = mix.isEmpty ? 0.0 : mix.reduce((a, b) => a > b ? a : b);
       final leftovers = await loadLeftovers();
+      final planSettings = await loadCutPlanSettings();
       if (!mounted) return;
       setState(() {
         _mixMax = m;
         _mixLengths = mix;
         _leftovers = leftovers;
+        _endTrim = planSettings.endTrim;
       });
     } catch (_) {}
   }
@@ -211,6 +214,8 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   // 결과 탭 머리의 본수 셈에 쓰는 섞어 쓰기 길이와 잔재(재단 계획 시트와 같은 자료).
   List<double> _mixLengths = const [];
   List<Leftover> _leftovers = const [];
+  // 끝 다듬기(재단 계획 창과 같은 설정). 결과 탭 머리의 본수 셈에 쓴다.
+  double _endTrim = 0;
 
   // 긴 항목 경고에 쓰는 원자재 길이: 기준 길이와 섞어 쓰기 길이 중 가장 긴 것.
   double get _maxStock => _stockLength > _mixMax ? _stockLength : _mixMax;
@@ -537,6 +542,22 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     return byShape;
   }
 
+  // [_collectPiecesByShape]와 같은 순서의 조각 이름표(항목 메모, 없으면 "#항목 번호").
+  Map<String, List<String>> _collectPieceLabelsByShape() {
+    final Map<String, List<String>> byShape = {};
+    for (var idx = 0; idx < _items.length; idx++) {
+      final item = _items[idx];
+      final label = item.note.trim().isNotEmpty
+          ? item.note.trim()
+          : "#${idx + 1}";
+      final list = byShape.putIfAbsent(item.shapeLabel, () => []);
+      for (int k = 0; k < item.qty * _setMultiplier; k++) {
+        list.add(label);
+      }
+    }
+    return byShape;
+  }
+
   void _addItem() {
     HapticFeedback.lightImpact();
     showSteelItemSheet(
@@ -780,6 +801,8 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     await showCuttingOptimizationSheet(
       context,
       groupedPieces: _collectPiecesByShape(),
+      pieceLabels: _collectPieceLabelsByShape(),
+      exportName: '형강 컷팅 ${widget.project.name}',
       initialStockLength: _stockLength,
       kerf: _bladeKerf,
       mixPrefsKey: kSteelMixPrefsKey,
@@ -971,6 +994,8 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       final leftovers = await loadLeftovers();
       final mixLengths = await loadMixLengths(kSteelMixPrefsKey);
       final piecesByShape = _collectPiecesByShape();
+      final pieceLabels = _collectPieceLabelsByShape();
+      final planSettings = await loadCutPlanSettings();
       final planWidgets = <pw.Widget>[];
       var totalBars = 0;
       var totalWaste = 0.0;
@@ -986,13 +1011,19 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                 stockLengths: mixLengths,
                 kerf: _bladeKerf,
                 leftovers: groupLeftovers,
+                endTrim: planSettings.endTrim,
               )
             : optimizeCutting(
                 pieces: e.value,
                 stockLength: _stockLength,
                 kerf: _bladeKerf,
                 leftovers: groupLeftovers,
+                endTrim: planSettings.endTrim,
               );
+        final lbl = pieceLabels[e.key];
+        final barLabels = lbl != null && lbl.length == e.value.length
+            ? labelsForBars([...r.leftoverBars, ...r.bars], e.value, lbl)
+            : const <List<String>>[];
         totalBars += r.barCount;
         totalWaste += r.totalWaste;
         totalOversized += r.oversizedPieces.length;
@@ -1017,7 +1048,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             ),
             pw.SizedBox(height: 6),
             if (r.bars.isNotEmpty || r.leftoverBars.isNotEmpty)
-              table(kPlanHeaders, planRows(r)),
+              table(kPlanHeaders, planRows(r, labels: barLabels)),
             if (r.oversizedPieces.isNotEmpty)
               pw.Text(
                 "원자재(${r.stockLength.toStringAsFixed(0)}mm)보다 길어 배치하지 못한 조각이 ${r.oversizedPieces.length}개 있습니다.",
@@ -2650,12 +2681,14 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
               stockLengths: _mixLengths,
               kerf: _bladeKerf,
               leftovers: groupLeftovers,
+              endTrim: _endTrim,
             )
           : optimizeCutting(
               pieces: e.value,
               stockLength: _stockLength,
               kerf: _bladeKerf,
               leftovers: groupLeftovers,
+              endTrim: _endTrim,
             );
       bars += r.barCount;
       oversized += r.oversizedPieces.length;
