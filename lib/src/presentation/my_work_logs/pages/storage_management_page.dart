@@ -185,7 +185,9 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
     _toast(
       "복원했습니다. 프로젝트 ${r.projects}건"
       "${r.layouts > 0 ? ', 배치도 ${r.layouts}개' : ''}"
-      "${r.schedules > 0 ? ', 내 일정 ${r.schedules}건' : ''}",
+      "${r.schedules > 0 ? ', 내 일정 ${r.schedules}건' : ''}"
+      "${r.tubeDrawings > 0 ? ', 튜브 도면 ${r.tubeDrawings}개' : ''}"
+      "${r.conduitDrawings > 0 ? ', 전선관 도면 ${r.conduitDrawings}개' : ''}",
     );
     widget.onRestored?.call();
   }
@@ -498,7 +500,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
                 card(
                   "데이터 백업 / 복원",
                   "${widget.logs.length}건",
-                  "내 프로젝트 전체와 단계 템플릿, 자재 즐겨찾기를 파일 하나로 내보내고 다시 불러옵니다. 사진은 클라우드에 올라간 것만 복원 후에도 보입니다.",
+                  "내 프로젝트 전체와 단계 템플릿, 자재 즐겨찾기, 튜브·전선관 도면 보관함을 파일 하나로 내보내고 다시 불러옵니다. 사진은 클라우드에 올라간 것만 복원 후에도 보입니다.",
                   action: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [

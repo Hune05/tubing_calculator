@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/data/conduit_drawings.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/backup_tools.dart';
 
 // 백업 파일에 배치도·내 일정이 함께 담기는 것과, 옛 백업과의 호환.
@@ -91,5 +93,64 @@ void main() {
 
   test('이 앱의 백업이 아니면 알려 준다', () {
     expect(() => parseBackup('{"app":"x"}'), throwsFormatException);
+  });
+
+  group('도면 보관함도 백업에 들어간다(점검 23번)', () {
+    final tubeDb = <Map<String, dynamic>>[];
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      tubeDb.clear();
+      tubeDrawingsReader = () async => [
+        for (var i = 0; i < tubeDb.length; i++) {'id': i + 1, ...tubeDb[i]},
+      ];
+      tubeDrawingWriter = (row) async => tubeDb.add(row);
+    });
+
+    Map<String, dynamic> raw() => {
+      'tubeDrawings': [
+        {
+          'date': '2026-09-20 10:00',
+          'bend_data': '[{"length":300,"angle":90}]',
+          'p_to_p': '{"project":"A"}',
+          'pipe_size': '1/2"',
+          'total_length': '612.0',
+        },
+      ],
+      'conduitDrawings': [
+        {
+          'id': 'c1',
+          'folderName': 'EPS실',
+          'title': '벤드 1개',
+          'savedAt': '2026-09-20 11:00',
+          'totalCut': 618.0,
+          'bends': [
+            {'length': 300.0, 'angle': 90.0, 'rotation': 0.0},
+          ],
+          'settings': <String, dynamic>{},
+        },
+      ],
+    };
+
+    test('되돌리면 튜브·전선관 도면이 보관함에 들어가고, 두 번 해도 한 벌', () async {
+      var r = await restoreDrawings(raw());
+      expect(r.tube, 1);
+      expect(r.conduit, 1);
+      r = await restoreDrawings(raw());
+      expect(r.tube, 0);
+      expect(r.conduit, 0);
+      expect(tubeDb.length, 1);
+      expect(tubeDb.single['pipe_size'], '1/2"');
+      final c = await loadConduitDrawings();
+      expect(c.single.folderName, 'EPS실');
+    });
+
+    test('한 줄 요약에 도면 개수가 붙는다', () {
+      final j = jsonDecode(backupText()) as Map<String, dynamic>;
+      j.addAll(raw());
+      expect(
+        backupContentsLine(parseBackup(jsonEncode(j))),
+        '프로젝트 2건, 템플릿 1개, 튜브 도면 1개, 전선관 도면 1개',
+      );
+    });
   });
 }

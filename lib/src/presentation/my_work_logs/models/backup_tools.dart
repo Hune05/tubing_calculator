@@ -12,6 +12,8 @@ import '../../../core/utils/error_log.dart';
 import '../../my_schedule/schedule_reminders.dart'
     show schedulePersonalReminder;
 import 'phase_templates.dart';
+import '../../../core/database/database_helper.dart';
+import '../../../data/conduit_drawings.dart';
 
 // 🚀 [데이터 백업/복원] 내 프로젝트 전체(+단계 템플릿, 자재 즐겨찾기)를 JSON 파일 하나로
 // 내보내고, 그 파일에서 다시 불러온다. 사진은 파일이 아니라 클라우드 주소(URL)로 들어
@@ -82,6 +84,90 @@ _collectExtras() async {
   return (layouts: layouts, schedules: schedules, failed: failed);
 }
 
+// ───────────── 도면 보관함(튜브·전선관) ─────────────
+// 🚀 [고침] 예전에는 튜브 보관함(폰 DB의 history 표)과 전선관 보관함(폰 설정의
+// conduit_saved_drawings_v1)이 어떤 백업에도 안 들어가, 앱을 지우거나 폰을 바꾸면
+// 저장해 둔 도면이 모두 사라졌다. 백업 파일에 같이 넣고, 되돌릴 때는 없는 것만 더한다.
+
+/// 튜브 보관함 읽기·쓰기(테스트에서 바꿔 끼운다).
+@visibleForTesting
+Future<List<Map<String, dynamic>>> Function() tubeDrawingsReader = () =>
+    DatabaseHelper.instance.getHistory();
+@visibleForTesting
+Future<void> Function(Map<String, dynamic> row) tubeDrawingWriter = (row) =>
+    DatabaseHelper.instance.insertHistory(row);
+
+const List<String> _kTubeDrawingCols = [
+  'date',
+  'bend_data',
+  'p_to_p',
+  'pipe_size',
+  'total_length',
+];
+
+String _tubeDrawingKey(Map r) =>
+    [for (final c in _kTubeDrawingCols) r[c]?.toString() ?? ''].join('\u001F');
+
+/// 백업에 넣을 튜브 도면(폰 DB의 번호 칸은 뺀다). 못 읽으면 빈 목록.
+Future<List<Map<String, dynamic>>> _tubeDrawingsForBackup() async {
+  try {
+    return [
+      for (final r in await tubeDrawingsReader())
+        {for (final c in _kTubeDrawingCols) c: r[c]},
+    ];
+  } catch (e) {
+    recordError('튜브 보관함 백업', e);
+    return const [];
+  }
+}
+
+Future<List<Map<String, dynamic>>> _conduitDrawingsForBackup() async {
+  try {
+    return [for (final d in await loadConduitDrawings()) d.toJson()];
+  } catch (e) {
+    recordError('전선관 보관함 백업', e);
+    return const [];
+  }
+}
+
+/// 백업의 도면을 보관함에 되돌린다. 이미 있는 것은 건너뛴다. 더한 개수를 돌려준다.
+Future<({int tube, int conduit})> restoreDrawings(
+  Map<String, dynamic> raw,
+) async {
+  var tube = 0, conduit = 0;
+  final tubeRows = (raw['tubeDrawings'] as List? ?? const []).whereType<Map>();
+  if (tubeRows.isNotEmpty) {
+    try {
+      final have = {
+        for (final r in await tubeDrawingsReader()) _tubeDrawingKey(r),
+      };
+      for (final r in tubeRows) {
+        final key = _tubeDrawingKey(r);
+        if (have.contains(key)) continue;
+        await tubeDrawingWriter({
+          for (final c in _kTubeDrawingCols) c: r[c]?.toString(),
+        });
+        have.add(key);
+        tube++;
+      }
+    } catch (e) {
+      recordError('튜브 보관함 복원', e);
+    }
+  }
+  for (final j in (raw['conduitDrawings'] as List? ?? const [])) {
+    try {
+      final d = ConduitDrawing.fromJson(j);
+      if (d == null) continue;
+      final before = (await loadConduitDrawings()).length;
+      await restoreConduitDrawing(d); // 같은 id가 있으면 그대로 둔다
+      if ((await loadConduitDrawings()).length > before) conduit++;
+    } catch (e) {
+      recordError('전선관 보관함 복원', e);
+    }
+  }
+  return (tube: tube, conduit: conduit);
+}
+
 Future<File> createBackupFile(List<Map<String, dynamic>> projects) async {
   final p = await SharedPreferences.getInstance();
   final templates = (await loadPhaseTemplates())
@@ -103,6 +189,8 @@ Future<File> createBackupFile(List<Map<String, dynamic>> projects) async {
     'favMaterials': p.getStringList('fav_materials_v1') ?? [],
     'layouts': extras.layouts,
     'personalSchedules': extras.schedules,
+    'tubeDrawings': await _tubeDrawingsForBackup(),
+    'conduitDrawings': await _conduitDrawingsForBackup(),
   };
   final dir = await getTemporaryDirectory();
   final d = DateTime.now();
@@ -123,19 +211,32 @@ class BackupPreview {
   // 옛 백업에는 배치도·내 일정이 없어서 0으로 본다.
   int get layouts => (raw['layouts'] as List?)?.length ?? 0;
   int get schedules => (raw['personalSchedules'] as List?)?.length ?? 0;
+  // 옛 백업에는 도면이 없어서 0으로 본다.
+  int get tubeDrawings => (raw['tubeDrawings'] as List?)?.length ?? 0;
+  int get conduitDrawings => (raw['conduitDrawings'] as List?)?.length ?? 0;
 }
 
 // 백업 안에 무엇이 들어 있는지 한 줄로("프로젝트 3건, 템플릿 1개, 배치도 2개, 내 일정 5건").
 String backupContentsLine(BackupPreview p) =>
     '프로젝트 ${p.projects}건, 템플릿 ${p.templates}개'
     '${p.layouts > 0 ? ', 배치도 ${p.layouts}개' : ''}'
-    '${p.schedules > 0 ? ', 내 일정 ${p.schedules}건' : ''}';
+    '${p.schedules > 0 ? ', 내 일정 ${p.schedules}건' : ''}'
+    '${p.tubeDrawings > 0 ? ', 튜브 도면 ${p.tubeDrawings}개' : ''}'
+    '${p.conduitDrawings > 0 ? ', 전선관 도면 ${p.conduitDrawings}개' : ''}';
 
 class RestoreResult {
   final int projects;
   final int layouts;
   final int schedules;
-  const RestoreResult(this.projects, this.layouts, this.schedules);
+  final int tubeDrawings;
+  final int conduitDrawings;
+  const RestoreResult(
+    this.projects,
+    this.layouts,
+    this.schedules, {
+    this.tubeDrawings = 0,
+    this.conduitDrawings = 0,
+  });
 }
 
 // 파일 내용을 읽어 검증만 한다(저장하지 않음). 형식이 다르면 예외.
@@ -244,7 +345,14 @@ Future<RestoreResult> restoreBackupAll(BackupPreview b) async {
           .set({'items': merged});
     } catch (_) {}
   }
-  return RestoreResult(ok, layoutsOk, schedulesOk);
+  final drawings = await restoreDrawings(b.raw);
+  return RestoreResult(
+    ok,
+    layoutsOk,
+    schedulesOk,
+    tubeDrawings: drawings.tube,
+    conduitDrawings: drawings.conduit,
+  );
 }
 
 // ───────────────────────── 클라우드 자동 백업 ─────────────────────────
@@ -309,7 +417,13 @@ Future<bool> uploadCloudBackup(List<Map<String, dynamic>> projects) async {
 
 // 백업이 필요 없거나 꺼져 있으면 null, 성공 true, 실패 false.
 Future<bool?> autoBackupIfDue(List<Map<String, dynamic>> projects) async {
-  if (projects.isEmpty || !await autoBackupEnabled()) return null;
+  if (!await autoBackupEnabled()) return null;
+  // 프로젝트가 없어도 도면만 있으면 백업한다.
+  if (projects.isEmpty &&
+      (await _tubeDrawingsForBackup()).isEmpty &&
+      (await _conduitDrawingsForBackup()).isEmpty) {
+    return null;
+  }
   final last = await lastAutoBackup();
   if (last != null &&
       DateTime.now().difference(last) < const Duration(days: 7)) {
