@@ -187,7 +187,12 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     if (next == _current) return;
     HapticFeedback.selectionClick();
     setState(() {
-      if (next > _current) _done.add(_current);
+      if (next > _current) {
+        _done.add(_current);
+      } else {
+        // 🚀 [고침] 돌아가면 그 단계부터는 다시 할 일이다(예전엔 ✓가 그대로 남았다).
+        _done.removeWhere((d) => d >= next);
+      }
       _current = next;
       _selectedStep = next;
     });
@@ -1127,13 +1132,10 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
         ),
         Expanded(
           child: LayoutBuilder(
-            builder: (context, c) => GestureDetector(
+            // 🚀 [고침] 예전에는 숫자 칸 아무 데나 닿아도 넘어가(폰을 관에 대다 손바닥이
+            // 닿으면 안 한 마킹이 ✓가 됐다). 이제 양옆 이전·다음 단추와 볼륨 단추로만 넘긴다.
+            builder: (context, c) => SizedBox(
               key: const Key('field_step_area'),
-              behavior: HitTestBehavior.opaque,
-              // 가운데를 기준으로 왼쪽을 누르면 이전, 오른쪽은 다음.
-              onTapUp: (d) => d.localPosition.dx < c.maxWidth / 2
-                  ? _prev(steps.length)
-                  : _next(steps.length),
               child: Center(
                 child: Padding(
                   padding: const EdgeInsets.all(8),

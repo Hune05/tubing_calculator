@@ -182,7 +182,7 @@ void main() {
       expect(find.text('21°→24° · UP'), findsOneWidget);
     });
 
-    testWidgets('한 단계씩: 누르기·볼륨 단추로 넘기고 끝낸 단계는 ✓', (tester) async {
+    testWidgets('한 단계씩: 이전·다음 단추·볼륨으로 넘기고, 돌아가면 ✓가 풀린다', (tester) async {
       await pumpScreen(tester, sample());
       await tester.tap(find.byKey(const Key('field_mode_toggle')));
       await tester.pumpAndSettle();
@@ -193,10 +193,15 @@ void main() {
       expect(find.text('1 / 3'), findsOneWidget);
       expect(find.text('실제로 24°까지 꺾기 · 스프링백'), findsOneWidget);
 
-      // 화면 오른쪽을 누르면 다음.
+      // 숫자 칸을 눌러도 넘어가지 않는다(손바닥이 닿아 넘어가던 것).
       final area = find.byKey(const Key('field_step_area'));
       final box = tester.getRect(area);
       await tester.tapAt(Offset(box.right - 20, box.center.dy));
+      await tester.pumpAndSettle();
+      expect(number(), '163');
+
+      // "다음" 단추.
+      await tester.tap(find.text('다음'));
       await tester.pumpAndSettle();
       expect(number(), '357');
       expect(find.text('2 / 3'), findsOneWidget);
@@ -212,11 +217,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(number(), '357');
 
-      // 왼쪽을 누르면 이전. 1번은 이미 끝낸 단계라 ✓.
-      await tester.tapAt(Offset(box.left + 20, box.center.dy));
+      // "이전"으로 1번까지 돌아가면 1번은 다시 할 일이라 ✓가 없다(예전엔 ✓가 남았다).
+      await tester.tap(find.text('이전'));
       await tester.pumpAndSettle();
       expect(number(), '163');
-      expect(find.byIcon(Icons.check_rounded), findsWidgets);
+      expect(find.byIcon(Icons.check_rounded), findsNothing);
     });
 
     testWidgets('경고가 있으면 위에 "확인"이 뜨고 누르면 내용이 나온다', (tester) async {
