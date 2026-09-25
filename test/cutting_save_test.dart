@@ -138,6 +138,7 @@ void main() {
       CuttingProject project, {
       Function(double, List<Map<String, dynamic>>, [List<CutRecord>])? onSave,
       Function(double, List<Map<String, dynamic>>, List<CutRecord>)? onUndo,
+      bool askTube = false,
     }) async {
       tester.view.physicalSize = const Size(1080, 6000);
       tester.view.devicePixelRatio = 3.0;
@@ -149,6 +150,7 @@ void main() {
               project: project,
               onSaveCallback: onSave,
               onUndoCallback: onUndo,
+              askTubeStockOnSave: askTube,
             ),
           ),
         ),
@@ -251,6 +253,51 @@ void main() {
       expect(p.totalTubeUsed, 0);
     });
 
+    testWidgets('X10 튜브를 안 뺐으면 저장 전에 묻고, 나중에를 고르면 출고 대기에 남긴다', (tester) async {
+      final savedFits = <List<Map<String, dynamic>>>[];
+      final undoneFits = <List<Map<String, dynamic>>>[];
+      final p = proj();
+      await open(
+        tester,
+        p,
+        askTube: true,
+        onSave: (t, f, [r = const <CutRecord>[]]) => savedFits.add(f),
+        onUndo: (t, f, r) => undoneFits.add(f),
+      );
+      await tester.tap(find.text('저장하기'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('tube_stock_ask')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('tube_stock_later')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('저장'));
+      await tester.pumpAndSettle();
+      final tube = savedFits.single.where((m) => m['type'] == 'TUBE').toList();
+      expect(tube, hasLength(1));
+      expect(tube.single['qty_mm'], 6000); // 새 원자재 한 본
+      // 실행 취소하면 같은 줄로 되돌린다.
+      await tester.tap(find.text('실행 취소'));
+      await tester.pumpAndSettle();
+      expect(undoneFits.single.where((m) => m['type'] == 'TUBE'), hasLength(1));
+    });
+
+    testWidgets('X10 묻는 창에서 "빼지 않고 저장"이면 튜브 줄을 넣지 않는다', (tester) async {
+      final savedFits = <List<Map<String, dynamic>>>[];
+      await open(
+        tester,
+        proj(),
+        askTube: true,
+        onSave: (t, f, [r = const <CutRecord>[]]) => savedFits.add(f),
+        onUndo: (t, f, r) {},
+      );
+      await tester.tap(find.text('저장하기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('tube_stock_skip')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('저장'));
+      await tester.pumpAndSettle();
+      expect(savedFits.single.where((m) => m['type'] == 'TUBE'), isEmpty);
+    });
+
     testWidgets('되돌릴 콜백이 없는 화면은 실행 취소를 주지 않는다', (tester) async {
       final p = proj();
       await open(tester, p, onSave: (t, f, [r = const <CutRecord>[]]) {});
@@ -341,5 +388,15 @@ void main() {
         isEmpty,
       );
     });
+  });
+
+  test('X10 나중에 뺄 튜브 줄: 목록 자재에 길이로 쌓이고 되돌리면 빠진다', () {
+    final extra = pendingTubeEntries({'튜브 1/2"': 12000, '튜브 3/8"': 6000});
+    expect(extra.first['db_name'], '튜브 1/2"');
+    expect(extra.first['spec'], '1/2"');
+    final added = mergeMaterialsUsage([], 0, extra);
+    expect(added.firstWhere((m) => m['db_name'] == '튜브 1/2"')['qty_mm'], 12000);
+    expect(added, hasLength(2));
+    expect(subtractMaterialsUsage(added, 0, extra), isEmpty);
   });
 }

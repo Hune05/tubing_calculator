@@ -127,6 +127,7 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
       MaterialPageRoute(
         builder: (context) => CuttingMainScreen(
           project: project,
+          askTubeStockOnSave: true,
           onSaveCallback:
               (
                 double totalTubeLength,

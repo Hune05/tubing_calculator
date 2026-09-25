@@ -69,6 +69,14 @@ List<Map<String, dynamic>> mergeMaterialsUsage(
   }
 
   for (final newFit in fittingsList) {
+    // 재단 계획에서 빼지 않고 "나중에 목록에서 빼기"로 남긴 튜브(길이로 쌓는다).
+    if (newFit['type'] == 'TUBE') {
+      addTube(
+        (newFit['spec'] ?? '').toString(),
+        (newFit['qty_mm'] as num? ?? 0).toDouble(),
+      );
+      continue;
+    }
     final fitIdx = materials.indexWhere(
       (m) => m['db_name'] == newFit['db_name'],
     );
@@ -128,6 +136,13 @@ List<Map<String, dynamic>> subtractMaterialsUsage(
   }
 
   for (final fit in fittingsList) {
+    if (fit['type'] == 'TUBE') {
+      takeTube(
+        (fit['spec'] ?? '').toString(),
+        (fit['qty_mm'] as num? ?? 0).toDouble(),
+      );
+      continue;
+    }
     final idx = materials.indexWhere((m) => m['db_name'] == fit['db_name']);
     if (idx < 0) continue;
     final left =
@@ -140,6 +155,23 @@ List<Map<String, dynamic>> subtractMaterialsUsage(
   }
   return materials;
 }
+
+/// 재단 계획에서 아직 안 뺀 튜브(규격 이름 → 새 원자재 길이 합 mm)를 목록의
+/// "출고 대기"에 남길 줄로 만든다. 저장할 때 부속과 같이 넘기면 [mergeMaterialsUsage]가
+/// 튜브 길이로 쌓고, 목록의 "재고 차감"이 한 본 길이로 나눠 뺀다.
+/// [mmBySpec]의 키는 재단 계획 규격 이름("튜브 1/2\"", 모르면 "").
+List<Map<String, dynamic>> pendingTubeEntries(Map<String, double> mmBySpec) => [
+  for (final e in mmBySpec.entries)
+    if (e.value > 0)
+      {
+        'type': 'TUBE',
+        'spec': e.key.startsWith('튜브 ') ? e.key.substring(3) : e.key,
+        'db_name': tubeMaterialName(
+          e.key.startsWith('튜브 ') ? e.key.substring(3) : e.key,
+        ),
+        'qty_mm': e.value,
+      },
+];
 
 /// 컷팅 기록에서 규격별 튜브 사용 길이(mm)를 모은다. 저장과 되돌리기가
 /// 같은 값을 써야 자재 사용량이 제자리로 돌아온다.

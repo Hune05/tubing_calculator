@@ -315,6 +315,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
           // 🚀 [추가] cutRecords는 이번 "완료" 한 번에 실제로 잘린 구간들 -
           // 서브컬렉션에 하나씩 남겨서 "컷팅 기록" 화면에서 날짜별로
           // 되짚어볼 수 있게 한다.
+          askTubeStockOnSave: true,
           onSaveCallback:
               (
                 double totalTubeLength,

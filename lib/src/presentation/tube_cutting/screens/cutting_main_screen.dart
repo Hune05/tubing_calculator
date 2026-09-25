@@ -32,7 +32,7 @@ import '../cutting_math.dart'
 import '../cutting_optimizer.dart';
 import '../cutting_plan_rows.dart';
 import '../cutting_plan_settings.dart';
-import '../cutting_firestore_helper.dart' show tubeMaterialName;
+import '../cutting_firestore_helper.dart' show tubeMaterialName, pendingTubeEntries;
 import '../cutting_stock_deduct.dart';
 import '../cutting_theme.dart';
 import '../../inventory/pages/mobile_inventory_ocr.dart';
@@ -99,11 +99,16 @@ class CuttingMainScreen extends StatefulWidget {
   )?
   onUndoCallback;
 
+  /// 저장할 때 재단 계획에서 아직 안 뺀 튜브가 있으면 어떻게 할지 묻는다(작업 목록 화면용).
+  /// 데스크톱 프로젝트 화면은 튜브를 길이로 따로 쌓으므로 묻지 않는다.
+  final bool askTubeStockOnSave;
+
   const CuttingMainScreen({
     super.key,
     required this.project,
     this.onSaveCallback,
     this.onUndoCallback,
+    this.askTubeStockOnSave = false,
   });
 
   @override
@@ -2239,9 +2244,30 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       );
       return;
     }
-    final plan = _buildSavePlan();
+    var plan = _buildSavePlan();
     if (plan == null) return;
     FocusScope.of(context).unfocus();
+
+    // 🚀 [고침] 튜브 재고 빼기 안내가 저장 뒤 10초 알림에만 있었다. 놓치면 입력이
+    // 비워져 재단 계획에서 뺄 수 없고, 목록의 "출고 대기"에도 안 잡혀 영영 안 빠졌다.
+    // 저장하기 전에 묻고, "나중에"를 고르면 목록의 출고 대기에 남긴다.
+    _TubeStockChoice tubeChoice = _TubeStockChoice.notAsked;
+    if (widget.askTubeStockOnSave && widget.onSaveCallback != null) {
+      final left = await _undeductedTubeMm();
+      if (!mounted) return;
+      if (left.isNotEmpty) {
+        tubeChoice = await _askTubeStock(left);
+        if (!mounted) return;
+        if (tubeChoice == _TubeStockChoice.cancel) return;
+        if (tubeChoice == _TubeStockChoice.openPlan) {
+          await _showOptimizationDialog();
+          return;
+        }
+        if (tubeChoice == _TubeStockChoice.later) {
+          plan = plan.withExtra(pendingTubeEntries(left));
+        }
+      }
+    }
 
     final lines = _resultLines();
     final sum = summarizeResult(lines, _doneKeys);
@@ -2268,10 +2294,106 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       icon: Icons.save_outlined,
     );
     if (!ok || !mounted) return;
-    _commitSave(plan, canUndo);
+    _commitSave(plan, canUndo, tubeChoice: tubeChoice);
   }
 
-  void _commitSave(_SavePlan plan, bool canUndo) {
+  /// 재단 계획에서 새 원자재로 나올 튜브 중 아직 재고에서 안 뺀 것(규격 → 길이 합 mm).
+  Future<Map<String, double>> _undeductedTubeMm() async {
+    try {
+      final leftovers = await loadLeftovers();
+      final mixLengths = await loadMixLengths();
+      final planSettings = await loadCutPlanSettings();
+      final need = <String, List<double>>{};
+      for (final e in _collectRequiredPiecesByTubeSize().entries) {
+        final groupLeftovers = [
+          for (final l in leftovers)
+            if (l.label == e.key) l.length,
+        ];
+        final r = mixLengths.isNotEmpty
+            ? optimizeCuttingMixed(
+                pieces: e.value,
+                stockLengths: mixLengths,
+                kerf: _bladeKerf,
+                leftovers: groupLeftovers,
+                endTrim: planSettings.endTrim,
+              )
+            : optimizeCutting(
+                pieces: e.value,
+                stockLength: _stockLength,
+                kerf: _bladeKerf,
+                leftovers: groupLeftovers,
+                endTrim: planSettings.endTrim,
+              );
+        need[e.key] = [for (final b in r.bars) b.stockLength];
+      }
+      final left = barsStillToDeduct(need, _stockDeductedNow);
+      return {
+        for (final e in left.entries)
+          if (e.value.isNotEmpty) e.key: e.value.fold(0.0, (a, b) => a + b),
+      };
+    } catch (e) {
+      debugPrint('튜브 재고 확인 건너뜀: $e');
+      return const {};
+    }
+  }
+
+  Future<_TubeStockChoice> _askTubeStock(Map<String, double> left) async {
+    final lines = [
+      for (final e in left.entries)
+        "• ${e.key.isEmpty ? '튜브(규격 미지정)' : e.key} "
+            "${(e.value / 1000).toStringAsFixed(e.value % 1000 == 0 ? 0 : 1)}m",
+    ].join('\n');
+    final pick = await showDialog<_TubeStockChoice>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        key: const Key('tube_stock_ask'),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        title: const Text(
+          "튜브 재고를 아직 빼지 않았습니다",
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+        content: Text(
+          "$lines\n\n저장하면 입력이 비워져 재단 계획에서 뺄 수 없습니다.",
+          style: const TextStyle(
+            color: CuttingColors.textPrimary,
+            fontSize: 15,
+            height: 1.45,
+          ),
+        ),
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 4,
+        actions: [
+          ElevatedButton(
+            key: const Key('tube_stock_open_plan'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: CuttingColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, _TubeStockChoice.openPlan),
+            child: const Text("재단 계획에서 빼기"),
+          ),
+          OutlinedButton(
+            key: const Key('tube_stock_later'),
+            onPressed: () => Navigator.pop(ctx, _TubeStockChoice.later),
+            child: const Text("목록 '출고 대기'에 남기고 저장"),
+          ),
+          TextButton(
+            key: const Key('tube_stock_skip'),
+            onPressed: () => Navigator.pop(ctx, _TubeStockChoice.skip),
+            child: const Text("빼지 않고 저장"),
+          ),
+        ],
+      ),
+    );
+    return pick ?? _TubeStockChoice.cancel;
+  }
+
+  void _commitSave(
+    _SavePlan plan,
+    bool canUndo, {
+    _TubeStockChoice tubeChoice = _TubeStockChoice.notAsked,
+  }) {
     // 되돌릴 때 입력을 그대로 살리기 위해, 지우기 전의 값을 붙잡아 둔다.
     final snapshot = _SavedSnapshot(
       plan: plan,
@@ -2321,12 +2443,16 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         ? " (톱날 손실 ${plan.kerfLossMm.toStringAsFixed(1)}mm 포함)"
         : "";
     // 튜브는 재단 계획 창에서 새 원자재 본수로 뺀다. 아직 안 뺐으면 알려 준다.
-    final tubeNote =
+    final tubeNote = switch (tubeChoice) {
+      _TubeStockChoice.later => "\n튜브는 목록의 '재고 차감'으로 뺍니다.",
+      _TubeStockChoice.skip => "",
+      _ =>
         widget.onSaveCallback != null &&
-            (snapshot.stockSig.isEmpty ||
-                snapshot.stockSig != snapshot.linesSig)
-        ? "\n튜브 재고는 재단 계획 창의 '재고에서 빼기'로 뺍니다."
-        : "";
+                (snapshot.stockSig.isEmpty ||
+                    snapshot.stockSig != snapshot.linesSig)
+            ? "\n튜브 재고는 재단 계획 창의 '재고에서 빼기'로 뺍니다."
+            : "",
+    };
     final msg =
         "튜브 총 ${plan.finalTotalMm.toStringAsFixed(1)}mm$kerfNote와 부속 ${plan.fittingCount}개를 저장했습니다.$tubeNote";
     if (canUndo) {
@@ -4178,7 +4304,20 @@ class _SavePlan {
     required this.fittingCount,
     required this.records,
   });
+
+  /// 부속 목록에 줄을 더한 것(나중에 뺄 튜브 등).
+  _SavePlan withExtra(List<Map<String, dynamic>> extra) => _SavePlan(
+    baseMm: baseMm,
+    kerfLossMm: kerfLossMm,
+    finalTotalMm: finalTotalMm,
+    fittings: [...fittings, ...extra],
+    fittingCount: fittingCount,
+    records: records,
+  );
 }
+
+/// 저장할 때 아직 안 뺀 튜브를 어떻게 할지.
+enum _TubeStockChoice { notAsked, openPlan, later, skip, cancel }
 
 // 저장 직전의 입력 상태(실행 취소로 되살릴 때 쓴다).
 class _SavedSnapshot {
