@@ -373,16 +373,20 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
       springbackDeg: dataManager.springback,
     );
 
+    // 폰·태블릿 마킹 화면과 같은 규칙: 꼬리가 있으면 끝 피팅 깊이는 꼬리에 붙는다.
+    // 예전엔 늘 마지막 구간에 더해서, 꼬리가 있으면 마지막 마킹이 피팅 깊이만큼 늦었다.
+    final fitted = tubeFittedLengths(
+      widget.bendList,
+      startFit: _includeStartFitting,
+      endFit: _includeEndFitting,
+      fittingDepth: fittingDepth,
+      tail: _tailLength,
+    );
     List<BendInstruction> instructions = [];
     for (int i = 0; i < widget.bendList.length; i++) {
-      double l = widget.bendList[i]['length']!.toDouble();
-      if (i == 0 && _includeStartFitting) l += fittingDepth;
-      if (i == widget.bendList.length - 1 && _includeEndFitting) {
-        l += fittingDepth;
-      }
       instructions.add(
         BendInstruction(
-          length: l,
+          length: fitted.lengths[i],
           angle: widget.bendList[i]['angle']!.toDouble(),
           rotation: widget.bendList[i]['rotation']!.toDouble(),
         ),
@@ -397,7 +401,7 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
       result = engine.calculate(
         instructions,
         dataManager.benderOffset,
-        tail: _tailLength,
+        tail: fitted.tail,
       );
     } catch (e) {
       calcError = tubeEngineErrorText(e);

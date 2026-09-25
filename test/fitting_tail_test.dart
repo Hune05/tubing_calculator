@@ -1,6 +1,7 @@
 // 끝 피팅 + 꼬리: 관 끝은 꼬리 끝이므로 피팅 깊이는 꼬리에 붙는다.
 // 예전에는 마지막 구간에 붙여서 R100·500 90°·꼬리 300·깊이 20에서
 // 마킹이 400이 아니라 420으로 찍혔다(절단 길이는 777.08로 같았다).
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/data/machine_specs.dart';
@@ -69,5 +70,24 @@ void main() {
     final data = computeTubeFieldData();
     expect(data.bends.single.position, closeTo(400, 0.01));
     expect(data.totalCut, closeTo(777.08, 0.01));
+  });
+
+  test('튜브 마킹 화면은 모두 같은 피팅 규칙(tubeFittedLengths)을 쓴다', () {
+    // 태블릿 전기 마킹만 따로 셈해서, 꼬리가 있을 때 마지막 마킹이 피팅 깊이만큼 늦었다.
+    const screens = [
+      'lib/src/presentation/calculator/screens/electric_marking_page.dart',
+      'lib/src/presentation/calculator/screens/marking_page.dart',
+      'lib/src/presentation/calculator/screens/mobile_result_tabs.dart',
+      'lib/src/presentation/fabrication/screens/mobile_fabrication_detail_screen.dart',
+    ];
+    for (final f in screens) {
+      final src = File(f).readAsStringSync();
+      expect(src, contains('tubeFittedLengths('), reason: f);
+      expect(
+        RegExp(r'l \+= fittingDepth').hasMatch(src),
+        isFalse,
+        reason: '$f: 피팅 깊이를 직접 더하지 말고 tubeFittedLengths를 쓰십시오',
+      );
+    }
   });
 }
