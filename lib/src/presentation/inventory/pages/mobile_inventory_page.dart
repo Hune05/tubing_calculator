@@ -16,6 +16,7 @@ import 'inventory_owner.dart';
 import 'inventory_item_card.dart';
 import 'material_catalog_page.dart';
 import 'mobile_inventory_ocr.dart';
+import 'package:tubing_calculator/src/core/utils/number_input.dart';
 
 part 'mobile_inventory_dialogs.dart';
 part 'mobile_inventory_sync.dart';

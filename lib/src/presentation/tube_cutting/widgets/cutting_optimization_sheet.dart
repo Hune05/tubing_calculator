@@ -14,6 +14,7 @@ import '../cutting_plan_settings.dart';
 import '../cutting_stock_deduct.dart';
 import '../cutting_theme.dart';
 import 'leftover_log_page.dart';
+import 'package:tubing_calculator/src/core/utils/number_input.dart';
 
 // 🚀 [형강 컷팅 신규 기능 대비 리팩터링] 원래 이 "재단 계획" 시트는
 // CuttingMainScreen 안에 300줄 가까이 박혀 있어서, 튜브 라인이 아니라
@@ -107,6 +108,7 @@ Future<void> showCuttingOptimizationSheet(
   }
   bool useLeftovers = true;
   bool leftoversSaved = leftoversAlreadySaved;
+  String? stockError;
   bool leftoversSaving = false;
   // 이 작업에서 이미 재고에서 뺀 본(같은 것을 두 번 빼지 않게). 지금 계산과 견줘
   // 남은 본만 뺄 수 있다. 기준 길이·섞어 쓰기를 바꿔 본이 늘면 는 만큼만 뺀다.
@@ -203,11 +205,16 @@ Future<void> showCuttingOptimizationSheet(
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setSheetState) {
         void recalc([double? presetValue]) {
-          final parsed = presetValue ?? double.tryParse(ctrl.text);
-          if (parsed == null || parsed <= 0) return;
+          final parsed = presetValue ?? parseNumInput(ctrl.text);
+          // 🚀 [고침] 숫자가 아니거나 0이면 말없이 넘어갔다. 칸 아래에 이유를 보인다.
+          if (parsed == null || parsed <= 0) {
+            setSheetState(() => stockError = "0보다 큰 길이를 넣으십시오");
+            return;
+          }
           HapticFeedback.selectionClick();
           ctrl.text = parsed.toStringAsFixed(0);
           setSheetState(() {
+            stockError = null;
             stockNow = parsed;
             leftoversSaved = false;
             results = compute(parsed);
@@ -300,6 +307,7 @@ Future<void> showCuttingOptimizationSheet(
                       fontWeight: FontWeight.w700,
                     ),
                     decoration: InputDecoration(
+                      errorText: stockError,
                       labelText: "원자재 기준 길이",
                       labelStyle: const TextStyle(
                         color: CuttingColors.textSecondary,
@@ -1257,6 +1265,7 @@ Future<List<Leftover>?> _manageLeftovers(
   final ctrl = TextEditingController();
   String label = labels.first;
   bool changed = false;
+  String? addError;
   return showDialog<List<Leftover>>(
     context: context,
     builder: (ctx) => StatefulBuilder(
@@ -1367,18 +1376,29 @@ Future<List<Leftover>?> _manageLeftovers(
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
-                          decoration: const InputDecoration(
+                          key: const Key('leftover_add_len'),
+                          decoration: InputDecoration(
                             labelText: "길이",
                             suffixText: "mm",
                             isDense: true,
+                            errorText: addError,
+                            errorMaxLines: 2,
                           ),
                         ),
                       ),
                       OutlinedButton(
                         onPressed: () {
-                          final v = double.tryParse(ctrl.text.trim());
-                          if (v == null || v < kMinLeftoverMm) return;
+                          // 🚀 [고침] 짧거나 숫자가 아니면 말없이 넘어갔다.
+                          final v = parseNumInput(ctrl.text);
+                          if (v == null || v < kMinLeftoverMm) {
+                            setD(
+                              () => addError =
+                                  "${kMinLeftoverMm.toStringAsFixed(0)}mm 이상만 잔재로 둡니다",
+                            );
+                            return;
+                          }
                           setD(() {
+                            addError = null;
                             list.add(Leftover(label, v.floorToDouble()));
                             ctrl.clear();
                             changed = true;

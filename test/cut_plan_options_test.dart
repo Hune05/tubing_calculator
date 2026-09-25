@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/core/utils/number_input.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_leftovers.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_optimizer.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_plan_rows.dart';
@@ -184,5 +185,60 @@ void main() {
     expect(find.byKey(const Key('owned_input')), findsNothing);
     final p = await SharedPreferences.getInstance();
     expect(jsonDecode(p.getString(kCutOwnedBarsKey)!)['앵글'], 3);
+  });
+
+  test('F4 숫자 읽기: 자릿점·단위 글자를 빼고, 숫자가 아니면 null', () {
+    expect(parseIntInput('6,000'), 6000);
+    expect(parseIntInput(' 6000 mm'), 6000);
+    expect(parseIntInput('3개'), 3);
+    expect(parseIntInput('1.5'), isNull);
+    expect(parseIntInput('abc'), isNull);
+    expect(parseIntInput(''), isNull);
+    expect(parseNumInput('5,950.5'), 5950.5);
+  });
+
+  testWidgets('F4 기준 길이·잔재 추가: 틀린 값이면 이유를 보인다', (tester) async {
+    leftoverStore = PrefsLeftoverStore();
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showCuttingOptimizationSheet(
+                context,
+                groupedPieces: {
+                  '앵글': [3000],
+                },
+                initialStockLength: 6000,
+              ),
+              child: const Text('열기'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+    final stock = find.widgetWithText(TextField, '원자재 기준 길이');
+    await tester.enterText(stock, '0');
+    await tester.tap(find.text('계산'));
+    await tester.pumpAndSettle();
+    expect(find.text('0보다 큰 길이를 넣으십시오'), findsOneWidget);
+    await tester.enterText(stock, '6,000');
+    await tester.tap(find.text('계산'));
+    await tester.pumpAndSettle();
+    expect(find.text('0보다 큰 길이를 넣으십시오'), findsNothing);
+
+    await tester.ensureVisible(find.text('잔재 관리'));
+    await tester.tap(find.text('잔재 관리'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('leftover_add_len')), '100');
+    await tester.tap(find.text('추가'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('mm 이상만 잔재로 둡니다'), findsOneWidget);
   });
 }

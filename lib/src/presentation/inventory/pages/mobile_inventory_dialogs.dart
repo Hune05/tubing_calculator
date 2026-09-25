@@ -20,94 +20,103 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
     showDialog(
       context: context,
       builder: (context) {
-        return Theme(
-          data: ThemeData.light(),
-          child: AlertDialog(
-            backgroundColor: pureWhite,
-            surfaceTintColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-            titlePadding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
-            contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-            title: Text(
-              "$item\n얼마나 있습니까?",
-              style: const TextStyle(
-                color: slate900,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                height: 1.4,
+        String? error;
+        return StatefulBuilder(
+          builder: (context, setD) => Theme(
+            data: ThemeData.light(),
+            child: AlertDialog(
+              backgroundColor: pureWhite,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
               ),
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: qtyController,
-                  keyboardType: TextInputType.number,
-                  autofocus: true,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: makitaTeal,
-                    fontSize: 56,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -2,
-                  ),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    hintText: "0",
-                    hintStyle: TextStyle(color: slate100),
-                  ),
+              titlePadding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
+              contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+              title: Text(
+                "$item\n얼마나 있습니까?",
+                style: const TextStyle(
+                  color: slate900,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  height: 1.4,
                 ),
-                const Text(
-                  "숫자를 눌러서 수정하십시오",
-                  style: TextStyle(
-                    color: slate600,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-            actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            actions: [
-              Row(
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: TextButton(
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                  TextField(
+                    controller: qtyController,
+                    keyboardType: TextInputType.number,
+                    autofocus: true,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: makitaTeal,
+                      fontSize: 56,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -2,
+                    ),
+                    key: const Key('count_qty_input'),
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      hintText: "0",
+                      hintStyle: const TextStyle(color: slate100),
+                      errorText: error,
+                    ),
+                  ),
+                  const Text(
+                    "숫자를 눌러서 수정하십시오",
+                    style: TextStyle(
+                      color: slate600,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              actions: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          backgroundColor: slate100,
+                          foregroundColor: slate600,
                         ),
-                        backgroundColor: slate100,
-                        foregroundColor: slate600,
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text(
-                        "취소",
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text(
+                          "취소",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: makitaTeal,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: makitaTeal,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
-                      ),
-                      onPressed: () {
-                        int? newQty = int.tryParse(qtyController.text);
-                        if (newQty != null && newQty >= 0) {
+                        key: const Key('count_qty_ok'),
+                        onPressed: () {
+                          // 🚀 [고침] 틀린 값이어도 창이 닫히고 수량은 그대로였다.
+                          int? newQty = parseIntInput(qtyController.text);
+                          if (newQty == null || newQty < 0) {
+                            setD(() => error = "0 이상 정수로 넣으십시오");
+                            return;
+                          }
                           setState(() {
                             if (!_localEdits.containsKey(docId)) {
                               // 빈 ItemData로 시작하면 최소 수량·보관 위치가 0·빈칸으로
@@ -116,22 +125,22 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                             }
                             _localEdits[docId]!.qty = newQty;
                           });
-                        }
-                        Navigator.pop(context);
-                      },
-                      child: const Text(
-                        "입력 완료",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          Navigator.pop(context);
+                        },
+                        child: const Text(
+                          "입력 완료",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -549,6 +558,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
     showDialog(
       context: context,
       builder: (context) {
+        String? minQtyError;
         return StatefulBuilder(
           builder: (context, setDialogState) {
             List<String> quickOptions = [];
@@ -618,6 +628,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                         filled: true,
                         fillColor: slate100,
                         hintText: "직접 입력해 주십시오",
+                        errorText: minQtyError,
                         hintStyle: TextStyle(
                           color: slate600.withValues(alpha: 0.6),
                           fontSize: 16,
@@ -855,6 +866,18 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                             ),
                           ),
                           onPressed: () {
+                            // 🚀 [고침] 최소 수량에 오타가 있으면 0으로 저장돼 부족
+                            // 알림이 꺼졌다. 숫자가 아니면 창을 닫지 않고 알린다.
+                            if (infoType == 'MinQty' &&
+                                ctrl.text.trim().isNotEmpty) {
+                              final n = parseIntInput(ctrl.text);
+                              if (n == null || n < 0) {
+                                setDialogState(
+                                  () => minQtyError = "0 이상 정수로 넣으십시오",
+                                );
+                                return;
+                              }
+                            }
                             setState(() {
                               if (!_localEdits.containsKey(docId)) {
                                 _localEdits[docId] = data;
@@ -880,7 +903,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                                       .trim();
                                 } else if (infoType == 'MinQty') {
                                   _localEdits[docId]!.minQty =
-                                      int.tryParse(ctrl.text.trim()) ?? 0;
+                                      parseIntInput(ctrl.text) ?? 0;
                                 }
                               } catch (_) {}
                             });

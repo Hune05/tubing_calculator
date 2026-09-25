@@ -6,6 +6,7 @@ import '../../tube_cutting/cutting_theme.dart';
 import '../material_catalog.dart';
 import 'inventory_owner.dart';
 import 'material_catalog_store.dart';
+import 'package:tubing_calculator/src/core/utils/number_input.dart';
 
 /// 자재 한 종을 한 장에 모아 보는 화면. 재고·규격·보관 위치·최근 기록을
 /// 한 곳에서 보고, 여기서 바로 수량을 고친다.
@@ -359,34 +360,52 @@ class _Body extends StatelessWidget {
   ) async {
     final ctrl = TextEditingController(text: value);
     final isNumber = field == 'minQty' || field == 'barLengthMm';
+    String? error;
+    // 🚀 [고침] 숫자 칸에 "6,000"·"6000mm"를 넣으면 0으로 저장됐다(한 본 길이·최소
+    // 수량이 0이 되어 부족 알림이 꺼졌다). 읽을 수 없으면 창을 닫지 않고 알린다.
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text("$label 고치기"),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-          decoration: InputDecoration(
-            labelText: label,
-            isDense: true,
-            helperText: field == 'barLengthMm' ? "비워 두면 6000mm로 봅니다." : null,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("취소"),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: CuttingColors.primary,
-              foregroundColor: Colors.white,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text("$label 고치기"),
+          content: TextField(
+            key: const Key('item_field_input'),
+            controller: ctrl,
+            autofocus: true,
+            keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+            decoration: InputDecoration(
+              labelText: label,
+              isDense: true,
+              errorText: error,
+              helperText: field == 'barLengthMm' ? "비워 두면 6000mm로 봅니다." : null,
             ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("고치기"),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("취소"),
+            ),
+            ElevatedButton(
+              key: const Key('item_field_ok'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: CuttingColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                final t = ctrl.text.trim();
+                if (isNumber && t.isNotEmpty) {
+                  final n = parseIntInput(t);
+                  if (n == null || n < 0) {
+                    setD(() => error = "0 이상 숫자로 넣으십시오(예: 6000)");
+                    return;
+                  }
+                }
+                Navigator.pop(ctx, true);
+              },
+              child: const Text("고치기"),
+            ),
+          ],
+        ),
       ),
     );
     if (ok != true) return;
@@ -394,7 +413,7 @@ class _Body extends StatelessWidget {
     final text = ctrl.text.trim();
     try {
       await _ref.update({
-        field: isNumber ? (int.tryParse(text) ?? 0) : text,
+        field: isNumber ? (parseIntInput(text) ?? 0) : text,
         'lastUpdated': FieldValue.serverTimestamp(),
       });
       if (field == 'maker') await rememberMaker(text);
@@ -443,41 +462,61 @@ class _Body extends StatelessWidget {
   /// 컷팅 차감과 겹쳐도 틀어지지 않는다. 재고와 기록은 한 번에 쓴다.
   Future<void> _moveQty(BuildContext context, {required bool use}) async {
     final ctrl = TextEditingController(text: '1');
+    String? error;
+    // 🚀 [고침] 0·빈칸·"1.5"를 넣으면 창이 닫힌 뒤 아무 일도 없었다. 창을 닫지 않고 알린다.
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(use ? "몇 $_unit 썼습니까?" : "몇 $_unit 채웠습니까?"),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 40,
-            fontWeight: FontWeight.w800,
-            color: CuttingColors.primaryDark,
-          ),
-          decoration: const InputDecoration(border: InputBorder.none),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("취소"),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: CuttingColors.primary,
-              foregroundColor: Colors.white,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text(use ? "몇 $_unit 썼습니까?" : "몇 $_unit 채웠습니까?"),
+          content: TextField(
+            key: const Key('move_qty_input'),
+            controller: ctrl,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 40,
+              fontWeight: FontWeight.w800,
+              color: CuttingColors.primaryDark,
             ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(use ? "뺍니다" : "더합니다"),
+            decoration: InputDecoration(
+              border: InputBorder.none,
+              errorText: error,
+            ),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("취소"),
+            ),
+            ElevatedButton(
+              key: const Key('move_qty_ok'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: CuttingColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                final n = parseIntInput(ctrl.text);
+                if (n == null || n <= 0) {
+                  setD(() => error = "1 이상 정수로 넣으십시오");
+                  return;
+                }
+                if (use && n > _qty) {
+                  setD(() => error = "재고($_qty$_unit)보다 많이 뺄 수 없습니다");
+                  return;
+                }
+                Navigator.pop(ctx, true);
+              },
+              child: Text(use ? "뺍니다" : "더합니다"),
+            ),
+          ],
+        ),
       ),
     );
     if (ok != true) return;
 
-    final n = int.tryParse(ctrl.text.trim());
+    final n = parseIntInput(ctrl.text);
     if (n == null || n <= 0) return;
     if (!context.mounted) return;
     if (use && n > _qty) {
@@ -524,53 +563,69 @@ class _Body extends StatelessWidget {
   /// 기록(자재 기록)에도 남긴다.
   Future<void> _editQty(BuildContext context) async {
     final ctrl = TextEditingController(text: '$_qty');
+    String? error;
+    // 🚀 [고침] 숫자가 아니면 창이 닫힌 뒤 아무 일도 없었다.
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("재고 수량"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: ctrl,
-              autofocus: true,
-              keyboardType: TextInputType.number,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 40,
-                fontWeight: FontWeight.w800,
-                color: CuttingColors.primaryDark,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: const Text("재고 수량"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: ctrl,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 40,
+                  fontWeight: FontWeight.w800,
+                  color: CuttingColors.primaryDark,
+                ),
+                key: const Key('set_qty_input'),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  errorText: error,
+                ),
               ),
-              decoration: const InputDecoration(border: InputBorder.none),
+              Text(
+                "창고에 실제로 있는 수량을 적습니다. 단위는 $_unit입니다.",
+                style: const TextStyle(
+                  color: CuttingColors.textSecondary,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("취소"),
             ),
-            Text(
-              "창고에 실제로 있는 수량을 적습니다. 단위는 $_unit입니다.",
-              style: const TextStyle(
-                color: CuttingColors.textSecondary,
-                fontSize: 13,
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: CuttingColors.primary,
+                foregroundColor: Colors.white,
               ),
+              key: const Key('set_qty_ok'),
+              onPressed: () {
+                final n = parseIntInput(ctrl.text);
+                if (n == null || n < 0) {
+                  setD(() => error = "0 이상 정수로 넣으십시오");
+                  return;
+                }
+                Navigator.pop(ctx, true);
+              },
+              child: const Text("고치기"),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("취소"),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: CuttingColors.primary,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("고치기"),
-          ),
-        ],
       ),
     );
     if (ok != true) return;
 
-    final next = int.tryParse(ctrl.text.trim());
+    final next = parseIntInput(ctrl.text);
     if (next == null || next < 0) return;
     if (next == _qty) return;
     if (!context.mounted) return;

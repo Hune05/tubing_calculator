@@ -122,31 +122,41 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: CuttingColors.primary,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                // 🚀 [고침] 이름이 비었을 때 눌러도 반응이 없어 고장처럼 보였다.
+                // 이름을 넣기 전에는 단추를 흐리게 하고 이유를 적는다.
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: nameCtrl,
+                  builder: (context, v, _) {
+                    final empty = v.text.trim().isEmpty;
+                    return SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        key: const Key('new_cut_project_ok'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: CuttingColors.primary,
+                          disabledBackgroundColor: Colors.grey.shade300,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          elevation: 0,
+                        ),
+                        onPressed: empty
+                            ? null
+                            : () => Navigator.pop(ctx, nameCtrl.text.trim()),
+                        child: Text(
+                          empty ? "이름을 넣으면 만들 수 있습니다" : "만들기",
+                          style: TextStyle(
+                            color: empty
+                                ? CuttingColors.textSecondary
+                                : CuttingColors.surface,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                      elevation: 0,
-                    ),
-                    onPressed: () {
-                      if (nameCtrl.text.trim().isNotEmpty) {
-                        Navigator.pop(ctx, nameCtrl.text.trim());
-                      }
-                    },
-                    child: const Text(
-                      "만들기",
-                      style: TextStyle(
-                        color: CuttingColors.surface,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ],
             ),
