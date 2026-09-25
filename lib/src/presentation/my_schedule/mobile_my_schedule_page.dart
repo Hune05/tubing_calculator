@@ -1699,9 +1699,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                     unawaited(
                                       ref
                                           .set(data)
-                                          .catchError(
-                                            (e) => debugPrint('일정 저장 실패: $e'),
-                                          ),
+                                          .catchError(_scheduleSaveFailed),
                                     );
                                   } else if (scope == 'all') {
                                     targetDocId = docId;
@@ -1713,9 +1711,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                       col
                                           .doc(docId)
                                           .update(data)
-                                          .catchError(
-                                            (e) => debugPrint('일정 저장 실패: $e'),
-                                          ),
+                                          .catchError(_scheduleSaveFailed),
                                     );
                                   } else {
                                     // 이 회차만 / 이후 모두: 옛 문서는 그 자리에서 끊고 새 문서를 만든다.
@@ -1734,9 +1730,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                     unawaited(
                                       ref
                                           .set(data)
-                                          .catchError(
-                                            (e) => debugPrint('일정 저장 실패: $e'),
-                                          ),
+                                          .catchError(_scheduleSaveFailed),
                                     );
                                     unawaited(
                                       col
@@ -1759,9 +1753,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                                   },
                                           )
                                           .then((_) => _rescheduleDoc(docId))
-                                          .catchError(
-                                            (e) => debugPrint('일정 저장 실패: $e'),
-                                          ),
+                                          .catchError(_scheduleSaveFailed),
                                     );
                                   }
                                   await _scheduleOrCancelReminder(
@@ -2026,12 +2018,23 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     }
-    await batch.commit();
+    // 🚀 [고침] 통신이 없으면 서버 확인이 끝나지 않아 "추가했습니다"가 안 떴다.
+    // 폰에 먼저 적히므로 기다리지 않고 알리고, 실패하면 따로 알린다.
+    unawaited(batch.commit().catchError(_scheduleSaveFailed));
     if (mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("일정 ${items.length}건을 추가했습니다.")));
     }
+  }
+
+  // 🚀 [고침] 개인 일정 저장이 실패해도 알리지 않았다(화면엔 저장된 것처럼 보였다).
+  void _scheduleSaveFailed(Object e) {
+    debugPrint('일정 저장 실패: $e');
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("일정을 저장하지 못했습니다. 통신을 확인하고 다시 해 보십시오.")),
+    );
   }
 
   Future<void> _showCreateTemplateSheet() async {
