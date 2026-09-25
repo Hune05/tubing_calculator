@@ -11,6 +11,8 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 
 import '../../../data/models/cutting_project_model.dart';
+import '../cutting_firestore_helper.dart'
+    show subtractMaterialsUsage, tubeUsageBySize;
 import '../cutting_math.dart' show safeFileName;
 import '../cutting_record_export.dart';
 import '../cutting_theme.dart';
@@ -65,6 +67,25 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
       final projectRef = FirebaseFirestore.instance
           .collection(kCuttingProjectsCollection)
           .doc(widget.project.id);
+      // 아직 재고에서 안 뺀 사용량(materials)에서도 이 기록의 튜브를 뺀다. 예전엔 합계만
+      // 빼서, 잘못 저장한 기록을 지워도 나중에 "재고 차감"을 누르면 그 튜브까지 빠졌다.
+      // (부속은 두 구간 사이에 같이 쓰여 어느 기록 몫인지 나눌 수 없어 그대로 둔다.)
+      List<dynamic>? materials;
+      try {
+        materials =
+            (await projectRef.get().timeout(
+                  const Duration(seconds: 5),
+                )).data()?['materials']
+                as List?;
+      } catch (_) {
+        try {
+          materials =
+              (await projectRef.get(
+                    const GetOptions(source: Source.cache),
+                  )).data()?['materials']
+                  as List?;
+        } catch (_) {}
+      }
       final batch = FirebaseFirestore.instance.batch();
       batch.delete(
         projectRef.collection(kCutRecordsSubcollection).doc(record.id),
@@ -73,6 +94,13 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
         // 저장할 때 톱날 손실도 합계에 들어갔으니 지울 때도 같이 뺀다.
         'totalTubeUsed': FieldValue.increment(-record.usedWithKerf),
         'cutCount': FieldValue.increment(-record.multiplier),
+        if (materials != null)
+          'materials': subtractMaterialsUsage(
+            materials,
+            0,
+            const [],
+            tubeLengthBySize: tubeUsageBySize([record]),
+          ),
       });
       await batch.commit().timeout(
         const Duration(seconds: 8),

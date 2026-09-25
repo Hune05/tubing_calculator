@@ -296,4 +296,50 @@ void main() {
       expect(find.text('실행 취소'), findsNothing);
     });
   });
+
+  group('기록 하나를 지우면 그 기록의 튜브만 사용량에서 빠진다', () {
+    CutRecord rec(String size, double cut, int mult) => CutRecord(
+      id: 'r',
+      projectId: 'p',
+      timestamp: DateTime(2026, 9, 25),
+      tubeSize: size,
+      originalLength: cut,
+      startFitting: '직관',
+      endFitting: '직관',
+      cutLength: cut,
+      multiplier: mult,
+      kerf: 2,
+    );
+
+    test('두 기록을 저장한 뒤 하나를 지우면 다른 하나만 남는다', () {
+      final a = rec('1/2"', 1000, 2); // 2000mm
+      final b = rec('1/2"', 500, 1); // 500mm
+      final saved = mergeMaterialsUsage(
+        [],
+        0,
+        const [],
+        tubeLengthBySize: tubeUsageBySize([a, b]),
+      );
+      final afterDelete = subtractMaterialsUsage(
+        saved,
+        0,
+        const [],
+        tubeLengthBySize: tubeUsageBySize([a]),
+      );
+      final tube = afterDelete.firstWhere((m) => m['type'] == 'TUBE');
+      expect(tube['qty_mm'], closeTo(500, 1e-6)); // 톱날 몫은 사용량에 안 들어간다
+    });
+
+    test('이미 재고에서 빼서 비었으면 아무것도 안 한다', () {
+      expect(
+        subtractMaterialsUsage(
+          [],
+          0,
+          const [],
+          tubeLengthBySize: tubeUsageBySize([rec('3/8"', 900, 1)]),
+        ),
+        isEmpty,
+      );
+    });
+  });
 }

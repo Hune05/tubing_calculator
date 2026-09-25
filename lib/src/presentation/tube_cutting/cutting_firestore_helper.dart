@@ -178,22 +178,21 @@ Future<void> saveCuttingSession({
     tubeLengthBySize: bySize.isEmpty ? null : bySize,
   );
 
-  await docRef.update({
+  // 합계·사용량과 컷팅 기록을 한 묶음으로 쓴다. 예전엔 합계 쓰기가 서버 답을 기다린 뒤에야
+  // 기록을 적어서, 통신 없이 앱을 닫으면 합계는 올라가고 기록은 없었다(지울 수도 없었다).
+  final batch = FirebaseFirestore.instance.batch();
+  batch.update(docRef, {
     'totalTubeUsed': project.totalTubeUsed,
     'cutCount': project.cutCount,
     'usedFittings': project.usedFittings,
     'lastCutAt': DateTime.now().toIso8601String(),
     'materials': mergedMaterials,
   });
-
-  if (cutRecords.isNotEmpty) {
-    final batch = FirebaseFirestore.instance.batch();
-    final recordsRef = docRef.collection(kCutRecordsSubcollection);
-    for (final record in cutRecords) {
-      batch.set(recordsRef.doc(), record.toMap());
-    }
-    await batch.commit();
+  final recordsRef = docRef.collection(kCutRecordsSubcollection);
+  for (final record in cutRecords) {
+    batch.set(recordsRef.doc(), record.toMap());
   }
+  await batch.commit();
 }
 
 /// [saveCuttingSession]으로 저장한 것을 되돌린다("저장" 직후 실행 취소).
