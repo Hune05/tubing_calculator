@@ -1013,7 +1013,12 @@ extension InventoryTabsExt on _InventoryPageState {
                 fontSize: 14,
               ),
               items: items
-                  .map((i) => DropdownMenuItem(value: i, child: Text(i)))
+                  .map(
+                    (i) => DropdownMenuItem(
+                      value: i,
+                      child: Text(_choiceLabel(i)),
+                    ),
+                  )
                   .toList(),
               onChanged: onChanged,
             ),

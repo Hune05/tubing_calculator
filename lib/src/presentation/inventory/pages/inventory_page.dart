@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'inventory_constants.dart';
 import 'inventory_owner.dart';
 import 'inventory_view_logic.dart' show isShortStock;
+import '../material_catalog.dart' show materialCategoryLabel;
 
 part 'inventory_tabs.dart';
 part 'inventory_dialogs.dart';
@@ -45,6 +46,10 @@ class _InventoryPageState extends State<InventoryPage> {
     "기타",
   ];
   final List<String> _makers = ["ALL", "HY-LOK", "SWAGELOK", "PARKER", "기타"];
+
+  /// 고르기 칸에 보일 이름. 🚀 [고침] PC 재고 분류가 TUBE·FITTING처럼 영어 코드로 보였다
+  /// (폰은 한글). 저장하는 값은 그대로 두고 보이는 글만 바꾼다.
+  String _choiceLabel(String v) => v == 'ALL' ? '전체' : materialCategoryLabel(v);
 
   final CollectionReference _inventoryDb = FirebaseFirestore.instance
       .collection('inventory');

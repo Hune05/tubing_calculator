@@ -31,6 +31,8 @@ import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_invent
 
 // 🚀 3. 프로필 및 소통 페이지 임포트
 import 'package:tubing_calculator/src/presentation/profile/pages/mobile_profile_page.dart';
+import 'package:tubing_calculator/src/presentation/profile/profile_tools.dart'
+    show kGuestName;
 
 // 🚀 4. 프로젝트 관리 페이지 임포트
 import 'package:tubing_calculator/src/presentation/my_work_logs/screens/work_log_main_screen.dart';
@@ -349,6 +351,9 @@ class _MobileMenuPageState extends State<MobileMenuPage>
               children: [
                 _buildTopBar(context),
                 _buildSmartHeader(context),
+                // 🚀 [고침] 이름 없이 쓰면 알림이 없고 일정은 저장이 막히는데, 이름을 넣을
+                // 곳으로 가는 길이 오른쪽 위 작은 사람 아이콘뿐이었다.
+                if (widget.currentWorker == kGuestName) _buildGuestBanner(),
                 const SizedBox(height: 16),
 
                 const Padding(
@@ -466,8 +471,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   subtitle: "장비 프로필 설정 · 마킹 뷰어",
                   icon: AppGlyph.conduitBend,
                   iconColor: Colors.blueGrey, // 메인 기능이므로 파란색 강조
-                  badgeText: "Smart",
-                  badgeColor: Colors.blueGrey,
                   onTap: () {
                     HapticFeedback.lightImpact();
                     Navigator.push(
@@ -485,8 +488,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   subtitle: "스마트폰용 · 단계별 치수 입력",
                   icon: AppGlyph.tubeBend,
                   iconColor: makitaTeal,
-                  badgeText: "Main",
-                  badgeColor: makitaTeal,
                   onTap: () {
                     HapticFeedback.lightImpact();
                     Navigator.push(
@@ -504,8 +505,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   subtitle: "피팅 삽입깊이 차감 · 절단 자재 기록",
                   icon: AppGlyph.tubeCut,
                   iconColor: makitaTeal,
-                  badgeText: "New",
-                  badgeColor: makitaTeal,
                   onTap: () {
                     HapticFeedback.lightImpact();
                     Navigator.push(
@@ -524,8 +523,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   subtitle: "라인 조립 없이 규격·길이만으로 재단 계획·지시서 출력",
                   icon: AppGlyph.steel,
                   iconColor: makitaTeal,
-                  badgeText: "New",
-                  badgeColor: makitaTeal,
                   onTap: () {
                     HapticFeedback.lightImpact();
                     Navigator.push(
@@ -549,8 +546,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   subtitle: "캐비닛 중판 레이아웃 및 튜빙/결선 스케치",
                   icon: AppGlyph.layout,
                   iconColor: slate900,
-                  badgeText: "New",
-                  badgeColor: slate900,
                   onTap: () {
                     HapticFeedback.lightImpact();
                     // 🚀 [수정] 예전엔 여기서 바로 빈 도면을 열어서, 저장해둔
@@ -847,6 +842,48 @@ class _MobileMenuPageState extends State<MobileMenuPage>
 
   // 🚀 [정리] 숨긴 차량 기능의 `vehicles` 실시간 듣기를 뺐다(화면은 09-23에 숨겼는데
   // 홈 머리가 계속 서버를 듣고, 내 이름 차량이 있으면 날씨 대신 숨긴 화면으로 보냈다).
+  Widget _buildGuestBanner() {
+    return Container(
+      key: const Key('home_guest_banner'),
+      margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFC77700).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.person_add_alt_1_rounded, color: Color(0xFFC77700)),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              "이름을 넣으면 알림을 받고 일정·작업 일지에 이름이 남습니다.",
+              style: TextStyle(
+                color: slate900,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    MobileProfilePage(currentWorker: widget.currentWorker),
+              ),
+            ),
+            child: const Text(
+              "이름 넣기",
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSmartHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),

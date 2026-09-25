@@ -25,6 +25,7 @@ import 'schedule_backup.dart';
 import 'schedule_ics.dart';
 import 'schedule_search_dialog.dart';
 import 'schedule_logic.dart';
+import '../profile/pages/mobile_profile_page.dart' show MobileProfilePage;
 import 'schedule_reminders.dart';
 import '../my_work_logs/models/reminder_tools.dart'
     show ensureNotificationPermission;
@@ -2793,7 +2794,26 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   // 이름을 모르면 개인 일정을 저장하지 않고 알려 준다.
   bool _requireWorker() {
     if (canSaveAsWorker(_currentWorker)) return true;
-    _toast("이름이 등록되어 있지 않아 저장할 수 없습니다. 프로필 수정에서 이름을 먼저 등록하십시오.");
+    // 🚀 [고침] 막기만 하고 이름을 넣으러 가는 길이 없었다.
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text("이름이 없어 저장할 수 없습니다. 이름을 먼저 넣으십시오."),
+          duration: const Duration(seconds: 6),
+          action: SnackBarAction(
+            key: const Key('schedule_need_name'),
+            label: "이름 넣기",
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    MobileProfilePage(currentWorker: _currentWorker),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return false;
   }
 

@@ -196,12 +196,12 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
             FadeTransition(
               opacity: _animController,
               child: const Text(
-                "SYSTEM LOADING...",
+                "불러오는 중…",
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF007580),
-                  letterSpacing: 2,
+                  letterSpacing: 1,
                 ),
               ),
             ),
