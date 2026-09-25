@@ -1,0 +1,40 @@
+# 수동으로 눌러서(또는 API로) 디버그 APK를 만들어 GitHub 릴리스에 올린다.
+# 폰 브라우저로 릴리스 페이지에 들어가 apk 파일을 바로 받아 설치할 수 있다
+# (설정에서 "출처를 알 수 없는 앱 설치" 허용 필요). 서명 키가 없어도 되는
+# 디버그 빌드라 테스트용이며, 스토어 배포용 릴리스 서명과는 다르다.
+name: 폰 설치용 APK 빌드
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.9
+          channel: stable
+          cache: true
+
+      - name: 패키지 받기
+        run: flutter pub get
+
+      - name: 디버그 APK 빌드
+        run: flutter build apk --debug
+
+      - name: 릴리스로 올리기(폰에서 바로 받게)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "phone-build-${{ github.run_number }}" \
+            build/app/outputs/flutter-apk/app-debug.apk \
+            --title "폰 설치용 디버그 빌드 #${{ github.run_number }}" \
+            --notes "수동 디버그 빌드입니다. 폰에서 apk 파일을 내려받아 설치하세요(출처를 알 수 없는 앱 설치 허용 필요). 스토어 배포용 서명이 아닙니다." \
+            --prerelease
