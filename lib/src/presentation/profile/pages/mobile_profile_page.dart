@@ -78,7 +78,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
       );
       // 익명 계정이면 그 계정에 구글을 이어 uid를 그대로 둔다("내 것"을 잃지 않게).
       await signInOrLinkGoogle(credential);
-      final got = await SettingsCloudSync.instance.restore();
+      final got = await restoreCalculatorSettings();
       if (got == 0) await SettingsCloudSync.instance.backup();
       if (mounted) setState(() {});
       return true;
@@ -102,8 +102,8 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
       );
       await signInOrLinkGoogle(credential);
 
-      // 폰에 설정이 없으면 서버 것을 받고, 폰에만 있으면 서버에 올려 둔다.
-      final got = await SettingsCloudSync.instance.restore();
+      // 폰에 없는 설정 칸은 서버 것으로 채우고, 받을 것이 없으면 폰 설정을 올려 둔다.
+      final got = await restoreCalculatorSettings();
       if (got == 0) SettingsCloudSync.instance.backup();
 
       if (!mounted) return;

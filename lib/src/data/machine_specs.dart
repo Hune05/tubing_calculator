@@ -57,7 +57,9 @@ class MachineSpecs extends ChangeNotifier {
   }
 
   /// 여러 값을 한 번에 바꾼다(한 번만 저장하고 한 번만 알린다).
+  /// [persist]가 false면 폰에 쓰지 않는다(폰에서 막 읽은 값을 넣을 때).
   void update({
+    bool persist = true,
     String? pipeSize,
     bool? startFit,
     bool? endFit,
@@ -81,7 +83,7 @@ class MachineSpecs extends ChangeNotifier {
     if (benderOffset != null) _benderOffset = benderOffset;
     if (springback != null) _springback = springback;
     if (cutMargin != null) _cutMargin = cutMargin;
-    save();
+    if (persist) save();
     notifyListeners();
   }
 

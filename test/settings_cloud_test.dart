@@ -3,8 +3,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/core/utils/settings_cloud.dart';
 import 'package:tubing_calculator/src/presentation/profile/widgets/settings_cloud_card.dart';
 
@@ -23,7 +25,11 @@ class FakeStore implements SettingsCloudStore {
   Future<void> write(String uid, Map<String, Object> settings) {
     writes++;
     if (hang) return Completer<void>().future;
-    docs[uid] = {'settings': Map<String, dynamic>.from(settings)};
+    // Firestore set(merge: true)처럼 칸별로 합친다.
+    final old = Map<String, dynamic>.from(docs[uid]?['settings'] ?? {});
+    docs[uid] = {
+      'settings': {...old, ...settings},
+    };
     return Future.value();
   }
 }
@@ -99,24 +105,69 @@ void main() {
     expect(prefs.getDouble('bendRadius'), 30.0);
   });
 
-  test('폰에 이미 설정이 있으면 자동 불러오기는 덮어쓰지 않는다', () async {
+  test('폰에 있는 칸은 그대로 두고, 없는 칸만 서버 것으로 채운다', () async {
     store.docs['uid-A'] = {
-      'settings': {'bendRadius': 50.0},
+      'settings': {'bendRadius': 50.0, 'gain': 12.0},
     };
     SharedPreferences.setMockInitialValues({'bendRadius': 38.1});
-    expect(await sync.restore(), 0);
+    expect(await sync.restore(), 1);
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getDouble('bendRadius'), 38.1);
-    // 직접 "서버에서 불러오기"를 누르면 바꾼다.
-    expect(await sync.restore(onlyIfEmpty: false), 1);
+    expect(prefs.getDouble('gain'), 12.0);
+    // 직접 "서버에서 불러오기"를 누르면 폰 값도 바꾼다.
+    expect(await sync.restore(overwrite: true), 2);
     expect(prefs.getDouble('bendRadius'), 50.0);
+  });
+
+  test('새 폰에서 컷팅만 써 보고 로그인해도 벤딩 제원을 받고, 서버 제원도 안 지워진다', () async {
+    // 예전 폰에서 올린 벤딩 제원
+    store.docs['uid-A'] = {
+      'settings': {'bendRadius': 38.1, 'gain': 12.0, 'fittingDepth': 23.0},
+    };
+    // 새 폰: 컷팅 톱날 손실만 넣어 봄
+    SharedPreferences.setMockInitialValues({'cutting_blade_kerf': 2.0});
+    expect(await sync.restore(), 3);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getDouble('bendRadius'), 38.1);
+    expect(prefs.getDouble('cutting_blade_kerf'), 2.0);
+
+    // 통신이 없어 못 받은 채로 컷팅 설정만 올려도 서버의 벤딩 제원은 남는다.
+    SharedPreferences.setMockInitialValues({'cutting_blade_kerf': 3.0});
+    await sync.backup();
+    final saved = store.docs['uid-A']!['settings'] as Map;
+    expect(saved['bendRadius'], 38.1);
+    expect(saved['cutting_blade_kerf'], 3.0);
+  });
+
+  test('받은 설정을 이미 읽어 둔 설정에도 넣어, 다음 저장 때 옛 값으로 덮이지 않는다', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    // 화면 켜 두기(wakelock) 채널은 테스트에 없으므로 "됐다"고만 답한다.
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMessageHandler(
+          'dev.flutter.pigeon.wakelock_plus_platform_interface.WakelockPlusApi.toggle',
+          (_) async => const StandardMessageCodec().encodeMessage(<Object?>[]),
+        );
+    SharedPreferences.setMockInitialValues({});
+    final ctrl = AppSettingsController();
+    await ctrl.load(); // 앱이 먼저 기본값(0)을 읽어 둠
+    expect(ctrl.bendRadius, 0.0);
+    await Future<void>.delayed(Duration.zero);
+    // 읽기만 했을 때 기본값 0을 폰에 적으면 "이미 있다"며 불러오기를 건너뛴다.
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.containsKey('gain'), isFalse);
+    store.docs['uid-A'] = {
+      'settings': {'bendRadius': 38.1, 'gain': 12.0},
+    };
+    expect(await restoreCalculatorSettings(), 2);
+    expect(ctrl.bendRadius, 38.1);
+    expect(ctrl.gain, 12.0);
   });
 
   test('로그인하지 않았으면 올리지도 받지도 않는다', () async {
     sync.uidProvider = () => null;
     SharedPreferences.setMockInitialValues({'bendRadius': 38.1});
     expect(await sync.backup(), isFalse);
-    expect(await sync.restore(onlyIfEmpty: false), 0);
+    expect(await sync.restore(overwrite: true), 0);
     expect(store.writes, 0);
   });
 

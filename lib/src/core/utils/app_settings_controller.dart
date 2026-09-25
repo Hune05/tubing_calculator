@@ -128,7 +128,7 @@ class AppSettingsController extends ChangeNotifier {
 
     _isLoaded = true;
     _loadingFuture = null;
-    _syncMachineSpecs();
+    _syncMachineSpecs(persist: false);
     _applyWakelock();
     notifyListeners();
   }
@@ -137,8 +137,13 @@ class AppSettingsController extends ChangeNotifier {
   /// 🚀 [고침] 예전에는 설정을 저장해도 폰에 적히기만 하고, 이미 떠 있는
   /// 마킹 화면은 옛 제원을 들고 있었다. 반경이나 게인이 바뀌면 마킹 자리가
   /// 바뀌므로, 저장할 때 바로 같이 넣는다.
-  void _syncMachineSpecs() {
+  ///
+  /// [persist]가 false면 보관함에만 넣고 폰에는 쓰지 않는다. 읽을 때 쓰면
+  /// 한 번도 저장한 적 없는 기본값(0)이 폰에 적혀, 서버 설정 불러오기가
+  /// "폰에 이미 있다"며 건너뛴다.
+  void _syncMachineSpecs({bool persist = true}) {
     MachineSpecs().update(
+      persist: persist,
       radius: bendRadius,
       takeUp90: takeUp,
       gain90: gain,

@@ -3,7 +3,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:tubing_calculator/src/core/utils/settings_cloud.dart';
+import 'package:tubing_calculator/src/presentation/profile/widgets/settings_cloud_card.dart';
 import 'package:firebase_messaging/firebase_messaging.dart'; // 🔥 추가됨
 import 'package:tubing_calculator/src/presentation/menu/page/home_menu_router.dart';
 import 'package:tubing_calculator/src/presentation/profile/profile_tools.dart';
@@ -109,9 +109,9 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
         );
         await signInOrLinkGoogle(credential);
 
-        // 새로 깔아서 폰에 설정이 없으면 서버에 올려 둔 설정을 받는다
+        // 폰에 없는 설정 칸(새로 깔았을 때 등)은 서버에 올려 둔 것으로 채운다
         // (통신이 없으면 5초만 기다리고 넘어간다).
-        await SettingsCloudSync.instance.restore();
+        await restoreCalculatorSettings();
 
         String name = account.displayName ?? "작업자";
         await prefs.setString('user_real_name', name);

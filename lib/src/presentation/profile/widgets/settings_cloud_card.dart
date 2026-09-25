@@ -4,6 +4,18 @@ import 'package:tubing_calculator/src/core/utils/settings_cloud.dart';
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
 
+/// 서버 설정을 받고, 받은 것이 있으면 이미 읽어 둔 설정(튜브 벤딩·전선관)을 다시 읽는다.
+/// 다시 읽지 않으면 화면이 들고 있던 옛 값이 다음 저장 때 받은 값을 덮는다.
+Future<int> restoreCalculatorSettings({bool overwrite = false}) async {
+  final n = await SettingsCloudSync.instance.restore(overwrite: overwrite);
+  if (n > 0) {
+    await AppSettingsController().load();
+    await MobileBendDataManager().loadSavedSettings();
+    await loadGlobalBenderSettings();
+  }
+  return n;
+}
+
 const Color _slate900 = Color(0xFF0F172A);
 const Color _slate600 = Color(0xFF475569);
 const Color _slate200 = Color(0xFFE2E8F0);
@@ -88,13 +100,7 @@ class _SettingsCloudCardState extends State<SettingsCloudCard> {
     );
     if (yes != true || !mounted) return;
     setState(() => _busy = true);
-    final n = await _sync.restore(onlyIfEmpty: false);
-    if (n > 0) {
-      // 이미 읽어 둔 설정을 새 값으로 다시 읽는다.
-      await AppSettingsController().load();
-      await MobileBendDataManager().loadSavedSettings();
-      await loadGlobalBenderSettings();
-    }
+    final n = await restoreCalculatorSettings(overwrite: true);
     if (!mounted) return;
     setState(() => _busy = false);
     _snack(n > 0 ? "서버에 보관한 설정을 불러왔습니다." : "불러올 설정이 없거나 통신이 되지 않습니다.");

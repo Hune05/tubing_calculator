@@ -33,15 +33,6 @@ const List<String> kCloudSettingKeys = [
   'cutting_blade_kerf_steel',
 ];
 
-/// 이 키 중 하나라도 폰에 있으면 "설정한 적이 있다"고 본다.
-const List<String> _kSetupMarkers = [
-  'bendRadius',
-  'gain',
-  'fittingDepth',
-  'conduit_bender_settings_v1',
-  'cutting_blade_kerf',
-];
-
 /// 폰에 저장된 설정을 서버에 올릴 모양으로 모은다. 없는 칸은 뺀다.
 Map<String, Object> collectLocalSettings(SharedPreferences prefs) {
   final out = <String, Object>{};
@@ -52,18 +43,17 @@ Map<String, Object> collectLocalSettings(SharedPreferences prefs) {
   return out;
 }
 
-/// 폰에 설정이 하나라도 있는지.
-bool hasLocalSettings(SharedPreferences prefs) =>
-    _kSetupMarkers.any(prefs.containsKey);
-
 /// 서버에서 받은 설정을 폰에 쓴다. 모르는 칸·모양이 다른 값은 건너뛴다.
+/// [onlyMissing]이면 폰에 없는 칸만 채운다(폰에서 고친 값이 먼저).
 /// 쓴 칸 수를 돌려준다.
 Future<int> applyCloudSettings(
   SharedPreferences prefs,
-  Map<String, dynamic> data,
-) async {
+  Map<String, dynamic> data, {
+  bool onlyMissing = false,
+}) async {
   int n = 0;
   for (final k in kCloudSettingKeys) {
+    if (onlyMissing && prefs.containsKey(k)) continue;
     final v = data[k];
     if (v is bool) {
       await prefs.setBool(k, v);
@@ -99,10 +89,12 @@ class FirestoreSettingsStore implements SettingsCloudStore {
     return snap.data();
   }
 
+  /// 칸별로 합쳐 쓴다. 이 폰에 없는 칸(다른 폰에서 올린 벤딩 제원 등)은 서버에 그대로 남는다.
   @override
-  Future<void> write(String uid, Map<String, Object> settings) => _doc(
-    uid,
-  ).set({'settings': settings, 'updatedAt': FieldValue.serverTimestamp()});
+  Future<void> write(String uid, Map<String, Object> settings) => _doc(uid).set(
+    {'settings': settings, 'updatedAt': FieldValue.serverTimestamp()},
+    SetOptions(merge: true),
+  );
 }
 
 /// 설정 올리기·불러오기. 로그인(구글)하지 않았으면 아무것도 하지 않는다.
@@ -166,14 +158,17 @@ class SettingsCloudSync {
     }
   }
 
-  /// 서버 설정을 폰에 받는다. [onlyIfEmpty]이면 폰에 설정이 없을 때만
-  /// (새로 깔았을 때). 받은 칸 수, 못 받았으면 0.
-  Future<int> restore({bool onlyIfEmpty = true}) async {
+  /// 서버 설정을 폰에 받는다. 기본은 폰에 없는 칸만 채운다(새로 깔았거나,
+  /// 새 폰에서 컷팅만 써 본 뒤 로그인해도 벤딩 제원을 받는다). [overwrite]이면
+  /// 폰 값도 서버 값으로 바꾼다("서버에서 불러오기" 단추). 받은 칸 수, 못 받았으면 0.
+  ///
+  /// 이미 화면에 읽어 둔 설정은 그대로이므로, 1 이상이면 부른 쪽에서 다시 읽게 한다
+  /// (안 그러면 다음 저장 때 옛 값으로 덮인다).
+  Future<int> restore({bool overwrite = false}) async {
     final uid = uidProvider();
     if (uid == null) return 0;
     try {
       final prefs = await SharedPreferences.getInstance();
-      if (onlyIfEmpty && hasLocalSettings(prefs)) return 0;
       final doc = await store
           .read(uid)
           .timeout(const Duration(seconds: 5), onTimeout: () => null);
@@ -182,6 +177,7 @@ class SettingsCloudSync {
       final n = await applyCloudSettings(
         prefs,
         Map<String, dynamic>.from(settings),
+        onlyMissing: !overwrite,
       );
       if (n > 0) await _markSynced(prefs);
       return n;
