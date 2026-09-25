@@ -258,9 +258,24 @@ optimizeProjectPhotos(
   }
   onProgress?.call(done, urls.length);
 
+  replacePhotoUrls(log, repl);
+  return (count: repl.length, savedBytes: saved, oldRefs: oldRefs);
+}
+
+/// 줄인 사진의 새 주소로 바꾼다. 주소가 바뀐 일지·이슈에는 updatedAt을 찍는다.
+/// 🚀 [고침] 예전에는 안 찍어서, 다른 폰이 옛 주소를 들고 저장하면 합치기가
+/// "같은 시각이면 폰 것"으로 옛 주소를 다시 썼다(옛 파일은 이미 지워져 사진이 깨짐).
+void replacePhotoUrls(Map<String, dynamic> log, Map<String, String> repl) {
   if (repl.isNotEmpty) {
+    final now = DateTime.now().toIso8601String();
     String m(dynamic v) => repl[v?.toString() ?? ''] ?? (v?.toString() ?? '');
+    bool touches(Map item) => [
+      ...(item['image_paths'] as List? ?? const []),
+      ...(item['resolution_images'] as List? ?? const []),
+      item['image_path'],
+    ].any((v) => repl.containsKey(v?.toString() ?? ''));
     for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
+      if (touches(r)) r['updatedAt'] = now;
       final paths = (r['image_paths'] as List? ?? []).map(m).toList();
       final tags = Map<String, dynamic>.from((r['image_tags'] as Map?) ?? {});
       final caps = Map<String, dynamic>.from(
@@ -272,6 +287,7 @@ optimizeProjectPhotos(
       r['image_tags'] = {for (final e in tags.entries) m(e.key): e.value};
     }
     for (final p in (log['punch_lists'] as List? ?? []).whereType<Map>()) {
+      if (touches(p)) p['updatedAt'] = now;
       p['image_paths'] = (p['image_paths'] as List? ?? []).map(m).toList();
       if (p['resolution_images'] != null) {
         p['resolution_images'] = (p['resolution_images'] as List)
@@ -284,7 +300,6 @@ optimizeProjectPhotos(
       log['floor_plan_image_path'] = m(log['floor_plan_image_path']);
     }
   }
-  return (count: repl.length, savedBytes: saved, oldRefs: oldRefs);
 }
 
 // 프로젝트 전체(작업 일지 사진, 이슈 사진, 도면)의 로컬 사진을 올린다. 바뀐 게 있으면 true.

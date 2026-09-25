@@ -94,6 +94,22 @@ class WorkProjectRepository {
     ensureItemIds(project);
     var data = Map<String, dynamic>.from(project);
     data['id'] = id;
+    // 🚀 [고침] "아직 서버에 안 닿은 저장" 수를 서버 읽기(최대 5초) 전에 올린다.
+    // 예전에는 읽은 뒤에야 올려서, 사진 정리가 그 사이 0을 보고 옛 사진을 먼저 지웠다.
+    pendingWrites.value++;
+    try {
+      await _mergeAndSet(project, data, id, merge: merge);
+    } finally {
+      pendingWrites.value--;
+    }
+  }
+
+  Future<void> _mergeAndSet(
+    Map<String, dynamic> project,
+    Map<String, dynamic> data,
+    String id, {
+    required bool merge,
+  }) async {
     if (merge) {
       // 저장 직전에 서버 것을 읽어 아이디로 합친다(다른 폰이 그 사이 넣은 일지·이슈가
       // 안 지워지게). 통신이 없으면 5초 뒤 폰 캐시로, 그것도 없으면 예전처럼 그대로.
@@ -119,12 +135,7 @@ class WorkProjectRepository {
         }
       }
     }
-    pendingWrites.value++;
-    try {
-      await _col.doc(id).set(data);
-    } finally {
-      pendingWrites.value--;
-    }
+    await _col.doc(id).set(data);
   }
 
   // 프로젝트 일정 하나의 완료 표시만 바꾼다. 저장하기 직전에 문서를 다시 읽어 schedules 칸만
