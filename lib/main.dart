@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:ui' show PlatformDispatcher;
 import 'package:tubing_calculator/src/core/utils/error_log.dart';
+import 'package:tubing_calculator/src/core/utils/startup_guard.dart';
 
 // 🚀 Hive 로컬 DB 연동
 import 'package:hive_flutter/hive_flutter.dart';
@@ -115,26 +116,17 @@ Future<void> setupFlutterNotifications() async {
       >()
       ?.createNotificationChannel(channel);
 
-  await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-    alert: true,
-    badge: true,
-    sound: true,
-  );
+  if (pushMessagingSupported()) {
+    await FirebaseMessaging.instance
+        .setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+  }
 
-  const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
-
-  const DarwinInitializationSettings initializationSettingsIOS =
-      DarwinInitializationSettings(
-        requestSoundPermission: true,
-        requestBadgePermission: true,
-        requestAlertPermission: true,
-      );
-
-  const InitializationSettings initializationSettings = InitializationSettings(
-    android: initializationSettingsAndroid,
-    iOS: initializationSettingsIOS,
-  );
+  final InitializationSettings initializationSettings =
+      notificationInitSettings();
 
   await flutterLocalNotificationsPlugin.initialize(
     settings: initializationSettings,
@@ -178,8 +170,11 @@ void main() async {
   await Hive.openBox('projectsBox');
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  await setupFlutterNotifications();
+  if (pushMessagingSupported()) {
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  }
+  // 알림 준비가 실패해도(윈도우 PC 등) 앱은 켜진다.
+  await startupStep('알림 준비', setupFlutterNotifications);
 
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   await initializeDateFormatting('ko_KR', null); // 달력 등 한글 요일/월 이름
@@ -200,10 +195,13 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    _requestNotificationPermission();
-    _setupForegroundMessageListener();
-    _setupBackgroundAndTerminatedMessageListener();
-    _handleFCMToken();
+    // 서버 알림은 안드로이드·iOS·macOS에서만(윈도우 PC는 지원하지 않아 오류가 난다).
+    if (pushMessagingSupported()) {
+      _requestNotificationPermission();
+      _setupForegroundMessageListener();
+      _setupBackgroundAndTerminatedMessageListener();
+      _handleFCMToken();
+    }
     // 카톡 등에서 공유로 받은 도면: 앱이 떠 있을 때 새로 들어오면, 그리고 앱을 켠 뒤
     // 홈 메뉴가 뜨면(로딩 화면이 홈으로 바뀌면서 먼저 띄운 창을 덮지 않게) 가져간다.
     SharedDrawingInbox.listen(_checkSharedDrawing);
