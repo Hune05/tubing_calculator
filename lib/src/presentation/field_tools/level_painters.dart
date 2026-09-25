@@ -7,7 +7,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-const Color kLevelBlue = Color(0xFF0A84FF);
+// 색의 뜻(D-B): 앱의 주 색 하나(청록). 예전에는 이 화면만 파랑이었다.
+const Color kLevelBlue = Color(0xFF007580);
 const Color kLevelGreen = Color(0xFF00866E);
 const Color kLevelRed = Color(0xFFFF1E1E);
 const Color kLevelWhite = Colors.white;

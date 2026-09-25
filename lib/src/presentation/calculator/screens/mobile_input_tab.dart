@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import 'package:flutter/material.dart';
 import '../widgets/app_dialog.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
@@ -324,7 +325,7 @@ class _MobileInputTabState extends State<MobileInputTab>
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
+                backgroundColor: kCaution, // 경고를 알고 진행(주의)
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),

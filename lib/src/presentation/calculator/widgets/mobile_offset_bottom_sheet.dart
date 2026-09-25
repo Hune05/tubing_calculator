@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/engine/bend_geometry.dart';
@@ -337,7 +338,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
+                backgroundColor: kCaution, // 경고를 알고 진행(주의)
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),

@@ -9,7 +9,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import '../profile_tools.dart';
 
-const Color _blue = Color(0xFF3182F6);
+// 색의 뜻(D-B): 앱의 주 색 하나(청록). 예전에는 이 화면만 파랑이었다.
+const Color _blue = Color(0xFF007580);
 const Color _slate900 = Color(0xFF191F28);
 const Color _slate600 = Color(0xFF5F6B78);
 const Color _red = Color(0xFFF04452);

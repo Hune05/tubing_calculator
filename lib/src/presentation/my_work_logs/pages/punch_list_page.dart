@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import '../widgets/work_theme.dart';
 import '../widgets/korean_text.dart';
 import 'dart:io';
@@ -243,12 +244,11 @@ class _PunchListPageState extends State<PunchListPage> {
     bool isWarning = false,
   }) {
     bool isSelected = label == currentValue;
-    // 앱 전체와 같은 틸 톤으로 통일: 우선순위만 긴급=빨강, 보통=호박색, 여유=회색.
-    Color activeColor = const Color(0xFF007580);
+    // 🚀 [바꿈] 색의 뜻(D-B): 골라짐은 청록. 우선순위는 긴급만 빨강(경보), 여유는 회색.
+    // 예전에는 "보통"을 주황으로 칠해, 평소 값이 주의처럼 보였다.
+    Color activeColor = kBrand;
     if (isWarning) {
-      activeColor = label == '긴급'
-          ? warningRed
-          : (label == '여유' ? const Color(0xFF5F6B78) : const Color(0xFFC77700));
+      activeColor = label == '긴급' ? kDanger : (label == '여유' ? kIdle : kBrand);
     }
 
     return GestureDetector(
@@ -758,7 +758,8 @@ class _PunchListPageState extends State<PunchListPage> {
             height: 56,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: warningRed,
+                // 새로 만드는 평소 행동이라 주 색(빨강은 경보·지우기에만).
+                backgroundColor: kBrand,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),

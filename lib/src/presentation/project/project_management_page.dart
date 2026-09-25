@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_stock_deduct.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -599,7 +600,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade500,
+                  backgroundColor: kBrand, // 등록은 평소 행동(빨강은 경보·지우기에만)
                   padding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 12,

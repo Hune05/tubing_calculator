@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/engine/bend_geometry.dart';
@@ -336,7 +337,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
+                backgroundColor: kCaution, // 경고를 알고 진행(주의)
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -472,7 +473,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
+                backgroundColor: kCaution, // 경고를 알고 진행(주의)
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),

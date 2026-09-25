@@ -24,7 +24,8 @@ import 'package:tubing_calculator/src/presentation/reference/page/tube_reference
 
 import 'mobile_profile_edit_page.dart';
 
-const Color tossBlue = Color(0xFF3182F6);
+// 색의 뜻(D-B): 앱의 주 색 하나(청록). 예전에는 이 화면만 파랑이었다.
+const Color tossBlue = Color(0xFF007580);
 const Color slate900 = Color(0xFF191F28);
 const Color slate800 = Color(0xFF333D4B);
 const Color slate600 = Color(0xFF5F6B78);

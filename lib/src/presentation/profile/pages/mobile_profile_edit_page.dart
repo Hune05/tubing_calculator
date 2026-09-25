@@ -15,7 +15,8 @@ const Color slate600 = Color(0xFF5F6B78);
 const Color slate300 = Color(0xFFD1D6DB);
 const Color slate100 = Color(0xFFF2F4F6);
 const Color pureWhite = Color(0xFFFFFFFF);
-const Color blue500 = Color(0xFF3182F6);
+// 색의 뜻(D-B): 앱의 주 색 하나(청록). 예전에는 이 화면만 파랑이었다.
+const Color blue500 = Color(0xFF007580);
 const Color red500 = Color(0xFFF04452);
 
 class MobileProfileEditPage extends StatefulWidget {
