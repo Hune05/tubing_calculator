@@ -176,6 +176,32 @@ void stampAuthor(
   item['updatedAt'] = now;
 }
 
+/// 일지를 고칠 때 원래 칸 위에 바꾼 칸만 덮는다.
+/// 🚀 [고침] PC에서 폰 일지를 고치면 새 Map을 아홉 칸으로 만들어 통째로 바꿨다.
+/// 아이디·작성자·작업 유형·인원·연결 이슈·사진 태그·내일 계획·사용 자재·확정 기록이
+/// 모두 빠지고, 아이디가 없어 저장할 때 새 일지로 붙어 옛 일지와 두 벌이 됐다.
+Map<String, dynamic> editedReport(
+  Map existing,
+  Map<String, dynamic> changes, {
+  String who = '',
+}) {
+  final out = Map<String, dynamic>.from(existing)..addAll(changes);
+  stampAuthor(out, who, created: false);
+  return out;
+}
+
+/// 확정된 일지의 확정을 풀고 사유를 기록에 남긴다(폰 메인 화면과 같은 모양).
+void unlockReport(Map report, String reason) {
+  final hist = List<dynamic>.from(report['unlockHistory'] as List? ?? [])
+    ..add({
+      'reason': reason.trim().isEmpty ? '사유 미입력' : reason.trim(),
+      'at': DateTime.now(),
+    });
+  report['locked'] = false;
+  report.remove('lockedAt');
+  report['unlockHistory'] = hist;
+}
+
 String _short(DateTime d) {
   String two(int v) => v.toString().padLeft(2, '0');
   return '${d.month}/${d.day} ${two(d.hour)}:${two(d.minute)}';

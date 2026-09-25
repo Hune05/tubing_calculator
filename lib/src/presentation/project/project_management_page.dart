@@ -11,7 +11,7 @@ import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
 import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/project_merge.dart'
-    show markItemDeleted;
+    show currentWorkerName, editedReport, markItemDeleted, unlockReport;
 
 // 🚀 [수정 완료] 새로 만든 Workspace를 import 합니다!
 import 'package:tubing_calculator/src/presentation/calculator/screens/electric_bending_workspace.dart'
@@ -649,6 +649,54 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
     );
   }
 
+  /// PC에서 일지 고치기. 확정된 일지는 폰처럼 사유를 받고 확정을 푼 뒤에 고친다.
+  /// 🚀 [고침] 예전에는 PC에서 확정된 일지도 사유 없이 고쳐졌다.
+  Future<void> _editDailyReport(int projectIndex, int reportIndex) async {
+    final list = (projects[projectIndex]['daily_reports'] as List?) ?? const [];
+    if (reportIndex < 0 || reportIndex >= list.length) return;
+    final report = list[reportIndex];
+    if (report is Map && report['locked'] == true) {
+      final reasonCtrl = TextEditingController();
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text("확정된 작업 일지입니다"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("수정하려면 확정을 풀어야 하고, 사유가 기록으로 남습니다."),
+              const SizedBox(height: 10),
+              TextField(
+                key: const Key('pc_unlock_reason'),
+                controller: reasonCtrl,
+                maxLines: 2,
+                decoration: const InputDecoration(hintText: "확정 해제 사유"),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("취소"),
+            ),
+            TextButton(
+              key: const Key('pc_unlock_ok'),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("확정 풀고 수정"),
+            ),
+          ],
+        ),
+      );
+      final reason = reasonCtrl.text;
+      if (ok != true || !mounted) return;
+      setState(() => unlockReport(report, reason));
+      _saveData(projectIndex);
+    }
+    if (!mounted) return;
+    _showDailyReportDialog(projectIndex, reportIndex: reportIndex);
+  }
+
   void _showDailyReportDialog(int projectIndex, {int? reportIndex}) {
     final bool isEdit = reportIndex != null;
     final targetList =
@@ -962,7 +1010,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                           ? existingData['date']
                           : "${today.month.toString().padLeft(2, '0')}/${today.day.toString().padLeft(2, '0')}";
 
-                      final newReport = {
+                      final changes = <String, dynamic>{
                         "date": dateStr,
                         // "MM/DD"는 해가 바뀌면 구분이 안 된다. 폰 일지처럼 연도 있는 날짜도 같이 남긴다
                         // (고칠 때는 원래 것을 그대로).
@@ -984,9 +1032,14 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
 
                       setState(() {
                         if (isEdit) {
-                          targetList[reportIndex] = newReport;
+                          // 원래 일지 위에 바꾼 칸만 덮는다(아이디·작성자·인원·확정 기록 등은 그대로).
+                          targetList[reportIndex] = editedReport(
+                            existingData as Map,
+                            changes,
+                            who: currentWorkerName.value,
+                          );
                         } else {
-                          targetList.insert(0, newReport);
+                          targetList.insert(0, changes);
                         }
                         _saveData(projectIndex);
                       });
@@ -1580,7 +1633,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                   onUpdateProgress: () => _showUpdateProgressDialog(index),
                   onAddDailyReport: () => _showDailyReportDialog(index),
                   onEditDailyReport: (reportIdx) =>
-                      _showDailyReportDialog(index, reportIndex: reportIdx),
+                      _editDailyReport(index, reportIdx),
                   onDeleteDailyReport: (reportIdx) =>
                       _confirmDeleteDailyReport(index, reportIdx),
                   onAddPunch: () => _showAddPunchDialog(index),
