@@ -356,17 +356,11 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
   //  반경·테이크업·연신율·최소직선·오프셋·피팅깊이 값은 텍스트가 그대로 남아있어서,
   //  숫자는 그대로인데 단위 해석만 바뀌는 심각한 치수 오류가 날 수 있었음)
   void _convertLengthControllers(bool toInch) {
-    final controllers = [
-      _wtController,
-      _rController,
-      _takeUpController,
-      _gainController,
-      _minStraightController,
-      _benderOffsetController,
-      _fittingDepthController,
-      _markThicknessController,
-      _offsetShrinkController,
-    ];
+    // 단위(mm/inch)를 따르는 칸은 두께(WT)뿐이다(외경은 목록이 바뀐다). 반경·테이크업·
+    // 연신율·최소 직선·오프셋·피팅 깊이·마킹선·오프셋 축소는 늘 [mm]로 적고 저장하고
+    // 계산기도 mm로 읽는다. 예전엔 이것들까지 25.4로 나눠 저장해서, inch로 바꾸면
+    // R 38.1이 1.5로 쓰였다.
+    final controllers = [_wtController];
     for (final c in controllers) {
       final val = double.tryParse(c.text);
       if (val == null || val == 0) continue;
