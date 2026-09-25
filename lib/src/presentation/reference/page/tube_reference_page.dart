@@ -1,9 +1,10 @@
-// 현장 자료·장비 사용법. 탭: 튜브 · 전선관 · 형강 · 장비 사용법 · 앱 사용법.
+// 현장 자료·장비 사용법. 탭: 튜브 · 전선관 · 형강 · 장비 사용법 · 앱 사용법 · 단위 환산.
 // 숫자는 계산기가 쓰는 자료(FittingData·benderSpecData·SteelShapeDB 등)에서 바로 읽어
 // 설정 기본값과 늘 같다. 예전 화면(벤딩 실무 가이드)은 손으로 적은 표라 설정과 달랐다.
 //
-// 현장자료_보충제안_2026-09-25.md 1·2번: 이 화면도 벤더 옆·야외에서 펴 보는 화면이라
-// 현장 보기(보통/햇빛/야간) 테마를 걸었고, 카드가 40장 넘어 찾기 힘들어 통합 검색을 붙였다.
+// 현장자료_보충제안_2026-09-25.md: 이 화면도 벤더 옆·야외에서 펴 보는 화면이라 현장 보기
+// (보통/햇빛/야간) 테마를 걸었고(1번), 카드가 40장 넘어 찾기 힘들어 통합 검색을 붙였고(2번),
+// 표에 병기만 있던 단위 환산을 계산기로 만들었다(3번).
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_icon_set.dart';
@@ -13,6 +14,7 @@ import 'ref_conduit_tab.dart';
 import 'ref_machine_tab.dart';
 import 'ref_steel_tab.dart';
 import 'ref_tube_tab.dart';
+import 'ref_unit_tab.dart';
 import 'reference_search_index.dart';
 import 'reference_widgets.dart';
 
@@ -26,7 +28,7 @@ class TubeReferencePage extends StatefulWidget {
 class _TubeReferencePageState extends State<TubeReferencePage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController = TabController(
-    length: 5,
+    length: 6,
     vsync: this,
   );
   final _searchCtrl = TextEditingController();
@@ -88,6 +90,7 @@ class _TubeReferencePageState extends State<TubeReferencePage>
             Tab(text: "형강"),
             Tab(text: "장비 사용법"),
             Tab(text: "앱 사용법"),
+            Tab(text: "단위 환산"),
           ],
         ),
       ),
@@ -132,6 +135,7 @@ class _TubeReferencePageState extends State<TubeReferencePage>
                       RefSteelTab(),
                       RefMachineTab(),
                       RefAppTab(),
+                      RefUnitTab(),
                     ],
                   )
                 : _buildSearchResults(),

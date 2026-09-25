@@ -29,9 +29,9 @@ void main() {
       expect(e.matches('없는말'), isFalse);
     });
 
-    test('색인 항목마다 탭 번호가 0~4 안이다', () {
+    test('색인 항목마다 탭 번호가 0~5 안이다', () {
       for (final e in refSearchIndex) {
-        expect(e.tab, inInclusiveRange(0, 4));
+        expect(e.tab, inInclusiveRange(0, 5));
         expect(e.title, isNotEmpty);
       }
     });

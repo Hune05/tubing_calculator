@@ -17,7 +17,14 @@ class RefSearchEntry {
   }
 }
 
-const List<String> refTabNames = ['튜브', '전선관', '형강', '장비 사용법', '앱 사용법'];
+const List<String> refTabNames = [
+  '튜브',
+  '전선관',
+  '형강',
+  '장비 사용법',
+  '앱 사용법',
+  '단위 환산',
+];
 
 const List<RefSearchEntry> refSearchIndex = [
   // 튜브(0)
@@ -101,4 +108,10 @@ const List<RefSearchEntry> refSearchIndex = [
   RefSearchEntry(4, '내 일정 관리'),
   RefSearchEntry(4, '자재 현황 · 자재 통합 관리'),
   RefSearchEntry(4, '현장 도면 스캔 (QR) · 통신 없는 곳'),
+
+  // 단위 환산(5)
+  RefSearchEntry(5, '길이 (mm ↔ inch)', ['mm', 'inch']),
+  RefSearchEntry(5, '무게 (kg ↔ lb)', ['kg', 'lb']),
+  RefSearchEntry(5, '압력 (bar ↔ psi)', ['bar', 'psi']),
+  RefSearchEntry(5, '토크 (Nm ↔ lb-ft)', ['nm', 'lb-ft', '토크']),
 ];
