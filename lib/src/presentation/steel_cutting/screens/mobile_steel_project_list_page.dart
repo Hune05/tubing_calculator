@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/data/ownership.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/material.dart';
@@ -155,6 +156,7 @@ class MobileSteelProjectListPage extends StatelessWidget {
         .collection(kSteelCuttingProjectsCollection)
         .add({
           'name': name,
+          ...ownerFieldsFor(shared: false, uid: currentUid()),
           'createdAt': DateTime.now().toIso8601String(),
           'stockLength': 6000.0,
           'items': <Map<String, dynamic>>[],
@@ -400,7 +402,10 @@ class MobileSteelProjectListPage extends StatelessWidget {
               );
             }
 
-            final docs = snapshot.data?.docs ?? [];
+            final uid = currentUid();
+            final docs = (snapshot.data?.docs ?? [])
+                .where((d) => canSeeDoc(d.data() as Map, uid))
+                .toList();
 
             if (docs.isEmpty) {
               return Center(

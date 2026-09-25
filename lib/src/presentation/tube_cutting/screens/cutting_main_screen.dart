@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/data/ownership.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/utils/settings_cloud.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
@@ -1143,6 +1144,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           .collection(kCuttingLineTemplatesCollection)
           .add({
             'name': name,
+            ...ownerFieldsFor(shared: false, uid: currentUid()),
             'createdAt': DateTime.now().toIso8601String(),
             'points': _serializePointsForTemplate(),
           })
@@ -1676,7 +1678,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                         child: CircularProgressIndicator(color: makitaTeal),
                       );
                     }
-                    final docs = snapshot.data!.docs;
+                    final uid = currentUid();
+                    final docs = snapshot.data!.docs
+                        .where((d) => canSeeDoc(d.data() as Map, uid))
+                        .toList();
                     if (docs.isEmpty) {
                       return const Center(
                         child: Text(

@@ -13,7 +13,9 @@ rules_version = '2';
 //   - users/{이름}: 문서에 적힌 uid의 주인만 고친다(남의 이름으로 사진·연락처·알림 토큰을
 //     바꾸지 못하게). uid가 안 적힌 옛 문서는 누구든 처음 쓰는 사람이 주인이 된다.
 //   - inventory: ownerUid가 있으면 그 사람만 고치고 지운다. 없으면(공용) 누구나.
-//   - 나머지 모음: 로그인한 사람이면 읽고 쓴다(지금 앱이 쓰는 그대로).
+//   - 프로젝트(my_projects)·튜브/형강 컷팅 작업·라인 틀·단계 틀: inventory와 같다(2026-09-25).
+//   - 잔재(cutting_leftovers)·설정(my_project_settings): 내 문서(…__uid)와 예전 공용 문서만 쓴다.
+//   - 나머지 모음과 하위 모음: 로그인한 사람이면 읽고 쓴다(지금 앱이 쓰는 그대로).
 //
 // 못 막는 것(앱이 가려 줌)
 //   - 남의 개인 재고 "읽기". 앱이 재고 모음을 통째로 읽어 폰에서 거르기 때문에, 문서마다
@@ -41,6 +43,18 @@ service cloud.firestore {
       return noOwner(data) || data.ownerUid == me();
     }
 
+    // 주인(ownerUid)을 두는 모음.
+    function ownedColls() {
+      return ['my_projects', 'cutting_projects', 'steel_cutting_projects',
+              'cutting_line_templates', 'my_project_templates'];
+    }
+
+    // 위에서 따로 규칙을 정한 모음(나머지 규칙에서 뺀다).
+    function specialColls() {
+      return ownedColls().concat(['users', 'inventory', 'cutting_leftovers',
+                                  'my_project_settings']);
+    }
+
     // 사용자 문서에 주인 uid가 아직 안 적혔는지.
     function nameFree(data) {
       return !('uid' in data) || data.uid == null || data.uid == '';
@@ -65,9 +79,40 @@ service cloud.firestore {
       allow delete: if signedIn() && ownerOk(resource.data);
     }
 
-    // 나머지 모음(하위 모음 포함). users·inventory는 위 규칙만 따른다
-    // (규칙은 하나라도 허락하면 통과라서 여기서 빼 둬야 위 규칙이 먹힌다).
-    match /{coll}/{rest=**} {
+    // 프로젝트·컷팅 작업·라인 틀·단계 틀(점검 25·26번)은 재고와 같다: 주인이 있으면 그
+    // 사람만 고치고 지운다. 주인이 없거나 빈 글이면(예전 자료, "공용으로 돌리기") 누구나.
+    // 그 밖의 모음은 로그인한 사람이면 읽고 쓴다. 따로 정한 모음(users·inventory·잔재·설정)은
+    // 여기서 빼 둬야 그 규칙이 먹힌다(규칙은 하나라도 허락하면 통과).
+    match /{coll}/{id} {
+      allow read: if signedIn()
+        && (coll in ownedColls() || !(coll in specialColls()));
+      allow create: if signedIn()
+        && ((coll in ownedColls() && ownerOk(request.resource.data))
+            || !(coll in specialColls()));
+      allow update: if signedIn()
+        && ((coll in ownedColls() && ownerOk(resource.data)
+             && ownerOk(request.resource.data))
+            || !(coll in specialColls()));
+      allow delete: if signedIn()
+        && ((coll in ownedColls() && ownerOk(resource.data))
+            || !(coll in specialColls()));
+    }
+
+    // 잔재: 사람마다 current__{uid}, 예전 공용 문서는 current(점검 26번).
+    match /cutting_leftovers/{doc} {
+      allow read: if signedIn();
+      allow write: if signedIn() && (doc == 'current' || doc == 'current__' + me());
+    }
+
+    // 사람마다 두는 설정(이름__{uid}). 이름만인 문서는 예전에 같이 쓰던 것(점검 25번).
+    match /my_project_settings/{doc} {
+      allow read: if signedIn();
+      allow write: if signedIn()
+        && (!doc.matches('.*__.*') || doc.matches('.*__' + me()));
+    }
+
+    // 하위 모음(컷팅 기록·형강 변경 기록 등)은 로그인한 사람이면 읽고 쓴다.
+    match /{coll}/{id}/{sub}/{rest=**} {
       allow read, write: if signedIn() && !(coll in ['users', 'inventory']);
     }
   }

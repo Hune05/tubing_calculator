@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/data/ownership.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -113,6 +114,7 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
     if (name.isEmpty) return;
     FirebaseFirestore.instance.collection(kCuttingProjectsCollection).add({
       'name': name,
+      ...ownerFieldsFor(shared: false, uid: currentUid()),
       'createdAt': DateTime.now().toIso8601String(),
       'totalTubeUsed': 0.0,
       'cutCount': 0,
@@ -288,7 +290,10 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
               );
             }
 
-            final docs = snapshot.data?.docs ?? [];
+            final uid = currentUid();
+            final docs = (snapshot.data?.docs ?? [])
+                .where((d) => canSeeDoc(d.data() as Map, uid))
+                .toList();
 
             if (docs.isEmpty) {
               return Center(

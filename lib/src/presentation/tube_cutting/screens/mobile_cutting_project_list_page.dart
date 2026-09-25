@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/data/ownership.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart';
@@ -167,15 +168,17 @@ class MobileCuttingProjectListPage extends StatelessWidget {
 
     if (name == null) return;
 
-    await FirebaseFirestore.instance
-        .collection(kCuttingProjectsCollection)
-        .add({
-          'name': name,
-          'createdAt': DateTime.now().toIso8601String(),
-          'totalTubeUsed': 0.0,
-          'cutCount': 0,
-          'usedFittings': <String, int>{},
-        });
+    await FirebaseFirestore.instance.collection(kCuttingProjectsCollection).add(
+      {
+        'name': name,
+        // 새 작업은 내 것(점검 26번). 예전 작업은 주인이 없어 공용으로 보인다.
+        ...ownerFieldsFor(shared: false, uid: currentUid()),
+        'createdAt': DateTime.now().toIso8601String(),
+        'totalTubeUsed': 0.0,
+        'cutCount': 0,
+        'usedFittings': <String, int>{},
+      },
+    );
   }
 
   Future<void> _deleteProject(BuildContext context, String docId) async {
@@ -481,7 +484,11 @@ class MobileCuttingProjectListPage extends StatelessWidget {
               );
             }
 
-            final docs = snapshot.data?.docs ?? [];
+            // 공용과 내 것만(남의 작업은 안 보인다).
+            final uid = currentUid();
+            final docs = (snapshot.data?.docs ?? [])
+                .where((d) => canSeeDoc(d.data() as Map, uid))
+                .toList();
 
             if (docs.isEmpty) {
               return Center(

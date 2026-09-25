@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tubing_calculator/src/data/ownership.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // 원자재를 자르고 잔재를 기기에 적어 둔다. 다음 재단 계산에서 이 잔재부터
@@ -108,29 +109,38 @@ class PrefsLeftoverStore implements LeftoverStore {
   }
 }
 
-// 서버에 두는 방식. 문서 하나에 목록을 담는다(개인이 쓰는 앱이라 이게 단순하고 안전하다).
+// 서버에 두는 방식. 사람마다 문서 하나에 목록을 담는다.
 // 통신이 없어도 Firestore가 폰에 캐시를 두고 쓰기를 쌓아 두므로 현장에서 그대로 쓸 수 있다.
 const String kLeftoversCollection = 'cutting_leftovers';
 const String kLeftoversDocId = 'current';
 // 폰에 있던 잔재를 서버로 한 번만 옮기기 위한 표시.
 const String kLeftoversMovedPrefsKey = 'cutting_leftovers_moved_to_server_v1';
 
+/// 🚀 [고침] 잔재가 앱 전체에 문서 하나(`current`)라, 남과 같이 쓰면 B의 재단 계획이
+/// A의 현장 잔재를 쓴다고 셈했다(점검 26번). 새 잔재는 내 문서(`current__uid`)에 두고,
+/// 예전 문서(`current`)의 잔재는 공용으로 모두에게 보인다. 쓴 잔재는 어느 문서에
+/// 있든 뺀다. uid를 모르면 예전처럼 `current` 하나를 쓴다.
 class FirestoreLeftoverStore implements LeftoverStore {
-  DocumentReference<Map<String, dynamic>> get _doc => FirebaseFirestore.instance
-      .collection(kLeftoversCollection)
-      .doc(kLeftoversDocId);
+  CollectionReference<Map<String, dynamic>> get _col =>
+      FirebaseFirestore.instance.collection(kLeftoversCollection);
 
-  @override
-  Future<List<Leftover>> load() async {
-    // 통신이 느리면 8초 뒤 폰 캐시로. 캐시도 없으면(새로 깐 폰) 오류를 그대로 올린다.
+  DocumentReference<Map<String, dynamic>> get _mine =>
+      _col.doc(mySettingsDocId(kLeftoversDocId));
+  DocumentReference<Map<String, dynamic>> get _shared =>
+      _col.doc(kLeftoversDocId);
+  bool get _split => _mine.id != _shared.id;
+
+  /// 통신이 느리면 8초 뒤 폰 캐시로. 캐시도 없으면(새로 깐 폰) 오류를 그대로 올린다.
+  Future<List<Leftover>> _read(
+    DocumentReference<Map<String, dynamic>> d,
+  ) async {
     DocumentSnapshot<Map<String, dynamic>> snap;
     try {
-      snap = await _doc.get().timeout(const Duration(seconds: 8));
+      snap = await d.get().timeout(const Duration(seconds: 8));
     } catch (_) {
-      snap = await _doc.get(const GetOptions(source: Source.cache));
+      snap = await d.get(const GetOptions(source: Source.cache));
     }
-    final data = snap.data();
-    final raw = (data?['items'] as List?) ?? const [];
+    final raw = (snap.data()?['items'] as List?) ?? const [];
     final list = <Leftover>[
       for (final e in raw)
         if (e is Map)
@@ -140,15 +150,28 @@ class FirestoreLeftoverStore implements LeftoverStore {
             id: (e['id'] as String?) ?? '',
           ),
     ]..removeWhere((l) => l.length <= 0);
-    if (list.isNotEmpty) {
-      // 예전 자료(이름표 없음)는 한 번 이름표를 붙여 다시 적는다. 그래야 한 개씩 뺄 수 있다.
-      if (list.any((l) => l.id.isEmpty)) {
-        final fixed = withLeftoverIds(list);
-        await save(fixed);
-        return fixed;
-      }
-      return list;
+    // 예전 자료(이름표 없음)는 한 번 이름표를 붙여 다시 적는다. 그래야 한 개씩 뺄 수 있다.
+    if (list.any((l) => l.id.isEmpty)) {
+      final fixed = withLeftoverIds(list);
+      await _write(d, fixed);
+      return fixed;
     }
+    return list;
+  }
+
+  @override
+  Future<List<Leftover>> load() async {
+    final mine = await _read(_mine);
+    var shared = const <Leftover>[];
+    if (_split) {
+      try {
+        shared = await _read(_shared);
+      } catch (_) {
+        // 공용을 못 읽어도 내 것으로 계산한다.
+      }
+    }
+    final all = [...mine, ...shared];
+    if (all.isNotEmpty) return all;
     // 서버가 비어 있으면, 폰에 있던 잔재를 한 번 옮긴다(예전 자료를 잃지 않게).
     return _moveFromPhoneIfNeeded();
   }
@@ -170,17 +193,28 @@ class FirestoreLeftoverStore implements LeftoverStore {
     }
   }
 
-  @override
-  Future<void> save(List<Leftover> all) async {
+  Future<void> _write(
+    DocumentReference<Map<String, dynamic>> d,
+    List<Leftover> all,
+  ) async {
     // 통신이 없으면 서버 확인이 영영 안 끝나 "잘랐습니다" 단추가 멈췄다. 폰에 먼저 적히므로
     // 8초 넘으면 그냥 진행한다(통신되면 올라간다).
-    await _doc
+    await d
         .set({
           'items': [for (final l in withLeftoverIds(all)) l.toServer()],
           'updatedAt': FieldValue.serverTimestamp(),
+          // 공용 문서(예전 current)에는 주인을 붙이지 않는다.
+          ...ownerFieldsFor(
+            shared: !_split || d.id == _shared.id,
+            uid: currentUid(),
+          ),
         })
         .timeout(const Duration(seconds: 8), onTimeout: () {});
   }
+
+  /// 내 잔재 문서를 통째로 적는다(폰에 있던 것을 옮길 때).
+  @override
+  Future<void> save(List<Leftover> all) => _write(_mine, all);
 
   @override
   Future<void> change({
@@ -191,14 +225,18 @@ class FirestoreLeftoverStore implements LeftoverStore {
     // 한 문서의 같은 칸에 빼기·더하기를 한 번에 못 하므로 한 묶음에 두 번 적는다(순서대로 적용).
     final batch = FirebaseFirestore.instance.batch();
     if (used.isNotEmpty) {
-      batch.set(_doc, {
+      final remove = {
         'items': FieldValue.arrayRemove([for (final l in used) l.toServer()]),
-      }, SetOptions(merge: true));
+      };
+      batch.set(_mine, remove, SetOptions(merge: true));
+      // 쓴 잔재가 예전 공용 문서에 있었을 수 있다.
+      if (_split) batch.set(_shared, remove, SetOptions(merge: true));
     }
-    batch.set(_doc, {
+    batch.set(_mine, {
       if (added.isNotEmpty)
         'items': FieldValue.arrayUnion([for (final l in added) l.toServer()]),
       'updatedAt': FieldValue.serverTimestamp(),
+      ...ownerFieldsFor(shared: !_split, uid: currentUid()),
     }, SetOptions(merge: true));
     await batch.commit().timeout(const Duration(seconds: 8), onTimeout: () {});
   }
