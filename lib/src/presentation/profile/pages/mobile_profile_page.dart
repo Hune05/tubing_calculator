@@ -915,105 +915,168 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
     );
   }
 
+  /// 로그아웃. 이 폰에서 알림 토큰·구글 연결·이름을 지우고 처음 화면으로 간다.
+  Future<void> _logout(BuildContext context) async {
+    HapticFeedback.mediumImpact();
+    // 같이 쓰는 폰에서 남의 알림이 오지 않게 토큰부터 지운다.
+    await _store.clearToken(_displayName);
+    try {
+      // 통신이 없으면 끝나지 않을 수 있어 오래 기다리지 않는다.
+      await _googleSignIn.signOut().timeout(const Duration(seconds: 3));
+      await _googleSignIn.disconnect().timeout(const Duration(seconds: 3));
+    } catch (e) {
+      debugPrint("구글 연결 해제 건너뜀: $e");
+    }
+    await FirebaseAuth.instance.signOut();
+    await _store.clearName();
+    if (context.mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const MobileMenuPage(currentWorker: kGuestName),
+        ),
+        (route) => false,
+      );
+    }
+  }
+
+  // 🚀 [고침] 구글 계정을 잇지 않은 사람에게 "되찾을 수 없다"고 경고하면서도 빨간
+  // "로그아웃"이 가장 눈에 띄었고, 창 안에서 바로 이을 수도 없었다. 그때는 "구글 계정
+  // 잇기"를 큰 단추로, 로그아웃은 글자 단추로 둔다. 통신이 없을 때 몇 초 반응이
+  // 없던 것은 누른 뒤 도는 표시로 알린다.
   void _showLogoutDialog(BuildContext context) {
+    final anonymous = isAnonymousUser();
+    bool busy = false;
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: pureWhite,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text(
-            "로그아웃하시겠습니까?",
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: slate900,
-              letterSpacing: -0.5,
+      barrierDismissible: false,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (dialogCtx, setD) {
+          final logoutBtn = TextButton(
+            key: const Key('logout_confirm'),
+            onPressed: busy
+                ? null
+                : () async {
+                    setD(() => busy = true);
+                    await _logout(context);
+                  },
+            style: TextButton.styleFrom(
+              backgroundColor: anonymous ? Colors.transparent : red500,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-          ),
-          content: Text(
-            isAnonymousUser()
-                ? "이 폰에서 이름과 알림을 지웁니다. 폰에 저장된 일지·설정은 그대로 남습니다.\n\n"
-                      "구글 계정을 잇지 않았으므로, 로그아웃하면 '내 것'으로 넣은 재고·배치도를 "
-                      "다시 찾을 수 없습니다. 먼저 구글 계정을 이으십시오."
-                : "이 폰에서 이름과 알림을 지웁니다. 폰에 저장된 일지·설정은 그대로 남습니다.",
-            style: const TextStyle(fontSize: 15, color: slate600, height: 1.4),
-          ),
-          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          actions: [
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: TextButton.styleFrom(
-                      backgroundColor: slate100,
+            child: busy
+                ? SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: anonymous ? red500 : pureWhite,
+                    ),
+                  )
+                : Text(
+                    anonymous ? "그래도 로그아웃" : "로그아웃",
+                    style: TextStyle(
+                      color: anonymous ? red500 : pureWhite,
+                      fontSize: anonymous ? 15 : 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+          );
+          final cancelBtn = TextButton(
+            onPressed: busy ? null : () => Navigator.pop(dialogCtx),
+            style: TextButton.styleFrom(
+              backgroundColor: slate100,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              "취소",
+              style: TextStyle(
+                color: slate600,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          );
+          return AlertDialog(
+            backgroundColor: pureWhite,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Text(
+              "로그아웃하시겠습니까?",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: slate900,
+                letterSpacing: -0.5,
+              ),
+            ),
+            content: Text(
+              anonymous
+                  ? "이 폰에서 이름과 알림을 지웁니다. 폰에 저장된 일지·설정은 그대로 남습니다.\n\n"
+                        "구글 계정을 잇지 않았으므로, 로그아웃하면 '내 것'으로 넣은 재고·배치도를 "
+                        "다시 찾을 수 없습니다. 먼저 구글 계정을 이으십시오."
+                  : "이 폰에서 이름과 알림을 지웁니다. 폰에 저장된 일지·설정은 그대로 남습니다.",
+              style: const TextStyle(
+                fontSize: 15,
+                color: slate600,
+                height: 1.4,
+              ),
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            actions: [
+              if (anonymous) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    key: const Key('logout_link_google'),
+                    onPressed: busy
+                        ? null
+                        : () async {
+                            final ok = await _linkGoogleAccount();
+                            if (ok && dialogCtx.mounted) {
+                              Navigator.pop(dialogCtx);
+                              _showSnackBar("구글 계정을 이었습니다.");
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF007580),
+                      foregroundColor: pureWhite,
+                      elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     child: const Text(
-                      "취소",
+                      "구글 계정 잇기",
                       style: TextStyle(
-                        color: slate600,
                         fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextButton(
-                    onPressed: () async {
-                      HapticFeedback.mediumImpact();
-                      // 같이 쓰는 폰에서 남의 알림이 오지 않게 토큰부터 지운다.
-                      await _store.clearToken(_displayName);
-                      try {
-                        await _googleSignIn.signOut();
-                        await _googleSignIn.disconnect();
-                      } catch (e) {
-                        debugPrint("구글 연결 해제 건너뜀: $e");
-                      }
-                      await FirebaseAuth.instance.signOut();
-                      await _store.clearName();
-                      if (context.mounted) {
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                const MobileMenuPage(currentWorker: kGuestName),
-                          ),
-                          (route) => false,
-                        );
-                      }
-                    },
-                    style: TextButton.styleFrom(
-                      backgroundColor: red500,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      "로그아웃",
-                      style: TextStyle(
-                        color: pureWhite,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
+                const SizedBox(height: 8),
               ],
-            ),
-          ],
-        );
-      },
+              Row(
+                children: [
+                  Expanded(child: cancelBtn),
+                  const SizedBox(width: 8),
+                  Expanded(child: logoutBtn),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
