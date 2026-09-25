@@ -238,7 +238,8 @@ Future<List<({String id, Map<String, dynamic> data})>> _personalDocs(
 }
 
 // 폰의 되풀이 예약으로 못 맞춰 한 번씩만 잡아 둔 반복 일정(날짜가 밀리는 매달, 격주·평일,
-// 반복 끝·뺀 회차가 있는 것)을 다시 예약한다. 앱을 열 때 부른다. 다시 예약한 수를 돌려준다.
+// 반복 끝·뺀 회차가 있는 것)을 다시 예약한다. 앱을 켤 때(폰 홈)와 내 일정 화면을 열 때
+// 부른다. 다시 예약한 수를 돌려준다.
 Future<int> rescheduleDriftingMonthlyReminders() async {
   try {
     final p = await SharedPreferences.getInstance();

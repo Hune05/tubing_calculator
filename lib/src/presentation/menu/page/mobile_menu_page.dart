@@ -35,6 +35,8 @@ import 'package:tubing_calculator/src/presentation/profile/pages/mobile_profile_
 // 🚀 4. 프로젝트 관리 페이지 임포트
 import 'package:tubing_calculator/src/presentation/my_work_logs/screens/work_log_main_screen.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/mobile_my_schedule_page.dart';
+import 'package:tubing_calculator/src/presentation/my_schedule/schedule_reminders.dart'
+    show rescheduleDriftingMonthlyReminders;
 
 // 🚀 5. 공용 차량 및 장비 페이지 임포트
 import 'package:tubing_calculator/src/presentation/vehicle/pages/mobile_vehicle_management_page.dart';
@@ -98,7 +100,16 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     WidgetsBinding.instance.addObserver(this);
     _fetchDetailedWeather();
     _loadTodayScheduleCount();
+    // 격주·평일·반복 끝이 있는 일정 알림은 한 번씩만 잡혀 있어서 다음 회차를 다시 잡아야
+    // 한다. 예전엔 "내 일정" 화면을 열 때만 잡아서, 며칠 안 열면 알림이 끊겼다.
+    // 앱을 켤 때 한 번(기다리지 않음, 통신이 없으면 폰 캐시로).
+    if (!_remindersRescheduledThisRun) {
+      _remindersRescheduledThisRun = true;
+      rescheduleDriftingMonthlyReminders();
+    }
   }
+
+  static bool _remindersRescheduledThisRun = false;
 
   @override
   void dispose() {
