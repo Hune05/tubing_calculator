@@ -78,13 +78,15 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
   final _cutMarginController = TextEditingController();
 
   String get _unit => _isInch ? "inch" : "mm";
-  List<String> get _odList => SettingsController.getOdList(_isInch);
+  // 저장된 바깥지름이 목록에 없으면 끼워 넣는다(예전엔 첫 값 3.0으로 떨어져 저장됐다).
+  List<String> get _odList =>
+      SettingsController.odListIncluding(_isInch, _currentOD);
   bool get _isElectric => _benderType == "전동 (Electric)";
 
   @override
   void initState() {
     super.initState();
-    _currentOD = _odList.contains("12.7") ? "12.7" : _odList.first;
+    _currentOD = "12.7";
     _loadData();
   }
 
@@ -115,7 +117,8 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         if (!loadedOD.contains('.')) {
           loadedOD += ".0";
         }
-        _currentOD = _odList.contains(loadedOD) ? loadedOD : _odList.first;
+        final loadedValue = double.tryParse(loadedOD) ?? 0;
+        _currentOD = loadedValue > 0 ? loadedOD : (_isInch ? "0.5" : "12.7");
 
         _autoStates['radius'] = c.autoRadius;
         _autoStates['takeUp'] = c.autoTakeUp;
@@ -1109,7 +1112,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           // 🚀 [수정] mm 기본값이 "12.0"이 아니라 "12.7"이어야
           // 최초 로드 시 기본값(1/2" = 12.7mm)과 일치함
           String targetOD = _isInch ? "0.5" : "12.7";
-          _currentOD = _odList.contains(targetOD) ? targetOD : _odList.first;
+          _currentOD = targetOD;
         });
         _onSpecsChanged();
       },

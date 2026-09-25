@@ -58,14 +58,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String get _unit => _isInch ? "inch" : "mm";
   // 저장된 바깥지름이 목록에 없으면(12.7 같은 인치 관을 mm로) 목록에 끼워 넣는다. 예전엔
   // 목록 첫 값(3.0)으로 바뀌어 저장돼 모든 화면의 관 굵기가 3mm가 됐다.
-  List<String> get _odList {
-    final base = SettingsController.getOdList(_isInch);
-    if (base.contains(_currentOD)) return base;
-    final v = double.tryParse(_currentOD);
-    if (v == null || v <= 0) return base;
-    return [...base, _currentOD]
-      ..sort((a, b) => double.parse(a).compareTo(double.parse(b)));
-  }
+  List<String> get _odList =>
+      SettingsController.odListIncluding(_isInch, _currentOD);
 
   bool get _isElectric => _benderType == "전동 (Electric)";
 
