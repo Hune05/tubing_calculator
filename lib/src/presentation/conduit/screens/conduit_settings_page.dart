@@ -567,17 +567,16 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
           centerTitle: false,
           iconTheme: const IconThemeData(color: slate900),
         ),
-        body: Column(
-          children: [
-            _buildMainTypeSelector(),
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.only(bottom: 100),
-                child: _buildCurrentSettingsView(),
-              ),
-            ),
-          ],
+        // 🚀 [고침] 방식 고르기가 위에 고정돼 작은 폰에서는 설정 칸이 화면 절반에만
+        // 보였다. 같이 넘어가게 스크롤 안에 넣는다.
+        body: SingleChildScrollView(
+          key: const Key('conduit_settings_scroll'),
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 100),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [_buildMainTypeSelector(), _buildCurrentSettingsView()],
+          ),
         ),
         bottomSheet: Container(
           padding: EdgeInsets.fromLTRB(

@@ -815,32 +815,26 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     super.build(context);
     return Column(
       children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-          decoration: const BoxDecoration(
-            color: pureWhite,
-            border: Border(bottom: BorderSide(color: _slate200)),
-          ),
-          child: const Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              '장비 세팅 가이드',
-              style: TextStyle(
-                color: slate900,
-                fontWeight: FontWeight.w800,
-                fontSize: 18,
-              ),
-            ),
-          ),
-        ),
         Expanded(
           child: SingleChildScrollView(
+            key: const Key('tube_settings_scroll'),
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // 🚀 [고침] 제목이 위에 고정돼 작은 폰에서 설정 칸이 좁았다. 같이 넘어간다.
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(0, 14, 0, 4),
+                  child: Text(
+                    '장비 세팅 가이드',
+                    style: TextStyle(
+                      color: slate900,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
                 ..._buildLeftInputSettingsGroup(),
                 const SizedBox(height: 24),
                 ..._buildRightGuideGroup(),
