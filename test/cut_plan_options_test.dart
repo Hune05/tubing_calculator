@@ -123,4 +123,66 @@ void main() {
     );
     expect(find.byKey(const Key('plan_settings_card')), findsOneWidget);
   });
+
+  testWidgets('X11 끝 다듬기는 완료를 안 눌러도 반영, 가진 본수 창은 숫자만 받는다', (tester) async {
+    leftoverStore = PrefsLeftoverStore();
+    SharedPreferences.setMockInitialValues({
+      kCutOwnedBarsKey: jsonEncode({'앵글': 1}),
+      kCutEndTrimKey: 50.0,
+    });
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showCuttingOptimizationSheet(
+                context,
+                groupedPieces: {
+                  '앵글': [3000, 2980],
+                },
+                initialStockLength: 6000,
+              ),
+              child: const Text('열기'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+    Finder list() => find
+        .descendant(
+          of: find.byType(ListView).last,
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    const short = '앵글: 2본 필요 · 가진 1본 → 1본 모자람';
+    expect(find.text(short), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('plan_end_trim')),
+      300,
+      scrollable: list(),
+    );
+    // 완료를 누르지 않고 고치기만 해도 셈이 바뀐다(한 본이면 된다).
+    await tester.enterText(find.byKey(const Key('plan_end_trim')), '0');
+    await tester.pumpAndSettle();
+    expect(find.text(short), findsNothing);
+
+    await tester.tap(find.byKey(const Key('owned_앵글')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('owned_input')), 'abc');
+    await tester.tap(find.byKey(const Key('owned_ok')));
+    await tester.pumpAndSettle();
+    // 닫히지 않고 알린다(예전: 0으로 받아 가진 본수를 지웠다).
+    expect(find.text('0 이상 정수로 넣으십시오'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('owned_input')), '3');
+    await tester.tap(find.byKey(const Key('owned_ok')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('owned_input')), findsNothing);
+    final p = await SharedPreferences.getInstance();
+    expect(jsonDecode(p.getString(kCutOwnedBarsKey)!)['앵글'], 3);
+  });
 }

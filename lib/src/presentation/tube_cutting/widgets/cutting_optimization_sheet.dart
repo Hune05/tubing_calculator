@@ -1423,6 +1423,10 @@ Widget _smallNumField({
   key: key,
   controller: controller,
   keyboardType: const TextInputType.numberWithOptions(decimal: true),
+  // 🚀 [고침] 키보드 "완료"를 눌러야만 반영돼, 칸 밖을 누르고 나오면 보이는 값과
+  // 계산 값이 달랐다. 고칠 때마다 반영한다.
+  onChanged: (t) =>
+      onSubmitted((double.tryParse(t.trim()) ?? 0).clamp(0, 5000)),
   onSubmitted: (t) =>
       onSubmitted((double.tryParse(t.trim()) ?? 0).clamp(0, 5000)),
   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
@@ -1440,33 +1444,55 @@ Widget _smallNumField({
 );
 
 /// 가진 원자재 본수를 묻는다. 비우면 0(지우기), 닫으면 null.
+/// 🚀 [고침] "abc"도 0(지우기)으로 받았다. 숫자가 아니면 창을 닫지 않고 알린다.
 Future<int?> _askOwnedBars(BuildContext context, String spec, int? now) {
   final c = TextEditingController(text: now?.toString() ?? '');
+  String? error;
   return showDialog<int>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text("${spec.isEmpty ? '원자재' : spec} 가진 본수"),
-      content: TextField(
-        key: const Key('owned_input'),
-        controller: c,
-        autofocus: true,
-        keyboardType: TextInputType.number,
-        decoration: const InputDecoration(
-          hintText: "비우면 지웁니다",
-          suffixText: "본",
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text("취소"),
-        ),
-        TextButton(
-          key: const Key('owned_ok'),
-          onPressed: () => Navigator.pop(ctx, int.tryParse(c.text.trim()) ?? 0),
-          child: const Text("확인"),
-        ),
-      ],
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setD) {
+        void submit() {
+          final t = c.text.trim();
+          if (t.isEmpty) {
+            Navigator.pop(ctx, 0);
+            return;
+          }
+          final n = int.tryParse(t);
+          if (n == null || n < 0) {
+            setD(() => error = "0 이상 정수로 넣으십시오");
+            return;
+          }
+          Navigator.pop(ctx, n);
+        }
+
+        return AlertDialog(
+          title: Text("${spec.isEmpty ? '원자재' : spec} 가진 본수"),
+          content: TextField(
+            key: const Key('owned_input'),
+            controller: c,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            onSubmitted: (_) => submit(),
+            decoration: InputDecoration(
+              hintText: "비우면 지웁니다",
+              suffixText: "본",
+              errorText: error,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("취소"),
+            ),
+            TextButton(
+              key: const Key('owned_ok'),
+              onPressed: submit,
+              child: const Text("확인"),
+            ),
+          ],
+        );
+      },
     ),
   );
 }
