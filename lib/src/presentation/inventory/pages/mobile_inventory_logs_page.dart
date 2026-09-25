@@ -3,6 +3,16 @@ import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+/// 재고 실사 기록의 수량 앞 글자. 기록에는 차이(절댓값)와 부호(sign)가 들어 있다.
+/// 🚀 [고침] 예전에는 늘 "="를 붙여 10→7로 고친 기록이 "=3"(3개로 맞춤)처럼 읽혔다.
+/// 부호가 없는 예전 기록만 "="로 둔다.
+String auditQtyPrefix(Map data) {
+  final sign = data['sign']?.toString();
+  if (sign == '-') return '−';
+  if (sign == '+') return '+';
+  return '=';
+}
+
 // 🎨 토스 스타일 미니멀 컬러 팔레트
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF191F28);
@@ -209,8 +219,7 @@ class _MobileInventoryLogsPageState extends State<MobileInventoryLogsPage> {
                         displayAction = "재고 실사 (수정)";
                         actionColor = slate900;
                         actionIcon = AppGlyph.stockAudit;
-                        displayQtyPrefix =
-                            "="; // 실사는 증감이 아니라 '해당 수량으로 맞춤'의 의미가 강함
+                        displayQtyPrefix = auditQtyPrefix(data);
                       } else if (rawAction.contains('삭제')) {
                         displayAction = "목록에서 삭제";
                         actionColor = Colors.red.shade800;
