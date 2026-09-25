@@ -1,13 +1,13 @@
-import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/services.dart';
 
 // 🎨 화이트 & 마키타 테마 컬러
-const Color makitaTeal = AppColors.brand;
-const Color slate900 = AppColors.text; // 진한 텍스트 (입력값)
-const Color slate600 = AppColors.textSub; // 서브 텍스트 (라벨)
-const Color slate100 = AppColors.background; // 연한 회색 (읽기 전용창 배경)
-const Color pureWhite = Color(0xFFFFFFFF); // 퓨어 화이트 (입력창 배경)
+Color get makitaTeal => fc.brand;
+Color get slate900 => fc.text; // 진한 텍스트 (입력값)
+Color get slate600 => fc.textSub; // 서브 텍스트 (라벨)
+Color get slate100 => fc.background; // 연한 회색 (읽기 전용창 배경)
+Color get pureWhite => fc.surface; // 퓨어 화이트 (입력창 배경)
 
 class RemoteReadOnlyField extends StatelessWidget {
   final String label;
@@ -33,7 +33,7 @@ class RemoteReadOnlyField extends StatelessWidget {
       ),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(
+        labelStyle: TextStyle(
           fontSize: 14,
           color: slate600,
           fontWeight: FontWeight.bold,
@@ -95,14 +95,14 @@ class RemoteTextField extends StatelessWidget {
               FocusScope.of(context).unfocus();
             }
           },
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.bold,
             color: slate900, // 💡 진한 글씨로 시인성 극대화
           ),
           decoration: InputDecoration(
             labelText: isOptional ? label : "$label *",
-            labelStyle: const TextStyle(
+            labelStyle: TextStyle(
               fontSize: 14,
               color: slate600,
               fontWeight: FontWeight.bold,
@@ -116,7 +116,11 @@ class RemoteTextField extends StatelessWidget {
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                color: Colors.grey.shade300, // 💡 연한 회색 테두리
+                color: fieldPick(
+                  Colors.grey.shade300,
+                  sunlight: fc.line,
+                  night: fc.line,
+                ), // 💡 연한 회색 테두리
                 width: 1.5,
               ),
             ),
@@ -148,7 +152,11 @@ class RemoteTextField extends StatelessWidget {
                           foregroundColor: slate900, // 💡 텍스트 색상
                           backgroundColor: pureWhite, // 💡 배경 색상
                           side: BorderSide(
-                            color: Colors.grey.shade300,
+                            color: fieldPick(
+                              Colors.grey.shade300,
+                              sunlight: fc.line,
+                              night: fc.line,
+                            ),
                             width: 1.5,
                           ),
                           shape: RoundedRectangleBorder(
@@ -211,7 +219,13 @@ class InnerTabSelector extends StatelessWidget {
                 ),
                 border: Border(
                   bottom: BorderSide(
-                    color: isSelected ? activeColor : Colors.grey.shade300,
+                    color: isSelected
+                        ? activeColor
+                        : fieldPick(
+                            Colors.grey.shade300,
+                            sunlight: fc.line,
+                            night: fc.line,
+                          ),
                     width: isSelected ? 3 : 1,
                   ),
                 ),
@@ -270,7 +284,11 @@ class DirectionSelector extends StatelessWidget {
               border: Border.all(
                 color: isSelected
                     ? modeColor
-                    : Colors.grey.shade300, // 💡 비활성 시 연한 테두리
+                    : fieldPick(
+                        Colors.grey.shade300,
+                        sunlight: fc.line,
+                        night: fc.line,
+                      ), // 💡 비활성 시 연한 테두리
                 width: 2,
               ),
               boxShadow: isSelected
@@ -289,7 +307,7 @@ class DirectionSelector extends StatelessWidget {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: isSelected ? pureWhite : slate600, // 💡 텍스트 대비 향상
+                color: isSelected ? Colors.white : slate600, // 💡 텍스트 대비 향상
               ),
             ),
           ),

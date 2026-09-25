@@ -10,6 +10,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../theme/app_tokens.dart';
+import '../theme/field_view.dart';
 
 // ───────────────────────── 단추 ─────────────────────────
 
@@ -88,17 +89,20 @@ class AppButton extends StatelessWidget {
   );
 
   /// 단추 색(바탕, 글). 시험에서도 쓴다.
-  static (Color background, Color foreground) colorsOf(AppButtonKind kind) =>
-      switch (kind) {
-        AppButtonKind.primary => (AppColors.brand, AppColors.onBrand),
-        AppButtonKind.secondary => (AppColors.surface, AppColors.brand),
-        AppButtonKind.danger => (AppColors.danger, AppColors.onBrand),
-        AppButtonKind.quiet => (AppColors.fill, AppColors.textSub),
-      };
+  static (Color background, Color foreground) colorsOf(
+    AppButtonKind kind, [
+    FieldPalette p = FieldPalette.normal,
+  ]) => switch (kind) {
+    AppButtonKind.primary => (p.brand, p.onBrand),
+    AppButtonKind.secondary => (p.surface, p.brand),
+    AppButtonKind.danger => (p.danger, p.onBrand),
+    AppButtonKind.quiet => (p.fill, p.textSub),
+  };
 
   @override
   Widget build(BuildContext context) {
-    final (bg, fg) = colorsOf(kind);
+    final p = FieldPalette.ofContext(context);
+    final (bg, fg) = colorsOf(kind, p);
     final text = Text(
       label,
       textAlign: TextAlign.center,
@@ -124,8 +128,8 @@ class AppButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: bg,
           foregroundColor: fg,
-          disabledBackgroundColor: AppColors.line,
-          disabledForegroundColor: AppColors.textFaint,
+          disabledBackgroundColor: p.line,
+          disabledForegroundColor: p.textFaint,
           elevation: 0,
           minimumSize: minSize,
           padding: _padding,
@@ -141,7 +145,7 @@ class AppButton extends StatelessWidget {
           backgroundColor: bg,
           foregroundColor: fg,
           side: BorderSide(
-            color: onPressed == null ? AppColors.line : AppColors.brand,
+            color: onPressed == null ? p.line : p.brand,
             width: 1.5,
           ),
           minimumSize: minSize,
@@ -224,14 +228,20 @@ class AppConfirmDialog extends StatelessWidget {
   });
 
   /// 창 본문 글(진한 글씨 — 확인할 숫자가 햇빛 아래서도 읽히게).
-  static Widget message(String text) => Text(text, style: AppText.body);
+  static Widget message(String text) => Builder(
+    builder: (context) => Text(
+      text,
+      style: AppText.body.copyWith(color: FieldPalette.ofContext(context).text),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
-    final accent = destructive ? AppColors.danger : AppColors.brand;
-    final titleText = Text(title, style: AppText.title);
+    final p = FieldPalette.ofContext(context);
+    final accent = destructive ? p.danger : p.brand;
+    final titleText = Text(title, style: AppText.title.copyWith(color: p.text));
     return AlertDialog(
-      backgroundColor: AppColors.surface,
+      backgroundColor: p.surface,
       surfaceTintColor: Colors.transparent,
       // 폰에서도 글이 좁게 접히지 않도록 창을 넓게 쓴다.
       insetPadding: const EdgeInsets.symmetric(
@@ -436,6 +446,7 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = FieldPalette.ofContext(context);
     return LayoutBuilder(
       builder: (context, box) {
         final compact = box.maxHeight < compactBelow;
@@ -449,25 +460,28 @@ class EmptyState extends StatelessWidget {
                   Container(
                     width: 72,
                     height: 72,
-                    decoration: const BoxDecoration(
-                      color: AppColors.brandSoft,
+                    decoration: BoxDecoration(
+                      color: p.brandSoft,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(icon, size: 36, color: AppColors.brand),
+                    child: Icon(icon, size: 36, color: p.brand),
                   ),
                   const SizedBox(height: AppSpace.lg),
                 ],
                 Text(
                   title,
                   textAlign: TextAlign.center,
-                  style: AppText.subtitle.copyWith(fontWeight: AppText.bold),
+                  style: AppText.subtitle.copyWith(
+                    fontWeight: AppText.bold,
+                    color: p.text,
+                  ),
                 ),
                 if (message != null) ...[
                   const SizedBox(height: AppSpace.sm),
                   Text(
                     message!,
                     textAlign: TextAlign.center,
-                    style: AppText.sub.copyWith(fontSize: 14),
+                    style: AppText.sub.copyWith(fontSize: 14, color: p.textSub),
                   ),
                 ],
                 if (actionLabel != null && onAction != null) ...[
@@ -522,13 +536,14 @@ class _LoadingListState extends State<LoadingList>
 
   @override
   Widget build(BuildContext context) {
+    final p = FieldPalette.ofContext(context);
     Widget bar(double widthFactor, double height) => FractionallySizedBox(
       alignment: Alignment.centerLeft,
       widthFactor: widthFactor,
       child: Container(
         height: height,
         decoration: BoxDecoration(
-          color: AppColors.line,
+          color: p.line,
           borderRadius: BorderRadius.circular(AppRadius.small / 2),
         ),
       ),
@@ -547,7 +562,7 @@ class _LoadingListState extends State<LoadingList>
             margin: const EdgeInsets.only(bottom: AppSpace.md),
             padding: const EdgeInsets.all(AppSpace.lg),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: p.surface,
               borderRadius: BorderRadius.circular(AppRadius.large),
             ),
             child: Column(
@@ -590,11 +605,12 @@ class NumberDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = FieldPalette.ofContext(context);
     final numStyle = (large ? AppText.numberLarge : AppText.number).copyWith(
-      color: color,
+      color: color ?? p.text,
     );
     final unitStyle = AppText.subtitle.copyWith(
-      color: AppColors.textSub,
+      color: p.textSub,
       fontSize: large ? 18 : 15,
     );
     final cross = switch (align) {
@@ -611,7 +627,8 @@ class NumberDisplay extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: cross,
       children: [
-        if (label != null) Text(label!, style: AppText.caption),
+        if (label != null)
+          Text(label!, style: AppText.caption.copyWith(color: p.textSub)),
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: fitAlign,

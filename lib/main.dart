@@ -1,5 +1,6 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/app_theme.dart';
+import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -216,6 +217,7 @@ void main() async {
   // 상태 표시줄을 보이게 둔다(현장 탭만 몰입 모드). 화면은 AppFrame이 그 밑으로 안 들어가게 한다.
   SystemChrome.setEnabledSystemUIMode(kAppSystemUiMode);
   await initializeDateFormatting('ko_KR', null); // 달력 등 한글 요일/월 이름
+  await FieldColors.load(); // 현장 보기(보통·햇빛·야간)
   // "이름만 넣고 시작"한 사람도 uid가 있게 익명 로그인을 뒤에서 시도한다(이미 로그인했으면
   // 그대로). 통신이 없거나 콘솔에서 익명 로그인이 꺼져 있으면 조용히 넘어간다.
   unawaited(ensureSignedIn());
@@ -347,8 +349,12 @@ class _MyAppState extends State<MyApp> {
       theme: buildAppTheme(),
       // 딥링크 받는 위젯은 화면(route) 밖에 둔다. home에 두면 로딩 화면이 홈으로 바뀔 때
       // 같이 버려져 그 뒤로는 QR 링크가 안 열렸다.
-      builder: (context, child) =>
-          AppFrame(child: DeepLinkHandler(child: child ?? const SizedBox())),
+      // 현장 보기(햇빛·야간)를 바꾸면 FieldViewHost가 화면을 모두 다시 그린다.
+      builder: (context, child) => FieldViewHost(
+        child: AppFrame(
+          child: DeepLinkHandler(child: child ?? const SizedBox()),
+        ),
+      ),
       home: const DeviceRouter(),
       routes: {
         // 🚀 [수정] 폴더블 대응: MenuScreen을 바로 고정하지 않고

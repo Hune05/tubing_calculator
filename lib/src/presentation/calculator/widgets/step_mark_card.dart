@@ -4,14 +4,12 @@ library;
 
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 
 const Color _teal = AppColors.brand;
 const Color _slate900 = AppColors.text;
 const Color _slate600 = AppColors.textSub;
-const Color _slate200 = AppColors.line;
-const Color _slate100 = AppColors.background;
-const Color _white = Color(0xFFFFFFFF);
 
 /// 카드 아래 한 줄 안내(아이콘, 글, 색).
 typedef StepNote = (IconData icon, String text, Color color);
@@ -20,6 +18,14 @@ typedef StepNote = (IconData icon, String text, Color color);
 const Color stepNoteGrey = _slate600;
 const Color stepNoteTeal = _teal;
 const Color stepNoteAmber = AppColors.caution;
+
+/// 안내 색(보통 보기의 이름 색)을 이 자리 보기(햇빛·야간) 색으로.
+Color _noteColor(FieldPalette p, Color c) {
+  if (c == stepNoteGrey) return p.textSub;
+  if (c == stepNoteTeal) return p.brand;
+  if (c == stepNoteAmber) return p.caution;
+  return c;
+}
 
 class StepMarkCard extends StatelessWidget {
   /// 직관이면 번호 없이 회색 띠.
@@ -59,23 +65,28 @@ class StepMarkCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color selColor = Colors.orange.shade400;
+    final p = FieldPalette.ofContext(context);
+    final Color selColor = p == FieldPalette.normal
+        ? Colors.orange.shade400
+        : p.caution;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: selected ? Colors.orange.shade50 : _white,
+          color: selected
+              ? fieldSoftIn(p, Colors.orange.shade50, p.caution)
+              : p.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: selected
                 ? selColor
-                : (isStraight ? _slate200 : _teal.withValues(alpha: 0.2)),
+                : (isStraight ? p.line : p.brand.withValues(alpha: 0.2)),
             width: selected ? 2 : 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: _slate900.withValues(alpha: 0.02),
+              color: p.text.withValues(alpha: 0.02),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -88,7 +99,7 @@ class StepMarkCard extends StatelessWidget {
               Container(
                 width: 60,
                 decoration: BoxDecoration(
-                  color: selected ? selColor : (isStraight ? _slate200 : _teal),
+                  color: selected ? selColor : (isStraight ? p.line : p.brand),
                   borderRadius: const BorderRadius.horizontal(
                     left: Radius.circular(14),
                   ),
@@ -97,7 +108,7 @@ class StepMarkCard extends StatelessWidget {
                     ? Center(
                         child: AppIcon(
                           AppGlyph.straightPipe,
-                          color: selected ? _white : _slate600,
+                          color: selected ? p.onBrand : p.textSub,
                           size: 26,
                         ),
                       )
@@ -109,16 +120,16 @@ class StepMarkCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
-                              color: _white.withValues(alpha: 0.7),
+                              color: p.onBrand.withValues(alpha: 0.7),
                               letterSpacing: 1,
                             ),
                           ),
                           Text(
                             "$markNum",
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 32,
                               fontWeight: FontWeight.w900,
-                              color: _white,
+                              color: p.onBrand,
                               height: 1.1,
                             ),
                           ),
@@ -136,8 +147,8 @@ class StepMarkCard extends StatelessWidget {
                           Expanded(
                             child: Text(
                               title,
-                              style: const TextStyle(
-                                color: _slate600,
+                              style: TextStyle(
+                                color: p.textSub,
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -155,7 +166,7 @@ class StepMarkCard extends StatelessWidget {
                           vertical: 10,
                         ),
                         decoration: BoxDecoration(
-                          color: _slate100,
+                          color: p.background,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         // 6자리 넘는 값은 320 폭에서 넘쳤다. 칸 폭에 맞게 줄인다.
@@ -168,21 +179,21 @@ class StepMarkCard extends StatelessWidget {
                             children: [
                               Text(
                                 "$mark",
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 30,
                                   fontWeight: FontWeight.w900,
-                                  color: _slate900,
+                                  color: p.text,
                                   fontFamily: 'monospace',
                                   letterSpacing: -1,
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              const Text(
+                              Text(
                                 "mm",
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: _slate600,
+                                  color: p.textSub,
                                 ),
                               ),
                             ],
@@ -193,13 +204,13 @@ class StepMarkCard extends StatelessWidget {
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            Icon(icon, size: 14, color: color),
+                            Icon(icon, size: 14, color: _noteColor(p, color)),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 text,
                                 style: TextStyle(
-                                  color: color,
+                                  color: _noteColor(p, color),
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -227,24 +238,25 @@ class _DirChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = FieldPalette.ofContext(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: _teal.withValues(alpha: 0.1),
+        color: p.brand.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: _teal.withValues(alpha: 0.3)),
+        border: Border.all(color: p.brand.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, color: _teal, size: 12),
+            Icon(icon, color: p.brand, size: 12),
             const SizedBox(width: 4),
           ],
           Text(
             text,
-            style: const TextStyle(
-              color: _teal,
+            style: TextStyle(
+              color: p.brand,
               fontWeight: FontWeight.w900,
               fontSize: 11,
             ),
@@ -271,16 +283,17 @@ class CutLengthCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = FieldPalette.ofContext(context);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _white,
+        color: p.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _teal.withValues(alpha: 0.3)),
+        border: Border.all(color: p.brand.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
-            color: _slate900.withValues(alpha: 0.02),
+            color: p.text.withValues(alpha: 0.02),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -294,21 +307,21 @@ class CutLengthCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: _teal,
+                  color: p.brand,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const AppIcon(
+                child: AppIcon(
                   AppGlyph.tubeCut,
-                  color: _white,
+                  color: p.onBrand,
                   size: 18,
                   filled: false,
                 ),
               ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 "총 절단 길이",
                 style: TextStyle(
-                  color: _teal,
+                  color: p.brand,
                   fontSize: 13,
                   fontWeight: FontWeight.w900,
                 ),
@@ -326,21 +339,21 @@ class CutLengthCard extends StatelessWidget {
               children: [
                 Text(
                   "${totalCut.round()}",
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 36,
                     fontWeight: FontWeight.w900,
-                    color: _slate900,
+                    color: p.text,
                     letterSpacing: -1,
                     height: 1.0,
                     fontFamily: 'monospace',
                   ),
                 ),
                 const SizedBox(width: 4),
-                const Text(
+                Text(
                   "mm",
                   style: TextStyle(
                     fontSize: 14,
-                    color: _slate600,
+                    color: p.textSub,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -349,9 +362,9 @@ class CutLengthCard extends StatelessWidget {
           ),
           ?under,
           for (final b in bottom) ...[
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
-              child: Divider(height: 1, color: _slate200),
+              child: Divider(height: 1, color: p.line),
             ),
             b,
           ],
@@ -375,12 +388,13 @@ class CardLabelValue extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = FieldPalette.ofContext(context);
     return Column(
       crossAxisAlignment: align,
       children: [
-        Text(label, style: cardLabelStyle),
+        Text(label, style: cardLabelStyle.copyWith(color: p.textSub)),
         const SizedBox(height: 4),
-        Text(value, style: cardValueStyle),
+        Text(value, style: cardValueStyle.copyWith(color: p.text)),
       ],
     );
   }

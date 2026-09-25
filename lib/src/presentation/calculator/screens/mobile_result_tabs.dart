@@ -1,6 +1,6 @@
-import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/services.dart';
 
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
@@ -19,14 +19,15 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_pip
 import 'package:tubing_calculator/src/core/database/database_helper.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/mobile_fabrication_detail_screen.dart';
 
-const Color makitaTeal = AppColors.brand;
-const Color slate900 = AppColors.text;
-const Color slate600 = AppColors.textSub;
-const Color slate100 = AppColors.background;
-const Color slate50 = Color(0xFFF8FAFC);
-const Color slate200 = AppColors.line;
-const Color _slate400 = Color(0xFF94A3B8);
-const Color pureWhite = Color(0xFFFFFFFF);
+Color get makitaTeal => fc.brand;
+Color get slate900 => fc.text;
+Color get slate600 => fc.textSub;
+Color get slate100 => fc.background;
+Color get slate50 =>
+    fieldPick(const Color(0xFFF8FAFC), sunlight: fc.fill, night: fc.fill);
+Color get slate200 => fc.line;
+Color get _slate400 => fc.textFaint;
+Color get pureWhite => fc.surface;
 
 /// 관 바깥지름을 mm로. 설정이 인치면 바꿔 준다.
 double _odMm() {
@@ -226,10 +227,14 @@ class _MobileResultTabState extends State<MobileResultTab>
     return Icons.rotate_right;
   }
 
+  // 현장 보기(보통·햇빛·야간) 테마로 감싼다(D-D). 탭만 따로 띄워도 같은 색.
   @override
   Widget build(BuildContext context) {
-    super.build(context);
+    super.build(context); // AutomaticKeepAliveClientMixin
+    return FieldViewTheme(child: Builder(builder: _buildPage));
+  }
 
+  Widget _buildPage(BuildContext context) {
     return ListenableBuilder(
       listenable: MobileBendDataManager(),
       builder: (context, child) {
@@ -303,11 +308,15 @@ class _MobileResultTabState extends State<MobileResultTab>
                 children: [
                   Icon(
                     Icons.error_outline_rounded,
-                    color: Colors.red.shade400,
+                    color: fieldPick(
+                      Colors.red.shade400,
+                      sunlight: fc.danger,
+                      night: fc.danger,
+                    ),
                     size: 48,
                   ),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     "이 도면은 계산할 수 없습니다.",
                     style: TextStyle(
                       color: slate900,
@@ -319,7 +328,7 @@ class _MobileResultTabState extends State<MobileResultTab>
                   Text(
                     calcError ?? "알 수 없는 오류",
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: slate600, fontSize: 13),
+                    style: TextStyle(color: slate600, fontSize: 13),
                   ),
                 ],
               ),
@@ -437,7 +446,7 @@ class _MobileResultTabState extends State<MobileResultTab>
                 elevation: 0,
                 automaticallyImplyLeading: false,
                 systemOverlayStyle: SystemUiOverlayStyle.dark,
-                title: const Text(
+                title: Text(
                   "마킹 가이드",
                   style: TextStyle(
                     fontSize: 16,
@@ -450,7 +459,7 @@ class _MobileResultTabState extends State<MobileResultTab>
                   if (hasRealTubeRow(bendList))
                     IconButton(
                       key: const Key('tube_save_drawing'),
-                      icon: const Icon(Icons.save_alt_rounded, color: slate900),
+                      icon: Icon(Icons.save_alt_rounded, color: slate900),
                       tooltip: "보관함에 저장",
                       onPressed: () => _handleSave(totalCut, bendList),
                     ),
@@ -459,7 +468,7 @@ class _MobileResultTabState extends State<MobileResultTab>
                       padding: const EdgeInsets.only(right: 8),
                       child: IconButton(
                         key: const Key('tube_marking_sheet'),
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.picture_as_pdf_outlined,
                           color: slate900,
                         ),
@@ -499,7 +508,7 @@ class _MobileResultTabState extends State<MobileResultTab>
                   ),
                 )
               else ...[
-                const SliverToBoxAdapter(
+                SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(20, 12, 20, 4),
                     child: Text(
@@ -547,7 +556,7 @@ class _MobileResultTabState extends State<MobileResultTab>
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                 "마지막 벤드 뒤 곧은 길이 ${leftover.round()}mm",
-                style: const TextStyle(
+                style: TextStyle(
                   color: slate600,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -568,7 +577,7 @@ class _MobileResultTabState extends State<MobileResultTab>
                 children: [
                   Text(
                     "피팅 (깊이 ${fittingDepth.round()}mm)",
-                    style: cardLabelStyle,
+                    style: cardLabelStyle.copyWith(color: slate600),
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
@@ -613,13 +622,17 @@ class _MobileResultTabState extends State<MobileResultTab>
           borderRadius: BorderRadius.circular(8),
           child: Row(
             children: [
-              const Expanded(child: Text("꼬리 길이", style: cardLabelStyle)),
-              Text("${_tailLength.round()} mm", style: cardValueStyle),
-              const Icon(
-                Icons.chevron_right_rounded,
-                size: 18,
-                color: slate600,
+              Expanded(
+                child: Text(
+                  "꼬리 길이",
+                  style: cardLabelStyle.copyWith(color: slate600),
+                ),
               ),
+              Text(
+                "${_tailLength.round()} mm",
+                style: cardValueStyle.copyWith(color: slate900),
+              ),
+              Icon(Icons.chevron_right_rounded, size: 18, color: slate600),
             ],
           ),
         ),
@@ -719,7 +732,7 @@ class _MobileResultTabState extends State<MobileResultTab>
           mainAxisSize: MainAxisSize.min,
           children: [
             if (isSelected) ...[
-              const Icon(Icons.check_rounded, size: 15, color: pureWhite),
+              Icon(Icons.check_rounded, size: 15, color: pureWhite),
               const SizedBox(width: 2),
             ],
             Text(
@@ -827,7 +840,7 @@ class _MobileViewerTabState extends State<MobileViewerTab>
                   vertical: 12,
                 ),
                 color: pureWhite,
-                child: const Row(
+                child: Row(
                   children: [
                     Icon(Icons.threed_rotation, color: makitaTeal, size: 20),
                     SizedBox(width: 10),
@@ -847,7 +860,7 @@ class _MobileViewerTabState extends State<MobileViewerTab>
               ),
               Expanded(
                 child: bendList.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text(
                           "입력된 치수가 없습니다.",
                           style: TextStyle(color: slate600, fontSize: 14),
@@ -1003,7 +1016,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
               alignment: Alignment.centerLeft,
               child: Text(
                 "보관된 도면 $total개",
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
                   color: slate900,
@@ -1019,10 +1032,10 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
               decoration: InputDecoration(
                 hintText: '프로젝트명 또는 경로 검색...',
                 hintStyle: TextStyle(color: slate600.withValues(alpha: 0.6)),
-                prefixIcon: const Icon(Icons.search, color: slate600),
+                prefixIcon: Icon(Icons.search, color: slate600),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.cancel, color: slate600),
+                        icon: Icon(Icons.cancel, color: slate600),
                         onPressed: () {
                           _searchController.clear();
                           setState(() => _searchQuery = "");
@@ -1043,9 +1056,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
           ),
           Expanded(
             child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: makitaTeal),
-                  )
+                ? Center(child: CircularProgressIndicator(color: makitaTeal))
                 : filteredGroupedHistory.isEmpty
                 ? _buildEmptyState()
                 : RefreshIndicator(
@@ -1102,14 +1113,14 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
   Widget _buildFolderTitle(String name, int count) {
     return Row(
       children: [
-        const Icon(Icons.folder_rounded, color: _slate400, size: 22),
+        Icon(Icons.folder_rounded, color: _slate400, size: 22),
         const SizedBox(width: 8),
         Flexible(
           child: Text(
             name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
               color: slate900,
@@ -1126,7 +1137,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
           ),
           child: Text(
             "$count",
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w800,
               color: slate600,
@@ -1175,7 +1186,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                     color: slate50,
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.architecture_rounded,
                     color: makitaTeal,
                     size: 28,
@@ -1191,7 +1202,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                         fromTo,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
                           color: slate900,
@@ -1203,7 +1214,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                       Text(
                         // 🚀 [수정] substring(0,10) 크래시 방지
                         _safeDatePrefix(item['date']),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           color: slate600,
                           fontWeight: FontWeight.w600,
@@ -1218,7 +1229,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                     key: ValueKey('tube_history_delete_${item['id']}'),
                     borderRadius: BorderRadius.circular(50),
                     onTap: () => _confirmDelete(item),
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.all(8.0),
                       child: Icon(
                         Icons.close_rounded,
@@ -1278,7 +1289,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               color: slate600,
               fontWeight: FontWeight.w600,
@@ -1289,7 +1300,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w800,
               color: slate900,
@@ -1307,20 +1318,13 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
         children: [
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: pureWhite,
-            ),
-            child: const Icon(
-              Icons.folder_off_rounded,
-              size: 48,
-              color: slate200,
-            ),
+            decoration: BoxDecoration(shape: BoxShape.circle, color: pureWhite),
+            child: Icon(Icons.folder_off_rounded, size: 48, color: slate200),
           ),
           const SizedBox(height: 24),
           Text(
             _searchQuery.isNotEmpty ? "검색 결과가 없습니다" : "보관된 도면이 없습니다",
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w800,
               fontSize: 20,
               color: slate900,
@@ -1329,7 +1333,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
           ),
           if (_searchQuery.isEmpty) ...[
             const SizedBox(height: 8),
-            const Text(
+            Text(
               "마킹 탭에서 작업 결과를 저장해 보십시오.",
               style: TextStyle(
                 color: slate600,
@@ -1355,7 +1359,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
     if (result is Map && result['loaded'] == true) {
       widget.onLoaded?.call(result['startDir']?.toString() ?? 'RIGHT');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           backgroundColor: makitaTeal,
           behavior: SnackBarBehavior.floating,
           content: Text(

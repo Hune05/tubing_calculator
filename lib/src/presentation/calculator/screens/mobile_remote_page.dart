@@ -1,6 +1,6 @@
 // lib/src/presentation/remote/screens/mobile_remote_page.dart
-import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -15,11 +15,11 @@ import '../remote_math.dart';
 import '../widgets/remote_widgets.dart';
 
 // 🎨 화이트 & 마키타 테마 컬러
-const Color makitaTeal = AppColors.brand;
-const Color slate900 = AppColors.text; // 토스 스타일의 부드러운 검정
-const Color slate600 = AppColors.textSub; // 토스 스타일의 세련된 회색
-const Color slate100 = AppColors.background; // 토스 스타일의 배경 회색
-const Color pureWhite = Color(0xFFFFFFFF);
+Color get makitaTeal => fc.brand;
+Color get slate900 => fc.text; // 토스 스타일의 부드러운 검정
+Color get slate600 => fc.textSub; // 토스 스타일의 세련된 회색
+Color get slate100 => fc.background; // 토스 스타일의 배경 회색
+Color get pureWhite => fc.surface;
 
 class MobileRemotePage extends StatefulWidget {
   const MobileRemotePage({super.key});
@@ -329,7 +329,10 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
 
     final problem = _sendProblem(m);
     if (problem != null) {
-      _snack(problem, Colors.red.shade700);
+      _snack(
+        problem,
+        fieldPick(Colors.red.shade700, sunlight: fc.danger, night: fc.danger),
+      );
       return;
     }
 
@@ -370,7 +373,10 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _isTransmitting = false);
-      _snack("통신이 없어 보내지 않았습니다. 폰과 태블릿 모두 통신이 있어야 합니다.", Colors.red.shade700);
+      _snack(
+        "통신이 없어 보내지 않았습니다. 폰과 태블릿 모두 통신이 있어야 합니다.",
+        fieldPick(Colors.red.shade700, sunlight: fc.danger, night: fc.danger),
+      );
       return;
     }
 
@@ -392,7 +398,10 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
       if (!mounted) return;
       setState(() => _isTransmitting = false);
       _setLogStatus(id, "failed", "보내지 못함");
-      _snack("보내지 못했습니다. 통신을 확인하십시오.", Colors.red.shade700);
+      _snack(
+        "보내지 못했습니다. 통신을 확인하십시오.",
+        fieldPick(Colors.red.shade700, sunlight: fc.danger, night: fc.danger),
+      );
       return;
     }
 
@@ -426,14 +435,17 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
       if (status == 'completed') {
         finish();
         _setLogStatus(id, "completed");
-        _snack("태블릿에 들어갔습니다.", Colors.green.shade700);
+        _snack(
+          "태블릿에 들어갔습니다.",
+          fieldPick(Colors.green.shade700, sunlight: fc.ok, night: fc.ok),
+        );
       } else if (status == 'failed') {
         finish();
         final why = (data?['reason'] ?? '').toString();
         _setLogStatus(id, "failed", why.isEmpty ? null : why);
         _snack(
           why.isEmpty ? "태블릿이 넣지 못했습니다." : "태블릿이 넣지 못했습니다: $why",
-          Colors.red.shade700,
+          fieldPick(Colors.red.shade700, sunlight: fc.danger, night: fc.danger),
         );
       }
     }, onError: (_) {});
@@ -446,13 +458,21 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
       ref.update({'status': 'expired'}).catchError((_) {});
       _snack(
         "태블릿이 받지 않았습니다. 계산기 화면이 열려 있는지, 같은 이름으로 쓰는지 확인하십시오.",
-        Colors.orange.shade800,
+        fieldPick(
+          Colors.orange.shade800,
+          sunlight: fc.caution,
+          night: fc.caution,
+        ),
       );
     });
   }
 
+  // 현장 보기(보통·햇빛·야간) 테마로 감싼다: 기본 위젯(입력칸·스위치·창)도 같은 색(D-D).
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      FieldViewTheme(child: Builder(builder: _buildPage));
+
+  Widget _buildPage(BuildContext context) {
     var modeColor = _modes[_currentMode]['color'];
 
     return Scaffold(
@@ -501,7 +521,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                   color: pureWhite.withValues(alpha: 0.8), // 투명도 있는 하얀 장막
                   width: double.infinity,
                   height: double.infinity,
-                  child: const Center(
+                  child: Center(
                     child: CircularProgressIndicator(color: makitaTeal),
                   ),
                 ),
@@ -527,7 +547,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
           Text(
             "좌우로 스와이프하여 모드 변경",
             style: TextStyle(
-              color: pureWhite.withValues(alpha: 0.8),
+              color: Colors.white.withValues(alpha: 0.8),
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
@@ -537,11 +557,11 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
             fit: BoxFit.scaleDown,
             child: Text(
               _modes[_currentMode]['name'],
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 30, // 폰트 크기 확대
                 fontWeight: FontWeight.w900, // 폰트 굵기 극대화
                 letterSpacing: -0.5, // 세련된 자간
-                color: pureWhite,
+                color: Colors.white,
               ),
             ),
           ),
@@ -561,7 +581,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     return Container(
       height: 160,
       width: double.infinity,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: pureWhite,
         // 거슬리던 Border 제거
       ),
@@ -649,7 +669,14 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
               // 태블릿과 같은 셈으로 미리 본다(예: 이동이 높이보다 짧은 오프셋).
               final problem = _sendProblem(index);
               if (problem != null) {
-                _snack(problem, Colors.redAccent.shade700);
+                _snack(
+                  problem,
+                  fieldPick(
+                    Colors.redAccent.shade700,
+                    sunlight: fc.danger,
+                    night: fc.danger,
+                  ),
+                );
                 HapticFeedback.lightImpact();
                 return;
               }
@@ -743,7 +770,11 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         RemoteReadOnlyField(
           label: "자동 계산된 대각 길이 (D)",
           ctrl: _val2Ctrls[m],
-          textColor: Colors.blue.shade700,
+          textColor: fieldPick(
+            Colors.blue.shade700,
+            sunlight: const Color(0xFF0B4F9C),
+            night: const Color(0xFF7CB7FF),
+          ),
         ),
       ];
     } else {
@@ -766,7 +797,11 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         RemoteReadOnlyField(
           label: "자동 계산된 각도 (θ)",
           ctrl: _angleCtrls[m],
-          textColor: Colors.green.shade700,
+          textColor: fieldPick(
+            Colors.green.shade700,
+            sunlight: fc.ok,
+            night: fc.ok,
+          ),
         ),
       ];
     }
@@ -809,7 +844,11 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
       RemoteReadOnlyField(
         label: "자동 계산된 마킹 간격 (D)",
         ctrl: _result1Ctrls[m],
-        textColor: Colors.orange.shade700,
+        textColor: fieldPick(
+          Colors.orange.shade700,
+          sunlight: fc.caution,
+          night: fc.caution,
+        ),
       ),
     ]);
     return inputs;
@@ -837,7 +876,11 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
       RemoteReadOnlyField(
         label: "진단차 (True H) - 자동 계산",
         ctrl: _result1Ctrls[m],
-        textColor: Colors.purple.shade700,
+        textColor: fieldPick(
+          Colors.purple.shade700,
+          sunlight: const Color(0xFF5B21B6),
+          night: const Color(0xFFC4A7FF),
+        ),
       ),
       const SizedBox(height: 32),
       if (!isReverse) ...[
@@ -852,7 +895,11 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         RemoteReadOnlyField(
           label: "마킹 간격 (D) - 자동 계산",
           ctrl: _result2Ctrls[m],
-          textColor: Colors.blue.shade700,
+          textColor: fieldPick(
+            Colors.blue.shade700,
+            sunlight: const Color(0xFF0B4F9C),
+            night: const Color(0xFF7CB7FF),
+          ),
         ),
       ] else ...[
         RemoteTextField(
@@ -866,7 +913,11 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         RemoteReadOnlyField(
           label: "벤딩 각도 (θ) - 자동 계산",
           ctrl: _result2Ctrls[m],
-          textColor: Colors.green.shade700,
+          textColor: fieldPick(
+            Colors.green.shade700,
+            sunlight: fc.ok,
+            night: fc.ok,
+          ),
         ),
       ],
     ];
@@ -888,7 +939,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
           Expanded(
             child: Text(
               "태블릿 연동 금형 반경(R): $_serverRadius mm",
-              style: const TextStyle(
+              style: TextStyle(
                 color: slate900,
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
@@ -896,14 +947,14 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, size: 24, color: slate600),
+            icon: Icon(Icons.refresh_rounded, size: 24, color: slate600),
             constraints: const BoxConstraints(),
             padding: EdgeInsets.zero,
             onPressed: () {
               HapticFeedback.lightImpact();
               _loadRadiusSetting();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
+                SnackBar(
                   content: Text(
                     "연동 반경 값을 최신화했습니다.",
                     style: TextStyle(fontWeight: FontWeight.w600),
@@ -925,7 +976,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text(
+        Text(
           "어느 방향으로 꺾으시겠습니까?", // 문구 부드럽게
           style: TextStyle(
             fontSize: 22,
@@ -947,8 +998,8 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         const SizedBox(height: 56), // 여백 빵빵하게
         TextButton.icon(
           onPressed: () => setState(() => _isInputFinishedList[index] = false),
-          icon: const Icon(Icons.edit_rounded, color: slate600),
-          label: const Text(
+          icon: Icon(Icons.edit_rounded, color: slate600),
+          label: Text(
             "수치 다시 입력하기",
             style: TextStyle(
               color: slate600,
@@ -990,7 +1041,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                 onPressed: _isTransmitting ? null : _showHistorySheet,
                 style: OutlinedButton.styleFrom(
                   padding: EdgeInsets.zero,
-                  side: const BorderSide(color: slate100, width: 2),
+                  side: BorderSide(color: slate100, width: 2),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -1023,7 +1074,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                   ),
                 ),
                 child: _isTransmitting
-                    ? const CircularProgressIndicator(color: pureWhite)
+                    ? CircularProgressIndicator(color: Colors.white)
                     // 좁은 폰에서 "주십시/오"처럼 끊기지 않게 한 줄로 줄여 넣는다.
                     : FittedBox(
                         fit: BoxFit.scaleDown,
@@ -1036,7 +1087,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
                             color: _isInputFinishedList[_currentMode]
-                                ? pureWhite
+                                ? Colors.white
                                 : slate600,
                           ),
                         ),
@@ -1069,7 +1120,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              const Text(
+              Text(
                 "최근 전송 기록",
                 style: TextStyle(
                   color: slate900,
@@ -1080,7 +1131,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
               const SizedBox(height: 16),
               Expanded(
                 child: _historyLogs.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text(
                           "아직 전송한 기록이 없습니다.",
                           style: TextStyle(
@@ -1109,8 +1160,16 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                           final Color leadColor = isCompleted
                               ? Color(log['color'])
                               : isFailed
-                              ? Colors.red.shade600
-                              : Colors.orange.shade600;
+                              ? fieldPick(
+                                  Colors.red.shade600,
+                                  sunlight: fc.danger,
+                                  night: fc.danger,
+                                )
+                              : fieldPick(
+                                  Colors.orange.shade600,
+                                  sunlight: fc.caution,
+                                  night: fc.caution,
+                                );
 
                           String subtitleText = "H/L: ${log['val1']}";
                           if (log['val2'] != "") {
@@ -1151,7 +1210,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                             ),
                             title: Text(
                               "${log['modeName']} (${log['dir']})",
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: slate900,
                                 fontWeight: FontWeight.w800,
                                 fontSize: 16,
@@ -1161,7 +1220,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                               padding: const EdgeInsets.only(top: 4.0),
                               child: Text(
                                 "$subtitleText\n${log['time']}",
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: slate600,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
@@ -1176,10 +1235,22 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                                   ? Icons.error_outline_rounded
                                   : Icons.schedule_rounded,
                               color: isCompleted
-                                  ? Colors.green.shade600
+                                  ? fieldPick(
+                                      Colors.green.shade600,
+                                      sunlight: fc.ok,
+                                      night: fc.ok,
+                                    )
                                   : isFailed
-                                  ? Colors.red.shade600
-                                  : Colors.orange.shade600,
+                                  ? fieldPick(
+                                      Colors.red.shade600,
+                                      sunlight: fc.danger,
+                                      night: fc.danger,
+                                    )
+                                  : fieldPick(
+                                      Colors.orange.shade600,
+                                      sunlight: fc.caution,
+                                      night: fc.caution,
+                                    ),
                               size: 28,
                             ),
                           );

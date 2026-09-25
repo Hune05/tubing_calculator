@@ -1,5 +1,5 @@
-import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart';
@@ -19,12 +19,13 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/swipe_dele
 import 'package:tubing_calculator/src/presentation/calculator/widgets/undo_redo_buttons.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
 
-const Color makitaTeal = AppColors.brand;
-const Color slate900 = AppColors.text;
-const Color slate800 = Color(0xFF1E293B);
-const Color slate600 = AppColors.textSub;
-const Color slate100 = AppColors.background;
-const Color pureWhite = Color(0xFFFFFFFF);
+Color get makitaTeal => fc.brand;
+Color get slate900 => fc.text;
+Color get slate800 =>
+    fieldPick(const Color(0xFF1E293B), sunlight: fc.text, night: fc.text);
+Color get slate600 => fc.textSub;
+Color get slate100 => fc.background;
+Color get pureWhite => fc.surface;
 
 /// 전선관 "직관+각도"로 넣을 수 있는 가장 큰 각.
 ///
@@ -102,10 +103,14 @@ class _ConduitInputTabState extends State<ConduitInputTab>
     super.dispose();
   }
 
+  // 현장 보기(보통·햇빛·야간) 테마로 감싼다(D-D). 탭만 따로 띄워도 같은 색.
   @override
   Widget build(BuildContext context) {
-    super.build(context);
+    super.build(context); // AutomaticKeepAliveClientMixin
+    return FieldViewTheme(child: Builder(builder: _buildPage));
+  }
 
+  Widget _buildPage(BuildContext context) {
     return ListenableBuilder(
       listenable: widget.manager ?? ConduitDataManager(),
       builder: (context, child) {
@@ -157,7 +162,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
           Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Text(
                   "전선관 배관 설계",
                   style: TextStyle(
@@ -184,7 +189,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
             children: [
               Text(
                 "$count",
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 36,
                   fontWeight: FontWeight.w900,
                   color: makitaTeal,
@@ -192,7 +197,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                 ),
               ),
               const SizedBox(width: 4),
-              const Text(
+              Text(
                 "개",
                 style: TextStyle(color: slate600, fontWeight: FontWeight.bold),
               ),
@@ -281,10 +286,19 @@ class _ConduitInputTabState extends State<ConduitInputTab>
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: isEditingThis ? Colors.orange.shade50 : pureWhite,
+          color: isEditingThis
+              ? fieldSoft(Colors.orange.shade50, (p) => p.caution)
+              : pureWhite,
           borderRadius: BorderRadius.circular(16),
           border: isEditingThis
-              ? Border.all(color: Colors.orange.shade400, width: 2)
+              ? Border.all(
+                  color: fieldPick(
+                    Colors.orange.shade400,
+                    sunlight: fc.caution,
+                    night: fc.caution,
+                  ),
+                  width: 2,
+                )
               : null,
           boxShadow: [
             BoxShadow(
@@ -314,11 +328,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                     ? slate100
                     : makitaTeal.withValues(alpha: 0.1),
                 child: isStraight
-                    ? const AppIcon(
-                        AppGlyph.straightPipe,
-                        color: slate600,
-                        size: 20,
-                      )
+                    ? AppIcon(AppGlyph.straightPipe, color: slate600, size: 20)
                     : Icon(
                         _getDirectionIcon(rotation),
                         color: makitaTeal,
@@ -334,7 +344,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                       isStraight
                           ? "직관 연장"
                           : "${angle.toStringAsFixed(1).replaceAll('.0', '')}° 벤딩",
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w900,
                         fontSize: 15,
                         color: slate900,
@@ -349,7 +359,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                       children: [
                         Text(
                           "길이: ${item['length']}mm",
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
                             color: makitaTeal,
@@ -358,7 +368,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                         if (!isStraight)
                           Text(
                             "방향: ${_getDirectionText(rotation)}",
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 13,
                               color: slate600,
@@ -506,7 +516,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
             children: [
               Row(
                 children: [
-                  const Text(
+                  Text(
                     "배관 형태",
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
@@ -557,7 +567,11 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                         backgroundColor: WidgetStateProperty.resolveWith<Color>(
                           (states) => states.contains(WidgetState.selected)
                               ? makitaTeal
-                              : Colors.grey.shade100,
+                              : fieldPick(
+                                  Colors.grey.shade100,
+                                  sunlight: fc.fill,
+                                  night: fc.fill,
+                                ),
                         ),
                         foregroundColor: WidgetStateProperty.resolveWith<Color>(
                           (states) => states.contains(WidgetState.selected)
@@ -599,27 +613,44 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                   child: AbsorbPointer(
                     child: TextField(
                       controller: _customAngleController,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
-                        color: Colors.deepOrange,
+                        color: fieldPick(
+                          Colors.deepOrange,
+                          sunlight: fc.caution,
+                          night: fc.caution,
+                        ),
                         fontFamily: 'monospace',
                       ),
                       decoration: InputDecoration(
                         hintText: "원하는 각도를 입력하십시오 (예: 45)",
                         filled: true,
-                        fillColor: Colors.orange.shade50,
+                        fillColor: fieldSoft(
+                          Colors.orange.shade50,
+                          (p) => p.caution,
+                        ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 12,
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.orange.shade200),
+                          borderSide: BorderSide(
+                            color: fieldPick(
+                              Colors.orange.shade200,
+                              sunlight: fc.caution,
+                              night: fc.caution.withValues(alpha: 0.5),
+                            ),
+                          ),
                         ),
-                        suffixIcon: const Icon(
+                        suffixIcon: Icon(
                           Icons.edit,
-                          color: Colors.deepOrange,
+                          color: fieldPick(
+                            Colors.deepOrange,
+                            sunlight: fc.caution,
+                            night: fc.caution,
+                          ),
                           size: 18,
                         ),
                       ),
@@ -636,16 +667,24 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: _selectedRotation == null
-                            ? Colors.redAccent
+                            ? fieldPick(
+                                Colors.redAccent,
+                                sunlight: fc.danger,
+                                night: fc.danger,
+                              )
                             : slate600,
                         fontSize: 13,
                       ),
                     ),
                     if (_selectedRotation == null)
-                      const Text(
+                      Text(
                         " *방향을 선택하십시오",
                         style: TextStyle(
-                          color: Colors.redAccent,
+                          color: fieldPick(
+                            Colors.redAccent,
+                            sunlight: fc.danger,
+                            night: fc.danger,
+                          ),
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                         ),
@@ -676,11 +715,19 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                         decoration: BoxDecoration(
                           color: isSelected
                               ? makitaTeal.withValues(alpha: 0.1)
-                              : Colors.grey.shade50,
+                              : fieldPick(
+                                  Colors.grey.shade50,
+                                  sunlight: fc.fill,
+                                  night: fc.fill,
+                                ),
                           border: Border.all(
                             color: isSelected
                                 ? makitaTeal
-                                : Colors.grey.shade300,
+                                : fieldPick(
+                                    Colors.grey.shade300,
+                                    sunlight: fc.line,
+                                    night: fc.line,
+                                  ),
                             width: isSelected ? 2 : 1,
                           ),
                           borderRadius: BorderRadius.circular(8),
@@ -717,7 +764,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           "길이 (mm)",
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
@@ -740,7 +787,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                           child: AbsorbPointer(
                             child: TextField(
                               controller: _lengthController,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w900,
                                 color: makitaTeal,
@@ -749,7 +796,11 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                               decoration: InputDecoration(
                                 hintText: "0",
                                 filled: true,
-                                fillColor: Colors.grey.shade100,
+                                fillColor: fieldPick(
+                                  Colors.grey.shade100,
+                                  sunlight: fc.fill,
+                                  night: fc.fill,
+                                ),
                                 contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 16,
                                   vertical: 12,
@@ -757,10 +808,14 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
                                   borderSide: BorderSide(
-                                    color: Colors.grey.shade300,
+                                    color: fieldPick(
+                                      Colors.grey.shade300,
+                                      sunlight: fc.line,
+                                      night: fc.line,
+                                    ),
                                   ),
                                 ),
-                                suffixIcon: const Icon(
+                                suffixIcon: Icon(
                                   Icons.edit,
                                   color: slate600,
                                   size: 18,
@@ -779,13 +834,13 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                       child: OutlinedButton(
                         onPressed: _cancelEdit,
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: slate600, width: 1.5),
+                          side: BorderSide(color: slate600, width: 1.5),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                         ),
-                        child: const Icon(Icons.close, color: slate600),
+                        child: Icon(Icons.close, color: slate600),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -796,7 +851,11 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                       onPressed: _canAdd ? () => _addBend(manager) : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _editingIndex != null
-                            ? Colors.orange.shade600
+                            ? fieldPick(
+                                Colors.orange.shade600,
+                                sunlight: fc.caution,
+                                night: fc.caution,
+                              )
                             : makitaTeal,
                         foregroundColor: pureWhite,
                         disabledBackgroundColor: slate600.withValues(
@@ -890,7 +949,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
       builder: (ctx) {
         return Container(
           padding: const EdgeInsets.all(24),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: pureWhite,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
@@ -909,7 +968,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                 ),
               ),
               const SizedBox(height: 24),
-              const Text(
+              Text(
                 "특수 벤딩 계산기",
                 style: TextStyle(
                   fontSize: 18,
@@ -991,7 +1050,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
           const SizedBox(width: 16),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               color: slate900,
               fontWeight: FontWeight.bold,

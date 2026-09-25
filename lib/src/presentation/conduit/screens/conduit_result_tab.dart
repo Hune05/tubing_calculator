@@ -1,5 +1,5 @@
-import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/services.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
@@ -19,17 +19,18 @@ final ValueNotifier<Map<String, dynamic>> globalMarkingState = ValueNotifier({
 });
 
 // 🎨 색상 테마 정의
-const Color makitaTeal = AppColors.brand; // 수동
+Color get makitaTeal => fc.brand; // 수동
 const Color ramBlue = Colors.blueAccent; // 유압식
 const Color chicagoPurple = Colors.deepPurple; // 시카고식
 
-const Color slate900 = AppColors.text;
-const Color slate800 = Color(0xFF1E293B);
-const Color slate600 = AppColors.textSub;
-const Color slate400 = Color(0xFF94A3B8);
-const Color slate200 = AppColors.line;
-const Color slate100 = AppColors.background;
-const Color pureWhite = Color(0xFFFFFFFF);
+Color get slate900 => fc.text;
+Color get slate800 =>
+    fieldPick(const Color(0xFF1E293B), sunlight: fc.text, night: fc.text);
+Color get slate600 => fc.textSub;
+Color get slate400 => fc.textFaint;
+Color get slate200 => fc.line;
+Color get slate100 => fc.background;
+Color get pureWhite => fc.surface;
 
 class ConduitResultTab extends StatefulWidget {
   const ConduitResultTab({super.key});
@@ -76,10 +77,14 @@ class _ConduitResultTabState extends State<ConduitResultTab>
   // ==========================================
   // 📐 [수학 알고리즘 보정] 임의 각도 게인(Gain) 연산
   // ==========================================
+  // 현장 보기(보통·햇빛·야간) 테마로 감싼다(D-D). 탭만 따로 띄워도 같은 색.
   @override
   Widget build(BuildContext context) {
-    super.build(context);
+    super.build(context); // AutomaticKeepAliveClientMixin
+    return FieldViewTheme(child: Builder(builder: _buildPage));
+  }
 
+  Widget _buildPage(BuildContext context) {
     return AnimatedBuilder(
       animation: Listenable.merge([
         ConduitDataManager(),
@@ -137,7 +142,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                   backgroundColor: slate100,
                   elevation: 0,
                   systemOverlayStyle: SystemUiOverlayStyle.dark,
-                  title: const Text(
+                  title: Text(
                     "마킹 가이드",
                     style: TextStyle(
                       fontSize: 16,
@@ -150,10 +155,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                     if (markings.isNotEmpty)
                       IconButton(
                         key: const Key('conduit_save_drawing'),
-                        icon: const Icon(
-                          Icons.save_alt_rounded,
-                          color: slate900,
-                        ),
+                        icon: Icon(Icons.save_alt_rounded, color: slate900),
                         tooltip: "보관함에 저장",
                         onPressed: () => showConduitSaveDialog(
                           context,
@@ -165,7 +167,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                     if (markings.isNotEmpty)
                       IconButton(
                         key: const Key('conduit_marking_sheet'),
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.picture_as_pdf_outlined,
                           color: slate900,
                         ),
@@ -183,7 +185,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: IconButton(
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.screen_rotation_rounded,
                             color: slate900,
                           ),
@@ -403,7 +405,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
               children: [
                 Text(
                   "${totalCut.round()}",
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 36,
                     fontWeight: FontWeight.w900,
                     color: slate900,
@@ -413,7 +415,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                   ),
                 ),
                 const SizedBox(width: 4),
-                const Text(
+                Text(
                   "mm",
                   style: TextStyle(
                     fontSize: 14,
@@ -428,14 +430,14 @@ class _ConduitResultTabState extends State<ConduitResultTab>
             const SizedBox(height: 6),
             Text(
               "끝 여유 ${couplingAllowance.round()}mm 포함 · 벤딩한 뒤 반대쪽 끝을 맞춰 자르십시오",
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
                 color: slate600,
               ),
             ),
           ],
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Divider(height: 1, color: slate200),
           ),
@@ -448,7 +450,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                   children: [
                     Text(
                       deductionLabel,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                         color: slate600,
@@ -457,7 +459,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                     const SizedBox(height: 4),
                     Text(
                       "${deductionValue.round()} mm",
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w900,
                         color: slate900,
@@ -477,7 +479,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                 children: [
                   Text(
                     "커플링",
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       color: slate600,
@@ -529,7 +531,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
     // 앞 마킹보다 뒤로 간 벤드. 그 사이 곧은 부분이 벤더에 물릴 만큼 없다.
     final bool isShort = item['short'] == true;
     final Color noteColor = isShort
-        ? AppColors.caution
+        ? fc.caution
         : (isStraight ? slate600 : themeColor);
 
     return Container(
@@ -602,7 +604,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                             isStraight
                                 ? "직관 연장 마킹"
                                 : "${_fmtAngle(angle)}° 벤딩 (실제 ${targetAngle.toStringAsFixed(1)}°)",
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: slate600,
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
@@ -664,7 +666,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                           children: [
                             Text(
                               "${mark.round()}",
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 30,
                                 fontWeight: FontWeight.w900,
                                 color: slate900,
@@ -673,7 +675,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                               ),
                             ),
                             const SizedBox(width: 4),
-                            const Text(
+                            Text(
                               "mm",
                               style: TextStyle(
                                 fontSize: 14,
@@ -821,7 +823,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
             children: [
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: slate100,
                   shape: BoxShape.circle,
                 ),
@@ -832,7 +834,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                 ),
               ),
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 "마킹 데이터가 없습니다",
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
@@ -841,7 +843,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 "입력 탭에서 배관 형태와 길이를 넣으면\n여기에 마킹 자리가 나옵니다.",
                 textAlign: TextAlign.center,
                 style: TextStyle(color: slate600, height: 1.5, fontSize: 13),

@@ -1,6 +1,6 @@
-import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import '../widgets/app_dialog.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
@@ -22,11 +22,11 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_par
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_quick_kick_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_quick_u_bend_bottom_sheet.dart';
 
-const Color makitaTeal = AppColors.brand;
-const Color slate900 = AppColors.text;
-const Color slate600 = AppColors.textSub;
-const Color slate100 = AppColors.background;
-const Color pureWhite = Color(0xFFFFFFFF);
+Color get makitaTeal => fc.brand;
+Color get slate900 => fc.text;
+Color get slate600 => fc.textSub;
+Color get slate100 => fc.background;
+Color get pureWhite => fc.surface;
 
 /// 튜브 "직관+각도"로 넣을 수 있는 가장 큰 각.
 ///
@@ -190,9 +190,16 @@ class _MobileInputTabState extends State<MobileInputTab>
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.deepOrange),
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: fieldPick(
+                    Colors.deepOrange,
+                    sunlight: fc.caution,
+                    night: fc.caution,
+                  ),
+                ),
                 SizedBox(width: 8),
                 Text(
                   "그 방향으로는 못 꺾습니다",
@@ -208,7 +215,7 @@ class _MobileInputTabState extends State<MobileInputTab>
               "관이 이미 '$label' 쪽으로 가고 있거나 그 정반대입니다.\n"
               "방향은 '꺾고 나서 관이 향할 쪽'을 고르는 것이라, 지금 가는 쪽과"
               " 같으면 꺾을 수 없습니다. 다른 축(위·아래·앞·뒤 등)에서 고르십시오.",
-              style: const TextStyle(color: slate900, fontSize: 14),
+              style: TextStyle(color: slate900, fontSize: 14),
             ),
             actions: [
               ElevatedButton(
@@ -219,7 +226,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                   ),
                 ),
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text("확인", style: TextStyle(color: pureWhite)),
+                child: Text("확인", style: TextStyle(color: pureWhite)),
               ),
             ],
           ),
@@ -253,9 +260,16 @@ class _MobileInputTabState extends State<MobileInputTab>
           ),
           title: Row(
             children: [
-              Icon(Icons.warning_rounded, color: Colors.orange.shade800),
+              Icon(
+                Icons.warning_rounded,
+                color: fieldPick(
+                  Colors.orange.shade800,
+                  sunlight: fc.caution,
+                  night: fc.caution,
+                ),
+              ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 "벤딩 및 누설 경고",
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
@@ -273,21 +287,25 @@ class _MobileInputTabState extends State<MobileInputTab>
                 lengthCheck.merged
                     ? "앞 직관과 이어서 곧은 길이가 ${lengthCheck.run.toStringAsFixed(1)}mm뿐이라 현장에서 문제가 생길 수 있습니다.\n"
                     : "입력하신 길이(${length.toStringAsFixed(1)}mm)가 너무 짧아 현장에서 문제가 생길 수 있습니다.\n",
-                style: const TextStyle(color: slate900, fontSize: 13),
+                style: TextStyle(color: slate900, fontSize: 13),
               ),
               if (isShoeInterference) ...[
                 const SizedBox(height: 4),
                 Text(
                   "❌ 기계 간섭 위험",
                   style: TextStyle(
-                    color: Colors.red.shade700,
+                    color: fieldPick(
+                      Colors.red.shade700,
+                      sunlight: fc.danger,
+                      night: fc.danger,
+                    ),
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
                   ),
                 ),
                 Text(
                   "장비 최소 물림 거리(${AppSettingsController().minStraight}mm) 부족",
-                  style: const TextStyle(color: slate600, fontSize: 12),
+                  style: TextStyle(color: slate600, fontSize: 12),
                 ),
               ],
               if (isLeakRisk) ...[
@@ -295,18 +313,22 @@ class _MobileInputTabState extends State<MobileInputTab>
                 Text(
                   "💧 피팅 누설(Leak) 위험",
                   style: TextStyle(
-                    color: Colors.blue.shade700,
+                    color: fieldPick(
+                      Colors.blue.shade700,
+                      sunlight: const Color(0xFF0B4F9C),
+                      night: const Color(0xFF7CB7FF),
+                    ),
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
                   ),
                 ),
                 Text(
                   "너트를 물릴 곧은 길이(${minFittingStraight}mm)가 모자랍니다. 관이 찌그러져 샐 수 있습니다.",
-                  style: const TextStyle(color: slate600, fontSize: 12),
+                  style: TextStyle(color: slate600, fontSize: 12),
                 ),
               ],
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 "그래도 강제로 도면에 추가하시겠습니까?",
                 style: TextStyle(
                   color: slate900,
@@ -319,7 +341,7 @@ class _MobileInputTabState extends State<MobileInputTab>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text(
+              child: Text(
                 "취소 (다시 입력)",
                 style: TextStyle(color: slate600, fontWeight: FontWeight.bold),
               ),
@@ -335,7 +357,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                 Navigator.pop(ctx);
                 _executeAddSegment(length, _selectedAngle, finalRotation);
               },
-              child: const Text(
+              child: Text(
                 "무시하고 추가",
                 style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
               ),
@@ -488,7 +510,7 @@ class _MobileInputTabState extends State<MobileInputTab>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   "특수 벤딩 계산 및 삽입",
                   style: TextStyle(
                     fontSize: 18,
@@ -497,7 +519,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   "현장 치수를 입력하면 벤딩 데이터가 자동으로 조립됩니다.",
                   style: TextStyle(fontSize: 13, color: slate600),
                 ),
@@ -582,7 +604,7 @@ class _MobileInputTabState extends State<MobileInputTab>
           Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Text(
                   "튜브 배관 설계",
                   style: TextStyle(
@@ -609,7 +631,7 @@ class _MobileInputTabState extends State<MobileInputTab>
             children: [
               Text(
                 "$count",
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 36,
                   fontWeight: FontWeight.w900,
                   color: makitaTeal,
@@ -617,7 +639,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                 ),
               ),
               const SizedBox(width: 4),
-              const Text(
+              Text(
                 "개",
                 style: TextStyle(color: slate600, fontWeight: FontWeight.bold),
               ),
@@ -663,7 +685,13 @@ class _MobileInputTabState extends State<MobileInputTab>
           decoration: BoxDecoration(
             color: pureWhite,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
+            border: Border.all(
+              color: fieldPick(
+                Colors.grey.shade300,
+                sunlight: fc.line,
+                night: fc.line,
+              ),
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.02),
@@ -686,7 +714,7 @@ class _MobileInputTabState extends State<MobileInputTab>
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
                     color: slate900,
@@ -696,7 +724,11 @@ class _MobileInputTabState extends State<MobileInputTab>
               ),
               Icon(
                 Icons.arrow_forward_ios,
-                color: Colors.grey.shade400,
+                color: fieldPick(
+                  Colors.grey.shade400,
+                  sunlight: fc.line,
+                  night: fc.line,
+                ),
                 size: 16,
               ),
             ],
@@ -706,10 +738,14 @@ class _MobileInputTabState extends State<MobileInputTab>
     );
   }
 
+  // 현장 보기(보통·햇빛·야간) 테마로 감싼다(D-D). 탭만 따로 띄워도 같은 색.
   @override
   Widget build(BuildContext context) {
-    super.build(context);
+    super.build(context); // AutomaticKeepAliveClientMixin
+    return FieldViewTheme(child: Builder(builder: _buildPage));
+  }
 
+  Widget _buildPage(BuildContext context) {
     // 🚀 [수정] build()에서 매번 _loadSettings()를 호출하면 setState -> 재빌드 ->
     // _loadSettings() 재호출 이 반복되는 무한 루프가 생겨서 삭제함.
     // 설정값은 initState()에서 한 번만 불러온다.
@@ -781,12 +817,19 @@ class _MobileInputTabState extends State<MobileInputTab>
                                     margin: const EdgeInsets.only(bottom: 12),
                                     decoration: BoxDecoration(
                                       color: isEditingThis
-                                          ? Colors.orange.shade50
+                                          ? fieldSoft(
+                                              Colors.orange.shade50,
+                                              (p) => p.caution,
+                                            )
                                           : pureWhite,
                                       borderRadius: BorderRadius.circular(16),
                                       border: isEditingThis
                                           ? Border.all(
-                                              color: Colors.orange.shade400,
+                                              color: fieldPick(
+                                                Colors.orange.shade400,
+                                                sunlight: fc.caution,
+                                                night: fc.caution,
+                                              ),
                                               width: 2,
                                             )
                                           : null,
@@ -855,7 +898,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                                                     alpha: 0.1,
                                                   ),
                                             child: isStraight
-                                                ? const AppIcon(
+                                                ? AppIcon(
                                                     AppGlyph.straightPipe,
                                                     color: slate600,
                                                     size: 20,
@@ -876,7 +919,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                                                   isStraight
                                                       ? "직관 연장"
                                                       : "${(item['angle'] as num?)?.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '')}° 벤딩",
-                                                  style: const TextStyle(
+                                                  style: TextStyle(
                                                     fontWeight: FontWeight.w900,
                                                     fontSize: 15,
                                                     color: slate900,
@@ -888,7 +931,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                                                   children: [
                                                     Text(
                                                       "길이: ${item['length']}mm",
-                                                      style: const TextStyle(
+                                                      style: TextStyle(
                                                         fontWeight:
                                                             FontWeight.bold,
                                                         fontSize: 13,
@@ -898,7 +941,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                                                     if (!isStraight)
                                                       Text(
                                                         "방향: $dirLabel",
-                                                        style: const TextStyle(
+                                                        style: TextStyle(
                                                           fontWeight:
                                                               FontWeight.bold,
                                                           fontSize: 13,
@@ -952,7 +995,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                         children: [
                           Row(
                             children: [
-                              const Text(
+                              Text(
                                 "배관 형태",
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
@@ -1028,7 +1071,11 @@ class _MobileInputTabState extends State<MobileInputTab>
                                                 WidgetState.selected,
                                               )
                                               ? makitaTeal
-                                              : Colors.grey.shade100,
+                                              : fieldPick(
+                                                  Colors.grey.shade100,
+                                                  sunlight: fc.fill,
+                                                  night: fc.fill,
+                                                ),
                                         ),
                                     foregroundColor:
                                         WidgetStateProperty.resolveWith<Color>(
@@ -1074,16 +1121,23 @@ class _MobileInputTabState extends State<MobileInputTab>
                               child: AbsorbPointer(
                                 child: TextField(
                                   controller: _customAngleController,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w900,
-                                    color: Colors.deepOrange,
+                                    color: fieldPick(
+                                      Colors.deepOrange,
+                                      sunlight: fc.caution,
+                                      night: fc.caution,
+                                    ),
                                     fontFamily: 'monospace',
                                   ),
                                   decoration: InputDecoration(
                                     hintText: "원하는 각도를 입력하십시오 (예: 45)",
                                     filled: true,
-                                    fillColor: Colors.orange.shade50,
+                                    fillColor: fieldSoft(
+                                      Colors.orange.shade50,
+                                      (p) => p.caution,
+                                    ),
                                     contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 16,
                                       vertical: 12,
@@ -1091,12 +1145,22 @@ class _MobileInputTabState extends State<MobileInputTab>
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(8),
                                       borderSide: BorderSide(
-                                        color: Colors.orange.shade200,
+                                        color: fieldPick(
+                                          Colors.orange.shade200,
+                                          sunlight: fc.caution,
+                                          night: fc.caution.withValues(
+                                            alpha: 0.5,
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                    suffixIcon: const Icon(
+                                    suffixIcon: Icon(
                                       Icons.edit,
-                                      color: Colors.deepOrange,
+                                      color: fieldPick(
+                                        Colors.deepOrange,
+                                        sunlight: fc.caution,
+                                        night: fc.caution,
+                                      ),
                                       size: 18,
                                     ),
                                   ),
@@ -1113,7 +1177,11 @@ class _MobileInputTabState extends State<MobileInputTab>
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: _selectedRotation == null
-                                        ? Colors.redAccent
+                                        ? fieldPick(
+                                            Colors.redAccent,
+                                            sunlight: fc.danger,
+                                            night: fc.danger,
+                                          )
                                         : slate600,
                                     fontSize: 13,
                                   ),
@@ -1124,7 +1192,11 @@ class _MobileInputTabState extends State<MobileInputTab>
                                     child: Text(
                                       " *방향을 선택하십시오",
                                       style: TextStyle(
-                                        color: Colors.red.shade700,
+                                        color: fieldPick(
+                                          Colors.red.shade700,
+                                          sunlight: fc.danger,
+                                          night: fc.danger,
+                                        ),
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -1157,11 +1229,19 @@ class _MobileInputTabState extends State<MobileInputTab>
                                     decoration: BoxDecoration(
                                       color: isSelected
                                           ? makitaTeal.withValues(alpha: 0.1)
-                                          : Colors.grey.shade50,
+                                          : fieldPick(
+                                              Colors.grey.shade50,
+                                              sunlight: fc.fill,
+                                              night: fc.fill,
+                                            ),
                                       border: Border.all(
                                         color: isSelected
                                             ? makitaTeal
-                                            : Colors.grey.shade300,
+                                            : fieldPick(
+                                                Colors.grey.shade300,
+                                                sunlight: fc.line,
+                                                night: fc.line,
+                                              ),
                                         width: isSelected ? 2 : 1,
                                       ),
                                       borderRadius: BorderRadius.circular(8),
@@ -1203,7 +1283,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text(
+                                    Text(
                                       "길이 (mm)",
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
@@ -1224,7 +1304,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                                       child: AbsorbPointer(
                                         child: TextField(
                                           controller: _lengthController,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 20,
                                             fontWeight: FontWeight.w900,
                                             color: makitaTeal,
@@ -1233,7 +1313,11 @@ class _MobileInputTabState extends State<MobileInputTab>
                                           decoration: InputDecoration(
                                             hintText: "0",
                                             filled: true,
-                                            fillColor: Colors.grey.shade100,
+                                            fillColor: fieldPick(
+                                              Colors.grey.shade100,
+                                              sunlight: fc.fill,
+                                              night: fc.fill,
+                                            ),
                                             contentPadding:
                                                 const EdgeInsets.symmetric(
                                                   horizontal: 16,
@@ -1243,10 +1327,14 @@ class _MobileInputTabState extends State<MobileInputTab>
                                               borderRadius:
                                                   BorderRadius.circular(8),
                                               borderSide: BorderSide(
-                                                color: Colors.grey.shade300,
+                                                color: fieldPick(
+                                                  Colors.grey.shade300,
+                                                  sunlight: fc.line,
+                                                  night: fc.line,
+                                                ),
                                               ),
                                             ),
-                                            suffixIcon: const Icon(
+                                            suffixIcon: Icon(
                                               Icons.edit,
                                               color: slate600,
                                               size: 18,
@@ -1265,7 +1353,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                                   child: OutlinedButton(
                                     onPressed: _cancelEdit,
                                     style: OutlinedButton.styleFrom(
-                                      side: const BorderSide(
+                                      side: BorderSide(
                                         color: slate600,
                                         width: 1.5,
                                       ),
@@ -1276,10 +1364,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                                         horizontal: 16,
                                       ),
                                     ),
-                                    child: const Icon(
-                                      Icons.close,
-                                      color: slate600,
-                                    ),
+                                    child: Icon(Icons.close, color: slate600),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -1290,7 +1375,11 @@ class _MobileInputTabState extends State<MobileInputTab>
                                   onPressed: _addSegment,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: _editingIndex != null
-                                        ? Colors.orange.shade600
+                                        ? fieldPick(
+                                            Colors.orange.shade600,
+                                            sunlight: fc.caution,
+                                            night: fc.caution,
+                                          )
                                         : makitaTeal,
                                     foregroundColor: pureWhite,
                                     shape: RoundedRectangleBorder(

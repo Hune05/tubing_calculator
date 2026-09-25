@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/conduit/conduit_field_data.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
@@ -37,6 +38,8 @@ String bigNumber(WidgetTester tester) =>
     tester.widget<Text>(find.byKey(const Key('field_step_number'))).data!;
 
 void main() {
+  // 현장 보기는 앱 전체 값이라 시험끼리 섞이지 않게 매번 보통으로 되돌린다.
+  setUp(() => FieldColors.mode.value = FieldViewMode.normal);
   group('인치 글', () {
     test('분수 눈금으로 반올림하고 줄인다', () {
       expect(formatInch(358, FieldInchMode.fraction), '14 1/8"'); // 14.094
@@ -159,7 +162,8 @@ void main() {
       FlutterError.onError = old;
       expect(errors, isEmpty);
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool('field_high_contrast'), isTrue);
+      // 햇빛은 앱 설정(현장 보기) 하나로 기억한다(D-D).
+      expect(prefs.getString(FieldColors.prefKey), 'sunlight');
     });
 
     testWidgets('N8 햇빛 아래: 줄자 화면의 각도·방향 글씨도 검고 크게, 넘치지 않음', (tester) async {

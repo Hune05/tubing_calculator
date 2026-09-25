@@ -19,6 +19,7 @@ import 'package:tubing_calculator/src/presentation/field_tools/tilt_sensor.dart'
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_frame.dart';
 import 'package:tubing_calculator/src/core/theme/app_theme.dart';
+import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
 import 'package:tubing_calculator/src/data/models/steel_cutting_project_model.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_calculator_page.dart';
@@ -444,6 +445,12 @@ void main() {
       await loader.load();
     }
 
+    // UI_AUDIT_VIEW=sunlight|night 이면 현장 보기를 바꿔 찍는다(D-D).
+    final view = Platform.environment['UI_AUDIT_VIEW'];
+    FieldColors.mode.value = FieldViewMode.values.firstWhere(
+      (m) => m.name == view,
+      orElse: () => FieldViewMode.normal,
+    );
     // 서버(Firebase)는 켜진 것처럼만 한다. 읽기·쓰기는 실패하고 화면은 빈 상태로 뜬다.
     setupFirebaseCoreMocks();
     await Firebase.initializeApp();

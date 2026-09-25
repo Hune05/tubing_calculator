@@ -1,6 +1,7 @@
 // lib/src/presentation/calculator/widgets/makita_numpad.dart
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/theme/field_view.dart';
 
 const Color makitaTeal = AppColors.brand;
 const Color slate900 = AppColors.text;
@@ -47,8 +48,9 @@ class MakitaNumpad extends StatefulWidget {
         ),
         child: Container(
           height: 500, // 여백을 위해 높이를 살짝 확보
-          decoration: const BoxDecoration(
-            color: pureWhite, // 토스 스타일의 깨끗한 퓨어 화이트
+          decoration: BoxDecoration(
+            // 연 화면의 보기 색(현장 화면이면 햇빛·야간)을 따른다.
+            color: FieldPalette.ofContext(context).surface,
             borderRadius: BorderRadius.vertical(
               top: Radius.circular(32),
             ), // 더 둥근 모서리
@@ -73,6 +75,9 @@ class MakitaNumpad extends StatefulWidget {
 }
 
 class _MakitaNumpadState extends State<MakitaNumpad> {
+  // 연 자리의 보기 색(현장 화면이면 햇빛·야간, 아니면 보통).
+  FieldPalette get _p => FieldPalette.ofContext(context);
+
   bool _isFirstPress = true;
 
   @override
@@ -134,8 +139,8 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
         child: isPrimary
             ? ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: makitaTeal,
-                  foregroundColor: pureWhite,
+                  backgroundColor: _p.brand,
+                  foregroundColor: _p.onBrand,
                   elevation: 0, // 그림자 완전 제거
                   shadowColor: Colors.transparent,
                   shape: RoundedRectangleBorder(
@@ -154,7 +159,7 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
               )
             : TextButton(
                 style: TextButton.styleFrom(
-                  foregroundColor: textColor ?? slate900, // 기본 숫자 색상 (다크)
+                  foregroundColor: textColor ?? _p.text, // 기본 숫자 색상 (다크)
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
                   ),
@@ -188,8 +193,8 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
               Flexible(
                 child: Text(
                   widget.title,
-                  style: const TextStyle(
-                    color: slate900, // 너무 튀지 않게 진한 차콜색으로
+                  style: TextStyle(
+                    color: _p.text, // 너무 튀지 않게 진한 차콜색으로
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.5,
@@ -203,10 +208,10 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: slate100, // 은은한 회색 원형 배경
+                      color: _p.background, // 은은한 회색 원형 배경
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.close, color: slate600, size: 18),
+                    child: Icon(Icons.close, color: _p.textSub, size: 18),
                   ),
                 ),
             ],
@@ -223,8 +228,8 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text(
                   widget.controller.text.isEmpty ? '0' : widget.controller.text,
-                  style: const TextStyle(
-                    color: slate900,
+                  style: TextStyle(
+                    color: _p.text,
                     fontSize: 48, // 압도적인 크기로 가독성 극대화
                     fontWeight: FontWeight.w600,
                     letterSpacing: -1.5,
@@ -252,7 +257,9 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
                       _buildButton('9'),
                       _buildButton(
                         'C',
-                        textColor: Colors.orange.shade600,
+                        textColor: (_p == FieldPalette.normal
+                            ? Colors.orange.shade600
+                            : _p.caution),
                         isAction: true,
                       ),
                     ],
@@ -266,7 +273,9 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
                       _buildButton('6'),
                       _buildButton(
                         'DEL',
-                        textColor: Colors.red.shade500,
+                        textColor: (_p == FieldPalette.normal
+                            ? Colors.red.shade500
+                            : _p.danger),
                         isAction: true,
                       ),
                     ],
@@ -278,7 +287,7 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
                       _buildButton('1'),
                       _buildButton('2'),
                       _buildButton('3'),
-                      _buildButton('.', textColor: slate600, isAction: true),
+                      _buildButton('.', textColor: _p.textSub, isAction: true),
                     ],
                   ),
                 ),

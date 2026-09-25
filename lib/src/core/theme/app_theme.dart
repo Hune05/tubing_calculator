@@ -9,26 +9,28 @@ library;
 import 'package:flutter/material.dart';
 
 import 'app_tokens.dart';
+import 'field_view.dart';
 
-ThemeData buildAppTheme() {
+/// [p]를 주면 그 색 세트로(현장 보기: 햇빛·야간). 기본은 보통.
+ThemeData buildAppTheme([FieldPalette p = FieldPalette.normal]) {
   final scheme =
       ColorScheme.fromSeed(
-        seedColor: AppColors.brand,
-        brightness: Brightness.light,
+        seedColor: p.brand,
+        brightness: p.brightness,
       ).copyWith(
-        primary: AppColors.brand,
-        onPrimary: AppColors.onBrand,
-        primaryContainer: AppColors.brandSoft,
-        onPrimaryContainer: AppColors.text,
-        secondary: AppColors.brand,
-        onSecondary: AppColors.onBrand,
-        surface: AppColors.surface,
-        onSurface: AppColors.text,
-        onSurfaceVariant: AppColors.textSub,
-        outline: AppColors.line,
-        outlineVariant: AppColors.line,
-        error: AppColors.danger,
-        onError: AppColors.onBrand,
+        primary: p.brand,
+        onPrimary: p.onBrand,
+        primaryContainer: p.brandSoft,
+        onPrimaryContainer: p.text,
+        secondary: p.brand,
+        onSecondary: p.onBrand,
+        surface: p.surface,
+        onSurface: p.text,
+        onSurfaceVariant: p.textSub,
+        outline: p.line,
+        outlineVariant: p.line,
+        error: p.danger,
+        onError: p.onBrand,
         surfaceTint: Colors.transparent,
       );
 
@@ -42,19 +44,20 @@ ThemeData buildAppTheme() {
       RoundedRectangleBorder(borderRadius: BorderRadius.circular(r));
 
   return base.copyWith(
-    scaffoldBackgroundColor: AppColors.surface,
-    dividerColor: AppColors.line,
+    extensions: [p],
+    scaffoldBackgroundColor: p.surface,
+    dividerColor: p.line,
     // 모든 글자 모양에 앱 글꼴과 글자 색을 준다(빠진 것이 있으면 폰 기본 글꼴로 나온다).
     // 크기·줄 간격은 기본값 그대로 둔다(글 모양을 한꺼번에 바꾸면 화면마다 넘칠 수 있다).
     // 크기 단계(AppText)는 부품을 옮길 때 이름으로 쓴다.
     textTheme: base.textTheme.apply(
       fontFamily: kAppFontFamily,
-      bodyColor: AppColors.text,
-      displayColor: AppColors.text,
+      bodyColor: p.text,
+      displayColor: p.text,
     ),
-    appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.surface,
-      foregroundColor: AppColors.text,
+    appBarTheme: AppBarTheme(
+      backgroundColor: p.surface,
+      foregroundColor: p.text,
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
@@ -62,18 +65,18 @@ ThemeData buildAppTheme() {
         fontFamily: kAppFontFamily,
         fontSize: 18,
         fontWeight: AppText.bold,
-        color: AppColors.text,
+        color: p.text,
       ),
     ),
     dialogTheme: DialogThemeData(
-      backgroundColor: AppColors.surface,
+      backgroundColor: p.surface,
       surfaceTintColor: Colors.transparent,
       shape: rounded(AppRadius.large),
       titleTextStyle: AppText.title,
-      contentTextStyle: AppText.body.copyWith(color: AppColors.textSub),
+      contentTextStyle: AppText.body.copyWith(color: p.textSub),
     ),
-    bottomSheetTheme: const BottomSheetThemeData(
-      backgroundColor: AppColors.surface,
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: p.surface,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
@@ -82,20 +85,20 @@ ThemeData buildAppTheme() {
       ),
     ),
     cardTheme: CardThemeData(
-      color: AppColors.surface,
+      color: p.surface,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       shape: rounded(AppRadius.large),
     ),
     popupMenuTheme: PopupMenuThemeData(
-      color: AppColors.surface,
+      color: p.surface,
       surfaceTintColor: Colors.transparent,
       shape: rounded(AppRadius.medium),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.brand,
-        foregroundColor: AppColors.onBrand,
+        backgroundColor: p.brand,
+        foregroundColor: p.onBrand,
         elevation: 0,
         shape: rounded(AppRadius.medium),
         textStyle: const TextStyle(
@@ -106,57 +109,54 @@ ThemeData buildAppTheme() {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: AppColors.brand,
-        foregroundColor: AppColors.onBrand,
+        backgroundColor: p.brand,
+        foregroundColor: p.onBrand,
         shape: rounded(AppRadius.medium),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.brand,
-        side: const BorderSide(color: AppColors.brand),
+        foregroundColor: p.brand,
+        side: BorderSide(color: p.brand),
         shape: rounded(AppRadius.medium),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(foregroundColor: AppColors.brand),
+      style: TextButton.styleFrom(foregroundColor: p.brand),
     ),
-    floatingActionButtonTheme: const FloatingActionButtonThemeData(
-      backgroundColor: AppColors.brand,
-      foregroundColor: AppColors.onBrand,
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: p.brand,
+      foregroundColor: p.onBrand,
       elevation: 2,
     ),
     // 바탕 채우기·테두리는 칸마다 정해 둔 것을 따른다(테마로 바꾸면 모든 칸 모양이 바뀐다).
     // 글 색만 맞춘다.
-    inputDecorationTheme: const InputDecorationTheme(
-      hintStyle: TextStyle(color: AppColors.textFaint),
-      labelStyle: TextStyle(color: AppColors.textSub),
-      floatingLabelStyle: TextStyle(color: AppColors.brand),
+    inputDecorationTheme: InputDecorationTheme(
+      hintStyle: TextStyle(color: p.textFaint),
+      labelStyle: TextStyle(color: p.textSub),
+      floatingLabelStyle: TextStyle(color: p.brand),
     ),
-    snackBarTheme: const SnackBarThemeData(
+    snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      backgroundColor: AppColors.text,
+      backgroundColor: p.text,
       contentTextStyle: TextStyle(
         fontFamily: kAppFontFamily,
-        color: AppColors.onBrand,
+        color: p.onBrand,
         fontSize: 14,
         fontWeight: AppText.medium,
       ),
     ),
-    progressIndicatorTheme: const ProgressIndicatorThemeData(
-      color: AppColors.brand,
-    ),
+    progressIndicatorTheme: ProgressIndicatorThemeData(color: p.brand),
     switchTheme: SwitchThemeData(
-      thumbColor: WidgetStateProperty.all(AppColors.surface),
+      thumbColor: WidgetStateProperty.all(p.surface),
       trackColor: WidgetStateProperty.resolveWith(
-        (s) =>
-            s.contains(WidgetState.selected) ? AppColors.brand : AppColors.line,
+        (s) => s.contains(WidgetState.selected) ? p.brand : p.line,
       ),
       trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
     ),
     chipTheme: ChipThemeData(
-      backgroundColor: AppColors.fill,
-      selectedColor: AppColors.brand,
+      backgroundColor: p.fill,
+      selectedColor: p.brand,
       side: BorderSide.none,
       shape: rounded(AppRadius.small),
     ),

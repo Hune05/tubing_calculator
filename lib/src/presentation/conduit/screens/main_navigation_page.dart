@@ -1,5 +1,5 @@
-import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
@@ -16,11 +16,11 @@ import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_setti
 import 'package:tubing_calculator/src/presentation/conduit/conduit_field_data.dart';
 import 'package:tubing_calculator/src/presentation/field/field_marking_screen.dart';
 
-const Color makitaTeal = AppColors.brand;
-const Color slate900 = AppColors.text;
-const Color slate600 = AppColors.textSub;
-const Color slate100 = AppColors.background;
-const Color pureWhite = Color(0xFFFFFFFF);
+Color get makitaTeal => fc.brand;
+Color get slate900 => fc.text;
+Color get slate600 => fc.textSub;
+Color get slate100 => fc.background;
+Color get pureWhite => fc.surface;
 
 const Color paperBg = Color(0xFFF2F0E9);
 const Color strokeColor = Color(0xFF2D2D2D);
@@ -101,15 +101,19 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
     setState(() => _selectedIndex = 1);
   }
 
+  // 현장 보기(보통·햇빛·야간) 테마로 감싼다: 기본 위젯(입력칸·스위치·창)도 같은 색(D-D).
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      FieldViewTheme(child: Builder(builder: _buildPage));
+
+  Widget _buildPage(BuildContext context) {
     final bool isWide = _isWide(context);
     final bool isFieldTab = _selectedIndex == 3; // '현장'(가로) 탭
 
     return Scaffold(
       backgroundColor: slate100,
       body: !_settingsLoaded
-          ? const Center(child: CircularProgressIndicator(color: makitaTeal))
+          ? Center(child: CircularProgressIndicator(color: makitaTeal))
           : (isWide ? _buildWideBody() : _buildNarrowBody()),
       bottomNavigationBar: isFieldTab
           ? const SizedBox.shrink() // 현장(가로) 탭일 때만 네비바 숨김
@@ -256,10 +260,12 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
       children: [
         ConduitInputTab(key: _inputKey), // 0. 입력
         ConduitResultTab(key: _resultKey), // 1. 마킹
-        ConduitHistoryTab(key: _historyKey, onLoaded: _goToInputTab), // 2
+        NormalViewTheme(
+          child: ConduitHistoryTab(key: _historyKey, onLoaded: _goToInputTab),
+        ), // 2
         _buildFieldTab(), // 3. 현장
         ConduitViewerTab(key: _viewerKey), // 4. 아이소
-        ConduitSettingsPage(key: _settingsKey), // 5. 설정
+        NormalViewTheme(child: ConduitSettingsPage(key: _settingsKey)), // 5. 설정
       ],
     );
   }
@@ -275,14 +281,16 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(flex: 5, child: ConduitInputTab(key: _inputKey)),
-            const VerticalDivider(width: 1, color: slate100),
+            VerticalDivider(width: 1, color: slate100),
             Expanded(flex: 6, child: ConduitResultTab(key: _resultKey)),
           ],
         ),
-        ConduitHistoryTab(key: _historyKey, onLoaded: _goToInputTab),
+        NormalViewTheme(
+          child: ConduitHistoryTab(key: _historyKey, onLoaded: _goToInputTab),
+        ),
         _buildFieldTab(),
         ConduitViewerTab(key: _viewerKey),
-        ConduitSettingsPage(key: _settingsKey),
+        NormalViewTheme(child: ConduitSettingsPage(key: _settingsKey)),
       ],
     );
   }
@@ -699,7 +707,7 @@ class _ConduitIsoVisualizerState extends State<ConduitIsoVisualizer> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.straighten, size: 14, color: makitaTeal),
+          Icon(Icons.straighten, size: 14, color: makitaTeal),
           const SizedBox(width: 6),
           Text(
             "총 절단 길이: ",

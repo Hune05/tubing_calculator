@@ -3,12 +3,12 @@
 //  폰 축과의 차이), 눕히면 초록 화면에 큰 원 기포, 왼쪽 가장자리 cm 자, 오른쪽 아래 흰
 //  동그라미 단추(설정·영점·고정), 오른쪽 위 모드 단추(A = 자동).
 // 배관 구배를 보려고 %·mm/m 단위도 둔다.
-import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -16,9 +16,10 @@ import 'level_painters.dart';
 import 'tilt_math.dart';
 import 'tilt_sensor.dart';
 
-const Color _ink = AppColors.text;
-const Color _grey = AppColors.textSub;
-const Color _ok = Color(0xFF16A34A);
+Color get _ink => fc.text;
+Color get _grey => fc.textSub;
+Color get _ok =>
+    fieldPick(const Color(0xFF16A34A), sunlight: fc.ok, night: fc.ok);
 
 const String kLevelCalibKey = 'field_level_calib_v1';
 const String kLevelUnitKey = 'field_level_unit_v1';
@@ -267,10 +268,14 @@ class _LevelPageState extends State<LevelPage> {
     return (axis, sgn * a);
   }
 
+  // 현장 보기(보통·햇빛·야간) 테마로 감싼다: 기본 위젯(입력칸·스위치·창)도 같은 색(D-D).
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      FieldViewTheme(child: Builder(builder: _buildPage));
+
+  Widget _buildPage(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: fc.surface,
       body: _noSensor
           ? SafeArea(child: _noSensorView())
           : LayoutBuilder(builder: (context, c) => _levelView(c.biggest)),
@@ -279,7 +284,7 @@ class _LevelPageState extends State<LevelPage> {
 
   Widget _noSensorView() => Stack(
     children: [
-      const Center(
+      Center(
         key: Key('level_no_sensor'),
         child: Padding(
           padding: EdgeInsets.all(32),
@@ -350,6 +355,7 @@ class _LevelPageState extends State<LevelPage> {
             painter: SplitLevelPainter(
               rotationDeg: rot,
               referenceDeg: level ? null : axis,
+              background: fc.surface,
             ),
           ),
         ),
@@ -362,7 +368,7 @@ class _LevelPageState extends State<LevelPage> {
         _number(
           fmt(a),
           at,
-          kLevelBlue,
+          fc.brand,
           key: const Key('level_value'),
           turn: axis * math.pi / 180,
           big: true,
@@ -378,9 +384,7 @@ class _LevelPageState extends State<LevelPage> {
         bottom: 0,
         width: 46,
         child: Container(
-          color: flat
-              ? Colors.transparent
-              : Colors.white.withValues(alpha: 0.92),
+          color: flat ? Colors.transparent : fc.surface.withValues(alpha: 0.92),
           child: CustomPaint(
             key: const Key('level_ruler'),
             painter: EdgeRulerPainter(
@@ -397,8 +401,16 @@ class _LevelPageState extends State<LevelPage> {
       if (_last == null) _tag("센서를 읽는 중입니다", _grey),
       if (level) _tag("수평입니다", _ok, key: const Key('level_status')),
       if (_calibrated) _tag("영점 맞춤", kLevelBlue),
-      if (_poseLocked) _tag("모양 고정 · $_poseLabel", Colors.orange),
-      if (_hold) _tag("고정됨", Colors.orange),
+      if (_poseLocked)
+        _tag(
+          "모양 고정 · $_poseLabel",
+          fieldPick(Colors.orange, sunlight: fc.caution, night: fc.caution),
+        ),
+      if (_hold)
+        _tag(
+          "고정됨",
+          fieldPick(Colors.orange, sunlight: fc.caution, night: fc.caution),
+        ),
     ];
     children.add(
       Positioned(
@@ -473,7 +485,13 @@ class _LevelPageState extends State<LevelPage> {
               key: const Key('level_hold'),
               icon: _hold ? Icons.lock_open : Icons.pause,
               tooltip: _hold ? "고정 풀기" : "값 고정",
-              color: _hold ? Colors.orange : btnColor,
+              color: _hold
+                  ? fieldPick(
+                      Colors.orange,
+                      sunlight: fc.caution,
+                      night: fc.caution,
+                    )
+                  : btnColor,
               active: _hold,
               onTap: _last == null
                   ? null
@@ -491,7 +509,7 @@ class _LevelPageState extends State<LevelPage> {
     key: key,
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
     decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.92),
+      color: fc.surface.withValues(alpha: 0.92),
       borderRadius: BorderRadius.circular(20),
     ),
     child: Text(
@@ -565,7 +583,7 @@ class _LevelPageState extends State<LevelPage> {
   Future<void> _openSettings() async {
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: fc.surface,
       showDragHandle: true,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) {
@@ -580,7 +598,7 @@ class _LevelPageState extends State<LevelPage> {
               shrinkWrap: true,
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
               children: [
-                const Text(
+                Text(
                   "단위",
                   style: TextStyle(fontWeight: FontWeight.w800, color: _ink),
                 ),
@@ -666,9 +684,9 @@ class _RulerCalibrationPageState extends State<RulerCalibrationPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: fc.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: fc.surface,
         surfaceTintColor: Colors.transparent,
         foregroundColor: _ink,
         title: const Text("자 길이 맞추기"),
@@ -676,7 +694,7 @@ class _RulerCalibrationPageState extends State<RulerCalibrationPage> {
       body: SafeArea(
         child: Column(
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
               child: Text(
                 "신용카드(교통카드)를 세로로 세워 아래 상자 위에 대고, 상자가 카드와 같아지게 밉니다.",

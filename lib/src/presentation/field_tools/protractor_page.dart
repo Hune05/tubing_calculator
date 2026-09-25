@@ -1,22 +1,23 @@
 // 각도기. 플레이 스토어에서 많이 쓰는 각도기 앱의 두 쓰임을 따랐다:
 //  ① 벤딩 각도 재기: 폰 옆면을 관 한쪽 다리에 대고 "기준", 다른 다리에 대면 굽힌 각.
 //  ② 화면 각도기: 화면 위 반원 눈금에 두 팔을 끌어 물건 각을 잰다.
-import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/services.dart';
 
 import 'level_painters.dart';
 import 'tilt_math.dart';
 import 'tilt_sensor.dart';
 
-const Color _teal = AppColors.brand;
-const Color _ink = AppColors.text;
-const Color _grey = AppColors.textSub;
-const Color _bg = AppColors.background;
-const Color _orange = Color(0xFFEA580C);
+Color get _teal => fc.brand;
+Color get _ink => fc.text;
+Color get _grey => fc.textSub;
+Color get _bg => fc.background;
+Color get _orange =>
+    fieldPick(const Color(0xFFEA580C), sunlight: fc.caution, night: fc.caution);
 
 class ProtractorPage extends StatefulWidget {
   /// 센서 흐름. 비우면 폰 가속도 센서(검사에서는 가짜 흐름).
@@ -91,23 +92,27 @@ class _ProtractorPageState extends State<ProtractorPage> {
   bool get _tooFlat =>
       _last != null && tooFlatForRotation(_last!.x, _last!.y, _last!.z);
 
+  // 현장 보기(보통·햇빛·야간) 테마로 감싼다: 기본 위젯(입력칸·스위치·창)도 같은 색(D-D).
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      FieldViewTheme(child: Builder(builder: _buildPage));
+
+  Widget _buildPage(BuildContext context) {
     return DefaultTabController(
       length: 2,
       initialIndex: widget.initialTab,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: fc.surface,
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: fc.surface,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           foregroundColor: _ink,
-          title: const Text(
+          title: Text(
             "각도기",
             style: TextStyle(fontWeight: FontWeight.w800, color: _ink),
           ),
-          bottom: const TabBar(
+          bottom: TabBar(
             labelColor: _teal,
             unselectedLabelColor: _grey,
             indicatorColor: _teal,
@@ -134,7 +139,7 @@ class _ProtractorPageState extends State<ProtractorPage> {
   // 기준을 잡으면 기준선과 지금 선 사이가 빨간 쐐기, 그 각이 굽힌 각이다.
   Widget _bendTab() {
     if (_noSensor) {
-      return const Center(
+      return Center(
         key: Key('protractor_no_sensor'),
         child: Padding(
           padding: EdgeInsets.all(32),
@@ -180,6 +185,7 @@ class _ProtractorPageState extends State<ProtractorPage> {
                 painter: SplitLevelPainter(
                   rotationDeg: _rotation,
                   referenceDeg: _reference,
+                  background: fc.surface,
                 ),
               ),
             ),
@@ -189,7 +195,7 @@ class _ProtractorPageState extends State<ProtractorPage> {
               Text(
                 _last == null ? "--" : "${tilt.toStringAsFixed(1)}°",
                 key: const Key('bend_tilt'),
-                style: big(kLevelBlue, hasRef ? 40 : 60),
+                style: big(fc.brand, hasRef ? 40 : 60),
               ),
             ),
             // 파랑 쪽: 굽힌 각(크게)
@@ -223,7 +229,15 @@ class _ProtractorPageState extends State<ProtractorPage> {
                       kLevelBlue,
                       key: const Key('bend_inner'),
                     ),
-                  if (_hold) _pill("고정됨", Colors.orange),
+                  if (_hold)
+                    _pill(
+                      "고정됨",
+                      fieldPick(
+                        Colors.orange,
+                        sunlight: fc.caution,
+                        night: fc.caution,
+                      ),
+                    ),
                   if (_tooFlat)
                     _pill(
                       "폰을 세워서 관에 대십시오. 눕히면 각을 잴 수 없습니다.",
@@ -265,7 +279,13 @@ class _ProtractorPageState extends State<ProtractorPage> {
                     key: const Key('bend_hold'),
                     icon: _hold ? Icons.lock_open : Icons.pause,
                     tooltip: _hold ? "고정 풀기" : "값 고정",
-                    color: _hold ? Colors.orange : kLevelBlue,
+                    color: _hold
+                        ? fieldPick(
+                            Colors.orange,
+                            sunlight: fc.caution,
+                            night: fc.caution,
+                          )
+                        : kLevelBlue,
                     active: _hold,
                     onTap: _last == null
                         ? null
@@ -296,7 +316,7 @@ class _ProtractorPageState extends State<ProtractorPage> {
     key: key,
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
     decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.94),
+      color: fc.surface.withValues(alpha: 0.94),
       borderRadius: BorderRadius.circular(20),
     ),
     child: Text(
@@ -320,7 +340,7 @@ class _ProtractorPageState extends State<ProtractorPage> {
           child: Text(
             "${between.toStringAsFixed(1)}°",
             key: const Key('screen_value'),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 60,
               fontWeight: FontWeight.w900,
               color: _ink,
@@ -328,10 +348,7 @@ class _ProtractorPageState extends State<ProtractorPage> {
             ),
           ),
         ),
-        const Text(
-          "물건을 화면 아래 가운데에 대고 두 팔을 끌어 맞춥니다.",
-          style: TextStyle(color: _grey),
-        ),
+        Text("물건을 화면 아래 가운데에 대고 두 팔을 끌어 맞춥니다.", style: TextStyle(color: _grey)),
         Expanded(
           child: LayoutBuilder(
             builder: (context, c) {
@@ -409,7 +426,7 @@ class _ProtractorPainter extends CustomPainter {
         final tp = TextPainter(
           text: TextSpan(
             text: "$d",
-            style: const TextStyle(fontSize: 11, color: _ink),
+            style: TextStyle(fontSize: 11, color: _ink),
           ),
           textDirection: TextDirection.ltr,
         )..layout();

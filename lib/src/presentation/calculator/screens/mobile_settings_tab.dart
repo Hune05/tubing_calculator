@@ -1,5 +1,6 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/common_widgets/field_view_picker.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_gain_calibration_sheet.dart';
 import 'package:tubing_calculator/src/data/machine_spec_sets.dart';
 
@@ -1486,6 +1487,11 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       ]),
       _sectionTitle("앱 설정"),
       _settingsCard([
+        // 현장 보기(보통·햇빛·야간). 누르면 바로 바뀐다(저장 단추와 상관없음).
+        const Padding(
+          padding: EdgeInsets.all(16),
+          child: FieldViewModePicker(),
+        ),
         _row(
           _buildLabelWithHelp(
             context,

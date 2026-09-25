@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/common_widgets/field_view_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -576,7 +577,18 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
           padding: const EdgeInsets.only(bottom: 100),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [_buildMainTypeSelector(), _buildCurrentSettingsView()],
+            children: [
+              _buildMainTypeSelector(),
+              _buildCurrentSettingsView(),
+              // 현장 보기(보통·햇빛·야간). 누르면 바로 바뀐다(저장 단추와 상관없음).
+              _buildSectionTitle("앱 설정"),
+              _buildSettingsCard([
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: FieldViewModePicker(),
+                ),
+              ]),
+            ],
           ),
         ),
         bottomSheet: Container(

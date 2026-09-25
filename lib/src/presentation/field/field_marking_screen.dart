@@ -9,8 +9,8 @@
 ///   왼쪽·볼륨 내림은 이전. 끝낸 단계는 ✓.
 library;
 
-import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_frame.dart'
@@ -21,15 +21,25 @@ import 'package:tubing_calculator/src/presentation/field/field_marking.dart';
 
 // 🚀 [바꿈] 색을 줄였다. 바탕은 흰색 계열 하나, 누를 수 있는 것·켜진 것은
 // 앱의 청록, 벤드 마킹만 빨강. 테두리는 얇게, 그림자는 없앤다.
-const Color _paper = Color(0xFFF8FAFC);
-const Color _ink = AppColors.text;
-const Color _kMuted = Color(0xFF64748B);
-const Color _kFaint = Color(0xFF94A3B8);
-const Color _line = AppColors.line;
-const Color _teal = AppColors.brand;
-const Color _red = Color(0xFFD32F2F);
-const Color _stripBg = Colors.white;
-const Color _amber = AppColors.caution;
+Color get _paper => fieldPick(
+  const Color(0xFFF8FAFC),
+  sunlight: fc.background,
+  night: fc.background,
+);
+Color get _ink => fc.text;
+Color get _kMuted =>
+    fieldPick(const Color(0xFF64748B), sunlight: fc.textSub, night: fc.textSub);
+Color get _kFaint => fieldPick(
+  const Color(0xFF94A3B8),
+  sunlight: fc.textFaint,
+  night: fc.textFaint,
+);
+Color get _line => fc.line;
+Color get _teal => fc.brand;
+Color get _red =>
+    fieldPick(const Color(0xFFD32F2F), sunlight: fc.danger, night: fc.danger);
+Color get _stripBg => fc.surface;
+Color get _amber => fc.caution;
 
 class FieldMarkingScreen extends StatefulWidget {
   /// 자료가 바뀔 때 알려 주는 것(목록 관리자·설정).
@@ -76,9 +86,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   int _stepCount = 0;
 
   // 햇빛 아래(흰 바탕·더 큰 숫자)와 간격 보기. 폰에 기억해 둔다.
-  static const String _hcKey = 'field_high_contrast';
   static const String _gapKey = 'field_show_gap';
-  bool _highContrast = false;
+  // 햇빛 보기는 앱 설정(현장 보기)과 같은 것이다(D-D). 여기 단추로 바꾸면 설정도 바뀐다.
+  bool get _highContrast => FieldColors.isSunlight;
   bool _showGap = false;
 
   Color get _bg => _highContrast ? Colors.white : _paper;
@@ -86,16 +96,19 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   // 🚀 [고침] 햇빛 모드를 켜도 줄자 화면의 회색 작은 글씨(각도·방향·자르기·
   // 직관 끝)는 그대로라 바뀌는 것이 없었다. 켜면 검게, 3px 크게 한다.
   Color get _muted => _highContrast ? Colors.black : _kMuted;
-  Color get _faint => _highContrast ? Colors.black87 : _kFaint;
+  Color get _faint => _highContrast
+      ? fieldPick(Colors.black87, sunlight: fc.text, night: fc.text)
+      : _kFaint;
   double _small(double size) => _highContrast ? size + 3 : size;
   Color get _strip => _highContrast ? Colors.white : _stripBg;
 
   Future<void> _loadViewPrefs() async {
     try {
+      // 현장 보기(보통·햇빛·야간)는 앱 설정 하나다. 예전 햇빛 단추 값도 여기서 옮겨진다.
+      await FieldColors.load();
       final prefs = await SharedPreferences.getInstance();
       if (!mounted) return;
       setState(() {
-        _highContrast = prefs.getBool(_hcKey) ?? false;
         _showGap = prefs.getBool(_gapKey) ?? false;
       });
     } catch (_) {}
@@ -266,8 +279,12 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
 
   // ---------------- 그리기 ----------------
 
+  // 현장 보기(보통·햇빛·야간) 테마로 감싼다(D-D). 탭만 따로 띄워도 같은 색.
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      FieldViewTheme(child: Builder(builder: _buildPage));
+
+  Widget _buildPage(BuildContext context) {
     return ListenableBuilder(
       listenable: widget.listenable,
       builder: (context, _) {
@@ -337,7 +354,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               const SizedBox(height: 12),
               Text(
                 data.error != null ? '이 도면은 셈할 수 없습니다' : '입력한 배관이 없습니다',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
                   color: _ink,
@@ -360,7 +377,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           top: 4,
           right: 8,
           child: IconButton(
-            icon: const Icon(Icons.close_rounded, color: _ink, size: 28),
+            icon: Icon(Icons.close_rounded, color: _ink, size: 28),
             onPressed: _close,
           ),
         ),
@@ -373,8 +390,8 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     return Container(
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: fc.surface,
         border: Border(bottom: BorderSide(color: _line)),
       ),
       child: Row(
@@ -392,7 +409,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                 ),
                 TextSpan(
                   text: data.totalCut.round().toString(),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                     color: _ink,
@@ -410,19 +427,19 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             const SizedBox(width: 10),
             ActionChip(
               key: const Key('field_warning_chip'),
-              avatar: const Icon(
+              avatar: Icon(
                 Icons.warning_amber_rounded,
                 color: _amber,
                 size: 18,
               ),
               label: Text(
                 '확인 ${data.warnings.length}',
-                style: const TextStyle(
-                  color: _amber,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: _amber, fontWeight: FontWeight.bold),
               ),
-              backgroundColor: const Color(0xFFFFF7E8),
+              backgroundColor: fieldSoft(
+                const Color(0xFFFFF7E8),
+                (p) => p.caution,
+              ),
               side: BorderSide.none,
               shape: const StadiumBorder(),
               visualDensity: VisualDensity.compact,
@@ -490,8 +507,10 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             selected: _highContrast,
             onTap: () {
               HapticFeedback.selectionClick();
-              setState(() => _highContrast = !_highContrast);
-              _saveViewPref(_hcKey, _highContrast);
+              FieldColors.set(
+                _highContrast ? FieldViewMode.normal : FieldViewMode.sunlight,
+              );
+              setState(() {});
             },
           ),
           Container(
@@ -708,14 +727,14 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     if (l.isCut) {
       border = isSel ? _teal : _ink;
       borderWidth = isSel ? 2 : 1.4;
-      bg = Colors.white;
+      bg = fc.surface;
       child = Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const AppIcon(AppGlyph.tubeCut, size: 17, color: _ink),
+              AppIcon(AppGlyph.tubeCut, size: 17, color: _ink),
               const SizedBox(width: 4),
               // 자릿수가 많으면 말풍선 폭에 맞게 줄인다(예전에는 넘쳤다).
               Flexible(
@@ -725,7 +744,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                     _showGap
                         ? '+${fieldStepGap(_data, FieldStep.cut(l.position)).round()}'
                         : l.position.round().toString(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: _ink,
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
@@ -777,7 +796,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       final m = l.mark!;
       border = isSel ? _teal : _line;
       borderWidth = isSel ? 2 : 1;
-      bg = Colors.white;
+      bg = fc.surface;
       final angleText = m.hasOverBend
           ? '${_fmt(m.angle)}°→${_fmt(m.targetAngle)}°'
           : '${_fmt(m.angle)}°';
@@ -796,7 +815,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                     _showGap
                         ? '+${m.gap.round()}'
                         : l.position.round().toString(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
                       color: _ink,
@@ -846,15 +865,11 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
         shape: BoxShape.circle,
       ),
       child: done
-          ? Icon(
-              Icons.check_rounded,
-              color: Colors.white,
-              size: small ? 13 : 20,
-            )
+          ? Icon(Icons.check_rounded, color: fc.onBrand, size: small ? 13 : 20)
           : Text(
               '$n',
               style: TextStyle(
-                color: Colors.white,
+                color: fc.onBrand,
                 fontWeight: FontWeight.w800,
                 fontSize: small ? 11 : 16,
               ),
@@ -902,16 +917,8 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                 children: [
                   if (s.isCut)
                     (done
-                        ? const Icon(
-                            Icons.check_rounded,
-                            size: 18,
-                            color: _teal,
-                          )
-                        : const AppIcon(
-                            AppGlyph.tubeCut,
-                            size: 20,
-                            color: _ink,
-                          ))
+                        ? Icon(Icons.check_rounded, size: 18, color: _teal)
+                        : AppIcon(AppGlyph.tubeCut, size: 20, color: _ink))
                   else
                     _numberBadge(s.mark!.number, done: done, small: true),
                   const SizedBox(width: 6),
@@ -923,7 +930,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                         _showGap
                             ? '+${fieldStepGap(_data, s).round()} mm'
                             : '${s.at.round()} mm',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
                           color: _ink,
@@ -1007,19 +1014,15 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (done) ...[
-                      const Icon(
-                        Icons.check_rounded,
-                        size: 16,
-                        color: Colors.white,
-                      ),
+                      Icon(Icons.check_rounded, size: 16, color: fc.onBrand),
                       const SizedBox(width: 4),
                     ],
                     Text(
                       '${m.number}번 마킹',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                        color: fc.onBrand,
                       ),
                     ),
                   ],
@@ -1063,7 +1066,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               ),
               Text(
                 '${_fmt(m.angle)}°',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 56,
                   height: 1.05,
                   fontWeight: FontWeight.w800,
@@ -1098,7 +1101,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                     const SizedBox(width: 8),
                     Text(
                       fieldDirectionLabel(m.rotation),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
                         color: _ink,
@@ -1193,7 +1196,13 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               style: TextStyle(
                 fontSize: _highContrast ? 26 : 22,
                 fontWeight: FontWeight.w600,
-                color: _highContrast ? Colors.black87 : _muted,
+                color: _highContrast
+                    ? fieldPick(
+                        Colors.black87,
+                        sunlight: fc.text,
+                        night: fc.text,
+                      )
+                    : _muted,
               ),
             ),
           ],
@@ -1258,7 +1267,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     return Container(
       height: 30,
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: _stripBg,
         border: Border(top: BorderSide(color: _line)),
       ),
@@ -1386,10 +1395,10 @@ class _TapePainter extends CustomPainter {
     canvas.drawRRect(
       pipeRect,
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFCBD5E1), AppColors.line, Color(0xFFCBD5E1)],
+          colors: [Color(0xFFCBD5E1), fc.line, Color(0xFFCBD5E1)],
         ).createShader(pipeRect.outerRect),
     );
     canvas.drawRRect(
@@ -1432,7 +1441,7 @@ class _TapePainter extends CustomPainter {
       if (mm % 100 == 0) {
         tp.text = TextSpan(
           text: '$mm',
-          style: const TextStyle(
+          style: TextStyle(
             color: _ink,
             fontSize: 12,
             fontWeight: FontWeight.w700,

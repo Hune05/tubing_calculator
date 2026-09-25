@@ -1,5 +1,5 @@
-import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart';
 
@@ -13,11 +13,11 @@ import 'mobile_settings_tab.dart';
 import 'package:tubing_calculator/src/data/machine_specs.dart';
 import 'package:tubing_calculator/src/presentation/field/field_marking_screen.dart';
 
-const Color makitaTeal = AppColors.brand;
-const Color slate900 = AppColors.text;
-const Color slate600 = AppColors.textSub;
-const Color slate100 = AppColors.background;
-const Color pureWhite = Color(0xFFFFFFFF);
+Color get makitaTeal => fc.brand;
+Color get slate900 => fc.text;
+Color get slate600 => fc.textSub;
+Color get slate100 => fc.background;
+Color get pureWhite => fc.surface;
 
 class MobileCalculatorPage extends StatefulWidget {
   const MobileCalculatorPage({super.key});
@@ -61,8 +61,12 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
     });
   }
 
+  // 현장 보기(보통·햇빛·야간) 테마로 감싼다: 기본 위젯(입력칸·스위치·창)도 같은 색(D-D).
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      FieldViewTheme(child: Builder(builder: _buildPage));
+
+  Widget _buildPage(BuildContext context) {
     // 🚀 [추가] 폴더블 대응 - 접힌 좁은 화면과 펼친 넓은 화면을 실시간으로
     // 구분한다. MobileInputTab/MobileResultTab 둘 다 데이터를
     // MobileBendDataManager 싱글톤에서 직접 읽으므로, 넓을 때 두 탭을
@@ -294,7 +298,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
           startDir: _startDir,
           onStartDirChanged: (val) => setState(() => _startDir = val),
         ),
-        const MobileSettingsTab(),
+        const NormalViewTheme(child: MobileSettingsTab()),
       ],
     );
   }
@@ -329,7 +333,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
           startDir: _startDir,
           onStartDirChanged: (val) => setState(() => _startDir = val),
         ),
-        const MobileSettingsTab(),
+        const NormalViewTheme(child: MobileSettingsTab()),
       ],
     );
   }

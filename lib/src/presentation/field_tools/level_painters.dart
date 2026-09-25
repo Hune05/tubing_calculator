@@ -7,6 +7,7 @@ import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/theme/field_view.dart';
 
 // 색의 뜻(D-B): 앱의 주 색 하나(청록). 예전에는 이 화면만 파랑이었다.
 const Color kLevelBlue = AppColors.brand;
@@ -29,7 +30,14 @@ class SplitLevelPainter extends CustomPainter {
   /// 쐐기 반대편 선(°). 없으면 쐐기를 안 그린다.
   final double? referenceDeg;
 
-  SplitLevelPainter({required this.rotationDeg, this.referenceDeg});
+  /// 흰 쪽 바탕. 야간 보기에서는 어두운 색(눈부심 줄임, D-D).
+  final Color background;
+
+  SplitLevelPainter({
+    required this.rotationDeg,
+    this.referenceDeg,
+    this.background = kLevelWhite,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -38,7 +46,7 @@ class SplitLevelPainter extends CustomPainter {
     final up = upOnScreen(rotationDeg);
     final right = Offset(-up.dy, up.dx); // 위쪽에서 오른쪽으로 90°
 
-    canvas.drawRect(Offset.zero & size, Paint()..color = kLevelWhite);
+    canvas.drawRect(Offset.zero & size, Paint()..color = background);
     // 경계선 오른쪽(세로로 들었을 때)을 파랑으로.
     final blue = Path()
       ..moveTo((c + up * far).dx, (c + up * far).dy)
@@ -86,7 +94,9 @@ class SplitLevelPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(SplitLevelPainter old) =>
-      old.rotationDeg != rotationDeg || old.referenceDeg != referenceDeg;
+      old.rotationDeg != rotationDeg ||
+      old.referenceDeg != referenceDeg ||
+      old.background != background;
 }
 
 /// 눕혔을 때: 초록 바탕 + 큰 원 기포.
@@ -209,7 +219,7 @@ class RoundToolButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: active ? color : Colors.white,
+        color: active ? color : fc.surface,
         shape: const CircleBorder(),
         elevation: 2,
         child: InkWell(
