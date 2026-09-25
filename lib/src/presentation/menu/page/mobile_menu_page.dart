@@ -38,9 +38,6 @@ import 'package:tubing_calculator/src/presentation/my_schedule/mobile_my_schedul
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_reminders.dart'
     show rescheduleDriftingMonthlyReminders;
 
-// 🚀 5. 공용 차량 및 장비 페이지 임포트
-import 'package:tubing_calculator/src/presentation/vehicle/pages/mobile_vehicle_management_page.dart';
-
 // 🚀 6. 사내 일정 관리 캘린더 페이지 임포트
 
 // 🚀 7. 신규 알림 내역 페이지 임포트
@@ -792,68 +789,27 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     );
   }
 
+  // 공지 듣기는 한 번만 만든다. 예전엔 build 안에서 만들어 날씨·일정 수가 바뀔 때마다
+  // 끊고 다시 붙어 머리가 잠깐 빈칸이 됐다.
+  Stream<QuerySnapshot>? _noticeStream;
+  Stream<QuerySnapshot> get _notices => _noticeStream ??= FirebaseFirestore
+      .instance
+      .collection('announcements')
+      // isActive+createdAt 복합 색인 없이도 동작하도록, 최신순 20건만 받아서
+      // 활성 공지를 앱에서 고른다.
+      .orderBy('createdAt', descending: true)
+      .limit(20)
+      .snapshots();
+
+  // 🚀 [정리] 숨긴 차량 기능의 `vehicles` 실시간 듣기를 뺐다(화면은 09-23에 숨겼는데
+  // 홈 머리가 계속 서버를 듣고, 내 이름 차량이 있으면 날씨 대신 숨긴 화면으로 보냈다).
   Widget _buildSmartHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
-      child: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('vehicles')
-            .where('currentUser', isEqualTo: widget.currentWorker)
-            .snapshots(),
-        builder: (context, vehicleSnap) {
-          if (vehicleSnap.hasData && vehicleSnap.data!.docs.isNotEmpty) {
-            var vehicleData =
-                vehicleSnap.data!.docs.first.data() as Map<String, dynamic>;
-            var status = vehicleData['status'];
-            var number = vehicleData['number'] ?? '';
-
-            if (status == '예약 중') {
-              return _buildHeaderContent(
-                title: "곧 $number 차량 운행이\n예정되어 있습니다.",
-                titleIcon: LucideIcons.calendarClock,
-                subText: "터치하여 예약 상태를 확인해 주십시오.",
-                isActionable: true,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => MobileVehicleManagementPage(
-                        currentUser: widget.currentWorker,
-                      ),
-                    ),
-                  );
-                },
-              );
-            } else if (status == '운행 중') {
-              return _buildHeaderContent(
-                title: "현재 $number 차량을\n운행 중입니다.",
-                titleIcon: LucideIcons.car,
-                subText: "안전 운행하시고, 사용 후 반납해 주십시오.",
-                isActionable: true,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => MobileVehicleManagementPage(
-                        currentUser: widget.currentWorker,
-                      ),
-                    ),
-                  );
-                },
-              );
-            }
-          }
-
+      child: Builder(
+        builder: (context) {
           return StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('announcements')
-                // isActive+createdAt 복합 색인 없이도 동작하도록, 최신순 20건만 받아서
-                // 활성 공지를 앱에서 고른다.
-                .orderBy('createdAt', descending: true)
-                .limit(20)
-                .snapshots(),
+            stream: _notices,
             builder: (context, noticeSnap) {
               if (noticeSnap.connectionState == ConnectionState.waiting) {
                 return const SizedBox(height: 60);
@@ -876,8 +832,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 if (noticeTitle.contains("회식") || noticeTitle.contains("회의")) {
                   return _buildHeaderContent(
                     title: noticeTitle.contains("회의")
-                        ? "오늘 중요한 회의 일정이\n예정되어 있습니다."
-                        : "오늘 사내 회식 일정이\n등록되어 있습니다.",
+                        ? "회의 일정 공지가\n등록되어 있습니다."
+                        : "회식 일정 공지가\n등록되어 있습니다.",
                     titleIcon: LucideIcons.bellRing,
                     subText: "터치하여 전체 알림을 확인하십시오.",
                     isActionable: true,

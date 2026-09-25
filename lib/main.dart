@@ -253,7 +253,8 @@ class _MyAppState extends State<MyApp> {
       sound: true,
     );
     debugPrint('사용자 알림 권한 상태: ${settings.authorizationStatus}');
-    await messaging.subscribeToTopic("field_orders");
+    // 발주 기능은 지웠다. 예전에 구독한 폰도 발주 알림 주제에서 빠진다.
+    await messaging.unsubscribeFromTopic("field_orders");
   }
 
   void _setupForegroundMessageListener() {
