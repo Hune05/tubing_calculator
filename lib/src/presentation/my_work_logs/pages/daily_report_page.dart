@@ -20,6 +20,7 @@ import '../models/report_tools.dart';
 import '../models/photo_store.dart';
 import '../widgets/voice_input_button.dart';
 import 'photo_annotate_page.dart';
+import 'package:tubing_calculator/src/core/utils/send_quietly.dart';
 
 part 'daily_report_page_draft.dart';
 part 'daily_report_page_submit.dart';
@@ -257,7 +258,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
       if (mounted) setState(() => _favMaterials = merged);
       await p.setStringList(_kFavKey, merged);
       if (merged.length != cloud.length) {
-        await _favDoc.set({'items': merged});
+        sendQuietly(() => _favDoc.set({'items': merged}));
       }
     } catch (_) {}
   }
@@ -266,7 +267,8 @@ class _DailyReportPageState extends State<DailyReportPage> {
     try {
       final p = await SharedPreferences.getInstance();
       await p.setStringList(_kFavKey, _favMaterials);
-      await _favDoc.set({'items': _favMaterials});
+      final items = [..._favMaterials];
+      sendQuietly(() => _favDoc.set({'items': items}), what: '자재 즐겨찾기 서버 저장');
     } catch (_) {}
   }
 

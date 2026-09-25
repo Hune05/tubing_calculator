@@ -1272,8 +1272,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       WorkRoute(
         builder: (_) => NotificationCheckPage(
           logs: _workLogs,
+          // 저장은 보내 두고(통신이 없으면 서버 답이 안 와 끝나지 않는다) 알림부터 다시 잡는다.
           onSaveProject: (log) async {
-            await _repo.upsertProject(log);
+            _saveProject(log);
             await syncReportReminder(_workLogs);
           },
         ),

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/core/utils/send_quietly.dart';
 
 // 🚀 [보고서 양식] 내보내는 보고서(PDF/텍스트)의 머리말(회사명·로고·담당자), 서명란,
 // 포함할 항목, PDF 사진 기본값을 저장해 두고 매번 그대로 쓴다. Firestore
@@ -150,9 +151,8 @@ Future<void> _saveLocal(ReportStyle s) async {
 Future<void> saveReportStyle(ReportStyle s) async {
   ReportStyle.current = s;
   await _saveLocal(s);
-  try {
-    await _doc.set(s.toJson());
-  } catch (_) {}
+  // 통신이 없어도 저장 단추가 바로 닫히게 서버는 기다리지 않는다(폰에는 위에서 먼저 저장).
+  sendQuietly(() => _doc.set(s.toJson()), what: '보고서 양식 서버 저장');
 }
 
 // 프로젝트별 머리말 덮어쓰기(발주처마다 다른 회사명/담당자): log['reportHeader'].

@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'project_phase.dart';
+import 'package:tubing_calculator/src/core/utils/send_quietly.dart';
 
 // 🚀 [단계 템플릿] 자주 하는 공사 유형별 단계 구성을 저장해 두고, 새 프로젝트에서
 // 시작일/납기만 정해 바로 불러온다. 단계별 상대 비중(weight)만 저장하므로 기간이
@@ -91,7 +92,7 @@ Future<List<PhaseTemplate>> loadPhaseTemplates() async {
     }
     for (final t in local) {
       if (!cloudNames.contains(t.name)) {
-        await col.doc(Uri.encodeComponent(t.name)).set(t.toJson());
+        sendQuietly(() => col.doc(Uri.encodeComponent(t.name)).set(t.toJson()));
       }
     }
     await _saveLocal(byName.values.toList());
@@ -105,24 +106,27 @@ Future<void> savePhaseTemplate(PhaseTemplate t) async {
   local.removeWhere((e) => e.name == t.name);
   local.add(t);
   await _saveLocal(local);
-  try {
-    await FirebaseFirestore.instance
+  // 통신이 없어도 "저장했습니다"가 바로 뜨게 서버는 기다리지 않는다.
+  sendQuietly(
+    () => FirebaseFirestore.instance
         .collection(_kCloud)
         .doc(Uri.encodeComponent(t.name))
-        .set(t.toJson());
-  } catch (_) {}
+        .set(t.toJson()),
+    what: '단계 템플릿 서버 저장',
+  );
 }
 
 Future<void> deletePhaseTemplate(String name) async {
   final local = await _loadLocal();
   local.removeWhere((e) => e.name == name);
   await _saveLocal(local);
-  try {
-    await FirebaseFirestore.instance
+  sendQuietly(
+    () => FirebaseFirestore.instance
         .collection(_kCloud)
         .doc(Uri.encodeComponent(name))
-        .delete();
-  } catch (_) {}
+        .delete(),
+    what: '단계 템플릿 서버 지우기',
+  );
 }
 
 // 현재 프로젝트의 단계 구성을 템플릿으로: 각 단계 기간(일)을 비중으로 쓴다.

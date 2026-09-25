@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/core/utils/send_quietly.dart';
 
 // 🚀 [공용 주소록] 같은 협력사/자재 업체를 프로젝트마다 다시 적지 않도록, 연락처를
 // 주소록에 저장해 두고 어느 프로젝트에서든 불러온다. Firestore
@@ -46,7 +47,9 @@ Future<List<Map<String, dynamic>>> loadAddressBook() async {
     final seen = cloud.map(_key).toSet();
     final merged = [...cloud, ...local.where((e) => !seen.contains(_key(e)))];
     await _saveLocal(merged);
-    if (merged.length != cloud.length) await _doc.set({'items': merged});
+    if (merged.length != cloud.length) {
+      sendQuietly(() => _doc.set({'items': merged}));
+    }
     return merged;
   } catch (_) {
     return local;
@@ -62,16 +65,14 @@ Future<void> saveAddress(Map<String, dynamic> entry) async {
     'role': entry['role'],
   });
   await _saveLocal(all);
-  try {
-    await _doc.set({'items': all});
-  } catch (_) {}
+  // 통신이 없어도 목록이 바로 바뀌게 서버는 기다리지 않는다.
+  sendQuietly(() => _doc.set({'items': all}), what: '주소록 서버 저장');
 }
 
 Future<void> removeAddress(Map entry) async {
   final all = await _loadLocal();
   all.removeWhere((e) => _key(e) == _key(entry));
   await _saveLocal(all);
-  try {
-    await _doc.set({'items': all});
-  } catch (_) {}
+  // 통신이 없어도 목록이 바로 바뀌게 서버는 기다리지 않는다.
+  sendQuietly(() => _doc.set({'items': all}), what: '주소록 서버 저장');
 }

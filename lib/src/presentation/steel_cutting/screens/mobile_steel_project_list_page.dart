@@ -241,12 +241,27 @@ class MobileSteelProjectListPage extends StatelessWidget {
       final docRef = FirebaseFirestore.instance
           .collection(kSteelCuttingProjectsCollection)
           .doc(docId);
-      final logs = await docRef
-          .collection(kSteelChangeLogSubcollection)
-          .get()
-          .timeout(const Duration(seconds: 8));
+      // 🚀 [고침] 통신이 없으면 이력 읽기가 8초 뒤 오류로 끝나 작업이 안 지워졌다.
+      // 폰 캐시에 있는 이력으로 지우고, 그것도 없으면 작업 문서만 지운다.
+      List<QueryDocumentSnapshot<Map<String, dynamic>>> logs = const [];
+      try {
+        logs =
+            (await docRef
+                    .collection(kSteelChangeLogSubcollection)
+                    .get()
+                    .timeout(const Duration(seconds: 8)))
+                .docs;
+      } catch (_) {
+        try {
+          logs =
+              (await docRef
+                      .collection(kSteelChangeLogSubcollection)
+                      .get(const GetOptions(source: Source.cache)))
+                  .docs;
+        } catch (_) {}
+      }
       final batch = FirebaseFirestore.instance.batch();
-      for (final d in logs.docs) {
+      for (final d in logs) {
         batch.delete(d.reference);
       }
       batch.delete(docRef);
