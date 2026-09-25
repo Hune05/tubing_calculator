@@ -9,6 +9,7 @@ const Color _teal = Color(0xFF007580);
 const Color _slate900 = Color(0xFF0F172A);
 const Color _slate600 = Color(0xFF475569);
 const Color _slate100 = Color(0xFFF1F5F9);
+const Color _red = Color(0xFFDC2626);
 
 class AppDialog extends StatelessWidget {
   final String title;
@@ -19,6 +20,9 @@ class AppDialog extends StatelessWidget {
   final VoidCallback onOk;
   final Key? okKey;
 
+  /// 지우기처럼 되돌리기 어려운 일이면 확인 단추를 빨갛게.
+  final bool destructive;
+
   const AppDialog({
     super.key,
     required this.title,
@@ -28,6 +32,7 @@ class AppDialog extends StatelessWidget {
     this.cancelText = '취소',
     this.okText = '확인',
     this.okKey,
+    this.destructive = false,
   });
 
   /// 창 안 글(회색, 줄 간격 넉넉히).
@@ -81,7 +86,7 @@ class AppDialog extends StatelessWidget {
                 key: okKey,
                 onPressed: onOk,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _teal,
+                  backgroundColor: destructive ? _red : _teal,
                   foregroundColor: Colors.white,
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 16),

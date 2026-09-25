@@ -1354,15 +1354,37 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
       builder: (ctx) => AppDialog(
         title: "삭제 확인",
         okText: "삭제",
+        destructive: true,
+        okKey: const Key('history_delete_ok'),
         onCancel: () => Navigator.pop(ctx, false),
         onOk: () => Navigator.pop(ctx, true),
-        content: AppDialog.message("이 도면을 보관함에서 영구 삭제하시겠습니까?"),
+        content: AppDialog.message("이 도면을 보관함에서 삭제하시겠습니까?"),
       ),
     );
     if (confirm != true) return;
+    // 🚀 [고침] 지우면 되돌릴 길이 없었다. 지운 줄을 그대로(같은 id로) 들고 있다가
+    // 알림의 "되돌리기"로 다시 넣는다.
+    final backup = Map<String, dynamic>.from(item);
     await DatabaseHelper.instance.deleteHistory(item['id']);
     if (!mounted) return;
     // 🚀 [수정] 삭제 후에도 조용히 갱신
     _refreshHistory(showFullLoader: false);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 5),
+          content: const Text("도면을 지웠습니다."),
+          action: SnackBarAction(
+            key: const Key('history_delete_undo'),
+            label: "되돌리기",
+            onPressed: () async {
+              await DatabaseHelper.instance.insertHistory(backup);
+              if (mounted) _refreshHistory(showFullLoader: false);
+            },
+          ),
+        ),
+      );
   }
 }

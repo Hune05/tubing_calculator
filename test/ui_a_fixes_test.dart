@@ -1,6 +1,7 @@
 // UI·UX 점검 묶음 U-A(숫자·자료) 고침 확인.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/app_dialog.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_logs_page.dart';
 
@@ -60,5 +61,29 @@ void main() {
       await tester.pumpAndSettle();
       expect(c.text, '50');
     });
+  });
+
+  testWidgets('X8 지우기 확인 창은 확인 단추가 빨갛다', (tester) async {
+    Color? okColor(bool destructive) {
+      final b = tester.widget<ElevatedButton>(find.byKey(const Key('ok')));
+      return b.style?.backgroundColor?.resolve({});
+    }
+
+    for (final d in [false, true]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppDialog(
+            title: '삭제 확인',
+            okText: '삭제',
+            okKey: const Key('ok'),
+            destructive: d,
+            onCancel: () {},
+            onOk: () {},
+            content: const SizedBox(),
+          ),
+        ),
+      );
+      expect(okColor(d), d ? const Color(0xFFDC2626) : const Color(0xFF007580));
+    }
   });
 }
