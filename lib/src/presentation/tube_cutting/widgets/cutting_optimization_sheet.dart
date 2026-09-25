@@ -7,6 +7,7 @@ import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_invent
 import '../cutting_leftover_log.dart';
 import '../cutting_leftovers.dart';
 import '../cutting_optimizer.dart';
+import '../cutting_stock_deduct.dart';
 import '../cutting_theme.dart';
 import 'leftover_log_page.dart';
 
@@ -46,16 +47,17 @@ Future<void> showCuttingOptimizationSheet(
   bool leftoversAlreadySaved = false,
   // 잔재 기록에 적을 작업 이름("튜브 컷팅 · 루마" 등).
   String leftoverLogSource = '',
-  // 새 원자재를 창고 재고에서 뺄 수 있는 화면(형강)에서만 넘긴다. 규격별 본수를
-  // 받아서 빼고, 뺐으면 true를 돌려준다.
-  Future<bool> Function(Map<String, int> barsBySpec)? onDeductStock,
-  // 지난번에 재고에서 뺀 본수의 모양. 지금 계산한 본수와 같으면 "뺐습니다"로
-  // 보여서 창을 닫았다 다시 열어도 같은 것을 두 번 빼지 않게 한다.
-  String deductedBarsSig = '',
-  // 뺐을 때 그 본수 모양을 화면에 돌려준다(화면이 폰에 적어 둔다).
-  void Function(String sig)? onStockDeducted,
-  // 잘못 뺐을 때 도로 넣는다. 돌려놓았으면 true.
-  Future<bool> Function(Map<String, int> barsBySpec)? onUndoDeductStock,
+  // 새 원자재를 창고 재고에서 뺄 수 있게 할 때 넘긴다(튜브·형강). 아직 안 뺀
+  // 규격별 새 원자재(본마다 길이)를 받아서 빼고, 실제로 뺀 것만 돌려준다
+  // (재고에 이름이 없어 못 뺀 규격은 빼고). 하나도 못 뺐으면 null이나 빈 것.
+  Future<BarsBySpec?> Function(BarsBySpec bars)? onDeductStock,
+  // 이 작업에서 이미 재고에서 뺀 본. 지금 계산과 견줘 남은 것만 뺄 수 있게 해서
+  // 창을 닫았다 다시 열어도 같은 것을 두 번 빼지 않는다.
+  BarsBySpec deductedBars = const {},
+  // 빼거나 되돌린 뒤 이제까지 뺀 본 전체를 화면에 돌려준다(화면이 서버에 적어 둔다).
+  void Function(BarsBySpec deducted)? onStockDeducted,
+  // 잘못 뺐을 때 이제까지 뺀 것을 도로 넣는다. 돌려놓았으면 true.
+  Future<bool> Function(BarsBySpec bars)? onUndoDeductStock,
   // 이 작업에 쓴 자재 기록을 볼 때 걸러 쓸 작업 이름(비우면 단추를 안 보인다).
   String jobLogName = '',
 }) async {
@@ -70,15 +72,6 @@ Future<void> showCuttingOptimizationSheet(
     return;
   }
 
-  // 규격별 본수를 한 줄 글로 만든다(견주기용).
-  String barsSigOf(Map<String, int> m) {
-    final keys = m.keys.toList()..sort();
-    return [
-      for (final k in keys)
-        if (m[k]! > 0) '$k=${m[k]}',
-    ].join(';');
-  }
-
   final ctrl = TextEditingController(
     text: initialStockLength.toStringAsFixed(0),
   );
@@ -88,10 +81,12 @@ Future<void> showCuttingOptimizationSheet(
   bool useLeftovers = true;
   bool leftoversSaved = leftoversAlreadySaved;
   bool leftoversSaving = false;
-  // 이번 계산의 새 원자재를 재고에서 뺐는지(같은 것을 두 번 빼지 않게).
-  // 뺀 본수 자체를 적어 두고 견준다. 기준 길이·섞어 쓰기를 바꿔 본수가 달라지면
-  // 다시 뺄 수 있고, 같은 본수면 창을 다시 열어도 "뺐습니다"로 나온다.
-  String deductedSig = deductedBarsSig;
+  // 이 작업에서 이미 재고에서 뺀 본(같은 것을 두 번 빼지 않게). 지금 계산과 견줘
+  // 남은 본만 뺄 수 있다. 기준 길이·섞어 쓰기를 바꿔 본이 늘면 는 만큼만 뺀다.
+  BarsBySpec deducted = {
+    for (final e in deductedBars.entries) e.key: [...e.value],
+  };
+  bool deducting = false;
   // 이 창에서 방금 저장한 것(되돌리기용): 쓴 잔재와 새로 더한 잔재. 저장하지 않았거나
   // 되돌린 뒤에는 null. 되돌릴 때도 이것만 도로 넣고 빼서, 그사이 다른 곳에서 바꾼
   // 잔재를 건드리지 않는다.
@@ -216,11 +211,13 @@ Future<void> showCuttingOptimizationSheet(
           );
         }
 
-        // 규격별 새 원자재 본수(재고에서 뺄 때 쓴다).
-        final Map<String, int> barsBySpec = {
+        // 규격별 새 원자재(본마다 길이). 재고에서 뺄 때 쓴다. 잔재에서 자른 것은 들어가지 않는다.
+        final BarsBySpec needBars = {
           for (final e in results.entries)
-            if (e.value.barCount > 0) e.key: e.value.barCount,
+            if (e.value.barCount > 0)
+              e.key: [for (final b in e.value.bars) b.stockLength],
         };
+        final BarsBySpec toDeduct = barsStillToDeduct(needBars, deducted);
 
         final int totalBarCount = results.values.fold(
           0,
@@ -399,23 +396,31 @@ Future<void> showCuttingOptimizationSheet(
             ),
             savedBars: results.values.fold(0, (sum, r) => sum + r.savedBars),
             saved: leftoversSaved,
-            barsBySpec: barsBySpec,
-            stockDeducted:
-                deductedSig.isNotEmpty && deductedSig == barsSigOf(barsBySpec),
-            onDeductStock: onDeductStock,
-            onStockDeducted: () {
-              final sig = barsSigOf(barsBySpec);
-              setSheetState(() => deductedSig = sig);
-              onStockDeducted?.call(sig);
-            },
-            jobLogName: jobLogName,
-            onUndoDeductStock: onUndoDeductStock == null
+            remainingBars: barCountOf(toDeduct),
+            anyDeducted: deducted.isNotEmpty,
+            onDeduct: onDeductStock == null
                 ? null
                 : () async {
-                    final ok = await onUndoDeductStock(barsBySpec);
+                    if (deducting || toDeduct.isEmpty) return;
+                    deducting = true;
+                    try {
+                      final got = await onDeductStock(toDeduct);
+                      if (got != null && got.isNotEmpty) {
+                        setSheetState(() => deducted = addBars(deducted, got));
+                        onStockDeducted?.call(deducted);
+                      }
+                    } finally {
+                      deducting = false;
+                    }
+                  },
+            jobLogName: jobLogName,
+            onUndoDeductStock: onUndoDeductStock == null || deducted.isEmpty
+                ? null
+                : () async {
+                    final ok = await onUndoDeductStock(deducted);
                     if (ok) {
-                      setSheetState(() => deductedSig = '');
-                      onStockDeducted?.call('');
+                      setSheetState(() => deducted = {});
+                      onStockDeducted?.call(const {});
                     }
                   },
             onToggle: (v) => setSheetState(() {
@@ -912,10 +917,10 @@ Widget _buildLeftoverCard({
   VoidCallback? onUndo,
   VoidCallback? onLog,
   // 새 원자재를 재고에서 뺄 수 있는 화면에서만 넘긴다.
-  Map<String, int> barsBySpec = const {},
-  bool stockDeducted = false,
-  Future<bool> Function(Map<String, int> barsBySpec)? onDeductStock,
-  VoidCallback? onStockDeducted,
+  VoidCallback? onDeduct,
+  // 아직 안 뺀 본수. 이미 뺀 것이 있고 이것이 0이면 "뺐습니다".
+  int remainingBars = 0,
+  bool anyDeducted = false,
   VoidCallback? onUndoDeductStock,
   String jobLogName = '',
 }) {
@@ -991,8 +996,8 @@ Widget _buildLeftoverCard({
                     onPressed: onSave,
                     child: const Text("잘랐습니다 (잔재 저장)"),
                   ),
-                if (onDeductStock != null)
-                  if (stockDeducted) ...[
+                if (onDeduct != null)
+                  if (anyDeducted && remainingBars == 0) ...[
                     const Padding(
                       padding: EdgeInsets.symmetric(
                         horizontal: 8,
@@ -1012,17 +1017,22 @@ Widget _buildLeftoverCard({
                         onPressed: onUndoDeductStock,
                         child: const Text("되돌리기"),
                       ),
-                  ] else
+                  ] else ...[
                     OutlinedButton(
                       key: const Key('stock_deduct'),
-                      onPressed: barsBySpec.isEmpty
-                          ? null
-                          : () async {
-                              final ok = await onDeductStock(barsBySpec);
-                              if (ok) onStockDeducted?.call();
-                            },
-                      child: const Text("재고에서 빼기"),
+                      onPressed: remainingBars == 0 ? null : onDeduct,
+                      child: Text(
+                        anyDeducted ? "남은 $remainingBars본 재고에서 빼기" : "재고에서 빼기",
+                      ),
                     ),
+                    // 일부만 뺐을 때도 뺀 것을 도로 넣을 수 있다.
+                    if (anyDeducted && onUndoDeductStock != null)
+                      TextButton(
+                        key: const Key('stock_deduct_undo'),
+                        onPressed: onUndoDeductStock,
+                        child: const Text("뺀 것 되돌리기"),
+                      ),
+                  ],
                 if (jobLogName.isNotEmpty)
                   TextButton(
                     key: const Key('job_material_log'),

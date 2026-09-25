@@ -115,10 +115,13 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   // 잔재를 저장한 때의 결과 줄 모양(줄 열쇠를 이은 글). 지금 줄과 같으면 "이 결과의 잔재는 이미 저장함".
   String get _leftoverKey => 'steel_leftover_saved_${widget.project.id}';
   String _leftoverSavedSig = '';
-  // 재고에서 뺀 원자재 본수를 적어 둔다. 재단 계획 창을 닫았다 다시 열어도
-  // 같은 본수를 두 번 빼지 않게 막는다.
+  // 재고에서 뺀 원자재(규격별 본마다 길이)를 적어 둔다. 재단 계획 창을 닫았다
+  // 다시 열어도 같은 본을 두 번 빼지 않게 막는다.
+  // 🚀 [고침] 예전에는 폰(SharedPreferences)에만 적어서 다른 폰·PC에서 같은 작업을
+  // 열면 다시 뺄 수 있었다. 작업 문서(서버)에 적는다. 폰 키는 예전 자료를 읽을 때만.
   String get _stockDeductKey => 'steel_stock_deducted_${widget.project.id}';
-  String _stockDeductedSig = '';
+  static const String _kStockDeductedField = 'stockDeducted';
+  BarsBySpec _stockDeducted = {};
 
   String get _linesSig => _resultLines().map((l) => l.key).join('|');
   bool get _leftoversSaved =>
@@ -217,13 +220,14 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       final p = await SharedPreferences.getInstance();
       final saved = p.getStringList(_doneKey) ?? const <String>[];
       final sig = p.getString(_leftoverKey) ?? '';
-      final deducted = p.getString(_stockDeductKey) ?? '';
+      final legacyDeducted = p.getString(_stockDeductKey) ?? '';
       if (!mounted) return;
       setState(() {
         _doneKeys.addAll(saved);
         _leftoverSavedSig = sig;
-        _stockDeductedSig = deducted;
+        _stockDeducted = decodeDeductedBars(legacyDeducted);
       });
+      unawaited(_loadStockDeducted());
       _pruneDone();
       await _autoRestartIfFinished();
     } catch (_) {}
@@ -750,6 +754,28 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         .catchError((_) => false);
   }
 
+  /// 서버 작업 문서에 적힌 "재고에서 뺀 본"을 읽는다. 통신이 없으면 폰 캐시로.
+  Future<void> _loadStockDeducted() async {
+    try {
+      final snap = await _docRef.get().timeout(const Duration(seconds: 5));
+      final raw = snap.data()?[_kStockDeductedField];
+      if (raw is! String || !mounted) return;
+      setState(() => _stockDeducted = decodeDeductedBars(raw));
+    } catch (_) {}
+  }
+
+  void _saveStockDeducted(BarsBySpec m) {
+    _stockDeducted = m;
+    try {
+      _docRef
+          .update({_kStockDeductedField: encodeDeductedBars(m)})
+          .catchError((_) {});
+    } catch (_) {} // 서버가 안 켜진 곳(테스트 등)
+    SharedPreferences.getInstance()
+        .then((p) => p.remove(_stockDeductKey))
+        .catchError((_) => false);
+  }
+
   Future<void> _showOptimization() async {
     await showCuttingOptimizationSheet(
       context,
@@ -760,14 +786,9 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       onLeftoversSaved: _onLeftoversSaved,
       onLeftoversSaveUndone: _onLeftoversSaveUndone,
       leftoversAlreadySaved: _leftoversSaved,
-      deductedBarsSig: _stockDeductedSig,
+      deductedBars: _stockDeducted,
       onUndoDeductStock: _undoDeductStock,
-      onStockDeducted: (sig) {
-        _stockDeductedSig = sig;
-        SharedPreferences.getInstance()
-            .then((p) => p.setString(_stockDeductKey, sig))
-            .catchError((_) => false);
-      },
+      onStockDeducted: _saveStockDeducted,
       leftoverLogSource: '형강 컷팅 · ${widget.project.name}',
       jobLogName: '형강 컷팅 · ${widget.project.name}',
       title: "재단 계획 (원자재 몇 본 드는지)",
@@ -780,22 +801,21 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     _loadMixMax();
   }
 
-  /// 재단 계획 창에서 "재고에서 빼기"를 눌렀을 때. 규격별 새 원자재 본수를 받아
-  /// 창고 재고에서 뺀다. 재고는 자재 이름으로 찾으므로, 자재 목록에 있는 형강
-  /// 이름(예: 찬넬 75x40x5)과 규격 이름이 같아야 찾힌다.
-  Future<bool> _deductStock(Map<String, int> barsBySpec) async {
-    final takes = <StockTake>[
-      for (final e in barsBySpec.entries)
-        if (e.value > 0 && e.key.trim().isNotEmpty)
-          StockTake(name: e.key.trim(), qty: e.value, unit: '본'),
-    ];
-    if (takes.isEmpty) return false;
-
-    final lines = [for (final t in takes) "${t.name} ${t.qty}본"].join('\n');
-    // 창고에 모자란 자재를 알려 준다.
+  /// 재단 계획 창에서 "재고에서 빼기"를 눌렀을 때. 규격별 새 원자재(본마다 길이)를
+  /// 받아 창고 재고에서 빼고, 실제로 뺀 규격만 돌려준다. 재고는 자재 이름으로
+  /// 찾으므로, 자재 목록에 있는 형강 이름(예: 찬넬 75x40x5)과 규격 이름이 같아야 찾힌다.
+  /// 창고가 m로 세는 자재면 본 길이를 더해 m로 뺀다.
+  Future<BarsBySpec?> _deductStock(BarsBySpec bars) async {
     final stock = await loadStockInfo();
+    final takes = stockTakesForBars(bars, unitByName: stock.unitByName);
+    if (takes.isEmpty) return null;
+
+    final lines = [
+      for (final t in takes) "${t.name} ${t.qty}${t.unit}",
+    ].join('\n');
+    // 창고에 모자란 자재를 알려 준다.
     final warning = shortStockWarning(takes, stock.qtyByName);
-    if (!mounted) return false;
+    if (!mounted) return null;
     final ok = await showCuttingConfirmDialog(
       context,
       title: "재고에서 빼겠습니까?",
@@ -805,7 +825,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       confirmLabel: "빼기",
       icon: Icons.inventory_2_outlined,
     );
-    if (!ok) return false;
+    if (!ok) return null;
 
     try {
       final result = await deductStockTakes(
@@ -814,26 +834,28 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         action: '형강 재단',
         projectId: widget.project.id,
       );
-      if (!mounted) return result.done.isNotEmpty;
-      showCuttingSnack(context, result.message, isError: !result.allDone);
-      return result.done.isNotEmpty;
+      if (mounted) {
+        showCuttingSnack(context, result.message, isError: !result.allDone);
+      }
+      // 뺀 규격만 "뺐음"으로 적는다. 못 뺀 규격은 자재를 넣은 뒤 다시 뺄 수 있다.
+      return deductedPart(bars, result.done);
     } catch (_) {
-      if (!mounted) return false;
+      if (!mounted) return null;
       showCuttingSnack(context, "재고에서 빼지 못했습니다.", isError: true);
-      return false;
+      return null;
     }
   }
 
-  /// 재단 계획 창에서 "되돌리기"를 눌렀을 때. 방금 뺀 본수를 도로 넣는다.
-  Future<bool> _undoDeductStock(Map<String, int> barsBySpec) async {
-    final takes = <StockTake>[
-      for (final e in barsBySpec.entries)
-        if (e.value > 0 && e.key.trim().isNotEmpty)
-          StockTake(name: e.key.trim(), qty: e.value, unit: '본'),
-    ];
+  /// 재단 계획 창에서 "되돌리기"를 눌렀을 때. 이제까지 뺀 것을 도로 넣는다.
+  Future<bool> _undoDeductStock(BarsBySpec bars) async {
+    final stock = await loadStockInfo();
+    final takes = stockTakesForBars(bars, unitByName: stock.unitByName);
     if (takes.isEmpty) return false;
 
-    final lines = [for (final t in takes) "${t.name} ${t.qty}본"].join('\n');
+    final lines = [
+      for (final t in takes) "${t.name} ${t.qty}${t.unit}",
+    ].join('\n');
+    if (!mounted) return false;
     final ok = await showCuttingConfirmDialog(
       context,
       title: "뺀 것을 도로 넣겠습니까?",

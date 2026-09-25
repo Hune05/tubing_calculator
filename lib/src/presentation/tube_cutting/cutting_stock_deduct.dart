@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -434,4 +435,130 @@ Future<StockDeductResult> deductStockTakes(
     negative: negative,
     offline: offline,
   );
+}
+
+// ── 재단 계획의 새 원자재를 재고에서 뺄 때 (튜브·형강 같이) ──
+
+/// 규격별 새 원자재 한 본 한 본의 길이(mm). 재단 계획 창이 만들고,
+/// 이미 뺀 것도 같은 모양으로 적어 둔다. 길이가 -1이면 예전 기록이라
+/// 길이를 모르는 본이다(어떤 길이와도 맞춘다).
+typedef BarsBySpec = Map<String, List<double>>;
+
+/// 필요한 본([need]) 가운데 아직 안 뺀 것. 같은 규격·같은 길이끼리 지운다.
+/// 🚀 [고침] 예전에는 한 규격이라도 빠지면 전부 "뺐음"이 되어, 이름이 안 맞아
+/// 못 뺀 규격을 다시 뺄 단추가 없었다. 남은 것만 다시 뺄 수 있게 한다.
+BarsBySpec barsStillToDeduct(BarsBySpec need, BarsBySpec done) {
+  final out = <String, List<double>>{};
+  for (final e in need.entries) {
+    final pool = [...(done[e.key] ?? const <double>[])];
+    final left = <double>[];
+    final sorted = [...e.value]..sort();
+    for (final len in sorted) {
+      var i = pool.indexWhere((d) => (d - len).abs() < 0.5);
+      if (i < 0) i = pool.indexWhere((d) => d < 0);
+      if (i >= 0) {
+        pool.removeAt(i);
+      } else {
+        left.add(len);
+      }
+    }
+    if (left.isNotEmpty) out[e.key] = left;
+  }
+  return out;
+}
+
+/// 두 본 목록을 합친다.
+BarsBySpec addBars(BarsBySpec a, BarsBySpec b) {
+  final out = <String, List<double>>{
+    for (final e in a.entries) e.key: [...e.value],
+  };
+  for (final e in b.entries) {
+    (out[e.key] ??= <double>[]).addAll(e.value);
+  }
+  out.removeWhere((_, v) => v.isEmpty);
+  return out;
+}
+
+int barCountOf(BarsBySpec m) => m.values.fold(0, (s, l) => s + l.length);
+
+/// 뺀 본을 적어 둘 글. 서버 문서에 그대로 넣는다.
+String encodeDeductedBars(BarsBySpec m) {
+  final keys = m.keys.toList()..sort();
+  return jsonEncode({
+    for (final k in keys)
+      if (m[k]!.isNotEmpty) k: [for (final v in m[k]!) v.round()],
+  });
+}
+
+/// [encodeDeductedBars]로 적은 글을 읽는다. 예전 모양("규격=본수;...")이면
+/// 길이를 모르는 본(-1)으로 읽는다. 못 읽으면 빈 것.
+BarsBySpec decodeDeductedBars(String raw) {
+  final s = raw.trim();
+  if (s.isEmpty) return {};
+  if (s.startsWith('{')) {
+    try {
+      final m = jsonDecode(s) as Map<String, dynamic>;
+      return {
+        for (final e in m.entries)
+          if (e.value is List)
+            e.key: [
+              for (final v in e.value as List)
+                if (v is num) v.toDouble(),
+            ],
+      }..removeWhere((_, v) => v.isEmpty);
+    } catch (_) {
+      return {};
+    }
+  }
+  final out = <String, List<double>>{};
+  for (final part in s.split(';')) {
+    final i = part.lastIndexOf('=');
+    if (i <= 0) continue;
+    final n = int.tryParse(part.substring(i + 1)) ?? 0;
+    if (n > 0) out[part.substring(0, i)] = List.filled(n, -1.0);
+  }
+  return out;
+}
+
+/// 뺄 본을 "뺄 자재 줄"로 바꾼다. [nameOf]는 규격을 재고 이름으로 바꾼다.
+/// 🚀 [고침] 예전에는 규격 이름 + 본수 + '본'으로만 만들어서, 창고가 m로 세는
+/// 자재면 6m 두 본을 빼도 2m가 빠졌다. m로 세면 길이를 더해 m로 뺀다.
+List<StockTake> stockTakesForBars(
+  BarsBySpec bars, {
+  String Function(String spec)? nameOf,
+  Map<String, String>? unitByName,
+}) {
+  final out = <StockTake>[];
+  for (final e in bars.entries) {
+    if (e.value.isEmpty) continue;
+    final name = (nameOf?.call(e.key) ?? e.key).trim();
+    if (name.isEmpty) continue;
+    final stockUnit = (_pick(unitByName, name) ?? '').trim();
+    final known = e.value.every((l) => l > 0);
+    if (stockUnit == 'm' && known) {
+      final mm = e.value.fold(0.0, (s, l) => s + l).round();
+      out.add(
+        StockTake(name: name, qty: _ceilDiv(mm, 1000), unit: 'm', spec: e.key),
+      );
+    } else {
+      out.add(
+        StockTake(
+          name: name,
+          qty: e.value.length,
+          unit: stockUnit.isEmpty || stockUnit == 'm' ? '본' : stockUnit,
+          spec: e.key,
+        ),
+      );
+    }
+  }
+  return out;
+}
+
+/// 차감 결과에서 실제로 뺀 규격의 본만 고른다(못 찾은 이름은 남긴다).
+BarsBySpec deductedPart(BarsBySpec asked, List<StockTake> done) {
+  final specs = {for (final t in done) t.spec};
+  return {
+    for (final e in asked.entries)
+      if (specs.contains(e.key)) e.key: [...e.value],
+  };
 }

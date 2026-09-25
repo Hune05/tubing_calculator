@@ -640,14 +640,29 @@ void main() {
       expect(find.byKey(const Key('stock_deduct_undo')), findsNothing);
     });
 
-    testWidgets('본수가 다르면 다시 뺄 수 있다', (tester) async {
+    // 🚀 [바뀜] 예전에는 본수 모양이 다르면 전부 다시 뺄 수 있었다(본이 줄어도
+    // 또 빠짐). 이제는 아직 안 뺀 본만 뺀다.
+    testWidgets('다른 규격만 뺐으면 이 규격은 "남은 본"으로 뺄 수 있다', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'steel_stock_deducted_sp3': '찬넬 75x40x5=1',
+      });
+      await open(tester);
+      await tester.tap(find.byKey(const Key('steel_btn_optimize')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('stock_deduct')), findsOneWidget);
+      expect(find.text('남은 1본 재고에서 빼기'), findsOneWidget);
+      expect(find.byKey(const Key('stock_deduct_undo')), findsOneWidget);
+    });
+
+    testWidgets('이미 더 많이 뺐으면(계획 본이 줄었으면) 또 빼지 않는다', (tester) async {
       SharedPreferences.setMockInitialValues({
         'steel_stock_deducted_sp3': '앵글 40x40x3=9',
       });
       await open(tester);
       await tester.tap(find.byKey(const Key('steel_btn_optimize')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('stock_deduct')), findsOneWidget);
+      expect(find.byKey(const Key('stock_deduct')), findsNothing);
+      expect(find.text('재고에서 뺐습니다'), findsOneWidget);
     });
 
     testWidgets('재단 계획 창에서 저장하면 저장 표시가 남는다', (tester) async {
