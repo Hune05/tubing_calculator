@@ -1,4 +1,5 @@
-// 현장 자료·장비 사용법. 탭: 튜브 · 전선관 · 형강 · 장비 사용법 · 앱 사용법 · 단위 환산.
+// 현장 자료·장비 사용법. 탭: 튜브 · 전선관 · 형강 · 장비 사용법 · 앱 사용법 · 단위 환산 ·
+// 발전 설비 · 전기 기준(KEC).
 // 숫자는 계산기가 쓰는 자료(FittingData·benderSpecData·SteelShapeDB 등)에서 바로 읽어
 // 설정 기본값과 늘 같다. 예전 화면(벤딩 실무 가이드)은 손으로 적은 표라 설정과 달랐다.
 //
@@ -11,7 +12,9 @@ import '../../../core/theme/app_icon_set.dart';
 import '../../../core/theme/field_view.dart';
 import 'ref_app_tab.dart';
 import 'ref_conduit_tab.dart';
+import 'ref_kec_tab.dart';
 import 'ref_machine_tab.dart';
+import 'ref_plant_tab.dart';
 import 'ref_steel_tab.dart';
 import 'ref_tube_tab.dart';
 import 'ref_unit_tab.dart';
@@ -28,7 +31,7 @@ class TubeReferencePage extends StatefulWidget {
 class _TubeReferencePageState extends State<TubeReferencePage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController = TabController(
-    length: 6,
+    length: 8,
     vsync: this,
   );
   final _searchCtrl = TextEditingController();
@@ -91,6 +94,8 @@ class _TubeReferencePageState extends State<TubeReferencePage>
             Tab(text: "장비 사용법"),
             Tab(text: "앱 사용법"),
             Tab(text: "단위 환산"),
+            Tab(text: "발전 설비"),
+            Tab(text: "전기 기준(KEC)"),
           ],
         ),
       ),
@@ -136,6 +141,8 @@ class _TubeReferencePageState extends State<TubeReferencePage>
                       RefMachineTab(),
                       RefAppTab(),
                       RefUnitTab(),
+                      RefPlantTab(),
+                      RefKecTab(),
                     ],
                   )
                 : _buildSearchResults(),
