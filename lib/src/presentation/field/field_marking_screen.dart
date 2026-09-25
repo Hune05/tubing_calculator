@@ -159,11 +159,11 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
+  /// 🚀 [고침] 예전에는 나갈 때 세로(portraitUp/Down)만 허용으로 바꿔, 현장 탭을 한 번
+  /// 열면 앱 전체(배치도·PDF 미리보기·펼친 폴더블)가 세로로 묶였다. 원래 앱은 방향을
+  /// 묶지 않으므로 풀어 준다(기울기 도구와 같게).
   void _restorePortrait() {
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-    ]);
+    SystemChrome.setPreferredOrientations(const []);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
 
