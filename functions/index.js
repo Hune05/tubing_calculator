@@ -27,9 +27,8 @@ function kstDateString(date) {
 // ProjectSchedulePage에서 등록)을 훑어서 (A) 곧 다가오는 일정과 (B) 이미
 // 지난 일정에 대해 알림을 보낸다. 배열 안의 날짜는 Firestore가 직접
 // range 쿼리를 걸어줄 수 없어서, 문서를 전부 가져와 코드에서 훑는다 -
-// 개인용 앱이라 프로젝트/일정 개수가 적어 문제없다. 발주와 달리
-// 프로젝트엔 담당자 개념이 없어서, users 컬렉션에 등록된 모든 기기
-// (fcmToken)에 보낸다 - 개인용이라 사실상 본인 폰 하나에만 간다.
+// 개인용 앱이라 프로젝트/일정 개수가 적어 문제없다. 받는 사람은 아래
+// tokensFor(주인·담당자)로 고른다.
 async function sendMulticast(tokens, title, body) {
     if (tokens.length === 0) return false;
     try {
@@ -48,21 +47,31 @@ async function sendMulticast(tokens, title, body) {
     }
 }
 
+// ============================================================================
+// 🚀 [고침 2026-09-25, 점검 27번] 예전에는 users에 등록된 모든 폰으로 보냈다. 남과 같이
+// 쓰면 남의 현장 일정·이슈 알림이 내 폰으로 왔다. 이제 받을 사람을 고른다:
+//   - 주인(ownerUid)이 있는 프로젝트: 주인 폰 + (이슈면) 담당자 폰
+//   - 주인이 없거나 빈 글(예전 프로젝트, "공용으로 돌리기"): 예전처럼 모두(+담당자)
+// ============================================================================
+const { tokensFor, collectRecipients } = require("./recipients");
+
+async function loadRecipients() {
+    const usersSnap = await admin.firestore().collection('users').get();
+    return collectRecipients(usersSnap.docs.map((d) => ({ name: d.id, data: d.data() })));
+}
+
 exports.checkProjectSchedules = onSchedule("every 15 minutes", async (event) => {
     const now = Date.now();
     const today = kstDateString(new Date(now));
 
-    let tokens = [];
+    let recipients;
     try {
-        const usersSnap = await admin.firestore().collection('users').get();
-        tokens = usersSnap.docs
-            .map((d) => d.data().fcmToken)
-            .filter((t) => !!t);
+        recipients = await loadRecipients();
     } catch (e) {
         console.error("❌ (일정) 사용자 토큰 조회 에러:", e);
         return;
     }
-    if (tokens.length === 0) {
+    if (recipients.all.length === 0) {
         console.log("일정 알림을 보낼 기기 토큰이 없습니다.");
         return;
     }
@@ -82,6 +91,8 @@ exports.checkProjectSchedules = onSchedule("every 15 minutes", async (event) => 
 
         const projectName = data.name || '프로젝트';
         let mutated = false;
+        const tokens = tokensFor(recipients, data, null);
+        if (tokens.length === 0) continue;
 
         for (const schedule of schedules) {
             if (schedule.isCompleted) continue;
@@ -233,17 +244,14 @@ function findLinkedSchedule(schedules, linkedScheduleId) {
 exports.checkPunchIssues = onSchedule("every 15 minutes", async (event) => {
     const now = Date.now();
 
-    let tokens = [];
+    let recipients;
     try {
-        const usersSnap = await admin.firestore().collection('users').get();
-        tokens = usersSnap.docs
-            .map((d) => d.data().fcmToken)
-            .filter((t) => !!t);
+        recipients = await loadRecipients();
     } catch (e) {
         console.error("❌ (이슈) 사용자 토큰 조회 에러:", e);
         return;
     }
-    if (tokens.length === 0) {
+    if (recipients.all.length === 0) {
         console.log("이슈 알림을 보낼 기기 토큰이 없습니다.");
         return;
     }
@@ -324,7 +332,11 @@ exports.checkPunchIssues = onSchedule("every 15 minutes", async (event) => {
                         : `[${projectName}] "${label}" 이슈를 확인해주세요.`;
                 }
 
-                const sent = await sendMulticast(tokens, title, body);
+                const sent = await sendMulticast(
+                    tokensFor(recipients, data, punch.assignee),
+                    title,
+                    body,
+                );
                 if (sent) {
                     punch.lastPunchReminderAt = admin.firestore.Timestamp.fromMillis(now);
                     mutated = true;
@@ -360,17 +372,14 @@ exports.checkDailyReportReminder = onSchedule(
         const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
         const todayMmDd = `${(kstNow.getUTCMonth() + 1).toString().padStart(2, '0')}/${kstNow.getUTCDate().toString().padStart(2, '0')}`;
 
-        let tokens = [];
+        let recipients;
         try {
-            const usersSnap = await admin.firestore().collection('users').get();
-            tokens = usersSnap.docs
-                .map((d) => d.data().fcmToken)
-                .filter((t) => !!t);
+            recipients = await loadRecipients();
         } catch (e) {
             console.error("❌ (일보) 사용자 토큰 조회 에러:", e);
             return;
         }
-        if (tokens.length === 0) return;
+        if (recipients.all.length === 0) return;
 
         let projectsSnap;
         try {
@@ -391,7 +400,7 @@ exports.checkDailyReportReminder = onSchedule(
             const projectName = data.name || '프로젝트';
             try {
                 await sendMulticast(
-                    tokens,
+                    tokensFor(recipients, data, null),
                     "📝 오늘 작업 일보를 작성해주세요",
                     `[${projectName}] 오늘(${todayMmDd}) 작업 일보가 아직 작성되지 않았습니다.`,
                 );
