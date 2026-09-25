@@ -197,17 +197,50 @@ class _LevelPageState extends State<LevelPage> {
     _snack("지금 놓인 자리를 0으로 맞췄습니다. 길게 누르면 영점을 지웁니다.");
   }
 
+  /// 지금 자세의 영점 칸들.
+  List<String> get _poseCalibKeys => switch (_pose) {
+    TiltPose.flat => const ['flat_x', 'flat_y'],
+    TiltPose.upright => const ['upright_x'],
+    TiltPose.sideways => const ['sideways_y'],
+  };
+
+  // 🚀 [고침] 길게 누르면 세 자세의 영점이 한꺼번에, 묻지도 않고 지워졌다.
+  // 지금 자세 것만 지우고, 잘못 눌렀으면 되돌릴 수 있게 한다.
   void _clearCalib() {
-    setState(() => _calib = {});
+    final keys = _poseCalibKeys;
+    final before = {
+      for (final k in keys)
+        if (_calib.containsKey(k)) k: _calib[k]!,
+    };
+    if (before.isEmpty) {
+      _snack("이 자세는 맞춘 영점이 없습니다.");
+      return;
+    }
+    setState(() => _calib.removeWhere((k, _) => keys.contains(k)));
     _savePrefs();
-    _snack("영점을 지웠습니다.");
+    _snack(
+      "이 자세의 영점을 지웠습니다.",
+      action: SnackBarAction(
+        key: const Key('level_calib_undo'),
+        label: "되돌리기",
+        onPressed: () {
+          if (!mounted) return;
+          setState(() => _calib.addAll(before));
+          _savePrefs();
+        },
+      ),
+    );
   }
 
-  void _snack(String msg) {
+  void _snack(String msg, {SnackBarAction? action}) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
+        SnackBar(
+          content: Text(msg),
+          action: action,
+          duration: Duration(seconds: action == null ? 2 : 4),
+        ),
       );
   }
 

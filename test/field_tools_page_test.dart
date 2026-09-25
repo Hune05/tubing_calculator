@@ -85,6 +85,25 @@ void main() {
       await c.close();
     });
 
+    testWidgets('길게 누르면 지금 자세 영점만 지우고 되돌릴 수 있다', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        kLevelCalibKey: '{"flat_x":0.5,"flat_y":0.5,"upright_x":0.3}',
+      });
+      final c = await pumpPage(tester, (s) => LevelPage(source: s));
+      await send(tester, c, g * sinD(3), g * cosD(3), 0); // 세움
+      await tester.longPress(find.byKey(const Key('level_calibrate')));
+      await tester.pump();
+      final p = await SharedPreferences.getInstance();
+      final saved = p.getString(kLevelCalibKey)!;
+      expect(saved, isNot(contains('upright_x')));
+      expect(saved, contains('flat_x')); // 눕힘 영점은 그대로
+      await tester.pump(const Duration(milliseconds: 800));
+      await tester.tap(find.byKey(const Key('level_calib_undo')));
+      await tester.pump();
+      expect(p.getString(kLevelCalibKey), contains('upright_x'));
+      await c.close();
+    });
+
     testWidgets('값 고정이면 센서가 바뀌어도 숫자가 그대로', (tester) async {
       final c = await pumpPage(tester, (s) => LevelPage(source: s));
       await send(tester, c, g * sinD(3), g * cosD(3), 0);
