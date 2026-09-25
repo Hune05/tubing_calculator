@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:async' show FutureOr;
 import '../widgets/korean_text.dart';
@@ -262,8 +263,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                   ),
                 ),
               ),
-              if (canOpen)
-                const Icon(Icons.chevron_right_rounded, size: 18, color: _sub),
+              if (canOpen) const Icon(AppIcons.forward, size: 18, color: _sub),
             ],
           ),
         ),
@@ -334,7 +334,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                   ),
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, size: 18, color: _sub),
+              const Icon(AppIcons.forward, size: 18, color: _sub),
             ],
           ),
         ),
@@ -360,9 +360,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                 child: Row(
                   children: [
                     Icon(
-                      closed
-                          ? Icons.chevron_right_rounded
-                          : Icons.expand_more_rounded,
+                      closed ? AppIcons.forward : Icons.expand_more_rounded,
                       size: 18,
                       color: _sub,
                     ),
@@ -540,11 +538,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                           ),
                         ),
                         if (canOpen)
-                          const Icon(
-                            Icons.chevron_right_rounded,
-                            size: 16,
-                            color: _sub,
-                          ),
+                          const Icon(AppIcons.forward, size: 16, color: _sub),
                       ],
                     ),
                   ),
@@ -723,7 +717,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                       style: TextStyle(fontSize: 12, color: _sub),
                     ),
                     trailing: _asOf == null
-                        ? const Icon(Icons.chevron_right_rounded)
+                        ? const Icon(AppIcons.forward)
                         : TextButton(
                             onPressed: () => setState(() => _asOf = null),
                             child: const Text("오늘로"),

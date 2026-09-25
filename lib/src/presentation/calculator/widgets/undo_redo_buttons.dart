@@ -1,6 +1,7 @@
 /// 입력 목록 머리의 되돌리기 / 다시 하기 단추(튜브·전선관 공용).
 library;
 
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -38,7 +39,7 @@ class UndoRedoButtons extends StatelessWidget {
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
             icon: Icon(
-              Icons.undo_rounded,
+              AppIcons.undo,
               color: history.canUndo ? color : color.withValues(alpha: 0.25),
             ),
             onPressed: history.canUndo
@@ -58,7 +59,7 @@ class UndoRedoButtons extends StatelessWidget {
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
             icon: Icon(
-              Icons.redo_rounded,
+              AppIcons.redo,
               color: history.canRedo ? color : color.withValues(alpha: 0.25),
             ),
             onPressed: history.canRedo

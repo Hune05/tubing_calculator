@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import '../../../core/utils/pdf_fonts.dart';
@@ -703,8 +704,10 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
             letterSpacing: 1,
           ),
         ),
-        backgroundColor: makitaTeal,
-        foregroundColor: pureWhite,
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.text,
+        surfaceTintColor: Colors.transparent,
+        shape: const Border(bottom: BorderSide(color: AppColors.line)),
         elevation: 0,
         actions: [
           _isExporting
@@ -722,12 +725,12 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
                   ),
                 )
               : IconButton(
-                  icon: const Icon(Icons.share, size: 24),
+                  icon: const Icon(AppIcons.share, size: 24),
                   tooltip: "PDF 공유",
                   onPressed: _exportToPDFAndShare,
                 ),
           IconButton(
-            icon: const Icon(Icons.edit_note, size: 28),
+            icon: const Icon(AppIcons.editNote, size: 28),
             tooltip: "도면 정보 수정",
             onPressed: _editInfo,
           ),

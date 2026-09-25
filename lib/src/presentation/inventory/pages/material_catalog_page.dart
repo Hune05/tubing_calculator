@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -367,7 +368,7 @@ class _CatalogBodyState extends State<_CatalogBody> {
         iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
         actions: [
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
+            icon: const Icon(AppIcons.more),
             onSelected: (v) {
               if (v == 'fill') _fillFromApp();
             },

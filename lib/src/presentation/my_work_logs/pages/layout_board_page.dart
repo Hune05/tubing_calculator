@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'dart:async';
 import '../widgets/korean_text.dart';
 import 'dart:convert';
@@ -6276,11 +6277,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       leading: IconButton(
         tooltip: "뒤로",
         constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-        icon: const Icon(
-          Icons.arrow_back_ios_new_rounded,
-          color: tossText,
-          size: 22,
-        ),
+        icon: const Icon(AppIcons.back, color: tossText, size: 22),
         onPressed: () => Navigator.pop(context),
       ),
       // 제목은 배치도 이름 하나만 쓴다. 폰 폭은 단추 넷이 자리를 차지하므로
@@ -6306,7 +6303,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
             onPressed: canUndo ? _undo : null,
             icon: Icon(
-              Icons.undo_rounded,
+              AppIcons.undo,
               size: 24,
               color: canUndo ? tossText : tossSubText.withValues(alpha: 0.35),
             ),
@@ -6317,7 +6314,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           onPressed: canRedo ? _redo : null,
           icon: Icon(
-            Icons.redo_rounded,
+            AppIcons.redo,
             size: 24,
             color: canRedo ? tossText : tossSubText.withValues(alpha: 0.35),
           ),
@@ -6353,7 +6350,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   ),
                 ),
                 child: const Icon(
-                  Icons.save_alt_rounded,
+                  AppIcons.download,
                   size: 22,
                   color: pureWhite,
                 ),
@@ -6373,11 +6370,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              icon: const Icon(
-                Icons.save_alt_rounded,
-                size: 20,
-                color: pureWhite,
-              ),
+              icon: const Icon(AppIcons.download, size: 20, color: pureWhite),
               label: const Text(
                 "저장",
                 style: TextStyle(
@@ -6392,7 +6385,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           tooltip: "더보기",
           constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           onPressed: _showMoreSheet,
-          icon: const Icon(Icons.more_vert_rounded, color: tossText, size: 24),
+          icon: const Icon(AppIcons.more, color: tossText, size: 24),
         ),
         const SizedBox(width: 4),
       ],
@@ -7411,7 +7404,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                             () => _nudgeSelected(const Offset(-1, 0)),
                           ),
                           _buildMultiBarIcon(
-                            Icons.keyboard_arrow_right_rounded,
+                            AppIcons.forward,
                             () => _nudgeSelected(const Offset(1, 0)),
                           ),
                           Container(

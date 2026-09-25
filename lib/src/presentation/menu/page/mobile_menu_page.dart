@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../../my_work_logs/widgets/work_theme.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
@@ -1073,7 +1074,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.refresh_rounded, size: 14, color: slate600),
+            Icon(AppIcons.refresh, size: 14, color: slate600),
             SizedBox(width: 4),
             // 좁은 폰(320)에서 16px 넘쳤다.
             Flexible(
@@ -1121,7 +1122,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
             const SizedBox(width: 4),
             // 🚀 [날씨 고도화] 이 카드를 탭하면 날씨 앱(또는 웹 날씨
             // 페이지)이 열린다는 걸 알려주는 작은 표시.
-            Icon(Icons.chevron_right_rounded, size: 14, color: slate600),
+            Icon(AppIcons.forward, size: 14, color: slate600),
           ],
         ),
         if (_rainExpected) ...[
@@ -1205,7 +1206,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         if (isActionable) ...[
                           const SizedBox(width: 2),
                           const Icon(
-                            Icons.chevron_right_rounded,
+                            AppIcons.forward,
                             size: 16,
                             color: slate600,
                           ),
@@ -1302,7 +1303,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
               ),
             ),
             Icon(
-              Icons.chevron_right_rounded,
+              AppIcons.forward,
               color: slate600.withValues(alpha: 0.5),
               size: 28,
             ),

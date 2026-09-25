@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
@@ -63,7 +64,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
   final List<Map<String, dynamic>> _directions = [
     {"label": "UP", "val": 0.0, "icon": Icons.arrow_upward},
     {"label": "FRONT", "val": 360.0, "icon": Icons.call_made},
-    {"label": "LEFT", "val": 270.0, "icon": Icons.arrow_back},
+    {"label": "LEFT", "val": 270.0, "icon": AppIcons.back},
     {"label": "RIGHT", "val": 90.0, "icon": Icons.arrow_forward},
     {"label": "DOWN", "val": 180.0, "icon": Icons.arrow_downward},
     {"label": "BACK", "val": 450.0, "icon": Icons.call_received},
@@ -645,7 +646,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                           ),
                         ),
                         suffixIcon: Icon(
-                          Icons.edit,
+                          AppIcons.edit,
                           color: fieldPick(
                             Colors.deepOrange,
                             sunlight: fc.caution,
@@ -816,7 +817,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                                   ),
                                 ),
                                 suffixIcon: Icon(
-                                  Icons.edit,
+                                  AppIcons.edit,
                                   color: slate600,
                                   size: 18,
                                 ),
@@ -840,7 +841,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                         ),
-                        child: Icon(Icons.close, color: slate600),
+                        child: Icon(AppIcons.close, color: slate600),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1057,10 +1058,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
             ),
           ),
           const Spacer(),
-          Icon(
-            Icons.chevron_right_rounded,
-            color: slate600.withValues(alpha: 0.5),
-          ),
+          Icon(AppIcons.forward, color: slate600.withValues(alpha: 0.5)),
         ],
       ),
     );

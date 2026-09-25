@@ -1,4 +1,5 @@
 // lib/src/presentation/remote/screens/mobile_remote_page.dart
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/services.dart';
@@ -532,22 +533,28 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
     );
   }
 
-  // 🌟 토스 감성: 크고 시원한 헤더
+  // 머리(D-E): 예전에는 모드 색(짙은 회색·청록·갈색…)으로 채운 띠였다. 다른 화면처럼
+  // 흰 머리에 모드 이름을 크게, 모드 색은 왼쪽 점과 칩으로만 보인다.
+  // 높이를 110으로 묶어 두면 글씨를 크게 한 폰에서 아래가 넘쳤다. 최소 높이만 둔다.
   Widget _buildHeader(Color modeColor) {
-    // 높이를 110으로 묶어 두면 글씨를 크게 한 폰에서 아래가 넘쳤다. 최소 높이만 둔다.
+    final String name = _modes[_currentMode]['name'];
     return Container(
-      constraints: const BoxConstraints(minHeight: 110),
+      key: const Key('remote_header'),
+      constraints: const BoxConstraints(minHeight: 96),
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       width: double.infinity,
-      color: modeColor,
+      decoration: BoxDecoration(
+        color: fc.surface,
+        border: Border(bottom: BorderSide(color: fc.line)),
+      ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            "좌우로 스와이프하여 모드 변경",
+            "좌우로 밀어 모드를 바꿉니다 · ${_currentMode + 1}/${_modes.length}",
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
+              color: fc.textSub,
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
@@ -555,14 +562,28 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
           const SizedBox(height: 6),
           FittedBox(
             fit: BoxFit.scaleDown,
-            child: Text(
-              _modes[_currentMode]['name'],
-              style: TextStyle(
-                fontSize: 30, // 폰트 크기 확대
-                fontWeight: FontWeight.w900, // 폰트 굵기 극대화
-                letterSpacing: -0.5, // 세련된 자간
-                color: Colors.white,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: modeColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  name,
+                  style: TextStyle(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                    color: fc.text,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -947,7 +968,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
             ),
           ),
           IconButton(
-            icon: Icon(Icons.refresh_rounded, size: 24, color: slate600),
+            icon: Icon(AppIcons.refresh, size: 24, color: slate600),
             constraints: const BoxConstraints(),
             padding: EdgeInsets.zero,
             onPressed: () {
@@ -998,7 +1019,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         const SizedBox(height: 56), // 여백 빵빵하게
         TextButton.icon(
           onPressed: () => setState(() => _isInputFinishedList[index] = false),
-          icon: Icon(Icons.edit_rounded, color: slate600),
+          icon: Icon(AppIcons.edit, color: slate600),
           label: Text(
             "수치 다시 입력하기",
             style: TextStyle(
@@ -1047,7 +1068,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
                   ),
                 ),
                 child: Icon(
-                  Icons.history,
+                  AppIcons.history,
                   color: _isTransmitting ? slate600 : slate900,
                   size: 28,
                   semanticLabel: "전송 기록",

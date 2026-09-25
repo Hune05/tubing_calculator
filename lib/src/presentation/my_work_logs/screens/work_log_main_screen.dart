@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../widgets/work_theme.dart';
 import '../widgets/korean_text.dart';
@@ -1616,7 +1617,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         actions: [
           IconButton(
             tooltip: "투입 통계",
-            icon: const Icon(Icons.bar_chart_rounded),
+            icon: const Icon(AppIcons.stats),
             onPressed: () => Navigator.push(
               context,
               WorkRoute(
@@ -1627,7 +1628,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           ),
           IconButton(
             tooltip: "작업 일지·이슈 검색",
-            icon: const Icon(Icons.search_rounded),
+            icon: const Icon(AppIcons.search),
             onPressed: _openSearch,
           ),
           PopupMenuButton<String>(

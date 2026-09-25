@@ -1,3 +1,5 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:async';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'dart:io';
@@ -1159,8 +1161,10 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       child: Scaffold(
         backgroundColor: CuttingColors.background,
         appBar: AppBar(
-          backgroundColor: CuttingColors.primary,
-          foregroundColor: CuttingColors.surface,
+          backgroundColor: AppColors.surface,
+          foregroundColor: AppColors.text,
+          surfaceTintColor: Colors.transparent,
+          shape: const Border(bottom: BorderSide(color: AppColors.line)),
           elevation: 0,
           title: Text(
             "프로젝트: ${widget.project.name}",
@@ -1176,7 +1180,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             ),
             IconButton(
               tooltip: "변경 기록",
-              icon: const Icon(Icons.history_rounded),
+              icon: const Icon(AppIcons.history),
               onPressed: () {
                 Navigator.push(
                   context,
@@ -1443,9 +1447,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                 child: Row(
                   children: [
                     Icon(
-                      folded
-                          ? Icons.chevron_right_rounded
-                          : Icons.expand_more_rounded,
+                      folded ? AppIcons.forward : Icons.expand_more_rounded,
                       size: 20,
                       color: CuttingColors.textSecondary,
                     ),

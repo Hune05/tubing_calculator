@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -107,7 +108,7 @@ void main() {
     await tester.tap(sw);
     await tester.pumpAndSettle();
     expect(tester.widget<SwitchListTile>(sw).value, true);
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded));
+    await tester.tap(find.byIcon(AppIcons.back));
     await tester.pumpAndSettle();
     expect(popped, isNotNull);
     expect(issueWeeklyExcluded(popped!), false);

@@ -8,6 +8,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import 'app_icon_set.dart';
 import 'app_tokens.dart';
 import 'field_view.dart';
 
@@ -45,6 +46,11 @@ ThemeData buildAppTheme([FieldPalette p = FieldPalette.normal]) {
 
   return base.copyWith(
     extensions: [p],
+    // 기본 뒤로·닫기 단추도 앱 아이콘 한 벌(D-E).
+    actionIconTheme: ActionIconThemeData(
+      backButtonIconBuilder: (_) => const Icon(AppIcons.back),
+      closeButtonIconBuilder: (_) => const Icon(AppIcons.close),
+    ),
     scaffoldBackgroundColor: p.surface,
     dividerColor: p.line,
     // 모든 글자 모양에 앱 글꼴과 글자 색을 준다(빠진 것이 있으면 폰 기본 글꼴로 나온다).

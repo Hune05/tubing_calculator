@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -303,7 +304,7 @@ class _SteelHistoryViewState extends State<SteelHistoryView> {
                     curve: Curves.easeOut,
                   )
                 : null,
-            icon: const Icon(Icons.chevron_left_rounded),
+            icon: const Icon(AppIcons.back),
             color: _currentPage < days.length - 1
                 ? CuttingColors.textPrimary
                 : Colors.grey.shade300,
@@ -333,7 +334,7 @@ class _SteelHistoryViewState extends State<SteelHistoryView> {
                     curve: Curves.easeOut,
                   )
                 : null,
-            icon: const Icon(Icons.chevron_right_rounded),
+            icon: const Icon(AppIcons.forward),
             color: _currentPage > 0
                 ? CuttingColors.textPrimary
                 : Colors.grey.shade300,

@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 
 import '../models/skid_presets.dart' show kLayoutKindCabinet, kLayoutKindSkid;
@@ -107,6 +108,6 @@ Widget _row(
       color: tossText,
     ),
   ),
-  trailing: const Icon(Icons.chevron_right_rounded, color: tossSubText),
+  trailing: const Icon(AppIcons.forward, color: tossSubText),
   onTap: () => Navigator.pop(ctx, value),
 );

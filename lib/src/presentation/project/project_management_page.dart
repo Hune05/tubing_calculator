@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_stock_deduct.dart';
 import 'package:flutter/material.dart';
@@ -1605,8 +1606,10 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
             letterSpacing: 1.5,
           ),
         ),
-        backgroundColor: makitaTeal,
-        foregroundColor: pureWhite,
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.text,
+        surfaceTintColor: Colors.transparent,
+        shape: const Border(bottom: BorderSide(color: AppColors.line)),
         elevation: 0,
       ),
       body: _isLoadingProjects

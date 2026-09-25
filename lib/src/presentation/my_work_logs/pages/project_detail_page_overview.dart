@@ -113,7 +113,7 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
                           : tossSubText,
                     ),
                   ),
-                  trailing: const Icon(Icons.chevron_right_rounded),
+                  trailing: const Icon(AppIcons.forward),
                   onTap: () => _run(() => widget.actions.openPunch(p)),
                 ),
               ),
@@ -364,11 +364,7 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
             if (i < phases.length - 1)
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 4),
-                child: Icon(
-                  Icons.chevron_right_rounded,
-                  size: 16,
-                  color: tossSubText,
-                ),
+                child: Icon(AppIcons.forward, size: 16, color: tossSubText),
               ),
           ],
         ],

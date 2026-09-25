@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'dart:io';
 
 import '../../../core/utils/pdf_fonts.dart';
@@ -239,7 +240,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
           actions: [
             IconButton(
               tooltip: "기록 내보내기",
-              icon: const Icon(Icons.ios_share_rounded),
+              icon: const Icon(AppIcons.share),
               onPressed: _exportRecords,
             ),
           ],
@@ -419,7 +420,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
                     curve: Curves.easeOut,
                   )
                 : null,
-            icon: const Icon(Icons.chevron_left_rounded),
+            icon: const Icon(AppIcons.back),
             color: _currentPage < days.length - 1
                 ? CuttingColors.textPrimary
                 : Colors.grey.shade300,
@@ -449,7 +450,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
                     curve: Curves.easeOut,
                   )
                 : null,
-            icon: const Icon(Icons.chevron_right_rounded),
+            icon: const Icon(AppIcons.forward),
             color: _currentPage > 0
                 ? CuttingColors.textPrimary
                 : Colors.grey.shade300,

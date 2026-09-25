@@ -1,4 +1,5 @@
 // 입력 카드: 밀어서 지우기·되돌리기, 전선관 카드 눌러 고치기, 순서 바꾸기 번호 따라가기.
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -54,7 +55,7 @@ void main() {
       await pump(tester, const ConduitInputTab());
       expect(find.text('길이: 72.3mm'), findsOneWidget);
       // X 단추는 없다.
-      expect(find.byIcon(Icons.close_rounded), findsNothing);
+      expect(find.byIcon(AppIcons.close), findsNothing);
 
       await tester.drag(find.text('길이: 72.3mm'), const Offset(-600, 0));
       await tester.pumpAndSettle();
@@ -104,9 +105,9 @@ void main() {
       await pump(tester, const ConduitInputTab());
       await tester.tap(find.text('길이: 150.0mm'));
       await tester.pump();
-      await tester.ensureVisible(find.byIcon(Icons.close));
+      await tester.ensureVisible(find.byIcon(AppIcons.close));
       await tester.pump();
-      await tester.tap(find.byIcon(Icons.close));
+      await tester.tap(find.byIcon(AppIcons.close));
       await tester.pump();
       expect(find.text('추가'), findsOneWidget);
       expect(ConduitDataManager().bendList[0]['length'], 150.0);
@@ -147,7 +148,7 @@ void main() {
 
     testWidgets('왼쪽으로 밀면 지워지고 되돌릴 수 있다', (tester) async {
       await pump(tester, const MobileInputTab());
-      expect(find.byIcon(Icons.close), findsNothing);
+      expect(find.byIcon(AppIcons.close), findsNothing);
       await tester.drag(find.text('길이: 300.0mm'), const Offset(-600, 0));
       await tester.pumpAndSettle();
       expect(MobileBendDataManager().bendList.length, 1);

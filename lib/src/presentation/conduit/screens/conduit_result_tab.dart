@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/services.dart';
@@ -58,7 +59,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
     {"label": "UP (위)", "val": 0.0, "icon": Icons.arrow_upward},
     {"label": "RIGHT (우)", "val": 90.0, "icon": Icons.arrow_forward},
     {"label": "DOWN (아래)", "val": 180.0, "icon": Icons.arrow_downward},
-    {"label": "LEFT (좌)", "val": 270.0, "icon": Icons.arrow_back},
+    {"label": "LEFT (좌)", "val": 270.0, "icon": AppIcons.back},
     {"label": "FRONT (앞)", "val": 360.0, "icon": Icons.call_made},
     {"label": "BACK (뒤)", "val": 450.0, "icon": Icons.call_received},
   ];
@@ -155,7 +156,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                     if (markings.isNotEmpty)
                       IconButton(
                         key: const Key('conduit_save_drawing'),
-                        icon: Icon(Icons.save_alt_rounded, color: slate900),
+                        icon: Icon(AppIcons.download, color: slate900),
                         tooltip: "보관함에 저장",
                         onPressed: () => showConduitSaveDialog(
                           context,
@@ -692,9 +693,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                       Row(
                         children: [
                           Icon(
-                            isShort
-                                ? Icons.warning_amber_rounded
-                                : Icons.info_outline_rounded,
+                            isShort ? AppIcons.warning : AppIcons.info,
                             size: 14,
                             color: noteColor,
                           ),

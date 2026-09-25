@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'korean_text.dart';
@@ -348,7 +349,7 @@ class PunchListSectionState extends State<PunchListSection> {
                     onPressed: page > 0
                         ? () => setState(() => _page = page - 1)
                         : null,
-                    icon: const Icon(Icons.chevron_left_rounded),
+                    icon: const Icon(AppIcons.back),
                     color: page > 0
                         ? tossText
                         : tossSubText.withValues(alpha: 0.4),
@@ -366,7 +367,7 @@ class PunchListSectionState extends State<PunchListSection> {
                     onPressed: page < totalPages - 1
                         ? () => setState(() => _page = page + 1)
                         : null,
-                    icon: const Icon(Icons.chevron_right_rounded),
+                    icon: const Icon(AppIcons.forward),
                     color: page < totalPages - 1
                         ? tossText
                         : tossSubText.withValues(alpha: 0.4),

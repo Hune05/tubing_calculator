@@ -1,5 +1,7 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/common_widgets/app_header.dart';
 import 'package:tubing_calculator/src/data/machine_specs.dart';
 import 'package:tubing_calculator/src/data/bend_data_manager.dart';
 import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
@@ -84,7 +86,7 @@ class _MarkingPageState extends State<MarkingPage> {
     if (rot == 0.0) return Icons.arrow_upward;
     if (rot == 90.0) return Icons.arrow_forward;
     if (rot == 180.0) return Icons.arrow_downward;
-    if (rot == 270.0) return Icons.arrow_back;
+    if (rot == 270.0) return AppIcons.back;
     if (rot == 360.0) return Icons.call_made;
     if (rot == 450.0) return Icons.call_received;
     return Icons.rotate_right;
@@ -98,19 +100,14 @@ class _MarkingPageState extends State<MarkingPage> {
       backgroundColor: slate100,
       appBar: isStandalone
           ? AppBar(
-              title: const Text(
-                "MARKING GUIDE",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  letterSpacing: 1,
-                ),
-              ),
-              backgroundColor: makitaTeal,
-              foregroundColor: pureWhite,
+              title: const AppHeaderTitle('마킹 가이드'),
+              backgroundColor: AppColors.surface,
+              foregroundColor: AppColors.text,
+              surfaceTintColor: Colors.transparent,
+              shape: const Border(bottom: BorderSide(color: AppColors.line)),
               elevation: 0,
               leading: IconButton(
-                icon: const Icon(Icons.arrow_back_ios),
+                icon: const Icon(AppIcons.back),
                 onPressed: () => Navigator.of(context).pop(),
               ),
             )

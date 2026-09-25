@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../widgets/work_theme.dart';
 import '../widgets/korean_text.dart';
@@ -385,7 +386,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
           actions: [
             IconButton(
               onPressed: _exportMonth,
-              icon: const Icon(Icons.ios_share_rounded),
+              icon: const Icon(AppIcons.share),
               tooltip: "이번 달 요약 내보내기",
             ),
           ],
@@ -407,7 +408,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
                     children: [
                       IconButton(
                         onPressed: () => _changeMonth(-1),
-                        icon: const Icon(Icons.chevron_left_rounded),
+                        icon: const Icon(AppIcons.back),
                       ),
                       Text(
                         "${_viewedMonth.year}년 ${_viewedMonth.month}월",
@@ -419,7 +420,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
                       ),
                       IconButton(
                         onPressed: () => _changeMonth(1),
-                        icon: const Icon(Icons.chevron_right_rounded),
+                        icon: const Icon(AppIcons.forward),
                       ),
                     ],
                   ),

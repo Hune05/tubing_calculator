@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -87,7 +88,7 @@ class _PhotoAnnotatePageState extends State<PhotoAnnotatePage> {
         actions: [
           IconButton(
             tooltip: "되돌리기",
-            icon: const Icon(Icons.undo_rounded),
+            icon: const Icon(AppIcons.undo),
             onPressed: _shapes.isEmpty
                 ? null
                 : () => setState(_shapes.removeLast),

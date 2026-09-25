@@ -1,5 +1,6 @@
 // 상세 프로필: 사진·이름·팀·직급·연락처. 이름을 바꾸면 프로필 화면과 같은 갈래
 // ([ProfileStore.renameUser])로 옮기고 홈을 새 이름으로 다시 연다.
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -188,7 +189,7 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
           ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: slate900),
+          icon: const Icon(AppIcons.back, color: slate900),
           onPressed: () => Navigator.pop(context),
         ),
       ),

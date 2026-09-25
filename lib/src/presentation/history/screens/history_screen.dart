@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
@@ -150,10 +151,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ? TextField(
                 controller: _searchController,
                 autofocus: true,
-                style: const TextStyle(color: pureWhite, fontSize: 16),
+                style: const TextStyle(color: AppColors.text, fontSize: 16),
                 decoration: const InputDecoration(
                   hintText: '프로젝트명 또는 경로 검색...',
-                  hintStyle: TextStyle(color: Colors.white70),
+                  hintStyle: TextStyle(color: AppColors.textSub),
                   border: InputBorder.none,
                 ),
                 onChanged: (val) {
@@ -166,13 +167,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 '작업 기록 보관', // 💡 명칭 변경 적용
                 style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1),
               ),
-        backgroundColor: makitaTeal,
-        foregroundColor: pureWhite,
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.text,
+        surfaceTintColor: Colors.transparent,
+        shape: const Border(bottom: BorderSide(color: AppColors.line)),
         elevation: 0,
         actions: [
           // 🚀 [추가] 돋보기 검색 버튼
           IconButton(
-            icon: Icon(_isSearching ? Icons.close : Icons.search),
+            icon: Icon(_isSearching ? AppIcons.close : AppIcons.search),
             onPressed: () {
               setState(() {
                 _isSearching = !_isSearching;

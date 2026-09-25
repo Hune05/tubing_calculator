@@ -1,5 +1,6 @@
 // 스키드: 전선관 부속(삼화기전 F-7 곤질레다·커플링·유니온), 면마다 그리기,
 // 평면 부품 하나를 정면·측면에서도 보고 옮기기.
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'dart:convert';
 import 'dart:ui' as ui;
 
@@ -225,7 +226,7 @@ void main() {
     expect((moved['y'] as num).toDouble(), 450); // 앞뒤 자리는 그대로
 
     // 되돌리기 단추
-    await tester.tap(find.byIcon(Icons.undo_rounded).first);
+    await tester.tap(find.byIcon(AppIcons.undo).first);
     await tester.pumpAndSettle();
     final back = planItem();
     expect((back['x'] as num).toDouble(), 1000);
@@ -312,7 +313,7 @@ void main() {
     expect(order, ['view_back', 'view_front']);
 
     // 관리 → 가려진 부품 보이기 끄기
-    await tester.tap(find.byIcon(Icons.more_vert_rounded).first);
+    await tester.tap(find.byIcon(AppIcons.more).first);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('toggle_hidden_parts')));
     await tester.pumpAndSettle();
@@ -441,7 +442,7 @@ void main() {
 
     expect(lb()['flip'], true);
     expect(lb()['w'], 125); // 크기는 그대로
-    await tester.tap(find.byIcon(Icons.undo_rounded).first);
+    await tester.tap(find.byIcon(AppIcons.undo).first);
     await tester.pumpAndSettle();
     expect(lb()['flip'], isNull);
   });

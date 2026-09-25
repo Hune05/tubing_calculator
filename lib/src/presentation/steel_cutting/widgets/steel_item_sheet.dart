@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
@@ -529,10 +530,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
                               ),
                             ),
                           ),
-                          const Icon(
-                            Icons.chevron_right_rounded,
-                            color: Colors.grey,
-                          ),
+                          const Icon(AppIcons.forward, color: Colors.grey),
                         ],
                       ),
                     ),

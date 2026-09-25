@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -184,7 +185,7 @@ class _SkidRouteEditorPageState extends State<SkidRouteEditorPage> {
             IconButton(
               key: const ValueKey("route_to_calc"),
               tooltip: "계산기로 보내기",
-              icon: const Icon(Icons.send_rounded),
+              icon: const Icon(AppIcons.send),
               onPressed: _route.bends.isEmpty ? null : _sendToCalculator,
             ),
             TextButton(

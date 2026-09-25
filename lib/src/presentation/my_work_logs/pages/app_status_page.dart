@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -210,7 +211,7 @@ class _AppStatusPageState extends State<AppStatusPage> {
         actions: [
           IconButton(
             tooltip: "다시 확인",
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(AppIcons.refresh),
             onPressed: _loading ? null : _load,
           ),
         ],

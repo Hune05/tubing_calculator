@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import '../widgets/work_theme.dart';
@@ -308,11 +309,7 @@ class _PunchListPageState extends State<PunchListPage> {
         backgroundColor: pureWhite,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: tossText,
-            size: 20,
-          ),
+          icon: const Icon(AppIcons.back, color: tossText, size: 20),
           onPressed: () => Navigator.maybePop(context),
         ),
         title: const Text(

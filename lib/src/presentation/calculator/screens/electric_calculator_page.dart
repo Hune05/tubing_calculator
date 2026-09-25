@@ -1,6 +1,8 @@
 // lib/src/presentation/calculator/screens/electric_calculator_page.dart
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/common_widgets/app_header.dart';
 import 'dart:math' as math;
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
@@ -568,19 +570,17 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     return Scaffold(
       backgroundColor: slate100,
       appBar: AppBar(
-        title: const Text(
-          "ELECTRIC BENDING CALCULATOR",
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            fontSize: 16,
-            letterSpacing: 1.0,
-          ),
+        title: AppHeaderTitle(
+          '벤딩 계산기',
+          mode: ModeChip(label: '전동', color: Colors.orange.shade800),
         ),
-        backgroundColor: Colors.orange.shade800,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.text,
+        surfaceTintColor: Colors.transparent,
+        shape: const Border(bottom: BorderSide(color: AppColors.line)),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios),
+          icon: const Icon(AppIcons.back),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),

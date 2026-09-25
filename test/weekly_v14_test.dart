@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'helpers_text.dart';
@@ -205,7 +206,7 @@ void main() {
     ) async {
       await pump(tester, WeeklyReportPage(logs: [proj('A현장')]));
       // 화살표는 열기 기능이 있을 때만 있다(기준일 줄의 것 하나만 남는다).
-      expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
+      expect(find.byIcon(AppIcons.forward), findsOneWidget);
       await tester.tap(find.byType(LinearProgressIndicator).first);
       await tester.pumpAndSettle();
       expect(find.byType(LinearProgressIndicator), findsOneWidget);

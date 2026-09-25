@@ -1,5 +1,6 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/common_widgets/app_header.dart';
 
 import 'package:tubing_calculator/src/presentation/calculator/screens/marking_page.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/calculator_page.dart';
@@ -72,16 +73,11 @@ class _MainCalculatorScreenState extends State<MainCalculatorScreen> {
       backgroundColor: const Color(0xFF1E1E1E),
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
-        title: Text(
-          _currentIndex == 0 ? "BENDING WORKSPACE" : "MARKING GUIDE",
-          style: const TextStyle(
-            fontWeight: FontWeight.w900,
-            fontSize: 16,
-            letterSpacing: 1.0,
-          ),
-        ),
-        backgroundColor: makitaTeal,
-        foregroundColor: pureWhite,
+        title: AppHeaderTitle(_currentIndex == 0 ? "벤딩 작업" : "마킹 가이드"),
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.text,
+        surfaceTintColor: Colors.transparent,
+        shape: const Border(bottom: BorderSide(color: AppColors.line)),
         elevation: 0,
       ),
       body: SafeArea(

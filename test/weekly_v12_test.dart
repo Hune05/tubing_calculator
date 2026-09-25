@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/project_phase.dart';
@@ -109,7 +110,7 @@ void main() {
       expect(tester.widget<SwitchListTile>(sw).value, false);
 
       // 뒤로 가면 최종 상태(제외됨)가 반환값에 담긴다.
-      await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded));
+      await tester.tap(find.byIcon(AppIcons.back));
       await tester.pumpAndSettle();
       expect(popped, isNotNull);
       expect(issueWeeklyExcluded(popped!), true);

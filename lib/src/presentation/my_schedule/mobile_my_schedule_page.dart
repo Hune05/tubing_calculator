@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:async';
 import '../my_work_logs/widgets/work_theme.dart';
@@ -2636,7 +2637,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
             children: [
               IconButton(
                 tooltip: "4주 전",
-                icon: const Icon(Icons.chevron_left_rounded),
+                icon: const Icon(AppIcons.back),
                 onPressed: () => setState(
                   () => _tlStart = winStart.subtract(const Duration(days: 28)),
                 ),
@@ -2658,7 +2659,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
               ),
               IconButton(
                 tooltip: "4주 후",
-                icon: const Icon(Icons.chevron_right_rounded),
+                icon: const Icon(AppIcons.forward),
                 onPressed: () => setState(
                   () => _tlStart = winStart.add(const Duration(days: 28)),
                 ),
@@ -3045,7 +3046,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           IconButton(
-            icon: const Icon(Icons.chevron_left, color: scheduleText),
+            icon: const Icon(AppIcons.back, color: scheduleText),
             onPressed: () => _shiftDay(-1),
           ),
           SizedBox(
@@ -3061,7 +3062,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.chevron_right, color: scheduleText),
+            icon: const Icon(AppIcons.forward, color: scheduleText),
             onPressed: () => _shiftDay(1),
           ),
         ],
@@ -3311,7 +3312,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                 ),
                               ),
                               trailing: const Icon(
-                                Icons.chevron_right_rounded,
+                                AppIcons.forward,
                                 color: Color(0xFF6B7684),
                               ),
                               onTap: () => Navigator.pop(ctx, r),
@@ -3438,8 +3439,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
             fontWeight: FontWeight.bold,
             color: scheduleText,
           ),
-          leftChevronIcon: Icon(Icons.chevron_left, color: scheduleText),
-          rightChevronIcon: Icon(Icons.chevron_right, color: scheduleText),
+          leftChevronIcon: Icon(AppIcons.back, color: scheduleText),
+          rightChevronIcon: Icon(AppIcons.forward, color: scheduleText),
         ),
         calendarStyle: const CalendarStyle(
           todayDecoration: BoxDecoration(
@@ -4165,12 +4166,12 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           actions: [
             IconButton(
               tooltip: "일정 검색",
-              icon: const Icon(Icons.search_rounded),
+              icon: const Icon(AppIcons.search),
               onPressed: _showSearchDialog,
             ),
             IconButton(
               tooltip: "오늘로 이동",
-              icon: const Icon(Icons.today_rounded),
+              icon: const Icon(AppIcons.calendar),
               onPressed: () => setState(() {
                 _focusedDay = DateTime.now();
                 _selectedDay = DateTime.now();

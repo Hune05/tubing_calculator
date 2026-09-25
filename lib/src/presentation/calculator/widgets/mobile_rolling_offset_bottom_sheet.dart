@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -98,7 +99,7 @@ class _MobileRollingOffsetBottomSheetState
   final List<Map<String, dynamic>> _directions = [
     {"label": "UP (위)", "val": 0.0, "icon": Icons.arrow_upward},
     {"label": "FRONT (앞)", "val": 360.0, "icon": Icons.call_made},
-    {"label": "LEFT (좌)", "val": 270.0, "icon": Icons.arrow_back},
+    {"label": "LEFT (좌)", "val": 270.0, "icon": AppIcons.back},
     {"label": "RIGHT (우)", "val": 90.0, "icon": Icons.arrow_forward},
     {"label": "DOWN (아래)", "val": 180.0, "icon": Icons.arrow_downward},
     {"label": "BACK (뒤)", "val": 450.0, "icon": Icons.call_received},

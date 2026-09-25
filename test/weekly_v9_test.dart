@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -175,7 +176,7 @@ void _swipeOnlyTest() {
       ),
     );
     // 열기 기능이 없으니 이슈 줄에는 화살표가 없다(남는 하나는 기준일 줄의 것).
-    expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
+    expect(find.byIcon(AppIcons.forward), findsOneWidget);
     await tester.drag(find.textContaining('알림경로'), const Offset(-800, 0));
     await tester.pumpAndSettle();
     expect(punch['weeklyExclude'], true);

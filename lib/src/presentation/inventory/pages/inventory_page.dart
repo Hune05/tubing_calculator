@@ -1,4 +1,6 @@
 // ignore_for_file: deprecated_member_use
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/material.dart';
@@ -108,10 +110,10 @@ class _InventoryPageState extends State<InventoryPage> {
             ? TextField(
                 controller: _searchController,
                 autofocus: true,
-                style: const TextStyle(color: pureWhite, fontSize: 16),
+                style: const TextStyle(color: AppColors.text, fontSize: 16),
                 decoration: const InputDecoration(
                   hintText: '자재명, 규격 검색...',
-                  hintStyle: TextStyle(color: Colors.white70),
+                  hintStyle: TextStyle(color: AppColors.textSub),
                   border: InputBorder.none,
                 ),
                 onChanged: (v) =>
@@ -121,8 +123,10 @@ class _InventoryPageState extends State<InventoryPage> {
                 '태블릿 자재 창고 관리', // 태블릿용 명시
                 style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
               ),
-        backgroundColor: makitaTeal,
-        foregroundColor: pureWhite,
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.text,
+        surfaceTintColor: Colors.transparent,
+        shape: const Border(bottom: BorderSide(color: AppColors.line)),
         elevation: 0,
         actions: [
           Row(
@@ -141,13 +145,11 @@ class _InventoryPageState extends State<InventoryPage> {
                   _selectedDocId = null;
                   _selectedItemData = null;
                 }),
-                activeColor: Colors.amberAccent,
-                activeTrackColor: Colors.black26,
               ),
             ],
           ),
           IconButton(
-            icon: Icon(_isSearching ? Icons.close : LucideIcons.search),
+            icon: Icon(_isSearching ? AppIcons.close : LucideIcons.search),
             onPressed: () => setState(() {
               _isSearching = !_isSearching;
               if (!_isSearching) {

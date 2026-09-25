@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -277,7 +278,7 @@ class _MobileFabricationDetailScreenState
     if (rot == 0.0) return Icons.arrow_upward;
     if (rot == 90.0) return Icons.arrow_forward;
     if (rot == 180.0) return Icons.arrow_downward;
-    if (rot == 270.0) return Icons.arrow_back;
+    if (rot == 270.0) return AppIcons.back;
     if (rot == 360.0) return Icons.call_made;
     if (rot == 450.0) return Icons.call_received;
     return Icons.rotate_right;
@@ -1021,12 +1022,12 @@ class _MobileFabricationDetailScreenState
                     ),
                   )
                 : IconButton(
-                    icon: const Icon(Icons.share_rounded, color: slate900),
+                    icon: const Icon(AppIcons.share, color: slate900),
                     tooltip: "PDF 공유",
                     onPressed: _exportToPDFAndShare,
                   ),
             IconButton(
-              icon: const Icon(Icons.edit_note_rounded, color: slate900),
+              icon: const Icon(AppIcons.editNote, color: slate900),
               tooltip: "도면 정보 수정",
               onPressed: _editInfo,
             ),
@@ -1034,7 +1035,7 @@ class _MobileFabricationDetailScreenState
               padding: const EdgeInsets.only(right: 8),
               child: IconButton(
                 key: const Key('load_to_calculator'),
-                icon: const Icon(Icons.file_open_outlined, color: slate900),
+                icon: const Icon(AppIcons.openFile, color: slate900),
                 tooltip: "계산기로 불러오기",
                 onPressed: _loadToCalculator,
               ),

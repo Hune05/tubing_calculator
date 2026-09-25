@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import '../widgets/korean_text.dart';
@@ -251,11 +252,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
           backgroundColor: pureWhite,
           scrolledUnderElevation: 0,
           leading: IconButton(
-            icon: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              color: tossText,
-              size: 20,
-            ),
+            icon: const Icon(AppIcons.back, color: tossText, size: 20),
             onPressed: () => Navigator.pop(context, _changed ? _punch : null),
           ),
           title: const Text(

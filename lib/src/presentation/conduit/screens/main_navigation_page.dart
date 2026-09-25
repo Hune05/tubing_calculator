@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
@@ -192,8 +193,8 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
                               isWide: true,
                             ),
                             _buildNavItem(
-                              Icons.settings_rounded,
-                              Icons.settings_outlined,
+                              AppIcons.settings,
+                              AppIcons.settings,
                               '설정',
                               4,
                               isWide: true,
@@ -231,8 +232,8 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
                               isWide: false,
                             ),
                             _buildNavItem(
-                              Icons.settings_rounded,
-                              Icons.settings_outlined,
+                              AppIcons.settings,
+                              AppIcons.settings,
                               '설정',
                               5,
                               isWide: false,
@@ -616,7 +617,7 @@ class _ConduitIsoVisualizerState extends State<ConduitIsoVisualizer> {
                       () => setState(() => _realScale = !_realScale),
                     ),
                     _buildDivider(),
-                    _buildIconBtn(Icons.refresh, makitaTeal, _resetView),
+                    _buildIconBtn(AppIcons.refresh, makitaTeal, _resetView),
                   ],
                 ),
               ),

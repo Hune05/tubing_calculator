@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../widgets/work_theme.dart';
 import '../widgets/korean_text.dart';
@@ -1329,11 +1330,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: Row(
                         children: const [
-                          Icon(
-                            Icons.cloud_upload_outlined,
-                            size: 18,
-                            color: tossBlue,
-                          ),
+                          Icon(AppIcons.upload, size: 18, color: tossBlue),
                           SizedBox(width: 4),
                           Text(
                             "저장 중",
@@ -1368,7 +1365,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
           ),
           IconButton(
             tooltip: "투입 통계",
-            icon: const Icon(Icons.bar_chart_rounded),
+            icon: const Icon(AppIcons.stats),
             onPressed: () => Navigator.push(
               context,
               WorkRoute(

@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
@@ -160,8 +161,8 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
                                 isWide: true,
                               ),
                               _buildNavItem(
-                                Icons.settings_rounded,
-                                Icons.settings_outlined,
+                                AppIcons.settings,
+                                AppIcons.settings,
                                 "설정",
                                 4,
                                 isWide: true,
@@ -199,8 +200,8 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
                                 isWide: false,
                               ),
                               _buildNavItem(
-                                Icons.settings_rounded,
-                                Icons.settings_outlined,
+                                AppIcons.settings,
+                                AppIcons.settings,
                                 "설정",
                                 5,
                                 isWide: false,

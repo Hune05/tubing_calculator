@@ -9,6 +9,7 @@
 ///   왼쪽·볼륨 내림은 이전. 끝낸 단계는 ✓.
 library;
 
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
@@ -377,7 +378,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           top: 4,
           right: 8,
           child: IconButton(
-            icon: Icon(Icons.close_rounded, color: _ink, size: 28),
+            icon: Icon(AppIcons.close, color: _ink, size: 28),
             onPressed: _close,
           ),
         ),
@@ -427,11 +428,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             const SizedBox(width: 10),
             ActionChip(
               key: const Key('field_warning_chip'),
-              avatar: Icon(
-                Icons.warning_amber_rounded,
-                color: _amber,
-                size: 18,
-              ),
+              avatar: Icon(AppIcons.warning, color: _amber, size: 18),
               label: Text(
                 '확인 ${data.warnings.length}',
                 style: TextStyle(color: _amber, fontWeight: FontWeight.bold),
@@ -528,7 +525,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           ),
           _toolButton(
             key: const Key('field_close'),
-            icon: Icons.close_rounded,
+            icon: AppIcons.close,
             label: '닫기',
             selected: false,
             onTap: _close,
@@ -1137,7 +1134,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     return Row(
       children: [
         _navButton(
-          icon: Icons.chevron_left_rounded,
+          icon: AppIcons.back,
           label: '이전',
           onTap: _current > 0 ? () => _prev(steps.length) : null,
         ),
@@ -1157,7 +1154,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           ),
         ),
         _navButton(
-          icon: isLast ? Icons.check_rounded : Icons.chevron_right_rounded,
+          icon: isLast ? Icons.check_rounded : AppIcons.forward,
           label: isLast ? '끝' : '다음',
           onTap: () => _next(steps.length),
           strong: true,
@@ -1318,7 +1315,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       case 180:
         return Icons.arrow_downward;
       case 270:
-        return Icons.arrow_back;
+        return AppIcons.back;
       case 360:
         return Icons.call_made;
       case 450:

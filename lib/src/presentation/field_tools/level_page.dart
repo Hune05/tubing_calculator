@@ -3,6 +3,7 @@
 //  폰 축과의 차이), 눕히면 초록 화면에 큰 원 기포, 왼쪽 가장자리 cm 자, 오른쪽 아래 흰
 //  동그라미 단추(설정·영점·고정), 오른쪽 위 모드 단추(A = 자동).
 // 배관 구배를 보려고 %·mm/m 단위도 둔다.
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -447,7 +448,7 @@ class _LevelPageState extends State<LevelPage> {
             const SizedBox(width: 8),
             RoundToolButton(
               key: const Key('level_back'),
-              icon: Icons.close,
+              icon: AppIcons.close,
               tooltip: "닫기",
               color: btnColor,
               onTap: () => Navigator.of(context).maybePop(),
@@ -466,7 +467,7 @@ class _LevelPageState extends State<LevelPage> {
           children: [
             RoundToolButton(
               key: const Key('level_settings'),
-              icon: Icons.settings,
+              icon: AppIcons.settings,
               tooltip: "설정",
               color: btnColor,
               onTap: _openSettings,

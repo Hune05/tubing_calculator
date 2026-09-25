@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import '../widgets/korean_text.dart';
@@ -433,16 +434,12 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
           actions: [
             IconButton(
               onPressed: _exportMonth,
-              icon: const Icon(Icons.ios_share_rounded),
+              icon: const Icon(AppIcons.share),
               tooltip: "이번 달 일정 요약 내보내기",
             ),
             IconButton(
               onPressed: () => setState(() => _showCalendar = !_showCalendar),
-              icon: Icon(
-                _showCalendar
-                    ? Icons.view_list_rounded
-                    : Icons.calendar_month_rounded,
-              ),
+              icon: Icon(_showCalendar ? AppIcons.list : AppIcons.calendar),
               tooltip: _showCalendar ? "리스트로 보기" : "달력으로 보기",
             ),
           ],

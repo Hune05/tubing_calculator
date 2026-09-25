@@ -52,8 +52,10 @@ class _ViewerOnlyScreenState extends State<ViewerOnlyScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF151B22),
       appBar: AppBar(
-        backgroundColor: AppColors.brand,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.text,
+        surfaceTintColor: Colors.transparent,
+        shape: const Border(bottom: BorderSide(color: AppColors.line)),
         title: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -64,7 +66,7 @@ class _ViewerOnlyScreenState extends State<ViewerOnlyScreen> {
             ),
             Text(
               "SPEC: ${widget.pipeSize} | Read-Only",
-              style: const TextStyle(fontSize: 12, color: Colors.white70),
+              style: const TextStyle(fontSize: 12, color: AppColors.textSub),
             ),
           ],
         ),

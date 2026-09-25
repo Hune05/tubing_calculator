@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../widgets/work_theme.dart';
 import '../widgets/korean_text.dart';
@@ -1019,11 +1020,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
         backgroundColor: pureWhite,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: tossText,
-            size: 20,
-          ),
+          icon: const Icon(AppIcons.back, color: tossText, size: 20),
           onPressed: () => Navigator.maybePop(context),
         ),
         title: Column(
@@ -1055,7 +1052,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                   ),
                   if (!_isEdit)
                     const Icon(
-                      Icons.edit_calendar,
+                      AppIcons.calendarEdit,
                       size: 13,
                       color: tossSubText,
                     ),
@@ -1138,7 +1135,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                               ),
                             ),
                             const Icon(
-                              Icons.chevron_right_rounded,
+                              AppIcons.forward,
                               color: makitaTeal,
                               size: 20,
                             ),

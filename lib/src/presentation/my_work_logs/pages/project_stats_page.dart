@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:io';
 import '../widgets/korean_text.dart';
@@ -360,7 +361,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
         actions: [
           PopupMenuButton<String>(
             tooltip: "내보내기",
-            icon: const Icon(Icons.ios_share_rounded),
+            icon: const Icon(AppIcons.share),
             onSelected: (v) async {
               try {
                 if (v == 'csv') await _exportCsv();

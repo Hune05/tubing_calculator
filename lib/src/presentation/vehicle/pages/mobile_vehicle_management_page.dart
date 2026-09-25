@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:async'; // 🚀 타이머 사용을 위해 추가
 import 'package:flutter/material.dart';
@@ -315,7 +316,7 @@ class _MobileVehicleManagementPageState
         scrolledUnderElevation: 0,
         centerTitle: false,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: slate900),
+          icon: const Icon(AppIcons.back, color: slate900),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
@@ -621,10 +622,7 @@ class _MobileVehicleManagementPageState
                                         fontSize: 14,
                                       ),
                                     ),
-                                    Icon(
-                                      Icons.chevron_right_rounded,
-                                      color: tossBlue,
-                                    ),
+                                    Icon(AppIcons.forward, color: tossBlue),
                                   ],
                                 ),
                               ],

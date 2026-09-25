@@ -1,3 +1,5 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/data/ownership.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/utils/settings_cloud.dart';
@@ -2573,8 +2575,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       child: Scaffold(
         backgroundColor: lightBg,
         appBar: AppBar(
-          backgroundColor: makitaTeal,
-          foregroundColor: whiteCard,
+          backgroundColor: AppColors.surface,
+          foregroundColor: AppColors.text,
+          surfaceTintColor: Colors.transparent,
+          shape: const Border(bottom: BorderSide(color: AppColors.line)),
           elevation: 0,
           title: Text(
             "프로젝트: ${widget.project.name}",
@@ -2589,7 +2593,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             ),
             IconButton(
               tooltip: "컷팅 기록",
-              icon: const Icon(Icons.history_rounded),
+              icon: const Icon(AppIcons.history),
               onPressed: () {
                 Navigator.push(
                   context,
@@ -3528,7 +3532,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                  const Icon(AppIcons.forward, color: Colors.grey),
                 ],
               ),
             ),

@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 
 import 'cutting_math.dart' show fmtKg;
@@ -661,7 +662,7 @@ class _SpecHeader extends StatelessWidget {
       children: [
         if (onTap != null)
           Icon(
-            folded ? Icons.chevron_right_rounded : Icons.expand_more_rounded,
+            folded ? AppIcons.forward : Icons.expand_more_rounded,
             size: 20,
             color: CuttingColors.textSecondary,
           ),

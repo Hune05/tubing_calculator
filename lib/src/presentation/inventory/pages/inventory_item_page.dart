@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -342,7 +343,7 @@ class _Body extends StatelessWidget {
               ),
             ),
             const Icon(
-              Icons.chevron_right,
+              AppIcons.forward,
               size: 20,
               color: CuttingColors.textSecondary,
             ),

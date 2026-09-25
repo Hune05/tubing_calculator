@@ -46,7 +46,7 @@ extension _DailyReportPhotos on _DailyReportPageState {
                     onPressed: index == 0
                         ? null
                         : () => Navigator.pop(ctx, 'left'),
-                    icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                    icon: const Icon(AppIcons.back, size: 16),
                     label: const Text("앞으로"),
                   ),
                 ),

@@ -79,12 +79,14 @@ class MenuScreen extends StatelessWidget {
           isLiteVersion ? 'Tubing Calc Lite' : 'Tubing Calculator', // 제목 간소화
           style: const TextStyle(
             fontWeight: FontWeight.w900,
-            color: Colors.white,
+            color: AppColors.text,
             letterSpacing: 1,
           ),
         ),
-        backgroundColor: makitaTeal,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.text,
+        surfaceTintColor: Colors.transparent,
+        shape: const Border(bottom: BorderSide(color: AppColors.line)),
         elevation: 0,
         centerTitle: false,
       ),

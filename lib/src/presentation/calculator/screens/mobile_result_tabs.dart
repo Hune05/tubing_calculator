@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
@@ -221,7 +222,7 @@ class _MobileResultTabState extends State<MobileResultTab>
     if (rot == 0.0) return Icons.arrow_upward;
     if (rot == 90.0) return Icons.arrow_forward;
     if (rot == 180.0) return Icons.arrow_downward;
-    if (rot == 270.0) return Icons.arrow_back;
+    if (rot == 270.0) return AppIcons.back;
     if (rot == 360.0) return Icons.call_made;
     if (rot == 450.0) return Icons.call_received;
     return Icons.rotate_right;
@@ -459,7 +460,7 @@ class _MobileResultTabState extends State<MobileResultTab>
                   if (hasRealTubeRow(bendList))
                     IconButton(
                       key: const Key('tube_save_drawing'),
-                      icon: Icon(Icons.save_alt_rounded, color: slate900),
+                      icon: Icon(AppIcons.download, color: slate900),
                       tooltip: "보관함에 저장",
                       onPressed: () => _handleSave(totalCut, bendList),
                     ),
@@ -632,7 +633,7 @@ class _MobileResultTabState extends State<MobileResultTab>
                 "${_tailLength.round()} mm",
                 style: cardValueStyle.copyWith(color: slate900),
               ),
-              Icon(Icons.chevron_right_rounded, size: 18, color: slate600),
+              Icon(AppIcons.forward, size: 18, color: slate600),
             ],
           ),
         ),
@@ -674,18 +675,14 @@ class _MobileResultTabState extends State<MobileResultTab>
       dirText: _getDirectionText(rotation),
       notes: [
         if (isStraight)
-          (Icons.info_outline_rounded, "직관 +$length$fitText mm", stepNoteGrey)
+          (AppIcons.info, "직관 +$length$fitText mm", stepNoteGrey)
         else ...[
           if (markNum > 1)
-            (
-              Icons.info_outline_rounded,
-              "앞 마킹과의 거리 +$incremental mm",
-              stepNoteTeal,
-            ),
-          (Icons.info_outline_rounded, "배관 $length$fitText mm", stepNoteGrey),
+            (AppIcons.info, "앞 마킹과의 거리 +$incremental mm", stepNoteTeal),
+          (AppIcons.info, "배관 $length$fitText mm", stepNoteGrey),
           if (rollDeg > 0.5)
             (
-              Icons.warning_amber_rounded,
+              AppIcons.warning,
               "앞 벤드에서 ${rollDeg.round()}° 굴려 물리십시오",
               stepNoteAmber,
             ),
@@ -1032,7 +1029,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
               decoration: InputDecoration(
                 hintText: '프로젝트명 또는 경로 검색...',
                 hintStyle: TextStyle(color: slate600.withValues(alpha: 0.6)),
-                prefixIcon: Icon(Icons.search, color: slate600),
+                prefixIcon: Icon(AppIcons.search, color: slate600),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
                         icon: Icon(Icons.cancel, color: slate600),
@@ -1231,11 +1228,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                     onTap: () => _confirmDelete(item),
                     child: Padding(
                       padding: EdgeInsets.all(8.0),
-                      child: Icon(
-                        Icons.close_rounded,
-                        color: _slate400,
-                        size: 20,
-                      ),
+                      child: Icon(AppIcons.close, color: _slate400, size: 20),
                     ),
                   ),
                 ),

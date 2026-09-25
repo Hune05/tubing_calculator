@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -209,7 +210,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back, color: slate900),
+            icon: const Icon(AppIcons.back, color: slate900),
             onPressed: () => Navigator.maybePop(context),
           ),
           const Expanded(

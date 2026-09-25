@@ -133,7 +133,7 @@ extension _ProjectScheduleCalendar on _ProjectSchedulePageState {
                     _calendarMonth.month - 1,
                   );
                 }),
-                icon: const Icon(Icons.chevron_left_rounded),
+                icon: const Icon(AppIcons.back),
               ),
               Text(
                 "${_calendarMonth.year}년 ${_calendarMonth.month}월",
@@ -150,7 +150,7 @@ extension _ProjectScheduleCalendar on _ProjectSchedulePageState {
                     _calendarMonth.month + 1,
                   );
                 }),
-                icon: const Icon(Icons.chevron_right_rounded),
+                icon: const Icon(AppIcons.forward),
               ),
             ],
           ),

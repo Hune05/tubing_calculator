@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -207,7 +208,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                 ),
               ),
             ),
-            Icon(Icons.chevron_right_rounded, size: 16, color: makitaTeal),
+            Icon(AppIcons.forward, size: 16, color: makitaTeal),
           ],
         ),
       ),

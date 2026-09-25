@@ -1,4 +1,5 @@
 // 배치도 P2·P3(2026-09-23 저녁): 태그·각도 칸, 경로 끝 부품, PDF 표준 축척, 기준점 치수, 레일 붙이기.
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -256,7 +257,7 @@ void main() {
       ],
       'dimensions': <Map<String, dynamic>>[],
     });
-    await tester.tap(find.byIcon(Icons.save_alt_rounded).first);
+    await tester.tap(find.byIcon(AppIcons.download).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('QR 도면 PDF로 공유'));
     await tester.pumpAndSettle();

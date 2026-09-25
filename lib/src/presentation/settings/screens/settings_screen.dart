@@ -2223,9 +2223,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildScaffold(BuildContext context, bool isWideScreen) {
     return Scaffold(
       appBar: AppBar(
-        elevation: 2,
-        shadowColor: Colors.black45,
-        backgroundColor: makitaTeal,
+        elevation: 0,
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.text,
+        surfaceTintColor: Colors.transparent,
+        shape: const Border(bottom: BorderSide(color: AppColors.line)),
         centerTitle: false,
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2235,7 +2237,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: 20,
-                color: Colors.white,
+                color: AppColors.text,
                 letterSpacing: -0.5,
               ),
             ),
@@ -2244,13 +2246,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               "장비 제원 및 마킹 기준 관리",
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.white70,
+                color: AppColors.textSub,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ],
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: const IconThemeData(color: AppColors.text),
         actions: [
           Padding(
             padding: const EdgeInsets.only(

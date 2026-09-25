@@ -2,6 +2,7 @@
 //
 // 사용자 문서는 users/{이름}이라 이름 바꾸기는 [ProfileStore.renameUser] 한 갈래로만 한다.
 // 바꾼 뒤에는 홈을 새 이름으로 다시 연다(예전엔 앱을 껐다 켜기 전까지 홈이 옛 이름이었다).
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -433,7 +434,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: slate900),
+          icon: const Icon(AppIcons.back, color: slate900),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -907,7 +908,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
               ),
             ),
             Icon(
-              Icons.chevron_right_rounded,
+              AppIcons.forward,
               color: slate600.withValues(alpha: 0.5),
               size: 24,
             ),

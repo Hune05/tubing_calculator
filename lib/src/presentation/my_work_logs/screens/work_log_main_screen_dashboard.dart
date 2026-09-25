@@ -34,11 +34,7 @@ extension _WorkLogMainDashboard on _WorkLogMainScreenState {
                         color: tossBlue,
                       ),
                     ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: tossBlue,
-                      size: 18,
-                    ),
+                    Icon(AppIcons.forward, color: tossBlue, size: 18),
                   ],
                 ),
               ),
