@@ -242,6 +242,18 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
   }
 
   // 🚀 3-Point 새들 계산 적용 및 경고
+  void _snackMissing(String msg) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          key: const Key('saddle_missing'),
+          content: Text(msg),
+          backgroundColor: Colors.deepOrange,
+        ),
+      );
+  }
+
   void _apply3Point(double travel3Pt, double a3, double shrink) {
     if (_selectedRotation == null) {
       showDialog(
@@ -281,7 +293,11 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
       );
       return;
     }
-    if (travel3Pt <= 0 || a3 <= 0) return;
+    if (travel3Pt <= 0 || a3 <= 0) {
+      // 🚀 [고침] 값이 모자라면 말없이 아무 일도 안 했다.
+      _snackMissing("넣을 수 없습니다. 높이와 센터 각도를 넣으십시오.");
+      return;
+    }
 
     double roundedTravel = double.parse(travel3Pt.toStringAsFixed(1));
 
@@ -411,7 +427,10 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
       );
       return;
     }
-    if (travel4Pt <= 0 || w <= 0 || a4 <= 0) return;
+    if (travel4Pt <= 0 || w <= 0 || a4 <= 0) {
+      _snackMissing("넣을 수 없습니다. 높이·넓이·각도를 넣으십시오.");
+      return;
+    }
 
     double roundedTravel = double.parse(travel4Pt.toStringAsFixed(1));
     double roundedW = double.parse(w.toStringAsFixed(1));

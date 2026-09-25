@@ -82,4 +82,49 @@ void main() {
       expect(path.endDirection.x, closeTo(1, 0.001));
     });
   }
+
+  testWidgets('F3 각도가 90° 이상이면 말없이 넘어가지 않고 알린다', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    MachineSpecs().resetForTest();
+    MachineSpecs().update(radius: 100);
+    final dm = MobileBendDataManager();
+    dm.offsetHeight = 100;
+    dm.offsetAngle = 95;
+    addTearDown(() => dm.offsetAngle = 45);
+    await tester.binding.setSurfaceSize(const Size(800, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    List<Map<String, double>> added = const [];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => MobileOffsetBottomSheet.show(
+                context,
+                currentRotation: 0,
+                specs: BendSheetSpecs(
+                  radius: 100,
+                  gain90: 0,
+                  markOffset: (a) => bendSetback(100, a),
+                ),
+                onAddMultipleBends: (b) => added = b,
+              ),
+              child: const Text('열기'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('UP').first);
+    await tester.tap(find.text('UP').first);
+    await tester.pump();
+    await tester.ensureVisible(find.text('적용').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('적용').first);
+    await tester.pump();
+    expect(added, isEmpty);
+    expect(find.textContaining('90°보다 작아야'), findsOneWidget);
+  });
 }

@@ -208,6 +208,33 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     Navigator.pop(context);
   }
 
+  String _missingMessage() {
+    final h = double.tryParse(_heightCtrl.text) ?? 0;
+    if (_tabController.index == 0) {
+      final a = double.tryParse(_angleCtrl.text) ?? 0;
+      if (h <= 0) return "넣을 수 없습니다. 높이를 넣으십시오.";
+      if (a >= 90) return "넣을 수 없습니다. 각도는 90°보다 작아야 합니다.";
+      return "넣을 수 없습니다. 각도를 넣으십시오.";
+    }
+    final t = double.tryParse(_travelCtrl.text) ?? 0;
+    if (h > 0 && t > 0 && h > t) {
+      return "넣을 수 없습니다. 빗변이 높이보다 길어야 합니다.";
+    }
+    return "넣을 수 없습니다. 높이와 빗변을 넣으십시오.";
+  }
+
+  void _snackMissing(String msg) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          key: const Key('offset_missing'),
+          content: Text(msg),
+          backgroundColor: Colors.deepOrange,
+        ),
+      );
+  }
+
   // 🚀 핵심 로직: 1번 마킹과 2번 마킹 검사 후 실행
   void _applyBending(double angle, double travel, double shrink) {
     if (_selectedRotation == null) {
@@ -249,7 +276,12 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
       );
       return;
     }
-    if (angle <= 0 || travel <= 0) return;
+    if (angle <= 0 || travel <= 0) {
+      // 🚀 [고침] 값이 모자라면(90° 이상 각, 빗변이 높이보다 짧음 등) 말없이
+      // 아무 일도 안 했다. 왜 안 들어가는지 알린다.
+      _snackMissing(_missingMessage());
+      return;
+    }
 
     double roundedAngle = double.parse(angle.toStringAsFixed(1));
     double roundedTravel = double.parse(travel.toStringAsFixed(1));

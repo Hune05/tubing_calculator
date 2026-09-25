@@ -82,4 +82,41 @@ void main() {
     expect(batches.single.length, 3);
     expect(batches.single[1]['rotation'], 270.0); // 가운데는 반대 방향
   });
+
+  testWidgets('F3 새들: 높이가 비면 말없이 넘어가지 않고 알린다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(420, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final batches = <List<Map<String, double>>>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MobileSaddleBottomSheet(
+            currentRotation: 0,
+            onAddBend: (_, _, _) {},
+            onAddBends: batches.add,
+            specs: BendSheetSpecs(
+              radius: 38.1,
+              gain90: 0,
+              markOffset: (a) => bendSetback(38.1, a),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    for (final f in tester.widgetList<TextField>(find.byType(TextField))) {
+      f.controller!.text = '';
+    }
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('RIGHT').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('RIGHT').first);
+    await tester.pumpAndSettle();
+    final apply = find.text('도면 적용').first;
+    await tester.ensureVisible(apply);
+    await tester.tap(apply);
+    await tester.pump();
+    expect(batches, isEmpty);
+    expect(find.byKey(const Key('saddle_missing')), findsOneWidget);
+  });
 }
