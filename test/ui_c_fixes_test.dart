@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/report_tools.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/project_detail_page.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_stock_deduct.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_theme.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -55,5 +57,58 @@ void main() {
     WorkProjectRepository.pendingWrites.value = 0;
     await tester.pump();
     expect(find.byKey(const Key('project_pending_sync')), findsNothing);
+  });
+
+  test('F5 차감 확인창 목록: 무엇을 얼마, 재고에 없는 것 표시', () {
+    const takes = [
+      StockTake(name: '튜브 1/2"', qty: 2, unit: '본'),
+      StockTake(name: 'Union 1/2"', qty: 4, unit: 'EA'),
+    ];
+    final lines = stockTakeLines(takes, {'튜브 1/2"': 10});
+    expect(lines, contains('• 튜브 1/2" 2본'));
+    expect(lines, contains('• Union 1/2" 4EA (재고에 없음)'));
+    // 통신이 없어 재고를 못 읽었으면 "없음"이라고 잘라 말하지 않는다.
+    expect(stockTakeLines(takes, {}), isNot(contains('재고에 없음')));
+  });
+
+  test('F5 차감 결과: 못 뺀 것·마이너스를 한 줄씩', () {
+    const t = StockTake(name: 'A', qty: 3, unit: 'EA');
+    const ok = StockDeductResult(done: [t], missing: []);
+    expect(ok.needsAttention, isFalse);
+    const r = StockDeductResult(
+      done: [t],
+      missing: [StockTake(name: 'B', qty: 1, unit: '본')],
+      negative: {'A': -2},
+    );
+    expect(r.needsAttention, isTrue);
+    expect(r.detail, contains('• B 1본'));
+    expect(r.detail, contains('• A: 남은 수량 -2'));
+  });
+
+  testWidgets('F5 부분 실패는 확인을 눌러야 닫히는 창으로', (tester) async {
+    const r = StockDeductResult(
+      done: [],
+      missing: [StockTake(name: 'B', qty: 1, unit: '본')],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showStockDeductResult(context, r),
+              child: const Text('열기'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('stock_deduct_result')), findsOneWidget);
+    await tester.pump(const Duration(seconds: 10)); // 알림처럼 저절로 사라지지 않는다
+    expect(find.byKey(const Key('stock_deduct_result')), findsOneWidget);
+    await tester.tap(find.text('확인'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('stock_deduct_result')), findsNothing);
   });
 }

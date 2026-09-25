@@ -402,9 +402,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       unitByName: stock.unitByName,
     );
     if (takes.isEmpty) return null;
-    final lines = [
-      for (final t in takes) "${t.name} ${t.qty}${t.unit}",
-    ].join('\n');
+    final lines = stockTakeLines(takes, stock.qtyByName);
     final warning = shortStockWarning(takes, stock.qtyByName);
     if (!mounted) return null;
     final ok = await showCuttingConfirmDialog(
@@ -425,7 +423,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         projectId: widget.project.id,
       );
       if (mounted) {
-        showCuttingSnack(context, result.message, isError: !result.allDone);
+        await showStockDeductResult(context, result);
       }
       return deductedPart(bars, result.done);
     } catch (_) {

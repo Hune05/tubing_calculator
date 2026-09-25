@@ -198,6 +198,24 @@ String shortStockWarning(List<StockTake> takes, Map<String, int> stockQty) {
       "먼저 챙겨 두십시오.";
 }
 
+/// 확인창에 보일 뺄 자재 목록(한 줄에 하나). 재고에 이름이 없는 것은 "(재고에 없음)".
+/// 🚀 [고침] 목록 화면의 "재고 차감" 확인창은 "N건"만 보여, 무엇을 얼마 빼는지와
+/// 재고에 없는 것을 미리 알 수 없었다. [stockQty]가 비었으면(통신 없음) 표시하지 않는다.
+String stockTakeLines(
+  List<StockTake> takes,
+  Map<String, int> stockQty, {
+  int max = 12,
+}) {
+  final lookup = materialLookup(stockQty.keys, (k) => k);
+  final lines = <String>[
+    for (final t in takes.take(max))
+      "• ${t.name} ${t.qty}${t.unit}"
+          "${stockQty.isNotEmpty && findMaterial(lookup, t.name) == null ? ' (재고에 없음)' : ''}",
+  ];
+  if (takes.length > max) lines.add("… 외 ${takes.length - max}건");
+  return lines.join('\n');
+}
+
 /// 창고 재고에서 한 본 길이와 세는 단위를 한 번에 읽어 온다.
 Future<StockInfo> loadStockInfo() async {
   try {
@@ -246,6 +264,26 @@ class StockDeductResult {
   });
 
   bool get allDone => missing.isEmpty;
+
+  /// 못 뺀 것이나 마이너스가 된 것이 있어 사람이 확인해야 한다.
+  bool get needsAttention => missing.isNotEmpty || negative.isNotEmpty;
+
+  /// 못 뺀 자재와 마이너스가 된 자재를 한 줄씩(확인창에 보인다).
+  String get detail {
+    final lines = <String>[];
+    if (missing.isNotEmpty) {
+      lines.add(offline ? "통신이 안 돼 확인하지 못한 자재:" : "재고에 없어 빼지 못한 자재:");
+      for (final m in missing) {
+        lines.add("• ${m.name} ${m.qty}${m.unit}");
+      }
+    }
+    if (negative.isNotEmpty) {
+      if (lines.isNotEmpty) lines.add('');
+      lines.add("재고보다 많이 빼서 마이너스가 된 자재:");
+      negative.forEach((name, left) => lines.add("• $name: 남은 수량 $left"));
+    }
+    return lines.join('\n');
+  }
 
   /// 다 끝난 뒤 화면에 보여 줄 글.
   String get message {

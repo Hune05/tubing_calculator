@@ -322,9 +322,10 @@ Future<void> deductCuttingProjectInventory({
     context,
     title: "재고에서 차감하겠습니까?",
     message: warning.isEmpty
-        ? "'$projectName'에서 쓴 자재 ${materials.length}건을 창고 재고에서 뺍니다."
-        : "'$projectName'에서 쓴 자재 ${materials.length}건을 창고 재고에서 뺍니다."
-              "\n\n$warning",
+        ? "'$projectName'에서 쓴 자재를 창고 재고에서 뺍니다.\n\n"
+              "${stockTakeLines(takes, stock.qtyByName)}"
+        : "'$projectName'에서 쓴 자재를 창고 재고에서 뺍니다.\n\n"
+              "${stockTakeLines(takes, stock.qtyByName)}\n\n$warning",
     confirmLabel: "차감하기",
     icon: AppGlyph.stockOut,
   );
@@ -369,13 +370,17 @@ Future<void> deductCuttingProjectInventory({
         .timeout(const Duration(seconds: 8), onTimeout: () {});
 
     if (context.mounted) Navigator.pop(context);
-    if (context.mounted) {
-      showCuttingSnack(context, result.message, isError: !result.allDone);
-    }
+    if (context.mounted) await showStockDeductResult(context, result);
   } catch (e) {
+    debugPrint('재고 차감 실패: $e');
     if (context.mounted) Navigator.pop(context);
     if (context.mounted) {
-      showCuttingSnack(context, "차감하지 못했습니다: $e", isError: true);
+      // 예외 원문(영어)을 그대로 붙이지 않는다.
+      showCuttingSnack(
+        context,
+        "차감하지 못했습니다. 통신을 확인하고 다시 해 보십시오.",
+        isError: true,
+      );
     }
   }
 }

@@ -833,9 +833,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     final takes = stockTakesForBars(bars, unitByName: stock.unitByName);
     if (takes.isEmpty) return null;
 
-    final lines = [
-      for (final t in takes) "${t.name} ${t.qty}${t.unit}",
-    ].join('\n');
+    final lines = stockTakeLines(takes, stock.qtyByName);
     // 창고에 모자란 자재를 알려 준다.
     final warning = shortStockWarning(takes, stock.qtyByName);
     if (!mounted) return null;
@@ -858,7 +856,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         projectId: widget.project.id,
       );
       if (mounted) {
-        showCuttingSnack(context, result.message, isError: !result.allDone);
+        await showStockDeductResult(context, result);
       }
       // 뺀 규격만 "뺐음"으로 적는다. 못 뺀 규격은 자재를 넣은 뒤 다시 뺄 수 있다.
       return deductedPart(bars, result.done);

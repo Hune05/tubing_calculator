@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_stock_deduct.dart';
 
 // 🚀 [UI 고도화] 컷팅 계산기 관련 화면(계산기 본문·모바일/태블릿 작업
 // 목록·기록·다이얼로그)이 저마다 tossBlue/makitaTeal/slate900/textPrimary
@@ -124,6 +125,51 @@ Future<bool> showCuttingConfirmDialog(
     ),
   );
   return result == true;
+}
+
+/// 재고 차감 결과를 알린다. 다 뺐으면 짧은 알림, 못 뺀 것·마이너스가 있으면
+/// "확인"을 눌러야 닫히는 창으로 무엇이 그런지 보인다.
+/// 🚀 [고침] 부분 실패·마이너스도 4초 알림으로 사라져, 놓치면 알 길이 없었다.
+Future<void> showStockDeductResult(
+  BuildContext context,
+  StockDeductResult result,
+) async {
+  if (!result.needsAttention) {
+    showCuttingSnack(context, result.message);
+    return;
+  }
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      key: const Key('stock_deduct_result'),
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      title: const Text(
+        "재고 차감 결과 확인",
+        style: TextStyle(fontWeight: FontWeight.w800),
+      ),
+      content: SingleChildScrollView(
+        child: Text(
+          "${result.message}\n\n${result.detail}",
+          style: const TextStyle(
+            color: CuttingColors.textPrimary,
+            fontSize: 15,
+            height: 1.45,
+          ),
+        ),
+      ),
+      actions: [
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: CuttingColors.primary,
+            foregroundColor: Colors.white,
+          ),
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text("확인"),
+        ),
+      ],
+    ),
+  );
 }
 
 /// 성공/실패 스낵바도 화면마다 배경색·아이콘 유무가 달랐다. 아이콘 +
