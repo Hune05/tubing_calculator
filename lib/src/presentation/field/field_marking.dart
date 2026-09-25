@@ -123,11 +123,19 @@ class FieldStep {
   double get at => mark?.position ?? position;
 }
 
+/// 앞 마킹에서 이 마킹까지 간격(mm).
+///
+/// 화면·PDF는 위치와 간격을 mm 정수로 보여 준다. 예전엔 반올림 안 한 차이를 따로 반올림해서,
+/// 간격만 이어 재면 줄자 위치에서 벤드마다 최대 0.5mm씩 밀렸다(100.5·201.0·301.5 →
+/// 간격 101·101·101 = 303, 줄자는 302). 반올림한 두 위치의 차로 셈하면 늘 줄자와 맞는다.
+double markGap(double position, double previous) =>
+    (position.round() - previous.round()).toDouble();
+
 /// 앞 마킹에서 이 단계까지(자르기는 마지막 벤드 마킹에서).
 double fieldStepGap(FieldMarkingData data, FieldStep step) {
   if (!step.isCut) return step.mark!.gap;
   final bends = data.bends;
-  return step.at - (bends.isEmpty ? 0.0 : bends.last.position);
+  return markGap(step.at, bends.isEmpty ? 0.0 : bends.last.position);
 }
 
 List<FieldStep> fieldSteps(FieldMarkingData data) => [

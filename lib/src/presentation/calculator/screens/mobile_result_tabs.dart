@@ -137,7 +137,7 @@ FieldMarkingData computeTubeFieldData({String startDir = "RIGHT"}) {
           angle: angle,
           targetAngle: steps[i].targetAngle,
           rotation: (bendList[i]['rotation'] as num?)?.toDouble() ?? 0.0,
-          gap: pos - prevBend,
+          gap: markGap(pos, prevBend),
           roll: check.rollByIndex[i],
         ),
       );

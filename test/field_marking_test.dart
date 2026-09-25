@@ -146,9 +146,11 @@ void main() {
       );
       // 벤드에만 번호, 직관 끝은 0.
       expect(data.marks.map((m) => m.number).toList(), [0, 1, 2, 0]);
+      // 간격은 화면에 보이는 대로(반올림한 두 위치의 차) — 이어 재도 줄자와 맞게.
       expect(
         data.bends[1].gap,
-        closeTo(data.marks[2].position - data.marks[1].position, 1e-9),
+        (data.marks[2].position.round() - data.marks[1].position.round())
+            .toDouble(),
       );
     });
 
@@ -310,6 +312,30 @@ void main() {
       final errors = await pumpScreen(tester, FieldMarkingData.empty);
       expect(errors, isEmpty);
       expect(find.text('입력한 배관이 없습니다'), findsOneWidget);
+    });
+  });
+
+  group('간격은 반올림한 위치의 차', () {
+    test('간격만 이어 재도 줄자 위치와 맞는다', () {
+      const marks = [100.5, 201.0, 301.5];
+      var prev = 0.0;
+      var sum = 0.0;
+      for (final m in marks) {
+        sum += markGap(m, prev);
+        prev = m;
+      }
+      expect(sum, marks.last.round().toDouble()); // 302
+    });
+
+    test('예전 방식(차이를 따로 반올림)은 밀렸다', () {
+      const marks = [100.5, 201.0, 301.5];
+      var prev = 0.0;
+      var sum = 0;
+      for (final m in marks) {
+        sum += (m - prev).round();
+        prev = m;
+      }
+      expect(sum, isNot(302)); // 101+101+101 = 303
     });
   });
 }

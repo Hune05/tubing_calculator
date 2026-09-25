@@ -65,7 +65,7 @@ FieldMarkingData computeConduitFieldData() {
           angle: angle,
           targetAngle: (m['targetAngle'] as num?)?.toDouble(),
           rotation: (m['rotation'] as num).toDouble(),
-          gap: pos - prevBend,
+          gap: markGap(pos, prevBend),
           roll: check.rollByIndex[i],
         ),
       );
