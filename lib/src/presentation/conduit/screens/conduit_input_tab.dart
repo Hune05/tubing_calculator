@@ -1002,6 +1002,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                   currentRotation: currentRot,
                   onAddBend: (l, a, r) =>
                       manager.addBend({'length': l, 'angle': a, 'rotation': r}),
+                  onAddBends: (bends) => manager.addMultipleBends(bends),
                   specs: specs,
                 );
               }),

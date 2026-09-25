@@ -93,4 +93,71 @@ void main() {
     expect(added, hasLength(2));
     expect(firstMark(added, 150), closeTo(0, 0.1));
   });
+
+  Future<void> openSheet(
+    WidgetTester tester, {
+    required void Function(double, double, double) one,
+    void Function(List<Map<String, double>>)? many,
+  }) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.binding.setSurfaceSize(const Size(800, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => MobileRollingOffsetBottomSheet.show(
+                context,
+                currentRotation: 0,
+                specs: tubeSpecs(150),
+                onAddBend: one,
+                onAddBends: many,
+              ),
+              child: const Text('열기'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('UP'));
+    await tester.tap(find.text('UP'));
+    await tester.pump();
+  }
+
+  testWidgets('X12 한 벌을 한 번에 넣는다(↶ 한 번에 빠지게)', (tester) async {
+    final one = <(double, double, double)>[];
+    final many = <List<Map<String, double>>>[];
+    await openSheet(
+      tester,
+      one: (l, a, r) => one.add((l, a, r)),
+      many: many.add,
+    );
+    await tester.ensureVisible(find.text('도면 적용'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('도면 적용'));
+    await tester.pump();
+    expect(one, isEmpty);
+    expect(many, hasLength(1));
+    expect(many.single, hasLength(2));
+  });
+
+  testWidgets('F3 각도가 비면 말없이 넘어가지 않고 알린다', (tester) async {
+    final one = <(double, double, double)>[];
+    await openSheet(tester, one: (l, a, r) => one.add((l, a, r)));
+    final angle = find.byWidgetPredicate(
+      (w) => w is TextField && w.controller?.text == '45',
+    );
+    // 숫자판으로 넣는 칸이라 글을 바로 비운다.
+    tester.widget<TextField>(angle.first).controller!.text = '';
+    await tester.pump();
+    await tester.ensureVisible(find.text('도면 적용'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('도면 적용'));
+    await tester.pump();
+    expect(one, isEmpty);
+    expect(find.byKey(const Key('rolling_missing')), findsOneWidget);
+  });
 }

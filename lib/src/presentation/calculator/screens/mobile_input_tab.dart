@@ -535,6 +535,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                       context,
                       currentRotation: currentRot,
                       onAddBend: _addSingleBend,
+                      onAddBends: _addMultipleBends,
                     );
                   },
                 ),

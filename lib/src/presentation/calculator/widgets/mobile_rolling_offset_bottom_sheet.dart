@@ -39,6 +39,10 @@ class MobileRollingOffsetBottomSheet extends StatefulWidget {
   final double currentRotation;
   final Function(double length, double angle, double rotation) onAddBend;
 
+  /// 줄 여러 개를 한 번에 넣는 곳(있으면 이것을 쓴다). 🚀 [고침] 예전엔 줄마다 따로
+  /// 넣어 되돌리기(↶)를 여러 번 눌러야 했다(새들과 같은 방식).
+  final void Function(List<Map<String, double>> bends)? onAddBends;
+
   /// 어느 계산기에서 열었는지에 따른 장비 값. 없으면 튜브 제원을 읽는다.
   final BendSheetSpecs? specs;
 
@@ -46,6 +50,7 @@ class MobileRollingOffsetBottomSheet extends StatefulWidget {
     super.key,
     required this.currentRotation,
     required this.onAddBend,
+    this.onAddBends,
     this.specs,
   });
 
@@ -53,6 +58,7 @@ class MobileRollingOffsetBottomSheet extends StatefulWidget {
     BuildContext context, {
     required double currentRotation,
     required Function(double, double, double) onAddBend,
+    void Function(List<Map<String, double>> bends)? onAddBends,
     BendSheetSpecs? specs,
   }) {
     showModalBottomSheet(
@@ -62,6 +68,7 @@ class MobileRollingOffsetBottomSheet extends StatefulWidget {
       builder: (context) => MobileRollingOffsetBottomSheet(
         currentRotation: currentRotation,
         onAddBend: onAddBend,
+        onAddBends: onAddBends,
         specs: specs,
       ),
     );
@@ -166,8 +173,16 @@ class _MobileRollingOffsetBottomSheetState
         advance: advance,
         rotation: _selectedRotation!,
       );
-      for (final (length, angle, rotation) in bends) {
-        widget.onAddBend(length, angle, rotation);
+      final many = widget.onAddBends;
+      if (many != null) {
+        many([
+          for (final (length, angle, rotation) in bends)
+            {'length': length, 'angle': angle, 'rotation': rotation},
+        ]);
+      } else {
+        for (final (length, angle, rotation) in bends) {
+          widget.onAddBend(length, angle, rotation);
+        }
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -181,6 +196,21 @@ class _MobileRollingOffsetBottomSheetState
         ),
       );
       Navigator.pop(context);
+    } else {
+      // 🚀 [고침] 값이 모자라면 말없이 아무 일도 안 했다.
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            key: const Key('rolling_missing'),
+            content: Text(
+              _isReverseMode
+                  ? "넣을 수 없습니다. 빗변을 높이·굴림으로 만든 오프셋보다 길게 넣으십시오."
+                  : "넣을 수 없습니다. 높이·굴림 값과 꺾는 각도를 넣으십시오.",
+            ),
+            backgroundColor: Colors.deepOrange,
+          ),
+        );
     }
   }
 
