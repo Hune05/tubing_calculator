@@ -18,6 +18,31 @@ const String kPersonalSchedulesCollectionName = 'personal_schedules';
 // 개인 일정 알림의 제목. 폰에 예약된 알림 중 개인 일정 알림을 골라낼 때 쓴다.
 const String kPersonalReminderTitle = '일정 알림';
 
+/// 개인 일정 알림에 붙이는 글. 누르면 내 일정의 그 날짜를 연다.
+/// 반복 알림은 날짜가 매번 달라 비워 두고(=오늘을 연다) 일정 id만 넣는다.
+const String kPersonalPayloadPrefix = 'sched:';
+
+String personalReminderPayload(String docId, DateTime? date) {
+  String two(int v) => v.toString().padLeft(2, '0');
+  final d = date == null
+      ? ''
+      : '${date.year}-${two(date.month)}-${two(date.day)}';
+  return '$kPersonalPayloadPrefix$docId|$d';
+}
+
+/// [personalReminderPayload]로 만든 글을 읽는다. 개인 일정 알림이 아니면 null.
+({String id, DateTime? date})? parsePersonalReminderPayload(String? payload) {
+  if (payload == null || !payload.startsWith(kPersonalPayloadPrefix)) {
+    return null;
+  }
+  final rest = payload.substring(kPersonalPayloadPrefix.length);
+  final i = rest.lastIndexOf('|');
+  final id = i < 0 ? rest : rest.substring(0, i);
+  final date = i < 0 ? null : DateTime.tryParse(rest.substring(i + 1));
+  if (id.isEmpty) return null;
+  return (id: id, date: date);
+}
+
 bool _tzReady = false;
 bool _channelReady = false;
 
@@ -127,10 +152,22 @@ Future<void> schedulePersonalReminder(
     if (remindAt == null) continue;
     _ensureTz();
     await _ensureChannel();
+    final repeat = repeatComponentsFor(
+      recurrence: recurrence,
+      start: start,
+      minutesBefore: minutesBefore,
+      until: until,
+      exceptions: exceptions,
+    );
     await flutterLocalNotificationsPlugin.zonedSchedule(
       id: personalNotifIdAt(docId, i),
       title: kPersonalReminderTitle,
       body: body,
+      // 🚀 [추가] 누르면 그 일정의 날짜를 연다(예전엔 홈만 떴다).
+      payload: personalReminderPayload(
+        docId,
+        repeat == null ? remindAt.add(Duration(minutes: minutesBefore)) : null,
+      ),
       scheduledDate: tz.TZDateTime.from(remindAt, tz.local),
       notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
@@ -142,13 +179,7 @@ Future<void> schedulePersonalReminder(
         ),
       ),
       androidScheduleMode: await reminderScheduleMode(),
-      matchDateTimeComponents: repeatComponentsFor(
-        recurrence: recurrence,
-        start: start,
-        minutesBefore: minutesBefore,
-        until: until,
-        exceptions: exceptions,
-      ),
+      matchDateTimeComponents: repeat,
     );
   }
 }

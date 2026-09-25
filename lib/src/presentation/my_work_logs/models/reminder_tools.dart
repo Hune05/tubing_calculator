@@ -400,6 +400,29 @@ Future<bool> canScheduleExactAlarms() async {
   }
 }
 
+const String _kNotifPermAsked = 'notif_permission_asked_v1';
+
+/// 알림 권한을 처음 한 번만 묻는다(이미 물었으면 그냥 돌아온다). 알림을 켜는 순간에 부른다.
+/// 🚀 [고침] 예전에는 앱을 켜자마자 물어, 무엇에 쓰는지 알기 전이라 거절하기 쉬웠고
+/// 거절하면 안드로이드는 다시 물어 주지 않았다. 거절했어도 알림 점검 화면에서 켤 수 있다.
+Future<void> ensureNotificationPermission() async {
+  try {
+    final p = await SharedPreferences.getInstance();
+    if (p.getBool(_kNotifPermAsked) == true) return;
+    await p.setBool(_kNotifPermAsked, true);
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.requestNotificationsPermission();
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >()
+        ?.requestPermissions(alert: true, badge: true, sound: true);
+  } catch (_) {}
+}
+
 // 정확한 알람 허용 화면을 연다(폰 설정). 허용했으면 true.
 Future<bool> requestExactAlarmPermission() async {
   try {

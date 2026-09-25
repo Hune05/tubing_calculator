@@ -84,6 +84,10 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- 앱이 꺼져 있을 때 온 서버 알림도 앱이 만든 "현장 중요 알림" 채널로(예전엔 "기타"). -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="high_importance_channel" />
     </application>
     
     <queries>

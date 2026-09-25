@@ -413,6 +413,10 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                   autoPdf: autoPdf,
                 );
                 await saveMorningSummary(morningOn, morningMinutes);
+                // 알림을 켜는 순간에 권한을 묻는다(앱을 켤 때 묻지 않는다).
+                if (enabled || weekly || morningOn) {
+                  await ensureNotificationPermission();
+                }
                 await syncReportReminder(_workLogs);
                 if (ctx.mounted) Navigator.pop(ctx);
               },

@@ -26,6 +26,8 @@ import 'schedule_ics.dart';
 import 'schedule_search_dialog.dart';
 import 'schedule_logic.dart';
 import 'schedule_reminders.dart';
+import '../my_work_logs/models/reminder_tools.dart'
+    show ensureNotificationPermission;
 
 // 🚀 [신규] "내 일정 관리" - 마키타 틸 팔레트로 앱 전체와 통일.
 const Color scheduleTeal = Color(0xFF007580);
@@ -198,7 +200,14 @@ class MobileMyScheduleScreen extends StatefulWidget {
   // SharedPreferences에서 직접 읽는다.
   final String? currentWorker;
 
-  const MobileMyScheduleScreen({super.key, this.currentWorker});
+  /// 처음 보여 줄 날짜(알림을 눌러 들어올 때). 없으면 오늘.
+  final DateTime? initialDate;
+
+  const MobileMyScheduleScreen({
+    super.key,
+    this.currentWorker,
+    this.initialDate,
+  });
 
   @override
   State<MobileMyScheduleScreen> createState() => _MobileMyScheduleScreenState();
@@ -209,8 +218,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   _ViewMode _viewMode = _ViewMode.month;
   DateTime? _tlStart;
   CalendarFormat _calendarFormat = CalendarFormat.month;
-  DateTime _focusedDay = DateTime.now();
-  DateTime _selectedDay = DateTime.now();
+  late DateTime _focusedDay = widget.initialDate ?? DateTime.now();
+  late DateTime _selectedDay = widget.initialDate ?? DateTime.now();
 
   final WorkProjectRepository _projectRepo = WorkProjectRepository();
   List<Map<String, dynamic>> _projects = [];
@@ -537,7 +546,11 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   Future<void> _scheduleOrCancelReminder(
     String docId,
     Map<String, dynamic> data,
-  ) => schedulePersonalReminder(docId, data);
+  ) async {
+    // 알림을 단 일정을 처음 저장할 때 알림 권한을 묻는다(앱을 켤 때 묻지 않는다).
+    if (readReminders(data).isNotEmpty) await ensureNotificationPermission();
+    await schedulePersonalReminder(docId, data);
+  }
 
   Future<void> _deletePersonalItem(
     String docId, {

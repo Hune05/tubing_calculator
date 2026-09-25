@@ -151,13 +151,17 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   // 이유로든 실패하면 null을 돌려줘서 호출한 쪽이 기존 하드코딩된
   // 부산 좌표로 조용히 폴백하게 한다 - 위치를 못 가져왔다고 날씨
   // 기능 자체가 죽으면 안 되니까.
-  Future<Position?> _determinePosition() async {
+  // 🚀 [고침] 예전에는 홈이 뜨자마자 위치 권한을 물었다(무엇에 쓰는지 알기 전이라
+  // 거절하기 쉽고, 거절하면 다시 안 물어 준다). 이제 켤 때는 이미 허용된 경우만 쓰고,
+  // 날씨 카드를 누를 때([ask]) 묻는다. 날씨에는 대략 위치면 충분하다(건물 안에서
+  // 정밀 GPS를 기다리다 8초를 다 쓰던 것).
+  Future<Position?> _determinePosition({bool ask = false}) async {
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) return null;
 
       LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
+      if (permission == LocationPermission.denied && ask) {
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.denied ||
@@ -167,7 +171,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
 
       return await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
+          accuracy: LocationAccuracy.low,
           timeLimit: Duration(seconds: 8),
         ),
       );
@@ -249,9 +253,10 @@ class _MobileMenuPageState extends State<MobileMenuPage>
 
         String mainCondition = weatherData['weather'][0]['main'];
         String desc = _simplifyWeather(mainCondition);
-        double temp = weatherData['main']['temp'];
+        // 기온이 20처럼 딱 떨어지면 정수로 와서 형이 안 맞아 실패로 보였다.
+        double temp = (weatherData['main']['temp'] as num).toDouble();
 
-        int aqi = airData['list'][0]['main']['aqi'];
+        int aqi = (airData['list'][0]['main']['aqi'] as num).toInt();
         List<String> pmLabels = ['알 수 없음', '좋음', '보통', '나쁨', '매우 나쁨', '위험'];
         String pm = (aqi > 0 && aqi <= 5) ? pmLabels[aqi] : '알 수 없음';
 
@@ -890,6 +895,16 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   // 앱이 없었다) 웹 브라우저로 날씨 검색 결과를 대신 보여준다.
   Future<void> _openWeatherApp() async {
     HapticFeedback.lightImpact();
+    // 위치를 아직 묻지 않았으면 이번 누름에 묻고 내 위치 날씨로 다시 불러온다.
+    try {
+      if (await Geolocator.checkPermission() == LocationPermission.denied) {
+        final pos = await _determinePosition(ask: true);
+        if (pos != null) {
+          await _fetchDetailedWeather();
+          return;
+        }
+      }
+    } catch (_) {}
     // 🚀 삼성 날씨는 런처 아이콘용 MAIN/LAUNCHER 액티비티가 없어서(기기의
     // dumpsys로 확인) 일반적인 "앱 실행" 방식으론 안 열렸다. 대신 앱
     // 자체의 MainActivity를 직접 지정해서 연다.

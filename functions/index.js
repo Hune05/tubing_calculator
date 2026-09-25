@@ -35,6 +35,10 @@ async function sendMulticast(tokens, title, body) {
     try {
         const response = await admin.messaging().sendEachForMulticast({
             notification: { title, body },
+            // 앱이 만든 "현장 중요 알림" 채널로 보내고(예전엔 FCM 기본 "기타" 채널),
+            // 누르면 앱이 작업 일지 화면을 연다(main.dart routeForNotification).
+            android: { notification: { channelId: "high_importance_channel" } },
+            data: { open: "work_logs" },
             tokens,
         });
         return response.successCount > 0;

@@ -32,6 +32,8 @@ import 'package:tubing_calculator/src/presentation/project/project_management_pa
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_project_list_screen.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/screens/mobile_steel_project_list_page.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/mobile_my_schedule_page.dart';
+import 'package:tubing_calculator/src/presentation/my_schedule/schedule_reminders.dart'
+    show parsePersonalReminderPayload;
 import 'package:tubing_calculator/src/presentation/menu/page/home_menu_router.dart';
 import 'package:tubing_calculator/src/presentation/menu/page/mobile_loading_screen.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_only_screen.dart';
@@ -54,7 +56,39 @@ import 'package:tubing_calculator/src/presentation/profile/profile_tools.dart'
 // 알림을 눌렀을 때 화면을 열기 위한 전역 내비게이터.
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
+/// 알림에서 열 화면. 개인 일정이면 내 일정의 그 날짜, 서버 알림(일정·이슈·일지)이면 작업 일지.
+/// 없으면 null(주간·일일 보고는 아래에서 따로).
+Route<void>? routeForNotification(String? payload, Map<String, dynamic> data) {
+  final sched = parsePersonalReminderPayload(payload);
+  if (sched != null) {
+    return MaterialPageRoute<void>(
+      builder: (_) => MobileMyScheduleScreen(initialDate: sched.date),
+    );
+  }
+  if (data['open'] == 'work_logs') {
+    return WorkRoute(builder: (_) => const WorkLogMainScreen());
+  }
+  return null;
+}
+
+void _openRouteWhenReady(Route<void> route, [int left = 10]) {
+  final nav = appNavigatorKey.currentState;
+  if (nav != null) {
+    nav.push(route);
+  } else if (left > 0) {
+    Future.delayed(
+      const Duration(milliseconds: 500),
+      () => _openRouteWhenReady(route, left - 1),
+    );
+  }
+}
+
 void _handleNotificationPayload(String? payload) {
+  final route = routeForNotification(payload, const {});
+  if (route != null) {
+    _openRouteWhenReady(route);
+    return;
+  }
   final isDaily = payload == kDailyReportPayload;
   if (!isDaily &&
       payload != kWeeklyReportPayload &&
@@ -104,7 +138,7 @@ Future<void> setupFlutterNotifications() async {
   channel = const AndroidNotificationChannel(
     'high_importance_channel',
     '현장 중요 알림',
-    description: '자재 발주 및 중요 현장 알림에 사용됩니다.',
+    description: '일정·이슈·작업 일지 알림에 사용됩니다.',
     importance: Importance.high,
   );
 
@@ -246,13 +280,9 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _requestNotificationPermission() async {
+    // 🚀 [고침] 알림 권한은 앱을 켤 때 묻지 않고, 알림을 켜는 순간에 묻는다
+    // (reminder_tools.dart ensureNotificationPermission).
     FirebaseMessaging messaging = FirebaseMessaging.instance;
-    NotificationSettings settings = await messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-    debugPrint('사용자 알림 권한 상태: ${settings.authorizationStatus}');
     // 발주 기능은 지웠다. 예전에 구독한 폰도 발주 알림 주제에서 빠진다.
     await messaging.unsubscribeFromTopic("field_orders");
   }
@@ -283,16 +313,17 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _setupBackgroundAndTerminatedMessageListener() {
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      debugPrint('백그라운드에서 알림 터치 진입: ${message.data}');
-    });
+    // 서버 알림을 누르면 그 알림이 가리키는 화면(작업 일지)을 연다(예전엔 글만 찍었다).
+    void open(RemoteMessage message) {
+      final route = routeForNotification(null, message.data);
+      if (route != null) _openRouteWhenReady(route);
+    }
 
+    FirebaseMessaging.onMessageOpenedApp.listen(open);
     FirebaseMessaging.instance.getInitialMessage().then((
       RemoteMessage? message,
     ) {
-      if (message != null) {
-        debugPrint('앱 종료 상태에서 알림 터치 진입: ${message.data}');
-      }
+      if (message != null) open(message);
     });
   }
 
