@@ -1,8 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
+
+  /// 튜브 보관함(history)이 바뀔 때마다 1씩 오른다. 보관함 탭이 듣고 다시 읽는다.
+  /// 🚀 [고침] 예전엔 저장해도 보관함 탭(계산기 안에 계속 살아 있음)이 안 바뀌어
+  /// "저장이 안 됐나" 하고 두 번 저장하기 쉬웠다.
+  static final ValueNotifier<int> historyVersion = ValueNotifier<int>(0);
   static Database? _database;
 
   DatabaseHelper._init();
@@ -86,7 +92,9 @@ class DatabaseHelper {
   // ==========================================
   Future<int> insertHistory(Map<String, dynamic> row) async {
     final db = await instance.database;
-    return await db.insert('history', row);
+    final id = await db.insert('history', row);
+    historyVersion.value++;
+    return id;
   }
 
   Future<List<Map<String, dynamic>>> getHistory() async {
@@ -96,11 +104,15 @@ class DatabaseHelper {
 
   Future<int> updateHistory(int id, Map<String, dynamic> row) async {
     final db = await instance.database;
-    return await db.update('history', row, where: 'id = ?', whereArgs: [id]);
+    final n = await db.update('history', row, where: 'id = ?', whereArgs: [id]);
+    historyVersion.value++;
+    return n;
   }
 
   Future<int> deleteHistory(int id) async {
     final db = await instance.database;
-    return await db.delete('history', where: 'id = ?', whereArgs: [id]);
+    final n = await db.delete('history', where: 'id = ?', whereArgs: [id]);
+    historyVersion.value++;
+    return n;
   }
 }

@@ -18,6 +18,11 @@ class MobileSaddleBottomSheet extends StatefulWidget {
   final double currentRotation;
   final Function(double length, double angle, double rotation) onAddBend;
 
+  /// 줄 여러 개를 한 번에 넣는 곳(있으면 이것을 쓴다). 새들 한 벌이 되돌리기(↶) 한 번에
+  /// 빠지게 한다. 🚀 [고침] 예전엔 줄마다 넣어 3점은 ↶ 세 번, 4점은 네 번 눌러야 했고
+  /// 중간에서 멈추면 반쪽 새들이 남았다.
+  final void Function(List<Map<String, double>> bends)? onAddBends;
+
   /// 어느 계산기에서 열었는지에 따른 장비 값. 없으면 튜브 제원을 읽는다.
   final BendSheetSpecs? specs;
 
@@ -25,6 +30,7 @@ class MobileSaddleBottomSheet extends StatefulWidget {
     super.key,
     required this.currentRotation,
     required this.onAddBend,
+    this.onAddBends,
     this.specs,
   });
 
@@ -32,6 +38,7 @@ class MobileSaddleBottomSheet extends StatefulWidget {
     BuildContext context, {
     required double currentRotation,
     required Function(double, double, double) onAddBend,
+    void Function(List<Map<String, double>> bends)? onAddBends,
     BendSheetSpecs? specs,
   }) {
     showModalBottomSheet(
@@ -41,6 +48,7 @@ class MobileSaddleBottomSheet extends StatefulWidget {
       builder: (context) => MobileSaddleBottomSheet(
         currentRotation: currentRotation,
         onAddBend: onAddBend,
+        onAddBends: onAddBends,
         specs: specs,
       ),
     );
@@ -53,6 +61,20 @@ class MobileSaddleBottomSheet extends StatefulWidget {
 
 class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     with SingleTickerProviderStateMixin {
+  // 새들 한 벌을 한 번에 넣는다(되돌리기 한 번에 빠지게). 받는 곳이 없으면 한 줄씩.
+  void _addAll(List<(double, double, double)> rows) {
+    final many = widget.onAddBends;
+    if (many != null) {
+      many([
+        for (final r in rows) {'length': r.$1, 'angle': r.$2, 'rotation': r.$3},
+      ]);
+      return;
+    }
+    for (final r in rows) {
+      widget.onAddBend(r.$1, r.$2, r.$3);
+    }
+  }
+
   late TabController _tabController;
   double? _selectedRotation;
 
@@ -204,9 +226,11 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
       roundedShrink,
     );
 
-    widget.onAddBend(firstLen, sideAngle, _selectedRotation!);
-    widget.onAddBend(roundedTravel, a3, oppRot);
-    widget.onAddBend(roundedTravel, sideAngle, _selectedRotation!);
+    _addAll([
+      (firstLen, sideAngle, _selectedRotation!),
+      (roundedTravel, a3, oppRot),
+      (roundedTravel, sideAngle, _selectedRotation!),
+    ]);
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -331,10 +355,12 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     // 🚀 [고침] 1번 마킹이 "시작 거리 + 더할 축소값" 자리에 오도록 한다.
     final double firstLen4 = _firstLength(startDistance4, a4, roundedShrink);
 
-    widget.onAddBend(firstLen4, a4, _selectedRotation!);
-    widget.onAddBend(roundedTravel, a4, oppRot);
-    widget.onAddBend(roundedW, a4, oppRot);
-    widget.onAddBend(roundedTravel, a4, _selectedRotation!);
+    _addAll([
+      (firstLen4, a4, _selectedRotation!),
+      (roundedTravel, a4, oppRot),
+      (roundedW, a4, oppRot),
+      (roundedTravel, a4, _selectedRotation!),
+    ]);
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

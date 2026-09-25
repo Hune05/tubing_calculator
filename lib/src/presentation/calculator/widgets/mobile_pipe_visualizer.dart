@@ -98,8 +98,18 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
     }
   }
 
-  // 🚀 [삭제됨] 부모 위젯이 강제로 초기값으로 덮어씌우는 didUpdateWidget 로직을 제거했습니다.
-  // 이제 사용자가 직접 드롭다운을 누르기 전까지는 절대 값이 바뀌지 않습니다.
+  // 부모가 넘기는 시작 방향이 "바뀌었을 때만" 따라간다(보관함에서 도면을 불러온 경우).
+  // 🚀 [고침] 예전엔 아예 따라가지 않아, 불러온 도면인데 아이소는 옛 방향, 마킹 탭의
+  // 관끼리 닿음 검사는 새 방향으로 셈했다. 같은 값을 다시 넘기는 것은 무시하므로
+  // 사용자가 드롭다운으로 고른 방향을 덮지 않는다(고른 값은 부모에도 올라간다).
+  @override
+  void didUpdateWidget(covariant MobilePipeVisualizer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialStartDir != oldWidget.initialStartDir &&
+        widget.initialStartDir != _startDir) {
+      setState(() => _startDir = widget.initialStartDir);
+    }
+  }
 
   void _resetView() {
     setState(() {

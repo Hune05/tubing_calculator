@@ -880,10 +880,17 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
   void initState() {
     super.initState();
     _refreshHistory();
+    // 다른 탭에서 저장·고치기·지우기를 하면 바로 다시 읽는다.
+    DatabaseHelper.historyVersion.addListener(_onHistoryChanged);
+  }
+
+  void _onHistoryChanged() {
+    if (mounted) _refreshHistory();
   }
 
   @override
   void dispose() {
+    DatabaseHelper.historyVersion.removeListener(_onHistoryChanged);
     _searchController.dispose();
     super.dispose();
   }
