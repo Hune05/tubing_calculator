@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -76,7 +77,7 @@ class SkidPartPainter extends CustomPainter {
 }
 
 const Color _body = Color(0xFFF8FAFC);
-const Color _metal = Color(0xFFE2E8F0);
+const Color _metal = AppColors.line;
 const Color _cover = Color(0xFFEEF2F6);
 
 /// [s] 칸에 [shape]를 [face] 방향에서 본 모습으로 그린다(돌리기·뒤집기는 부르는 쪽이 한다).

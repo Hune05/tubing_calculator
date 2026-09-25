@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
@@ -18,16 +19,16 @@ final ValueNotifier<Map<String, dynamic>> globalMarkingState = ValueNotifier({
 });
 
 // 🎨 색상 테마 정의
-const Color makitaTeal = Color(0xFF007580); // 수동
+const Color makitaTeal = AppColors.brand; // 수동
 const Color ramBlue = Colors.blueAccent; // 유압식
 const Color chicagoPurple = Colors.deepPurple; // 시카고식
 
-const Color slate900 = Color(0xFF0F172A);
+const Color slate900 = AppColors.text;
 const Color slate800 = Color(0xFF1E293B);
-const Color slate600 = Color(0xFF475569);
+const Color slate600 = AppColors.textSub;
 const Color slate400 = Color(0xFF94A3B8);
-const Color slate200 = Color(0xFFE2E8F0);
-const Color slate100 = Color(0xFFF1F5F9);
+const Color slate200 = AppColors.line;
+const Color slate100 = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
 
 class ConduitResultTab extends StatefulWidget {
@@ -528,7 +529,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
     // 앞 마킹보다 뒤로 간 벤드. 그 사이 곧은 부분이 벤더에 물릴 만큼 없다.
     final bool isShort = item['short'] == true;
     final Color noteColor = isShort
-        ? const Color(0xFFC77700)
+        ? AppColors.caution
         : (isStraight ? slate600 : themeColor);
 
     return Container(

@@ -1,4 +1,5 @@
 // lib/src/presentation/remote/screens/mobile_remote_page.dart
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
@@ -14,10 +15,10 @@ import '../remote_math.dart';
 import '../widgets/remote_widgets.dart';
 
 // 🎨 화이트 & 마키타 테마 컬러
-const Color makitaTeal = Color(0xFF007580);
-const Color slate900 = Color(0xFF191F28); // 토스 스타일의 부드러운 검정
-const Color slate600 = Color(0xFF5F6B78); // 토스 스타일의 세련된 회색
-const Color slate100 = Color(0xFFF2F4F6); // 토스 스타일의 배경 회색
+const Color makitaTeal = AppColors.brand;
+const Color slate900 = AppColors.text; // 토스 스타일의 부드러운 검정
+const Color slate600 = AppColors.textSub; // 토스 스타일의 세련된 회색
+const Color slate100 = AppColors.background; // 토스 스타일의 배경 회색
 const Color pureWhite = Color(0xFFFFFFFF);
 
 class MobileRemotePage extends StatefulWidget {

@@ -1,12 +1,13 @@
 // 현장 자료·장비 사용법 화면이 같이 쓰는 카드·표·줄.
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-const Color refTeal = Color(0xFF007580);
+const Color refTeal = AppColors.brand;
 const Color refWhite = Color(0xFFFFFFFF);
-const Color refBg = Color(0xFFF2F4F6);
-const Color refTextMain = Color(0xFF191F28);
-const Color refTextSub = Color(0xFF5F6B78);
+const Color refBg = AppColors.background;
+const Color refTextMain = AppColors.text;
+const Color refTextSub = AppColors.textSub;
 const Color refHighlight = Color(0xFFE8F3F4);
 
 /// 숫자를 소수 [digits]자리까지, 끝의 0은 떼고 보여 준다(12.70 → 12.7, 38.0 → 38).

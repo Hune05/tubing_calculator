@@ -1,6 +1,7 @@
 /// 전선관 마킹 탭의 "보관함에 저장" 창.
 library;
 
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -50,7 +51,7 @@ Future<bool> showConduitSaveDialog(
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        backgroundColor: Color(0xFF007580),
+        backgroundColor: AppColors.brand,
         behavior: SnackBarBehavior.floating,
         content: Text(
           '보관함에 저장했습니다.',

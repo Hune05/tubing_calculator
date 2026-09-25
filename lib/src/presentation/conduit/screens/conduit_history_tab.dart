@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tubing_calculator/src/data/conduit_drawings.dart';
@@ -8,16 +9,16 @@ import 'conduit_settings_page.dart' show globalBenderSettings;
 final ValueNotifier<int> conduitDrawingsRevision = ValueNotifier(0);
 
 // 🎨 프리미엄 컬러 팔레트
-const Color makitaTeal = Color(0xFF007580);
-const Color slate900 = Color(0xFF0F172A);
+const Color makitaTeal = AppColors.brand;
+const Color slate900 = AppColors.text;
 const Color slate800 = Color(0xFF1E293B);
-const Color slate600 = Color(0xFF475569);
+const Color slate600 = AppColors.textSub;
 const Color slate400 = Color(0xFF94A3B8); // 폴더 아이콘 색상 추가
-const Color slate200 = Color(0xFFE2E8F0);
-const Color slate100 = Color(0xFFF1F5F9);
+const Color slate200 = AppColors.line;
+const Color slate100 = AppColors.background;
 const Color slate50 = Color(0xFFF8FAFC);
 const Color pureWhite = Color(0xFFFFFFFF);
-const Color warningRed = Color(0xFFF04438);
+const Color warningRed = AppColors.danger;
 
 class ConduitHistoryTab extends StatefulWidget {
   /// 불러온 뒤(입력 탭으로 옮길 때 쓴다).

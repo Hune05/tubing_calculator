@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart';
@@ -17,11 +18,11 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/swipe_dele
 import 'package:tubing_calculator/src/presentation/calculator/widgets/undo_redo_buttons.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
 
-const Color makitaTeal = Color(0xFF007580);
-const Color slate900 = Color(0xFF0F172A);
+const Color makitaTeal = AppColors.brand;
+const Color slate900 = AppColors.text;
 const Color slate800 = Color(0xFF1E293B);
-const Color slate600 = Color(0xFF475569);
-const Color slate100 = Color(0xFFF1F5F9);
+const Color slate600 = AppColors.textSub;
+const Color slate100 = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
 
 /// 전선관 "직관+각도"로 넣을 수 있는 가장 큰 각.

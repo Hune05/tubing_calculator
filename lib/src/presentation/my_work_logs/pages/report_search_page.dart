@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import '../widgets/korean_text.dart';
 
@@ -129,7 +130,7 @@ class _ReportSearchPageState extends State<ReportSearchPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F4F6),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: pureWhite,
         foregroundColor: tossText,
@@ -294,7 +295,7 @@ class _ProjectPhotosPageState extends State<ProjectPhotosPage> {
         : all.where((i) => i.tag == _filter).toList();
     final paths = shown.map((e) => e.path).toList();
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F4F6),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: pureWhite,
         foregroundColor: tossText,

@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'korean_text.dart';
 
@@ -6,12 +7,12 @@ import '../models/project_merge.dart' show currentWorkerName;
 import '../models/project_phase.dart'
     show issueOverdueDays, issueWeeklyExcluded, setIssueWeeklyExcluded;
 
-const Color tossBlue = Color(0xFF007580); // 🚀 마키타 틸로 통일
-const Color tossText = Color(0xFF191F28);
-const Color tossSubText = Color(0xFF5F6B78);
-const Color tossBg = Color(0xFFF2F4F6);
+const Color tossBlue = AppColors.brand; // 🚀 마키타 틸로 통일
+const Color tossText = AppColors.text;
+const Color tossSubText = AppColors.textSub;
+const Color tossBg = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
-const Color warningRed = Color(0xFFF04438);
+const Color warningRed = AppColors.danger;
 
 // 리스트 아이템 (WorkLogCard와 아래 DailyReportPager가 함께 쓰므로
 // 최상위 함수로 뺐다)
@@ -246,7 +247,7 @@ class PunchListSectionState extends State<PunchListSection> {
                             border: Border.all(
                               color: _onlyMine
                                   ? warningRed.withValues(alpha: 0.5)
-                                  : const Color(0xFFE5E8EB),
+                                  : AppColors.line,
                             ),
                           ),
                           child: Text(

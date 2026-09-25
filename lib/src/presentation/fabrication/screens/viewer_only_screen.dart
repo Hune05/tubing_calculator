@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
@@ -51,7 +52,7 @@ class _ViewerOnlyScreenState extends State<ViewerOnlyScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF151B22),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF007580),
+        backgroundColor: AppColors.brand,
         foregroundColor: Colors.white,
         title: Column(
           mainAxisSize: MainAxisSize.min,

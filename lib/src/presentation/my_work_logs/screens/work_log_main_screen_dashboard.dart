@@ -111,7 +111,7 @@ extension _WorkLogMainDashboard on _WorkLogMainScreenState {
                 const Icon(
                   Icons.edit_document,
                   size: 14,
-                  color: Color(0xFFF04438),
+                  color: AppColors.danger,
                 ),
                 const SizedBox(width: 4),
                 Text(
@@ -177,7 +177,7 @@ extension _WorkLogMainDashboard on _WorkLogMainScreenState {
                 const Icon(
                   Icons.error_outline_rounded,
                   size: 14,
-                  color: Color(0xFFF04438),
+                  color: AppColors.danger,
                 ),
                 const SizedBox(width: 4),
                 Text(
@@ -205,7 +205,7 @@ extension _WorkLogMainDashboard on _WorkLogMainScreenState {
   Widget _buildIssueRow(Map<String, dynamic> item) {
     final String priority = item['priority'] ?? '보통';
     final Color badgeColor = priority == '긴급'
-        ? const Color(0xFFF04438)
+        ? AppColors.danger
         : (priority == '여유' ? tossSubText : tossBlue);
 
     return InkWell(
@@ -269,7 +269,7 @@ extension _WorkLogMainDashboard on _WorkLogMainScreenState {
     final bool isPending = dt == null;
     final bool isOverdue = !isPending && dt.isBefore(DateTime.now());
     final Color badgeColor = (isPending || isOverdue)
-        ? const Color(0xFFF04438)
+        ? AppColors.danger
         : tossBlue;
 
     String badgeText;

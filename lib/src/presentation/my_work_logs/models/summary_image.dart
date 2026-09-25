@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -11,9 +12,9 @@ import 'report_tools.dart';
 // 🚀 [현황 요약 이미지] 카톡 대화창에 그대로 올리기 좋은 한 장짜리(1080x1350) 프로젝트
 // 현황 카드를 그린다: 진행률, 납기, 단계, 최근 작업 일지, 이슈/자재 현황.
 // 위젯 트리를 거치지 않고 캔버스에 직접 그려서 화면 밖에서도 만들 수 있다.
-const _text = Color(0xFF191F28);
+const _text = AppColors.text;
 const _sub = Color(0xFF8B95A1);
-const _red = Color(0xFFF04438);
+const _red = AppColors.danger;
 const _green = Color(0xFF1D8A4E);
 
 Future<File> createSummaryImage(Map<String, dynamic> log) async {
@@ -128,7 +129,7 @@ Future<File> createSummaryImage(Map<String, dynamic> log) async {
         : '납기 D+${-diff}';
     final color = diff < 0 && progress < 1
         ? _red
-        : (diff <= 7 ? const Color(0xFFC77700) : theme);
+        : (diff <= 7 ? AppColors.caution : theme);
     final t = tp(label, 40, color: color, weight: FontWeight.w900);
     final bw = t.width + 56;
     final rr = RRect.fromRectAndRadius(
@@ -359,7 +360,7 @@ Future<File> createOverviewImage(List<Map<String, dynamic>> logs) async {
 
   final st = ReportStyle.current;
   final today = dayOnly(DateTime.now());
-  const head = Color(0xFF007580);
+  const head = AppColors.brand;
   c.drawRect(Rect.fromLTWH(0, 0, w, 170), Paint()..color = head);
   tp(
     st.company.isEmpty ? '오늘의 전체 현황' : st.company,

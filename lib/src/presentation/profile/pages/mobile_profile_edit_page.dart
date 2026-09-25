@@ -1,5 +1,6 @@
 // 상세 프로필: 사진·이름·팀·직급·연락처. 이름을 바꾸면 프로필 화면과 같은 갈래
 // ([ProfileStore.renameUser])로 옮기고 홈을 새 이름으로 다시 연다.
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,14 +10,14 @@ import 'package:tubing_calculator/src/presentation/menu/page/mobile_menu_page.da
 import 'package:tubing_calculator/src/presentation/profile/profile_tools.dart';
 import 'package:tubing_calculator/src/presentation/profile/widgets/profile_photo.dart';
 
-const Color slate900 = Color(0xFF191F28);
+const Color slate900 = AppColors.text;
 const Color slate800 = Color(0xFF333D4B);
-const Color slate600 = Color(0xFF5F6B78);
+const Color slate600 = AppColors.textSub;
 const Color slate300 = Color(0xFFD1D6DB);
-const Color slate100 = Color(0xFFF2F4F6);
+const Color slate100 = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
 // 색의 뜻(D-B): 앱의 주 색 하나(청록). 예전에는 이 화면만 파랑이었다.
-const Color blue500 = Color(0xFF007580);
+const Color blue500 = AppColors.brand;
 const Color red500 = Color(0xFFF04452);
 
 class MobileProfileEditPage extends StatefulWidget {

@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import '../widgets/work_theme.dart';
 import '../widgets/korean_text.dart';
@@ -12,12 +13,12 @@ import '../widgets/confirm_delete.dart';
 import 'floor_plan_pin_page.dart';
 import '../../my_schedule/schedule_logic.dart' show clampPickerInitial;
 
-const Color tossText = Color(0xFF191F28);
-const Color tossSubText = Color(0xFF5F6B78);
-const Color tossInputBg = Color(0xFFF2F4F6);
+const Color tossText = AppColors.text;
+const Color tossSubText = AppColors.textSub;
+const Color tossInputBg = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
-const Color warningRed = Color(0xFFF04438);
-const Color makitaTeal = Color(0xFF007580);
+const Color warningRed = AppColors.danger;
+const Color makitaTeal = AppColors.brand;
 
 class PunchListPage extends StatefulWidget {
   // 🚀 [추가] 같은 프로젝트에서 최근에 썼던 위치들 - 매번 타이핑하지

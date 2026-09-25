@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -386,7 +387,7 @@ class _CornerPainter extends CustomPainter {
   final double unit;
   const _CornerPainter({this.topLeft, this.bottomRight, required this.unit});
 
-  static const Color _c = Color(0xFFF04438);
+  static const Color _c = AppColors.danger;
 
   @override
   void paint(Canvas canvas, Size size) {

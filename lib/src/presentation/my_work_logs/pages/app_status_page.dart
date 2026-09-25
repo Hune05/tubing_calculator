@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,13 +10,13 @@ import '../models/report_tools.dart'
     show areNotificationsAllowed, canScheduleExactAlarms, pendingReminderIds;
 import '../widgets/korean_text.dart';
 
-const Color _teal = Color(0xFF007580);
-const Color _text = Color(0xFF191F28);
-const Color _sub = Color(0xFF5F6B78);
-const Color _bg = Color(0xFFF2F4F6);
-const Color _ok = Color(0xFF1B9E5A);
+const Color _teal = AppColors.brand;
+const Color _text = AppColors.text;
+const Color _sub = AppColors.textSub;
+const Color _bg = AppColors.background;
+const Color _ok = AppColors.ok;
 const Color _warn = Color(0xFFB54708);
-const Color _bad = Color(0xFFE5484D);
+const Color _bad = AppColors.danger;
 
 // 🚀 [앱 상태] 알림·서버·백업·저장 대기와 최근 오류를 한 화면에 모아 보여 준다.
 // 무언가 이상할 때 여기서 원인을 좁히고, 오류 기록을 복사해 보낼 수 있다.

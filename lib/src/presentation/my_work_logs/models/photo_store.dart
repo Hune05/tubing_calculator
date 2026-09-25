@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:io';
 
 import 'package:firebase_storage/firebase_storage.dart';
@@ -30,7 +31,7 @@ class PhotoImage extends StatelessWidget {
   Widget _broken() => Container(
     width: width,
     height: height,
-    color: const Color(0xFFF2F4F6),
+    color: AppColors.background,
     child: const Icon(
       Icons.image_not_supported_outlined,
       size: 20,
@@ -52,7 +53,7 @@ class PhotoImage extends StatelessWidget {
             : Container(
                 width: width,
                 height: height,
-                color: const Color(0xFFF2F4F6),
+                color: AppColors.background,
                 alignment: Alignment.center,
                 child: const SizedBox(
                   width: 18,

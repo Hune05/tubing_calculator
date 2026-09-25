@@ -1,11 +1,12 @@
 // 이슈 담당자 고르기: "나"·사용자 목록(users 문서 이름) 칩 + 직접 적기.
 // 서버를 5초 안에 못 읽으면 칩 없이 적는 칸만 나온다(통신 없는 현장).
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-const Color tossInputBg = Color(0xFFF2F4F6);
+const Color tossInputBg = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
-const Color tossSubText = Color(0xFF5F6B78);
+const Color tossSubText = AppColors.textSub;
 
 /// 사용자 이름 목록(한 번 읽으면 화면 사이에 재사용).
 class AssigneeNames {
@@ -129,7 +130,7 @@ class _AssigneePickerState extends State<AssigneePicker> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF007580) : tossInputBg,
+          color: selected ? AppColors.brand : tossInputBg,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
@@ -184,7 +185,7 @@ Future<String?> pickAssignee(
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(ctx, value.trim()),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF007580),
+                    backgroundColor: AppColors.brand,
                     minimumSize: const Size(0, 48),
                   ),
                   child: const Text(

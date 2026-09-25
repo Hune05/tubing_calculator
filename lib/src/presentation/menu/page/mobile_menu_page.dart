@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../../my_work_logs/widgets/work_theme.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'dart:convert';
@@ -50,14 +51,14 @@ import 'package:tubing_calculator/src/presentation/field_tools/level_page.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/protractor_page.dart';
 
 // 색의 뜻(D-B): 앱의 주 색 하나(청록). 예전에는 이 화면만 파랑이었다.
-const Color tossBlue = Color(0xFF007580);
+const Color tossBlue = AppColors.brand;
 const Color purpleBadge = Color(0xFF8A2BE2);
-const Color slate900 = Color(0xFF191F28);
-const Color slate600 = Color(0xFF5F6B78);
-const Color slate100 = Color(0xFFF2F4F6);
+const Color slate900 = AppColors.text;
+const Color slate600 = AppColors.textSub;
+const Color slate100 = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
-const Color warningRed = Color(0xFFF04438);
-const Color makitaTeal = Color(0xFF007580);
+const Color warningRed = AppColors.danger;
+const Color makitaTeal = AppColors.brand;
 
 class MobileMenuPage extends StatefulWidget {
   final String currentWorker;
@@ -389,7 +390,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   badgeText: (_missingReports ?? 0) > 0
                       ? "$_missingReports곳 안 씀"
                       : null,
-                  badgeColor: const Color(0xFFC77700),
+                  badgeColor: AppColors.caution,
                   onTap: () {
                     HapticFeedback.lightImpact();
                     Navigator.push(
@@ -856,12 +857,12 @@ class _MobileMenuPageState extends State<MobileMenuPage>
       margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
       padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFC77700).withValues(alpha: 0.1),
+        color: AppColors.caution.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
-          const Icon(Icons.person_add_alt_1_rounded, color: Color(0xFFC77700)),
+          const Icon(Icons.person_add_alt_1_rounded, color: AppColors.caution),
           const SizedBox(width: 10),
           const Expanded(
             child: Text(

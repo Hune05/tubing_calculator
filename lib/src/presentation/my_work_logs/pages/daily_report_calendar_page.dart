@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../widgets/work_theme.dart';
 import '../widgets/korean_text.dart';
 import 'package:flutter/material.dart';
@@ -5,12 +6,12 @@ import 'package:flutter/services.dart';
 import 'daily_report_page.dart';
 import '../models/report_tools.dart' show reportDateOf;
 
-const Color tossBlue = Color(0xFF007580); // 🚀 마키타 틸로 통일
-const Color tossText = Color(0xFF191F28);
-const Color tossSubText = Color(0xFF5F6B78);
-const Color tossBg = Color(0xFFF2F4F6);
+const Color tossBlue = AppColors.brand; // 🚀 마키타 틸로 통일
+const Color tossText = AppColors.text;
+const Color tossSubText = AppColors.textSub;
+const Color tossBg = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
-const Color warningRed = Color(0xFFF04438);
+const Color warningRed = AppColors.danger;
 
 // 🚀 [신규] 작업 일지를 날짜별로 한눈에 보고("이번 달에 며칠 빠졌나"),
 // 기간 통계(총 포인트/결선/초과근무)를 확인하고, 카카오톡 등에 붙여넣을

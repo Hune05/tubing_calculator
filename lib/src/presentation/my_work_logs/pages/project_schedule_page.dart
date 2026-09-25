@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import '../widgets/korean_text.dart';
 import 'package:flutter/services.dart';
@@ -9,12 +10,12 @@ import 'package:tubing_calculator/src/presentation/my_schedule/schedule_logic.da
 part 'project_schedule_page_editor.dart';
 part 'project_schedule_page_calendar.dart';
 
-const Color tossBlue = Color(0xFF007580); // 🚀 마키타 틸로 통일
-const Color tossText = Color(0xFF191F28);
-const Color tossSubText = Color(0xFF5F6B78);
-const Color tossBg = Color(0xFFF2F4F6);
+const Color tossBlue = AppColors.brand; // 🚀 마키타 틸로 통일
+const Color tossText = AppColors.text;
+const Color tossSubText = AppColors.textSub;
+const Color tossBg = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
-const Color warningRed = Color(0xFFF04438);
+const Color warningRed = AppColors.danger;
 
 // 🚀 [추가] 프로젝트 카드의 "계산기" 버튼이 사실 debugPrint만 찍는
 // 죽은 버튼이었어서, 그 자리를 "일정 관리"로 교체했다. 자재 요청/입고일/

@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:flutter/painting.dart' show Color;
 
@@ -8,7 +9,7 @@ const List<Color> kProjectPalette = [
   Color(0xFFE0432B),
   Color(0xFF1D8A4E),
   Color(0xFF8E63CE),
-  Color(0xFFC77700),
+  AppColors.caution,
   Color(0xFF0E9AA7),
   Color(0xFFD6336C),
   Color(0xFF5C6BC0),

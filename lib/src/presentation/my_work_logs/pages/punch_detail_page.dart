@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import '../widgets/korean_text.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
@@ -11,12 +12,12 @@ import 'floor_plan_pin_page.dart';
 import '../models/project_merge.dart' show currentWorkerName, authorLabel;
 import '../widgets/assignee_picker.dart';
 
-const Color makitaTeal = Color(0xFF007580);
-const Color tossText = Color(0xFF191F28);
-const Color tossSubText = Color(0xFF5F6B78);
-const Color tossInputBg = Color(0xFFF2F4F6);
+const Color makitaTeal = AppColors.brand;
+const Color tossText = AppColors.text;
+const Color tossSubText = AppColors.textSub;
+const Color tossInputBg = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
-const Color warningRed = Color(0xFFF04438);
+const Color warningRed = AppColors.danger;
 
 // 🚀 [신규] 이슈(펀치)를 탭하면 사진 모달 대신 여기로 들어온다.
 // "언제 발생했고, 어떻게 처리했는지"를 명확히 남기기 위한 화면 -
@@ -245,7 +246,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
         Navigator.pop(context, _punch);
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF2F4F6),
+        backgroundColor: AppColors.background,
         appBar: AppBar(
           backgroundColor: pureWhite,
           scrolledUnderElevation: 0,

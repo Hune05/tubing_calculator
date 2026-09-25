@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,10 +8,10 @@ import '../../my_schedule/korean_holidays.dart' show holidayTableNotice;
 import '../../my_schedule/schedule_reminders.dart';
 import '../widgets/korean_text.dart';
 
-const Color _teal = Color(0xFF007580);
-const Color _text = Color(0xFF191F28);
-const Color _sub = Color(0xFF5F6B78);
-const Color _bg = Color(0xFFF2F4F6);
+const Color _teal = AppColors.brand;
+const Color _text = AppColors.text;
+const Color _sub = AppColors.textSub;
+const Color _bg = AppColors.background;
 const String _pkg = 'com.example.tubing_calculator';
 
 // 🚀 [알림 점검] 예약 알림(작업 일지/주간 보고)이 안 올 때 원인을 찾는 화면.
@@ -202,7 +203,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
             style: const TextStyle(
               fontSize: 12,
               height: 1.4,
-              color: Color(0xFF1B9E5A),
+              color: AppColors.ok,
             ),
           ),
         ),
@@ -216,7 +217,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
           style: const TextStyle(
             fontSize: 12,
             height: 1.4,
-            color: Color(0xFFE5484D),
+            color: AppColors.danger,
           ),
         ),
       ),
@@ -274,7 +275,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: ok ? const Color(0xFF1B9E5A) : const Color(0xFFE5484D),
+              color: ok ? AppColors.ok : AppColors.danger,
             ),
           ),
           if (!ok)
@@ -397,10 +398,10 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
       c = _sub;
       t = "확인 못 함";
     } else if (scheduled) {
-      c = const Color(0xFF1B9E5A);
+      c = AppColors.ok;
       t = "예약됨 ($when)";
     } else {
-      c = const Color(0xFFE5484D);
+      c = AppColors.danger;
       t = "예약 안 됨 (진행중 프로젝트가 없거나 아직 앱에서 설정이 반영되지 않았습니다)";
     }
     return Padding(
@@ -438,7 +439,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
           Icon(
             _exact ? Icons.check_circle : Icons.info_outline,
             size: 18,
-            color: _exact ? const Color(0xFF1B9E5A) : const Color(0xFFB54708),
+            color: _exact ? AppColors.ok : const Color(0xFFB54708),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -447,9 +448,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: _exact
-                    ? const Color(0xFF1B9E5A)
-                    : const Color(0xFFB54708),
+                color: _exact ? AppColors.ok : const Color(0xFFB54708),
               ),
             ),
           ),
@@ -493,7 +492,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     final pending = _pendingIds;
     final scheduled = pending?.contains(kMorningSummaryId);
     final ok = scheduled != false;
-    final color = ok ? const Color(0xFF1B9E5A) : const Color(0xFFE5484D);
+    final color = ok ? AppColors.ok : AppColors.danger;
     return [
       Padding(
         padding: const EdgeInsets.only(top: 4, bottom: 4),
@@ -529,7 +528,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
   List<Widget> _holidayRows() {
     final note = holidayTableNotice(widget.nowForTest ?? DateTime.now());
     if (note.isEmpty) return const [];
-    const color = Color(0xFFE5484D);
+    const color = AppColors.danger;
     return [
       Padding(
         padding: const EdgeInsets.only(top: 4, bottom: 4),
@@ -559,7 +558,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     final p = _personal;
     if (p == null) return const [];
     final ok = p.expected == p.scheduled;
-    final color = ok ? const Color(0xFF1B9E5A) : const Color(0xFFE5484D);
+    final color = ok ? AppColors.ok : AppColors.danger;
     return [
       Padding(
         padding: const EdgeInsets.only(top: 4, bottom: 4),
@@ -693,9 +692,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
                       : (ok ? Icons.check_circle_rounded : Icons.error_rounded),
                   color: ok == null
                       ? _sub
-                      : (ok
-                            ? const Color(0xFF1B9E5A)
-                            : const Color(0xFFE5484D)),
+                      : (ok ? AppColors.ok : AppColors.danger),
                   size: 20,
                 ),
                 const SizedBox(width: 8),

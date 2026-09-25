@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert'; // 🚀 JSON 변환을 위해 추가
 import 'package:shared_preferences/shared_preferences.dart'; // 🚀 로컬 저장을 위해 추가
@@ -90,7 +91,7 @@ class _ElectricBendingWorkspaceState extends State<ElectricBendingWorkspace> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9), // slate100
+      backgroundColor: AppColors.background, // slate100
       // 💡 공통 AppBar와 하단 TabBar 완전히 삭제! (각 페이지가 스스로 그림)
       body: PageView(
         controller: _pageController,

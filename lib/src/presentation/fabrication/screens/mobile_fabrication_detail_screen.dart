@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
@@ -25,12 +26,12 @@ import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
 import 'package:tubing_calculator/src/presentation/calculator/tube_marking_rules.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/step_mark_card.dart';
 
-const Color makitaTeal = Color(0xFF007580);
-const Color slate900 = Color(0xFF0F172A);
-const Color slate600 = Color(0xFF475569);
-const Color slate100 = Color(0xFFF1F5F9);
+const Color makitaTeal = AppColors.brand;
+const Color slate900 = AppColors.text;
+const Color slate600 = AppColors.textSub;
+const Color slate100 = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
-const Color _slate200 = Color(0xFFE2E8F0);
+const Color _slate200 = AppColors.line;
 const Color _amber700 = Color(0xFFB45309);
 
 class MobileFabricationDetailScreen extends StatefulWidget {

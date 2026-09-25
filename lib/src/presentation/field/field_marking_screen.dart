@@ -9,6 +9,7 @@
 ///   왼쪽·볼륨 내림은 이전. 끝낸 단계는 ✓.
 library;
 
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart';
@@ -21,14 +22,14 @@ import 'package:tubing_calculator/src/presentation/field/field_marking.dart';
 // 🚀 [바꿈] 색을 줄였다. 바탕은 흰색 계열 하나, 누를 수 있는 것·켜진 것은
 // 앱의 청록, 벤드 마킹만 빨강. 테두리는 얇게, 그림자는 없앤다.
 const Color _paper = Color(0xFFF8FAFC);
-const Color _ink = Color(0xFF0F172A);
+const Color _ink = AppColors.text;
 const Color _kMuted = Color(0xFF64748B);
 const Color _kFaint = Color(0xFF94A3B8);
-const Color _line = Color(0xFFE2E8F0);
-const Color _teal = Color(0xFF007580);
+const Color _line = AppColors.line;
+const Color _teal = AppColors.brand;
 const Color _red = Color(0xFFD32F2F);
 const Color _stripBg = Colors.white;
-const Color _amber = Color(0xFFC77700);
+const Color _amber = AppColors.caution;
 
 class FieldMarkingScreen extends StatefulWidget {
   /// 자료가 바뀔 때 알려 주는 것(목록 관리자·설정).
@@ -1388,7 +1389,7 @@ class _TapePainter extends CustomPainter {
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFCBD5E1), Color(0xFFE2E8F0), Color(0xFFCBD5E1)],
+          colors: [Color(0xFFCBD5E1), AppColors.line, Color(0xFFCBD5E1)],
         ).createShader(pipeRect.outerRect),
     );
     canvas.drawRRect(

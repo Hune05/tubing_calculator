@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -420,7 +421,7 @@ class InstrumentShapePainter extends CustomPainter {
   });
 
   static const Color _bodyPlain = Color(0xFFF8FAFC);
-  static const Color _metal = Color(0xFFE2E8F0);
+  static const Color _metal = AppColors.line;
   static const Color _glass = Color(0xFFDDEFF1);
   static const Color _sorBlue = Color(0xFFCFE3F3);
   static const Color _maBlue = Color(0xFFD6E4F5);

@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -60,20 +61,20 @@ class _ScheduleSearchDialogState extends State<ScheduleSearchDialog> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF191F28),
+                color: AppColors.text,
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               key: const ValueKey('schedule_search_field'),
               autofocus: true,
-              style: const TextStyle(color: Color(0xFF191F28)),
+              style: const TextStyle(color: AppColors.text),
               decoration: InputDecoration(
                 hintText: "제목·종류·프로젝트 이름으로 찾기",
                 prefixIcon: const Icon(Icons.search_rounded),
                 isDense: true,
                 filled: true,
-                fillColor: const Color(0xFFF2F4F6),
+                fillColor: AppColors.background,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -94,7 +95,7 @@ class _ScheduleSearchDialogState extends State<ScheduleSearchDialog> {
                 padding: EdgeInsets.symmetric(vertical: 18),
                 child: Text(
                   "찾을 말을 입력하십시오.",
-                  style: TextStyle(color: Color(0xFF5F6B78)),
+                  style: TextStyle(color: AppColors.textSub),
                 ),
               )
             else if (results.isEmpty)
@@ -102,7 +103,7 @@ class _ScheduleSearchDialogState extends State<ScheduleSearchDialog> {
                 padding: EdgeInsets.symmetric(vertical: 18),
                 child: Text(
                   "맞는 일정이 없습니다.",
-                  style: TextStyle(color: Color(0xFF5F6B78)),
+                  style: TextStyle(color: AppColors.textSub),
                 ),
               )
             else
@@ -128,7 +129,7 @@ class _ScheduleSearchDialogState extends State<ScheduleSearchDialog> {
                         ),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE5E8EB)),
+                          border: Border.all(color: AppColors.line),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -141,8 +142,8 @@ class _ScheduleSearchDialogState extends State<ScheduleSearchDialog> {
                                 fontWeight: FontWeight.w800,
                                 fontSize: 14,
                                 color: past
-                                    ? const Color(0xFF5F6B78)
-                                    : const Color(0xFF191F28),
+                                    ? AppColors.textSub
+                                    : AppColors.text,
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -152,7 +153,7 @@ class _ScheduleSearchDialogState extends State<ScheduleSearchDialog> {
                               '${past ? '  ·  지난 일정' : ''}',
                               style: const TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF5F6B78),
+                                color: AppColors.textSub,
                               ),
                             ),
                           ],
@@ -169,7 +170,7 @@ class _ScheduleSearchDialogState extends State<ScheduleSearchDialog> {
                 onPressed: () => Navigator.pop(context),
                 child: const Text(
                   "닫기",
-                  style: TextStyle(color: Color(0xFF007580)),
+                  style: TextStyle(color: AppColors.brand),
                 ),
               ),
             ),

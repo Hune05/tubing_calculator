@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:io';
 import '../widgets/korean_text.dart';
 
@@ -8,11 +9,11 @@ import 'package:share_plus/share_plus.dart';
 import '../models/project_phase.dart';
 import '../models/report_tools.dart';
 
-const Color _teal = Color(0xFF007580);
-const Color _text = Color(0xFF191F28);
-const Color _sub = Color(0xFF5F6B78);
-const Color _bg = Color(0xFFF2F4F6);
-const Color _red = Color(0xFFF04438);
+const Color _teal = AppColors.brand;
+const Color _text = AppColors.text;
+const Color _sub = AppColors.textSub;
+const Color _bg = AppColors.background;
+const Color _red = AppColors.danger;
 
 // 🚀 [투입 통계] 작업 일지에 쌓인 인원/연장/작업량을 프로젝트·단계·월별로 모아, 다음
 // 견적이나 일정 잡을 때 "이런 공사는 인원-일이 이만큼 들었다"를 참고하게 한다.
@@ -587,7 +588,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
                                   ? (st == 'done' ? "-" : "입고 전")
                                   : "${used.length}일 사용 · 마지막 ${last!.month}/${last.day}",
                               style: TextStyle(
-                                color: unused ? const Color(0xFFC77700) : _teal,
+                                color: unused ? AppColors.caution : _teal,
                                 fontWeight: FontWeight.w800,
                                 fontSize: 12,
                               ),

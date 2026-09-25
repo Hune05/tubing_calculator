@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/data/machine_specs.dart';
 import '../tube_marking_rules.dart';
@@ -8,9 +9,9 @@ import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/presentation/calculator/bend_check.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
 
-const Color slate900 = Color(0xFF0F172A);
-const Color slate600 = Color(0xFF475569);
-const Color slate100 = Color(0xFFF1F5F9);
+const Color slate900 = AppColors.text;
+const Color slate600 = AppColors.textSub;
+const Color slate100 = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
 // 🚀 눈이 편안하도록 톤 다운된 오렌지 컬러 추가
 const Color tonedOrange = Color(0xFFCC5500);
@@ -1005,7 +1006,7 @@ class _ElectricMarkingPageState extends State<ElectricMarkingPage> {
                                     Text(
                                       "앞 벤드에서 ${((item['roll_deg'] as num).toDouble()).round()}° 굴려 물리십시오",
                                       style: const TextStyle(
-                                        color: Color(0xFFC77700),
+                                        color: AppColors.caution,
                                         fontSize: 13,
                                         fontWeight: FontWeight.bold,
                                       ),

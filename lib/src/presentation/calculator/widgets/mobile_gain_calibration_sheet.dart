@@ -1,12 +1,13 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:tubing_calculator/src/core/engine/bend_geometry.dart';
 
-const Color _teal = Color(0xFF007580);
-const Color _slate900 = Color(0xFF0F172A);
-const Color _slate600 = Color(0xFF475569);
-const Color _slate100 = Color(0xFFF1F5F9);
+const Color _teal = AppColors.brand;
+const Color _slate900 = AppColors.text;
+const Color _slate600 = AppColors.textSub;
+const Color _slate100 = AppColors.background;
 const Color _white = Color(0xFFFFFFFF);
 
 /// 한 번 꺾어 재 본 값으로 연신율(게인)을 잡아 주는 창.

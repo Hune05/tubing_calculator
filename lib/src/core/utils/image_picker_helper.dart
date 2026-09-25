@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show debugPrint;
@@ -5,9 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
-const Color makitaTeal = Color(0xFF007580);
-const Color slate600 = Color(0xFF475569);
-const Color slate900 = Color(0xFF0F172A);
+const Color makitaTeal = AppColors.brand;
+const Color slate600 = AppColors.textSub;
+const Color slate900 = AppColors.text;
 const Color pureWhite = Color(0xFFFFFFFF);
 
 class ImagePickerHelper {

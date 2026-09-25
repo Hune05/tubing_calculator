@@ -1,5 +1,6 @@
 // lib/src/presentation/inventory/pages/mobile_inventory_ocr.dart
 
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart'; // 🚀 자르기 패키지
@@ -33,7 +34,7 @@ class OcrService {
         uiSettings: [
           AndroidUiSettings(
             toolbarTitle: '라벨 전체 구역을 지정해 주십시오',
-            toolbarColor: const Color(0xFF007580), // 마키타 틸 색상
+            toolbarColor: AppColors.brand, // 마키타 틸 색상
             toolbarWidgetColor: Colors.white,
             initAspectRatio: CropAspectRatioPreset.original,
             lockAspectRatio: false,
@@ -51,7 +52,7 @@ class OcrService {
         context: context,
         barrierDismissible: false,
         builder: (context) => const Center(
-          child: CircularProgressIndicator(color: Color(0xFF007580)),
+          child: CircularProgressIndicator(color: AppColors.brand),
         ),
       );
 
@@ -139,7 +140,7 @@ class OcrService {
         uiSettings: [
           AndroidUiSettings(
             toolbarTitle: '해당 글자 한 줄만 좁게 잘라 주십시오',
-            toolbarColor: const Color(0xFF007580),
+            toolbarColor: AppColors.brand,
             toolbarWidgetColor: Colors.white,
             initAspectRatio: CropAspectRatioPreset.ratio16x9,
             lockAspectRatio: false, // 사용자가 모서리를 당겨서 미세 조정하는 것은 허용
@@ -158,7 +159,7 @@ class OcrService {
         context: context,
         barrierDismissible: false,
         builder: (context) => const Center(
-          child: CircularProgressIndicator(color: Color(0xFF007580)),
+          child: CircularProgressIndicator(color: AppColors.brand),
         ),
       );
 

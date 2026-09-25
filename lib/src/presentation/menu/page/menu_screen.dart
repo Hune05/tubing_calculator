@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -15,10 +16,10 @@ import 'package:tubing_calculator/src/presentation/profile/profile_tools.dart'
     show ProfileStore, kGuestName;
 
 // 💡 슬레이트 컬러 정의 (눈이 편안한 짙은 회색 톤)
-const Color makitaTeal = Color(0xFF007580);
+const Color makitaTeal = AppColors.brand;
 const Color slate900 = Color(0xFF1E293B); // 버튼 글씨색 (고급스러움)
-const Color slate600 = Color(0xFF475569); // 아이콘 색 (얇은 선 강조)
-const Color slate100 = Color(0xFFF1F5F9); // 화면 전체 배경색
+const Color slate600 = AppColors.textSub; // 아이콘 색 (얇은 선 강조)
+const Color slate100 = AppColors.background; // 화면 전체 배경색
 const Color pureWhite = Color(0xFFFFFFFF); // 버튼 배경색
 
 class MenuScreen extends StatelessWidget {

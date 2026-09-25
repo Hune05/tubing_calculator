@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:convert';
 import '../widgets/korean_text.dart';
 import 'dart:io';
@@ -9,10 +10,10 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import '../../../core/utils/image_picker_helper.dart';
 import '../models/report_style.dart';
 
-const Color _teal = Color(0xFF007580);
-const Color _text = Color(0xFF191F28);
-const Color _sub = Color(0xFF5F6B78);
-const Color _bg = Color(0xFFF2F4F6);
+const Color _teal = AppColors.brand;
+const Color _text = AppColors.text;
+const Color _sub = AppColors.textSub;
+const Color _bg = AppColors.background;
 
 // 🚀 [보고서 양식 설정] 회사명·로고·담당자 머리말, 서명란, 포함 항목, PDF 사진 기본값.
 class ReportStylePage extends StatefulWidget {

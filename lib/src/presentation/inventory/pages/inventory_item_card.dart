@@ -1,9 +1,10 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'inventory_model.dart';
 
-const Color slate900 = Color(0xFF0F172A);
-const Color slate600 = Color(0xFF475569);
-const Color slate100 = Color(0xFFF1F5F9);
+const Color slate900 = AppColors.text;
+const Color slate600 = AppColors.textSub;
+const Color slate100 = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
 
 class InventoryItemCard extends StatefulWidget {

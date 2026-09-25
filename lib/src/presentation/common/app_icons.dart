@@ -4,6 +4,7 @@
 /// 모양이라 바로 알아보는 단추는 기본 아이콘을 그대로 쓴다.
 library;
 
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -181,7 +182,7 @@ class AppIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = IconTheme.of(context);
     final double s = size ?? theme.size ?? 24;
-    final Color c = color ?? theme.color ?? const Color(0xFF0F172A);
+    final Color c = color ?? theme.color ?? AppColors.text;
     // 기본 Icon처럼: 둘레가 크기를 억지로 늘려도(가운데 맞춤 없는 상자 등)
     // 그림은 제 크기로 가운데에 그린다.
     return SizedBox(

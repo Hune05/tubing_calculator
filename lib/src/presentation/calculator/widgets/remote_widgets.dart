@@ -1,11 +1,12 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 // 🎨 화이트 & 마키타 테마 컬러
-const Color makitaTeal = Color(0xFF007580);
-const Color slate900 = Color(0xFF0F172A); // 진한 텍스트 (입력값)
-const Color slate600 = Color(0xFF475569); // 서브 텍스트 (라벨)
-const Color slate100 = Color(0xFFF1F5F9); // 연한 회색 (읽기 전용창 배경)
+const Color makitaTeal = AppColors.brand;
+const Color slate900 = AppColors.text; // 진한 텍스트 (입력값)
+const Color slate600 = AppColors.textSub; // 서브 텍스트 (라벨)
+const Color slate100 = AppColors.background; // 연한 회색 (읽기 전용창 배경)
 const Color pureWhite = Color(0xFFFFFFFF); // 퓨어 화이트 (입력창 배경)
 
 class RemoteReadOnlyField extends StatelessWidget {

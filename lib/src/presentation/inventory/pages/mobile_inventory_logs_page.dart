@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -14,11 +15,11 @@ String auditQtyPrefix(Map data) {
 }
 
 // 🎨 토스 스타일 미니멀 컬러 팔레트
-const Color makitaTeal = Color(0xFF007580);
-const Color slate900 = Color(0xFF191F28);
-const Color slate600 = Color(0xFF5F6B78);
+const Color makitaTeal = AppColors.brand;
+const Color slate900 = AppColors.text;
+const Color slate600 = AppColors.textSub;
 const Color slate300 = Color(0xFFCBD5E1); // 💡 이 줄이 추가되었습니다!
-const Color slate100 = Color(0xFFF2F4F6);
+const Color slate100 = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
 
 /// 기록 한 줄이 어느 작업에서 나온 것인지. 작업 것이 아니면 빈 글.

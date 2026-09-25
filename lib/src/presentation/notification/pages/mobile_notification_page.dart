@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,10 +7,10 @@ import 'package:intl/intl.dart';
 
 // 프로젝트 공통 컬러
 // 색의 뜻(D-B): 앱의 주 색 하나(청록). 예전에는 이 화면만 파랑이었다.
-const Color tossBlue = Color(0xFF007580);
-const Color slate900 = Color(0xFF191F28);
-const Color slate600 = Color(0xFF5F6B78);
-const Color slate100 = Color(0xFFF2F4F6);
+const Color tossBlue = AppColors.brand;
+const Color slate900 = AppColors.text;
+const Color slate600 = AppColors.textSub;
+const Color slate100 = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
 const Color red500 = Color(0xFFF04452);
 
@@ -401,7 +402,7 @@ class _MobileNotificationPageState extends State<MobileNotificationPage> {
           const Icon(
             LucideIcons.alertTriangle,
             size: 48,
-            color: Color(0xFFF04438),
+            color: AppColors.danger,
           ),
           const SizedBox(height: 16),
           const Text(

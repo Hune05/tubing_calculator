@@ -1,10 +1,11 @@
 // lib/src/presentation/calculator/widgets/parallel_shrink_bottom_sheet.dart
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
 
-const Color makitaTeal = Color(0xFF007580);
+const Color makitaTeal = AppColors.brand;
 const Color panelBg = Color(0xFF2A2A2A); // 태블릿 전용 다크 배경
 const Color pureWhite = Color(0xFFFFFFFF);
 

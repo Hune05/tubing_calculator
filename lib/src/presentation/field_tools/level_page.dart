@@ -3,6 +3,7 @@
 //  폰 축과의 차이), 눕히면 초록 화면에 큰 원 기포, 왼쪽 가장자리 cm 자, 오른쪽 아래 흰
 //  동그라미 단추(설정·영점·고정), 오른쪽 위 모드 단추(A = 자동).
 // 배관 구배를 보려고 %·mm/m 단위도 둔다.
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -15,8 +16,8 @@ import 'level_painters.dart';
 import 'tilt_math.dart';
 import 'tilt_sensor.dart';
 
-const Color _ink = Color(0xFF191F28);
-const Color _grey = Color(0xFF5F6B78);
+const Color _ink = AppColors.text;
+const Color _grey = AppColors.textSub;
 const Color _ok = Color(0xFF16A34A);
 
 const String kLevelCalibKey = 'field_level_calib_v1';

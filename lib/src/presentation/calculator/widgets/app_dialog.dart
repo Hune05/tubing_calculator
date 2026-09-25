@@ -3,12 +3,13 @@
 /// (그냥 AlertDialog를 쓰면 기본 테마가 어두운 바탕·보라 단추로 나왔다.)
 library;
 
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 
-const Color _teal = Color(0xFF007580);
-const Color _slate900 = Color(0xFF0F172A);
-const Color _slate600 = Color(0xFF475569);
-const Color _slate100 = Color(0xFFF1F5F9);
+const Color _teal = AppColors.brand;
+const Color _slate900 = AppColors.text;
+const Color _slate600 = AppColors.textSub;
+const Color _slate100 = AppColors.background;
 const Color _red = Color(0xFFDC2626);
 
 class AppDialog extends StatelessWidget {

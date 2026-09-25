@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 
 import 'korean_text.dart';
@@ -5,13 +6,13 @@ import 'korean_text.dart';
 // 작업 배치도 화면(목록·도면)이 같이 쓰는 색과 모양.
 // 전선관 계산기와 같은 색(slate)과 흰 둥근 카드에 맞췄다.
 // 이름은 예전 것(toss…)을 그대로 두어 화면 코드를 덜 건드린다.
-const Color tossBlue = Color(0xFF007580); // 마키타 틸(전선관 계산기와 같음)
-const Color tossText = Color(0xFF0F172A); // slate900
-const Color tossSubText = Color(0xFF475569); // slate600(밖에서도 읽히게 진하게)
-const Color tossBg = Color(0xFFF1F5F9); // slate100
-const Color layoutLine = Color(0xFFE2E8F0); // slate200: 칸 테두리
+const Color tossBlue = AppColors.brand; // 마키타 틸(전선관 계산기와 같음)
+const Color tossText = AppColors.text; // slate900
+const Color tossSubText = AppColors.textSub; // slate600(밖에서도 읽히게 진하게)
+const Color tossBg = AppColors.background; // slate100
+const Color layoutLine = AppColors.line; // slate200: 칸 테두리
 const Color pureWhite = Color(0xFFFFFFFF);
-const Color warningRed = Color(0xFFF04438);
+const Color warningRed = AppColors.danger;
 
 /// 누르는 곳의 가장 작은 크기(dp). 폰은 맨손으로 쓰므로 보통 폰 크기로 둔다.
 const double kLayoutTouch = 40;

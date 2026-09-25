@@ -2,6 +2,7 @@
 //
 // 사용자 문서는 users/{이름}이라 이름 바꾸기는 [ProfileStore.renameUser] 한 갈래로만 한다.
 // 바꾼 뒤에는 홈을 새 이름으로 다시 연다(예전엔 앱을 껐다 켜기 전까지 홈이 옛 이름이었다).
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -25,11 +26,11 @@ import 'package:tubing_calculator/src/presentation/reference/page/tube_reference
 import 'mobile_profile_edit_page.dart';
 
 // 색의 뜻(D-B): 앱의 주 색 하나(청록). 예전에는 이 화면만 파랑이었다.
-const Color tossBlue = Color(0xFF007580);
-const Color slate900 = Color(0xFF191F28);
+const Color tossBlue = AppColors.brand;
+const Color slate900 = AppColors.text;
 const Color slate800 = Color(0xFF333D4B);
-const Color slate600 = Color(0xFF5F6B78);
-const Color slate100 = Color(0xFFF2F4F6);
+const Color slate600 = AppColors.textSub;
+const Color slate100 = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
 const Color red500 = Color(0xFFF04452);
 
@@ -1048,7 +1049,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                             }
                           },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007580),
+                      backgroundColor: AppColors.brand,
                       foregroundColor: pureWhite,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 16),

@@ -1,14 +1,15 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import '../widgets/korean_text.dart';
 
 import '../models/project_phase.dart';
 import '../models/duration_hint.dart';
 
-const Color _teal = Color(0xFF007580);
-const Color _text = Color(0xFF191F28);
-const Color _sub = Color(0xFF5F6B78);
-const Color _bg = Color(0xFFF2F4F6);
-const Color _red = Color(0xFFF04438);
+const Color _teal = AppColors.brand;
+const Color _text = AppColors.text;
+const Color _sub = AppColors.textSub;
+const Color _bg = AppColors.background;
+const Color _red = AppColors.danger;
 
 // 🚀 [결과 정리 모아보기] 완료한 프로젝트들의 계획 대비 실제 기간, 인원-일, 원인·교훈을
 // 한곳에 모아 "이런 공사는 대략 이 정도 걸린다"를 파악하게 한다.

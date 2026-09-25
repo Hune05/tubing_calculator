@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -119,7 +120,7 @@ class _MobileInventoryLoginScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: AppColors.background,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -127,7 +128,7 @@ class _MobileInventoryLoginScreenState
             const Icon(
               Icons.admin_panel_settings,
               size: 80,
-              color: Color(0xFF007580),
+              color: AppColors.brand,
             ),
             const SizedBox(height: 24),
             const Text(
@@ -135,11 +136,11 @@ class _MobileInventoryLoginScreenState
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w900,
-                color: Color(0xFF0F172A),
+                color: AppColors.text,
               ),
             ),
             const SizedBox(height: 16),
-            const CircularProgressIndicator(color: Color(0xFF007580)),
+            const CircularProgressIndicator(color: AppColors.brand),
             const SizedBox(height: 24),
             Text(
               "본인 계정인지 확인하고 있습니다.",

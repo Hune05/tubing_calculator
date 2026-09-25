@@ -1,6 +1,7 @@
 /// 입력 목록 머리의 되돌리기 / 다시 하기 단추(튜브·전선관 공용).
 library;
 
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -18,7 +19,7 @@ class UndoRedoButtons extends StatelessWidget {
     super.key,
     required this.history,
     this.onChanged,
-    this.color = const Color(0xFF475569),
+    this.color = AppColors.textSub,
   });
 
   @override

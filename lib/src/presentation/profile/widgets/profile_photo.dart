@@ -1,4 +1,5 @@
 // 프로필 사진 고르기: 갤러리·카메라·지우기. 프로필 화면과 상세 프로필이 같이 쓴다.
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -10,9 +11,9 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../profile_tools.dart';
 
 // 색의 뜻(D-B): 앱의 주 색 하나(청록). 예전에는 이 화면만 파랑이었다.
-const Color _blue = Color(0xFF007580);
-const Color _slate900 = Color(0xFF191F28);
-const Color _slate600 = Color(0xFF5F6B78);
+const Color _blue = AppColors.brand;
+const Color _slate900 = AppColors.text;
+const Color _slate600 = AppColors.textSub;
 const Color _red = Color(0xFFF04452);
 
 /// 사진을 바꾼 결과. [removed]면 지운 것, [url]이 있으면 새 사진.

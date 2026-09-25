@@ -109,7 +109,7 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
                     style: TextStyle(
                       fontSize: 12,
                       color: issueOverdueDays(p) > 0
-                          ? const Color(0xFFE5484D)
+                          ? AppColors.danger
                           : tossSubText,
                     ),
                   ),

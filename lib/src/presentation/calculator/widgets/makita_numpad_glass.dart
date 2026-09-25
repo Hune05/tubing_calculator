@@ -1,7 +1,8 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'dart:ui'; // 반투명 블러 효과 패키지
 
-const Color makitaTeal = Color(0xFF007580);
+const Color makitaTeal = AppColors.brand;
 const Color numpadBg = Color(0xFF121212); // 조금 더 깊고 깨끗한 다크톤
 
 class MakitaNumpadGlass extends StatefulWidget {

@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:convert';
 import '../widgets/korean_text.dart';
 import 'dart:io';
@@ -16,10 +17,10 @@ import '../models/photo_store.dart';
 import '../widgets/work_theme.dart';
 import 'app_status_page.dart';
 
-const Color _teal = Color(0xFF007580);
-const Color _text = Color(0xFF191F28);
-const Color _sub = Color(0xFF5F6B78);
-const Color _bg = Color(0xFFF2F4F6);
+const Color _teal = AppColors.brand;
+const Color _text = AppColors.text;
+const Color _sub = AppColors.textSub;
+const Color _bg = AppColors.background;
 
 // 🚀 [저장 공간 관리] 앱이 만든 임시 파일(사진 압축본, 내보내기 PDF/CSV)과 작업 일지 임시
 // 저장을 확인하고 정리한다. 아직 클라우드에 안 올라간 원본 사진은 절대 지우지

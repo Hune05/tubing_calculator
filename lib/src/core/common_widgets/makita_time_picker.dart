@@ -1,9 +1,10 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-const Color _makitaTeal = Color(0xFF007580);
-const Color _slate900 = Color(0xFF191F28);
-const Color _slate500 = Color(0xFF5F6B78);
+const Color _makitaTeal = AppColors.brand;
+const Color _slate900 = AppColors.text;
+const Color _slate500 = AppColors.textSub;
 const Color _pureWhite = Color(0xFFFFFFFF);
 
 // 🚀 [신규] 기본 Material 시계판(다이얼) 대신, 갤럭시 캘린더처럼 시/분/
@@ -85,7 +86,7 @@ Future<TimeOfDay?> showMakitaTimePicker({
                   ],
                 ),
               ),
-              const Divider(height: 1, color: Color(0xFFF2F4F6)),
+              const Divider(height: 1, color: AppColors.background),
               SizedBox(
                 width: screenWidth,
                 height: 280,

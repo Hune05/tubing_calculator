@@ -1,10 +1,11 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' as vmath;
 import 'package:shared_preferences/shared_preferences.dart'; // 🚀 SharedPreferences 추가
 import 'package:tubing_calculator/src/presentation/calculator/widgets/pipe_path_points.dart';
 
-const Color makitaTeal = Color(0xFF007580);
+const Color makitaTeal = AppColors.brand;
 
 // 🚀 기존 태블릿 코드와 충돌하지 않도록 독립적인 모바일 전용 클래스 생성
 class MobilePipeVisualizer extends StatefulWidget {

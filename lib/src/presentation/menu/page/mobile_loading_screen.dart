@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -166,13 +167,13 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
             Container(
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: const Color(0xFF007580).withValues(alpha: 0.1),
+                color: AppColors.brand.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.engineering,
                 size: 80,
-                color: Color(0xFF007580),
+                color: AppColors.brand,
               ),
             ),
             const SizedBox(height: 32),
@@ -200,7 +201,7 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF007580),
+                  color: AppColors.brand,
                   letterSpacing: 1,
                 ),
               ),

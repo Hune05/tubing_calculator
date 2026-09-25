@@ -2,14 +2,15 @@
 /// 튜브 마킹 탭과 보관함 "도면 보기"가 같이 쓴다.
 library;
 
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 
-const Color _teal = Color(0xFF007580);
-const Color _slate900 = Color(0xFF0F172A);
-const Color _slate600 = Color(0xFF475569);
-const Color _slate200 = Color(0xFFE2E8F0);
-const Color _slate100 = Color(0xFFF1F5F9);
+const Color _teal = AppColors.brand;
+const Color _slate900 = AppColors.text;
+const Color _slate600 = AppColors.textSub;
+const Color _slate200 = AppColors.line;
+const Color _slate100 = AppColors.background;
 const Color _white = Color(0xFFFFFFFF);
 
 /// 카드 아래 한 줄 안내(아이콘, 글, 색).
@@ -18,7 +19,7 @@ typedef StepNote = (IconData icon, String text, Color color);
 /// 안내 색: 보통 회색, 앞 마킹과의 거리는 청록, 주의는 주황.
 const Color stepNoteGrey = _slate600;
 const Color stepNoteTeal = _teal;
-const Color stepNoteAmber = Color(0xFFC77700);
+const Color stepNoteAmber = AppColors.caution;
 
 class StepMarkCard extends StatelessWidget {
   /// 직관이면 번호 없이 회색 띠.

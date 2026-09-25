@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
@@ -6,7 +7,7 @@ import 'package:tubing_calculator/src/presentation/settings/widgets/settings_wid
 import 'package:tubing_calculator/src/core/utils/fitting_data.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 
-const Color makitaTeal = Color(0xFF007580);
+const Color makitaTeal = AppColors.brand;
 const Color toolGripBlack = Color(0xFF222222);
 const Color hardwareButtonTeal = Color(0xFF005C63);
 

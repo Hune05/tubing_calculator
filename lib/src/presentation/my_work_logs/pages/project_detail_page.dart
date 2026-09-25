@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../widgets/work_theme.dart';
 import '../widgets/korean_text.dart';
 import 'dart:convert';
@@ -127,7 +128,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
   Color _ddayColor(DateTime due) {
     final diff = due.difference(dayOnly(DateTime.now())).inDays;
     if (diff < 0) return warningRed;
-    if (diff <= 7) return const Color(0xFFC77700);
+    if (diff <= 7) return AppColors.caution;
     return tossBlue;
   }
 
@@ -923,7 +924,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       const SizedBox(height: 10),
       Row(
         children: [
-          stat("입고일 미정", 'pending', const Color(0xFFC77700)),
+          stat("입고일 미정", 'pending', AppColors.caution),
           const SizedBox(width: 8),
           stat("입고 예정", 'expected', tossBlue),
           const SizedBox(width: 8),
@@ -971,7 +972,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFC77700).withValues(alpha: 0.1),
+              color: AppColors.caution.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -980,7 +981,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                 const Text(
                   "입고됐지만 사용 기록이 없습니다",
                   style: TextStyle(
-                    color: Color(0xFFC77700),
+                    color: AppColors.caution,
                     fontWeight: FontWeight.w800,
                     fontSize: 12,
                   ),

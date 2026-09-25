@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart';
@@ -15,10 +16,10 @@ import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_setti
 import 'package:tubing_calculator/src/presentation/conduit/conduit_field_data.dart';
 import 'package:tubing_calculator/src/presentation/field/field_marking_screen.dart';
 
-const Color makitaTeal = Color(0xFF007580);
-const Color slate900 = Color(0xFF0F172A);
-const Color slate600 = Color(0xFF475569);
-const Color slate100 = Color(0xFFF1F5F9);
+const Color makitaTeal = AppColors.brand;
+const Color slate900 = AppColors.text;
+const Color slate600 = AppColors.textSub;
+const Color slate100 = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
 
 const Color paperBg = Color(0xFFF2F0E9);

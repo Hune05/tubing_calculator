@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_gain_calibration_sheet.dart';
 import 'package:tubing_calculator/src/data/machine_spec_sets.dart';
@@ -9,11 +10,11 @@ import 'package:tubing_calculator/src/core/utils/fitting_data.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/korean_text.dart';
 
-const Color makitaTeal = Color(0xFF007580);
-const Color slate900 = Color(0xFF0F172A);
-const Color slate600 = Color(0xFF475569);
+const Color makitaTeal = AppColors.brand;
+const Color slate900 = AppColors.text;
+const Color slate600 = AppColors.textSub;
 const Color pureWhite = Color(0xFFFFFFFF);
-const Color _slate200 = Color(0xFFE2E8F0);
+const Color _slate200 = AppColors.line;
 
 /// 설정 줄 이름 글씨(전선관 설정과 같게).
 const TextStyle _rowLabelStyle = TextStyle(
@@ -22,7 +23,7 @@ const TextStyle _rowLabelStyle = TextStyle(
   color: Color(0xFF1E293B),
 );
 const Color toolGripBlack = Color(0xFF222222);
-const Color slate100 = Color(0xFFF1F5F9);
+const Color slate100 = AppColors.background;
 
 // 🚀 [추가] mm <-> inch 변환 계수
 const double _mmPerInch = 25.4;
@@ -2004,7 +2005,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 11,
-                          color: Color(0xFF007580),
+                          color: AppColors.brand,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -2340,7 +2341,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 11,
-                          color: Color(0xFF007580),
+                          color: AppColors.brand,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -2590,37 +2591,17 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 11,
-                          color: Color(0xFF007580),
+                          color: AppColors.brand,
                         ),
                       ),
                     ),
                   ],
                 ),
-                _buildGuideRow2Col(
-                  "1/4\" (6.35)",
-                  "15.2 mm",
-                  const Color(0xFF007580),
-                ),
-                _buildGuideRow2Col(
-                  "3/8\" (9.52)",
-                  "16.8 mm",
-                  const Color(0xFF007580),
-                ),
-                _buildGuideRow2Col(
-                  "1/2\" (12.7)",
-                  "22.9 mm",
-                  const Color(0xFF007580),
-                ),
-                _buildGuideRow2Col(
-                  "3/4\" (19.05)",
-                  "24.4 mm",
-                  const Color(0xFF007580),
-                ),
-                _buildGuideRow2Col(
-                  "1\" (25.4)",
-                  "31.2 mm",
-                  const Color(0xFF007580),
-                ),
+                _buildGuideRow2Col("1/4\" (6.35)", "15.2 mm", AppColors.brand),
+                _buildGuideRow2Col("3/8\" (9.52)", "16.8 mm", AppColors.brand),
+                _buildGuideRow2Col("1/2\" (12.7)", "22.9 mm", AppColors.brand),
+                _buildGuideRow2Col("3/4\" (19.05)", "24.4 mm", AppColors.brand),
+                _buildGuideRow2Col("1\" (25.4)", "31.2 mm", AppColors.brand),
               ],
             ),
           ),

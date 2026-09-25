@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -581,7 +582,7 @@ class _LoadingScreenState extends State<LoadingScreen>
                     const Icon(
                       Icons.precision_manufacturing,
                       size: 90,
-                      color: Color(0xFF007580),
+                      color: AppColors.brand,
                     ),
                     const SizedBox(height: 24),
                     const Text(
@@ -601,7 +602,7 @@ class _LoadingScreenState extends State<LoadingScreen>
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF007580),
+                          color: AppColors.brand,
                           letterSpacing: 2.0,
                         ),
                       ),

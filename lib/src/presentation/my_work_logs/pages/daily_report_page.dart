@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../widgets/work_theme.dart';
 import '../widgets/korean_text.dart';
 import 'dart:async';
@@ -27,12 +28,12 @@ part 'daily_report_page_draft.dart';
 part 'daily_report_page_submit.dart';
 part 'daily_report_page_photos.dart';
 
-const Color tossBlue = Color(0xFF007580); // 마키타 틸로 통일(다른 화면과 동일)
-const Color tossText = Color(0xFF191F28);
-const Color tossSubText = Color(0xFF5F6B78);
-const Color tossInputBg = Color(0xFFF2F4F6);
+const Color tossBlue = AppColors.brand; // 마키타 틸로 통일(다른 화면과 동일)
+const Color tossText = AppColors.text;
+const Color tossSubText = AppColors.textSub;
+const Color tossInputBg = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
-const Color makitaTeal = Color(0xFF007580);
+const Color makitaTeal = AppColors.brand;
 
 class DailyReportPage extends StatefulWidget {
   final Map<String, dynamic>? existingData;
@@ -465,9 +466,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                                     : null,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: on
-                                      ? makitaTeal
-                                      : const Color(0xFFE5E8EB),
+                                  color: on ? makitaTeal : AppColors.line,
                                 ),
                               ),
                               child: Row(
@@ -547,7 +546,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                         margin: const EdgeInsets.only(top: 6),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF2F4F6),
+                          color: AppColors.background,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Column(
@@ -1015,7 +1014,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
         : "${_mmdd(_reportDay)}${_isBackdated ? ' · 지난 날 일지' : ''}";
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F4F6),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: pureWhite,
         scrolledUnderElevation: 0,

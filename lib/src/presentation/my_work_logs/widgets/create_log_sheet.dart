@@ -1,11 +1,12 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import '../models/duration_hint.dart';
 import '../models/project_phase.dart' show kProjectTypes;
 
-const Color tossBlue = Color(0xFF007580); // 🚀 마키타 틸로 통일
-const Color tossText = Color(0xFF191F28);
-const Color tossSubText = Color(0xFF5F6B78);
-const Color tossInputBg = Color(0xFFF2F4F6); // 토스 특유의 옅은 회색 입력창
+const Color tossBlue = AppColors.brand; // 🚀 마키타 틸로 통일
+const Color tossText = AppColors.text;
+const Color tossSubText = AppColors.textSub;
+const Color tossInputBg = AppColors.background; // 토스 특유의 옅은 회색 입력창
 const Color pureWhite = Color(0xFFFFFFFF);
 
 class CreateLogSheet extends StatefulWidget {

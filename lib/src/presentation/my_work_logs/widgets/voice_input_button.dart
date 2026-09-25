@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
@@ -88,12 +89,12 @@ class _VoiceInputButtonState extends State<VoiceInputButton> {
       icon: Icon(
         _listening ? Icons.stop_circle_rounded : Icons.mic_rounded,
         size: 18,
-        color: _listening ? Colors.red : const Color(0xFF007580),
+        color: _listening ? Colors.red : AppColors.brand,
       ),
       label: Text(
         _listening ? "듣는 중… 눌러서 종료" : widget.label,
         style: TextStyle(
-          color: _listening ? Colors.red : const Color(0xFF007580),
+          color: _listening ? Colors.red : AppColors.brand,
           fontWeight: FontWeight.w700,
           fontSize: 12,
         ),

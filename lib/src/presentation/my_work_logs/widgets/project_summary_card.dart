@@ -1,14 +1,15 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/data/ownership.dart';
 import 'package:flutter/material.dart';
 
 import '../models/project_phase.dart';
 import '../models/report_tools.dart' show reportDateOf;
 
-const Color _tossBlue = Color(0xFF007580);
-const Color _tossText = Color(0xFF191F28);
-const Color _tossSub = Color(0xFF5F6B78);
-const Color _tossBg = Color(0xFFF2F4F6);
-const Color _warnRed = Color(0xFFF04438);
+const Color _tossBlue = AppColors.brand;
+const Color _tossText = AppColors.text;
+const Color _tossSub = AppColors.textSub;
+const Color _tossBg = AppColors.background;
+const Color _warnRed = AppColors.danger;
 
 // 🚀 [프로젝트 목록 카드] 예전엔 이름·날짜만 있고 펼쳐야 내용을 볼 수 있었다. 카드
 // 자체에 진행률, 현재 단계, 납기 D-day, 미해결 이슈 수를 보여주고, 납기가 지난
@@ -56,7 +57,7 @@ class ProjectSummaryCard extends StatelessWidget {
       if (diff < 0) {
         ddayColor = _warnRed;
       } else if (diff <= 7) {
-        ddayColor = const Color(0xFFC77700);
+        ddayColor = AppColors.caution;
       }
     }
 
@@ -217,8 +218,8 @@ class ProjectSummaryCard extends StatelessWidget {
                                   fontWeight: FontWeight.w700,
                                   fontSize: 11,
                                   color: weekDelta > 0
-                                      ? const Color(0xFF1B9E5A)
-                                      : const Color(0xFFE5484D),
+                                      ? AppColors.ok
+                                      : AppColors.danger,
                                 ),
                               ),
                             ),

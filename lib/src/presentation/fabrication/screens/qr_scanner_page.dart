@@ -1,9 +1,10 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 // 🎨 토스 스타일 미니멀 컬러 팔레트
-const Color slate900 = Color(0xFF191F28);
+const Color slate900 = AppColors.text;
 const Color pureWhite = Color(0xFFFFFFFF);
 
 class QRScannerPage extends StatefulWidget {

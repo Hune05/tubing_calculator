@@ -1,11 +1,12 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../models/photo_store.dart';
 import 'korean_text.dart';
 import 'package:flutter/material.dart';
 
-const Color makitaTeal = Color(0xFF007580);
-const Color slate200 = Color(0xFFE2E8F0);
-const Color slate600 = Color(0xFF475569);
-const Color slate900 = Color(0xFF0F172A);
+const Color makitaTeal = AppColors.brand;
+const Color slate200 = AppColors.line;
+const Color slate600 = AppColors.textSub;
+const Color slate900 = AppColors.text;
 const Color slate50 = Color(0xFFF8FAFC);
 const Color pureWhite = Color(0xFFFFFFFF);
 

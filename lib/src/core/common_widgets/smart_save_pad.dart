@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:tubing_calculator/src/core/database/database_helper.dart';
@@ -5,7 +6,7 @@ import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/data/machine_specs.dart';
 import 'package:tubing_calculator/src/data/tube_drawing_specs.dart';
 
-const Color makitaTeal = Color(0xFF007580);
+const Color makitaTeal = AppColors.brand;
 
 class SmartSavePad extends StatefulWidget {
   final double totalCut;

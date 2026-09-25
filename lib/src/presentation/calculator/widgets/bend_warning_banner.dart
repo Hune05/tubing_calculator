@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 
 /// 만들 수 없는 형상이거나 관이 저희끼리 닿을 때 값 위에 띄우는 띠.
@@ -7,7 +8,7 @@ class BendWarningBanner extends StatelessWidget {
 
   const BendWarningBanner({super.key, required this.warnings});
 
-  static const Color _amber = Color(0xFFC77700);
+  static const Color _amber = AppColors.caution;
 
   @override
   Widget build(BuildContext context) {

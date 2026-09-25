@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:async'; // 🚀 타이머 사용을 위해 추가
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,15 +9,15 @@ import 'mobile_vehicle_detail_page.dart';
 import 'mobile_vehicle_return_page.dart';
 
 // 색의 뜻(D-B): 앱의 주 색 하나(청록). 예전에는 이 화면만 파랑이었다.
-const Color tossBlue = Color(0xFF007580);
-const Color tossGrey = Color(0xFFF2F4F6);
-const Color slate900 = Color(0xFF191F28);
-const Color slate600 = Color(0xFF5F6B78);
-const Color slate100 = Color(0xFFF2F4F6);
+const Color tossBlue = AppColors.brand;
+const Color tossGrey = AppColors.background;
+const Color slate900 = AppColors.text;
+const Color slate600 = AppColors.textSub;
+const Color slate100 = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
-const Color warningRed = Color(0xFFF04438);
+const Color warningRed = AppColors.danger;
 const Color successGreen = Color(0xFF00C853);
-const Color makitaTeal = Color(0xFF007580); // 🚀 내 차량 강조 컬러
+const Color makitaTeal = AppColors.brand; // 🚀 내 차량 강조 컬러
 
 class MobileVehicleManagementPage extends StatefulWidget {
   final String currentUser;

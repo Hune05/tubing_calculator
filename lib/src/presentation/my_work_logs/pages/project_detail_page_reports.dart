@@ -182,7 +182,7 @@ extension _ProjectDetailReports on _ProjectDetailPageState {
                     if (issueCnt > 0) chip("이슈 처리 $issueCnt", warningRed),
                     if (doneCnt > 0) chip("일정 완료 $doneCnt", Colors.green),
                     if (r['is_as_built'] == true)
-                      chip("도면 수정 요청", const Color(0xFFC77700)),
+                      chip("도면 수정 요청", AppColors.caution),
                   ],
                 ),
               ],

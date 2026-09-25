@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../widgets/work_theme.dart';
 import '../widgets/korean_text.dart';
 import 'package:flutter/material.dart';
@@ -39,10 +40,10 @@ part 'work_log_main_screen_banners.dart';
 part 'work_log_main_screen_dashboard.dart';
 
 // 토스 스타일 색상 팔레트
-const Color tossBlue = Color(0xFF007580); // 🚀 마키타 틸로 통일
-const Color tossText = Color(0xFF191F28);
-const Color tossSubText = Color(0xFF5F6B78);
-const Color tossBg = Color(0xFFF2F4F6);
+const Color tossBlue = AppColors.brand; // 🚀 마키타 틸로 통일
+const Color tossText = AppColors.text;
+const Color tossSubText = AppColors.textSub;
+const Color tossBg = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
 
 class WorkLogMainScreen extends StatefulWidget {

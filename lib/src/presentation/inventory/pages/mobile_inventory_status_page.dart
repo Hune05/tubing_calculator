@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -14,12 +15,12 @@ import 'material_catalog_page.dart';
 import 'mobile_inventory_logs_page.dart';
 
 // 🎨 토스 스타일 색상 팔레트
-const Color makitaTeal = Color(0xFF007580);
-const Color slate900 = Color(0xFF191F28);
-const Color slate600 = Color(0xFF5F6B78);
-const Color slate100 = Color(0xFFF2F4F6);
+const Color makitaTeal = AppColors.brand;
+const Color slate900 = AppColors.text;
+const Color slate600 = AppColors.textSub;
+const Color slate100 = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
-const Color warnColor = Color(0xFFC77700); // 모자란 자재 알림
+const Color warnColor = AppColors.caution; // 모자란 자재 알림
 const Color warnSoft = Color(0xFFFFF3DF);
 
 // 칩에서 잔재를 고르면 재고가 아니라 잔재 목록을 보여 준다.

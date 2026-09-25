@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 
 import 'dart:math' as math;
@@ -9,10 +10,10 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_num
 import 'package:tubing_calculator/src/presentation/calculator/widgets/u_bend_plan.dart';
 import 'package:tubing_calculator/src/core/engine/bend_path.dart';
 
-const Color makitaTeal = Color(0xFF007580);
-const Color slate900 = Color(0xFF0F172A);
-const Color slate600 = Color(0xFF475569);
-const Color slate100 = Color(0xFFF1F5F9);
+const Color makitaTeal = AppColors.brand;
+const Color slate900 = AppColors.text;
+const Color slate600 = AppColors.textSub;
+const Color slate100 = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
 
 /// U-Bend 조립 후 벽(피팅 면)에서 튀어나오는 최고점.

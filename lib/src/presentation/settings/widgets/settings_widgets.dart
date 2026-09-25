@@ -1,7 +1,8 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 
 // 💡 마키타 메인 테마 컬러 설정
-const Color makitaTeal = Color(0xFF007580);
+const Color makitaTeal = AppColors.brand;
 
 class TwoColumnRow extends StatelessWidget {
   final Widget left;

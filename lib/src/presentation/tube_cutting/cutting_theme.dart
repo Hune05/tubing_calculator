@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_stock_deduct.dart';
@@ -10,19 +11,19 @@ import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_stock_de
 class CuttingColors {
   CuttingColors._();
 
-  static const Color primary = Color(0xFF007580); // 마키타 틸 (주요 액션)
+  static const Color primary = AppColors.brand; // 마키타 틸 (주요 액션)
   static const Color primaryDark = Color(0xFF004D54);
   static const Color primarySoft = Color(0xFFE1EEEF); // 틸 배경(칩/배지용)
   static const Color background = Color(0xFFF0F3F5);
   static const Color surface = Colors.white;
-  static const Color border = Color(0xFFE5E8EB);
+  static const Color border = AppColors.line;
 
-  static const Color textPrimary = Color(0xFF191F28);
-  static const Color textSecondary = Color(0xFF5F6B78);
+  static const Color textPrimary = AppColors.text;
+  static const Color textSecondary = AppColors.textSub;
 
   static const Color danger = Color(0xFFE0432B); // 삭제/간섭/오류
   static const Color dangerSoft = Color(0xFFFDECEA);
-  static const Color warning = Color(0xFFC77700); // 대기/주의
+  static const Color warning = AppColors.caution; // 대기/주의
   static const Color warningSoft = Color(0xFFFFF3DF);
   static const Color success = Color(0xFF1D8A4E); // 완료/성공
   static const Color successSoft = Color(0xFFE4F5EA);

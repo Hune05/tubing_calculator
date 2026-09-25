@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -13,13 +14,13 @@ import 'package:tubing_calculator/src/data/models/bender_spec_data.dart';
 import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_calibration_sheet.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/korean_text.dart';
 
-const Color makitaTeal = Color(0xFF007580);
-const Color slate900 = Color(0xFF0F172A);
+const Color makitaTeal = AppColors.brand;
+const Color slate900 = AppColors.text;
 const Color slate800 = Color(0xFF1E293B);
-const Color slate600 = Color(0xFF475569);
+const Color slate600 = AppColors.textSub;
 const Color slate400 = Color(0xFF94A3B8);
-const Color slate200 = Color(0xFFE2E8F0);
-const Color slate100 = Color(0xFFF1F5F9);
+const Color slate200 = AppColors.line;
+const Color slate100 = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
 
 final ValueNotifier<Map<String, dynamic>> globalBenderSettings = ValueNotifier({

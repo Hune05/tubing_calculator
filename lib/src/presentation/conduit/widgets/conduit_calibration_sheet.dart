@@ -4,16 +4,17 @@
 /// 값이 조금씩 달라서, 한 번 꺾어 잰 값으로 이 벤더의 값을 잡는다.
 library;
 
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:tubing_calculator/src/presentation/conduit/conduit_marking_logic.dart';
 
-const Color _teal = Color(0xFF007580);
-const Color _slate900 = Color(0xFF0F172A);
-const Color _slate600 = Color(0xFF475569);
-const Color _slate100 = Color(0xFFF1F5F9);
-const Color _amber = Color(0xFFC77700);
+const Color _teal = AppColors.brand;
+const Color _slate900 = AppColors.text;
+const Color _slate600 = AppColors.textSub;
+const Color _slate100 = AppColors.background;
+const Color _amber = AppColors.caution;
 
 class ConduitCalibrationSheet extends StatefulWidget {
   /// 지금 설정의 값(견줘 보여 준다).

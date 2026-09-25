@@ -5,7 +5,7 @@ part of 'work_log_main_screen.dart';
 extension _WorkLogMainBanners on _WorkLogMainScreenState {
   Widget _buildBackupBanner() {
     if (!_backupFailed) return const SizedBox.shrink();
-    const c = Color(0xFFC77700);
+    const c = AppColors.caution;
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
@@ -62,7 +62,7 @@ extension _WorkLogMainBanners on _WorkLogMainScreenState {
         } else {
           text = "변경사항을 서버에 저장하는 중입니다. 오프라인이면 연결될 때 자동으로 올라갑니다.";
         }
-        final color = warn ? const Color(0xFFC77700) : tossBlue;
+        final color = warn ? AppColors.caution : tossBlue;
         return Container(
           margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),

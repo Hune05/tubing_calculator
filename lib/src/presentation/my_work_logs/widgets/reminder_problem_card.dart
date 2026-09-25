@@ -1,9 +1,10 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 
 import 'korean_text.dart';
 
-const Color _red = Color(0xFFE5484D);
-const Color _sub = Color(0xFF5F6B78);
+const Color _red = AppColors.danger;
+const Color _sub = AppColors.textSub;
 
 // 내 프로젝트 화면 위에 뜨는 "작업 일지 알림 예약에 문제가 있습니다" 카드.
 // [onRetry]는 다시 예약한 뒤 아직도 문제가 있으면 그 문구를, 해결됐으면 null을 돌려준다.

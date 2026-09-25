@@ -1,6 +1,7 @@
 // 각도기. 플레이 스토어에서 많이 쓰는 각도기 앱의 두 쓰임을 따랐다:
 //  ① 벤딩 각도 재기: 폰 옆면을 관 한쪽 다리에 대고 "기준", 다른 다리에 대면 굽힌 각.
 //  ② 화면 각도기: 화면 위 반원 눈금에 두 팔을 끌어 물건 각을 잰다.
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -11,10 +12,10 @@ import 'level_painters.dart';
 import 'tilt_math.dart';
 import 'tilt_sensor.dart';
 
-const Color _teal = Color(0xFF007580);
-const Color _ink = Color(0xFF191F28);
-const Color _grey = Color(0xFF5F6B78);
-const Color _bg = Color(0xFFF2F4F6);
+const Color _teal = AppColors.brand;
+const Color _ink = AppColors.text;
+const Color _grey = AppColors.textSub;
+const Color _bg = AppColors.background;
 const Color _orange = Color(0xFFEA580C);
 
 class ProtractorPage extends StatefulWidget {

@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:async';
 import '../my_work_logs/widgets/work_theme.dart';
 import 'package:flutter/material.dart';
@@ -31,11 +32,11 @@ import '../my_work_logs/models/reminder_tools.dart'
     show ensureNotificationPermission;
 
 // 🚀 [신규] "내 일정 관리" - 마키타 틸 팔레트로 앱 전체와 통일.
-const Color scheduleTeal = Color(0xFF007580);
+const Color scheduleTeal = AppColors.brand;
 const Color scheduleTealDark = Color(0xFF004D54);
-const Color scheduleBg = Color(0xFFF2F4F6);
-const Color scheduleText = Color(0xFF191F28);
-const Color scheduleSubText = Color(0xFF5F6B78);
+const Color scheduleBg = AppColors.background;
+const Color scheduleText = AppColors.text;
+const Color scheduleSubText = AppColors.textSub;
 const Color scheduleWhite = Colors.white;
 const Color scheduleDanger = Color(0xFFE0432B);
 
@@ -58,7 +59,7 @@ const List<String> kPersonalCategories = [
 
 const Map<String, Color> kScheduleColors = {
   '개인': scheduleTeal,
-  '영업': Color(0xFFC77700),
+  '영업': AppColors.caution,
   '출장': Color(0xFF0E9AA7),
   '자재 요청': Color(0xFF8E63CE),
   '입고일': Color(0xFF2F80ED),
@@ -2241,7 +2242,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E8EB)),
+        border: Border.all(color: AppColors.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2688,10 +2689,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                             children: [
                               header(),
                               for (final r in rowList) ...[
-                                const Divider(
-                                  height: 1,
-                                  color: Color(0xFFE5E8EB),
-                                ),
+                                const Divider(height: 1, color: AppColors.line),
                                 gridRow(r),
                               ],
                             ],
@@ -2709,10 +2707,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                             children: [
                               const SizedBox(height: _kTlHeaderH),
                               for (final r in rowList) ...[
-                                const Divider(
-                                  height: 1,
-                                  color: Color(0xFFE5E8EB),
-                                ),
+                                const Divider(height: 1, color: AppColors.line),
                                 SizedBox(
                                   height: rowH(r),
                                   child: Padding(
@@ -3293,10 +3288,8 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                         child: ListView.separated(
                           shrinkWrap: true,
                           itemCount: results.length,
-                          separatorBuilder: (_, _) => const Divider(
-                            height: 1,
-                            color: Color(0xFFE5E8EB),
-                          ),
+                          separatorBuilder: (_, _) =>
+                              const Divider(height: 1, color: AppColors.line),
                           itemBuilder: (_, i) {
                             final r = results[i];
                             return ListTile(
@@ -3630,7 +3623,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       decoration: BoxDecoration(
         color: scheduleWhite,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E8EB)),
+        border: Border.all(color: AppColors.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3918,7 +3911,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         border: Border.all(
           color: overdue
               ? scheduleDanger.withValues(alpha: 0.4)
-              : const Color(0xFFE5E8EB),
+              : AppColors.line,
         ),
       ),
       child: Row(
@@ -4303,7 +4296,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                             _buildProgressBar(byDay),
                             _buildCategoryLegend(),
                             _buildProjectFilterRow(),
-                            const Divider(height: 1, color: Color(0xFFE5E8EB)),
+                            const Divider(height: 1, color: AppColors.line),
                           ],
                           Expanded(
                             child: _viewMode == _ViewMode.timeline
@@ -4322,7 +4315,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                       _buildProjectFilterRow(),
                                       const Divider(
                                         height: 1,
-                                        color: Color(0xFFE5E8EB),
+                                        color: AppColors.line,
                                       ),
                                       if (holidayName(_selectedDay).isNotEmpty)
                                         Container(

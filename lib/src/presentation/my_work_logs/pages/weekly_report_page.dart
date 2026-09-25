@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:async' show FutureOr;
 import '../widgets/korean_text.dart';
 
@@ -13,10 +14,10 @@ import '../screens/work_log_main_screen.dart';
 import '../widgets/work_theme.dart';
 import '../models/weekly_plan.dart';
 
-const Color _teal = Color(0xFF007580);
-const Color _text = Color(0xFF191F28);
-const Color _sub = Color(0xFF5F6B78);
-const Color _bg = Color(0xFFF2F4F6);
+const Color _teal = AppColors.brand;
+const Color _text = AppColors.text;
+const Color _sub = AppColors.textSub;
+const Color _bg = AppColors.background;
 
 // 알림을 눌렀을 때: 프로젝트를 불러와 주간 업무 보고 화면을 바로 연다.
 Future<void> openWeeklyReportFromNotification(
@@ -273,13 +274,13 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
         key: ValueKey('issue-${identityHashCode(ref.punch)}'),
         direction: DismissDirection.endToStart,
         background: Container(
-          color: const Color(0xFFE5484D).withValues(alpha: 0.12),
+          color: AppColors.danger.withValues(alpha: 0.12),
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.only(right: 16),
           child: const Text(
             "주간 제외",
             style: TextStyle(
-              color: Color(0xFFE5484D),
+              color: AppColors.danger,
               fontWeight: FontWeight.w800,
               fontSize: 13,
             ),
@@ -533,8 +534,8 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               color: (d ?? 0) > 0
-                                  ? const Color(0xFF1B9E5A)
-                                  : const Color(0xFFE5484D),
+                                  ? AppColors.ok
+                                  : AppColors.danger,
                             ),
                           ),
                         ),

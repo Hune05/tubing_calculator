@@ -3,12 +3,13 @@
 //    가리킨다. 폰 축(또는 잡아 둔 기준)과 수직 사이를 빨간 쐐기로 칠한다.
 //  - 눕혔을 때: 초록 화면에 큰 원 기포, 가장자리 가운데 표시.
 //  - 왼쪽 가장자리 cm 자.
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 // 색의 뜻(D-B): 앱의 주 색 하나(청록). 예전에는 이 화면만 파랑이었다.
-const Color kLevelBlue = Color(0xFF007580);
+const Color kLevelBlue = AppColors.brand;
 const Color kLevelGreen = Color(0xFF00866E);
 const Color kLevelRed = Color(0xFFFF1E1E);
 const Color kLevelWhite = Colors.white;

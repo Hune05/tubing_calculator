@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/core/utils/settings_cloud.dart';
@@ -16,10 +17,10 @@ Future<int> restoreCalculatorSettings({bool overwrite = false}) async {
   return n;
 }
 
-const Color _slate900 = Color(0xFF0F172A);
-const Color _slate600 = Color(0xFF475569);
-const Color _slate200 = Color(0xFFE2E8F0);
-const Color _teal = Color(0xFF007580);
+const Color _slate900 = AppColors.text;
+const Color _slate600 = AppColors.textSub;
+const Color _slate200 = AppColors.line;
+const Color _teal = AppColors.brand;
 const Color _white = Color(0xFFFFFFFF);
 
 /// 계산기 설정(튜브 벤딩·전선관·튜브 컷팅) 서버 보관 칸.

@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import 'package:flutter/material.dart';
 import '../widgets/app_dialog.dart';
@@ -20,10 +21,10 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_par
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_quick_kick_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_quick_u_bend_bottom_sheet.dart';
 
-const Color makitaTeal = Color(0xFF007580);
-const Color slate900 = Color(0xFF0F172A);
-const Color slate600 = Color(0xFF475569);
-const Color slate100 = Color(0xFFF1F5F9);
+const Color makitaTeal = AppColors.brand;
+const Color slate900 = AppColors.text;
+const Color slate600 = AppColors.textSub;
+const Color slate100 = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
 const Color _slate800 = Color(0xFF1E293B);
 
