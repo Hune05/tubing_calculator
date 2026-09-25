@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:tubing_calculator/src/core/database/database_helper.dart';
+import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
+import 'package:tubing_calculator/src/data/machine_specs.dart';
+import 'package:tubing_calculator/src/data/tube_drawing_specs.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 
@@ -49,6 +52,26 @@ class _SmartSavePadState extends State<SmartSavePad> {
     '1"',
   ];
   final List<String> _mmSizes = ['8mm', '10mm', '12mm', '20mm', '25mm'];
+
+  @override
+  void initState() {
+    super.initState();
+    // 🚀 [고침] 예전에는 늘 1/2"로 저장됐다. 설정의 관 크기를 먼저 고른다.
+    final s = AppSettingsController();
+    if (s.tubeOD > 0) {
+      final odMm = s.isInch ? s.tubeOD * 25.4 : s.tubeOD;
+      final chip = sizeChipForOd(odMm, [..._inchSizes, ..._mmSizes]);
+      if (chip != null) {
+        _selectedSize = chip;
+      } else {
+        // 목록에 없는 크기(6mm 등)는 칩을 하나 더 만든다.
+        String n(double v) =>
+            v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+        _selectedSize = s.isInch ? '${n(s.tubeOD)}"' : '${n(s.tubeOD)}mm';
+        (s.isInch ? _inchSizes : _mmSizes).insert(0, _selectedSize);
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -227,6 +250,8 @@ class _SmartSavePadState extends State<SmartSavePad> {
                     "end_fit": widget.includeEnd,
                     "tail": widget.tailLength,
                     "start_dir": widget.startDir,
+                    // 다시 열 때 같은 값으로 마킹을 셈하도록 장비 값을 남긴다.
+                    kTubeDrawingSpecsKey: tubeSpecsSnapshot(MachineSpecs()),
                   };
 
                   // 1. 비동기 작업 대기 (DB 저장)

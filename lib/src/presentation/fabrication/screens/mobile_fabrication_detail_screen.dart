@@ -10,6 +10,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:tubing_calculator/src/core/utils/pipe_size.dart';
 import 'package:tubing_calculator/src/data/machine_specs.dart';
+import 'package:tubing_calculator/src/data/tube_drawing_specs.dart';
 
 // 🚀 PDF 및 공유 관련 임포트
 import 'package:pdf/pdf.dart';
@@ -30,6 +31,7 @@ const Color slate600 = Color(0xFF475569);
 const Color slate100 = Color(0xFFF1F5F9);
 const Color pureWhite = Color(0xFFFFFFFF);
 const Color _slate200 = Color(0xFFE2E8F0);
+const Color _amber700 = Color(0xFFB45309);
 
 class MobileFabricationDetailScreen extends StatefulWidget {
   final Map<String, dynamic> itemData;
@@ -63,6 +65,17 @@ class _MobileFabricationDetailScreenState
 
   /// 저장된 마킹 값이 없어 지금 장비 설정으로 셈했는지(안내 글에 쓴다).
   bool _marksFromCurrentSpecs = false;
+
+  /// 저장할 때 남긴 장비 값(예전 도면은 null). 있으면 마킹을 이 값으로 셈한다.
+  Map<String, double>? _savedSpecs;
+
+  /// 저장할 때 장비 값이 지금 설정과 다른지.
+  bool get _specsChanged =>
+      _savedSpecs != null &&
+      tubeSpecsDiffer(_savedSpecs!, tubeSpecsSnapshot(MachineSpecs()));
+
+  /// 마킹 탭 맨 위에 안내를 띄울지.
+  bool get _showSpecsNote => _marksFromCurrentSpecs || _specsChanged;
   final GlobalKey _isoBoundaryKey = GlobalKey();
 
   @override
@@ -122,6 +135,7 @@ class _MobileFabricationDetailScreenState
       _startFit =
           (_pToP['start_fit'] == true) || (_pToP['start_fit'] == 'true');
       _endFit = (_pToP['end_fit'] == true) || (_pToP['end_fit'] == 'true');
+      _savedSpecs = savedTubeSpecs(_pToP);
       _fillMarks();
     } catch (e) {
       debugPrint("데이터 파싱 에러: $e");
@@ -139,17 +153,18 @@ class _MobileFabricationDetailScreenState
     );
     if (!missing || _bendList.isEmpty) return;
 
-    final specs = MachineSpecs();
+    // 저장할 때 장비 값이 있으면 그것으로(자를 길이와 맞게), 없으면 지금 설정으로.
+    final specs = _savedSpecs ?? tubeSpecsSnapshot(MachineSpecs());
     final engine = TubeBendingEngine(
-      radius: specs.radius,
-      userGain90: specs.gain90,
-      springbackDeg: specs.springback,
+      radius: specs['radius']!,
+      userGain90: specs['gain90']!,
+      springbackDeg: specs['springback']!,
     );
     final fitted = tubeFittedLengths(
       _bendList,
       startFit: _startFit,
       endFit: _endFit,
-      fittingDepth: specs.fittingDepth,
+      fittingDepth: specs['fittingDepth']!,
       tail: _tailLength,
     );
     final instructions = <BendInstruction>[];
@@ -166,7 +181,7 @@ class _MobileFabricationDetailScreenState
     try {
       steps = engine.calculate(
         instructions,
-        specs.benderOffset,
+        specs['benderOffset']!,
         tail: fitted.tail,
       )['steps'];
     } catch (e) {
@@ -191,7 +206,7 @@ class _MobileFabricationDetailScreenState
         carried = 0.0;
       }
     }
-    _marksFromCurrentSpecs = true;
+    _marksFromCurrentSpecs = _savedSpecs == null;
   }
 
   /// 이 도면을 벤딩 마킹 계산기 입력 목록으로 불러온다.
@@ -208,7 +223,10 @@ class _MobileFabricationDetailScreenState
         content: AppDialog.message(
           "'$_fromTo'을(를) 불러오면 지금 입력 목록이 이 도면으로 바뀝니다.\n"
           "시작·끝 피팅과 꼬리 길이도 저장할 때 값으로 맞춥니다.\n"
-          "(입력 탭의 ↶로 목록을 되돌릴 수 있습니다)",
+          "(입력 탭의 ↶로 목록을 되돌릴 수 있습니다)"
+          "${_specsChanged ? "\n\n저장할 때 장비 값(${describeTubeSpecs(_savedSpecs!)})이 "
+                    "지금 설정(${describeTubeSpecs(tubeSpecsSnapshot(MachineSpecs()))})과 "
+                    "다릅니다. 계산기에서는 지금 설정으로 셈하므로 마킹·자를 길이가 달라집니다." : ""}",
         ),
       ),
     );
@@ -1147,27 +1165,34 @@ class _MobileFabricationDetailScreenState
 
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
-      itemCount: displayMarks.length + (_marksFromCurrentSpecs ? 1 : 0),
+      itemCount: displayMarks.length + (_showSpecsNote ? 1 : 0),
       itemBuilder: (context, index) {
-        if (_marksFromCurrentSpecs) {
+        if (_showSpecsNote) {
           if (index == 0) {
             return Padding(
               padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
-                    Icons.info_outline_rounded,
+                  Icon(
+                    _specsChanged
+                        ? Icons.warning_amber_rounded
+                        : Icons.info_outline_rounded,
                     size: 14,
-                    color: slate600,
+                    color: _specsChanged ? _amber700 : slate600,
                   ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      "지금 장비 설정(반경 ${MachineSpecs().radius.round()}mm)으로 "
-                      "셈한 마킹입니다.",
-                      style: const TextStyle(
-                        color: slate600,
+                      _specsChanged
+                          ? "저장할 때 장비 값(${describeTubeSpecs(_savedSpecs!)})으로 "
+                                "셈한 마킹입니다. 지금 설정"
+                                "(${describeTubeSpecs(tubeSpecsSnapshot(MachineSpecs()))})과 "
+                                "다릅니다."
+                          : "지금 장비 설정(반경 ${MachineSpecs().radius.round()}mm)으로 "
+                                "셈한 마킹입니다.",
+                      style: TextStyle(
+                        color: _specsChanged ? _amber700 : slate600,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
