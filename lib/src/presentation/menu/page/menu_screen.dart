@@ -9,6 +9,7 @@ import 'package:tubing_calculator/src/presentation/calculator/screens/electric_m
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_project_list_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/screens/work_log_main_screen.dart'
     show WorkLogMainScreen;
+import 'package:tubing_calculator/src/presentation/attendance/pages/attendance_page.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/main_navigation_page.dart';
 import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart';
 import 'package:tubing_calculator/src/presentation/profile/pages/mobile_profile_page.dart';
@@ -379,6 +380,17 @@ class MenuScreen extends StatelessWidget {
           subtitle: '프로젝트+개인 일정 통합 캘린더',
           iconColor: makitaTeal,
           onTap: () => Navigator.pushNamed(context, '/my-schedule'),
+        ),
+        _buildGridCard(
+          context,
+          icon: Icons.badge_outlined,
+          title: '근태 관리',
+          subtitle: '연차·월차·반차·조퇴·특근, 출퇴근 시간',
+          iconColor: makitaTeal,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AttendancePage()),
+          ),
         ),
         _buildGridCard(
           context,

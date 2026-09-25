@@ -52,6 +52,10 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
         .toList();
     final now = DateTime.now();
     _viewedMonth = DateTime(now.year, now.month);
+    // 근태(연차·월차·반차)가 공수 계산·태그에 반영되도록 최신 기록을 받아 온다.
+    AttendanceCache.refresh().then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   String _mmdd(int month, int day) =>

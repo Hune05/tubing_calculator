@@ -14,6 +14,7 @@ import '../models/report_tools.dart';
 import '../screens/work_log_main_screen.dart';
 import '../widgets/work_theme.dart';
 import '../models/weekly_plan.dart';
+import '../models/attendance.dart';
 
 const Color _teal = AppColors.brand;
 const Color _text = AppColors.text;
@@ -105,6 +106,10 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
     super.initState();
     _loadCollapsed();
     _loadSort();
+    // 근태(연차·월차·반차)가 공수 계산에 반영되도록 최신 기록을 받아 온다.
+    AttendanceCache.refresh().then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   // 진행률 카드 정렬은 다음에 열어도 그대로 유지한다.

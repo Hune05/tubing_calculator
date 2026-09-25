@@ -4,6 +4,7 @@ import '../widgets/korean_text.dart';
 
 import '../models/project_phase.dart';
 import '../models/duration_hint.dart';
+import '../models/attendance.dart';
 
 const Color _teal = AppColors.brand;
 const Color _text = AppColors.text;
@@ -74,6 +75,15 @@ List<(String, int)> retroCauseCounts(List<Map<String, dynamic>> logs) {
 
 class _RetroOverviewPageState extends State<RetroOverviewPage> {
   final _searchCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // 근태(연차·월차·반차)가 공수 계산에 반영되도록 최신 기록을 받아 온다.
+    AttendanceCache.refresh().then((_) {
+      if (mounted) setState(() {});
+    });
+  }
 
   @override
   void dispose() {

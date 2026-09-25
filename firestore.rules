@@ -111,6 +111,12 @@ service cloud.firestore {
         && (!doc.matches('.*__.*') || doc.matches('.*__' + me()));
     }
 
+    // 근태 기록(문서 이름 {uid}__{yyyy-MM-dd}) - 프로젝트와 무관하게 사람 기준이라
+    // 자기 것만 읽고 쓴다(필드 헬퍼 4번).
+    match /attendance_records/{doc} {
+      allow read, write: if signedIn() && doc.split('__')[0] == me();
+    }
+
     // 하위 모음(컷팅 기록·형강 변경 기록 등)은 로그인한 사람이면 읽고 쓴다.
     match /{coll}/{id}/{sub}/{rest=**} {
       allow read, write: if signedIn() && !(coll in ['users', 'inventory']);

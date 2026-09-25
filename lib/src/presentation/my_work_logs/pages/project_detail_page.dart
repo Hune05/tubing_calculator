@@ -94,6 +94,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       vsync: this,
       initialIndex: widget.initialTab,
     );
+    // 근태(연차·월차·반차)가 공수 계산·태그에 반영되도록 최신 기록을 받아 온다.
+    AttendanceCache.refresh().then((_) {
+      if (mounted) setState(() {});
+    });
     if (widget.openExport) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _showReportExport();

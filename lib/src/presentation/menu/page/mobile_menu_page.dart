@@ -31,6 +31,7 @@ import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_boa
 import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_login.dart';
 import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_status_page.dart';
 import 'package:tubing_calculator/src/presentation/inventory/pages/low_stock_count.dart';
+import 'package:tubing_calculator/src/presentation/attendance/pages/attendance_page.dart';
 
 // 🚀 3. 프로필 및 소통 페이지 임포트
 import 'package:tubing_calculator/src/presentation/profile/pages/mobile_profile_page.dart';
@@ -455,6 +456,22 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         ),
                       ),
                     ).then((_) => _loadTodayScheduleCount());
+                  },
+                ),
+                _buildMenuButton(
+                  context: context,
+                  title: "근태 관리",
+                  subtitle: "연차·월차·반차·조퇴·특근과 출퇴근 시간 기록",
+                  icon: AppGlyph.schedule,
+                  iconColor: slate900,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AttendancePage(),
+                      ),
+                    );
                   },
                 ),
 

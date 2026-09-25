@@ -36,6 +36,7 @@ import 'package:tubing_calculator/src/presentation/menu/page/mobile_menu_page.da
 import 'package:tubing_calculator/src/presentation/my_schedule/mobile_my_schedule_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/app_status_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/daily_report_page.dart';
+import 'package:tubing_calculator/src/presentation/attendance/pages/attendance_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/notification_check_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/punch_list_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/storage_management_page.dart';
@@ -134,6 +135,7 @@ final screens = <String, (Widget Function(), List<Cfg>)>{
     [...phoneCfgs, tabletCfgs.first],
   ),
   '작업 일지 쓰기': (() => const DailyReportPage(), phoneCfgs),
+  '근태 관리': (() => const AttendancePage(), phoneCfgs),
   '이슈 등록': (() => const PunchListPage(), phoneCfgs),
   '주간 보고': (() => const WeeklyReportPage(logs: []), phoneCfgs),
   '알림 점검': (() => const NotificationCheckPage(), phoneCfgs),

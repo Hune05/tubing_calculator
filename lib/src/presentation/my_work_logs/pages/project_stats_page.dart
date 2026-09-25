@@ -46,6 +46,15 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
 
   String? _type;
 
+  @override
+  void initState() {
+    super.initState();
+    // 근태(연차·월차·반차)가 공수 계산에 반영되도록 최신 기록을 받아 온다.
+    AttendanceCache.refresh().then((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
   List<Map<String, dynamic>> get _logs =>
       widget.logs.where((l) => _type == null || _typeOf(l) == _type).toList();
 

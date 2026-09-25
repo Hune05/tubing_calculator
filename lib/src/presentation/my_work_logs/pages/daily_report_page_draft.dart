@@ -25,9 +25,6 @@ extension _DailyReportDraft on _DailyReportPageState {
       'isAsBuilt': _isAsBuilt,
       'workTypes': _selectedWorkTypes.toList(),
       'workers': _workerCount,
-      'attendance': _attendanceType,
-      'checkIn': _checkIn == null ? null : _formatTimeOfDay(_checkIn!),
-      'checkOut': _checkOut == null ? null : _formatTimeOfDay(_checkOut!),
       'overtime': _isOvertime,
       'otStart': _overtimeStart == null
           ? null
@@ -129,9 +126,6 @@ extension _DailyReportDraft on _DailyReportPageState {
           ..addAll(wt);
       }
       _workerCount = (m['workers'] as num?)?.toInt() ?? _workerCount;
-      _attendanceType = m['attendance']?.toString() ?? _attendanceType;
-      _checkIn = _parseTimeOfDay(m['checkIn']);
-      _checkOut = _parseTimeOfDay(m['checkOut']);
       _isOvertime = m['overtime'] == true;
       _overtimeStart = _parseTimeOfDay(m['otStart']);
       _overtimeEnd = _parseTimeOfDay(m['otEnd']);
