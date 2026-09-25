@@ -53,6 +53,16 @@ class WorkProjectRepository {
   CollectionReference<Map<String, dynamic>> get _col =>
       _db.collection(kWorkProjectsCollection);
 
+  /// 폰에 남아 있는 목록만(서버에 묻지 않음). 목록을 바로 그릴 때 쓴다(D-F).
+  /// 폰에 없으면 빈 목록.
+  Future<List<Map<String, dynamic>>> fetchCachedProjects() async {
+    final snapshot = await _col
+        .orderBy('id', descending: true)
+        .get(const GetOptions(source: Source.cache))
+        .timeout(const Duration(seconds: 2));
+    return _visible(snapshot);
+  }
+
   // 🚀 id가 전부 DateTime.now().millisecondsSinceEpoch.toString()라서
   // 자릿수가 같은 한(2286년까지는 13자리 고정) 문자열 정렬 = 숫자 정렬과
   // 같다. 그래서 별도 createdAt 타임스탬프 없이 이 필드 하나로 최신순
@@ -74,6 +84,12 @@ class WorkProjectRepository {
     }
     // 🚀 [고침] 로그인한 사람 모두의 프로젝트가 다 보였다(점검 25번). 공용(주인 없음)과
     // 내 것만 보인다. 예전 프로젝트는 주인이 없어 그대로 모두에게 보인다.
+    return _visible(snapshot);
+  }
+
+  List<Map<String, dynamic>> _visible(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
     final uid = currentUid();
     return snapshot.docs.where((d) => canSeeDoc(d.data(), uid)).map((d) {
       final data = Map<String, dynamic>.from(d.data());

@@ -649,3 +649,16 @@ class NumberDisplay extends StatelessWidget {
     );
   }
 }
+
+/// 폰에 있는 목록을 보이는 중에 서버 목록을 받는 중: 머리 아래 가는 줄(D-F).
+/// 머리의 `bottom:`에 넣는다. 받는 중이 아니면 null(자리 없음).
+PreferredSizeWidget? refreshingBar(bool refreshing, {Key? key}) => refreshing
+    ? PreferredSize(
+        preferredSize: const Size.fromHeight(2),
+        child: LinearProgressIndicator(
+          key: key,
+          minHeight: 2,
+          semanticsLabel: '새로 받는 중',
+        ),
+      )
+    : null;

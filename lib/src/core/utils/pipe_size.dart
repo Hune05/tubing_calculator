@@ -13,8 +13,10 @@ double pipeSizeToMm(String size) {
   if (s.isEmpty) return 0.0;
 
   // "22mm", "12.7 mm"
-  final mm = RegExp(r'(\d+(?:\.\d+)?)\s*mm', caseSensitive: false)
-      .firstMatch(s);
+  final mm = RegExp(
+    r'(\d+(?:\.\d+)?)\s*mm',
+    caseSensitive: false,
+  ).firstMatch(s);
   if (mm != null) return double.tryParse(mm.group(1)!) ?? 0.0;
 
   // 인치 표기: 따옴표나 inch가 붙어 있으면 mm로 바꾼다.

@@ -115,6 +115,7 @@ class PathLine {
 class BendPath {
   final List<vm.Vector3> corners; // 교차점(시작점 포함하지 않음)
   final List<PathBend> bends;
+
   /// 곧은 토막들(접점에서 접점까지). 그림과 간섭 검사가 쓴다.
   final List<PathLine> straights;
   final vm.Vector3 endPoint;
@@ -319,10 +320,7 @@ BendPath buildBendPath(
     pos = pos + dir * tail;
     corners.add(pos.clone());
     if (straights.isNotEmpty) {
-      straights[straights.length - 1] = PathLine(
-        straights.last.a,
-        pos.clone(),
-      );
+      straights[straights.length - 1] = PathLine(straights.last.a, pos.clone());
     } else {
       straights.add(PathLine(straightFrom.clone(), pos.clone()));
     }

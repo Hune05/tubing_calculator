@@ -1,6 +1,7 @@
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -377,9 +378,8 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
           );
         }
         if (!snapshot.hasData) {
-          return const Center(
-            child: CircularProgressIndicator(color: makitaTeal),
-          );
+          // (D-F) 가운데 빙글이 대신 목록 모양 자리.
+          return const LoadingList(key: Key('inventory_loading'));
         }
 
         final pending = snapshot.data!.docs

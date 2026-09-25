@@ -1,5 +1,6 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../tube_cutting/cutting_leftovers.dart';
@@ -295,9 +296,8 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                       );
                     }
                     if (!snapshot.hasData) {
-                      return const Center(
-                        child: CircularProgressIndicator(color: slate300),
-                      );
+                      // (D-F) 가운데 빙글이 대신 목록 모양 자리.
+                      return const LoadingList(key: Key('stock_loading'));
                     }
 
                     // 남의 개인 재고는 처음부터 뺀다.
@@ -690,7 +690,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
 
   Widget _buildLeftoverList() {
     if (_leftovers == null || _leftoversLoading) {
-      return const Center(child: CircularProgressIndicator(color: slate300));
+      return const LoadingList(key: Key('leftover_loading'));
     }
     final list = [
       for (final l in _leftovers!)

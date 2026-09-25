@@ -3,6 +3,7 @@ import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:async';
 import '../my_work_logs/widgets/work_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/utils/cache_first.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -229,6 +230,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   List<Map<String, dynamic>> _projects = [];
   bool _loadingProjects = true;
 
+  /// 폰 목록을 보이는 중에 서버 목록을 받는 중(머리 아래 가는 줄).
+  bool _refreshingProjects = false;
+
   static bool _tzReady = false;
 
   // 🚀 [2번 강화] 카테고리는 다중 선택(빈 집합 = 전체 표시), 프로젝트는
@@ -267,18 +271,28 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     }
   }
 
+  // (D-F) 폰에 남은 프로젝트 일정을 먼저 그리고, 서버 것이 오면 바꿔 끼운다.
   Future<void> _loadProjects() async {
-    try {
-      final projects = await _projectRepo.fetchAllProjects();
-      if (!mounted) return;
-      setState(() {
-        _projects = projects;
-        _loadingProjects = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _loadingProjects = false);
-    }
+    await loadCacheFirst<List<Map<String, dynamic>>>(
+      cached: _projectRepo.fetchCachedProjects,
+      fresh: _projectRepo.fetchAllProjects,
+      isEmpty: (l) => l.isEmpty,
+      onData: (projects, {required fresh}) {
+        if (!mounted) return;
+        setState(() {
+          _projects = projects;
+          _loadingProjects = false;
+          _refreshingProjects = !fresh;
+        });
+      },
+      onError: (e, {required hadCache}) {
+        if (!mounted) return;
+        setState(() {
+          _loadingProjects = false;
+          _refreshingProjects = false;
+        });
+      },
+    );
   }
 
   DateTime _normalize(DateTime d) => DateTime(d.year, d.month, d.day);
@@ -4153,6 +4167,11 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           elevation: 0,
           scrolledUnderElevation: 0,
           centerTitle: false,
+          // (D-F) 폰 목록을 보이는 동안 서버 목록을 받는 중이면 가는 줄.
+          bottom: refreshingBar(
+            _refreshingProjects,
+            key: const Key('schedule_refreshing'),
+          ),
           title: const Text(
             "내 일정 관리",
             style: TextStyle(

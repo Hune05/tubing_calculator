@@ -3,6 +3,7 @@ import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../widgets/work_theme.dart';
 import '../widgets/korean_text.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/utils/cache_first.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 // debugPrint 사용을 위해 추가
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
@@ -73,6 +74,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   final WorkProjectRepository _repo = WorkProjectRepository();
   List<Map<String, dynamic>> _workLogs = [];
   bool _isLoading = true;
+
+  /// 폰 목록을 보이는 중에 서버 목록을 받는 중(머리 아래 가는 줄).
+  bool _refreshing = false;
   // 🚀 [프로젝트 목록 정렬] due=납기 빠른 순(납기 없는 건 뒤로), recent=최근 생성순,
   // progress=진행률 낮은순(뒤처진 프로젝트 먼저)
   String _sortMode = 'due';
@@ -128,57 +132,81 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     } catch (_) {}
   }
 
+  // (D-F) 폰에 남은 목록을 먼저 그리고, 서버 목록이 오면 바꿔 끼운다. 예전에는 서버 응답
+  // (통신이 없으면 6초)까지 빈 화면이었다. 폰에 없을 때만 목록 모양 자리가 보인다.
   Future<void> _loadData() async {
-    try {
-      final projects = await _repo.fetchAllProjects();
-      // 🚀 [단계 구조 이전] 단계(phases)가 없던 기존 프로젝트를, 등록된 일정
-      // 종류/날짜를 기준으로 새 구조로 옮겨 한 번만 저장한다.
-      for (final p in projects) {
-        final migrated = migrateProjectToPhases(p);
-        final snapped = recordProgressSnapshot(p);
-        if (migrated || snapped) _repo.upsertProject(p);
-      }
-      if (!mounted) return;
-      setState(() {
-        _workLogs = projects;
-        _isLoading = false;
+    await loadCacheFirst<List<Map<String, dynamic>>>(
+      cached: _repo.fetchCachedProjects,
+      fresh: _repo.fetchAllProjects,
+      isEmpty: (l) => l.isEmpty,
+      onData: (projects, {required fresh}) {
+        if (!mounted) return;
+        if (!fresh) {
+          setState(() {
+            _workLogs = projects;
+            _isLoading = false;
+            _refreshing = true;
+          });
+          return;
+        }
+        _onFreshProjects(projects);
+      },
+      onError: (e, {required hadCache}) {
+        debugPrint("⚠️ 내 프로젝트 불러오기 실패: $e");
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _refreshing = false;
+        });
+      },
+    );
+  }
+
+  void _onFreshProjects(List<Map<String, dynamic>> projects) {
+    // 🚀 [단계 구조 이전] 단계(phases)가 없던 기존 프로젝트를, 등록된 일정
+    // 종류/날짜를 기준으로 새 구조로 옮겨 한 번만 저장한다.
+    for (final p in projects) {
+      final migrated = migrateProjectToPhases(p);
+      final snapped = recordProgressSnapshot(p);
+      if (migrated || snapped) _repo.upsertProject(p);
+    }
+    if (!mounted) return;
+    setState(() {
+      _workLogs = projects;
+      _isLoading = false;
+      _refreshing = false;
+    });
+    // 알림을 다시 맞춘 뒤에도 예약이 어긋나 있으면 목록 위에 안내 카드를 띄운다.
+    syncReportReminder(
+      _workLogs,
+    ).then((_) => dailyReminderProblem(_workLogs)).then((msg) {
+      if (mounted) setState(() => _reminderProblem = msg);
+    });
+    cleanOldDrafts();
+    _runAutoBackup();
+    loadReportStyle();
+    _refreshPhotoCount();
+    _retryTimer ??= Timer.periodic(const Duration(seconds: 90), (_) {
+      if (_localPhotos > 0) _retryUploads();
+      if (_backupFailed) _runAutoBackup();
+    });
+    _migrateLocalPhotos();
+    if (widget.autoWriteReport) {
+      final missing = _projectsMissingTodayReport;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _writeTodayReport(missing);
       });
-      // 알림을 다시 맞춘 뒤에도 예약이 어긋나 있으면 목록 위에 안내 카드를 띄운다.
-      syncReportReminder(
-        _workLogs,
-      ).then((_) => dailyReminderProblem(_workLogs)).then((msg) {
-        if (mounted) setState(() => _reminderProblem = msg);
-      });
-      cleanOldDrafts();
-      _runAutoBackup();
-      loadReportStyle();
-      _refreshPhotoCount();
-      _retryTimer ??= Timer.periodic(const Duration(seconds: 90), (_) {
-        if (_localPhotos > 0) _retryUploads();
-        if (_backupFailed) _runAutoBackup();
-      });
-      _migrateLocalPhotos();
-      if (widget.autoWriteReport) {
-        final missing = _projectsMissingTodayReport;
+    }
+    if (widget.initialProjectId != null) {
+      final match = _workLogs.firstWhere(
+        (l) => l['id']?.toString() == widget.initialProjectId,
+        orElse: () => const {},
+      );
+      if (match.isNotEmpty && mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _writeTodayReport(missing);
+          if (mounted) _openDetail(match, tab: widget.initialTab);
         });
       }
-      if (widget.initialProjectId != null) {
-        final match = _workLogs.firstWhere(
-          (l) => l['id']?.toString() == widget.initialProjectId,
-          orElse: () => const {},
-        );
-        if (match.isNotEmpty && mounted) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _openDetail(match, tab: widget.initialTab);
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint("⚠️ 내 프로젝트 불러오기 실패: $e");
-      if (!mounted) return;
-      setState(() => _isLoading = false);
     }
   }
 
@@ -1614,6 +1642,11 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
+        // (D-F) 폰 목록을 보이는 동안 서버 목록을 받는 중이면 가는 줄.
+        bottom: refreshingBar(
+          _refreshing,
+          key: const Key('work_log_refreshing'),
+        ),
         actions: [
           IconButton(
             tooltip: "투입 통계",
