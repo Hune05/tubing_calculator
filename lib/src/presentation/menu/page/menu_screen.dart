@@ -6,6 +6,8 @@ import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/electric_bending_workspace.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/electric_marking_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_project_list_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/screens/work_log_main_screen.dart'
+    show WorkLogMainScreen;
 import 'package:tubing_calculator/src/presentation/conduit/screens/main_navigation_page.dart';
 import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart';
 import 'package:tubing_calculator/src/presentation/profile/pages/mobile_profile_page.dart';
@@ -60,7 +62,14 @@ class MenuScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var screenWidth = MediaQuery.of(context).size.width;
-    int crossAxisCount = screenWidth > 600 ? 4 : 2;
+    // 🚀 [고침] PC(1280×800)에서 카드가 커서 8칸만 보였다. 넓은 화면은 칸을 늘린다.
+    int crossAxisCount = screenWidth >= 1200
+        ? 6
+        : screenWidth >= 1000
+        ? 5
+        : screenWidth > 600
+        ? 4
+        : 2;
 
     return Scaffold(
       backgroundColor: slate100, // 💡 아주 밝은 회색 배경으로 하얀 버튼을 돋보이게 함
@@ -202,15 +211,19 @@ class MenuScreen extends StatelessWidget {
   // =========================================================================
   Widget _buildFullGridMenu(BuildContext context, int crossAxisCount) {
     return GridView.count(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       crossAxisCount: crossAxisCount,
-      crossAxisSpacing: 24,
-      mainAxisSpacing: 24,
+      crossAxisSpacing: 16,
+      mainAxisSpacing: 16,
       // 🚀 [수정] 1.1로 고정돼 있으면 아이콘+제목+부제 내용 높이가 카드 높이보다
       // 커서 모든 카드에서 "BOTTOM OVERFLOWED BY 18 PIXELS"가 발생했음.
       // crossAxisCount가 늘어날수록(카드가 좁아질수록) 세로 여유가 더 필요해서
       // 컬럼 수에 따라 비율을 낮춰(카드를 더 높게) 내용이 들어갈 공간을 확보한다.
-      childAspectRatio: crossAxisCount >= 4 ? 0.85 : 1.05,
+      childAspectRatio: crossAxisCount >= 5
+          ? 1.0
+          : crossAxisCount >= 4
+          ? 0.85
+          : 1.05,
       children: [
         _buildGridCard(
           context,
@@ -343,6 +356,19 @@ class MenuScreen extends StatelessWidget {
           iconColor: makitaTeal,
           onTap: () => Navigator.pushNamed(context, '/projects'),
         ),
+        // 🚀 [고침] PC·태블릿 홈에서 작업 일지(내 프로젝트)로 갈 길이 없었다.
+        // 위 "프로젝트 관리"는 BOM 집계 화면이라 폰의 "내 프로젝트"와 다르다.
+        _buildGridCard(
+          context,
+          icon: Icons.work_history_outlined,
+          title: '내 프로젝트',
+          subtitle: '작업 일지 · 이슈 · 공정',
+          iconColor: makitaTeal,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const WorkLogMainScreen()),
+          ),
+        ),
         _buildGridCard(
           context,
           icon: Icons.event_note_rounded,
@@ -462,14 +488,14 @@ class MenuScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: iconColor.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: iconColor, size: 48),
+              child: Icon(icon, color: iconColor, size: 40),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Text(
               title,
               textAlign: TextAlign.center,
