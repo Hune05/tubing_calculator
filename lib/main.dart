@@ -22,7 +22,6 @@ import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/shared_d
     show openSharedDrawing;
 
 // 💡 프로젝트 화면 임포트들
-import 'package:tubing_calculator/src/core/utils/db_seeder.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/main_calculator_screen.dart';
 import 'package:tubing_calculator/src/presentation/settings/screens/settings_screen.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/marking_page.dart';
@@ -532,30 +531,6 @@ class _LoadingScreenState extends State<LoadingScreen>
     super.dispose();
   }
 
-  Future<void> _seedDatabase() async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return const Center(
-          child: CircularProgressIndicator(color: Color(0xFF007580)),
-        );
-      },
-    );
-
-    await SmartFittingDBSeeder.uploadInitialData();
-
-    if (!mounted) return;
-
-    Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("✅ 파이어베이스 DB 데이터 구축이 완료되었습니다!"),
-        backgroundColor: Color(0xFF007580),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -605,19 +580,9 @@ class _LoadingScreenState extends State<LoadingScreen>
               ),
             ),
           ),
-          Positioned(
-            bottom: 20,
-            right: 20,
-            child: IconButton(
-              icon: const Icon(
-                Icons.cloud_upload_outlined,
-                color: Colors.white30,
-                size: 24,
-              ),
-              onPressed: _seedDatabase,
-              tooltip: "DB 초기화 (개발자용)",
-            ),
-          ),
+          // "DB 초기화" 단추는 뺐다: 한 번 누르면 묻지 않고 서버 부속 목록을 지우고 다시 올렸고,
+          // 통신이 없으면 닫을 수 없는 스피너에 갇혔다. 필요하면 튜브 컷팅 목록의
+          // "부속 DB 새로고침"(확인 창·통신 확인 있음)을 쓴다.
         ],
       ),
     );

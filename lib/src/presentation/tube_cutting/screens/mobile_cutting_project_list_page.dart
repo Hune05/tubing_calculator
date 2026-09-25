@@ -373,6 +373,24 @@ class MobileCuttingProjectListPage extends StatelessWidget {
     );
     if (!confirmed) return;
 
+    // 통신부터 확인한다. 없으면 지우기·올리기가 서버 답을 기다리느라 스피너가 안 닫혔다.
+    try {
+      await FirebaseFirestore.instance
+          .collection('fittings')
+          .limit(1)
+          .get(const GetOptions(source: Source.server))
+          .timeout(const Duration(seconds: 4));
+    } catch (_) {
+      if (context.mounted) {
+        showCuttingSnack(
+          context,
+          "통신이 없어 새로고침하지 않았습니다. 통신되는 곳에서 다시 하십시오.",
+          isError: true,
+        );
+      }
+      return;
+    }
+
     if (!context.mounted) return;
     showDialog(
       context: context,
