@@ -48,7 +48,7 @@ import 'package:tubing_calculator/src/presentation/field_tools/protractor_page.d
 const Color tossBlue = Color(0xFF3182F6);
 const Color purpleBadge = Color(0xFF8A2BE2);
 const Color slate900 = Color(0xFF191F28);
-const Color slate600 = Color(0xFF8B95A1);
+const Color slate600 = Color(0xFF5F6B78);
 const Color slate100 = Color(0xFFF2F4F6);
 const Color pureWhite = Color(0xFFFFFFFF);
 const Color warningRed = Color(0xFFF04438);

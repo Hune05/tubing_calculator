@@ -11,7 +11,7 @@ import '../profile_tools.dart';
 
 const Color _blue = Color(0xFF3182F6);
 const Color _slate900 = Color(0xFF191F28);
-const Color _slate600 = Color(0xFF8B95A1);
+const Color _slate600 = Color(0xFF5F6B78);
 const Color _red = Color(0xFFF04452);
 
 /// 사진을 바꾼 결과. [removed]면 지운 것, [url]이 있으면 새 사진.

@@ -16,7 +16,7 @@ import 'mobile_inventory_logs_page.dart';
 // 🎨 토스 스타일 색상 팔레트
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF191F28);
-const Color slate600 = Color(0xFF8B95A1);
+const Color slate600 = Color(0xFF5F6B78);
 const Color slate100 = Color(0xFFF2F4F6);
 const Color pureWhite = Color(0xFFFFFFFF);
 const Color warnColor = Color(0xFFC77700); // 모자란 자재 알림
@@ -582,8 +582,9 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                               style: TextStyle(
                                 color: canCheckout
                                     ? makitaTeal
-                                    : Colors.redAccent,
-                                fontSize: 13,
+                                    : Colors.red.shade700,
+                                // 🚀 [고침] 13px라 햇빛 아래서 재고 수가 잘 안 보였다.
+                                fontSize: 16,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),

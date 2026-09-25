@@ -103,9 +103,7 @@ void main() {
   group('화면', () {
     setUp(() => SharedPreferences.setMockInitialValues({}));
 
-    testWidgets('간격으로 바꾸면 말풍선·단계 줄·큰 숫자가 앞 마킹에서 잰 값이 된다', (
-      tester,
-    ) async {
+    testWidgets('간격으로 바꾸면 말풍선·단계 줄·큰 숫자가 앞 마킹에서 잰 값이 된다', (tester) async {
       await pump(tester, sample());
       expect(find.text('358'), findsOneWidget);
 
@@ -162,6 +160,29 @@ void main() {
       expect(errors, isEmpty);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('field_high_contrast'), isTrue);
+    });
+
+    testWidgets('N8 햇빛 아래: 줄자 화면의 각도·방향 글씨도 검고 크게, 넘치지 않음', (tester) async {
+      for (final size in [const Size(882, 344), const Size(640, 320)]) {
+        SharedPreferences.setMockInitialValues({'field_high_contrast': true});
+        final errors = <String>[];
+        final old = FlutterError.onError;
+        FlutterError.onError = (d) => errors.add(d.exceptionAsString());
+        await pump(tester, sample());
+        await tester.binding.setSurfaceSize(size);
+        await tester.pumpAndSettle();
+        final angle = tester
+            .widgetList<Text>(find.byType(Text))
+            .where((t) => (t.data ?? '').startsWith('21°'))
+            .toList();
+        expect(angle, isNotEmpty);
+        for (final t in angle) {
+          expect(t.style!.color, Colors.black, reason: '$size');
+          expect(t.style!.fontSize, greaterThanOrEqualTo(14), reason: '$size');
+        }
+        FlutterError.onError = old;
+        expect(errors, isEmpty, reason: '$size');
+      }
     });
 
     testWidgets('기억해 둔 보기로 다시 열린다', (tester) async {

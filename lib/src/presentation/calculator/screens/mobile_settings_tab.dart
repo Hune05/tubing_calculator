@@ -614,7 +614,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 child: Text(
                   auto ? "AUTO" : "MAN",
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 13, // 🚀 [고침] 10px라 켜졌는지 잘 안 보였다
                     fontWeight: FontWeight.w900,
                     color: auto ? pureWhite : slate600,
                   ),

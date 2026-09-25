@@ -2383,10 +2383,11 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                     const SizedBox(height: 2),
                     Text(
                       "= ${fmtMm(item.totalLength)} mm",
+                      // 🚀 [고침] 합계가 옅은 회색이라 잘 안 보였다.
                       style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: FontWeight.w800,
-                        color: CuttingColors.textSecondary,
+                        color: CuttingColors.textPrimary,
                       ),
                     ),
                   ],

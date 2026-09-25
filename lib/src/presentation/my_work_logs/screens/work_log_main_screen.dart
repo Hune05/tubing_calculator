@@ -40,7 +40,7 @@ part 'work_log_main_screen_dashboard.dart';
 // 토스 스타일 색상 팔레트
 const Color tossBlue = Color(0xFF007580); // 🚀 마키타 틸로 통일
 const Color tossText = Color(0xFF191F28);
-const Color tossSubText = Color(0xFF8B95A1);
+const Color tossSubText = Color(0xFF5F6B78);
 const Color tossBg = Color(0xFFF2F4F6);
 const Color pureWhite = Color(0xFFFFFFFF);
 

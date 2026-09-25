@@ -11,7 +11,7 @@ import '../models/report_style.dart';
 
 const Color _teal = Color(0xFF007580);
 const Color _text = Color(0xFF191F28);
-const Color _sub = Color(0xFF8B95A1);
+const Color _sub = Color(0xFF5F6B78);
 const Color _bg = Color(0xFFF2F4F6);
 
 // 🚀 [보고서 양식 설정] 회사명·로고·담당자 머리말, 서명란, 포함 항목, PDF 사진 기본값.

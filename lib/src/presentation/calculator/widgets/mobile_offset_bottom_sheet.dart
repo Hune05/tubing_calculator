@@ -380,13 +380,16 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                 fontWeight: FontWeight.bold,
               ),
             ),
+            // 🚀 [고침] 11px 옅은 빨강이라 잘 안 보였다.
             if (_selectedRotation == null)
-              const Text(
-                " *필수",
-                style: TextStyle(
-                  color: Colors.redAccent,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+              Flexible(
+                child: Text(
+                  " *필수",
+                  style: TextStyle(
+                    color: Colors.red.shade700,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
           ],

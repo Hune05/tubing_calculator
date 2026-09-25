@@ -34,7 +34,7 @@ const Color scheduleTeal = Color(0xFF007580);
 const Color scheduleTealDark = Color(0xFF004D54);
 const Color scheduleBg = Color(0xFFF2F4F6);
 const Color scheduleText = Color(0xFF191F28);
-const Color scheduleSubText = Color(0xFF8B95A1);
+const Color scheduleSubText = Color(0xFF5F6B78);
 const Color scheduleWhite = Colors.white;
 const Color scheduleDanger = Color(0xFFE0432B);
 

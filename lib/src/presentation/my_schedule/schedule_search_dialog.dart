@@ -94,7 +94,7 @@ class _ScheduleSearchDialogState extends State<ScheduleSearchDialog> {
                 padding: EdgeInsets.symmetric(vertical: 18),
                 child: Text(
                   "찾을 말을 입력하십시오.",
-                  style: TextStyle(color: Color(0xFF8B95A1)),
+                  style: TextStyle(color: Color(0xFF5F6B78)),
                 ),
               )
             else if (results.isEmpty)
@@ -102,7 +102,7 @@ class _ScheduleSearchDialogState extends State<ScheduleSearchDialog> {
                 padding: EdgeInsets.symmetric(vertical: 18),
                 child: Text(
                   "맞는 일정이 없습니다.",
-                  style: TextStyle(color: Color(0xFF8B95A1)),
+                  style: TextStyle(color: Color(0xFF5F6B78)),
                 ),
               )
             else
@@ -141,7 +141,7 @@ class _ScheduleSearchDialogState extends State<ScheduleSearchDialog> {
                                 fontWeight: FontWeight.w800,
                                 fontSize: 14,
                                 color: past
-                                    ? const Color(0xFF8B95A1)
+                                    ? const Color(0xFF5F6B78)
                                     : const Color(0xFF191F28),
                               ),
                             ),
@@ -152,7 +152,7 @@ class _ScheduleSearchDialogState extends State<ScheduleSearchDialog> {
                               '${past ? '  ·  지난 일정' : ''}',
                               style: const TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF8B95A1),
+                                color: Color(0xFF5F6B78),
                               ),
                             ),
                           ],

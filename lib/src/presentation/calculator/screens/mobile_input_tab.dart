@@ -1117,13 +1117,16 @@ class _MobileInputTabState extends State<MobileInputTab>
                                     fontSize: 13,
                                   ),
                                 ),
+                                // 🚀 [고침] 11px 옅은 빨강이라 잘 안 보였다.
                                 if (_selectedRotation == null)
-                                  const Text(
-                                    " *방향을 선택하십시오",
-                                    style: TextStyle(
-                                      color: Colors.redAccent,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
+                                  Flexible(
+                                    child: Text(
+                                      " *방향을 선택하십시오",
+                                      style: TextStyle(
+                                        color: Colors.red.shade700,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
                               ],

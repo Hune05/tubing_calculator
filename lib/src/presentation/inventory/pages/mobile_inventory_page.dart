@@ -23,7 +23,7 @@ part 'mobile_inventory_sync.dart';
 // 🎨 미니멀 감성을 위한 색상 정의 (토스 스타일)
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF191F28); // 부드러운 텍스트 블랙
-const Color slate600 = Color(0xFF8B95A1); // 부드러운 텍스트 그레이
+const Color slate600 = Color(0xFF5F6B78); // 부드러운 텍스트 그레이
 const Color slate100 = Color(0xFFF2F4F6); // 은은한 배경 그레이
 const Color pureWhite = Color(0xFFFFFFFF);
 

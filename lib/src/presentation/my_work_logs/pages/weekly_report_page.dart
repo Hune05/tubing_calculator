@@ -15,7 +15,7 @@ import '../models/weekly_plan.dart';
 
 const Color _teal = Color(0xFF007580);
 const Color _text = Color(0xFF191F28);
-const Color _sub = Color(0xFF8B95A1);
+const Color _sub = Color(0xFF5F6B78);
 const Color _bg = Color(0xFFF2F4F6);
 
 // 알림을 눌렀을 때: 프로젝트를 불러와 주간 업무 보고 화면을 바로 연다.

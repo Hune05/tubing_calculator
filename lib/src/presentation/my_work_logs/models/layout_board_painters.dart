@@ -12,7 +12,7 @@ const Color _centerDimColor = Color(0xFF007580); // 센터: 파란색(틸)
 const Color _diagonalDimColor = Color(0xFF8B5CF6); // 대각선: 보라색
 const Color _warningRed = Color(0xFFF04438);
 const Color _pureWhite = Color(0xFFFFFFFF);
-const Color _tossSubText = Color(0xFF8B95A1);
+const Color _tossSubText = Color(0xFF5F6B78);
 const Color _tossText = Color(0xFF191F28);
 
 // 🚀 [핵심 해결] 측면 모드에서도 레이캐스트(Raycast) 물리 법칙 완벽 적용

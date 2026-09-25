@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 
 const Color tossInputBg = Color(0xFFF2F4F6);
 const Color pureWhite = Color(0xFFFFFFFF);
-const Color tossSubText = Color(0xFF8B95A1);
+const Color tossSubText = Color(0xFF5F6B78);
 
 /// 사용자 이름 목록(한 번 읽으면 화면 사이에 재사용).
 class AssigneeNames {

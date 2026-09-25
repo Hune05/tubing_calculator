@@ -86,9 +86,16 @@ void main() {
     await pumpTab(tester, const Size(400, 2000));
     final before = computeTubeFieldData(startDir: 'RIGHT').totalCut;
 
+    Finder check(String key) => find.descendant(
+      of: find.byKey(Key(key)),
+      matching: find.byIcon(Icons.check_rounded),
+    );
+    expect(check('tube_start_fit'), findsNothing);
     await tester.tap(find.byKey(const Key('tube_start_fit')));
     await tester.pumpAndSettle();
     expect(MobileBendDataManager().startFit, isTrue);
+    // 켜진 것을 색만이 아니라 ✓로도 보인다(햇빛 아래).
+    expect(check('tube_start_fit'), findsOneWidget);
     await tester.tap(find.byKey(const Key('tube_end_fit')));
     await tester.pumpAndSettle();
     expect(MobileBendDataManager().endFit, isTrue);

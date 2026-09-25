@@ -22,8 +22,8 @@ import 'package:tubing_calculator/src/presentation/field/field_marking.dart';
 // 앱의 청록, 벤드 마킹만 빨강. 테두리는 얇게, 그림자는 없앤다.
 const Color _paper = Color(0xFFF8FAFC);
 const Color _ink = Color(0xFF0F172A);
-const Color _muted = Color(0xFF64748B);
-const Color _faint = Color(0xFF94A3B8);
+const Color _kMuted = Color(0xFF64748B);
+const Color _kFaint = Color(0xFF94A3B8);
 const Color _line = Color(0xFFE2E8F0);
 const Color _teal = Color(0xFF007580);
 const Color _red = Color(0xFFD32F2F);
@@ -81,6 +81,12 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   bool _showGap = false;
 
   Color get _bg => _highContrast ? Colors.white : _paper;
+
+  // 🚀 [고침] 햇빛 모드를 켜도 줄자 화면의 회색 작은 글씨(각도·방향·자르기·
+  // 직관 끝)는 그대로라 바뀌는 것이 없었다. 켜면 검게, 3px 크게 한다.
+  Color get _muted => _highContrast ? Colors.black : _kMuted;
+  Color get _faint => _highContrast ? Colors.black87 : _kFaint;
+  double _small(double size) => _highContrast ? size + 3 : size;
   Color get _strip => _highContrast ? Colors.white : _stripBg;
 
   Future<void> _loadViewPrefs() async {
@@ -375,7 +381,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           Text.rich(
             TextSpan(
               children: [
-                const TextSpan(
+                TextSpan(
                   text: '절단  ',
                   style: TextStyle(
                     fontSize: 13,
@@ -392,7 +398,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                     letterSpacing: -0.5,
                   ),
                 ),
-                const TextSpan(
+                TextSpan(
                   text: ' mm',
                   style: TextStyle(fontSize: 13, color: _muted),
                 ),
@@ -429,7 +435,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                 children: [
                   Text(
                     '${_current + 1} / ${steps.length}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: _muted,
@@ -728,11 +734,12 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               ),
             ],
           ),
-          const Text(
+          Text(
             '자르기',
             style: TextStyle(
               color: _muted,
-              fontSize: 11,
+              height: _highContrast ? 1.0 : null,
+              fontSize: _small(11),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -745,18 +752,20 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       child = Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          const Text(
+          Text(
             '직관 끝',
             style: TextStyle(
-              fontSize: 10,
+              height: _highContrast ? 1.0 : null,
+              fontSize: _small(10),
               color: _faint,
               fontWeight: FontWeight.w600,
             ),
           ),
           Text(
             l.position.round().toString(),
-            style: const TextStyle(
-              fontSize: 13,
+            style: TextStyle(
+              height: _highContrast ? 1.0 : null,
+              fontSize: _small(13),
               fontWeight: FontWeight.w700,
               color: _muted,
             ),
@@ -800,8 +809,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             '$angleText · ${fieldDirectionLabel(m.rotation).split(' ').first}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 11,
+            style: TextStyle(
+              height: _highContrast ? 1.0 : null,
+              fontSize: _small(11),
               color: _muted,
               fontWeight: FontWeight.w600,
             ),
@@ -853,7 +863,8 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
 
   Widget _buildStepStrip(List<FieldStep> steps) {
     return Container(
-      height: 64,
+      // 햇빛 모드는 아래 글씨가 커지므로 띠도 조금 높인다.
+      height: _highContrast ? 70 : 64,
       decoration: BoxDecoration(
         color: _strip,
         border: Border(
@@ -921,8 +932,8 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                         s.isCut
                             ? '자르기'
                             : '${_fmt(s.mark!.angle)}° · ${fieldDirectionLabel(s.mark!.rotation).split(' ').first}',
-                        style: const TextStyle(
-                          fontSize: 11,
+                        style: TextStyle(
+                          fontSize: _small(11),
                           fontWeight: FontWeight.w600,
                           color: _muted,
                         ),
@@ -954,11 +965,11 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const AppIcon(AppGlyph.tubeCut, size: 24, color: _muted),
+              AppIcon(AppGlyph.tubeCut, size: 24, color: _muted),
               const SizedBox(width: 6),
               Text(
                 done ? '자르기 끝' : '여기서 자릅니다',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
                   color: _muted,
@@ -969,7 +980,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           _bigNumber(s.at, gap: fieldStepGap(data, s), inch: data.inch(s.at)),
           Text(
             _showGap ? '마지막 마킹에서 · 줄자 눈금 ${s.at.round()} mm' : '관 끝 0에서 잰 자리',
-            style: const TextStyle(fontSize: 14, color: _muted),
+            style: TextStyle(fontSize: 14, color: _muted),
           ),
         ],
       );
@@ -1023,7 +1034,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                     : (m.number == 1
                           ? '관 끝 0에서'
                           : '앞 마킹에서 ${m.gap >= 0 ? '+' : ''}${m.gap.round()} mm'),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   color: _muted,
                   fontWeight: FontWeight.w600,
@@ -1041,7 +1052,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 '각도',
                 style: TextStyle(
                   fontSize: 13,
@@ -1062,7 +1073,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               if (m.hasOverBend)
                 Text(
                   '실제로 ${_fmt(m.targetAngle)}°까지 꺾기 · 스프링백',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: _muted,
@@ -1100,15 +1111,11 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.threesixty_rounded,
-                      size: 16,
-                      color: _muted,
-                    ),
+                    Icon(Icons.threesixty_rounded, size: 16, color: _muted),
                     const SizedBox(width: 4),
                     Text(
                       '꺾기 전에 관을 ${m.roll!.round()}° 굴립니다',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: _muted,
@@ -1454,7 +1461,7 @@ class _TapePainter extends CustomPainter {
             Offset(l.x, l.top),
             Offset(l.x, bottom),
             Paint()
-              ..color = _faint
+              ..color = _kFaint
               ..strokeWidth = 1,
           );
           break;

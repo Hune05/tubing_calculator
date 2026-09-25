@@ -571,29 +571,35 @@ class _MobileResultTabState extends State<MobileResultTab>
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      _buildToggleBtn(
-                        key: const Key('tube_start_fit'),
-                        title: "시작",
-                        isSelected: _includeStartFitting,
-                        onTap: () => setState(() {
-                          _includeStartFitting = !_includeStartFitting;
-                          MobileBendDataManager().startFit =
-                              _includeStartFitting;
-                        }),
-                      ),
-                      const SizedBox(width: 4),
-                      _buildToggleBtn(
-                        key: const Key('tube_end_fit'),
-                        title: "종료",
-                        isSelected: _includeEndFitting,
-                        onTap: () => setState(() {
-                          _includeEndFitting = !_includeEndFitting;
-                          MobileBendDataManager().endFit = _includeEndFitting;
-                        }),
-                      ),
-                    ],
+                  // 좁은 폰에서는 넘치지 않게 줄여 넣는다.
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildToggleBtn(
+                          key: const Key('tube_start_fit'),
+                          title: "시작",
+                          isSelected: _includeStartFitting,
+                          onTap: () => setState(() {
+                            _includeStartFitting = !_includeStartFitting;
+                            MobileBendDataManager().startFit =
+                                _includeStartFitting;
+                          }),
+                        ),
+                        const SizedBox(width: 4),
+                        _buildToggleBtn(
+                          key: const Key('tube_end_fit'),
+                          title: "종료",
+                          isSelected: _includeEndFitting,
+                          onTap: () => setState(() {
+                            _includeEndFitting = !_includeEndFitting;
+                            MobileBendDataManager().endFit = _includeEndFitting;
+                          }),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -700,19 +706,30 @@ class _MobileResultTabState extends State<MobileResultTab>
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: isSelected ? makitaTeal : slate100,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: isSelected ? makitaTeal : slate200),
         ),
-        child: Text(
-          title,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: isSelected ? pureWhite : slate600,
-          ),
+        // 🚀 [고침] 절단 길이를 바꾸는 토글인데 11px라 햇빛 아래서 켜졌는지
+        // 알기 어려웠다. 14px로 키우고, 켜지면 ✓도 붙인다.
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSelected) ...[
+              const Icon(Icons.check_rounded, size: 15, color: pureWhite),
+              const SizedBox(width: 2),
+            ],
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: isSelected ? pureWhite : slate600,
+              ),
+            ),
+          ],
         ),
       ),
     );

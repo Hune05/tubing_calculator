@@ -18,7 +18,7 @@ import 'app_status_page.dart';
 
 const Color _teal = Color(0xFF007580);
 const Color _text = Color(0xFF191F28);
-const Color _sub = Color(0xFF8B95A1);
+const Color _sub = Color(0xFF5F6B78);
 const Color _bg = Color(0xFFF2F4F6);
 
 // 🚀 [저장 공간 관리] 앱이 만든 임시 파일(사진 압축본, 내보내기 PDF/CSV)과 작업 일지 임시

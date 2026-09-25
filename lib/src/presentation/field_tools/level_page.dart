@@ -16,7 +16,7 @@ import 'tilt_math.dart';
 import 'tilt_sensor.dart';
 
 const Color _ink = Color(0xFF191F28);
-const Color _grey = Color(0xFF8B95A1);
+const Color _grey = Color(0xFF5F6B78);
 const Color _ok = Color(0xFF16A34A);
 
 const String kLevelCalibKey = 'field_level_calib_v1';

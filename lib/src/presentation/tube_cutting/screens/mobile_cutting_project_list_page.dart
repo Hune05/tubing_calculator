@@ -591,9 +591,10 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                                       if (lastCutAt != null)
                                         Text(
                                           "마지막 작업 ${lastCutAt.month}/${lastCutAt.day}",
-                                          style: TextStyle(
-                                            color: Colors.grey.shade400,
-                                            fontSize: 11,
+                                          // 🚀 [고침] 옅은 회색 11px라 안 보였다.
+                                          style: const TextStyle(
+                                            color: CuttingColors.textSecondary,
+                                            fontSize: 12,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),

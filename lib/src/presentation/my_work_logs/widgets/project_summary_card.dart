@@ -5,7 +5,7 @@ import '../models/report_tools.dart' show reportDateOf;
 
 const Color _tossBlue = Color(0xFF007580);
 const Color _tossText = Color(0xFF191F28);
-const Color _tossSub = Color(0xFF8B95A1);
+const Color _tossSub = Color(0xFF5F6B78);
 const Color _tossBg = Color(0xFFF2F4F6);
 const Color _warnRed = Color(0xFFF04438);
 

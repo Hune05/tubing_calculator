@@ -16,7 +16,7 @@ String auditQtyPrefix(Map data) {
 // 🎨 토스 스타일 미니멀 컬러 팔레트
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF191F28);
-const Color slate600 = Color(0xFF8B95A1);
+const Color slate600 = Color(0xFF5F6B78);
 const Color slate300 = Color(0xFFCBD5E1); // 💡 이 줄이 추가되었습니다!
 const Color slate100 = Color(0xFFF2F4F6);
 const Color pureWhite = Color(0xFFFFFFFF);

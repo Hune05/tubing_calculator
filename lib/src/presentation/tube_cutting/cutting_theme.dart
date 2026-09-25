@@ -17,7 +17,7 @@ class CuttingColors {
   static const Color border = Color(0xFFE5E8EB);
 
   static const Color textPrimary = Color(0xFF191F28);
-  static const Color textSecondary = Color(0xFF8B95A1);
+  static const Color textSecondary = Color(0xFF5F6B78);
 
   static const Color danger = Color(0xFFE0432B); // 삭제/간섭/오류
   static const Color dangerSoft = Color(0xFFFDECEA);
@@ -82,9 +82,11 @@ Future<bool> showCuttingConfirmDialog(
       content: SingleChildScrollView(
         child: Text(
           message,
+          // 🚀 [고침] 빼는 수량 목록 같은 확인할 숫자가 옅은 회색이라 햇빛 아래서
+          // 읽기 어려웠다. 본문은 진한 글씨로.
           style: const TextStyle(
-            color: CuttingColors.textSecondary,
-            fontSize: 14,
+            color: CuttingColors.textPrimary,
+            fontSize: 15,
             height: 1.45,
           ),
         ),
@@ -316,14 +318,14 @@ class PendingDeductionBadge extends StatelessWidget {
         children: [
           const AppIcon(
             AppGlyph.stockOut,
-            size: 12,
+            size: 14,
             color: CuttingColors.warning,
           ),
           const SizedBox(width: 4),
           Text(
             "출고 대기 $materialCount건",
             style: const TextStyle(
-              fontSize: 11,
+              fontSize: 13,
               fontWeight: FontWeight.bold,
               color: CuttingColors.warning,
             ),
