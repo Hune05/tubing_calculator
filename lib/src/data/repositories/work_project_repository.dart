@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/data/ownership.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
@@ -71,7 +72,10 @@ class WorkProjectRepository {
           .orderBy('id', descending: true)
           .get(const GetOptions(source: Source.cache));
     }
-    return snapshot.docs.map((d) {
+    // 🚀 [고침] 로그인한 사람 모두의 프로젝트가 다 보였다(점검 25번). 공용(주인 없음)과
+    // 내 것만 보인다. 예전 프로젝트는 주인이 없어 그대로 모두에게 보인다.
+    final uid = currentUid();
+    return snapshot.docs.where((d) => canSeeDoc(d.data(), uid)).map((d) {
       final data = Map<String, dynamic>.from(d.data());
       data['id'] = d.id;
       // 아이디 없는 예전 일지에 아이디를 붙인다(다음 저장부터 아이디로 합쳐진다).

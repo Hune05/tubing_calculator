@@ -21,6 +21,7 @@ import '../models/photo_store.dart';
 import '../widgets/voice_input_button.dart';
 import 'photo_annotate_page.dart';
 import 'package:tubing_calculator/src/core/utils/send_quietly.dart';
+import 'package:tubing_calculator/src/data/ownership.dart';
 
 part 'daily_report_page_draft.dart';
 part 'daily_report_page_submit.dart';
@@ -257,20 +258,19 @@ class _DailyReportPageState extends State<DailyReportPage> {
   List<String> _favMaterials = [];
 
   // 즐겨찾기는 Firestore(my_project_settings/fav_materials)와 이 기기 양쪽에 둔다.
-  DocumentReference<Map<String, dynamic>> get _favDoc => FirebaseFirestore
-      .instance
-      .collection('my_project_settings')
-      .doc('fav_materials');
+  // 사람마다 따로(점검 25번). 처음에는 예전에 같이 쓰던 문서를 이어받는다.
+  DocumentReference<Map<String, dynamic>> get _favDoc =>
+      mySettingsDoc('fav_materials');
 
   Future<void> _loadFavs() async {
     try {
       final p = await SharedPreferences.getInstance();
       final local = p.getStringList(_kFavKey) ?? [];
       if (mounted) setState(() => _favMaterials = local);
-      final snap = await _favDoc.get().timeout(const Duration(seconds: 6));
-      final cloud = ((snap.data()?['items'] as List?) ?? [])
-          .map((e) => e.toString())
-          .toList();
+      final cloud =
+          (((await readMySettings('fav_materials'))?['items'] as List?) ?? [])
+              .map((e) => e.toString())
+              .toList();
       final merged = [...cloud, ...local.where((e) => !cloud.contains(e))];
       if (mounted) setState(() => _favMaterials = merged);
       await p.setStringList(_kFavKey, merged);

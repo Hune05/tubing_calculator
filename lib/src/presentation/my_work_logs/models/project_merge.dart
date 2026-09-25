@@ -61,6 +61,12 @@ Map<String, dynamic> mergeProjectDocs({
   final out = Map<String, dynamic>.from(local);
   if (server == null) return out;
 
+  // 주인 칸(점검 25번): 이 폰 것에 칸이 아예 없으면(주인이 생기기 전 옛 사본) 서버 것을
+  // 따른다. "공용으로 돌리기"는 칸을 빈 글로 남기므로 그대로 이긴다.
+  for (final k in const ['ownerUid', 'ownerName']) {
+    if (!local.containsKey(k) && server.containsKey(k)) out[k] = server[k];
+  }
+
   final deleted = <String>{
     ...((local[kDeletedIdsKey] as List?) ?? const []).map((e) => e.toString()),
     ...((server[kDeletedIdsKey] as List?) ?? const []).map((e) => e.toString()),

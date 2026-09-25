@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tubing_calculator/src/data/ownership.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/core/utils/send_quietly.dart';
 
@@ -7,9 +8,9 @@ import 'package:tubing_calculator/src/core/utils/send_quietly.dart';
 // (my_project_settings/address_book)와 이 기기에 같이 보관한다.
 const _kKey = 'address_book_v1';
 
-DocumentReference<Map<String, dynamic>> get _doc => FirebaseFirestore.instance
-    .collection('my_project_settings')
-    .doc('address_book');
+// 사람마다 따로(점검 25번). 처음에는 예전에 같이 쓰던 문서를 이어받는다.
+DocumentReference<Map<String, dynamic>> get _doc =>
+    mySettingsDoc('address_book');
 
 String _key(Map e) => '${e['name']}|${e['phone']}';
 
@@ -42,8 +43,7 @@ Future<void> _saveLocal(List<Map<String, dynamic>> l) async {
 Future<List<Map<String, dynamic>>> loadAddressBook() async {
   final local = await _loadLocal();
   try {
-    final snap = await _doc.get().timeout(const Duration(seconds: 6));
-    final cloud = _fromList(snap.data()?['items']);
+    final cloud = _fromList((await readMySettings('address_book'))?['items']);
     final seen = cloud.map(_key).toSet();
     final merged = [...cloud, ...local.where((e) => !seen.contains(_key(e)))];
     await _saveLocal(merged);

@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/data/ownership.dart';
 import 'package:flutter/material.dart';
 
 import '../models/project_phase.dart';
@@ -122,6 +123,20 @@ class ProjectSummaryCard extends StatelessWidget {
                               ),
                             ),
                           ),
+                          // 내 것·공용(점검 25번). 공용은 이 앱을 쓰는 모두가 본다.
+                          if (isSharedDoc(log))
+                            const Padding(
+                              key: Key('project_shared_tag'),
+                              padding: EdgeInsets.only(right: 6),
+                              child: Text(
+                                "공용",
+                                style: TextStyle(
+                                  color: _tossSub,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
                           if (ddayText != null)
                             Container(
                               padding: const EdgeInsets.symmetric(

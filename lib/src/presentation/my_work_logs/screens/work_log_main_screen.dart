@@ -33,6 +33,7 @@ import '../pages/punch_detail_page.dart';
 import '../pages/project_schedule_page.dart';
 import '../pages/daily_report_calendar_page.dart';
 import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
+import 'package:tubing_calculator/src/data/ownership.dart';
 
 part 'work_log_main_screen_banners.dart';
 part 'work_log_main_screen_dashboard.dart';
@@ -458,6 +459,14 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   void _showCreateSheet() async {
     final newLog = await CreateLogSheet.show(context, existingLogs: _workLogs);
     if (newLog != null) {
+      // 새 프로젝트는 내 것(같이 쓰려면 빠른 작업에서 공용으로 돌린다).
+      newLog.addAll(
+        ownerFieldsFor(
+          shared: false,
+          uid: currentUid(),
+          name: currentWorkerName.value,
+        ),
+      );
       setState(() {
         _workLogs.insert(0, newLog);
       });
@@ -1201,6 +1210,20 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
               title: Text(isProjectPinned(log) ? "맨 위 고정 해제" : "맨 위 고정"),
               onTap: () => Navigator.pop(ctx, 'pin'),
             ),
+            if (currentUid() != null)
+              ListTile(
+                key: const Key('project_toggle_shared'),
+                leading: Icon(
+                  isSharedDoc(log)
+                      ? Icons.person_outline_rounded
+                      : Icons.groups_outlined,
+                ),
+                title: Text(isSharedDoc(log) ? "내 것으로 가져오기" : "공용으로 돌리기"),
+                subtitle: Text(
+                  isSharedDoc(log) ? "나만 보고 고칩니다" : "이 앱을 쓰는 모두가 보고 고칩니다",
+                ),
+                onTap: () => Navigator.pop(ctx, 'share'),
+              ),
           ],
         ),
       ),
@@ -1212,6 +1235,30 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     if (pick == 'pin') {
       setState(() => log['pinned'] = !isProjectPinned(log));
       _saveProject(log);
+    }
+    if (pick == 'share') {
+      final toShared = !isSharedDoc(log);
+      setState(() {
+        if (toShared) {
+          // 칸을 지우지 않고 비워 둔다(옛 사본이 합칠 때 주인을 되살리지 않게).
+          log[kOwnerUid] = '';
+          log[kOwnerName] = '';
+        } else {
+          log.addAll(
+            ownerFieldsFor(
+              shared: false,
+              uid: currentUid(),
+              name: currentWorkerName.value,
+            ),
+          );
+        }
+      });
+      _saveProject(log);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(toShared ? "공용으로 돌렸습니다." : "내 것으로 가져왔습니다.")),
+        );
+      }
     }
   }
 

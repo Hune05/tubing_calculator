@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tubing_calculator/src/data/ownership.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/core/utils/send_quietly.dart';
 
@@ -83,9 +84,9 @@ class ReportStyle {
 
 const _kPref = 'report_style_v1';
 
-DocumentReference<Map<String, dynamic>> get _doc => FirebaseFirestore.instance
-    .collection('my_project_settings')
-    .doc('report_style');
+// 사람마다 따로(점검 25번). 처음에는 예전에 같이 쓰던 문서를 이어받는다.
+DocumentReference<Map<String, dynamic>> get _doc =>
+    mySettingsDoc('report_style');
 
 // 이 기기 값을 먼저 적용하고, 클라우드 값이 있으면 그걸로 덮어쓴다.
 Future<ReportStyle> loadReportStyle() async {
@@ -97,8 +98,7 @@ Future<ReportStyle> loadReportStyle() async {
     }
   } catch (_) {}
   try {
-    final snap = await _doc.get().timeout(const Duration(seconds: 6));
-    final d = snap.data();
+    final d = await readMySettings('report_style');
     if (d != null) {
       ReportStyle.current = ReportStyle.fromJson(d);
       await _saveLocal(ReportStyle.current);

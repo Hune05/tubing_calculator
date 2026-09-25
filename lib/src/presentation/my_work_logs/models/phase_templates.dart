@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tubing_calculator/src/data/ownership.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'project_phase.dart';
@@ -75,6 +76,20 @@ Future<void> _saveLocal(List<PhaseTemplate> all) async {
   );
 }
 
+// 🚀 [고침] 단계 템플릿이 모두 한 모음에 이름으로만 있어, 남과 같은 이름이면 서로
+// 덮었다. 새로 저장하는 것은 내 것(주인 칸, 문서 이름 앞에 uid)으로 두고, 예전
+// 것(주인 없음)은 공용으로 모두에게 보인다(점검 25번).
+String _docIdFor(String name) {
+  final enc = Uri.encodeComponent(name);
+  final uid = currentUid();
+  return uid == null ? enc : '${uid}__$enc';
+}
+
+Map<String, dynamic> _cloudJson(PhaseTemplate t) => {
+  ...t.toJson(),
+  ...ownerFieldsFor(shared: false, uid: currentUid()),
+};
+
 Future<List<PhaseTemplate>> loadPhaseTemplates() async {
   final byName = <String, PhaseTemplate>{};
   final local = await _loadLocal();
@@ -85,14 +100,22 @@ Future<List<PhaseTemplate>> loadPhaseTemplates() async {
     final col = FirebaseFirestore.instance.collection(_kCloud);
     final snap = await col.get().timeout(const Duration(seconds: 6));
     final cloudNames = <String>{};
-    for (final d in snap.docs) {
+    final uid = currentUid();
+    // 공용 먼저, 내 것이 같은 이름이면 내 것으로. 남의 것은 뺀다.
+    final docs = snap.docs.where((d) => canSeeDoc(d.data(), uid)).toList()
+      ..sort(
+        (a, b) =>
+            (isMineDoc(a.data(), uid) ? 1 : 0) -
+            (isMineDoc(b.data(), uid) ? 1 : 0),
+      );
+    for (final d in docs) {
       final t = PhaseTemplate.fromJson(d.data());
       byName[t.name] = t;
       cloudNames.add(t.name);
     }
     for (final t in local) {
       if (!cloudNames.contains(t.name)) {
-        sendQuietly(() => col.doc(Uri.encodeComponent(t.name)).set(t.toJson()));
+        sendQuietly(() => col.doc(_docIdFor(t.name)).set(_cloudJson(t)));
       }
     }
     await _saveLocal(byName.values.toList());
@@ -110,8 +133,8 @@ Future<void> savePhaseTemplate(PhaseTemplate t) async {
   sendQuietly(
     () => FirebaseFirestore.instance
         .collection(_kCloud)
-        .doc(Uri.encodeComponent(t.name))
-        .set(t.toJson()),
+        .doc(_docIdFor(t.name))
+        .set(_cloudJson(t)),
     what: '단계 템플릿 서버 저장',
   );
 }
@@ -120,13 +143,11 @@ Future<void> deletePhaseTemplate(String name) async {
   final local = await _loadLocal();
   local.removeWhere((e) => e.name == name);
   await _saveLocal(local);
-  sendQuietly(
-    () => FirebaseFirestore.instance
-        .collection(_kCloud)
-        .doc(Uri.encodeComponent(name))
-        .delete(),
-    what: '단계 템플릿 서버 지우기',
-  );
+  // 내 것과, 같은 이름의 예전 공용 것을 지운다(보이는 것이 사라지게).
+  final col = FirebaseFirestore.instance.collection(_kCloud);
+  for (final id in {_docIdFor(name), Uri.encodeComponent(name)}) {
+    sendQuietly(() => col.doc(id).delete(), what: '단계 템플릿 서버 지우기');
+  }
 }
 
 // 현재 프로젝트의 단계 구성을 템플릿으로: 각 단계 기간(일)을 비중으로 쓴다.
