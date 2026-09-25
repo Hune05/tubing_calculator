@@ -30,6 +30,7 @@ import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_boa
 // 🚀 2. 자재 관리 페이지들 임포트
 import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_login.dart';
 import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_status_page.dart';
+import 'package:tubing_calculator/src/presentation/inventory/pages/low_stock_count.dart';
 
 // 🚀 3. 프로필 및 소통 페이지 임포트
 import 'package:tubing_calculator/src/presentation/profile/pages/mobile_profile_page.dart';
@@ -85,6 +86,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   int? _todayScheduleCount;
   // 오늘 작업 일지를 안 쓴 진행중 프로젝트 수(모르면 null).
   int? _missingReports;
+  // 필드 헬퍼 2번: 최소 수량 아래로 내려간 자재 수(자재 현황과 같은 기준).
+  int? _lowStock;
 
   // 🚀 날씨 상세 데이터 상태 관리
   String _weatherDesc = "확인 중";
@@ -109,6 +112,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     _fetchDetailedWeather();
     _loadTodayScheduleCount();
     _loadMissingReports();
+    _loadLowStock();
     // 격주·평일·반복 끝이 있는 일정 알림은 한 번씩만 잡혀 있어서 다음 회차를 다시 잡아야
     // 한다. 예전엔 "내 일정" 화면을 열 때만 잡아서, 며칠 안 열면 알림이 끊겼다.
     // 앱을 켤 때 한 번(기다리지 않음, 통신이 없으면 폰 캐시로).
@@ -138,6 +142,11 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   Future<void> _loadMissingReports() async {
     final n = await fetchMissingReportCount();
     if (mounted) setState(() => _missingReports = n);
+  }
+
+  Future<void> _loadLowStock() async {
+    final n = await fetchLowStockCount();
+    if (mounted) setState(() => _lowStock = n);
   }
 
   Future<void> _loadTodayScheduleCount() async {
@@ -743,6 +752,9 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   subtitle: "지금 재고 확인 및 현장 자재 입출고 처리",
                   icon: AppGlyph.stock,
                   iconColor: slate900,
+                  // 필드 헬퍼 2번: 현장 나가기 전에 홈만 보고 부족한 자재를 알 수 있게.
+                  badgeText: (_lowStock ?? 0) > 0 ? "$_lowStock건 부족" : null,
+                  badgeColor: AppColors.caution,
                   onTap: () {
                     HapticFeedback.lightImpact();
                     Navigator.push(
@@ -752,7 +764,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                           workerName: widget.currentWorker,
                         ),
                       ),
-                    );
+                    ).then((_) => _loadLowStock());
                   },
                 ),
                 _buildMenuButton(
@@ -769,7 +781,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         builder: (context) =>
                             const MobileInventoryLoginScreen(),
                       ),
-                    );
+                    ).then((_) => _loadLowStock());
                   },
                 ),
                 // 🚀 [정리] "자재 발주 및 현황"과 "발주 의뢰 내역"은 메뉴에서 뺐다
