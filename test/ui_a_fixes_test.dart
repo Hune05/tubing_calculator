@@ -86,4 +86,28 @@ void main() {
       expect(okColor(d), d ? const Color(0xFFDC2626) : const Color(0xFF007580));
     }
   });
+
+  testWidgets('X9 지우기 전에 묻는다: 취소면 false, 삭제면 true', (tester) async {
+    final results = <bool>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async =>
+                results.add(await confirmDeleteDialog(context, message: '지울까')),
+            child: const Text('열기'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm_delete_ok')));
+    await tester.pumpAndSettle();
+    expect(results, [false, true]);
+  });
 }

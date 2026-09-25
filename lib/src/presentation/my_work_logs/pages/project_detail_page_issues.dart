@@ -554,7 +554,13 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
                           title: Text("${e['name']}  ·  ${e['role']}"),
                           subtitle: Text(e['phone']?.toString() ?? ''),
                           onTap: () => Navigator.pop(ctx, e),
+                          // 🚀 [고침] 길게 누르면 묻지 않고 바로 지웠다.
                           onLongPress: () async {
+                            final ok = await confirmDeleteDialog(
+                              ctx,
+                              message: "${e['name']}을(를) 주소록에서 지우겠습니까?",
+                            );
+                            if (!ok) return;
                             await removeAddress(e);
                             final nb = await loadAddressBook();
                             setB(() => book = nb);

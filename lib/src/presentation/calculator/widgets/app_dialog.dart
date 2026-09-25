@@ -135,3 +135,24 @@ const TextStyle appFieldTextStyle = TextStyle(
   fontSize: 16,
   fontWeight: FontWeight.w600,
 );
+
+/// 지우기 전에 한 번 묻는다(빨간 "삭제" 단추). 삭제를 눌렀을 때만 true.
+Future<bool> confirmDeleteDialog(
+  BuildContext context, {
+  required String message,
+  String title = "삭제 확인",
+}) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AppDialog(
+      title: title,
+      okText: "삭제",
+      destructive: true,
+      okKey: const Key('confirm_delete_ok'),
+      onCancel: () => Navigator.pop(ctx, false),
+      onOk: () => Navigator.pop(ctx, true),
+      content: AppDialog.message(message),
+    ),
+  );
+  return ok == true;
+}
