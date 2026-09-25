@@ -6,6 +6,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_leftovers.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/widgets/cutting_optimization_sheet.dart';
 
+/// 통신 없고 폰 캐시에도 잔재 문서가 없는 폰(새로 깔았을 때).
+class _NoCacheStore implements LeftoverStore {
+  final added = <Leftover>[];
+  @override
+  Future<List<Leftover>> load() async => throw StateError('unavailable');
+  @override
+  Future<void> save(List<Leftover> all) async {}
+  @override
+  Future<void> change({
+    List<Leftover> used = const [],
+    List<Leftover> added = const [],
+  }) async => this.added.addAll(added);
+}
+
 void main() {
   setUp(() {
     leftoverStore = PrefsLeftoverStore();
@@ -93,5 +107,19 @@ void main() {
     expect(back.id, 'k1');
     expect(back.label, '튜브 1/2"');
     expect(back.length, 850);
+  });
+
+  testWidgets('잔재를 못 읽어도 재단 계획 창은 열리고, 새 원자재로만 계산한다(점검 22번)', (tester) async {
+    final store = _NoCacheStore();
+    leftoverStore = store;
+    await open(tester, [5000]);
+    // 예전: 잔재 읽기 오류를 안 잡아 창이 아예 안 떴다.
+    expect(find.text('필요 원자재'), findsOneWidget);
+    expect(find.textContaining('잔재를 불러오지 못해'), findsOneWidget);
+    // 잘랐습니다를 누르면 새 잔재만 더한다(목록을 덮어쓰지 않는다).
+    await tester.tap(find.textContaining('잘랐습니다'));
+    await tester.pumpAndSettle();
+    expect(store.added.map((l) => l.length), [1000]);
+    expect(await loadLeftovers(), isEmpty); // 다른 화면도 오류 없이 빈 목록
   });
 }

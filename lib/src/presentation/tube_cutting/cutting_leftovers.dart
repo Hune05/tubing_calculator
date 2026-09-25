@@ -122,7 +122,13 @@ class FirestoreLeftoverStore implements LeftoverStore {
 
   @override
   Future<List<Leftover>> load() async {
-    final snap = await _doc.get();
+    // 통신이 느리면 8초 뒤 폰 캐시로. 캐시도 없으면(새로 깐 폰) 오류를 그대로 올린다.
+    DocumentSnapshot<Map<String, dynamic>> snap;
+    try {
+      snap = await _doc.get().timeout(const Duration(seconds: 8));
+    } catch (_) {
+      snap = await _doc.get(const GetOptions(source: Source.cache));
+    }
     final data = snap.data();
     final raw = (data?['items'] as List?) ?? const [];
     final list = <Leftover>[
@@ -201,7 +207,20 @@ class FirestoreLeftoverStore implements LeftoverStore {
 // 앱이 쓰는 저장소(테스트는 setUp에서 PrefsLeftoverStore로 바꿔 쓴다).
 LeftoverStore leftoverStore = FirestoreLeftoverStore();
 
-Future<List<Leftover>> loadLeftovers() => leftoverStore.load();
+/// 잔재를 읽는다. 못 읽으면(통신 없고 폰 캐시에도 없음) null.
+/// 🚀 [고침] 예전에는 이 오류를 안 잡아, 새로 깐 폰에서 통신이 없으면 재단 계획 창이
+/// 아예 안 열렸다. 잔재 없이 새 원자재로만 계산하고 그렇다고 알린다.
+Future<List<Leftover>?> tryLoadLeftovers() async {
+  try {
+    return await leftoverStore.load();
+  } catch (_) {
+    return null;
+  }
+}
+
+/// 잔재를 읽는다. 못 읽으면 빈 목록(지시서 PDF·결과 탭 본수 셈 등).
+Future<List<Leftover>> loadLeftovers() async =>
+    await tryLoadLeftovers() ?? const [];
 
 Future<void> saveLeftovers(List<Leftover> all) => leftoverStore.save(all);
 

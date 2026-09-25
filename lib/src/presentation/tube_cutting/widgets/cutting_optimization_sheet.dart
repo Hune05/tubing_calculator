@@ -76,8 +76,16 @@ Future<void> showCuttingOptimizationSheet(
     text: initialStockLength.toStringAsFixed(0),
   );
   // 잔재(이전에 자르고 남겨 둔 것). 켜 두면 같은 규격의 잔재부터 먼저 쓴다.
-  var leftovers = await loadLeftovers();
+  final loaded = await tryLoadLeftovers();
   if (!context.mounted) return;
+  var leftovers = loaded ?? <Leftover>[];
+  if (loaded == null) {
+    showCuttingSnack(
+      context,
+      "잔재를 불러오지 못해 새 원자재로만 계산합니다. 통신이 되면 다시 여십시오.",
+      isError: true,
+    );
+  }
   bool useLeftovers = true;
   bool leftoversSaved = leftoversAlreadySaved;
   bool leftoversSaving = false;
