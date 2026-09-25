@@ -258,7 +258,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                   color: CuttingColors.primary,
                 ),
                 title: const Text(
-                  "재고 차감",
+                  "재고에서 빼기",
                   style: TextStyle(
                     color: CuttingColors.textPrimary,
                     fontWeight: FontWeight.bold,

@@ -205,7 +205,7 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
                 size: 20,
               ),
               SizedBox(width: 10),
-              Text("재고 차감"),
+              Text("재고에서 빼기"),
             ],
           ),
         ),

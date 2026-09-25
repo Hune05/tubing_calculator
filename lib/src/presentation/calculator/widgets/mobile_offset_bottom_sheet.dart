@@ -655,7 +655,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                               shrink: geometricShrink,
                               shrinkToAdd: shrinkToAdd,
                               gain: totalGain,
-                              btnText: "적용",
+                              btnText: "목록에 넣기",
                               onPressed: () =>
                                   _applyBending(a, calcTravel, geometricShrink),
                             ),
@@ -707,7 +707,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                               shrink: geometricShrink,
                               shrinkToAdd: shrinkToAdd,
                               gain: totalGain,
-                              btnText: "적용",
+                              btnText: "목록에 넣기",
                               isError: inverseError,
                               isAngle: true,
                               onPressed: () =>
@@ -906,7 +906,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: makitaTeal,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
+                    horizontal: 16,
                     vertical: 14,
                   ),
                 ),

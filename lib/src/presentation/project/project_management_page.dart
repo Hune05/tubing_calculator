@@ -1135,10 +1135,10 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
         backgroundColor: pureWhite,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: const Text(
-          "재고 한꺼번에 차감",
+          "재고에서 한꺼번에 빼기",
           style: TextStyle(fontWeight: FontWeight.bold, color: slate900),
         ),
-        content: const Text("이 프로젝트에 사용된 자재들을 창고 재고에서 차감하시겠습니까?"),
+        content: const Text("이 프로젝트에 쓴 자재를 창고 재고에서 빼겠습니까?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -1151,7 +1151,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
             style: ElevatedButton.styleFrom(backgroundColor: makitaTeal),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text(
-              "차감하기",
+              "빼기",
               style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
             ),
           ),

@@ -333,7 +333,7 @@ Future<void> deductCuttingProjectInventory({
 
   if (materials.isEmpty) {
     if (context.mounted) {
-      showCuttingSnack(context, "차감할 자재가 없습니다.", isError: true);
+      showCuttingSnack(context, "뺄 자재가 없습니다.", isError: true);
     }
     return;
   }
@@ -352,13 +352,13 @@ Future<void> deductCuttingProjectInventory({
   if (!context.mounted) return;
   final confirmed = await showCuttingConfirmDialog(
     context,
-    title: "재고에서 차감하겠습니까?",
+    title: "재고에서 빼겠습니까?",
     message: warning.isEmpty
         ? "'$projectName'에서 쓴 자재를 창고 재고에서 뺍니다.\n\n"
               "${stockTakeLines(takes, stock.qtyByName)}"
         : "'$projectName'에서 쓴 자재를 창고 재고에서 뺍니다.\n\n"
               "${stockTakeLines(takes, stock.qtyByName)}\n\n$warning",
-    confirmLabel: "차감하기",
+    confirmLabel: "빼기",
     icon: AppGlyph.stockOut,
   );
   if (!confirmed) return;
@@ -410,7 +410,7 @@ Future<void> deductCuttingProjectInventory({
       // 예외 원문(영어)을 그대로 붙이지 않는다.
       showCuttingSnack(
         context,
-        "차감하지 못했습니다. 통신을 확인하고 다시 해 보십시오.",
+        "재고에서 빼지 못했습니다. 통신을 확인하고 다시 해 보십시오.",
         isError: true,
       );
     }

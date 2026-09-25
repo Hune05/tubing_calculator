@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
 import '../../../core/utils/error_log.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -808,4 +809,21 @@ Future<void> rescheduleWeeklyOnly(List<Map<String, dynamic>> logs) async {
     pref.weeklyMinutes,
     pref.autoPdf,
   );
+}
+
+/// 오늘 "MM/dd".
+String todayMmDd([DateTime? now]) {
+  final d = now ?? DateTime.now();
+  return "${d.month.toString().padLeft(2, '0')}/${d.day.toString().padLeft(2, '0')}";
+}
+
+/// 오늘 작업 일지를 아직 안 쓴 진행중 프로젝트 수(홈 배지). 읽지 못하면 null.
+Future<int?> fetchMissingReportCount() async {
+  try {
+    final logs = await WorkProjectRepository().fetchAllProjects();
+    return projectsMissingReport(logs, todayMmDd()).length;
+  } catch (e) {
+    debugPrint('오늘 일지 수 읽기 실패: $e');
+    return null;
+  }
 }

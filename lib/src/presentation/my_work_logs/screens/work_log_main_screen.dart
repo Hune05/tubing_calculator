@@ -156,12 +156,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       _migrateLocalPhotos();
       if (widget.autoWriteReport) {
         final missing = _projectsMissingTodayReport;
-        if (missing.length == 1) {
-          final target = missing.first;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _addDailyReportFor(target);
-          });
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _writeTodayReport(missing);
+        });
       }
       if (widget.initialProjectId != null) {
         final match = _workLogs.firstWhere(
@@ -330,7 +327,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                   title: const Text("주간 보고서 알림"),
                   subtitle: Text(
                     keepWords(
-                      "매주 금요일 ${hm(weeklyMinutes)}에 주간 업무 보고를 열어 보라고 알려 줍니다.",
+                      "매주 금요일 ${hm(weeklyMinutes)}에 주간 보고를 열어 보라고 알려 줍니다.",
                     ),
                   ),
                   value: weekly,
@@ -937,6 +934,51 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   }
 
   // 🚀 [추가] 오늘 일지를 아직 안 쓴 진행중 프로젝트들.
+  /// 홈의 "오늘 작업 일지 쓰기"·일지 알림으로 들어왔을 때.
+  /// 🚀 [고침] 안 쓴 프로젝트가 여럿이면 목록에 그냥 두어, 어디서 쓰는지 다시 찾아야 했다.
+  /// 하나면 바로 작성, 여럿이면 고르게 하고, 다 썼으면 알린다.
+  Future<void> _writeTodayReport(List<Map<String, dynamic>> missing) async {
+    if (missing.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("오늘 작업 일지를 모두 썼습니다.")));
+      return;
+    }
+    if (missing.length == 1) {
+      await _addDailyReportFor(missing.first);
+      return;
+    }
+    final pick = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      backgroundColor: pureWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          key: const Key('today_report_pick'),
+          shrinkWrap: true,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 18, 20, 6),
+              child: Text(
+                "어느 프로젝트 일지를 쓰겠습니까?",
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+              ),
+            ),
+            for (final l in missing)
+              ListTile(
+                leading: const Icon(Icons.edit_note_rounded, color: tossBlue),
+                title: Text(l['name']?.toString() ?? '이름 없음'),
+                onTap: () => Navigator.pop(ctx, l),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (pick != null && mounted) await _addDailyReportFor(pick);
+  }
+
   List<Map<String, dynamic>> get _projectsMissingTodayReport =>
       projectsMissingReport(_activeLogs, _todayMmDd());
 
@@ -1566,7 +1608,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
               }
             },
             itemBuilder: (_) => const [
-              PopupMenuItem(value: 'weekly', child: Text("주간 업무 보고")),
+              PopupMenuItem(value: 'weekly', child: Text("주간 보고")),
               PopupMenuItem(value: 'reminder', child: Text("작업 일지·주간 알림 설정")),
               PopupMenuItem(value: 'overview', child: Text("전체 현황 이미지 공유")),
               PopupMenuItem(value: 'style', child: Text("보고서 양식 설정")),
@@ -1806,7 +1848,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         elevation: 4,
         icon: const Icon(Icons.add_rounded, color: pureWhite),
         label: const Text(
-          "새 작업 추가",
+          "새 프로젝트 추가",
           style: TextStyle(
             color: pureWhite,
             fontWeight: FontWeight.w700,

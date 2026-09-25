@@ -1184,7 +1184,8 @@ Widget _buildLeftoverCard({
                     TextButton(
                       key: const Key('leftover_undo'),
                       onPressed: onUndo,
-                      child: const Text("되돌리기"),
+                      // 🚀 [고침] "되돌리기"가 둘 나란히 있어 무엇을 되돌리는지 몰랐다.
+                      child: const Text("잔재 저장 취소"),
                     ),
                 ] else
                   OutlinedButton(
@@ -1210,7 +1211,7 @@ Widget _buildLeftoverCard({
                       TextButton(
                         key: const Key('stock_deduct_undo'),
                         onPressed: onUndoDeductStock,
-                        child: const Text("되돌리기"),
+                        child: const Text("재고 도로 넣기"),
                       ),
                   ] else ...[
                     OutlinedButton(
@@ -1225,7 +1226,7 @@ Widget _buildLeftoverCard({
                       TextButton(
                         key: const Key('stock_deduct_undo'),
                         onPressed: onUndoDeductStock,
-                        child: const Text("뺀 것 되돌리기"),
+                        child: const Text("뺀 것 도로 넣기"),
                       ),
                   ],
                 if (jobLogName.isNotEmpty)

@@ -536,7 +536,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                     onTap: _openEdit,
                   ),
                   _menuItem(
-                    title: "알림 확인",
+                    title: "알림 점검",
                     subtitle: "일지·주간 보고 알림이 잡혀 있는지",
                     icon: LucideIcons.bell,
                     onTap: _openNotifications,

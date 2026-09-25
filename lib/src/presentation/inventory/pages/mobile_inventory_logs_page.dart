@@ -226,18 +226,42 @@ class _MobileInventoryLogsPageState extends State<MobileInventoryLogsPage> {
                         actionIcon = LucideIcons.trash2;
                         displayQtyPrefix = "";
                       }
-                      // 2. 그 외 일반적인 입고/출고 판별
+                      // 🚀 [고침] 채움과 "재고에서 빼기" 되돌림이 둘 다 "반납 (입고)"로,
+                      // 사용과 컷팅 사용은 "불출 (출고)"로 보여 무엇을 했는지 알 수 없었다.
+                      else if (rawAction.contains('되돌림')) {
+                        displayAction = "빼기 취소 (도로 넣음)";
+                        actionColor = makitaTeal;
+                        actionIcon = AppGlyph.stockReturn;
+                        displayQtyPrefix = "+";
+                      } else if (rawAction.contains('채움')) {
+                        displayAction = "채움";
+                        actionColor = makitaTeal;
+                        actionIcon = AppGlyph.stockIn;
+                        displayQtyPrefix = "+";
+                      } else if (rawAction.contains('컷팅') ||
+                          rawAction.contains('재단')) {
+                        displayAction = "재고에서 빼기 (컷팅)";
+                        actionColor = Colors.orange.shade700;
+                        actionIcon = AppGlyph.stockOut;
+                        displayQtyPrefix = "-";
+                      } else if (rawAction.contains('사용')) {
+                        displayAction = "씀";
+                        actionColor = Colors.orange.shade700;
+                        actionIcon = AppGlyph.stockOut;
+                        displayQtyPrefix = "-";
+                      }
+                      // 2. 그 외 일반적인 입고/출고 판별(예전 기록의 불출·반납 포함)
                       else if (rawType == 'OUT' ||
                           rawAction.contains('출고') ||
                           rawAction.contains('불출')) {
-                        displayAction = "불출 (출고)";
+                        displayAction = "출고";
                         actionColor = Colors.orange.shade700;
                         actionIcon = AppGlyph.stockOut;
                         displayQtyPrefix = "-";
                       } else if (rawType == 'IN' ||
                           rawAction.contains('입고') ||
                           rawAction.contains('반납')) {
-                        displayAction = "반납 (입고)";
+                        displayAction = "입고";
                         actionColor = makitaTeal;
                         actionIcon = AppGlyph.stockIn;
                         displayQtyPrefix = "+";

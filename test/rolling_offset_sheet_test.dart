@@ -86,9 +86,9 @@ void main() {
     await tester.ensureVisible(find.text('UP'));
     await tester.tap(find.text('UP'));
     await tester.pump();
-    await tester.ensureVisible(find.text('도면 적용'));
+    await tester.ensureVisible(find.text('목록에 넣기'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('도면 적용'));
+    await tester.tap(find.text('목록에 넣기'));
     await tester.pump();
     expect(added, hasLength(2));
     expect(firstMark(added, 150), closeTo(0, 0.1));
@@ -135,9 +135,9 @@ void main() {
       one: (l, a, r) => one.add((l, a, r)),
       many: many.add,
     );
-    await tester.ensureVisible(find.text('도면 적용'));
+    await tester.ensureVisible(find.text('목록에 넣기'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('도면 적용'));
+    await tester.tap(find.text('목록에 넣기'));
     await tester.pump();
     expect(one, isEmpty);
     expect(many, hasLength(1));
@@ -153,9 +153,9 @@ void main() {
     // 숫자판으로 넣는 칸이라 글을 바로 비운다.
     tester.widget<TextField>(angle.first).controller!.text = '';
     await tester.pump();
-    await tester.ensureVisible(find.text('도면 적용'));
+    await tester.ensureVisible(find.text('목록에 넣기'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('도면 적용'));
+    await tester.tap(find.text('목록에 넣기'));
     await tester.pump();
     expect(one, isEmpty);
     expect(find.byKey(const Key('rolling_missing')), findsOneWidget);

@@ -44,17 +44,17 @@ void main() {
     test('톱날 손실이 있으면 더한 값을 보여 준다', () {
       final t = msg(kerf: 12);
       expect(t.contains('톱날 손실 12.0mm가 더해져 누적 사용량에 5122.6mm로 기록됩니다.'), true);
-      expect(t.contains('자재 사용량(출고 대기)에는 톱날 손실을'), false);
+      expect(t.contains('자재 사용량(빼기 대기)에는 톱날 손실을'), false);
     });
 
     test('프로젝트에 올리면 자재 사용량에는 톱날 손실이 없다고 알려 준다', () {
       final t = msg(kerf: 12, toProject: true);
-      expect(t.contains('자재 사용량(출고 대기)에는 톱날 손실을 넣지 않습니다.'), true);
+      expect(t.contains('자재 사용량(빼기 대기)에는 톱날 손실을 넣지 않습니다.'), true);
     });
 
     test('프로젝트에 저장하는 화면은 컷팅 기록·출고 대기를 알려 준다', () {
       final t = msg(toProject: true);
-      expect(t.contains('컷팅 기록과 자재 사용량(출고 대기)'), true);
+      expect(t.contains('컷팅 기록과 자재 사용량(빼기 대기)'), true);
     });
 
     test('되돌릴 수 없는 화면은 실행 취소 문구가 없다', () {
@@ -241,7 +241,7 @@ void main() {
       );
       await tester.tap(find.text('저장하기'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('출고 대기'), findsOneWidget);
+      expect(find.textContaining('빼기 대기'), findsOneWidget);
       await tester.tap(find.text('저장'));
       await tester.pumpAndSettle();
       expect(saved, [1500]);

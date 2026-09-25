@@ -287,7 +287,7 @@ class StockDeductResult {
 
   /// 다 끝난 뒤 화면에 보여 줄 글.
   String get message {
-    if (done.isEmpty && missing.isEmpty) return "차감할 자재가 없습니다.";
+    if (done.isEmpty && missing.isEmpty) return "뺄 자재가 없습니다.";
 
     final tail = StringBuffer();
     if (negative.isNotEmpty) {
@@ -299,19 +299,19 @@ class StockDeductResult {
     if (missing.isNotEmpty && offline) {
       if (done.isEmpty) {
         return "통신이 안 돼 재고를 확인하지 못했습니다."
-            " ${missing.length}건은 그대로 뒀으니 통신될 때 다시 차감하십시오.";
+            " ${missing.length}건은 그대로 뒀으니 통신될 때 다시 빼십시오.";
       }
-      return "자재 ${done.length}건을 차감했습니다."
+      return "자재 ${done.length}건을 재고에서 뺐습니다."
           " ${missing.length}건은 통신이 안 돼 확인하지 못했습니다.${tail.toString()}";
     }
 
     if (missing.isEmpty) {
-      return "자재 ${done.length}건을 재고에서 차감했습니다.${tail.toString()}";
+      return "자재 ${done.length}건을 재고에서 뺐습니다.${tail.toString()}";
     }
     if (done.isEmpty) {
       return "재고에 없는 자재 ${missing.length}건입니다. 자재 목록에서 먼저 넣으십시오.";
     }
-    return "자재 ${done.length}건을 차감했습니다."
+    return "자재 ${done.length}건을 재고에서 뺐습니다."
         " ${missing.length}건은 재고에 없어 그대로 뒀습니다.${tail.toString()}";
   }
 }

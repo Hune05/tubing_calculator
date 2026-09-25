@@ -49,9 +49,9 @@ void main() {
       await tester.ensureVisible(find.text(dir).first);
       await tester.tap(find.text(dir).first);
       await tester.pump();
-      await tester.ensureVisible(find.text('적용').first);
+      await tester.ensureVisible(find.text('목록에 넣기').first);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('적용').first);
+      await tester.tap(find.text('목록에 넣기').first);
       await tester.pumpAndSettle();
       expect(added, hasLength(2));
 
@@ -120,9 +120,9 @@ void main() {
     await tester.ensureVisible(find.text('UP').first);
     await tester.tap(find.text('UP').first);
     await tester.pump();
-    await tester.ensureVisible(find.text('적용').first);
+    await tester.ensureVisible(find.text('목록에 넣기').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('적용').first);
+    await tester.tap(find.text('목록에 넣기').first);
     await tester.pump();
     expect(added, isEmpty);
     expect(find.textContaining('90°보다 작아야'), findsOneWidget);

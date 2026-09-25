@@ -124,7 +124,7 @@ void main() {
 
     test('뺄 것이 없으면 그렇게 알려 준다', () {
       const r = StockDeductResult(done: [], missing: []);
-      expect(r.message, '차감할 자재가 없습니다.');
+      expect(r.message, '뺄 자재가 없습니다.');
     });
   });
 

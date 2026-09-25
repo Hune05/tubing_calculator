@@ -34,6 +34,8 @@ import 'package:tubing_calculator/src/presentation/profile/pages/mobile_profile_
 
 // 🚀 4. 프로젝트 관리 페이지 임포트
 import 'package:tubing_calculator/src/presentation/my_work_logs/screens/work_log_main_screen.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/models/reminder_tools.dart'
+    show fetchMissingReportCount;
 import 'package:tubing_calculator/src/presentation/my_schedule/mobile_my_schedule_page.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_reminders.dart'
     show rescheduleDriftingMonthlyReminders;
@@ -76,6 +78,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   // 🚀 [신규] "내 일정 관리" 메뉴 버튼에 "오늘 N건" 배지를 보여주기 위한
   // 오늘 미완료 일정 개수 - 프로젝트 일정 + 개인 일정(반복 포함)을 합산.
   int? _todayScheduleCount;
+  // 오늘 작업 일지를 안 쓴 진행중 프로젝트 수(모르면 null).
+  int? _missingReports;
 
   // 🚀 날씨 상세 데이터 상태 관리
   String _weatherDesc = "확인 중";
@@ -97,6 +101,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     WidgetsBinding.instance.addObserver(this);
     _fetchDetailedWeather();
     _loadTodayScheduleCount();
+    _loadMissingReports();
     // 격주·평일·반복 끝이 있는 일정 알림은 한 번씩만 잡혀 있어서 다음 회차를 다시 잡아야
     // 한다. 예전엔 "내 일정" 화면을 열 때만 잡아서, 며칠 안 열면 알림이 끊겼다.
     // 앱을 켤 때 한 번(기다리지 않음, 통신이 없으면 폰 캐시로).
@@ -121,6 +126,11 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     if (state == AppLifecycleState.resumed && _weatherFailed) {
       _fetchDetailedWeather();
     }
+  }
+
+  Future<void> _loadMissingReports() async {
+    final n = await fetchMissingReportCount();
+    if (mounted) setState(() => _missingReports = n);
   }
 
   Future<void> _loadTodayScheduleCount() async {
@@ -355,6 +365,32 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                     ),
                   ),
                 ),
+                // 🚀 [고침] 가장 자주 하는 "오늘 작업 일지 쓰기"가 홈에 없어 홈 → 내
+                // 프로젝트 → 카드 → 일지 탭 → 작성으로 들어가야 했고, 안 쓴 수도 안 보였다.
+                _buildMenuButton(
+                  context: context,
+                  title: "오늘 작업 일지 쓰기",
+                  subtitle: "안 쓴 프로젝트를 바로 엽니다",
+                  icon: AppGlyph.project,
+                  iconColor: makitaTeal,
+                  badgeText: (_missingReports ?? 0) > 0
+                      ? "$_missingReports곳 안 씀"
+                      : null,
+                  badgeColor: const Color(0xFFC77700),
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      WorkRoute(
+                        builder: (context) =>
+                            const WorkLogMainScreen(autoWriteReport: true),
+                      ),
+                    ).then((_) {
+                      _loadTodayScheduleCount();
+                      _loadMissingReports();
+                    });
+                  },
+                ),
                 _buildMenuButton(
                   context: context,
                   title: "내 프로젝트",
@@ -368,7 +404,10 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       WorkRoute(
                         builder: (context) => const WorkLogMainScreen(),
                       ),
-                    ).then((_) => _loadTodayScheduleCount());
+                    ).then((_) {
+                      _loadTodayScheduleCount();
+                      _loadMissingReports();
+                    });
                   },
                 ),
                 _buildMenuButton(

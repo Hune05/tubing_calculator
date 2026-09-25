@@ -654,7 +654,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         title: const Text(
-          "주간 업무 보고",
+          "주간 보고",
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
         ),
       ),

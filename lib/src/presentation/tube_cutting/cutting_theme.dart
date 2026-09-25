@@ -145,7 +145,7 @@ Future<void> showStockDeductResult(
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
       title: const Text(
-        "재고 차감 결과 확인",
+        "재고 빼기 결과 확인",
         style: TextStyle(fontWeight: FontWeight.w800),
       ),
       content: SingleChildScrollView(
@@ -369,7 +369,7 @@ class PendingDeductionBadge extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Text(
-            "출고 대기 $materialCount건",
+            "빼기 대기 $materialCount건",
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,

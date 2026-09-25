@@ -2376,7 +2376,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           OutlinedButton(
             key: const Key('tube_stock_later'),
             onPressed: () => Navigator.pop(ctx, _TubeStockChoice.later),
-            child: const Text("목록 '출고 대기'에 남기고 저장"),
+            child: const Text("목록 '빼기 대기'에 남기고 저장"),
           ),
           TextButton(
             key: const Key('tube_stock_skip'),
@@ -2444,7 +2444,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         : "";
     // 튜브는 재단 계획 창에서 새 원자재 본수로 뺀다. 아직 안 뺐으면 알려 준다.
     final tubeNote = switch (tubeChoice) {
-      _TubeStockChoice.later => "\n튜브는 목록의 '재고 차감'으로 뺍니다.",
+      _TubeStockChoice.later => "\n튜브는 목록의 '재고에서 빼기'로 뺍니다.",
       _TubeStockChoice.skip => "",
       _ =>
         widget.onSaveCallback != null &&

@@ -357,7 +357,7 @@ String buildSaveConfirmMessage({
     // 🚀 [고침] 자재 사용량(재고 차감용)은 규격별 자른 길이만 쌓고 톱날 손실은
     // 넣지 않는다. 예전 글은 전부 더해진다고만 해서 실제와 달랐다.
     if (recordsToProject) {
-      b.writeln('자재 사용량(출고 대기)에는 톱날 손실을 넣지 않습니다.');
+      b.writeln('자재 사용량(빼기 대기)에는 톱날 손실을 넣지 않습니다.');
     }
   }
   if (specs.any((e) => e.spec.isNotEmpty)) {
@@ -380,7 +380,7 @@ String buildSaveConfirmMessage({
   b.writeln();
   b.writeln(
     recordsToProject
-        ? '저장하면 이 작업의 컷팅 기록과 자재 사용량(출고 대기)에 올라가고, 입력이 비워집니다.'
+        ? '저장하면 이 작업의 컷팅 기록과 자재 사용량(빼기 대기)에 올라가고, 입력이 비워집니다.'
         : '저장하면 누적 사용량에 더해지고, 입력이 비워집니다.',
   );
   if (canUndo) {

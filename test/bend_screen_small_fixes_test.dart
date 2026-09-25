@@ -69,7 +69,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('RIGHT').first);
     await tester.pumpAndSettle();
-    final apply = find.text('도면 적용').first;
+    final apply = find.text('목록에 넣기').first;
     await tester.ensureVisible(apply);
     await tester.tap(apply);
     await tester.pumpAndSettle();
@@ -112,7 +112,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('RIGHT').first);
     await tester.pumpAndSettle();
-    final apply = find.text('도면 적용').first;
+    final apply = find.text('목록에 넣기').first;
     await tester.ensureVisible(apply);
     await tester.tap(apply);
     await tester.pump();

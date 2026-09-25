@@ -62,13 +62,13 @@ void main() {
     test('다 뺐으면 몇 건인지 알려 준다', () {
       const r = StockDeductResult(done: [a, b], missing: []);
       expect(r.allDone, isTrue);
-      expect(r.message, '자재 2건을 재고에서 차감했습니다.');
+      expect(r.message, '자재 2건을 재고에서 뺐습니다.');
     });
 
     test('재고에 없는 것이 있으면 그것도 알려 준다', () {
       const r = StockDeductResult(done: [a], missing: [b]);
       expect(r.allDone, isFalse);
-      expect(r.message.contains('1건을 차감했습니다'), isTrue);
+      expect(r.message.contains('1건을 재고에서 뺐습니다'), isTrue);
       expect(r.message.contains('1건은 재고에 없어'), isTrue);
     });
 
@@ -80,7 +80,7 @@ void main() {
 
     test('아무것도 없으면 그렇게 알려 준다', () {
       const r = StockDeductResult(done: [], missing: []);
-      expect(r.message, '차감할 자재가 없습니다.');
+      expect(r.message, '뺄 자재가 없습니다.');
     });
   });
 }

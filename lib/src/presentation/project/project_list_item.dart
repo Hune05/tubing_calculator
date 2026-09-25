@@ -748,7 +748,7 @@ class ProjectListItem extends StatelessWidget {
                           size: 18,
                         ),
                         label: Text(
-                          isDeducted ? "재고 차감 완료됨" : "창고 재고에서 한꺼번에 차감",
+                          isDeducted ? "재고에서 뺐음" : "창고 재고에서 한꺼번에 빼기",
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         onPressed: isDeducted ? null : onDeductInventory,

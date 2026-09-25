@@ -750,7 +750,7 @@ class _RecentLogs extends StatelessWidget {
     final who = (m['worker_name'] ?? m['workerName'] ?? '').toString();
     final what = action.isNotEmpty
         ? action
-        : (type == 'OUT' ? '불출' : (type == 'IN' ? '반납' : '변동'));
+        : (type == 'OUT' ? '출고' : (type == 'IN' ? '입고' : '변동'));
     // 재고조사 기록(AUDIT)은 줄었는지 늘었는지를 'sign' 칸에 적는다. 예전엔 이 칸을
     // 안 봐서 재고조사로 줄어든 것도 +로 보였다.
     final signField = (m['sign'] ?? '').toString();

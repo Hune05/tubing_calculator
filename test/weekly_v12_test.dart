@@ -79,7 +79,7 @@ void main() {
       );
       await tester.tap(find.text('열기'));
       await tester.pumpAndSettle();
-      final sw = find.widgetWithText(SwitchListTile, '주간 업무 보고에 포함');
+      final sw = find.widgetWithText(SwitchListTile, '주간 보고에 포함');
       await tester.scrollUntilVisible(
         sw,
         200,

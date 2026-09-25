@@ -1301,7 +1301,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                   ),
                   onPressed: onPressed,
                   child: const Text(
-                    "도면 적용",
+                    "목록에 넣기",
                     style: TextStyle(
                       color: pureWhite,
                       fontSize: 15,

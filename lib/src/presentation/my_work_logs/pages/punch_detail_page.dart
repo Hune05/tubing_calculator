@@ -677,7 +677,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text(
-            "주간 업무 보고에 포함",
+            "주간 보고에 포함",
             style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
           ),
           subtitle: Text(

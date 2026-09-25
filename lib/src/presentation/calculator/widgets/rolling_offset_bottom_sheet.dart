@@ -501,7 +501,7 @@ class _RollingOffsetBottomSheetState extends State<RollingOffsetBottomSheet> {
                   ),
                   onPressed: () => _applyRolling(travel, angle, rollAngle),
                   child: const Text(
-                    "도면 적용",
+                    "목록에 넣기",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,
