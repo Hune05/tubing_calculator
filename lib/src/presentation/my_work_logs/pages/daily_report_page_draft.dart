@@ -14,6 +14,8 @@ extension _DailyReportDraft on _DailyReportPageState {
     if (empty) return null;
     return jsonEncode({
       'savedAt': DateTime.now().toIso8601String(),
+      // 고른 일지 날짜(다음 날 이어 써도 그 날짜로 남게).
+      'reportDay': _reportDay.toIso8601String().substring(0, 10),
       'points': _pointCtrl.text,
       'wiring': _wiringPointCtrl.text,
       'note': _noteCtrl.text,
@@ -108,6 +110,8 @@ extension _DailyReportDraft on _DailyReportPageState {
 
   void _applyDraft(Map<String, dynamic> m) {
     setState(() {
+      final day = DateTime.tryParse(m['reportDay']?.toString() ?? '');
+      if (day != null) _reportDay = dayOnly(day);
       _pointCtrl.text = m['points']?.toString() ?? '';
       _wiringPointCtrl.text = m['wiring']?.toString() ?? '';
       _noteCtrl.text = m['note']?.toString() ?? '';

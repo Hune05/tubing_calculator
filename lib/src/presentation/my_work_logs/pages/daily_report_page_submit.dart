@@ -221,13 +221,15 @@ extension _DailyReportSubmit on _DailyReportPageState {
       }
     }
 
-    final dateStr = _isEdit ? widget.existingData!['date'] : _todayDateStr();
+    final dateStr = _isEdit
+        ? widget.existingData!['date']
+        : _DailyReportPageState._mmdd(_reportDay);
 
     final newReport = {
       "date": dateStr,
       "dateISO": _isEdit
           ? widget.existingData!['dateISO']
-          : DateTime.now().toIso8601String().substring(0, 10),
+          : _reportDay.toIso8601String().substring(0, 10),
       "work_type": _selectedWorkTypes.toList(),
       "worker_count": _workerCount,
       "is_overtime": _isOvertime,

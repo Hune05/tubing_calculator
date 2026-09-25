@@ -132,15 +132,32 @@ class _DailyReportPageState extends State<DailyReportPage> {
   double? _pinDx;
   double? _pinDy;
 
-  String _todayDateStr() {
-    final today = DateTime.now();
-    return "${today.month.toString().padLeft(2, '0')}/${today.day.toString().padLeft(2, '0')}";
+  static String _mmdd(DateTime d) =>
+      "${d.month.toString().padLeft(2, '0')}/${d.day.toString().padLeft(2, '0')}";
+
+  // 🚀 [추가] 새 일지의 날짜(기본 오늘). 머리의 날짜를 눌러 지난 날로 바꿀 수 있다
+  // (어제 빠뜨린 일지, 자정 넘긴 야간 작업). 예전에는 늘 오늘로만 적혔다.
+  DateTime _reportDay = dayOnly(DateTime.now());
+  bool get _isBackdated =>
+      !_isEdit && _reportDay.isBefore(dayOnly(DateTime.now()));
+
+  Future<void> _pickReportDay() async {
+    final today = dayOnly(DateTime.now());
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _reportDay,
+      firstDate: today.subtract(const Duration(days: 60)),
+      lastDate: today,
+      helpText: "작업 일지 날짜",
+    );
+    if (picked != null && mounted) setState(() => _reportDay = dayOnly(picked));
   }
 
   // 🚀 [추가] 지난 날짜의 일지를 아무 때나 함부로 고칠 수 없도록, 오늘
   // 날짜가 아닌 일지를 수정할 때는 사유를 남기게 한다.
+  // (연도까지 본다: 예전엔 "MM/DD"만 견줘 작년 같은 날 일지를 오늘 것으로 봤다.)
   bool get _isPastEdit =>
-      _isEdit && widget.existingData!['date'] != _todayDateStr();
+      _isEdit && reportDateOf(widget.existingData!) != dayOnly(DateTime.now());
 
   @override
   void initState() {
@@ -995,7 +1012,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
         (_latestPrev?['next_day_plan'] as String?)?.trim() ?? '';
     final String dateLabel = _isEdit
         ? "${widget.existingData!['date']}"
-        : _todayDateStr();
+        : "${_mmdd(_reportDay)}${_isBackdated ? ' · 지난 날 일지' : ''}";
 
     return Scaffold(
       backgroundColor: const Color(0xFFF2F4F6),
@@ -1020,9 +1037,31 @@ class _DailyReportPageState extends State<DailyReportPage> {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            Text(
-              dateLabel,
-              style: const TextStyle(color: tossSubText, fontSize: 12),
+            // 새 일지는 날짜를 눌러 바꾼다.
+            InkWell(
+              key: const Key('report_day'),
+              onTap: _isEdit ? null : _pickReportDay,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    dateLabel,
+                    style: TextStyle(
+                      color: _isBackdated
+                          ? Colors.orange.shade800
+                          : tossSubText,
+                      fontSize: 12,
+                      fontWeight: _isBackdated ? FontWeight.w700 : null,
+                    ),
+                  ),
+                  if (!_isEdit)
+                    const Icon(
+                      Icons.edit_calendar,
+                      size: 13,
+                      color: tossSubText,
+                    ),
+                ],
+              ),
             ),
           ],
         ),

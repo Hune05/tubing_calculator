@@ -3,6 +3,7 @@ import '../widgets/korean_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'daily_report_page.dart';
+import '../models/report_tools.dart' show reportDateOf;
 
 const Color tossBlue = Color(0xFF007580); // 🚀 마키타 틸로 통일
 const Color tossText = Color(0xFF191F28);
@@ -53,12 +54,14 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
   String _mmdd(int month, int day) =>
       "${month.toString().padLeft(2, '0')}/${day.toString().padLeft(2, '0')}";
 
-  // 이 달(월 숫자 기준, 연도 정보 없음)에 해당하는 일지만 추린다.
+  // 이 달(연·월)에 해당하는 일지만 추린다.
+  // 🚀 [고침] 예전엔 월 숫자로만 걸러, 1년 넘는 프로젝트면 작년 같은 달 일지가 섞였다.
+  // 연도 있는 날짜(dateISO)를 먼저 보고, 없는 예전 일지는 날짜 글로 연도를 짐작한다.
   List<Map<String, dynamic>> get _reportsInViewedMonth {
-    final String monthPrefix = _viewedMonth.month.toString().padLeft(2, '0');
-    return _reports
-        .where((r) => (r['date']?.toString() ?? '').startsWith("$monthPrefix/"))
-        .toList();
+    return _reports.where((r) {
+      final d = reportDateOf(r);
+      return d.year == _viewedMonth.year && d.month == _viewedMonth.month;
+    }).toList();
   }
 
   // 날짜별 일지. 같은 날 일지가 둘 이상이면 모두 담는다(예전엔 첫 것만 보여

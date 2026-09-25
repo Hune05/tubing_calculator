@@ -173,15 +173,36 @@ Future<void> _cancelDailyReminders({Set<int> keep = const {}}) async {
 }
 
 // 오늘 작업 일지를 아직 안 쓴 진행중 프로젝트(오늘은 "MM/dd" 형식 문자열).
+// 🚀 [고침] 예전엔 "MM/dd"만 견줘, 작년 같은 날 일지가 있으면 오늘 쓴 것으로 봐서
+// 알림이 안 왔다. 연도 있는 날짜(dateISO)가 있으면 올해 그 날짜와 견준다.
 List<Map<String, dynamic>> projectsMissingReport(
   List<Map<String, dynamic>> logs,
-  String todayMmDd,
-) => logs.where((l) {
-  if (l['status'] == 'DONE' || l['archived'] == true) return false;
-  return !(l['daily_reports'] as List? ?? []).any(
-    (r) => r is Map && r['date'] == todayMmDd,
-  );
-}).toList();
+  String todayMmDd, {
+  DateTime? now,
+}) {
+  final year = (now ?? DateTime.now()).year;
+  final parts = todayMmDd.split('/');
+  final today = parts.length == 2
+      ? DateTime(year, int.tryParse(parts[0]) ?? 0, int.tryParse(parts[1]) ?? 0)
+      : null;
+  bool isToday(Map r) {
+    final iso = DateTime.tryParse(r['dateISO']?.toString() ?? '');
+    if (iso != null && today != null) {
+      return iso.year == today.year &&
+          iso.month == today.month &&
+          iso.day == today.day;
+    }
+    return r['date'] == todayMmDd;
+  }
+
+  return logs.where((l) {
+    if (l['status'] == 'DONE' || l['archived'] == true) return false;
+    return !(l['daily_reports'] as List? ?? []).any(
+      (r) => r is Map && isToday(r),
+    );
+  }).toList();
+}
+
 // 알림을 누르면 PDF까지 바로 만들어 공유창을 여는 설정일 때 쓰는 표식.
 const String kWeeklyReportPdfPayload = 'work_weekly_report_pdf';
 const String _kPrefWeeklyAutoPdf = 'weekly_report_autopdf';
