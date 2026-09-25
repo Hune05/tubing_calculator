@@ -508,22 +508,6 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
           ),
         ),
       ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 80.0), // 바텀 버튼 위로 살짝 올리기
-        child: FloatingActionButton(
-          onPressed: _isTransmitting ? null : _showHistorySheet,
-          backgroundColor: _isTransmitting ? slate100 : pureWhite,
-          elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ), // 둥근 모서리
-          child: Icon(
-            Icons.history,
-            color: _isTransmitting ? slate600 : slate900,
-            size: 28,
-          ),
-        ),
-      ),
     );
   }
 
@@ -987,34 +971,72 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
             ),
           ],
         ),
-        child: ElevatedButton(
-          onPressed: (_isInputFinishedList[_currentMode] && !_isTransmitting)
-              ? _sendData
-              : null,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: modeColor,
-            disabledBackgroundColor: slate100, // 토스식 비활성 색상
-            disabledForegroundColor: slate600,
-            minimumSize: const Size.fromHeight(64), // 버튼 더 크게
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16), // 완전 둥글게
-            ),
-          ),
-          child: _isTransmitting
-              ? const CircularProgressIndicator(color: pureWhite)
-              : Text(
-                  _isInputFinishedList[_currentMode]
-                      ? "태블릿으로 전송하기"
-                      : "수치를 먼저 입력해 주십시오",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: _isInputFinishedList[_currentMode]
-                        ? pureWhite
-                        : slate600,
+        // 🚀 [고침] 기록 단추가 떠 있는 단추(FAB)라 작은 폰에서 이 단추 위에
+        // 겹쳤다. 같은 줄 왼쪽에 둔다.
+        child: Row(
+          children: [
+            SizedBox(
+              width: 64,
+              height: 64,
+              child: OutlinedButton(
+                key: const Key('remote_history'),
+                onPressed: _isTransmitting ? null : _showHistorySheet,
+                style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  side: const BorderSide(color: slate100, width: 2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
                 ),
+                child: Icon(
+                  Icons.history,
+                  color: _isTransmitting ? slate600 : slate900,
+                  size: 28,
+                  semanticLabel: "전송 기록",
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                key: const Key('remote_send'),
+                onPressed:
+                    (_isInputFinishedList[_currentMode] && !_isTransmitting)
+                    ? _sendData
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: modeColor,
+                  disabledBackgroundColor: slate100, // 토스식 비활성 색상
+                  disabledForegroundColor: slate600,
+                  minimumSize: const Size.fromHeight(64), // 버튼 더 크게
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16), // 완전 둥글게
+                  ),
+                ),
+                child: _isTransmitting
+                    ? const CircularProgressIndicator(color: pureWhite)
+                    // 좁은 폰에서 "주십시/오"처럼 끊기지 않게 한 줄로 줄여 넣는다.
+                    : FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          _isInputFinishedList[_currentMode]
+                              ? "태블릿으로 전송하기"
+                              : "수치를 먼저 넣으십시오",
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: _isInputFinishedList[_currentMode]
+                                ? pureWhite
+                                : slate600,
+                          ),
+                        ),
+                      ),
+              ),
+            ),
+          ],
         ),
       ),
     );
