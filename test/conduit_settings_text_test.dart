@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
 
+import 'helpers_text.dart';
+
 void main() {
   late Map<String, dynamic> defaults;
   setUp(() {
@@ -30,8 +32,8 @@ void main() {
   for (final type in ['hand', 'ram', 'chicago']) {
     testWidgets('$type: 게인 칸이 있고 단위 칸은 현장 탭 단위', (tester) async {
       await pump(tester, type, unit: '인치 (분수)');
-      expect(find.text('벤딩 게인 (Gain)'), findsOneWidget);
-      expect(find.text('현장 탭 단위'), findsOneWidget);
+      expect(findText('벤딩 게인 (Gain)'), findsOneWidget);
+      expect(findText('현장 탭 단위'), findsOneWidget);
       // 인치를 골라도 제원 칸 뒤 글자는 mm(셈이 mm이므로).
       expect(
         find.byWidgetPredicate(
@@ -47,7 +49,7 @@ void main() {
     await pump(tester, 'ram');
     final help = find.descendant(
       of: find
-          .ancestor(of: find.text('램 이동 거리'), matching: find.byType(Row))
+          .ancestor(of: findText('램 이동 거리'), matching: find.byType(Row))
           .first,
       matching: find.byIcon(Icons.help_outline),
     );

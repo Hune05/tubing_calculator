@@ -7,6 +7,7 @@ import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/presentation/settings/controllers/settings_controller.dart';
 import 'package:tubing_calculator/src/core/utils/fitting_data.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/korean_text.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
@@ -438,7 +439,9 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       children: [
         // 🚀 [바꿈] 이제 모든 줄이 _row 안(Expanded, 폭이 정해진 곳)에서만
         // 쓰이므로 길면 두 줄로 내려가게 Flexible로 감싼다.
-        Flexible(child: Text(label, style: _rowLabelStyle)),
+        // 🚀 [고침] 좁은 폰에서 "튜브 재/질", "자동 공/제"처럼 낱말 가운데서
+        // 끊겼다. 띄어쓰기 자리에서만 줄을 바꾼다.
+        Flexible(child: Text(keepWords(label), style: _rowLabelStyle)),
         const SizedBox(width: 4),
         InkWell(
           onTap: () {
@@ -523,8 +526,14 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     return _row(
       _buildLabelWithHelp(context, name, helpTitle, helpContent),
       // 좁은 화면에서 긴 값이 줄을 통째로 차지하지 않게 폭을 묶는다.
+      // 좁은 폰(320)에서는 더 줄여 이름 칸이 한 글자씩 끊기지 않게 한다.
       ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 170),
+        constraints: BoxConstraints(
+          maxWidth: (MediaQuery.sizeOf(context).width * 0.42).clamp(
+            110.0,
+            170.0,
+          ),
+        ),
         child: DropdownButton<String>(
           dropdownColor: Colors.white,
           value: value,

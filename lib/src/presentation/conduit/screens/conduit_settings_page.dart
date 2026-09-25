@@ -11,6 +11,7 @@ import 'package:tubing_calculator/src/data/conduit_spec_sets.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:tubing_calculator/src/data/models/bender_spec_data.dart';
 import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_calibration_sheet.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/korean_text.dart';
 
 const Color makitaTeal = Color(0xFF007580);
 const Color slate900 = Color(0xFF0F172A);
@@ -1147,9 +1148,10 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // 🚀 [고침] 좁은 폰에서 "전선관 재/질"처럼 낱말 가운데서 끊겼다.
         Flexible(
           child: Text(
-            label,
+            keepWords(label),
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
@@ -1207,7 +1209,12 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
       title: _buildLabelWithHelp(label, helpText),
       // 좁은 화면에서 긴 값(제조사 이름 등)이 줄을 통째로 차지하지 않게 폭을 묶는다.
       trailing: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 150),
+        constraints: BoxConstraints(
+          maxWidth: (MediaQuery.sizeOf(context).width * 0.4).clamp(
+            110.0,
+            150.0,
+          ),
+        ),
         child: DropdownButton<String>(
           dropdownColor: Colors.white,
           value: safeValue,

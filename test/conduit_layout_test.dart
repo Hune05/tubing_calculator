@@ -7,6 +7,8 @@ import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_input_tab.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
 
+import 'helpers_text.dart';
+
 Future<List<String>> layoutErrors(
   WidgetTester tester,
   Widget page,
@@ -15,7 +17,8 @@ Future<List<String>> layoutErrors(
 }) async {
   final errors = <String>[];
   final old = FlutterError.onError;
-  FlutterError.onError = (d) => errors.add(d.exceptionAsString().split('\n').first);
+  FlutterError.onError = (d) =>
+      errors.add(d.exceptionAsString().split('\n').first);
   try {
     await tester.binding.setSurfaceSize(Size(width, 3000));
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: page)));
@@ -90,7 +93,7 @@ void main() {
         '커플링 끝 여유',
         '톱날 두께',
       ]) {
-        expect(find.text(label), findsOneWidget, reason: '$type: $label');
+        expect(findText(label), findsOneWidget, reason: '$type: $label');
       }
     });
   }
