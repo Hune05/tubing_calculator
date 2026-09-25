@@ -58,6 +58,8 @@ class DailyReportPage extends StatefulWidget {
   final String? draftKey;
   // 프로젝트의 자재 요청/입고 항목들(사용한 자재를 골라 연결하는 용도).
   final List<Map<String, dynamic>> materialItems;
+  // 필드 헬퍼 3번: 사진에 찍을 현장(프로젝트) 이름.
+  final String? projectName;
 
   const DailyReportPage({
     super.key,
@@ -71,6 +73,7 @@ class DailyReportPage extends StatefulWidget {
     this.defaultPhaseId,
     this.draftKey,
     this.materialItems = const [],
+    this.projectName,
   });
 
   @override
@@ -790,6 +793,8 @@ class _DailyReportPageState extends State<DailyReportPage> {
     final paths = await ImagePickerHelper.pickImages(
       context,
       maxCount: 10 - _attachedImages.length,
+      stampSite: true,
+      siteLabel: widget.projectName,
     );
     if (paths.isNotEmpty) setState(() => _attachedImages.addAll(paths));
   }

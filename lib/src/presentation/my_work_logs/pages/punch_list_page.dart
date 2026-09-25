@@ -28,11 +28,14 @@ class PunchListPage extends StatefulWidget {
   // 🚀 [추가] 이 프로젝트에 이미 등록된 도면(카톡 등으로 받은 실제 배치도
   // 사진) 경로 - 있으면 위치를 텍스트 대신 도면 위 핀으로 찍을 수 있다.
   final String? floorPlanImagePath;
+  // 필드 헬퍼 3번: 사진에 찍을 현장(프로젝트) 이름.
+  final String? projectName;
 
   const PunchListPage({
     super.key,
     this.recentLocations = const [],
     this.floorPlanImagePath,
+    this.projectName,
   });
 
   @override
@@ -198,6 +201,8 @@ class _PunchListPageState extends State<PunchListPage> {
     final paths = await ImagePickerHelper.pickImages(
       context,
       maxCount: 10 - _attachedImages.length,
+      stampSite: true,
+      siteLabel: widget.projectName,
     );
     if (paths.isNotEmpty) setState(() => _attachedImages.addAll(paths));
   }

@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/models/photo_stamp.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/models/report_style.dart';
 
 const Color makitaTeal = AppColors.brand;
 const Color slate600 = AppColors.textSub;
@@ -88,9 +90,15 @@ class ImagePickerHelper {
 
   /// 카메라(1장) 또는 갤러리(여러 장 한 번에)를 골라 경로 목록을 돌려준다.
   /// [maxCount]는 앞으로 더 추가할 수 있는 최대 장수.
+  ///
+  /// [stampSite]가 true이고(작업 일지·이슈처럼 현장 증빙 사진일 때만 true로 부른다)
+  /// 카메라로 막 찍은 사진이면(갤러리에서 고른 옛 사진은 아니면), 설정에서 켜져 있을 때
+  /// [siteLabel]·촬영 시각·(있으면) 위치를 사진에 찍는다(필드 헬퍼 3번).
   static Future<List<String>> pickImages(
     BuildContext context, {
     int maxCount = 10,
+    bool stampSite = false,
+    String? siteLabel,
   }) async {
     if (maxCount <= 0) return [];
     final ImageSource? source = await showModalBottomSheet<ImageSource>(
@@ -140,7 +148,12 @@ class ImagePickerHelper {
         source: source,
         imageQuality: 70,
       );
-      return image == null ? [] : [await keepPhoto(image.path)];
+      if (image == null) return [];
+      var path = image.path;
+      if (stampSite && ReportStyle.current.photoStamp) {
+        path = await stampPhoto(path, siteName: siteLabel ?? '');
+      }
+      return [await keepPhoto(path)];
     }
     final images = await _picker.pickMultiImage(imageQuality: 70);
     return [for (final e in images.take(maxCount)) await keepPhoto(e.path)];

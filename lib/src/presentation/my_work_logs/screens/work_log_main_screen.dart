@@ -608,6 +608,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           phases: phasesOf(log),
           materialItems: schedulesOf(log).where(isMaterialSchedule).toList(),
           pendingSchedules: _pendingSchedulesFor(log, report),
+          projectName: log['name']?.toString(),
         ),
       ),
     );
@@ -686,6 +687,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         builder: (context) => PunchListPage(
           recentLocations: recentLocations,
           floorPlanImagePath: log['floor_plan_image_path'],
+          projectName: log['name']?.toString(),
         ),
       ),
     );
@@ -1072,6 +1074,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           punch: punch,
           inspectionSchedules: inspectionSchedules,
           floorPlanImagePath: log['floor_plan_image_path'],
+          projectName: log['name']?.toString(),
         ),
       ),
     );
@@ -1309,6 +1312,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           phases: phasesOf(log),
           materialItems: schedulesOf(log).where(isMaterialSchedule).toList(),
           pendingSchedules: _pendingSchedulesFor(log, null),
+          projectName: log['name']?.toString(),
           defaultPhaseId: currentPhase(log)?['id']?.toString(),
         ),
       ),

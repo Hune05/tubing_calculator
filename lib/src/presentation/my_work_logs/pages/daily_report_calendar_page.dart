@@ -260,7 +260,12 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
     }
     final updated = await Navigator.push<Map<String, dynamic>>(
       context,
-      WorkRoute(builder: (context) => DailyReportPage(existingData: report)),
+      WorkRoute(
+        builder: (context) => DailyReportPage(
+          existingData: report,
+          projectName: widget.projectName,
+        ),
+      ),
     );
     if (updated == null) return;
     setState(() {

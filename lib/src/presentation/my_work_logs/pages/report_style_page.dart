@@ -302,6 +302,16 @@ class _ReportStylePageState extends State<ReportStylePage> {
               value: _s.weeklyAuthorLine,
               onChanged: (v) => setState(() => _s.weeklyAuthorLine = v),
             ),
+            // 필드 헬퍼 3번: 작업 일지·이슈 사진에 현장 이름·날짜·위치를 찍는다.
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(keepWords("사진에 현장 이름·날짜·위치 찍기")),
+              subtitle: Text(
+                keepWords("카메라로 막 찍은 사진 아래에 찍힙니다. 갤러리 사진에는 찍지 않습니다."),
+              ),
+              value: _s.photoStamp,
+              onChanged: (v) => setState(() => _s.photoStamp = v),
+            ),
           ]),
           SizedBox(
             height: 52,

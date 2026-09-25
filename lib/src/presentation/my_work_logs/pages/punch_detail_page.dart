@@ -33,12 +33,15 @@ class PunchDetailPage extends StatefulWidget {
   // 🚀 [추가] 이 이슈에 도면 위치 핀이 찍혀 있으면 보여주기 위한 도면
   // 이미지 경로 (프로젝트 단위로 하나 공유).
   final String? floorPlanImagePath;
+  // 필드 헬퍼 3번: 사진에 찍을 현장(프로젝트) 이름.
+  final String? projectName;
 
   const PunchDetailPage({
     super.key,
     required this.punch,
     this.inspectionSchedules = const [],
     this.floorPlanImagePath,
+    this.projectName,
   });
 
   @override
@@ -114,6 +117,8 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
     final paths = await ImagePickerHelper.pickImages(
       context,
       maxCount: 6 - _afterImages.length,
+      stampSite: true,
+      siteLabel: widget.projectName,
     );
     if (paths.isNotEmpty) setState(() => _afterImages.addAll(paths));
   }
