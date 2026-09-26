@@ -138,6 +138,19 @@ void main() {
     expect(names.any((n) => n.contains('ABN403')), isFalse);
   });
 
+  test('성호 SHT-TB 조립식 단자대(15A·25A), CY MAX는 출처 없어 안 넣음', () {
+    expect(preset('SHT-TB-15 단자대 15A 10P').width, 85); // 10 × 8.5
+    expect(preset('SHT-TB-15 단자대 15A 10P').height, 37.0);
+    expect(preset('SHT-TB-15 단자대 15A 10P').depth, 39.0);
+    expect(preset('SHT-TB-15 단자대 15A 20P').width, 170);
+    expect(preset('SHT-TB-25 단자대 25A 10P').width, 105); // 10 × 10.5
+    expect(preset('SHT-TB-25 단자대 25A 20P').width, 210);
+    expect(preset('SHT-TB-15 단자대 15A 10P').shape, '${ElecShape.tb}:10');
+
+    final names = kElecPresets.values.expand((l) => l).map((p) => p.name);
+    expect(names.any((n) => n.contains('CY') && n.contains('히터')), isFalse);
+  });
+
   test('용성 문짝 부품: 정면은 베젤 지름, 깊이는 패널 뒤', () {
     expect(
       [preset('APL22 표시등 Ø22').width, preset('APL22 표시등 Ø22').depth],
