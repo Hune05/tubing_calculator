@@ -108,7 +108,7 @@ const List<RefSearchEntry> refSearchIndex = [
   // 장비 사용법(3)
   RefSearchEntry(3, '튜브 수동 벤더 (Swagelok·Ridgid형)'),
   RefSearchEntry(3, 'Swagelok 전동 벤더 (MS-BTB)'),
-  RefSearchEntry(3, 'TRACTO-TECHNIK TB20D (NC 벤더)'),
+  RefSearchEntry(3, 'TRACTO-TECHNIK TUBOBEND TB20D'),
   RefSearchEntry(3, '전선관 수동 벤더 (Greenlee·Ideal형)'),
   RefSearchEntry(3, '유압식 벤더 (Greenlee·Current Tools형)'),
   RefSearchEntry(3, '시카고식 벤더 (기어·크랭크)'),

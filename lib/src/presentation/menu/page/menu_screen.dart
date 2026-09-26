@@ -1,10 +1,9 @@
+import 'package:tubing_calculator/src/presentation/electric_bender/electric_bender_page.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
-import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
-import 'package:tubing_calculator/src/presentation/calculator/screens/electric_bending_workspace.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/electric_marking_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_project_list_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/screens/work_log_main_screen.dart'
@@ -249,34 +248,13 @@ class MenuScreen extends StatelessWidget {
           context,
           icon: Icons.precision_manufacturing,
           title: '전동 벤딩 계산기',
-          subtitle: 'NC/CNC YBC 제원 산출',
+          subtitle: 'Swagelok MS-BTB · TUBOBEND TB20D',
           iconColor: Colors.orange.shade800,
-          onTap: () async {
-            bool isOk = await _checkMode(
-              context,
-              "전동 (Electric)",
-              "현재 수동 모드입니다. 설정에서 전동 모드로 변경해 주십시오.",
-            );
-            if (!isOk) return;
-
-            final settings = await SettingsManager.loadSettings();
-            final double clr = settings['bendRadius'] ?? 0.0;
-            final double minClamp = settings['minStraight'] ?? 0.0;
-
-            if (!context.mounted) return;
-
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ElectricBendingWorkspace(
-                  startDir: 'RIGHT',
-                  clr: clr,
-                  minClampLength: minClamp,
-                  onSaveCallback: null,
-                ),
-              ),
-            );
-          },
+          // 2026-09-26: 장비 목록 기준 새 계산기. 벤더 설정과 상관없이 연다.
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ElectricBenderPage()),
+          ),
         ),
         _buildGridCard(
           context,
