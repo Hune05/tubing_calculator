@@ -32,6 +32,9 @@ await t('남의 설정 막힘', assertFails(setDoc(doc(b,'my_project_settings/re
 await t('다른 모음(알림 등) 쓰기', assertSucceeds(setDoc(doc(a,'notices/n1'),{t:1})));
 await t('재고 남의 것 고치기 막힘', (async()=>{ await setDoc(doc(a,'inventory/i1'),{ownerUid:'ua'}); await assertFails(updateDoc(doc(b,'inventory/i1'),{qty:1})); })());
 await t('users 규칙 유지', assertSucceeds(setDoc(doc(a,'users/홍'),{uid:'ua'})));
+// 현장 자료(KEC): 누구나 읽고, 앱에서는 못 쓴다(서버 함수만)
+await t('KEC 요약 읽기(로그인 안 해도)', assertSucceeds(getDoc(doc(anon,'reference_content/kec'))));
+await t('KEC 요약 쓰기 막힘', assertFails(setDoc(doc(a,'reference_content/kec'),{x:1})));
 await env.cleanup();
 console.log(`통과 ${ok} 실패 ${bad}`);
 process.exit(bad?1:0);

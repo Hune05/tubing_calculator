@@ -32,6 +32,11 @@ void main() {
       isA<MaterialPageRoute<void>>(),
     );
     expect(routeForNotification(null, {'open': 'work_logs'}), isNotNull);
+    // 전기 기준(KEC) 새 개정 공고 → 현장 자료 전기 기준 탭
+    expect(
+      routeForNotification(null, {'open': 'reference_kec'}),
+      isA<MaterialPageRoute<void>>(),
+    );
     expect(routeForNotification('weekly_report', {}), isNull);
     expect(routeForNotification(null, {}), isNull);
   });

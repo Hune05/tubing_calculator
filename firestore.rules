@@ -52,7 +52,7 @@ service cloud.firestore {
     // 위에서 따로 규칙을 정한 모음(나머지 규칙에서 뺀다).
     function specialColls() {
       return ownedColls().concat(['users', 'inventory', 'cutting_leftovers',
-                                  'my_project_settings']);
+                                  'my_project_settings', 'reference_content']);
     }
 
     // 사용자 문서에 주인 uid가 아직 안 적혔는지.
@@ -115,6 +115,13 @@ service cloud.firestore {
     // 자기 것만 읽고 쓴다(필드 헬퍼 4번).
     match /attendance_records/{doc} {
       allow read, write: if signedIn() && doc.split('__')[0] == me();
+    }
+
+    // 현장 자료(전기 기준 KEC 요약·새 개정 공고). 서버 함수(checkKecNotice)만 쓰고,
+    // 누구나 읽는다(로그인 안 한 폰도 요약은 봐야 한다).
+    match /reference_content/{doc} {
+      allow read: if true;
+      allow write: if false;
     }
 
     // 하위 모음(컷팅 기록·형강 변경 기록 등)은 로그인한 사람이면 읽고 쓴다.

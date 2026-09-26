@@ -84,3 +84,5 @@ flutter:
     - assets/fonts/NotoSansKR-Regular.ttf
     - assets/fonts/NotoSansKR-Bold.ttf
     - assets/fonts/OFL-NotoSansKR.txt
+    # 전기 기준(KEC) 요약 — functions/kec_content.json과 같은 파일(시험이 본다)
+    - assets/reference/kec_content.json

@@ -18,8 +18,12 @@ void main() {
     ];
     final dir = Directory('lib/src/presentation/reference/page');
     final found = <String>[];
-    for (final f in dir.listSync().whereType<File>()) {
-      if (!f.path.endsWith('.dart')) continue;
+    // KEC 요약 글은 JSON에 있다(서버에도 같은 파일이 올라간다).
+    final files = [
+      ...dir.listSync().whereType<File>().where((f) => f.path.endsWith('.dart')),
+      File('assets/reference/kec_content.json'),
+    ];
+    for (final f in files) {
       final lines = f.readAsLinesSync();
       for (var i = 0; i < lines.length; i++) {
         final line = lines[i];

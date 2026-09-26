@@ -29,15 +29,15 @@ function kstDateString(date) {
 // range 쿼리를 걸어줄 수 없어서, 문서를 전부 가져와 코드에서 훑는다 -
 // 개인용 앱이라 프로젝트/일정 개수가 적어 문제없다. 받는 사람은 아래
 // tokensFor(주인·담당자)로 고른다.
-async function sendMulticast(tokens, title, body) {
+async function sendMulticast(tokens, title, body, open = "work_logs") {
     if (tokens.length === 0) return false;
     try {
         const response = await admin.messaging().sendEachForMulticast({
             notification: { title, body },
             // 앱이 만든 "현장 중요 알림" 채널로 보내고(예전엔 FCM 기본 "기타" 채널),
-            // 누르면 앱이 작업 일지 화면을 연다(main.dart routeForNotification).
+            // 누르면 앱이 [open] 화면을 연다(main.dart routeForNotification) — 기본은 작업 일지.
             android: { notification: { channelId: "high_importance_channel" } },
-            data: { open: "work_logs" },
+            data: { open },
             tokens,
         });
         return response.successCount > 0;
@@ -408,5 +408,70 @@ exports.checkDailyReportReminder = onSchedule(
                 console.error(`❌ (일보) 알림 실패 (프로젝트: ${doc.id}):`, e);
             }
         }
+    },
+);
+
+
+// ============================================================================
+// 7. [신규 2026-09-26] 전기 기준(KEC) — 새 개정 공고 알림(A)과 요약 올리기(B)
+// ============================================================================
+// 매일 아침 6시(KST)에 한 번:
+//   B. 요약(kec_content.json)의 판 번호가 서버 문서보다 높으면 reference_content/kec 에
+//      올린다 — 앱을 다시 깔지 않아도 모든 폰이 새 요약을 본다.
+//   A. 법제처 Open API로 KEC 현행 공고를 읽어 latest 에 적고, 요약 기준 공고보다 새 공고면
+//      모든 폰에 한 번 알린다(누르면 현장 자료 → 전기 기준 탭).
+// 법제처 인증값(OC)은 공개 저장소에 두지 않고 비밀값으로 받는다:
+//   firebase functions:secrets:set LAW_OC   (값이 아직 없으면 none — 확인만 건너뜀)
+const { defineSecret } = require("firebase-functions/params");
+const kec = require("./kec");
+const KEC_CONTENT = require("./kec_content.json");
+const LAW_OC = defineSecret("LAW_OC");
+
+exports.checkKecNotice = onSchedule(
+    { schedule: "0 6 * * *", timeZone: "Asia/Seoul", secrets: [LAW_OC] },
+    async (event) => {
+        const ref = admin.firestore().collection("reference_content").doc("kec");
+        const snap = await ref.get();
+        const doc = snap.exists ? snap.data() : {};
+        const now = admin.firestore.Timestamp.now();
+        const update = {};
+
+        if (kec.shouldPublishContent(doc, KEC_CONTENT)) {
+            update.content = KEC_CONTENT;
+            update.contentVersion = KEC_CONTENT.version;
+        }
+        const content = update.content || doc.content || KEC_CONTENT;
+
+        const oc = kec.usableOc(LAW_OC.value());
+        let latest = null;
+        if (!oc) {
+            update.check = { ok: false, at: now, message: "법제처 API 인증값이 아직 없습니다" };
+        } else {
+            try {
+                latest = await kec.fetchCurrentKec(oc);
+                update.latest = latest;
+                update.check = { ok: true, at: now, message: "" };
+            } catch (e) {
+                console.error("❌ (KEC) 법제처 확인 실패:", e);
+                update.check = { ok: false, at: now, message: String(e.message || e).slice(0, 200) };
+            }
+        }
+
+        if (latest && kec.shouldNotify(latest, content.basis, doc.notifiedSerial)) {
+            try {
+                const recipients = await loadRecipients();
+                const sent = await sendMulticast(
+                    recipients.all,
+                    "⚡ 전기 기준(KEC) 새 개정 공고",
+                    `공고 제${latest.noticeNo}호(${latest.revision}, ${latest.issued} 발령). 현장 자료 → 전기 기준 탭에서 원문을 확인하십시오.`,
+                    "reference_kec",
+                );
+                if (sent) update.notifiedSerial = latest.serial;
+            } catch (e) {
+                console.error("❌ (KEC) 알림 실패:", e);
+            }
+        }
+
+        await ref.set(update, { merge: true });
     },
 );

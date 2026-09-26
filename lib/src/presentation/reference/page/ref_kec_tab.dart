@@ -2,107 +2,191 @@
 // (한 해 0~5번 — 2023년 5번, 2024년 1번. 2026-09-26 law.go.kr·kec.kea.kr 확인).
 // 조문 번호·수치는 넣지 않고 "개정 때 바뀔 수 있어 다시 확인할 항목"만 둔다.
 // 정확한 값은 공식 원문에서 확인해야 한다.
+//
+// 글은 코드가 아니라 kec_content.json에 있다 — 서버(reference_content/kec)에 더 높은 판이
+// 있으면 그것을 보여 앱을 다시 깔지 않아도 요약이 바뀐다. 서버 함수가 법제처에서 요약 기준
+// 공고보다 새 공고를 찾으면 맨 위에 알린다(kec_content.dart).
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../kec_content.dart';
 import 'reference_widgets.dart';
 
-class RefKecTab extends StatelessWidget {
-  const RefKecTab({super.key});
+const Map<String, IconData> _icons = {
+  'search': LucideIcons.search,
+  'zapOff': LucideIcons.zapOff,
+  'zap': LucideIcons.zap,
+  'ruler': LucideIcons.ruler,
+  'trendingUp': LucideIcons.trendingUp,
+  'alertTriangle': LucideIcons.alertTriangle,
+  'plug': LucideIcons.plug,
+  'sun': LucideIcons.sun,
+  'battery': LucideIcons.battery,
+  'fileText': LucideIcons.fileText,
+};
+
+const Map<String, Color> _colors = {
+  'blueGrey': Colors.blueGrey,
+  'redAccent': Colors.redAccent,
+  'deepOrange': Colors.deepOrange,
+  'orange': Colors.orange,
+  'green': Colors.green,
+  'teal': Colors.teal,
+  'indigo': Colors.indigo,
+};
+
+String _ymdHm(DateTime t) {
+  final l = t.toLocal();
+  String two(int v) => v.toString().padLeft(2, '0');
+  return '${l.year}-${two(l.month)}-${two(l.day)} ${two(l.hour)}:${two(l.minute)}';
+}
+
+class RefKecTab extends StatefulWidget {
+  /// 시험용. 없으면 앱에 든 요약 + 서버 문서.
+  final Future<KecState> Function()? load;
+  const RefKecTab({super.key, this.load});
+
+  @override
+  State<RefKecTab> createState() => _RefKecTabState();
+}
+
+class _RefKecTabState extends State<RefKecTab> {
+  late final Future<KecState> _future = (widget.load ?? loadKecState)();
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      children: [
-        refWarnBox(
-          "이 화면에는 조문 번호·수치가 없습니다. 한국전기설비규정(KEC)은 개정 공고가 "
-          "한 해에 여러 번 나오기도 하고 없는 해도 있습니다. 아래는 개정 때 바뀔 수 "
-          "있어 다시 확인할 항목입니다 — 현장 적용·자격 시험 전에는 반드시 최신 "
-          "원문으로 확인하십시오.",
-        ),
-        const SizedBox(height: 16),
-        refCard(
-          title: "최신 원문을 확인하는 방법",
-          icon: LucideIcons.search,
-          iconColor: Colors.blueGrey,
+    return FutureBuilder<KecState>(
+      future: _future,
+      builder: (context, snap) {
+        final s = snap.data;
+        if (s == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final c = s.content;
+        return ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           children: [
-            refStep(
-              1,
-              "국가법령정보센터(law.go.kr)에서 \"한국전기설비규정\"을 찾으면 지금 "
-              "시행 중인 공고와 원문 파일(HWP·PDF)을 볼 수 있습니다.",
-            ),
-            refStep(
-              2,
-              "KEC 홈페이지(kec.kea.kr) 규정 게시판에 개정 때마다 원문 파일이 "
-              "올라옵니다.",
-            ),
-            refStep(
-              3,
-              "개정 공고 전에 소관 부처 누리집에 행정예고가 먼저 나옵니다. 현장 적용 "
-              "전에 최근 개정 공고가 있는지부터 확인하십시오.",
-            ),
+            if (s.hasNewerNotice) ...[
+              _newNoticeBox(s.latest!, c.basis),
+              const SizedBox(height: 12),
+            ],
+            refWarnBox(c.warn),
+            const SizedBox(height: 10),
+            _basisLines(s),
+            for (final sec in c.sections) ...[
+              const SizedBox(height: 16),
+              _section(sec),
+            ],
           ],
-        ),
-        const SizedBox(height: 16),
-        refExpandCard(
-          title: "접지·과전류 보호 — 감전·화재와 직결",
-          subtitle: "계통접지 방식, 접지저항, 차단기 정격",
-          icon: LucideIcons.zapOff,
-          iconColor: Colors.redAccent,
-          children: [
-            refDataRow(
-              "계통접지",
-              "TN·TT·IT 같은 접지 방식 분류와 저압/고압 계통에서 어떤 방식을 "
-              "쓰는지의 기준. 접지선 굵기·접지저항 허용값은 개정 때 바뀔 수 "
-              "있으니 최신 표를 보십시오.",
+        );
+      },
+    );
+  }
+
+  Widget _section(KecSection sec) {
+    final icon = _icons[sec.icon] ?? LucideIcons.fileText;
+    final color = _colors[sec.color] ?? refTeal;
+    if (sec.type == 'steps') {
+      return refCard(
+        title: sec.title,
+        subtitle: sec.subtitle,
+        icon: icon,
+        iconColor: color,
+        children: [
+          for (var i = 0; i < sec.steps.length; i++) refStep(i + 1, sec.steps[i]),
+        ],
+      );
+    }
+    return refExpandCard(
+      title: sec.title,
+      subtitle: sec.subtitle,
+      icon: icon,
+      iconColor: color,
+      children: [for (final r in sec.rows) refDataRow(r.label, r.text)],
+    );
+  }
+
+  /// 요약 기준 공고·마지막 개정 확인·출처.
+  Widget _basisLines(KecState s) {
+    final b = s.content.basis;
+    final check = s.check;
+    final lines = <String>[
+      if (b.noticeNo.isNotEmpty)
+        '요약 기준: 공고 제${b.noticeNo}호'
+            '${b.issued.isNotEmpty ? '(${b.issued} 발령)' : ''}'
+            '${b.checked.isNotEmpty ? ' · ${b.checked} 확인' : ''}',
+      if (check != null && check.ok)
+        '개정 확인: ${check.at != null ? _ymdHm(check.at!) : ''}'
+            '${s.hasNewerNotice ? '' : ' · 새 공고 없음'}',
+      if (check != null && !check.ok)
+        '개정 확인을 못 했습니다'
+            '${check.at != null ? '(${_ymdHm(check.at!)})' : ''}'
+            '${check.message.isNotEmpty ? ': ${check.message}' : ''}',
+      '출처: 법제처 국가법령정보센터',
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Text(
+        lines.join('\n'),
+        key: const Key('kec_basis_lines'),
+        style: TextStyle(fontSize: 12, color: refTextSub, height: 1.5),
+      ),
+    );
+  }
+
+  Widget _newNoticeBox(KecLatest n, KecBasis basis) {
+    final detail = [
+      if (n.revision.isNotEmpty) n.revision,
+      if (n.issued.isNotEmpty) '${n.issued} 발령',
+      if (n.effective.isNotEmpty) '${n.effective} 시행',
+    ].join(', ');
+    return Container(
+      key: const Key('kec_new_notice'),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      decoration: BoxDecoration(
+        color: refWarnBg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: refWarnBorder, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.campaign_rounded, color: refWarnIcon, size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '새 개정 공고가 났습니다 — 공고 제${n.noticeNo}호'
+                  '${detail.isNotEmpty ? '($detail)' : ''}. 아래 요약은 그 전 '
+                  '공고${basis.noticeNo.isNotEmpty ? '(제${basis.noticeNo}호)' : ''} '
+                  '기준이니 원문을 확인하십시오.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: refWarnText,
+                    fontWeight: FontWeight.bold,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (n.url.isNotEmpty)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => launchUrl(
+                  Uri.parse(n.url),
+                  mode: LaunchMode.externalApplication,
+                ),
+                icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                label: const Text('원문 보기'),
+              ),
             ),
-            refDataRow(
-              "과전류 보호",
-              "차단기·퓨즈의 정격, 설치 위치, 협조(선택차단) 기준. 설비 종류·"
-              "부하 특성별로 표가 나뉘어 있어 매번 최신 표를 확인해야 합니다.",
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        refExpandCard(
-          title: "절연저항·이격거리 — 측정값 기준",
-          subtitle: "저압/고압 절연저항 허용값, 안전거리",
-          icon: LucideIcons.ruler,
-          iconColor: Colors.deepOrange,
-          children: [
-            refDataRow(
-              "절연저항",
-              "전압 구분별로 최소 허용 절연저항값이 표로 정해져 있습니다. "
-              "측정 전압(500V/1000V 메거)도 전압 구분에 따라 다릅니다.",
-            ),
-            refDataRow(
-              "이격거리",
-              "저압·고압·특고압 전선과 건조물·수목·다른 설비 사이에 둬야 하는 "
-              "최소 거리. 옥내/옥외, 가선 방식에 따라 값이 세분화돼 있습니다.",
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        refExpandCard(
-          title: "최근 몇 년 사이 개정이 잦았던 분야",
-          subtitle: "전기자동차 충전설비 · 신재생(태양광·ESS)",
-          icon: LucideIcons.trendingUp,
-          iconColor: Colors.green,
-          children: [
-            refDataRow(
-              "EV 충전설비",
-              "충전기 원격감시·제어, 화재 감시 관련 조항이 최근 개정에서 "
-              "자주 손이 갔던 분야입니다(지하주차장 화재 대피·예방 포함).",
-            ),
-            refDataRow(
-              "신재생에너지",
-              "태양광·ESS(에너지저장장치) 설비의 배선·보호 기준은 보급이 "
-              "늘면서 계속 세분화되고 있습니다.",
-            ),
-          ],
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

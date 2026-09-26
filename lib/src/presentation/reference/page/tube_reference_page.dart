@@ -21,8 +21,13 @@ import 'ref_unit_tab.dart';
 import 'reference_search_index.dart';
 import 'reference_widgets.dart';
 
+/// 전기 기준(KEC) 탭 번호(알림에서 바로 연다).
+const int kRefKecTabIndex = 7;
+
 class TubeReferencePage extends StatefulWidget {
-  const TubeReferencePage({super.key});
+  /// 처음 열 탭(0=튜브 … 7=전기 기준).
+  final int initialTab;
+  const TubeReferencePage({super.key, this.initialTab = 0});
 
   @override
   State<TubeReferencePage> createState() => _TubeReferencePageState();
@@ -33,6 +38,7 @@ class _TubeReferencePageState extends State<TubeReferencePage>
   late final TabController _tabController = TabController(
     length: 8,
     vsync: this,
+    initialIndex: widget.initialTab.clamp(0, 7),
   );
   final _searchCtrl = TextEditingController();
   String _query = '';
