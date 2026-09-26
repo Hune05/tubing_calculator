@@ -1,27 +1,50 @@
 // 근태 관리(필드 헬퍼 4번) - 작업 일지와 별개로, 사람 기준으로 날짜별 근태
-// (정상근무/연차/월차/반차/조퇴/특근)와 출퇴근 시간을 기록한다. 어느 프로젝트의
+// (정상근무/연차/월차/반차/반반차/조퇴/특근/결근)와 출퇴근 시간을 기록한다. 어느 프로젝트의
 // 일지를 썼는지와 무관하며, 공수(인·일) 통계 쪽에서는 날짜만 맞춰 이 기록을
 // 가져다 쓴다(AttendanceCache 참고).
+//
+// 2026-09-26 점검(docs/근태관리_근거.md): 휴게 뺀 근로시간, 달 합계(연장·야간·휴일·가산 시간),
+// 주 52시간 경고, 연차 잔여(입사일 기준), 달력 보기, 현장 메모, PDF·CSV 내보내기를 넣었다.
+// 저장·지우기는 서버 응답을 기다리지 않는다(통신 없는 현장에서 창이 멈추던 문제).
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:tubing_calculator/src/core/common_widgets/makita_time_picker.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/attendance.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/project_phase.dart'
     show dayOnly;
-import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/korean_text.dart';
+
+import '../attendance_calc.dart';
+import '../attendance_export.dart';
+import '../attendance_settings.dart';
+import '../widgets/attendance_sheets.dart';
+import '../widgets/attendance_views.dart';
 
 const Color _bg = AppColors.background;
 const Color _text = AppColors.text;
-const Color _sub = AppColors.textSub;
 const Color _white = Color(0xFFFFFFFF);
-const Color _brand = AppColors.brand;
+
+typedef AttendanceRangeLoader =
+    Future<Map<String, AttendanceRecord>?> Function(DateTime from, DateTime to);
+typedef AttendanceSaver = Future<bool> Function(AttendanceRecord r);
+typedef AttendanceDeleter = Future<bool> Function(DateTime day);
 
 class AttendancePage extends StatefulWidget {
   /// 오늘 날짜(시험용). 없으면 지금 날짜.
   final DateTime? today;
-  const AttendancePage({super.key, this.today});
+
+  /// 기록 읽기·저장·지우기(시험용). 없으면 서버(attendance.dart).
+  final AttendanceRangeLoader? loadRange;
+  final AttendanceSaver? saveRecord;
+  final AttendanceDeleter? deleteRecord;
+
+  const AttendancePage({
+    super.key,
+    this.today,
+    this.loadRange,
+    this.saveRecord,
+    this.deleteRecord,
+  });
 
   @override
   State<AttendancePage> createState() => _AttendancePageState();
@@ -31,28 +54,57 @@ class _AttendancePageState extends State<AttendancePage> {
   late final DateTime _today = dayOnly(widget.today ?? DateTime.now());
   late DateTime _viewedMonth = DateTime(_today.year, _today.month);
   Map<String, AttendanceRecord> _records = {};
+  AttendanceSettings _settings = const AttendanceSettings();
   bool _loading = true;
+  bool _loadFailed = false;
+  int _loadSeq = 0;
 
   // 이번 달을 열면 오늘 줄로 옮긴다(1일부터 보이면 월말엔 한참 내려야 한다).
-  // 근태를 고친 뒤 다시 읽을 때는 옮기지 않는다.
+  // 근태를 고친 뒤 다시 그릴 때는 옮기지 않는다.
   final _todayKey = GlobalKey();
   bool _scrollToToday = true;
+
+  AttendanceRangeLoader get _loader => widget.loadRange ?? loadAttendanceRange;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _init();
+  }
+
+  Future<void> _init() async {
+    final s = await AttendanceSettings.load();
+    if (!mounted) return;
+    setState(() => _settings = s);
+    await _load();
+    // 연차 잔여는 모든 날의 근태 종류(AttendanceCache)로 계산한다.
+    if (widget.loadRange == null) {
+      await AttendanceCache.refresh();
+      if (mounted) setState(() {});
+    }
   }
 
   Future<void> _load() async {
+    final seq = ++_loadSeq;
     setState(() => _loading = true);
-    final m = await loadAttendanceMonth(_viewedMonth);
-    if (!mounted) return;
+    final first = DateTime(_viewedMonth.year, _viewedMonth.month, 1);
+    final last = DateTime(_viewedMonth.year, _viewedMonth.month + 1, 0);
+    // 첫 주 월요일~마지막 주 일요일(주 40시간·52시간을 정확히 세려고).
+    final from = mondayOf(first);
+    final to = DateTime(last.year, last.month, last.day + (7 - last.weekday));
+    Map<String, AttendanceRecord>? m;
+    try {
+      m = await _loader(from, to);
+    } catch (_) {
+      m = null;
+    }
+    if (!mounted || seq != _loadSeq) return;
     setState(() {
-      _records = m;
+      _records = m ?? {};
+      _loadFailed = m == null;
       _loading = false;
     });
-    if (_scrollToToday) {
+    if (_scrollToToday && !_settings.calendarView) {
       _scrollToToday = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final ctx = _todayKey.currentContext;
@@ -63,43 +115,221 @@ class _AttendancePageState extends State<AttendancePage> {
 
   void _changeMonth(int delta) {
     setState(
-      () => _viewedMonth = DateTime(_viewedMonth.year, _viewedMonth.month + delta),
+      () => _viewedMonth = DateTime(
+        _viewedMonth.year,
+        _viewedMonth.month + delta,
+      ),
     );
     _scrollToToday = true;
     _load();
   }
 
+  void _toast(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(msg)));
+  }
+
   Future<void> _openDay(DateTime day) async {
+    HapticFeedback.selectionClick();
     final key = dateKey(day);
-    final changed = await showModalBottomSheet<bool>(
+    final result = await showModalBottomSheet<AttendanceSheetResult>(
       context: context,
       isScrollControlled: true,
       backgroundColor: _white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => _AttendanceEditSheet(day: day, existing: _records[key]),
+      builder: (_) => AttendanceEditSheet(
+        day: day,
+        existing: _records[key],
+        options: _settings.calcOptions,
+      ),
     );
-    if (changed == true) {
-      // 통계 화면(project_stats_page 등)에서 새로고침 없이 바로 반영되도록.
-      await AttendanceCache.refresh();
-      await _load();
+    if (result == null || !mounted) return;
+    if (result.delete) {
+      final ok = await (widget.deleteRecord ?? deleteAttendance)(day);
+      if (!mounted) return;
+      if (!ok) {
+        _toast("로그인하지 않아 지우지 못했습니다. 로그인한 뒤 다시 하십시오.");
+        return;
+      }
+      AttendanceCache.byDate.remove(key);
+      setState(() => _records.remove(key));
+      return;
+    }
+    final rec = result.save!;
+    final ok = await (widget.saveRecord ?? saveAttendance)(rec);
+    if (!mounted) return;
+    if (!ok) {
+      _toast("로그인하지 않아 저장하지 못했습니다. 로그인한 뒤 다시 저장하십시오.");
+      return;
+    }
+    // 통계 화면(project_stats_page 등)이 새로고침 없이 바로 반영하도록 캐시도 고친다.
+    AttendanceCache.byDate[key] = rec.type;
+    setState(() => _records[key] = rec);
+  }
+
+  LeaveBalance? _leave() {
+    final h = _settings.hireDate;
+    if (h == null) return null;
+    return computeLeaveBalance(
+      hire: h,
+      today: _today,
+      types: AttendanceCache.byDate,
+      overrides: _settings.leaveOverrides,
+    );
+  }
+
+  Future<void> _openSettings() async {
+    final s = await showModalBottomSheet<AttendanceSettings>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => AttendanceSettingsSheet(
+        settings: _settings,
+        today: _today,
+        balance: _leave(),
+      ),
+    );
+    if (s == null || !mounted) return;
+    setState(() => _settings = s);
+    await s.save();
+  }
+
+  Future<void> _toggleView() async {
+    final s = _settings.copyWith(calendarView: !_settings.calendarView);
+    setState(() => _settings = s);
+    await s.save();
+  }
+
+  Future<void> _openExport() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: _white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "${_viewedMonth.year}년 ${_viewedMonth.month}월 근태 내보내기",
+                  style: const TextStyle(
+                    color: _text,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+            ListTile(
+              key: const Key('att_export_pdf'),
+              leading: const Icon(AppIcons.pdf),
+              title: const Text("PDF 미리보기"),
+              subtitle: const Text("한 달 기록표와 합계. 미리 본 뒤 공유합니다."),
+              onTap: () => Navigator.pop(ctx, 'pdf'),
+            ),
+            ListTile(
+              key: const Key('att_export_csv'),
+              leading: const Icon(AppIcons.download),
+              title: const Text("CSV 파일"),
+              subtitle: const Text("엑셀에서 여는 표. 시간은 소수(8.5)로 적습니다."),
+              onTap: () => Navigator.pop(ctx, 'csv'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    if (choice == 'pdf') {
+      try {
+        await openAttendanceMonthPdf(
+          context,
+          month: _viewedMonth,
+          records: _records,
+          options: _settings.calcOptions,
+          leave: _leave(),
+        );
+      } catch (_) {
+        _toast("PDF를 만들지 못했습니다.");
+      }
+    } else {
+      final ok = await shareAttendanceMonthCsv(
+        month: _viewedMonth,
+        records: _records,
+        options: _settings.calcOptions,
+      );
+      if (!ok) _toast("CSV 파일을 만들지 못했습니다.");
     }
   }
 
+  Widget _monthBar() => Container(
+    color: _white,
+    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+    child: Row(
+      children: [
+        IconButton(
+          key: const Key('att_prev_month'),
+          tooltip: "이전 달",
+          onPressed: () => _changeMonth(-1),
+          icon: const Icon(AppIcons.back),
+        ),
+        Expanded(
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                "${_viewedMonth.year}년 ${_viewedMonth.month}월",
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  color: _text,
+                ),
+              ),
+            ),
+          ),
+        ),
+        IconButton(
+          key: const Key('att_next_month'),
+          tooltip: "다음 달",
+          onPressed: () => _changeMonth(1),
+          icon: const Icon(AppIcons.forward),
+        ),
+        IconButton(
+          key: const Key('att_view_toggle'),
+          tooltip: _settings.calendarView ? "목록으로 보기" : "달력으로 보기",
+          onPressed: _toggleView,
+          icon: Icon(
+            _settings.calendarView ? AppIcons.list : AppIcons.calendar,
+          ),
+        ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
+    final opts = _settings.calcOptions;
+    final summary = summarizeMonth(_records, _viewedMonth, opts);
     final daysInMonth = DateTime(
       _viewedMonth.year,
       _viewedMonth.month + 1,
       0,
     ).day;
-    final today = _today;
-    final counts = <String, int>{};
-    for (final r in _records.values) {
-      if (r.type == kAttendanceNormal) continue;
-      counts[r.type] = (counts[r.type] ?? 0) + 1;
-    }
+    final works = <String, DayWork?>{
+      for (final e in _records.entries) e.key: computeDay(e.value, opts),
+    };
 
     return Scaffold(
       backgroundColor: _bg,
@@ -111,392 +341,107 @@ class _AttendancePageState extends State<AttendancePage> {
           "근태 관리",
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
         ),
+        actions: [
+          IconButton(
+            key: const Key('att_export'),
+            tooltip: "내보내기",
+            onPressed: _loading ? null : _openExport,
+            icon: const Icon(AppIcons.share),
+          ),
+          IconButton(
+            key: const Key('att_settings'),
+            tooltip: "근태 설정",
+            onPressed: _openSettings,
+            icon: const Icon(AppIcons.settings),
+          ),
+        ],
       ),
       body: Column(
         children: [
-          Container(
-            color: _white,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  onPressed: () => _changeMonth(-1),
-                  icon: const Icon(AppIcons.back),
-                ),
-                Text(
-                  "${_viewedMonth.year}년 ${_viewedMonth.month}월",
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
-                    color: _text,
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => _changeMonth(1),
-                  icon: const Icon(AppIcons.forward),
-                ),
-              ],
-            ),
-          ),
-          if (counts.isNotEmpty)
-            Container(
-              width: double.infinity,
-              color: _white,
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: counts.entries
-                    .map(
-                      (e) => Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _bg,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          "${e.key} ${e.value}일",
-                          style: const TextStyle(
-                            color: _text,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    )
-                    .toList(),
-              ),
-            ),
+          _monthBar(),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                // 한 달이 많아야 31줄이라 한꺼번에 그린다 — 그래야 오늘 줄로
+                // 한 달이 많아야 31줄이라 한꺼번에 그린다. 그래야 오늘 줄로
                 // 옮길 수 있다(ListView.builder는 안 보이는 줄을 만들지 않는다).
                 : SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.only(top: 4, bottom: 16),
                     child: Column(
-                      children: List.generate(daysInMonth, (i) {
-                        final day = DateTime(
-                          _viewedMonth.year,
-                          _viewedMonth.month,
-                          i + 1,
-                        );
-                        final r = _records[dateKey(day)];
-                        final type = r?.type ?? kAttendanceNormal;
-                        final isToday = dayOnly(day) == today;
-                        final weekday = const [
-                          '월',
-                          '화',
-                          '수',
-                          '목',
-                          '금',
-                          '토',
-                          '일',
-                        ][day.weekday - 1];
-                        return InkWell(
-                          key: isToday ? _todayKey : null,
-                          onTap: () {
-                            HapticFeedback.selectionClick();
-                            _openDay(day);
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 4,
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
+                      children: [
+                        if (_loadFailed)
+                          Container(
+                            key: const Key('att_load_failed'),
+                            margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                            padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
                             decoration: BoxDecoration(
-                              color: _white,
+                              color: AppColors.danger.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(12),
-                              border: isToday
-                                  ? Border.all(color: _brand, width: 1.4)
-                                  : null,
                             ),
                             child: Row(
                               children: [
-                                SizedBox(
-                                  width: 56,
+                                const Expanded(
                                   child: Text(
-                                    "${day.day}일 ($weekday)",
-                                    style: const TextStyle(
-                                      color: _text,
+                                    "기록을 읽지 못했습니다. 이 달이 비어 보여도 기록이 지워진 것은 아닙니다.",
+                                    style: TextStyle(
+                                      color: AppColors.danger,
+                                      fontSize: 12,
                                       fontWeight: FontWeight.w700,
-                                      fontSize: 13,
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                if (type != kAttendanceNormal)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 3,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: _brand,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      type,
-                                      style: const TextStyle(
-                                        color: _white,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ),
-                                const Spacer(),
-                                if (r?.checkIn != null || r?.checkOut != null)
-                                  Text(
-                                    "${r?.checkIn ?? '--:--'} ~ ${r?.checkOut ?? '--:--'}",
-                                    style: const TextStyle(
-                                      color: _sub,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                const SizedBox(width: 6),
-                                const Icon(
-                                  AppIcons.forward,
-                                  size: 18,
-                                  color: _sub,
+                                TextButton(
+                                  onPressed: _load,
+                                  child: const Text("다시 읽기"),
                                 ),
                               ],
                             ),
                           ),
-                        );
-                      }),
+                        AttendanceSummaryCard(
+                          month: _viewedMonth,
+                          summary: summary,
+                          settings: _settings,
+                        ),
+                        AttendanceLeaveCard(
+                          balance: _leave(),
+                          hasHireDate: _settings.hireDate != null,
+                          onOpenSettings: _openSettings,
+                        ),
+                        if (_settings.calendarView)
+                          AttendanceMonthCalendar(
+                            month: _viewedMonth,
+                            today: _today,
+                            records: _records,
+                            works: works,
+                            options: opts,
+                            onTapDay: _openDay,
+                          )
+                        else
+                          for (var i = 0; i < daysInMonth; i++)
+                            Builder(
+                              builder: (_) {
+                                final day = DateTime(
+                                  _viewedMonth.year,
+                                  _viewedMonth.month,
+                                  i + 1,
+                                );
+                                final key = dateKey(day);
+                                final isToday = dayOnly(day) == _today;
+                                return AttendanceDayRow(
+                                  key: isToday ? _todayKey : null,
+                                  day: day,
+                                  record: _records[key],
+                                  work: works[key],
+                                  isToday: isToday,
+                                  isRest: isRestDay(day, opts),
+                                  onTap: () => _openDay(day),
+                                );
+                              },
+                            ),
+                      ],
                     ),
                   ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _AttendanceEditSheet extends StatefulWidget {
-  final DateTime day;
-  final AttendanceRecord? existing;
-  const _AttendanceEditSheet({required this.day, this.existing});
-
-  @override
-  State<_AttendanceEditSheet> createState() => _AttendanceEditSheetState();
-}
-
-class _AttendanceEditSheetState extends State<_AttendanceEditSheet> {
-  late String _type;
-  TimeOfDay? _checkIn;
-  TimeOfDay? _checkOut;
-  bool _busy = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _type = widget.existing?.type ?? kAttendanceNormal;
-    _checkIn = _parseTimeOfDay(widget.existing?.checkIn);
-    _checkOut = _parseTimeOfDay(widget.existing?.checkOut);
-  }
-
-  TimeOfDay? _parseTimeOfDay(String? v) {
-    if (v == null || !v.contains(':')) return null;
-    final parts = v.split(':');
-    final h = int.tryParse(parts[0]);
-    final m = int.tryParse(parts[1]);
-    if (h == null || m == null) return null;
-    return TimeOfDay(hour: h, minute: m);
-  }
-
-  String _formatTimeOfDay(TimeOfDay t) =>
-      "${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}";
-
-  double? get _workedHours => workedHoursOf(
-    _checkIn != null ? _formatTimeOfDay(_checkIn!) : null,
-    _checkOut != null ? _formatTimeOfDay(_checkOut!) : null,
-  );
-
-  Future<void> _pickTime({required bool isStart}) async {
-    final picked = await showMakitaTimePicker(
-      context: context,
-      title: isStart ? "출근 시간" : "퇴근 시간",
-      initialTime:
-          (isStart ? _checkIn : _checkOut) ??
-          TimeOfDay(hour: isStart ? 8 : 17, minute: 0),
-    );
-    if (picked == null) return;
-    setState(() {
-      if (isStart) {
-        _checkIn = picked;
-      } else {
-        _checkOut = picked;
-      }
-    });
-  }
-
-  Future<void> _save() async {
-    setState(() => _busy = true);
-    await saveAttendance(
-      AttendanceRecord(
-        date: widget.day,
-        type: _type,
-        checkIn: isFullDayLeave(_type)
-            ? null
-            : (_checkIn != null ? _formatTimeOfDay(_checkIn!) : null),
-        checkOut: isFullDayLeave(_type)
-            ? null
-            : (_checkOut != null ? _formatTimeOfDay(_checkOut!) : null),
-      ),
-    );
-    if (mounted) Navigator.pop(context, true);
-  }
-
-  Future<void> _delete() async {
-    setState(() => _busy = true);
-    await deleteAttendance(widget.day);
-    if (mounted) Navigator.pop(context, true);
-  }
-
-  Widget _chip(String label, bool sel, VoidCallback onTap) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-      decoration: BoxDecoration(
-        color: sel ? _brand : _bg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: sel ? _white : _sub,
-          fontWeight: sel ? FontWeight.w800 : FontWeight.w600,
-          fontSize: 13,
-        ),
-      ),
-    ),
-  );
-
-  Widget _timeBox(String label, TimeOfDay? t, bool isStart) => Expanded(
-    child: InkWell(
-      onTap: () => _pickTime(isStart: isStart),
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        decoration: BoxDecoration(
-          color: _bg,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Flexible(
-              child: Text(
-                t != null ? _formatTimeOfDay(t) : label,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: t != null ? _text : _sub,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
-            const Icon(Icons.access_time_rounded, size: 16, color: _sub),
-          ],
-        ),
-      ),
-    ),
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          20,
-          20,
-          MediaQuery.of(context).viewInsets.bottom + 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "${widget.day.month}월 ${widget.day.day}일 근태",
-              style: const TextStyle(
-                color: _text,
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: kAttendanceTypes
-                  .map(
-                    (type) => _chip(
-                      type,
-                      _type == type,
-                      () => setState(() => _type = type),
-                    ),
-                  )
-                  .toList(),
-            ),
-            if (!isFullDayLeave(_type)) ...[
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  _timeBox("출근 시간", _checkIn, true),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Text("~", style: TextStyle(color: _sub)),
-                  ),
-                  _timeBox("퇴근 시간", _checkOut, false),
-                ],
-              ),
-              if (_workedHours != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    keepWords(
-                      "근무 시간: ${_workedHours!.toStringAsFixed(1)}시간",
-                    ),
-                    style: const TextStyle(
-                      color: _brand,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-            ],
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                if (widget.existing != null)
-                  TextButton(
-                    onPressed: _busy ? null : _delete,
-                    style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-                    child: const Text("삭제"),
-                  ),
-                const Spacer(),
-                FilledButton(
-                  onPressed: _busy ? null : _save,
-                  style: FilledButton.styleFrom(backgroundColor: _brand),
-                  child: const Text("저장"),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -74,6 +74,33 @@ void main() {
     });
   });
 
+  group('반반차·결근(2026-09-26 추가)', () {
+    test('공수: 결근 0, 반반차 3/4', () {
+      AttendanceCache.byDate = {'2026-09-01': '결근', '2026-09-02': '반반차'};
+      expect(manDaysOf({'worker_count': 2, 'dateISO': '2026-09-01'}), 0);
+      expect(manDaysOf({'worker_count': 2, 'dateISO': '2026-09-02'}), 1.5);
+    });
+    test('연차에서 빠지는 일수', () {
+      expect(leaveDaysOf('연차'), 1);
+      expect(leaveDaysOf('월차'), 1);
+      expect(leaveDaysOf('반차'), 0.5);
+      expect(leaveDaysOf('반반차'), 0.25);
+      expect(leaveDaysOf('조퇴'), 0);
+      expect(leaveDaysOf('특근'), 0);
+      expect(leaveDaysOf('결근'), 0);
+    });
+    test('출퇴근 칸을 감추는 종류: 연차·월차·결근', () {
+      expect(hasNoWorkTime('결근'), isTrue);
+      expect(hasNoWorkTime('연차'), isTrue);
+      expect(hasNoWorkTime('반반차'), isFalse);
+    });
+    test('종류 목록: 예전 6개가 그대로 들어 있다', () {
+      for (final t in ['정상근무', '연차', '월차', '반차', '조퇴', '특근']) {
+        expect(kAttendanceTypes, contains(t));
+      }
+    });
+  });
+
   group('isFullDayLeave', () {
     test('연차·월차만 참', () {
       expect(isFullDayLeave('연차'), isTrue);
@@ -102,6 +129,15 @@ void main() {
     test('30분 단위도 정확히', () {
       expect(workedHoursOf('08:30', '17:00'), 8.5);
     });
+
+    test('출근=퇴근은 24시간이 아니라 계산하지 않는다(null)', () {
+      expect(workedHoursOf('08:00', '08:00'), isNull);
+    });
+
+    test('모양이 틀린 시각은 null', () {
+      expect(workedHoursOf('25:00', '17:00'), isNull);
+      expect(workedHoursOf('0800', '17:00'), isNull);
+    });
   });
 
   group('AttendanceRecord', () {
@@ -117,6 +153,36 @@ void main() {
       expect(back.checkIn, '08:00');
       expect(back.checkOut, '12:00');
       expect(back.workedHours, 4.0);
+    });
+
+    test('휴게·메모 왕복, 예전 기록(칸 없음)은 비어 있는 것으로 읽는다', () {
+      final r = AttendanceRecord(
+        date: DateTime(2026, 9, 25),
+        checkIn: '08:00',
+        checkOut: '17:00',
+        breakMin: 60,
+        memo: ' 태안 3호기 ',
+      );
+      final j = r.toJson();
+      expect(j['breakMin'], 60);
+      expect(j['memo'], '태안 3호기');
+      final back = AttendanceRecord.fromJson(j, r.date);
+      expect(back.breakMin, 60);
+      expect(back.memo, '태안 3호기');
+
+      final old = AttendanceRecord.fromJson({
+        'date': '2026-09-01',
+        'type': '특근',
+        'checkIn': '08:00',
+        'checkOut': '17:00',
+      }, DateTime(2026, 9, 1));
+      expect(old.breakMin, isNull);
+      expect(old.memo, isNull);
+      expect(old.type, '특근');
+      // 비어 있는 칸은 저장하지 않는다(예전 모양 그대로).
+      final plain = AttendanceRecord(date: DateTime(2026, 9, 1)).toJson();
+      expect(plain.containsKey('breakMin'), isFalse);
+      expect(plain.containsKey('memo'), isFalse);
     });
 
     test('dateKey 형식은 yyyy-MM-dd', () {
