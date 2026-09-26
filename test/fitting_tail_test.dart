@@ -75,7 +75,6 @@ void main() {
   test('튜브 마킹 화면은 모두 같은 피팅 규칙(tubeFittedLengths)을 쓴다', () {
     // 태블릿 전기 마킹만 따로 셈해서, 꼬리가 있을 때 마지막 마킹이 피팅 깊이만큼 늦었다.
     const screens = [
-      'lib/src/presentation/calculator/screens/electric_marking_page.dart',
       'lib/src/presentation/calculator/screens/marking_page.dart',
       'lib/src/presentation/calculator/screens/mobile_result_tabs.dart',
       'lib/src/presentation/fabrication/screens/mobile_fabrication_detail_screen.dart',

@@ -1,4 +1,3 @@
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../../my_work_logs/widgets/work_theme.dart';
@@ -21,8 +20,6 @@ import 'package:tubing_calculator/src/presentation/conduit/screens/main_navigati
 // 🚀 1. 현장 작업 페이지들 임포트
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_remote_page.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_calculator_page.dart';
-import 'package:tubing_calculator/src/presentation/calculator/screens/electric_bending_workspace.dart';
-import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/qr_scanner_page.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_only_screen.dart';
 import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart';
@@ -499,45 +496,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       context,
                       MaterialPageRoute(
                         builder: (context) => const MobileCalculatorPage(),
-                      ),
-                    );
-                  },
-                ),
-                // 🚀 [꺼냄] 전동(NC/CNC) 벤딩 계산기는 프로젝트 안에서 벤더를 "전동"으로 둔 경우에만
-                // 열렸다(2026-09-26 사용자 요청으로 홈에 꺼냄). PC 홈과 같은 규칙: 설정이 전동이어야 연다.
-                _buildMenuButton(
-                  context: context,
-                  title: "전동 벤딩 계산기",
-                  subtitle: "NC/CNC 전동 벤더 YBC 제원 산출",
-                  icon: AppGlyph.tubeBend,
-                  onTap: () async {
-                    HapticFeedback.lightImpact();
-                    final prefs = await SharedPreferences.getInstance();
-                    final mode = prefs.getString('benderType') ?? "수동 (Hand)";
-                    if (mode != "전동 (Electric)") {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            "지금 수동 벤더 설정입니다. 벤딩 마킹 계산기 설정에서 장비 타입을 전동으로 바꾸십시오.",
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-                    final settings = await SettingsManager.loadSettings();
-                    final double clr = settings['bendRadius'] ?? 0.0;
-                    final double minClamp = settings['minStraight'] ?? 0.0;
-                    if (!context.mounted) return;
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ElectricBendingWorkspace(
-                          startDir: 'RIGHT',
-                          clr: clr,
-                          minClampLength: minClamp,
-                          onSaveCallback: null,
-                        ),
                       ),
                     );
                   },

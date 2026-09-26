@@ -3,12 +3,10 @@ import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_stock_deduct.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_colors.dart';
 import 'project_list_item.dart';
 
-import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
 import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/photo_store.dart'
@@ -16,9 +14,6 @@ import 'package:tubing_calculator/src/presentation/my_work_logs/models/photo_sto
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/project_merge.dart'
     show currentWorkerName, editedReport, markItemDeleted, unlockReport;
 
-// 🚀 [수정 완료] 새로 만든 Workspace를 import 합니다!
-import 'package:tubing_calculator/src/presentation/calculator/screens/electric_bending_workspace.dart'
-    as electric;
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_main_screen.dart'
     as manual;
 
@@ -1694,151 +1689,74 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                       _saveData(index);
                     }
 
-                    final prefs = await SharedPreferences.getInstance();
-                    final String benderType =
-                        prefs.getString('benderType') ?? "수동 (Hand)";
-                    final settings = await SettingsManager.loadSettings();
-                    final double clr = settings['bendRadius'] ?? 0.0;
-                    final double minClamp = settings['minStraight'] ?? 0.0;
-
                     if (!context.mounted) return;
 
-                    if (benderType == "전동 (Electric)") {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          // 🚀 전동 워크스페이스 호출
-                          builder: (context) => electric.ElectricBendingWorkspace(
-                            startDir: 'RIGHT',
-                            clr: clr,
-                            minClampLength: minClamp,
-                            onSaveCallback:
-                                (
-                                  double tubeLengthMm,
-                                  List<Map<String, dynamic>> fittingsList, [
-                                  List<CutRecord> cutRecords = const [],
-                                ]) {
-                                  setState(() {
-                                    List<dynamic> currentMaterials =
-                                        List<dynamic>.from(
-                                          projects[index]['materials'] ?? [],
-                                        );
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => manual.CuttingMainScreen(
+                          project: CuttingProject(
+                            id: project['id'],
+                            name: project['name'] ?? '이름 없음',
+                            createdAt: DateTime.now(),
+                          ),
+                          onSaveCallback:
+                              (
+                                double tubeLengthMm,
+                                List<Map<String, dynamic>> fittingsList, [
+                                List<CutRecord> cutRecords = const [],
+                              ]) {
+                                setState(() {
+                                  List<dynamic> currentMaterials =
+                                      List<dynamic>.from(
+                                        projects[index]['materials'] ?? [],
+                                      );
 
-                                    int tubeIdx = currentMaterials.indexWhere(
-                                      (m) => m['type'] == 'TUBE',
+                                  int tubeIdx = currentMaterials.indexWhere(
+                                    (m) => m['type'] == 'TUBE',
+                                  );
+                                  if (tubeIdx >= 0) {
+                                    currentMaterials[tubeIdx]['qty_mm'] =
+                                        (currentMaterials[tubeIdx]['qty_mm'] ??
+                                            0) +
+                                        tubeLengthMm;
+                                  } else {
+                                    currentMaterials.add({
+                                      'db_name': 'TUBE 3/8 (기본)',
+                                      'type': 'TUBE',
+                                      'qty_mm': tubeLengthMm,
+                                    });
+                                  }
+
+                                  for (var newFit in fittingsList) {
+                                    int fitIdx = currentMaterials.indexWhere(
+                                      (m) => m['db_name'] == newFit['db_name'],
                                     );
-                                    if (tubeIdx >= 0) {
-                                      currentMaterials[tubeIdx]['qty_mm'] =
-                                          (currentMaterials[tubeIdx]['qty_mm'] ??
+                                    if (fitIdx >= 0) {
+                                      currentMaterials[fitIdx]['qty_ea'] =
+                                          (currentMaterials[fitIdx]['qty_ea'] ??
                                               0) +
-                                          tubeLengthMm;
+                                          newFit['qty'];
                                     } else {
                                       currentMaterials.add({
-                                        'db_name': 'TUBE 3/8 (기본)',
-                                        'type': 'TUBE',
-                                        'qty_mm': tubeLengthMm,
+                                        'db_name': newFit['db_name'],
+                                        'maker': newFit['maker'],
+                                        'spec': newFit['spec'],
+                                        'name': newFit['name'],
+                                        'type': 'FITTING',
+                                        'qty_ea': newFit['qty'],
                                       });
                                     }
+                                  }
 
-                                    for (var newFit in fittingsList) {
-                                      int fitIdx = currentMaterials.indexWhere(
-                                        (m) =>
-                                            m['db_name'] == newFit['db_name'],
-                                      );
-                                      if (fitIdx >= 0) {
-                                        currentMaterials[fitIdx]['qty_ea'] =
-                                            (currentMaterials[fitIdx]['qty_ea'] ??
-                                                0) +
-                                            newFit['qty'];
-                                      } else {
-                                        currentMaterials.add({
-                                          'db_name': newFit['db_name'],
-                                          'maker': newFit['maker'],
-                                          'spec': newFit['spec'],
-                                          'name': newFit['name'],
-                                          'type': 'FITTING',
-                                          'qty_ea': newFit['qty'],
-                                        });
-                                      }
-                                    }
-
-                                    projects[index]['materials'] =
-                                        currentMaterials;
-                                    _saveData(index);
-                                  });
-                                },
-                          ),
+                                  projects[index]['materials'] =
+                                      currentMaterials;
+                                  _saveData(index);
+                                });
+                              },
                         ),
-                      ).then((_) => _loadData());
-                    } else {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => manual.CuttingMainScreen(
-                            project: CuttingProject(
-                              id: project['id'],
-                              name: project['name'] ?? '이름 없음',
-                              createdAt: DateTime.now(),
-                            ),
-                            onSaveCallback:
-                                (
-                                  double tubeLengthMm,
-                                  List<Map<String, dynamic>> fittingsList, [
-                                  List<CutRecord> cutRecords = const [],
-                                ]) {
-                                  setState(() {
-                                    List<dynamic> currentMaterials =
-                                        List<dynamic>.from(
-                                          projects[index]['materials'] ?? [],
-                                        );
-
-                                    int tubeIdx = currentMaterials.indexWhere(
-                                      (m) => m['type'] == 'TUBE',
-                                    );
-                                    if (tubeIdx >= 0) {
-                                      currentMaterials[tubeIdx]['qty_mm'] =
-                                          (currentMaterials[tubeIdx]['qty_mm'] ??
-                                              0) +
-                                          tubeLengthMm;
-                                    } else {
-                                      currentMaterials.add({
-                                        'db_name': 'TUBE 3/8 (기본)',
-                                        'type': 'TUBE',
-                                        'qty_mm': tubeLengthMm,
-                                      });
-                                    }
-
-                                    for (var newFit in fittingsList) {
-                                      int fitIdx = currentMaterials.indexWhere(
-                                        (m) =>
-                                            m['db_name'] == newFit['db_name'],
-                                      );
-                                      if (fitIdx >= 0) {
-                                        currentMaterials[fitIdx]['qty_ea'] =
-                                            (currentMaterials[fitIdx]['qty_ea'] ??
-                                                0) +
-                                            newFit['qty'];
-                                      } else {
-                                        currentMaterials.add({
-                                          'db_name': newFit['db_name'],
-                                          'maker': newFit['maker'],
-                                          'spec': newFit['spec'],
-                                          'name': newFit['name'],
-                                          'type': 'FITTING',
-                                          'qty_ea': newFit['qty'],
-                                        });
-                                      }
-                                    }
-
-                                    projects[index]['materials'] =
-                                        currentMaterials;
-                                    _saveData(index);
-                                  });
-                                },
-                          ),
-                        ),
-                      ).then((_) => _loadData());
-                    }
+                      ),
+                    ).then((_) => _loadData());
                   },
                 );
               },

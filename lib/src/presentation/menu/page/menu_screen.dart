@@ -1,11 +1,7 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 
-import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
-import 'package:tubing_calculator/src/presentation/calculator/screens/electric_bending_workspace.dart';
-import 'package:tubing_calculator/src/presentation/calculator/screens/electric_marking_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_project_list_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/screens/work_log_main_screen.dart'
     show WorkLogMainScreen;
@@ -247,39 +243,6 @@ class MenuScreen extends StatelessWidget {
         ),
         _buildGridCard(
           context,
-          icon: Icons.precision_manufacturing,
-          title: '전동 벤딩 계산기',
-          subtitle: 'NC/CNC YBC 제원 산출',
-          iconColor: Colors.orange.shade800,
-          onTap: () async {
-            bool isOk = await _checkMode(
-              context,
-              "전동 (Electric)",
-              "현재 수동 모드입니다. 설정에서 전동 모드로 변경해 주십시오.",
-            );
-            if (!isOk) return;
-
-            final settings = await SettingsManager.loadSettings();
-            final double clr = settings['bendRadius'] ?? 0.0;
-            final double minClamp = settings['minStraight'] ?? 0.0;
-
-            if (!context.mounted) return;
-
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ElectricBendingWorkspace(
-                  startDir: 'RIGHT',
-                  clr: clr,
-                  minClampLength: minClamp,
-                  onSaveCallback: null,
-                ),
-              ),
-            );
-          },
-        ),
-        _buildGridCard(
-          context,
           icon: Icons.calculate_outlined,
           title: '수동 벤딩 계산기',
           subtitle: '단일/다중 벤딩 작업',
@@ -302,47 +265,7 @@ class MenuScreen extends StatelessWidget {
           title: '마킹 및 컷팅',
           subtitle: '최종 컷팅 길이 확인',
           iconColor: makitaTeal,
-          onTap: () async {
-            final prefs = await SharedPreferences.getInstance();
-            final currentMode = prefs.getString('benderType') ?? "수동 (Hand)";
-
-            if (!context.mounted) return;
-
-            if (currentMode == "전동 (Electric)") {
-              List<Map<String, double>> electricList = [];
-              String? jsonString = prefs.getString('saved_electric_bend_list');
-
-              if (jsonString != null && jsonString.isNotEmpty) {
-                // 저장된 글이 깨져 있어도 단추가 죽지 않게.
-                try {
-                  final List<dynamic> decoded = jsonDecode(jsonString);
-                  electricList = decoded.map<Map<String, double>>((item) {
-                    final Map<String, dynamic> map =
-                        item as Map<String, dynamic>;
-                    return map.map(
-                      (key, value) =>
-                          MapEntry(key, value is num ? value.toDouble() : 0.0),
-                    );
-                  }).toList();
-                } catch (e) {
-                  debugPrint('전동 벤딩 목록 읽기 실패: $e');
-                  electricList = [];
-                }
-              }
-
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ElectricMarkingPage(
-                    startDir: 'RIGHT',
-                    bendList: electricList,
-                  ),
-                ),
-              );
-            } else {
-              Navigator.pushNamed(context, '/marking');
-            }
-          },
+          onTap: () => Navigator.pushNamed(context, '/marking'),
         ),
         _buildGridCard(
           context,
