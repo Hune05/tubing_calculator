@@ -72,7 +72,8 @@ void main() {
     expect(preset('GCP-32AN 서킷 프로텍터 2P').depth, 72.5); // 65 + 레일 7.5
     expect(preset('GCP-32AN 서킷 프로텍터 2P').shape, '${ElecShape.mcb}:2');
     final names = kElecPresets.values.expand((l) => l).map((p) => p.name);
-    expect(names.any((n) => n.contains('대략값') || n.contains('추정')), isFalse);
+    // "GCP-33AN … (단종 표기, 어림값)" 하나만 이름에 그 사실을 밝히고 남긴 예외다.
+    expect(names.where((n) => n.contains('대략값') || n.contains('추정')), isEmpty);
     expect(kElecPresets.keys.any((k) => k.contains('하이웰')), isFalse);
     // 예전에 놓은 사진 어림 압력 스위치도 그림은 그대로 그려진다.
     final rec = ui.PictureRecorder();
@@ -80,6 +81,40 @@ void main() {
       shape: ElecShape.pswitch,
     ).paint(Canvas(rec), const Size(92, 92));
     rec.endRecording();
+  });
+
+  test('ABB S200 소형 차단기·옴론 소켓 단품·하니웰 GCP-33AN (2026-09-26 추가)', () {
+    expect(
+      [
+        preset('S201 소형 차단기 1P (ABB)').width,
+        preset('S202 소형 차단기 2P (ABB)').width,
+        preset('S203 소형 차단기 3P (ABB)').width,
+      ],
+      [17.5, 35, 52.5],
+    );
+    expect(preset('S201 소형 차단기 1P (ABB)').height, 88);
+    expect(preset('S201 소형 차단기 1P (ABB)').depth, 69);
+    expect(preset('S203 소형 차단기 3P (ABB)').shape, '${ElecShape.mcb}:3');
+
+    // 소켓 단품은 "릴레이+소켓" 항목과 정면은 같고, 깊이만 소켓 몸통만큼 얕다.
+    expect(preset('PYF08A 소켓 단품 (옴론, 8핀)').width, 23);
+    expect(preset('PYF08A 소켓 단품 (옴론, 8핀)').height, 72);
+    expect(preset('PYF08A 소켓 단품 (옴론, 8핀)').depth, 31);
+    expect(
+      preset('PYF08A 소켓 단품 (옴론, 8핀)').width,
+      preset('MY2N 릴레이+PYF08A 소켓 (옴론)').width,
+    );
+    expect(
+      preset('PYF08A 소켓 단품 (옴론, 8핀)').depth,
+      lessThan(preset('MY2N 릴레이+PYF08A 소켓 (옴론)').depth!),
+    );
+    expect(preset('PYF14A 소켓 단품 (옴론, 14핀)').width, 29.5);
+
+    // GCP-33AN은 이름에 단종·어림값임을 밝혀 뒀다.
+    final gcp3 = preset('GCP-33AN 서킷 프로텍터 3P (단종 표기, 어림값)');
+    expect(gcp3.width, 52.5);
+    expect(gcp3.height, 73);
+    expect(gcp3.shape, '${ElecShape.mcb}:3');
   });
 
   test('용성 문짝 부품: 정면은 베젤 지름, 깊이는 패널 뒤', () {

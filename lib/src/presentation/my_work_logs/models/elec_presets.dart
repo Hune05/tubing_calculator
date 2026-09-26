@@ -20,6 +20,15 @@ import 'layout_board_models.dart';
 // - 용성전기 문짝 부품(표시등·누름버튼·셀렉터, Ø22 A형·PL2·PL3): 카탈로그 p.155·169·171·174·266.
 //   정면 = 베젤 지름, 깊이 = 패널 뒤로 들어가는 길이(접점 블록 1개).
 // UE 압력 스위치는 계기 목록(kInstrumentPresets "UE")에 도면 치수로 넣었다.
+//
+// 2026-09-26 저녁 추가(사용자 요청 "허니웰·차단기 등 국내·발전소에서 많이 쓰는 것"):
+// - ABB System pro M compact S200(S201/S202/S203) 소형 차단기: 데이터시트 2CDC002157D0202
+//   (2012-08) p.3 표·p.10 치수도. 국내 자재는 아니지만 국내 EPC 규격서에 비교 브랜드로 자주 나온다.
+// - 옴론 PYF08A·PYF14A 소켓 단품(릴레이 없이 소켓만): 카탈로그 J03E-EN-01A p.11·12. 이미 있는
+//   "릴레이+소켓" 항목과 정면은 같고 깊이만 소켓 몸통(31)만큼.
+// - 하니웰 GCP-33AN(3P): 대리점 재배포 도면에서 폭만 확인한 단일 출처 어림값, 단종 표기 있음.
+//   조사에서 GCP 말고 다른 허니웰 기초 전기자재(단자대·릴레이·전원)는 국내 판매 근거를 못 찾았다.
+//   LS Metasol 더 큰 프레임(225AF·400AF)·슈나이더·지멘스는 카탈로그가 스캔 이미지라 못 넣었다(계속 조사 중).
 
 class ElecShape {
   /// 단자대 묶음. 'el_tb:극 수'.
@@ -196,6 +205,31 @@ final Map<String, List<ModulePreset>> kElecPresets = {
       depth: 82,
     ),
   ],
+  // ABB System pro M compact S200: 데이터시트 2CDC002157D0202(2012-08) p.3 표·p.10 치수도.
+  // 국내 자재는 아니지만 국내 EPC 규격서에 비교 브랜드로 자주 나온다(2026-09-26 조사).
+  "차단기 (ABB)": [
+    const ModulePreset(
+      "S201 소형 차단기 1P (ABB)",
+      17.5,
+      88,
+      shape: '${ElecShape.mcb}:1',
+      depth: 69,
+    ),
+    const ModulePreset(
+      "S202 소형 차단기 2P (ABB)",
+      35,
+      88,
+      shape: '${ElecShape.mcb}:2',
+      depth: 69,
+    ),
+    const ModulePreset(
+      "S203 소형 차단기 3P (ABB)",
+      52.5,
+      88,
+      shape: '${ElecShape.mcb}:3',
+      depth: 69,
+    ),
+  ],
   "전원·릴레이·MC": [
     const ModulePreset(
       "DR-60-24 전원 (민웰)",
@@ -245,6 +279,22 @@ final Map<String, List<ModulePreset>> kElecPresets = {
       72,
       shape: ElecShape.relay,
       depth: 65,
+    ),
+    // 릴레이 없이 소켓만(이미 있는 릴레이를 꽂을 때). 옴론 카탈로그 J03E-EN-01A p.11·12,
+    // 소켓 단품 깊이 31 — 위 "릴레이+소켓" 항목의 어림값(31+릴레이 몸통≈65)과 맞는다(2026-09-26 확인).
+    const ModulePreset(
+      "PYF08A 소켓 단품 (옴론, 8핀)",
+      23,
+      72,
+      shape: ElecShape.relay,
+      depth: 31,
+    ),
+    const ModulePreset(
+      "PYF14A 소켓 단품 (옴론, 14핀)",
+      29.5,
+      72,
+      shape: ElecShape.relay,
+      depth: 31,
     ),
     const ModulePreset(
       "MC-9b·12b·18b 전자 접촉기 (LS)",
@@ -308,6 +358,8 @@ final Map<String, List<ModulePreset>> kElecPresets = {
     ),
   ],
   // 하니웰 GCP 데이터시트 p.5: 1P 17.5·2P 35 × 73(단자 포함), 몸통 깊이 65 + DIN 레일 7.5.
+  // GCP-33AN(3P): 대리점이 재배포한 도면에서 폭 52.5(=17.5×3)만 실측 확인, 높이·깊이는 1P/2P
+  // 값을 그대로 늘려 잡은 값(2026-09-26, 단일 출처). 여러 판매처가 "제조 단종"이라 적어 두었다.
   "서킷 프로텍터 (하니웰)": [
     const ModulePreset(
       "GCP-31AN 서킷 프로텍터 1P",
@@ -321,6 +373,13 @@ final Map<String, List<ModulePreset>> kElecPresets = {
       35,
       73,
       shape: '${ElecShape.mcb}:2',
+      depth: 72.5,
+    ),
+    const ModulePreset(
+      "GCP-33AN 서킷 프로텍터 3P (단종 표기, 어림값)",
+      52.5,
+      73,
+      shape: '${ElecShape.mcb}:3',
       depth: 72.5,
     ),
   ],
