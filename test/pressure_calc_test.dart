@@ -414,19 +414,4 @@ void main() {
       expect(exact.cylinders, 3);
     });
   });
-
-  group('에어 누설', () {
-    test('1/4" 구멍 100psig, Cd 1 → 104cfm(DOE 자료)', () {
-      final lps = holeLeakLps(holeMm: 6.35, supplyKpa: 689.476, cd: 1);
-      expect(lps * 2.11888, closeTo(104, 2)); // L/s → cfm
-    });
-    test('압축기 전력: 100cfm ≈ 18kW', () {
-      final lps = 100 / 2.11888;
-      expect(leakCompressorKw(lps), closeTo(18, 0.1));
-    });
-    test('식이 맞는 최소 공급 압력 0.9bar(초크 흐름 1.893배)', () {
-      expect(kLeakMinKpa, 90);
-      expect((kLeakMinKpa + kAtmKpa) / kAtmKpa, closeTo(1.89, 0.01));
-    });
-  });
 }

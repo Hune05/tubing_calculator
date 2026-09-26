@@ -1,7 +1,8 @@
 // 압력 시험 계산기(홈 "현장 작업" → 압력 시험 계산기). ASME B31.3(공정 배관)·B31.1(동력 배관),
-// 수압·공압. 탭: 시험 압력(절차·압력계·최고점 높이까지) → 압력 강하(온도 보정·누설률·허용값 판정,
-// 수압은 물 온도 영향) → 공압 안전거리(ASME PCC-2 저장 에너지·출입 통제 거리·질소 용기) → 에어 누설
-// → 시험 기록(유지시간 타이머·알림, 측정 기록, 판정, 기록 저장·기록서 PDF: pressure_record_tab.dart).
+// 수압·공압. 탭(2026-09-26 순서): 시험 압력(절차·압력계·최고점 높이까지) → 시험 기록(유지시간 타이머·알림,
+// 측정 기록, 판정, 기록 저장·기록서 PDF: pressure_record_tab.dart) → 압력 강하(온도 보정·누설률·허용값 판정,
+// 수압은 물 온도 영향) → 공압 안전거리(ASME PCC-2 저장 에너지·출입 통제 거리·질소 용기).
+// 에어 누설 탭은 2026-09-26 뺐다(사용자 요청: 교정 가스 소모량으로 바꿔 계기 교정 "교정 가스" 탭으로).
 // 칸마다 "?" 안내, 결과에 조항 번호. 계산은 pressure_calc.dart. 최종은 해당 규격 원문·절차서로 확인.
 // 시험 대상은 튜브(기본, 계기용 정밀 튜브: tube_rating.dart 허용 사용압력)와 배관. 튜브 규격은 공압 안전거리 체적·
 // 수압 온도 영향·시험 기록(기록서)에도 쓴다.
@@ -50,8 +51,8 @@ String _fmtSig(double v) {
   return _fmt(v, (4 - mag).clamp(2, 6));
 }
 
-/// 시험 기록 탭 번호(시험 압력 0, 압력 강하 1, 공압 안전거리 2, 에어 누설 3, 시험 기록 4).
-const int kPtRecordTabIndex = 4;
+/// 시험 기록 탭 번호(시험 압력 0, 시험 기록 1, 압력 강하 2, 공압 안전거리 3).
+const int kPtRecordTabIndex = 1;
 
 class PressureTestPage extends StatefulWidget {
   /// 유지시간 완료 알림(시험에서 가짜로 바꿔 넣는다). 없으면 앱 알림 플러그인.
@@ -96,9 +97,9 @@ class _PressureTestPageState extends State<PressureTestPage>
   static const _draftKey = 'pressure_test_draft_v1';
 
   late final TabController _tabs = TabController(
-    length: 5,
+    length: 4,
     vsync: this,
-    initialIndex: widget.initialTab.clamp(0, 4),
+    initialIndex: widget.initialTab.clamp(0, 3),
   );
 
   /// 지금 열려 있는 화면(알림을 누를 때 PressureTestPage.revealOpen이 쓴다).
@@ -172,13 +173,6 @@ class _PressureTestPageState extends State<PressureTestPage>
   final _seLen = TextEditingController();
   final _seVol = TextEditingController();
 
-  // ④ 에어 누설
-  final _hole = TextEditingController(text: '3');
-  final _supply = TextEditingController(text: '7');
-  bool _sharp = false;
-  final _hours = TextEditingController(text: '8760');
-  final _price = TextEditingController();
-
   /// 단위를 바꿔 다시 쓴 칸: (쓴 글, 정확한 kPa). 글이 그대로면 kPa를 그대로 쓴다(반올림 누적 방지).
   final Map<TextEditingController, (String, double)> _exact = {};
 
@@ -190,7 +184,6 @@ class _PressureTestPageState extends State<PressureTestPage>
     _p2,
     _allow,
     _sePt,
-    _supply,
     _rAllow,
   ];
 
@@ -214,10 +207,6 @@ class _PressureTestPageState extends State<PressureTestPage>
     'seId': _seId,
     'seLen': _seLen,
     'seVol': _seVol,
-    'hole': _hole,
-    'supply': _supply,
-    'hours': _hours,
-    'price': _price,
     'tubeTemp': _tubeTemp,
     'tubeLen': _tubeLen,
     ..._recordFields,
@@ -270,7 +259,6 @@ class _PressureTestPageState extends State<PressureTestPage>
     _decayMedium = pick(TestMedium.values, m['decayMedium'], _decayMedium);
     _mat = pick(PipeMaterial.values, m['mat'], _mat);
     _gas = pick(TestGas.values, m['gas'], _gas);
-    if (m['sharp'] is bool) _sharp = m['sharp'] as bool;
     // 튜브·배관을 적지 않은 이전 임시 저장은 배관 기준으로 넣은 값이라 배관으로 되살린다.
     _tube = m['tube'] is bool ? m['tube'] as bool : false;
     _tubeMat = pick(TubeMaterial.values, m['tubeMat'], _tubeMat);
@@ -311,7 +299,6 @@ class _PressureTestPageState extends State<PressureTestPage>
     'decayMedium': _decayMedium.name,
     'mat': _mat.name,
     'gas': _gas.name,
-    'sharp': _sharp,
     'tube': _tube,
     'tubeMat': _tubeMat.name,
     'tubeSys': _tubeSys.name,
@@ -450,23 +437,16 @@ class _PressureTestPageState extends State<PressureTestPage>
             ),
             tabs: const [
               Tab(key: Key('pt_tab_plan'), text: '시험 압력'),
+              Tab(key: Key('pt_tab_record'), text: '시험 기록'),
               Tab(key: Key('pt_tab_decay'), text: '압력 강하'),
               Tab(key: Key('pt_tab_energy'), text: '공압 안전거리'),
-              Tab(key: Key('pt_tab_leak'), text: '에어 누설'),
-              Tab(key: Key('pt_tab_record'), text: '시험 기록'),
             ],
           ),
         ),
         body: SafeArea(
           child: TabBarView(
             controller: _tabs,
-            children: [
-              _planTab(),
-              _decayTab(),
-              _energyTab(),
-              _leakTab(),
-              _recordTab(),
-            ],
+            children: [_planTab(), _recordTab(), _decayTab(), _energyTab()],
           ),
         ),
       ),
@@ -1378,78 +1358,6 @@ class _PressureTestPageState extends State<PressureTestPage>
           ),
         ),
       ],
-    ]);
-  }
-
-  // ④ 에어 누설
-  Widget _leakTab() {
-    final d = _num(_hole);
-    final p = _kpa(_supply);
-    final lps = d == null || p == null || d <= 0 || p <= 0
-        ? null
-        : holeLeakLps(holeMm: d, supplyKpa: p, cd: _sharp ? 0.61 : 0.97);
-    final lowP = p != null && p < kLeakMinKpa - 1e-9;
-    final kw = lps == null ? null : leakCompressorKw(lps);
-    final hours = _num(_hours) ?? 8760;
-    final price = _num(_price);
-    final kwh = kw == null ? null : kw * hours;
-    return _page([
-      _unitChips(),
-      calcField(
-        'pt_hole',
-        '구멍 지름 (mm)',
-        _hole,
-        '새는 구멍(틈)의 지름입니다. 크기를 모르면 1~3mm로 대략 넣으십시오.',
-      ),
-      calcField(
-        'pt_supply',
-        '공급 압력 (${_unit.label})',
-        _supply,
-        '압축공기 배관 압력(게이지)입니다. 0.9bar 미만에서는 이 식이 맞지 않습니다.',
-      ),
-      _chips('구멍 모양', '둥근 구멍은 0.97, 날카로운 틈은 0.61을 곱합니다(DOE).', [
-        calcChip(
-          'pt_round',
-          '둥근 구멍',
-          !_sharp,
-          () => setState(() => _sharp = false),
-        ),
-        calcChip(
-          'pt_sharp',
-          '날카로운 틈',
-          _sharp,
-          () => setState(() => _sharp = true),
-        ),
-      ]),
-      calcField(
-        'pt_hours',
-        '연간 가동 시간 (h)',
-        _hours,
-        '압축기 가동 시간입니다. 연중 계속이면 8760입니다.',
-      ),
-      calcField(
-        'pt_price',
-        '전기 요금 (원/kWh, 선택)',
-        _price,
-        '한전 요금표나 전기요금 고지서의 kWh당 단가입니다.',
-      ),
-      const SizedBox(height: 12),
-      if (lps == null)
-        calcResult(big: '—', caption: '구멍 지름과 압력을 넣으십시오', lines: const [])
-      else
-        calcResult(
-          key: const Key('pt_leak_result'),
-          big: '${_fmt(lps * 60, 1)} L/min',
-          caption: '누설 공기량(대기압 기준)',
-          warn: lowP,
-          lines: [
-            if (lowP) '공급 압력이 0.9bar 미만이라 이 식이 맞지 않습니다. 참고로만 보십시오.',
-            '${_fmt(lps * 60 / 1000, 3)} m³/min · ${_fmt(lps * 2.11888, 2)} cfm',
-            '압축기 전력 ${_fmt(kw!, 2)} kW (100cfm당 18kW, DOE)',
-            '연간 ${_fmt(kwh!, 0)} kWh${price == null ? '' : ' · ${_fmt(kwh * price / 10000, 1)}만 원'}',
-            '식: Q ≈ 0.154 × Cd × d² × P₀(절대 bar) L/s. 초크 흐름 기준이며 DOE 표와 3% 이내입니다.',
-          ],
-        ),
     ]);
   }
 }

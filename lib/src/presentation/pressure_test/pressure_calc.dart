@@ -3,7 +3,7 @@
 // ASME B31.3(2018 본문, 2022·2024 바뀐 점 확인)과 B31.1(2022 본문)의 시험압력·절차,
 // ASME PCC-2-2022 Article 501 부록 501-II·501-III(공압 시험 저장 에너지·출입 통제 거리),
 // 이상기체 식에 따른 압력강하 누설률, Kell(1975) 물 성질로 수압 시험 중 물 온도 1°C당 압력 변화,
-// DOE 압축공기 누설, EN 837 압력계 눈금 범위.
+// EN 837 압력계 눈금 범위.
 // 압력은 모두 kPa(게이지는 g, 절대는 abs)로 계산하고 화면에서 단위를 바꾼다.
 library;
 
@@ -514,24 +514,6 @@ NitrogenNeed nitrogenNeed({
     cylinders: usable > 0 ? (nm3 / usable - 1e-9).ceil() : null,
   );
 }
-
-// ─────────────── 압축공기 에어 누설 ───────────────
-
-/// 식이 맞는 최소 공급 압력(게이지 kPa). 초크 흐름 조건 P0abs ≥ 1.893 × 대기압.
-const double kLeakMinKpa = 90;
-
-/// 구멍 누설(대기압 기준 L/s, 20°C). 초크 흐름 Q ≈ 0.154·Cd·d²·P0abs(bar). 0.9barg 미만은 맞지 않는다.
-double holeLeakLps({
-  required double holeMm,
-  required double supplyKpa,
-  double cd = 0.97,
-}) {
-  final p0 = (supplyKpa + kAtmKpa) / 100; // bar abs
-  return 0.154 * cd * holeMm * holeMm * p0;
-}
-
-/// 누설을 메우는 압축기 전력(kW). 100cfm당 18kW(DOE) = m³/min당 6.36kW.
-double leakCompressorKw(double lps) => lps * 60 / 1000 * 6.36;
 
 String _f(double v, [int d = 1]) {
   var s = v.toStringAsFixed(d);

@@ -1,5 +1,5 @@
 // 계산기 탭 순서(2026-09-26 사용자 선택): 전기 설계 계산은 자주 쓰는 것 먼저, 계기 교정은 교정 점검 먼저,
-// 유량 계산 끝에 유량계 점검.
+// 계기 교정에 교정 가스(압력 시험 에어 누설을 바꿈), 유량 계산 끝에 유량계 점검.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -42,7 +42,7 @@ void main() {
     expect(labels.first, '교정 점검');
     expect(labels[1], '4-20mA');
     expect(labels, isNot(contains('환산')));
-    expect(labels.last, '루프 전압');
+    expect(labels.sublist(2), ['온도 센서', '교정 가스', '루프 전압']);
   });
 
   testWidgets('유량 계산: 끝 탭이 유량계 점검', (tester) async {

@@ -141,6 +141,11 @@ void main() {
     await tester.enterText(find.byKey(const Key('pt_actual')), '16');
     await tester.enterText(find.byKey(const Key('pt_ratio')), '1.2');
     await tester.pump();
+    // 다른 탭(압력 강하 시작 압력 7bar)
+    await openTab(tester, 'pt_tab_decay');
+    await tester.enterText(find.byKey(const Key('pt_p1')), '7');
+    await tester.pump();
+    await openTab(tester, 'pt_tab_plan');
     await tester.tap(find.byKey(const Key('pt_u_psi')));
     await tester.pump();
     expect(fieldText(tester, 'pt_design'), '145.04');
@@ -151,13 +156,13 @@ void main() {
       textIn(tester, const Key('pt_plan_result')),
       contains('261.07 psi 이상'),
     );
-    // 다른 탭(에어 누설 공급 압력 7bar)도 환산
-    await openTab(tester, 'pt_tab_leak');
-    expect(fieldText(tester, 'pt_supply'), '101.53');
+    // 다른 탭(압력 강하 시작 압력 7bar)도 환산
+    await openTab(tester, 'pt_tab_decay');
+    expect(fieldText(tester, 'pt_p1'), '101.53');
     // 다시 bar로: 반올림이 쌓이지 않는다
     await tester.tap(find.byKey(const Key('pt_u_bar')));
     await tester.pump();
-    expect(fieldText(tester, 'pt_supply'), '7');
+    expect(fieldText(tester, 'pt_p1'), '7');
     await openTab(tester, 'pt_tab_plan');
     expect(fieldText(tester, 'pt_design'), '10');
     expect(fieldText(tester, 'pt_actual'), '16');
@@ -318,31 +323,13 @@ void main() {
     expect(fieldText(tester, 'pt_se_pt'), '12');
   });
 
-  testWidgets('에어 누설: 3mm 7bar 둥근 구멍 → L/min·kW·kWh, 0.9bar 미만 알림', (
-    tester,
-  ) async {
+  testWidgets('탭: 시험 압력 · 시험 기록 · 압력 강하 · 공압 안전거리(에어 누설은 뺌)', (tester) async {
     await pumpPage(tester);
-    await openTab(tester, 'pt_tab_leak');
-    await tester.enterText(find.byKey(const Key('pt_price')), '150');
-    await tester.pump();
-    var r = textIn(tester, const Key('pt_leak_result'));
-    // 0.154·0.97·9·8.01 = 10.77 L/s = 646 L/min
-    expect(r, contains('646'));
-    expect(r, contains('연간'));
-    expect(r, contains('kWh'));
-    expect(r, contains('만 원'));
-    expect(r, startsWith('누설 공기량(대기압 기준)'));
-    expect(r, isNot(contains('0.9bar 미만')));
-    await tester.enterText(find.byKey(const Key('pt_supply')), '0.5');
-    await tester.pump();
-    r = textIn(tester, const Key('pt_leak_result'));
-    expect(r, contains('공급 압력이 0.9bar 미만이라 이 식이 맞지 않습니다.'));
-  });
-
-  testWidgets('탭 이름: 공압 안전거리·에어 누설', (tester) async {
-    await pumpPage(tester);
-    expect(find.text('공압 안전거리'), findsOneWidget);
-    expect(find.text('에어 누설'), findsOneWidget);
+    expect(
+      tester.widgetList<Tab>(find.byType(Tab)).map((t) => t.text).toList(),
+      ['시험 압력', '시험 기록', '압력 강하', '공압 안전거리'],
+    );
+    expect(find.text('에어 누설'), findsNothing);
     expect(find.text('저장 에너지'), findsNothing);
     expect(find.text('구멍 누설'), findsNothing);
   });
@@ -434,21 +421,16 @@ void main() {
       scrollable: listScroll,
     );
     expect(tester.takeException(), isNull);
-    for (final t in [
-      'pt_tab_decay',
-      'pt_tab_energy',
-      'pt_tab_leak',
-      'pt_tab_plan',
-    ]) {
+    for (final t in ['pt_tab_decay', 'pt_tab_energy', 'pt_tab_plan']) {
       await openTab(tester, t);
       expect(tester.takeException(), isNull, reason: t);
       expect(
         tester.widget<TabBar>(find.byType(TabBar)).controller!.index,
         [
           'pt_tab_plan',
+          'pt_tab_record',
           'pt_tab_decay',
           'pt_tab_energy',
-          'pt_tab_leak',
         ].indexOf(t),
       );
       if (t == 'pt_tab_decay') {
@@ -474,15 +456,6 @@ void main() {
         await type('pt_se_vol', '120000');
         await tester.scrollUntilVisible(
           find.byKey(const Key('pt_energy_fragment')),
-          300,
-          scrollable: listScroll,
-        );
-        expect(tester.takeException(), isNull);
-      }
-      if (t == 'pt_tab_leak') {
-        await type('pt_supply', '0.5');
-        await tester.scrollUntilVisible(
-          find.byKey(const Key('pt_leak_result')),
           300,
           scrollable: listScroll,
         );

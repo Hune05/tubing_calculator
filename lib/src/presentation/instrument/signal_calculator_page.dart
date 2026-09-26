@@ -1,8 +1,8 @@
-// 4-20mA 계산기(홈 "현장 작업" → 4-20mA 계산기). 탭: 4-20mA(mA·%·측정값, NE43 신호 상태, 5점 환산표) →
-// 교정 점검(입력값 대비 측정값·지시값의 스팬 % 오차, 허용오차 판정, 시험점 3·5·11점과 상승·하강 히스테리시스,
-// 온도 센서 값, 조정 전·후, 기록·성적서. "스위치"를 고르면 스위치 시험: 동작점·복귀점·데드밴드, 반복 3회) →
-// 루프 전압(전원·저항·계기 최소 동작 전압, 확인 전류) →
-// 온도 센서(Pt100·Pt1000·열전대 환산, 냉접점 보상, 5점 표). 칸마다 "?" 안내.
+// 계기 교정(홈 "계장" → 계기 교정). 탭 순서(2026-09-26 사용자 선택): 교정 점검(입력값 대비 측정값·지시값의
+// 스팬 % 오차, 허용오차 판정, 시험점 3·5·11점과 상승·하강 히스테리시스, 온도 센서 값, 조정 전·후, 기록·성적서.
+// "스위치"를 고르면 스위치 시험: 동작점·복귀점·데드밴드, 반복 3회) → 4-20mA(옛 이름 환산: mA·%·측정값, NE43 신호
+// 상태, 5점 환산표) → 온도 센서(Pt100·Pt1000·열전대 환산, 냉접점 보상, 5점 표) → 교정 가스(수소 순도계 교정 가스
+// 용기 남은 양·교정 횟수, cal_gas_tab.dart) → 루프 전압(전원·저항·계기 최소 동작 전압, 확인 전류). 칸마다 "?" 안내.
 // 계산은 signal_calc.dart·temp_sensor.dart·switch_check.dart, 기록은 cal_record.dart, 근거는 docs/4-20mA계산기_근거.md.
 import 'dart:convert';
 
@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
 import '../electrical/elec_tables.dart' show cuResistance;
+import 'cal_gas_tab.dart';
 import 'cal_record.dart';
 import 'cal_record_pdf.dart';
 import 'cal_records_page.dart';
@@ -54,7 +55,7 @@ class SignalCalculatorPage extends StatefulWidget {
 
 class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver, CalcFormParts {
-  late final TabController _tabs = TabController(length: 4, vsync: this);
+  late final TabController _tabs = TabController(length: 5, vsync: this);
 
   // 측정 범위(환산·교정 점검이 같이 씀)
   final _lrv = TextEditingController(text: '0');
@@ -411,6 +412,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
               Tab(key: Key('sg_tab_cal'), text: '교정 점검'),
               Tab(key: Key('sg_tab_conv'), text: '4-20mA'),
               Tab(key: Key('sg_tab_temp'), text: '온도 센서'),
+              Tab(key: Key('sg_tab_gas'), text: '교정 가스'),
               Tab(key: Key('sg_tab_loop'), text: '루프 전압'),
             ],
           ),
@@ -418,7 +420,13 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
         body: SafeArea(
           child: TabBarView(
             controller: _tabs,
-            children: [_calTab(), _convTab(), _tempTab(), _loopTab()],
+            children: [
+              _calTab(),
+              _convTab(),
+              _tempTab(),
+              const CalGasTab(),
+              _loopTab(),
+            ],
           ),
         ),
       ),

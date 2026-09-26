@@ -46,7 +46,7 @@ void main() {
 
   test('압력 시험 유지시간 완료 알림 글 → 압력 시험 화면(시험 기록 탭)', () {
     expect(kPtHoldPayload, 'pressure_test_record');
-    expect(kPtRecordTabIndex, 4);
+    expect(kPtRecordTabIndex, 1);
     expect(
       routeForNotification(kPtHoldPayload, {}),
       isA<MaterialPageRoute<void>>(),
