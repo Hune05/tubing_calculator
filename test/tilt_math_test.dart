@@ -101,6 +101,27 @@ void main() {
     expect(s.add(1, 2, 3).y, 2);
   });
 
+  test('각 멈춤 폭: 0.3° 안쪽 흔들림은 그대로, 크게 움직이면 바로, 머물면 실제 값', () {
+    final b = AngleDeadband(band: 0.3, settle: 4);
+    expect(b.apply(45.0), 45.0);
+    // 흔들림(±0.2)은 숫자를 안 바꾼다 — 세 번까지는 그대로.
+    expect(b.apply(45.2), 45.0);
+    expect(b.apply(44.8), 45.0);
+    expect(b.apply(45.1), 45.0);
+    // 네 번째에 그 안에 머물렀으니 실제 값으로 맞춘다.
+    expect(b.apply(45.1), 45.1);
+    // 크게 움직이면 바로 따라간다.
+    expect(b.apply(46.0), 46.0);
+    b.reset();
+    expect(b.apply(10.0), 10.0);
+  });
+
+  test('각도 글: 기본 정수, 켜면 소수 한 자리', () {
+    expect(formatAngle(44.6), '45°');
+    expect(formatAngle(44.4), '44°');
+    expect(formatAngle(44.6, decimals: true), '44.6°');
+  });
+
   group('화면 각도기 팔', () {
     test('오른쪽 0°, 위 90°, 왼쪽 180°', () {
       expect(armAngle(100, 100, 200, 100), closeTo(0, 1e-9));

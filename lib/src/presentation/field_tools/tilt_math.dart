@@ -132,6 +132,42 @@ class TiltSmoother {
   void reset() => _x = _y = _z = null;
 }
 
+/// 화면에 보이는 각을 덜 떨게 한다. 폰 센서는 가만히 둬도 0.1~0.3°씩 흔들려 숫자가
+/// 계속 바뀌었다(2026-09-26 사용자: "감도가 너무 높다"). 새 값이 보이는 값에서 [band]°
+/// 넘게 벗어날 때만 바꾸고, 그 안에서 [settle]번 머물면 실제 값으로 맞춘다 — 떨지 않고,
+/// 멈추면 정확하다.
+class AngleDeadband {
+  final double band;
+  final int settle;
+  double? _shown;
+  int _still = 0;
+  AngleDeadband({this.band = 0.3, this.settle = 8});
+
+  double apply(double v) {
+    final s = _shown;
+    if (s == null || (v - s).abs() > band) {
+      _shown = v;
+      _still = 0;
+      return v;
+    }
+    if (++_still >= settle) {
+      _shown = v;
+      _still = 0;
+    }
+    return _shown!;
+  }
+
+  void reset() {
+    _shown = null;
+    _still = 0;
+  }
+}
+
+/// 각도 글: [decimals]면 소수 한 자리, 아니면 정수(1°). 폰 센서로 잰 벤딩 각은
+/// ±0.5~1°가 한계라 기본은 정수다.
+String formatAngle(double deg, {bool decimals = false}) =>
+    '${decimals ? deg.toStringAsFixed(1) : deg.round().toString()}°';
+
 /// 화면 각도기: 가운데에서 [p] 쪽을 가리키는 각(°, 0 = 오른쪽, 위로 +, 0~180으로 자름).
 /// 화면 y는 아래로 커지므로 뒤집어 센다.
 double armAngle(double cx, double cy, double px, double py) {

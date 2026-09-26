@@ -182,7 +182,7 @@ void main() {
   });
 
   group('각도기', () {
-    testWidgets('기준을 잡고 45° 돌리면 굽힌 각 45.0°, 사이각 135.0°', (tester) async {
+    testWidgets('기준을 잡고 45° 돌리면 굽힌 각 45°, 사이각 135°(기본은 정수)', (tester) async {
       final c = await pumpPage(tester, (s) => ProtractorPage(source: s));
       await send(tester, c, 0, g, 0); // 세워서 첫 다리
       await tester.tap(find.byKey(const Key('bend_reference')));
@@ -192,15 +192,34 @@ void main() {
       }
       String textOf(String key) =>
           tester.widget<Text>(find.byKey(Key(key))).data!;
-      expect(textOf('bend_value'), "45.0°");
-      expect(find.text("두 다리 사이 각 135.0°"), findsOneWidget);
+      expect(textOf('bend_value'), "45°");
+      expect(find.text("두 다리 사이 각 135°"), findsOneWidget);
 
-      // 30° 더 돌리면 굽힌 각 75.0°, 폰 옆면 기울기는 15.0°(값이 따로 논다).
+      // 30° 더 돌리면 굽힌 각 75°, 폰 옆면 기울기는 15°(값이 따로 논다).
       for (int i = 0; i < 60; i++) {
         await send(tester, c, g * sinD(75), g * cosD(75), 0);
       }
+      expect(textOf('bend_value'), "75°");
+      expect(textOf('bend_tilt'), "15°");
+
+      // "소수점 보기"를 누르면 소수 한 자리, 폰에 남는다.
+      await tester.tap(find.byKey(const Key('protractor_decimals')));
+      await tester.pump();
       expect(textOf('bend_value'), "75.0°");
-      expect(textOf('bend_tilt'), "15.0°");
+      expect(find.text("소수점 끄기"), findsOneWidget);
+      final p = await SharedPreferences.getInstance();
+      expect(p.getBool(kProtractorDecimalsKey), isTrue);
+      await c.close();
+    });
+
+    testWidgets('소수점을 켜 둔 적이 있으면 소수 한 자리로 연다', (tester) async {
+      SharedPreferences.setMockInitialValues({kProtractorDecimalsKey: true});
+      final c = await pumpPage(tester, (s) => ProtractorPage(source: s));
+      await tester.pump();
+      for (int i = 0; i < 30; i++) {
+        await send(tester, c, g * sinD(10), g * cosD(10), 0);
+      }
+      expect(tester.widget<Text>(find.byKey(const Key('bend_tilt'))).data, "10.0°");
       await c.close();
     });
 
@@ -215,19 +234,19 @@ void main() {
       await c.close();
     });
 
-    testWidgets('화면 각도기: 처음 두 팔 사이 60.0°, 끌면 바뀐다', (tester) async {
+    testWidgets('화면 각도기: 처음 두 팔 사이 60°, 끌면 바뀐다', (tester) async {
       final c = await pumpPage(
         tester,
         (s) => ProtractorPage(source: s, initialTab: 1),
       );
       await tester.pump();
-      expect(find.text("60.0°"), findsOneWidget);
+      expect(find.text("60°"), findsOneWidget);
       final box = tester.getRect(find.byKey(const Key('screen_protractor')));
       final center = Offset(box.center.dx, box.bottom - 24);
       // 위(90°) 쪽을 누르면 가까운 팔(60°)이 90°로 → 사이 90.0°
       await tester.tapAt(center + const Offset(0, -150));
       await tester.pump();
-      expect(find.text("90.0°"), findsOneWidget);
+      expect(find.text("90°"), findsOneWidget);
       await c.close();
     });
   });

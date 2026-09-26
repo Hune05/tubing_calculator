@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'level_painters.dart';
 import 'tilt_math.dart';
@@ -18,6 +19,9 @@ Color get _grey => fc.textSub;
 Color get _bg => fc.background;
 Color get _orange =>
     fieldPick(const Color(0xFFEA580C), sunlight: fc.caution, night: fc.caution);
+
+/// 각도기 소수점 보이기(기본 끔 — 정수 1°).
+const String kProtractorDecimalsKey = 'field_protractor_decimals_v1';
 
 class ProtractorPage extends StatefulWidget {
   /// 센서 흐름. 비우면 폰 가속도 센서(검사에서는 가짜 흐름).
@@ -49,6 +53,12 @@ class _ProtractorPageState extends State<ProtractorPage> {
   bool _hold = false;
   double? _reference; // 기준으로 잡은 화면 돌림(°)
 
+  // 🚀 [2026-09-26] 기본은 정수(1°). 소수 한 자리는 단추로 켠다. 보이는 값은 0.3° 안쪽
+  // 흔들림에는 그대로 둔다(숫자가 계속 떨어 "감도가 너무 높다"던 것).
+  bool _decimals = false;
+  final _tiltBand = AngleDeadband();
+  final _bendBand = AngleDeadband();
+
   // 화면 각도기 두 팔(°, 0 = 오른쪽, 180 = 왼쪽)
   double _armA = 0;
   double _armB = 60;
@@ -56,6 +66,7 @@ class _ProtractorPageState extends State<ProtractorPage> {
   @override
   void initState() {
     super.initState();
+    _loadDecimals();
     _session.begin();
     _noSensorTimer = Timer(widget.noSensorAfter, () {
       if (mounted && _last == null) setState(() => _noSensor = true);
@@ -77,6 +88,24 @@ class _ProtractorPageState extends State<ProtractorPage> {
       cancelOnError: true,
     );
   }
+
+  Future<void> _loadDecimals() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final v = p.getBool(kProtractorDecimalsKey);
+      if (v != null && mounted) setState(() => _decimals = v);
+    } catch (_) {}
+  }
+
+  void _toggleDecimals() {
+    HapticFeedback.selectionClick();
+    setState(() => _decimals = !_decimals);
+    SharedPreferences.getInstance()
+        .then((p) => p.setBool(kProtractorDecimalsKey, _decimals))
+        .catchError((_) => false);
+  }
+
+  String _deg(double v) => formatAngle(v, decimals: _decimals);
 
   @override
   void dispose() {
@@ -112,6 +141,16 @@ class _ProtractorPageState extends State<ProtractorPage> {
             "각도기",
             style: TextStyle(fontWeight: FontWeight.w800, color: _ink),
           ),
+          actions: [
+            TextButton(
+              key: const Key('protractor_decimals'),
+              onPressed: _toggleDecimals,
+              child: Text(
+                _decimals ? "소수점 끄기" : "소수점 보기",
+                style: TextStyle(color: _teal, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
           bottom: TabBar(
             labelColor: _teal,
             unselectedLabelColor: _grey,
@@ -152,8 +191,10 @@ class _ProtractorPageState extends State<ProtractorPage> {
       );
     }
     final hasRef = _reference != null;
-    final bend = hasRef ? angleDiff(_rotation, _reference!).abs() : null;
-    final tilt = _edgeTilt(_rotation);
+    final bend = hasRef
+        ? _bendBand.apply(angleDiff(_rotation, _reference!).abs())
+        : null;
+    final tilt = _tiltBand.apply(_edgeTilt(_rotation));
     return LayoutBuilder(
       builder: (context, box) {
         final size = box.biggest;
@@ -193,7 +234,7 @@ class _ProtractorPageState extends State<ProtractorPage> {
             at(
               c - right * (size.width * 0.22) - up * (size.height * 0.10),
               Text(
-                _last == null ? "--" : "${tilt.toStringAsFixed(1)}°",
+                _last == null ? "--" : _deg(tilt),
                 key: const Key('bend_tilt'),
                 style: big(fc.brand, hasRef ? 40 : 60),
               ),
@@ -203,7 +244,7 @@ class _ProtractorPageState extends State<ProtractorPage> {
               at(
                 c + right * (size.width * 0.20) + up * (size.height * 0.08),
                 Text(
-                  _last == null ? "--" : "${bend!.toStringAsFixed(1)}°",
+                  _last == null ? "--" : _deg(bend!),
                   key: const Key('bend_value'),
                   style: big(Colors.white, 64),
                 ),
@@ -225,7 +266,7 @@ class _ProtractorPageState extends State<ProtractorPage> {
                   ),
                   if (hasRef && _last != null)
                     _pill(
-                      "두 다리 사이 각 ${(180 - bend!).toStringAsFixed(1)}°",
+                      "두 다리 사이 각 ${_deg(180 - bend!)}",
                       kLevelBlue,
                       key: const Key('bend_inner'),
                     ),
@@ -268,6 +309,7 @@ class _ProtractorPageState extends State<ProtractorPage> {
                               setState(() {
                                 _hold = false;
                                 _reference = _rotation;
+                                _bendBand.reset();
                               });
                             },
                       icon: const Icon(Icons.flag_outlined),
@@ -300,6 +342,7 @@ class _ProtractorPageState extends State<ProtractorPage> {
                       onTap: () => setState(() {
                         _reference = null;
                         _hold = false;
+                        _bendBand.reset();
                       }),
                     ),
                   ],
@@ -338,7 +381,7 @@ class _ProtractorPageState extends State<ProtractorPage> {
         Padding(
           padding: const EdgeInsets.only(top: 16),
           child: Text(
-            "${between.toStringAsFixed(1)}°",
+            _deg(between),
             key: const Key('screen_value'),
             style: TextStyle(
               fontSize: 60,
