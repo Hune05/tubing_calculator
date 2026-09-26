@@ -28,7 +28,10 @@ import 'layout_board_models.dart';
 //   "릴레이+소켓" 항목과 정면은 같고 깊이만 소켓 몸통(31)만큼.
 // - 하니웰 GCP-33AN(3P): 대리점 재배포 도면에서 폭만 확인한 단일 출처 어림값, 단종 표기 있음.
 //   조사에서 GCP 말고 다른 허니웰 기초 전기자재(단자대·릴레이·전원)는 국내 판매 근거를 못 찾았다.
-//   LS Metasol 더 큰 프레임(225AF·400AF)·슈나이더·지멘스는 카탈로그가 스캔 이미지라 못 넣었다(계속 조사 중).
+//   LS Metasol 더 큰 프레임(225AF·400AF)은 카탈로그가 스캔 이미지라 이번에도 못 넣었다.
+// - 슈나이더 Acti9 iC60N(1P·3P+N), 지멘스 5SY6102-7(1P): 제조사 정식 데이터시트 직접 열람,
+//   국내 EPC 규격서 비교 브랜드로 자주 나온다(2026-09-26 저녁 추가 확인). 대륙(DACO) 전 계열과
+//   LS 국내형 ABN203c·403c(225·400AF)는 조사됐지만 단일 출처·판매처뿐이라 넣지 않았다.
 
 class ElecShape {
   /// 단자대 묶음. 'el_tb:극 수'.
@@ -228,6 +231,36 @@ final Map<String, List<ModulePreset>> kElecPresets = {
       88,
       shape: '${ElecShape.mcb}:3',
       depth: 69,
+    ),
+  ],
+  // 슈나이더 Acti9 iC60N: 제조사 정식 Product datasheet 직접 열람(1P A9F74106 2022-09,
+  // 3P+N A9F04732 2021-10). 높이가 1P(85)와 3P+N(91)에서 다른 건 실제로 그렇다(오타 아님,
+  // 3P+N은 4모듈폭 72mm). 국내 EPC 규격서 비교 브랜드(2026-09-26 조사).
+  "차단기 (슈나이더)": [
+    const ModulePreset(
+      "iC60N 소형 차단기 1P (슈나이더)",
+      18,
+      85,
+      shape: '${ElecShape.mcb}:1',
+      depth: 78.5,
+    ),
+    const ModulePreset(
+      "iC60N 소형 차단기 3P+N (슈나이더)",
+      72,
+      91,
+      shape: ElecShape.mccb,
+      depth: 78.5,
+    ),
+  ],
+  // 지멘스 5SY6102-7: 제조사 정식 Data sheet+치수도 직접 열람(2024-09). 판 면에서 깊이는
+  // 전체 76mm(설치 깊이만 보면 70mm) — 다른 항목처럼 판 면 기준 큰 값을 썼다(2026-09-26 조사).
+  "차단기 (지멘스)": [
+    const ModulePreset(
+      "5SY6 소형 차단기 1P (지멘스)",
+      18,
+      90,
+      shape: '${ElecShape.mcb}:1',
+      depth: 76,
     ),
   ],
   "전원·릴레이·MC": [

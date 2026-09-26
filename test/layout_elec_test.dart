@@ -117,6 +117,27 @@ void main() {
     expect(gcp3.shape, '${ElecShape.mcb}:3');
   });
 
+  test('슈나이더 Acti9·지멘스 5SY 차단기 (2026-09-26 저녁 추가)', () {
+    expect(preset('iC60N 소형 차단기 1P (슈나이더)').width, 18);
+    expect(preset('iC60N 소형 차단기 1P (슈나이더)').height, 85);
+    expect(preset('iC60N 소형 차단기 1P (슈나이더)').depth, 78.5);
+    // 3P+N은 4모듈폭이라 1P와 폭·높이가 다르다(오타가 아니라 실제 그렇다).
+    final threeN = preset('iC60N 소형 차단기 3P+N (슈나이더)');
+    expect(threeN.width, 72);
+    expect(threeN.height, 91);
+    expect(threeN.depth, 78.5);
+
+    expect(preset('5SY6 소형 차단기 1P (지멘스)').width, 18);
+    expect(preset('5SY6 소형 차단기 1P (지멘스)').height, 90);
+    expect(preset('5SY6 소형 차단기 1P (지멘스)').depth, 76);
+
+    // 이번에 안 넣기로 한 항목은 목록에 없다.
+    final names = kElecPresets.values.expand((l) => l).map((p) => p.name);
+    expect(names.any((n) => n.contains('대륙')), isFalse);
+    expect(names.any((n) => n.contains('ABN203')), isFalse);
+    expect(names.any((n) => n.contains('ABN403')), isFalse);
+  });
+
   test('용성 문짝 부품: 정면은 베젤 지름, 깊이는 패널 뒤', () {
     expect(
       [preset('APL22 표시등 Ø22').width, preset('APL22 표시등 Ø22').depth],
