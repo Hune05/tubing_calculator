@@ -101,6 +101,7 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
     TextEditingController c,
     String guide, {
     Widget? trailing,
+    bool signed = false,
   }) => calcBox(
     child: Row(
       children: [
@@ -111,7 +112,10 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
             key: Key(key),
             controller: c,
             textAlign: TextAlign.right,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: TextInputType.numberWithOptions(
+              decimal: true,
+              signed: signed,
+            ),
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w700,

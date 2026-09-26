@@ -160,6 +160,9 @@ enum AppGlyph {
 
   /// 압력 시험 계산기: 압력계(둥근 눈금 + 바늘 + 아래 연결구).
   pressureGauge,
+
+  /// 4-20mA 계산기: 전송기(왼쪽 상자)와 저항(오른쪽 톱니)을 잇는 루프 + 전류 화살표.
+  currentLoop,
 }
 
 /// 기본 아이콘(IconData)과 직접 그린 아이콘(AppGlyph)을 같은 자리에 쓸 때.
@@ -995,6 +998,31 @@ class _AppIconPainter extends CustomPainter {
         canvas.drawCircle(gc, 1.2, fill);
         l(12, 18.5, 12, 22);
         l(9.5, 22, 14.5, 22);
+
+      case AppGlyph.currentLoop:
+        final tx = RRect.fromLTRBR(2.5, 8, 9.5, 16, const Radius.circular(1.6));
+        canvas.drawRRect(tx, soft);
+        canvas.drawRRect(tx, line);
+        // 루프 전선
+        l(6, 8, 6, 4.5);
+        l(6, 4.5, 18, 4.5);
+        l(18, 4.5, 18, 7);
+        l(18, 17, 18, 19.5);
+        l(18, 19.5, 6, 19.5);
+        l(6, 19.5, 6, 16);
+        // 저항(톱니)
+        final zig = Path()
+          ..moveTo(18, 7)
+          ..lineTo(20.5, 8.25)
+          ..lineTo(15.5, 10.75)
+          ..lineTo(20.5, 13.25)
+          ..lineTo(15.5, 15.75)
+          ..lineTo(18, 17);
+        canvas.drawPath(zig, line);
+        // 전류 방향
+        l(10.5, 4.5, 13.5, 4.5);
+        l(13.5, 4.5, 11.6, 2.8);
+        l(13.5, 4.5, 11.6, 6.2);
 
       case AppGlyph.electric:
         final bolt = Path()
