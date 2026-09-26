@@ -11,7 +11,9 @@ import 'dart:math' as math;
 import 'elec_tables.dart';
 import 'motor_tables.dart';
 
-/// 회로 종류. [dc]는 전압강하 탭(24VDC 계장·125VDC 제어)에서만 쓴다.
+/// 회로 종류. [dc]는 직류 회로(125VDC 축전지·제어 전원, 24VDC 계장 등).
+/// 직류 허용전류는 2가닥 통전 열(단상 교류와 같은 값)을 쓴다: BS 7671 표 4D1A 등(IEC 60364-5-52 값을
+/// 옮긴 표)의 열 이름이 "2 cables, single-phase AC or DC"다(Eland Cables·Caledonian Cables 표).
 enum Phase { single, three, dc }
 
 /// 허용전류 표: 일반 배선(KS C IEC 60364-5-52) 또는 제어반 내부(IEC 60204-1 표 6).
@@ -345,8 +347,10 @@ CableChoice chooseCable({
   final len = lengthM ?? 0;
   final checkDrop = len > 0;
   final limit = voltageDropLimit(supply, len);
-  final breaker = breakerFor(ib);
-  if (breaker == null) {
+  // 직류는 교류 MCCB 정격 목록으로 차단기를 고르지 않는다(직류 정격 차단기는 제조사 표). IZ ≥ IB만 본다.
+  final dc = phase == Phase.dc;
+  final breaker = dc ? null : breakerFor(ib);
+  if (!dc && breaker == null) {
     notes.add('800A를 넘어 표준 차단기 정격 범위 밖입니다. 병렬 케이블·설계 검토가 필요합니다.');
   }
   if (a.kt == null) notes.add(a.tempNote(ambientC));
@@ -422,7 +426,8 @@ CableChoice chooseCable({
     groupCount: a.count,
     parallel: n,
     tempOutOfRange: a.kt == null,
-    motorRange: motor
+    // 전동기 회로 차단기 범위(NEC 430.52·LS 자료)는 교류 MCCB 기준이라 직류에는 쓰지 않는다.
+    motorRange: motor && !dc
         ? motorBreakerRange(load: load, low: breaker, iz: iz)
         : null,
     notes: notes,
@@ -559,7 +564,7 @@ CircuitCheck checkCircuit({
     groupFactor: a.kg,
     groupCount: a.count,
     tempOutOfRange: a.kt == null,
-    motorRange: motor && ib != null
+    motorRange: motor && ib != null && phase != Phase.dc
         ? motorBreakerRange(load: amps, low: breakerFor(ib), iz: iz)
         : null,
     notes: notes,

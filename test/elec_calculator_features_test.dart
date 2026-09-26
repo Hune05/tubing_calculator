@@ -264,6 +264,9 @@ void main() {
     await pumpPage(tester);
     await openTab(tester, 'ec_tab_vd');
     await tapKey(tester, 'ec_vd_dc');
+    // 직류 기본은 125V(발전소 축전지·제어 전원). 24V 계장은 한 번 더 누른다.
+    expect(chipOn(tester, 'ec_vd_dcv_125'), isTrue);
+    await tapKey(tester, 'ec_vd_dcv_24');
     expect(chipOn(tester, 'ec_vd_dcv_24'), isTrue);
     expect(find.byKey(const Key('ec_vd_pf')), findsNothing);
     await pickDropdown(tester, 'ec_vd_size', '1sq');

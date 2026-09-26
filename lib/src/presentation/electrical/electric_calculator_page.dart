@@ -1,12 +1,16 @@
 // 전기 계산기(홈 "현장 작업" → 전기 계산기). 480V까지, 발전소·플랜트·시험 설비·제어반.
 //
 // 탭: 부하 전류(전동기 포함, 전류↔전력 환산) → 전선 굵기(굵기 선정·기존 회로 점검, 차단기·보호도체) →
-// 전압강하(교류·직류, 기동 시, 최대 길이) → 역률 개선(kvar·μF·전류). 칸마다 "?"로 무슨 값을 어디서
-// 보는지 알려 준다. 숫자는 elec_tables.dart·motor_tables.dart의 출처 있는 표만 쓰고, 결과 아래
-// "근거 보기"에 어느 표·조건으로 계산했는지 적는다. 최종 선정은 설계 도서·제조사 표로 확인한다.
+// 전압강하(교류·직류, 기동 시, 최대 길이) → 역률 개선(kvar·μF·전류) → 기초 계산(옴의 법칙·교류 전력·
+// Y·Δ·전력량·도체 저항·주파수, elec_basic_tab.dart) → 부스바(DIN 43671 허용전류·굵기 선정,
+// elec_busbar_tab.dart). 교류/직류 선택은 부하 전류·전선 굵기·전압강하·부스바 탭이 같이 쓴다.
+// 칸마다 "?"로 무슨 값을 어디서 보는지 알려 준다. 숫자는 elec_tables.dart·motor_tables.dart·
+// busbar_tables.dart의 출처 있는 표만 쓰고, 결과 아래 "근거 보기"에 어느 표·조건으로 계산했는지 적는다.
+// 최종 선정은 설계 도서·제조사 표로 확인한다.
 // 넣은 값은 폰에 저장해 두었다가(electric_calc_draft_v1) 다시 열면 채운다.
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,9 +18,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
+import 'basic_calc.dart';
+import 'busbar_tables.dart';
 import 'elec_calc.dart';
 import 'elec_tables.dart';
 import 'motor_tables.dart';
+
+part 'elec_basic_tab.dart';
+part 'elec_busbar_tab.dart';
 
 /// 전선 종류(현장 이름) → 절연체와 쓸 수 있는 공사 방법.
 /// HFIX는 제조사(LS·대한전선) 카탈로그가 도체 90°C, 허용전류도 IEC XLPE 90°C 표 값이다.
@@ -103,8 +112,10 @@ String fmt(double v, [int d = 1]) {
 /// 전압강하 탭에서 고를 수 있는 굵기(저항 표에 있는 굵기, 0.75sq부터).
 final List<double> kVdSizes = kCuR20.keys.toList()..sort();
 
-const List<double> kAcVolts = [220, 380, 440, 480];
+/// 교류: 110·220V 단상, 380·440·480V 삼상. 직류: 125VDC(발전소 축전지·제어 전원)가 기본.
+const List<double> kAcVolts = [110, 220, 380, 440, 480];
 const List<double> kDcVolts = [24, 48, 110, 125, 220];
+const double kDcVoltsDefault = 125;
 
 const String _motorSwitchLabel = '전동기 부하 (×1.25, 50A 초과 ×1.1)';
 const String _motorSwitchGuide =
@@ -124,12 +135,15 @@ class ElectricCalculatorPage extends StatefulWidget {
 
 class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     with SingleTickerProviderStateMixin, CalcFormParts {
-  late final TabController _tabs = TabController(length: 4, vsync: this);
+  late final TabController _tabs = TabController(length: 6, vsync: this);
 
   // 공통
   double _volts = 380;
   Phase _phase = Phase.three;
   SupplyType _supply = SupplyType.lvOther;
+  // 교류/직류: 부하 전류·전선 굵기·전압강하·부스바 탭이 같이 쓴다.
+  bool _dc = false;
+  double _dcVolts = kDcVoltsDefault;
 
   // ① 부하 전류
   LoadType _loadType = LoadType.motor;
@@ -158,8 +172,6 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
   final _chkBreaker = TextEditingController();
 
   // ③ 전압강하
-  bool _vdDc = false;
-  double _vdDcVolts = 24;
   double _vdSize = 4;
   WireKind _vdKind = WireKind.fcv;
   final _vdI = TextEditingController();
@@ -173,31 +185,107 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
   final _pcNow = TextEditingController(text: '80');
   final _pcTarget = TextEditingController(text: '95');
 
+  // ⑤ 기초 계산
+  BasicSection _bsSec = BasicSection.ohm;
+  final _ohmV = TextEditingController();
+  final _ohmI = TextEditingController();
+  final _ohmR = TextEditingController();
+  final _ohmP = TextEditingController();
+  bool _acThree = true;
+  bool _acFromKw = false;
+  final _acV = TextEditingController(text: '380');
+  final _acI = TextEditingController();
+  final _acKw = TextEditingController();
+  final _acPf = TextEditingController(text: '85');
+  bool _ydStar = true;
+  bool _ydFromLine = true;
+  final _ydV = TextEditingController();
+  final _ydI = TextEditingController();
+  final _enKw = TextEditingController();
+  final _enHours = TextEditingController(text: '24');
+  final _enDays = TextEditingController(text: '30');
+  final _enPrice = TextEditingController();
+  ConductorMetal _rsMetal = ConductorMetal.copper;
+  final _rsArea = TextEditingController();
+  final _rsLen = TextEditingController();
+  final _rsTemp = TextEditingController(text: '20');
+  final _rs1 = TextEditingController();
+  final _rs2 = TextEditingController();
+  final _rs3 = TextEditingController();
+  final _hzF = TextEditingController(text: '60');
+  final _hzPoles = TextEditingController(text: '4');
+  final _hzRpm = TextEditingController();
+  final _hzL = TextEditingController();
+  final _hzC = TextEditingController();
+
+  // ⑥ 부스바
+  bool _busPick = false;
+  bool _busPainted = false; // 도장 안 함이 기본(값이 작은 쪽)
+  int _busBars = 1;
+  BusbarRow _busRow = kBusbars.firstWhere((r) => r.label == '40×10');
+  final _busI = TextEditingController();
+  final _busMargin = TextEditingController(text: '0');
+
   // 저장
   Timer? _saveTimer;
   bool _draftReady = false;
   String? _lastDraft;
   String? _pendingDraft;
 
-  List<TextEditingController> get _controllers => [
-    _kw,
-    _eff,
-    _pf,
-    _convVal,
-    _ib,
-    _ambient,
-    _circuits,
-    _length,
-    _pf2,
-    _chkBreaker,
-    _vdI,
-    _vdLen,
-    _vdPf,
-    _vdMult,
-    _pcKw,
-    _pcNow,
-    _pcTarget,
+  /// 숫자 칸과 저장 이름.
+  late final List<(TextEditingController, String)> _texts = [
+    (_kw, 'kw'),
+    (_eff, 'eff'),
+    (_pf, 'pf'),
+    (_convVal, 'convVal'),
+    (_ib, 'ib'),
+    (_ambient, 'amb'),
+    (_circuits, 'circ'),
+    (_length, 'len'),
+    (_pf2, 'pf2'),
+    (_chkBreaker, 'chkBrk'),
+    (_vdI, 'vdI'),
+    (_vdLen, 'vdLen'),
+    (_vdPf, 'vdPf'),
+    (_vdMult, 'vdMult'),
+    (_pcKw, 'pcKw'),
+    (_pcNow, 'pcNow'),
+    (_pcTarget, 'pcTarget'),
+    (_ohmV, 'ohmV'),
+    (_ohmI, 'ohmI'),
+    (_ohmR, 'ohmR'),
+    (_ohmP, 'ohmP'),
+    (_acV, 'acV'),
+    (_acI, 'acI'),
+    (_acKw, 'acKw'),
+    (_acPf, 'acPf'),
+    (_ydV, 'ydV'),
+    (_ydI, 'ydI'),
+    (_enKw, 'enKw'),
+    (_enHours, 'enH'),
+    (_enDays, 'enD'),
+    (_enPrice, 'enPrice'),
+    (_rsArea, 'rsA'),
+    (_rsLen, 'rsL'),
+    (_rsTemp, 'rsT'),
+    (_rs1, 'rs1'),
+    (_rs2, 'rs2'),
+    (_rs3, 'rs3'),
+    (_hzF, 'hzF'),
+    (_hzPoles, 'hzP'),
+    (_hzRpm, 'hzN'),
+    (_hzL, 'hzL'),
+    (_hzC, 'hzC'),
+    (_busI, 'busI'),
+    (_busMargin, 'busM'),
   ];
+
+  List<TextEditingController> get _controllers => [
+    for (final (c, _) in _texts) c,
+  ];
+
+  /// 탭 파일(elec_basic_tab.dart·elec_busbar_tab.dart)에서 화면을 다시 그릴 때 쓴다.
+  void _set(VoidCallback f) => setState(f);
 
   @override
   void initState() {
@@ -237,40 +325,34 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     'v': _volts,
     'ph': _phase.name,
     'sup': _supply.name,
+    'dc': _dc,
+    'dcV': _dcVolts,
     'lt': _loadType.name,
-    'kw': _kw.text,
     'hp': _hp,
-    'eff': _eff.text,
-    'pf': _pf.text,
     'motor': _motor,
     'conv': _conv.name,
-    'convVal': _convVal.text,
     'check': _checkMode,
-    'ib': _ib.text,
     'cm': _cableMotor,
     'kind': _kind.name,
     'method': _method.name,
     'stacked': _stacked,
-    'amb': _ambient.text,
     'ambEd': _ambientEdited,
-    'circ': _circuits.text,
     'par': _parallel,
-    'len': _length.text,
-    'pf2': _pf2.text,
     'chkSize': _chkSize,
-    'chkBrk': _chkBreaker.text,
-    'vdDc': _vdDc,
-    'vdDcV': _vdDcVolts,
     'vdSize': _vdSize,
     'vdKind': _vdKind.name,
-    'vdI': _vdI.text,
-    'vdLen': _vdLen.text,
-    'vdPf': _vdPf.text,
     'vdStart': _vdStart,
-    'vdMult': _vdMult.text,
-    'pcKw': _pcKw.text,
-    'pcNow': _pcNow.text,
-    'pcTarget': _pcTarget.text,
+    'bsSec': _bsSec.name,
+    'acThree': _acThree,
+    'acFromKw': _acFromKw,
+    'ydStar': _ydStar,
+    'ydLine': _ydFromLine,
+    'rsMetal': _rsMetal.name,
+    'busPick': _busPick,
+    'busPainted': _busPainted,
+    'busBars': _busBars,
+    'busSize': _busRow.label,
+    for (final (c, k) in _texts) k: c.text,
   };
 
   void _applyDraft(Map<String, dynamic> m) {
@@ -301,32 +383,28 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     _parallel = par.clamp(1, 4);
     final chk = n('chkSize', _chkSize);
     _chkSize = _kind.sizes.contains(chk) ? chk : _chkSize;
-    _vdDc = b('vdDc', _vdDc);
-    final dcv = n('vdDcV', _vdDcVolts);
-    if (kDcVolts.contains(dcv)) _vdDcVolts = dcv;
+    // 교류/직류: 예전 저장 칸(전압강하 탭 vdDc·vdDcV)도 읽는다.
+    _dc = b('dc', b('vdDc', _dc));
+    final dcv = n('dcV', n('vdDcV', _dcVolts));
+    if (kDcVolts.contains(dcv)) _dcVolts = dcv;
     final vds = n('vdSize', _vdSize);
     if (kVdSizes.contains(vds)) _vdSize = vds;
     _vdKind = en(WireKind.values, 'vdKind', _vdKind);
     _vdStart = b('vdStart', _vdStart);
-    for (final (c, k) in [
-      (_kw, 'kw'),
-      (_eff, 'eff'),
-      (_pf, 'pf'),
-      (_convVal, 'convVal'),
-      (_ib, 'ib'),
-      (_ambient, 'amb'),
-      (_circuits, 'circ'),
-      (_length, 'len'),
-      (_pf2, 'pf2'),
-      (_chkBreaker, 'chkBrk'),
-      (_vdI, 'vdI'),
-      (_vdLen, 'vdLen'),
-      (_vdPf, 'vdPf'),
-      (_vdMult, 'vdMult'),
-      (_pcKw, 'pcKw'),
-      (_pcNow, 'pcNow'),
-      (_pcTarget, 'pcTarget'),
-    ]) {
+    _bsSec = en(BasicSection.values, 'bsSec', _bsSec);
+    _acThree = b('acThree', _acThree);
+    _acFromKw = b('acFromKw', _acFromKw);
+    _ydStar = b('ydStar', _ydStar);
+    _ydFromLine = b('ydLine', _ydFromLine);
+    _rsMetal = en(ConductorMetal.values, 'rsMetal', _rsMetal);
+    _busPick = b('busPick', _busPick);
+    _busPainted = b('busPainted', _busPainted);
+    _busBars = n('busBars', _busBars.toDouble()).round().clamp(1, 4);
+    _busRow = kBusbars.firstWhere(
+      (r) => r.label == m['busSize'],
+      orElse: () => _busRow,
+    );
+    for (final (c, k) in _texts) {
       t(c, k);
     }
   }
@@ -408,6 +486,10 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     return m == 1.25 ? '×1.25' : '×1.1, 50A 초과';
   }
 
+  /// 부하 전류·전선 굵기·전압강하 탭의 회로(직류면 Phase.dc)와 전압.
+  Phase get _cph => _dc ? Phase.dc : _phase;
+  double get _cv => _dc ? _dcVolts : _volts;
+
   // ─────────────── 계산: 부하 전류 ───────────────
 
   double? _loadCurrent(List<String> notes) {
@@ -415,9 +497,10 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     if (p == null || p <= 0) return null;
     return loadCurrent(
       kw: _hp ? hpToKw(p) : p,
-      volts: _volts,
-      phase: _phase,
-      pf: _pctOf(_pf, 0.85, '역률', notes),
+      volts: _cv,
+      phase: _cph,
+      // 직류는 역률이 없다: I = P ÷ (V × 효율).
+      pf: _dc ? 1 : _pctOf(_pf, 0.85, '역률', notes),
       eff: _pctOf(_eff, 0.9, '효율', notes),
     );
   }
@@ -425,7 +508,10 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
   /// 표 값 참고 줄: 440·480V·230V HP면 NEC 430.250, 380·440V 삼상 kW면 IE3 전동기 예시.
   String? _tableHint() {
     final p = _num(_kw);
-    if (p == null || _phase != Phase.three || _loadType != LoadType.motor) {
+    if (p == null ||
+        _dc ||
+        _phase != Phase.three ||
+        _loadType != LoadType.motor) {
       return null;
     }
     if (_hp) {
@@ -517,13 +603,22 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                 Tab(key: Key('ec_tab_cable'), text: '전선 굵기'),
                 Tab(key: Key('ec_tab_vd'), text: '전압강하'),
                 Tab(key: Key('ec_tab_pf'), text: '역률 개선'),
+                Tab(key: Key('ec_tab_basic'), text: '기초 계산'),
+                Tab(key: Key('ec_tab_bus'), text: '부스바'),
               ],
             ),
           ),
           body: SafeArea(
             child: TabBarView(
               controller: _tabs,
-              children: [_loadTab(), _cableTab(), _vdTab(), _pfTab()],
+              children: [
+                _loadTab(),
+                _cableTab(),
+                _vdTab(),
+                _pfTab(),
+                _basicTab(),
+                _busTab(),
+              ],
             ),
           ),
         ),
@@ -579,6 +674,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     TextEditingController c,
     String guide, {
     VoidCallback? onEdit,
+    bool signed = false,
   }) => calcBox(
     child: Row(
       children: [
@@ -589,7 +685,10 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             key: Key(key),
             controller: c,
             textAlign: TextAlign.right,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: TextInputType.numberWithOptions(
+              decimal: true,
+              signed: signed,
+            ),
             textInputAction: TextInputAction.next,
             style: TextStyle(
               fontSize: 20,
@@ -680,12 +779,13 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           : '${fmt(i, 1)} A';
     }
     return _page(sumKey: 'ec_sum_load', summary: summary, [
-      _voltsPhase(),
+      _systemPicker('ec_load'),
       _chipGroup(
         '부하 종류',
         '전동기: 효율 90%·역률 85%로 두고 전동기 여유를 켭니다.\n'
             '히터·저항: 효율·역률 100%로 둡니다. 전부 열로 쓰는 부하입니다.\n'
             '일반: 소비 전력(kW)을 넣는 부하입니다. 효율 100%·역률 85%로 둡니다.\n'
+            '직류 회로는 역률을 쓰지 않습니다. 직류 전동기도 효율은 계산에 넣습니다.\n'
             '명판 값이 있으면 칸에 직접 넣으십시오.',
         [
           calcChip('ec_lt_motor', '전동기', _loadType == LoadType.motor, () {
@@ -719,12 +819,13 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         _eff,
         '명판의 효율(EFF, η)입니다. 모르면 90으로 두십시오. 히터처럼 전부 열로 쓰는 부하는 100입니다.',
       ),
-      _field(
-        'ec_pf',
-        '역률 (%)',
-        _pf,
-        '명판의 역률(P.F., cosφ)입니다. 모르면 85로 두십시오. 히터는 100입니다.',
-      ),
+      if (!_dc)
+        _field(
+          'ec_pf',
+          '역률 (%)',
+          _pf,
+          '명판의 역률(P.F., cosφ)입니다. 모르면 85로 두십시오. 히터는 100입니다.',
+        ),
       calcSwitch(
         _motorSwitchLabel,
         _motor,
@@ -739,7 +840,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         calcResult(
           key: const Key('ec_load_result'),
           big: i == null ? '— A' : '${fmt(i, 1)} A',
-          caption: '정격전류(계산값)',
+          caption: _dc ? '정격전류(계산값, 직류)' : '정격전류(계산값)',
           lines: [
             if (i != null && _motor)
               '차단기·전선은 ${fmt(i * margin, 1)} A (${_marginText(i)}) 기준',
@@ -749,7 +850,9 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           ],
         ),
       _basis('ec_load_basis', [
-        '식: I = P ÷ (${_phase == Phase.three ? '√3 × ' : ''}V × 역률 × 효율)',
+        _dc
+            ? '식: I = P ÷ (V × 효율) (직류, 역률 없음)'
+            : '식: I = P ÷ (${_phase == Phase.three ? '√3 × ' : ''}V × 역률 × 효율)',
         if (_hp) '1 HP = 0.7457 kW',
         if (_motor)
           '전동기 여유: 정격전류 50A 이하 1.25배, 50A 초과 1.1배(LS ELECTRIC MCCB 선정 자료 A1-124, 구 내선규정 방식). '
@@ -770,9 +873,13 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       _sectionTitle('전류 ↔ 전력 환산'),
       _chipGroup(
         '환산 방향',
-        '전류(A) → 전력: 측정한 전류로 피상전력(kVA)과 유효전력(kW)을 계산합니다. 역률은 위 칸 값을 씁니다.\n'
-            '피상전력(kVA) → 전류: 변압기·발전기 용량으로 정격전류를 계산합니다.\n'
-            '전압·단상·삼상은 맨 위 선택을 따릅니다.',
+        _dc
+            ? '전류(A) → 전력: 직류는 P = V × I입니다.\n'
+                  '전력(kW) → 전류: 직류 부하·충전기 용량으로 전류를 계산합니다.\n'
+                  '전압은 맨 위 선택을 따릅니다.'
+            : '전류(A) → 전력: 측정한 전류로 피상전력(kVA)과 유효전력(kW)을 계산합니다. 역률은 위 칸 값을 씁니다.\n'
+                  '피상전력(kVA) → 전류: 변압기·발전기 용량으로 정격전류를 계산합니다.\n'
+                  '전압·단상·삼상은 맨 위 선택을 따릅니다.',
         [
           calcChip(
             'ec_conv_a',
@@ -782,7 +889,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           ),
           calcChip(
             'ec_conv_kva',
-            'kVA → 전류',
+            _dc ? 'kW → 전류' : 'kVA → 전류',
             _conv == ConvMode.kvaToAmp,
             () => setState(() => _conv = ConvMode.kvaToAmp),
           ),
@@ -790,11 +897,15 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       ),
       _field(
         'ec_conv_val',
-        _conv == ConvMode.ampToPower ? '전류 (A)' : '피상전력 (kVA)',
+        _conv == ConvMode.ampToPower
+            ? '전류 (A)'
+            : (_dc ? '전력 (kW)' : '피상전력 (kVA)'),
         _convVal,
         _conv == ConvMode.ampToPower
             ? '클램프 미터로 측정한 전류나 명판 전류입니다.'
-            : '변압기·발전기·UPS 명판의 용량(kVA)입니다.',
+            : (_dc
+                  ? '직류 부하의 소비 전력이나 충전기 출력(kW)입니다.'
+                  : '변압기·발전기·UPS 명판의 용량(kVA)입니다.'),
       ),
       _convResult(negative),
     ]);
@@ -803,6 +914,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
   Widget _convResult(bool negative) {
     if (negative) return _negativeResult('ec_conv_result');
     final v = _num(_convVal);
+    if (_dc) return _convResultDc(v);
     final k = _phase == Phase.three ? '√3 × ' : '';
     if (_conv == ConvMode.ampToPower) {
       final notes = <String>[];
@@ -835,6 +947,32 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     );
   }
 
+  /// 직류 전류 ↔ 전력: P = V × I.
+  Widget _convResultDc(double? v) {
+    final ok = v != null && v > 0;
+    if (_conv == ConvMode.ampToPower) {
+      final kw = ok ? _dcVolts * v / 1000 : null;
+      final eff = _pctOf(_eff, 0.9, '효율', []);
+      return calcResult(
+        key: const Key('ec_conv_result'),
+        big: kw == null ? '— kW' : '${fmt(kw, 2)} kW',
+        caption: '전력(직류 ${_dcVolts.toInt()}V)',
+        lines: [
+          if (kw != null && _loadType == LoadType.motor)
+            '전동기 축 출력 약 ${fmt(kw * eff, 2)} kW (효율 ${fmt(eff * 100)}%)',
+          '식: P = V × I ÷ 1000 (직류)',
+        ],
+      );
+    }
+    final a = ok ? v * 1000 / _dcVolts : null;
+    return calcResult(
+      key: const Key('ec_conv_result'),
+      big: a == null ? '— A' : '${fmt(a, 1)} A',
+      caption: '전류(직류 ${_dcVolts.toInt()}V)',
+      lines: const ['식: I = P × 1000 ÷ V (직류)'],
+    );
+  }
+
   // ② 전선 굵기: 굵기 선정 / 기존 회로 점검
   Widget _cableTab() {
     final negative = _anyNegative([
@@ -858,7 +996,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     final lenIn = _num(_length);
     final len = lenIn == null || lenIn <= 0 ? null : lenIn;
     final pfNotes = <String>[];
-    final pf = _pctOf(_pf2, 0.85, '역률', pfNotes);
+    final pf = _dc ? 1.0 : _pctOf(_pf2, 0.85, '역률', pfNotes);
     if (len != null && load != null) notes.addAll(pfNotes);
     final layout = layoutFor(_method, stacked: _stacked);
     final margin = load == null ? 1.0 : _marginFor(load, _cableMotor);
@@ -877,8 +1015,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         load: load,
         margin: margin,
         breaker: brIn == null || brIn <= 0 ? null : brIn.round(),
-        volts: _volts,
-        phase: _phase,
+        volts: _cv,
+        phase: _cph,
         ins: _kind.insulation,
         method: _method,
         lengthM: len,
@@ -908,8 +1046,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       final c = chooseCable(
         load: load,
         margin: margin,
-        volts: _volts,
-        phase: _phase,
+        volts: _cv,
+        phase: _cph,
         ins: _kind.insulation,
         method: _method,
         lengthM: len,
@@ -930,10 +1068,11 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     }
     final ground = isGround(_method);
     return _page(sumKey: 'ec_sum_cable', summary: summary, warn: warn, [
-      _voltsPhase(),
+      _systemPicker('ec_cable'),
       _chipGroup(
         '할 일',
-        '굵기 선정: 부하 전류로 전선 굵기·차단기를 선정합니다.\n'
+        '굵기 선정: 부하 전류로 전선 굵기·차단기를 선정합니다. 직류는 차단기 정격을 선정하지 않고 '
+            '허용전류 ≥ 설계전류로 굵기를 선정합니다.\n'
             '기존 회로 점검: 포설되어 있는 전선 굵기와 차단기로 보정 후 허용전류를 계산하고 '
             'IB ≤ In ≤ IZ(KEC 212.4.1)를 점검합니다.',
         [
@@ -1065,12 +1204,13 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         _length,
         '전원(분전반·MCC)에서 부하까지 케이블 한 가닥 길이입니다. 왕복이 아닙니다. 비워 두면 전압강하는 검토하지 않습니다.',
       ),
-      _field(
-        'ec_pf2',
-        '역률 (%)',
-        _pf2,
-        '전압강하 계산에 씁니다. 전동기 85, 히터·저항 부하 100을 넣으십시오. 비우면 85로 계산합니다.',
-      ),
+      if (!_dc)
+        _field(
+          'ec_pf2',
+          '역률 (%)',
+          _pf2,
+          '전압강하 계산에 씁니다. 전동기 85, 히터·저항 부하 100을 넣으십시오. 비우면 85로 계산합니다.',
+        ),
       _supplyDropdown('ec_supply'),
       const SizedBox(height: 12),
       result,
@@ -1122,8 +1262,24 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
               '반 내부 ${fmt(amb)}°C: 표 D.1, $count회로: 표 D.2)'
         : '기준: KEC 212.4.1(부하 ≤ 차단기 ≤ 허용전류), KS C IEC 60364-5-52 부속서 B '
               '(${_kind.insulation == Insulation.xlpe90 ? 'XLPE 90°C' : 'PVC 70°C'}, ${methodLabel(_method)}, '
-              '${_phase == Phase.three ? '3' : '2'}가닥 통전, ${fmt(amb)}°C, $count회로$lay)';
+              '${_cph == Phase.three ? '3가닥 통전' : (_dc ? '2가닥 통전(직류)' : '2가닥 통전')}, '
+              '${fmt(amb)}°C, $count회로$lay)';
   }
+
+  /// 직류 차단기 안내(근거 보기). 특정 정격 값은 넣지 않는다.
+  static const List<String> _dcBreakerBasis = [
+    '직류 허용전류는 2가닥 통전 열(단상 교류와 같은 값)을 씁니다. IEC 60364-5-52 값을 옮긴 BS 7671 표 4D1A 등은 '
+        '이 열을 "2 cables, single-phase AC or DC"로 적습니다(Eland Cables·Caledonian Cables 표).',
+    '직류 차단 성능은 극 수에 따라 따로 정해집니다. LS ELECTRIC Metasol MCCB 카탈로그 차단용량 표는 '
+        'DC 250V를 2극, DC 500V를 3극 기준으로 적습니다.',
+    'Schneider Compact NSX DC 설명서: 높은 직류 전압에서는 극을 직렬로 연결하고, 필요한 극 수는 계통 전압과 '
+        '극당 정격 전압으로 정합니다. 교류 값으로 표시된 순시 트립 설정은 직류에서 값이 달라집니다.',
+    '전동기 회로 차단기 범위(NEC 430.52·LS 자료)는 교류 기준이라 직류에는 계산하지 않습니다.',
+  ];
+
+  static const String _dcBreakerLine =
+      '직류 회로: 직류 정격 전압·차단용량이 표시된 차단기를 쓰십시오. 교류 전용 정격은 직류에 그대로 쓸 수 없습니다. '
+      '극 수와 결선은 제조사 표로 확인하십시오.';
 
   List<String> _motorBasis(MotorBreakerRange r) => [
     '차단기 상한 ${fmt(r.highA, 1)}A: 정격전류의 250% ${fmt(r.necA, 1)}A(NEC 430.52), '
@@ -1174,6 +1330,10 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       ?breakerLine,
       if (size != null && c.iz != null)
         '허용전류 ${fmt(c.iz!, 1)}A (보정 후) ≥ ${c.breaker == null ? '설계전류' : '차단기'} ${fmt(need.toDouble())}A',
+      if (_dc && size != null && c.iz != null)
+        '직류 차단기 정격 In은 설계전류 ${fmt(c.ib, 1)}A 이상, 허용전류 ${fmt(c.iz!, 1)}A 이하로 선정하십시오'
+            '(IB ≤ In ≤ IZ). 그 사이에 맞는 정격이 없으면 굵기를 한 단계 올리십시오.',
+      if (_dc) _dcBreakerLine,
       if (c.dropChecked && c.dropV != null)
         '전압강하 ${fmt(c.dropV!, 2)}V (${fmt(c.dropPct!, 2)}%), '
             '${dropOver ? '한도 ${fmt(c.dropLimitPct, 2)}% 초과' : '한도 ${fmt(c.dropLimitPct, 2)}% 이내입니다.'}',
@@ -1201,7 +1361,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       _standardLine(amb, c.groupCount),
       if (size != null) _peBasisLine,
       if (r != null) ..._motorBasis(r),
-      if (c.dropChecked) _vdFormula(_phase, _kind.insulation),
+      if (_dc) ..._dcBreakerBasis,
+      if (c.dropChecked) _vdFormula(_cph, _kind.insulation),
       if (c.dropChecked) _supplyTotalLine,
     ];
     final warn = size == null || dropOver;
@@ -1214,7 +1375,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           ? (c.tempOutOfRange
                 ? '온도 보정계수 표 범위를 넘습니다'
                 : '표 범위(${top}sq ${c.parallel}가닥)를 넘습니다')
-          : '${_kind == WireKind.fcv ? 'F-CV ' : ''}${_phase == Phase.three ? '3심' : '2심'} 기준 추천 굵기',
+          : '${_kind == WireKind.fcv ? 'F-CV ' : ''}${_cph == Phase.three ? '3심' : '2심'} 기준 추천 굵기'
+                '${_dc ? '(직류)' : ''}',
       warn: warn,
       lines: lines,
     );
@@ -1223,6 +1385,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         : [
             '${sqText(size)}${c.parallel > 1 ? '×${c.parallel}' : ''}',
             ?breakerSum,
+            if (_dc) '직류',
             if (c.dropPct != null) '전압강하 ${fmt(c.dropPct!, 1)}%',
           ].join(' · ');
     return (result, summary, warn, basis);
@@ -1301,6 +1464,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       );
     }
     lines.add(_peLine(k.size));
+    if (_dc) lines.add(_dcBreakerLine);
     if (k.parallel >= 4) {
       lines.add('4가닥 이상 병렬은 버스바 트렁킹 사용을 검토하십시오(KEC 232.3.2).');
     }
@@ -1337,7 +1501,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       _standardLine(amb, k.groupCount),
       _peBasisLine,
       if (r != null) ..._motorBasis(r),
-      if (k.dropV != null) _vdFormula(_phase, _kind.insulation),
+      if (_dc) ..._dcBreakerBasis,
+      if (k.dropV != null) _vdFormula(_cph, _kind.insulation),
       if (k.dropV != null) _supplyTotalLine,
     ];
     return (result, summary, warn, basis);
@@ -1346,15 +1511,15 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
   // ③ 전압강하
   Widget _vdTab() {
     final negative = _anyNegative([_vdI, _vdLen, _vdPf, _vdMult]);
-    final ph = _vdDc ? Phase.dc : _phase;
-    final volts = _vdDc ? _vdDcVolts : _volts;
+    final ph = _dc ? Phase.dc : _phase;
+    final volts = _dc ? _dcVolts : _volts;
     final i = _num(_vdI);
     final lenIn = _num(_vdLen);
     final len = lenIn == null || lenIn <= 0 ? null : lenIn;
     final ins = _vdKind.insulation;
     final notes = <String>[];
     final ok = !negative && i != null && i > 0;
-    final pf = _vdDc ? 1.0 : _pctOf(_vdPf, 0.85, '역률', ok ? notes : []);
+    final pf = _dc ? 1.0 : _pctOf(_vdPf, 0.85, '역률', ok ? notes : []);
     final dv = !ok || len == null
         ? null
         : voltageDrop(
@@ -1365,7 +1530,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             pf: pf,
             conductorTempC: conductorTemp(ins),
           );
-    final simple = dv == null || _vdDc
+    final simple = dv == null || _dc
         ? null
         : voltageDropSimple(
             current: i!,
@@ -1390,10 +1555,10 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     final mult = multIn == null || multIn <= 0
         ? kMotorStartMultipleDefault
         : multIn;
-    if (_vdStart && !_vdDc && ok && (multIn == null || multIn <= 0)) {
+    if (_vdStart && !_dc && ok && (multIn == null || multIn <= 0)) {
       notes.add('기동 전류 배수 값이 없어 ${fmt(kMotorStartMultipleDefault)}배로 계산했습니다.');
     }
-    final startDv = !_vdStart || _vdDc || dv == null
+    final startDv = !_vdStart || _dc || dv == null
         ? null
         : voltageDrop(
             current: i! * mult,
@@ -1410,31 +1575,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           '${fmt(pct, 2)}% · ${over ? '한도 ${fmt(limit, 2)}% 초과' : '한도 ${fmt(limit, 2)}% 이내'}';
     }
     return _page(sumKey: 'ec_sum_vd', summary: summary, warn: over, [
-      _chipGroup(
-        '회로',
-        '교류: 220V 단상, 380·440·480V 삼상.\n'
-            '직류: 24VDC 계장, 110·125VDC 제어 회로 등. 직류는 저항만으로 계산합니다(ΔU = 2 × I × L × R).',
-        [
-          calcChip('ec_vd_ac', '교류', !_vdDc, () {
-            setState(() => _vdDc = false);
-          }),
-          calcChip('ec_vd_dc', '직류', _vdDc, () {
-            setState(() => _vdDc = true);
-          }),
-        ],
-      ),
-      if (_vdDc)
-        _chipGroup('직류 전압', '회로의 직류 전압입니다. 전압강하 %는 이 전압을 기준으로 계산합니다.', [
-          for (final v in kDcVolts)
-            calcChip(
-              'ec_vd_dcv_${v.toInt()}',
-              '${v.toInt()}V',
-              _vdDcVolts == v,
-              () => setState(() => _vdDcVolts = v),
-            ),
-        ])
-      else
-        _voltsPhase(),
+      _systemPicker('ec_vd'),
       calcDropdown<double>(
         'ec_vd_size',
         '전선 굵기',
@@ -1455,9 +1596,9 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       ),
       _field('ec_vd_i', '전류 (A)', _vdI, '회로에 흐르는 전류입니다.'),
       _field('ec_vd_len', '편도 길이 (m)', _vdLen, '케이블 한 가닥 길이입니다(왕복 아님).'),
-      if (!_vdDc)
+      if (!_dc)
         _field('ec_vd_pf', '역률 (%)', _vdPf, '전동기 85, 히터 100. 비우면 85로 계산합니다.'),
-      if (!_vdDc)
+      if (!_dc)
         calcSwitch(
           '전동기 기동 시 전압강하',
           _vdStart,
@@ -1466,7 +1607,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
               '전압강하를 따로 계산합니다. 기동 중 전압강하에는 표 232.3-1 한도를 적용하지 않습니다(KEC 232.3.9 2).',
           key: 'ec_vd_start',
         ),
-      if (!_vdDc && _vdStart)
+      if (!_dc && _vdStart)
         _field(
           'ec_vd_mult',
           '기동 전류 배수 (정격의 배)',
@@ -1496,7 +1637,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
               '기동 시(정격 ×${fmt(mult)}, 역률 0.35) ${fmt(startDv, 2)} V (${fmt(startDv / volts * 100, 1)}%)',
             if (startDv != null)
               '기동 중 전압강하는 표 232.3-1 한도 대상이 아닙니다. 전동기 단자 전압이 기동에 충분한지 확인하십시오.',
-            if (_vdDc) '직류 제어·계장 회로는 기기 최소 동작 전압으로도 확인하십시오.',
+            if (_dc) '직류 제어·계장 회로는 기기 최소 동작 전압으로도 확인하십시오.',
             if (simple != null)
               '참고: 현장 간이식(${_phase == Phase.three ? '30.8' : '35.6'}·L·I/1000A, 역률 1·20°C) ${fmt(simple, 2)}V',
             ...notes,
@@ -1504,7 +1645,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         ),
       _basis('ec_vd_basis', [
         _vdFormula(ph, ins),
-        if (_vdStart && !_vdDc)
+        if (_vdStart && !_dc)
           '기동: 정격전류 × ${fmt(mult)}배, 역률 0.35(Schneider EIG 2009 그림 G27·G28)',
         '최대 길이: 한도(100m를 넘으면 1m당 0.005%, 최대 0.5% 더함)와 전압강하가 같아지는 길이',
         _supplyTotalLine,
@@ -1592,7 +1733,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           const SizedBox(width: 6),
           calcHelp(
             '전압',
-            '회로의 선간 전압입니다. 220V를 누르면 단상, 380·440·480V를 누르면 삼상으로 맞춰집니다. '
+            '회로의 선간 전압입니다. 110·220V를 누르면 단상, 380·440·480V를 누르면 삼상으로 맞춰집니다. '
                 '실제와 다르면 단상·삼상을 직접 누르십시오.',
           ),
         ],
@@ -1606,7 +1747,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             calcChip('ec_v_${v.toInt()}', '${v.toInt()}V', _volts == v, () {
               setState(() {
                 _volts = v;
-                _phase = v == 220 ? Phase.single : Phase.three;
+                _phase = v <= 220 ? Phase.single : Phase.three;
               });
             }),
           const SizedBox(width: 8),
@@ -1625,6 +1766,41 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         ],
       ),
       const SizedBox(height: 12),
+    ],
+  );
+
+  /// 교류/직류 선택과 전압. 부하 전류·전선 굵기·전압강하 탭이 같은 값(_dc·_dcVolts)을 쓴다.
+  /// 키: '$prefix_ac'·'$prefix_dc'·'$prefix_dcv_125' 등.
+  Widget _systemPicker(String prefix) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _chipGroup(
+        '회로',
+        '교류: 110·220V 단상, 380·440·480V 삼상.\n'
+            '직류: 발전소 축전지·제어 전원은 125VDC를 많이 씁니다. 24VDC 계장 회로도 있습니다. '
+            '직류는 역률이 없고 전압강하는 저항만으로 계산합니다(ΔU = 2 × I × L × R).\n'
+            '부하 전류·전선 굵기·전압강하·부스바 탭이 같은 선택을 씁니다.',
+        [
+          calcChip('${prefix}_ac', '교류', !_dc, () {
+            setState(() => _dc = false);
+          }),
+          calcChip('${prefix}_dc', '직류', _dc, () {
+            setState(() => _dc = true);
+          }),
+        ],
+      ),
+      if (_dc)
+        _chipGroup('직류 전압', '회로의 직류 전압입니다. 전압강하 %는 이 전압을 기준으로 계산합니다.', [
+          for (final v in kDcVolts)
+            calcChip(
+              '${prefix}_dcv_${v.toInt()}',
+              '${v.toInt()}V',
+              _dcVolts == v,
+              () => setState(() => _dcVolts = v),
+            ),
+        ])
+      else
+        _voltsPhase(),
     ],
   );
 }

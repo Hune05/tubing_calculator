@@ -741,7 +741,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 _buildMenuButton(
                   context: context,
                   title: "전기 계산기",
-                  subtitle: "부하 전류·전선 굵기·차단기·전압강하·역률 개선",
+                  subtitle: "교류·직류 부하 전류·전선 굵기·전압강하·부스바·기초 계산",
                   icon: AppGlyph.electric,
                   onTap: () {
                     HapticFeedback.lightImpact();
@@ -756,7 +756,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 _buildMenuButton(
                   context: context,
                   title: "압력 시험 계산기",
-                  subtitle: "ASME 시험압력·압력강하·공압 안전거리·에어 누설",
+                  subtitle: "ASME 시험압력·압력강하·유지시간 기록·기록서",
                   icon: AppGlyph.pressureGauge,
                   onTap: () {
                     HapticFeedback.lightImpact();
