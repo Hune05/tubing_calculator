@@ -154,6 +154,9 @@ enum AppGlyph {
 
   /// 단위 환산: 서로 반대로 가는 화살표 두 개 + 자.
   unitConvert,
+
+  /// 전기 계산기: 번개.
+  electric,
 }
 
 /// 기본 아이콘(IconData)과 직접 그린 아이콘(AppGlyph)을 같은 자리에 쓸 때.
@@ -971,6 +974,18 @@ class _AppIconPainter extends CustomPainter {
         l(9, 6, 9, 18);
         l(15, 6, 15, 18);
         canvas.drawCircle(const Offset(12, 12), 2.2, fill);
+
+      case AppGlyph.electric:
+        final bolt = Path()
+          ..moveTo(13.5, 2.5)
+          ..lineTo(5.5, 13.5)
+          ..lineTo(11.2, 13.5)
+          ..lineTo(9.8, 21.5)
+          ..lineTo(18.5, 9.8)
+          ..lineTo(12.6, 9.8)
+          ..close();
+        canvas.drawPath(bolt, soft);
+        canvas.drawPath(bolt, line);
 
       case AppGlyph.unitConvert:
         // 위: 오른쪽 화살표, 가운데: 왼쪽 화살표, 아래: 자.

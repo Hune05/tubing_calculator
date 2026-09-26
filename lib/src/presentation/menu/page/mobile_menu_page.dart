@@ -53,6 +53,7 @@ import 'package:tubing_calculator/src/presentation/notification/pages/mobile_not
 import 'package:tubing_calculator/src/presentation/field_tools/level_page.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/protractor_page.dart';
 import 'package:tubing_calculator/src/presentation/unit_converter/unit_converter_page.dart';
+import 'package:tubing_calculator/src/presentation/electrical/electric_calculator_page.dart';
 
 // 색의 뜻(D-B): 앱의 주 색 하나(청록). 예전에는 이 화면만 파랑이었다.
 const Color tossBlue = AppColors.brand;
@@ -731,6 +732,21 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       context,
                       MaterialPageRoute(
                         builder: (context) => const UnitConverterPage(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMenuButton(
+                  context: context,
+                  title: "전기 계산기",
+                  subtitle: "전동기 전류·전선 굵기·전압강하·차단기",
+                  icon: AppGlyph.electric,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ElectricCalculatorPage(),
                       ),
                     );
                   },
