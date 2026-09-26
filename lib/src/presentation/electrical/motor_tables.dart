@@ -76,3 +76,31 @@ Ie3Row? ie3Row(double kw) {
 
 /// NEC 430.52: 전동기 분기 단락·지락 보호 — 역한시 차단기는 정격 전류의 250%까지.
 const double kNecInverseTimeBreakerMaxPct = 250;
+
+// ─────────────── 구 내선규정(구 판단기준) 방식 — LS ELECTRIC MCCB 선정 자료 ───────────────
+// LS ELECTRIC "배선용차단기/누전차단기 선정" A1-124 "전동기회로 간선용 차단기의 선정"
+// (https://www.ls-electric.com/ko/cat/HPDT/MCCB_ELCB_K_%EC%84%A0%EC%A0%95_0902.pdf):
+//  · 전선의 허용전류 IW: ΣIM ≤ ΣIL이면 IW ≥ ΣIM+ΣIL, ΣIM > ΣIL이고 ΣIM ≤ 50A면 IW ≥ 1.25ΣIM+ΣIL,
+//    ΣIM > 50A면 IW ≥ 1.1ΣIM+ΣIL (IM 전동기 부하전류, IL 전동기 이외 부하전류).
+//  · 차단기 정격전류 Ib: Ib ≤ 3ΣIM+ΣIL 또는 Ib ≤ 2.5IW, 두 식 중 작은 값.
+//  · 비고: 기동전류는 전부하전류의 600%(10초 이내), 기동 돌입전류는 1700% 이내 조건.
+// 전동기 하나만 있는 회로(IL = 0)에 그대로 쓴다. 미국 NEC 430.22는 늘 125%다.
+
+/// 전동기 정격전류 합이 이 값(A)을 넘으면 1.1배, 이하이면 1.25배.
+const double kMotorMarginSplitA = 50;
+
+/// 전동기 회로 전선·차단기 여유 배수: 50A 이하 1.25, 50A 초과 1.1(구 내선규정 방식, LS 자료).
+double motorMargin(double ratedA) => ratedA > kMotorMarginSplitA ? 1.1 : 1.25;
+
+/// 차단기 상한: 전동기 정격전류의 3배(LS 자료 Ib ≤ 3ΣIM).
+const double kMotorBreakerMaxRatedMult = 3;
+
+/// 차단기 상한: 전선 허용전류의 2.5배(LS 자료 Ib ≤ 2.5IW).
+const double kMotorBreakerMaxIzMult = 2.5;
+
+/// 전동기 기동 전류 배수 기본값(정격의 6배). EIG 2009 G장: "5 to 7 times its full-load value",
+/// LS 자료 비고: 전부하전류의 600%.
+const double kMotorStartMultipleDefault = 6;
+
+/// 기동 중 역률. EIG 2009 G장 그림 G27: "At start-up: cos φ = 0.35".
+const double kMotorStartPf = 0.35;

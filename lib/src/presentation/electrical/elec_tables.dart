@@ -94,11 +94,15 @@ final Map<double, List<double>> _b525 = {
   300: [435, 396, 514, 455, 576, 365, 419],
 };
 
-// 방법 E(다심 케이블, 구멍 트레이·사다리) — B.52.10(PVC)·B.52.12(XLPE). [2가닥, 3가닥].
+// 방법 E(다심 케이블, 펀칭형·사다리형 트레이) — B.52.10(PVC)·B.52.12(XLPE). [2가닥, 3가닥].
+// 2026-09-26 바로잡음: PVC 3가닥 70mm² 198 → 196, 120mm² 278 → 276. 세 출처가 같은 값:
+//  · 한국 전선업계 KS C IEC 60364-5-52 표(https://shop.cables.co.kr/images/pdf/iecsize_cable_heoyongjunru.pdf)
+//  · 대한전선 MV/LV 카탈로그 "0.6/1kV 케이블 허용전류"(https://www.taihan.com/customer/catalogue)
+//  · Tekima 부록 B(IEC 60364-5-52 Tab. B.52.10 열), ABB "Verlegearten und Strombelastbarkeit"(120mm² 276)
 final Map<double, List<double>> _eP = {
   1.5: [22, 18.5], 2.5: [30, 25], 4: [40, 34], 6: [51, 43], 10: [70, 60],
   16: [94, 80], 25: [119, 101], 35: [148, 126], 50: [180, 153],
-  70: [232, 198], 95: [282, 238], 120: [328, 278], 150: [379, 319],
+  70: [232, 196], 95: [282, 238], 120: [328, 276], 150: [379, 319],
   185: [434, 364], 240: [514, 430], 300: [593, 497],
 };
 final Map<double, List<double>> _eX = {
@@ -170,14 +174,17 @@ double? tempFactor(double tempC, Insulation ins, {required bool ground}) {
   return t[k]![ins == Insulation.pvc70 ? 0 : 1];
 }
 
-/// 여러 회로를 같이 놓을 때 배치.
+/// 여러 회로를 같이 포설할 때 배치.
+/// B.52.17(= Schneider EIG 2009 그림 G16) 1행 "Bunched in air, on a surface, embedded or enclosed"는
+/// 공사 방법 A~F 모두에 쓴다. 트레이(C·E)라도 케이블이 겹쳐 쌓이거나 다발이면 1행이다.
+/// 2·4·5행은 한 줄(single layer)로 나란히 포설했을 때만 쓴다.
 enum GroupLayout {
-  bunched, // 묶음·전선관·덕트 속(B.52.17 1행)
-  wallSingleLayer, // 벽·무구멍 트레이에 한 줄(2행)
-  perforatedTray, // 구멍 트레이 한 줄(4행)
-  ladder, // 사다리·행거 한 줄(5행)
+  bunched, // 묶음·겹쳐 쌓음·전선관·덕트 속(B.52.17 1행)
+  wallSingleLayer, // 벽·바닥밀폐형 트레이에 한 줄(2행)
+  perforatedTray, // 펀칭형 트레이 한 줄(4행)
+  ladder, // 사다리형 트레이·행거 한 줄(5행)
   groundDuct, // 지중 관로 닿게(B.52.19 다심)
-  groundDirect, // 땅에 직접 묻음, 닿게(B.52.18)
+  groundDirect, // 지중 직매, 닿게(B.52.18)
 }
 
 // B.52.18 직매 케이블 닿게: 회로 수 [2,3,4,5,6,7,8,9,12,16,20].
@@ -227,8 +234,15 @@ final Map<double, double> kCuR20 = {
 double cuResistance(double size, double tempC) =>
     kCuR20[size]! * (1 + 0.00393 * (tempC - 20));
 
-/// 리액턴스(Ω/km) — 자료가 없을 때 쓰는 값(EIG). 50mm² 아래는 거의 영향 없음.
-const double kReactanceOhmPerKm = 0.08;
+/// 리액턴스(Ω/km) — 제조사 자료가 없을 때 쓰는 값. 한국은 60Hz라 0.096을 쓴다.
+/// Schneider Electrical Installation Guide 2009 G장: "0.08 mΩ/metre (for 50 Hz systems) or
+/// 0.096 mΩ/metre (for 60 Hz systems)"
+/// (http://www.geocities.ws/andrikuncoro/Electrical/EIG-G-sizing-protection-conductors.pdf).
+/// 50mm² 아래는 거의 영향 없음.
+const double kReactanceOhmPerKm = 0.096;
+
+/// 같은 자료의 50Hz 값(비교용).
+const double kReactance50HzOhmPerKm = 0.08;
 
 /// 차단기(MCCB) 정격 전류 — LS ELECTRIC Metasol 목록(30AF의 3·5·10A 포함).
 const List<int> kBreakerRatings = [
@@ -237,6 +251,9 @@ const List<int> kBreakerRatings = [
 ];
 
 /// KEC 232.3.9 표 232.3-1 전압강하 한도(%).
+/// 이 한도는 "수용가 설비의 인입구로부터 기기까지"(수전점부터 전체) 값이다. 케이블 한 구간의 값이 아니다.
+/// 표 주 a: 고압 이상 수전이라도 "가능한 한 최종회로 내의 전압강하가 A 유형의 값을 넘지 않도록 하는
+/// 것이 바람직하다" — 그래서 기본은 저압 기타 5%로 둔다(KEC 2021, 산업통상자원부 공고 제2021-36호).
 enum SupplyType { lvLighting, lvOther, hvLighting, hvOther }
 
 double voltageDropLimit(SupplyType t, double lengthM) {
@@ -262,6 +279,15 @@ double peConductorSize(double phaseSize) {
   return half;
 }
 
+/// KEC 142.3.2 1 다: 보호도체가 케이블의 일부가 아니거나 선도체와 같은 외함에 없을 때(따로 포설)
+/// 구리 최소 굵기 — 기계적 손상에 대해 보호되면 2.5mm², 보호되지 않으면 4mm².
+/// (3) 전선관·트렁킹 내부 등은 기계적으로 보호되는 것으로 본다. 표 142.3-1 값보다 작을 수는 없다.
+double peSeparateSize(double phaseSize, {required bool mechProtected}) {
+  final table = peConductorSize(phaseSize);
+  final min = mechProtected ? 2.5 : 4.0;
+  return table > min ? table : min;
+}
+
 /// 후강 전선관(KS C 8401) 호칭 → 안지름(mm, 바깥지름 − 2×두께, 제조사 표).
 const Map<int, double> kThickConduitId = {
   16: 16.4, 22: 21.9, 28: 28.3, 36: 36.9, 42: 42.8, 54: 54.0,
@@ -269,7 +295,7 @@ const Map<int, double> kThickConduitId = {
 };
 
 // ─────────────── 제어반 내부 배선 — IEC 60204-1:2016(+AMD1:2021 그대로) ───────────────
-// 표 6: PVC 구리, 반 안 주위 40°C, 3상 회로. JIS B 9960-1:2019(IEC 60204-1 IDT) 표 이미지와
+// 표 6: PVC 구리, 반 내부 주위 40°C, 3상 회로. JIS B 9960-1:2019(IEC 60204-1 IDT) 표 이미지와
 // ABB 자료(0.75~50mm²)가 같은 값. 표 D.1 온도, D.2 회로 수(9 넘으면 60364 B.52.17).
 
 const List<double> kPanelSizes = [
@@ -307,6 +333,8 @@ double? panelBaseAmpacity(double size, InstallMethod m) {
 }
 
 /// 표 D.1(기준 40°C). 40°C 아래는 표에 없어 1.0(안전 쪽), 60°C 넘으면 null.
+/// 옛 판(IEC 60204-1:2005 = DIN EN 60204-1:2007, ABB 자료)에는 30°C 1.15·35°C 1.08이 있었으나
+/// 현행 2016판(JIS B 9960-1:2019 IDT 표 D.1)은 40~60°C만 있다. 현행판을 따라 넣지 않는다.
 double? panelTempFactor(double tempC) {
   if (tempC <= 40) return 1.0;
   for (final e in const [
