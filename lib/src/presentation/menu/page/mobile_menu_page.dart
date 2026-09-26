@@ -578,7 +578,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 _buildMenuButton(
                   context: context,
                   title: "유량 계산",
-                  subtitle: "유속·관 굵기 · 압력손실 · 차압 유량계",
+                  subtitle: "유속·관 굵기 · 압력손실 · 차압 유량계 · 유량계 점검",
                   icon: AppGlyph.flow,
                   onTap: () {
                     HapticFeedback.lightImpact();
@@ -626,7 +626,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 _buildMenuButton(
                   context: context,
                   title: "계기 교정",
-                  subtitle: "4-20mA 환산 · 교정 점검 · 스위치 시험 · 성적서",
+                  subtitle: "교정 점검 · 4-20mA · 온도 센서 · 교정 가스 · 성적서",
                   icon: AppGlyph.currentLoop,
                   onTap: () {
                     HapticFeedback.lightImpact();

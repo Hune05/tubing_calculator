@@ -157,21 +157,21 @@ mixin _FlowMeterCheckTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
         ),
         calcField(
           'mc_dpmax',
-          '최대 차압 (${_mcDpUnit.label}, 넣지 않아도 됨)',
+          '최대 차압 (${_mcDpUnit.label}, 선택)',
           _mcDpMax,
           '전송기 명판의 측정 범위 상한(URV)입니다. 넣으면 아래 표에 점마다 걸리는 차압이 나옵니다.',
         ),
       ],
       calcField(
         'mc_cut',
-        '소유량 차단 (유량 %, 넣지 않아도 됨)',
+        '소유량 차단 (%, 선택)',
         _mcCut,
         '설정된 유량 % 아래는 0으로 표시하는 기능입니다(Low flow cut-off). 전송기나 DCS 설정에 있습니다. '
             '이 값 아래에서 지시가 0이면 정상입니다.',
       ),
       calcField(
         'mc_tol',
-        '허용오차 (± 스팬 %, 넣지 않아도 됨)',
+        '허용오차 (±스팬 %, 선택)',
         _mcTol,
         '교정 절차서·제조사 사양의 허용오차입니다. 넣으면 합격·불합격을 봅니다. 앱에 정해 둔 값은 없습니다.',
       ),
@@ -183,7 +183,7 @@ mixin _FlowMeterCheckTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
       ),
       calcField(
         'mc_ind',
-        '표시창·DCS 지시값 (넣지 않아도 됨)',
+        '지시값 (선택)',
         _mcInd,
         '같은 때에 읽은 전송기 표시창이나 DCS 화면의 유량입니다. 측정 범위와 같은 단위로 넣으십시오.',
         signed: true,
