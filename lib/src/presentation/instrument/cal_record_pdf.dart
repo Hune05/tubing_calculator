@@ -1,5 +1,5 @@
-// 계기 교정 성적서(PDF 한 장). 계기·기준기·작업자 정보, 조정 전·조정 후 다섯 점 표와 판정, 메모, 서명 칸.
-// 미리보기로 먼저 보이고, 공유는 미리보기의 단추를 눌러야만 된다(SteelPdfPreviewPage).
+// 계기 교정 성적서(PDF 한 장). 계기·표준기·작업자·교정일·차기 교정일·주위 조건, 조정 전·조정 후 다섯 점 표와
+// 판정, 메모, 서명 칸. 미리보기로 먼저 보이고, 공유는 미리보기의 버튼을 눌러야만 된다(SteelPdfPreviewPage).
 library;
 
 import 'dart:io';
@@ -18,7 +18,7 @@ import 'signal_calc.dart';
 
 const PdfColor _ink = PdfColor.fromInt(0xFF1F2933);
 const PdfColor _grey = PdfColor.fromInt(0xFF6B7280);
-// 정보 이름표(태그 번호·계기 …) — 인쇄해도 읽히게 _grey보다 진하게.
+// 정보 이름표(태그 번호·계기 …): 인쇄해도 읽히게 _grey보다 진하게.
 const PdfColor _label = PdfColor.fromInt(0xFF374151);
 const PdfColor _line = PdfColor.fromInt(0xFFD1D5DB);
 const PdfColor _head = PdfColor.fromInt(0xFFF1F5F9);
@@ -38,17 +38,11 @@ String _fmt(double v, [int d = 3]) {
 
 String _signed(double v, [int d = 3]) => '${v > 0 ? '+' : ''}${_fmt(v, d)}';
 
-String _date(DateTime d) =>
-    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
-/// 판정 글: 정상 / 허용 오차 넘음 / 판정 없음.
-String calVerdictText(bool? pass) =>
-    pass == null ? '판정 없음' : (pass ? '정상' : '허용 오차 넘음');
-
 /// 성적서 PDF 바이트.
 Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
   final fonts = await loadKoreanPdfFonts();
   final u = r.unit.trim();
+  final uu = u.isEmpty ? '' : ' ($u)';
   String pv(double v) => u.isEmpty ? _fmt(v) : '${_fmt(v)} $u';
 
   pw.Widget cell(
@@ -69,43 +63,65 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
     ),
   );
 
-  pw.Widget info(String k, String v) => pw.Row(
-    crossAxisAlignment: pw.CrossAxisAlignment.start,
-    children: [
-      pw.SizedBox(
-        width: 62,
-        child: pw.Text(
-          k,
-          style: const pw.TextStyle(fontSize: 9, color: _label),
+  pw.Widget info(String k, String v) => pw.Padding(
+    padding: const pw.EdgeInsets.only(bottom: 4),
+    child: pw.Row(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.SizedBox(
+          width: 62,
+          child: pw.Text(
+            k,
+            style: const pw.TextStyle(fontSize: 9, color: _label),
+          ),
         ),
-      ),
-      pw.Expanded(
-        child: pw.Text(
-          v.isEmpty ? '—' : v,
-          style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+        pw.Expanded(
+          child: pw.Text(
+            v.isEmpty ? '—' : v,
+            style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+          ),
         ),
-      ),
-    ],
+      ],
+    ),
   );
 
   final range =
-      '${pv(r.lrv)} ~ ${pv(r.urv)} = 4 ~ 20 mA${r.transfer == Transfer.sqrt ? ' (제곱근, 차압 유량)' : ''}';
-  final readKind = r.kind == ReadKind.ma ? '출력 전류(mA)' : '지시값(DCS·지시계)';
-  final tol = r.tolPct == null ? '' : '± ${_fmt(r.tolPct!)} % (스팬 대비)';
+      '${pv(r.lrv)} ~ ${pv(r.urv)} = 4 ~ 20 mA'
+      '${r.transfer == Transfer.linear ? '' : ' · ${transferLabel(r.transfer)}'}';
+  final tol = r.tolPct == null ? '' : '± ${_fmt(r.tolPct!)} % (스팬)';
 
   pw.Widget table(String title, List<CalEntry> entries) {
     final s = r.summaryOf(entries);
-    final pvKind = r.kind == ReadKind.pv;
-    final headers = [
-      '점',
-      '넣은 값${u.isEmpty ? '' : ' ($u)'}',
-      '이론 mA',
-      pvKind ? '지시값${u.isEmpty ? '' : ' ($u)'}' : '읽은 mA',
-      if (pvKind) '흐르는 mA',
-      '오차 %',
-      '오차${u.isEmpty ? '' : ' ($u)'}',
-      '판정',
-    ];
+    final headers = switch (r.kind) {
+      ReadKind.ma => [
+        '측정점',
+        '입력값$uu',
+        '이론값 (mA)',
+        '측정값 (mA)',
+        '오차 %',
+        '오차$uu',
+        '판정',
+      ],
+      ReadKind.pv => [
+        '측정점',
+        '입력값$uu',
+        '이론값 (mA)',
+        '지시값$uu',
+        '환산 mA',
+        '오차 %',
+        '오차$uu',
+        '판정',
+      ],
+      ReadKind.maIn => [
+        '측정점',
+        '입력 (mA)',
+        '이론값$uu',
+        '지시값$uu',
+        '오차 %',
+        '오차$uu',
+        '판정',
+      ],
+    };
     final rows = <pw.TableRow>[
       pw.TableRow(
         decoration: const pw.BoxDecoration(color: _head),
@@ -116,29 +132,35 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
       final p = s.points[i];
       final applied = i < entries.length && entries[i].applied != null
           ? entries[i].applied!
-          : pctToPv(kCalPoints[i], r.lrv, r.urv);
+          : nominalInput(kCalPoints[i], r.kind, r.lrv, r.urv);
       final bad = p?.pass == false;
       final c = bad ? _red : _ink;
+      String dash(double? v, [String Function(double)? f]) =>
+          v == null || v.isNaN ? '—' : (f ?? _fmt)(v);
       rows.add(
         pw.TableRow(
           decoration: bad ? const pw.BoxDecoration(color: _redBg) : null,
           children: [
             cell('${_fmt(kCalPoints[i])}%', bold: true),
             cell(_fmt(applied)),
-            cell(_fmt(idealMa(applied, r.lrv, r.urv, r.transfer))),
-            cell(p == null ? '—' : _fmt(p.reading)),
-            if (pvKind)
-              cell(
-                p == null
-                    ? '—'
-                    : _fmt(idealMa(p.reading, r.lrv, r.urv, r.transfer)),
-              ),
-            cell(p == null ? '—' : _signed(p.errPct, 2), color: c, bold: bad),
-            cell(p == null ? '—' : _signed(p.errPv), color: c),
             cell(
-              p == null
-                  ? '—'
-                  : (p.pass == null ? '—' : (p.pass! ? '정상' : '넘음')),
+              r.kind == ReadKind.maIn
+                  ? _fmt(pvFromMa(applied, r.lrv, r.urv, r.transfer))
+                  : _fmt(idealMa(applied, r.lrv, r.urv, r.transfer)),
+            ),
+            cell(dash(p?.reading)),
+            if (r.kind == ReadKind.pv)
+              cell(
+                dash(
+                  p == null
+                      ? null
+                      : idealMa(p.reading, r.lrv, r.urv, r.transfer),
+                ),
+              ),
+            cell(dash(p?.errPct, (v) => _signed(v, 2)), color: c, bold: bad),
+            cell(dash(p?.errPv, _signed), color: c),
+            cell(
+              p == null || p.pass == null ? '—' : calVerdictText(p.pass),
               color: c,
               bold: bad,
             ),
@@ -147,6 +169,7 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
       );
     }
     final w = s.worst;
+    final advise = s.adjustAdvised;
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -162,9 +185,10 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
         pw.SizedBox(height: 4),
         pw.Text(
           w == null
-              ? '잰 점이 없습니다.'
-              : '가장 큰 오차 ${_signed(w.$2.errPct, 2)} % (${_fmt(kCalPoints[w.$1])}% 점) · ${calVerdictText(s.pass)}'
-                    '${s.failed.isEmpty ? '' : ' — 넘은 점: ${s.failed.map((i) => '${_fmt(kCalPoints[i])}%').join(', ')}'}',
+              ? '측정값이 없습니다.'
+              : '최대 오차 ${_signed(w.$2.errPct, 2)} % (${_fmt(kCalPoints[w.$1])}% 점) · ${calVerdictText(s.pass)}'
+                    '${s.failed.isEmpty ? '' : ' · 불합격 점: ${s.failed.map((i) => '${_fmt(kCalPoints[i])}%').join(', ')}'}'
+                    '${advise.isEmpty ? '' : ' · 조정 권장: ${advise.map((i) => '${_fmt(kCalPoints[i])}%').join(', ')}'}',
           style: pw.TextStyle(
             fontSize: 9,
             color: s.pass == false ? _red : _ink,
@@ -194,7 +218,7 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
               ),
             ),
             pw.Text(
-              _date(r.date),
+              calDay(r.date),
               style: const pw.TextStyle(fontSize: 10, color: _grey),
             ),
           ],
@@ -210,12 +234,10 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   info('태그 번호', r.tag),
-                  pw.SizedBox(height: 4),
                   info('계기', r.instrument),
-                  pw.SizedBox(height: 4),
                   info('제조사·모델', r.model),
-                  pw.SizedBox(height: 4),
-                  info('기준기', r.refStd),
+                  info('표준기', r.refStd),
+                  info('주위 조건', r.ambient),
                 ],
               ),
             ),
@@ -225,25 +247,24 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   info('측정 범위', range),
-                  pw.SizedBox(height: 4),
-                  info('읽은 값', readKind),
-                  pw.SizedBox(height: 4),
-                  info('허용 오차', tol),
-                  pw.SizedBox(height: 4),
+                  info('측정 방법', kindLabel(r.kind)),
+                  info('허용오차', tol),
+                  info('교정일', calDay(r.date)),
+                  info('차기 교정일', r.nextDue == null ? '' : calDay(r.nextDue!)),
                   info('작업자', r.worker),
                 ],
               ),
             ),
           ],
         ),
-        pw.SizedBox(height: 14),
+        pw.SizedBox(height: 10),
         table('조정 전', r.found),
         pw.SizedBox(height: 14),
         if (r.adjusted)
           table('조정 후', r.left)
         else
           pw.Text(
-            '조정 후: 조정하지 않았습니다.',
+            '조정 후: 조정 없음',
             style: const pw.TextStyle(fontSize: 10, color: _grey),
           ),
         pw.SizedBox(height: 14),
@@ -257,7 +278,7 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
             children: [
               pw.Text(
                 '최종 판정  ',
-                style: const pw.TextStyle(fontSize: 10, color: _grey),
+                style: const pw.TextStyle(fontSize: 10, color: _label),
               ),
               pw.Text(
                 calVerdictText(fin),
@@ -290,7 +311,7 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
                     children: [
                       pw.Text(
                         t,
-                        style: const pw.TextStyle(fontSize: 9, color: _grey),
+                        style: const pw.TextStyle(fontSize: 9, color: _label),
                       ),
                       pw.SizedBox(height: 22),
                       pw.Container(height: 0.8, color: _line),
@@ -303,8 +324,9 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
         pw.SizedBox(height: 14),
         pw.Text(
           r.kind == ReadKind.ma
-              ? '오차 % = (읽은 mA − 이론 mA) ÷ 16 mA × 100. 이론 mA는 넣은 값으로 셈.'
-              : '오차 % = (지시값 − 넣은 값) ÷ 측정 범위 × 100. 흐르는 mA는 지시값에서 역산.',
+              ? '오차 % = (측정값 − 이론값) ÷ 16 mA × 100. 이론값은 입력값으로 계산.'
+              : '오차 % = (지시값 − 이론값) ÷ 스팬 × 100.'
+                    '${r.kind == ReadKind.pv ? ' 환산 mA는 지시값에서 역산.' : ''}',
           style: const pw.TextStyle(fontSize: 8, color: _grey),
         ),
       ],
@@ -322,7 +344,7 @@ String calRecordFileName(CalRecord r) {
   return 'cal_${tag}_${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}.pdf';
 }
 
-/// 성적서를 만들어 미리보기로 보여 준다. 공유는 미리보기의 단추를 눌러야만 된다.
+/// 성적서를 만들어 미리보기로 보여 준다. 공유는 미리보기의 버튼을 눌러야만 된다.
 Future<void> openCalRecordPdf(BuildContext context, CalRecord r) async {
   final bytes = await buildCalRecordPdf(r);
   final fileName = calRecordFileName(r);

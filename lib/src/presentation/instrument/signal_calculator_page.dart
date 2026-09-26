@@ -1,12 +1,17 @@
-// 4-20mA 계산기(홈 "현장 작업" → 4-20mA 계산기). 탭: 환산(mA·%·측정값, NE43 신호 상태, 5점 표) →
-// 교정 점검(넣은 값과 읽은 값의 스팬 % 오차, 허용 오차 판정) → 루프 전압(전원·저항·계기 최소 전압).
-// 칸마다 "?" 안내. 계산은 signal_calc.dart, 근거는 docs/4-20mA계산기_근거.md.
+// 4-20mA 계산기(홈 "현장 작업" → 4-20mA 계산기). 탭: 환산(mA·%·측정값, NE43 신호 상태, 5점 환산표) →
+// 교정 점검(입력값 대비 측정값·지시값의 스팬 % 오차, 허용오차 판정, 조정 전·후, 기록·성적서) →
+// 루프 전압(전원·저항·계기 최소 동작 전압, 확인 전류). 칸마다 "?" 안내.
+// 계산은 signal_calc.dart, 기록은 cal_record.dart, 근거는 docs/4-20mA계산기_근거.md.
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
 import '../electrical/elec_tables.dart' show cuResistance;
 import 'cal_record.dart';
+import 'cal_record_pdf.dart';
 import 'cal_records_page.dart';
 import 'signal_calc.dart';
 
@@ -27,8 +32,11 @@ enum _Input { ma, pct, pv }
 
 const List<double> _points = kCalPoints;
 
-/// 계장 전선 굵기(IEC 60228 2종) — 전기 계산기 저항 표에 있는 것.
+/// 계장 전선 굵기(IEC 60228 2종): 전기 계산기 저항 표에 있는 것.
 const List<double> _wireSizes = [0.75, 1.0, 1.5, 2.5];
+
+/// 입력 중인 값 보관(화면을 나가거나 전화가 와도 남게).
+const String kSignalDraftKey = 'signal_calc_draft_v1';
 
 class SignalCalculatorPage extends StatefulWidget {
   const SignalCalculatorPage({super.key});
@@ -38,7 +46,7 @@ class SignalCalculatorPage extends StatefulWidget {
 }
 
 class _SignalCalculatorPageState extends State<SignalCalculatorPage>
-    with SingleTickerProviderStateMixin, CalcFormParts {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver, CalcFormParts {
   late final TabController _tabs = TabController(length: 3, vsync: this);
 
   // 측정 범위(환산·교정 점검이 같이 씀)
@@ -51,14 +59,16 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
   _Input _input = _Input.ma;
   final _value = TextEditingController();
 
-  // ② 교정 점검 — 조정 전(found)·조정 후(left) 두 벌
+  // ② 교정 점검: 조정 전(found)·조정 후(left) 두 벌
   ReadKind _kind = ReadKind.ma;
   final _tol = TextEditingController();
   bool _phaseLeft = false;
+  bool _settingsOpen = true;
   final _foundApplied = [for (final _ in _points) TextEditingController()];
   final _foundReading = [for (final _ in _points) TextEditingController()];
   final _leftApplied = [for (final _ in _points) TextEditingController()];
   final _leftReading = [for (final _ in _points) TextEditingController()];
+  final _readFocus = [for (final _ in _points) FocusNode()];
   CalRecord? _editing; // 불러오거나 저장한 기록(고쳐 저장할 때 같은 id)
 
   List<TextEditingController> get _applied =>
@@ -71,12 +81,32 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
   final _minV = TextEditingController(text: '10.5');
   final _hartR = TextEditingController(text: '250');
   final _barrierR = TextEditingController(text: '0');
+  final _extraV = TextEditingController(text: '0');
   final _wireLen = TextEditingController();
   double _wireSize = 1.5;
   final _wireR = TextEditingController();
+  double _checkMa = 23;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _restoreDraft();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      _writeDraft(_draftJson());
+    }
+  }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _writeDraft(_draftJson());
     _tabs.dispose();
     for (final c in [
       _lrv,
@@ -92,12 +122,113 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       _minV,
       _hartR,
       _barrierR,
+      _extraV,
       _wireLen,
       _wireR,
     ]) {
       c.dispose();
     }
+    for (final f in _readFocus) {
+      f.dispose();
+    }
     super.dispose();
+  }
+
+  // ─────────────── 입력 보관 ───────────────
+
+  Map<String, dynamic> _draftJson() => {
+    'lrv': _lrv.text,
+    'urv': _urv.text,
+    'unit': _unit.text,
+    'transfer': _transfer.name,
+    'kind': _kind.name,
+    'tol': _tol.text,
+    'phaseLeft': _phaseLeft,
+    'fa': [for (final c in _foundApplied) c.text],
+    'fr': [for (final c in _foundReading) c.text],
+    'la': [for (final c in _leftApplied) c.text],
+    'lr': [for (final c in _leftReading) c.text],
+    'editing': _editing?.id,
+    'supply': _supply.text,
+    'minV': _minV.text,
+    'hart': _hartR.text,
+    'barrier': _barrierR.text,
+    'extraV': _extraV.text,
+    'wireLen': _wireLen.text,
+    'wireSize': _wireSize,
+    'wireR': _wireR.text,
+    'checkMa': _checkMa,
+  };
+
+  static Future<void> _writeDraft(Map<String, dynamic> j) async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setString(kSignalDraftKey, jsonEncode(j));
+    } catch (_) {
+      // 보관 못 하면 그냥 넘어간다(계산에는 영향 없음)
+    }
+  }
+
+  Future<void> _restoreDraft() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final raw = p.getString(kSignalDraftKey);
+      if (raw == null || raw.isEmpty) return;
+      final j = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      CalRecord? ed;
+      final edId = j['editing'] as String?;
+      if (edId != null) {
+        final list = await CalRecordStore.load();
+        for (final r in list) {
+          if (r.id == edId) ed = r;
+        }
+      }
+      if (!mounted) return;
+      void set(TextEditingController c, Object? v) {
+        if (v is String) c.text = v;
+      }
+
+      void setList(List<TextEditingController> cs, Object? v) {
+        if (v is! List) return;
+        for (var i = 0; i < cs.length && i < v.length; i++) {
+          set(cs[i], v[i]);
+        }
+      }
+
+      setState(() {
+        set(_lrv, j['lrv']);
+        set(_urv, j['urv']);
+        set(_unit, j['unit']);
+        _transfer = Transfer.values.firstWhere(
+          (t) => t.name == j['transfer'],
+          orElse: () => _transfer,
+        );
+        _kind = ReadKind.values.firstWhere(
+          (k) => k.name == j['kind'],
+          orElse: () => _kind,
+        );
+        set(_tol, j['tol']);
+        _phaseLeft = j['phaseLeft'] == true;
+        setList(_foundApplied, j['fa']);
+        setList(_foundReading, j['fr']);
+        setList(_leftApplied, j['la']);
+        setList(_leftReading, j['lr']);
+        _editing = ed;
+        set(_supply, j['supply']);
+        set(_minV, j['minV']);
+        set(_hartR, j['hart']);
+        set(_barrierR, j['barrier']);
+        set(_extraV, j['extraV']);
+        set(_wireLen, j['wireLen']);
+        final ws = (j['wireSize'] as num?)?.toDouble();
+        if (ws != null && _wireSizes.contains(ws)) _wireSize = ws;
+        set(_wireR, j['wireR']);
+        final cm = (j['checkMa'] as num?)?.toDouble();
+        if (cm != null && kLoopCheckMa.contains(cm)) _checkMa = cm;
+      });
+    } catch (_) {
+      // 보관한 값이 망가졌으면 처음 상태로
+    }
   }
 
   double? _num(TextEditingController c) =>
@@ -181,13 +312,13 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     ],
   );
 
-  /// 측정 범위 칸 — 두 탭에 같은 값.
+  /// 측정 범위 칸: 두 탭에 같은 값.
   List<Widget> _rangeFields(String tab) => [
     calcField(
       '${tab}_lrv',
       '0% 값 (4mA)',
       _lrv,
-      '계기가 4mA를 내는 측정값(LRV)입니다. 계기 명판·데이터시트·DCS 태그 설정에 적혀 있습니다. '
+      '계기가 4mA를 내는 측정값(LRV)입니다. 계기 명판·데이터시트·DCS 태그 설정에 있습니다. '
           '영하 온도처럼 음수도 넣을 수 있습니다.',
       signed: true,
     ),
@@ -203,10 +334,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
         children: [
           Expanded(
             flex: 5,
-            child: calcLabel(
-              '단위',
-              '결과에 붙여 보일 단위입니다(bar, kPa, °C, m³/h 등). 계산에는 쓰지 않습니다.',
-            ),
+            child: calcLabel('단위', '결과에 표시할 단위입니다. 계산에는 영향이 없습니다.'),
           ),
           Expanded(
             flex: 4,
@@ -230,18 +358,26 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
         ],
       ),
     ),
-    calcSwitch(
-      '제곱근 (차압 유량)',
-      _transfer == Transfer.sqrt,
-      (v) => setState(() => _transfer = v ? Transfer.sqrt : Transfer.linear),
-      '차압 전송기로 유량을 잴 때 mA는 차압에 비례하고, 유량은 차압의 제곱근입니다. '
-          '범위를 유량으로 넣고 켜십시오. 전송기 안에서 이미 제곱근을 풀어 내보내면(출력이 유량에 비례) 끄십시오.',
-      key: '${tab}_sqrt',
+    _chips(
+      '출력 특성',
+      '선형: mA가 측정값에 비례합니다.\n'
+          '제곱근(DCS 연산): 차압 전송기 출력은 차압에 비례하고 DCS가 유량으로 바꿉니다. 측정 범위를 유량으로 넣으십시오.\n'
+          '제곱근(전송기 출력): 전송기가 제곱근 출력으로 설정되어 mA가 유량에 비례합니다. 측정 범위를 차압으로 넣으십시오. '
+          '차압 약 1% 아래 저유량 구간은 제조사 설정(선형·차단)에 따라 다릅니다.',
+      [
+        for (final t in Transfer.values)
+          calcChip(
+            '${tab}_tf_${t.name}',
+            transferLabel(t),
+            _transfer == t,
+            () => setState(() => _transfer = t),
+          ),
+      ],
     ),
-    const SizedBox(height: 8),
   ];
 
-  // ① 환산
+  // ─────────────── ① 환산 ───────────────
+
   Widget _convTab() {
     final range = _range;
     final v = _num(_value);
@@ -283,7 +419,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
         caption: switch (_input) {
           _Input.ma => '측정값',
           _Input.pct => '출력 전류',
-          _Input.pv => '흐르는 전류(역산)',
+          _Input.pv => '출력 전류(역산)',
         },
         warn: warn,
         lines: [
@@ -291,6 +427,8 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
           if (_input != _Input.pct) '측정 범위의 ${_fmt(pct, 2)}%',
           if (_transfer == Transfer.sqrt)
             '차압 ${_fmt(pctFromMa(ma), 2)}% (mA는 차압에 비례)',
+          if (_transfer == Transfer.sqrtOut)
+            '유량 ${_fmt(pctFromMa(ma), 2)}% (mA는 유량에 비례)',
           '1-5V 입력이면 ${_fmt(ma * 0.25)} V (250Ω)',
           _stateText(st),
         ],
@@ -299,9 +437,9 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     return _page([
       ..._rangeFields('sg'),
       _chips(
-        '넣을 값',
-        '아는 값을 고르고 아래 칸에 넣으십시오. 나머지를 셉니다. '
-            'DCS·지시계에 보이는 값을 "측정값"으로 넣으면 지금 흐르는 mA를 역산합니다.',
+        '입력 항목',
+        '아는 값을 골라 넣으면 나머지를 계산합니다. '
+            'DCS·지시계 값을 "측정값"으로 넣으면 mA를 역산합니다.',
         [
           calcChip(
             'sg_in_ma',
@@ -327,15 +465,16 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
         'sg_value',
         switch (_input) {
           _Input.ma => '전류 (mA)',
-          _Input.pct => '측정 범위 (%)',
+          _Input.pct => '백분율 (%)',
           _Input.pv => '측정값${_u.isEmpty ? '' : ' ($_u)'}',
         },
         _value,
         switch (_input) {
-          _Input.ma => '멀티미터·교정기로 잰 루프 전류입니다.',
-          _Input.pct => '측정 범위의 몇 %인지입니다(0% = 4mA, 100% = 20mA).',
-          _Input.pv => '압력·온도 등 측정값(DCS·지시계 값)입니다. 이 값일 때 루프에 흐르는 전류를 역산합니다.',
+          _Input.ma => '멀티미터·교정기로 측정한 루프 전류입니다.',
+          _Input.pct => '측정 범위의 백분율입니다(0% = 4mA, 100% = 20mA).',
+          _Input.pv => '압력·온도 등 측정값(DCS·지시계 값)입니다. 이 값에 해당하는 mA를 역산합니다.',
         },
+        signed: true,
       ),
       const SizedBox(height: 12),
       result,
@@ -347,13 +486,15 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
   }
 
   String _stateText(SignalState s) => switch (s) {
-    SignalState.failLow => '3.6mA 이하 — 고장 신호(낮음), 단선·계기 고장을 보십시오(NAMUR NE43).',
-    SignalState.gapLow => '3.6~3.8mA — 고장 신호와 측정 사이, 정해지지 않은 구간입니다(NE43).',
-    SignalState.underRange => '3.8~4mA — 0% 아래로 내려갔지만 측정은 맞는 구간입니다(NE43).',
+    SignalState.failLow => '3.6mA 이하: 고장 신호(하한). 단선·계기 고장을 점검하십시오(NAMUR NE43).',
+    SignalState.gapLow =>
+      '3.6~3.8mA: NE43에서 정하지 않은 구간입니다. 계기의 고장 신호 설정값(예: 3.75mA)일 수 있습니다.',
+    SignalState.underRange => '3.8~4mA: 0% 미만이지만 유효한 측정 구간입니다(NE43).',
     SignalState.normal => '4~20mA 정상 구간입니다.',
-    SignalState.overRange => '20~20.5mA — 100% 위로 넘었지만 측정은 맞는 구간입니다(NE43).',
-    SignalState.gapHigh => '20.5~21mA — 측정과 고장 신호 사이, 정해지지 않은 구간입니다(NE43).',
-    SignalState.failHigh => '21mA 이상 — 고장 신호(높음)입니다(NAMUR NE43).',
+    SignalState.overRange => '20~20.5mA: 100% 초과이지만 유효한 측정 구간입니다(NE43).',
+    SignalState.gapHigh =>
+      '20.5~21mA: NE43에서 정하지 않은 구간입니다. 계기의 포화값(예: 20.8mA)일 수 있습니다.',
+    SignalState.failHigh => '21mA 이상: 고장 신호(상한)입니다(NAMUR NE43).',
   };
 
   Widget _tableCard(double l, double u) => Container(
@@ -367,7 +508,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '5점 표',
+          '5점 환산표',
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w800,
@@ -407,13 +548,33 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     );
   }
 
-  // ② 교정 점검
+  // ─────────────── ② 교정 점검 ───────────────
+
+  String get _phase => _phaseLeft ? '조정 후' : '조정 전';
+
+  bool get _anyInput => [
+    ..._foundApplied,
+    ..._foundReading,
+    ..._leftApplied,
+    ..._leftReading,
+  ].any((c) => c.text.trim().isNotEmpty);
+
+  String _settingsLine() {
+    final r = _range;
+    final tol = _num(_tol);
+    return [
+      r == null ? '범위 없음' : '${_pv(r.$1)} ~ ${_pv(r.$2)}',
+      transferLabel(_transfer),
+      kindLabel(_kind),
+      tol == null || tol <= 0 ? '허용오차 없음' : '±${_fmt(tol)}%',
+    ].join(' · ');
+  }
+
   Widget _calTab() {
     final range = _range;
     final tol = _num(_tol);
     final s = range == null ? null : _summary(_phaseLeft, range);
     final other = range == null ? null : _summary(!_phaseLeft, range);
-    final phase = _phaseLeft ? '조정 후' : '조정 전';
     Widget summary;
     if (s == null) {
       summary = calcResult(
@@ -424,29 +585,33 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     } else if (s.isEmpty) {
       summary = calcResult(
         big: '—',
-        caption: '$phase: 읽은 값을 한 점 이상 넣으십시오',
+        caption: '$_phase: 측정값을 한 점 이상 넣으십시오',
         lines: [if (other != null && !other.isEmpty) _otherLine(other)],
       );
     } else {
       final worst = s.worst!;
       final fails = s.failed;
+      final advise = s.adjustAdvised;
       summary = calcResult(
         key: const Key('sg_cal_result'),
         big: '${_signed(worst.$2.errPct, 2)}%',
         caption: s.pass == null
-            ? '$phase 가장 큰 오차(스팬 대비) — 허용 오차를 넣으면 판정합니다'
+            ? '$_phase 최대 오차 (스팬 %)'
             : fails.isEmpty
-            ? '$phase 정상 — ${s.measured.length}점 모두 ±${_fmt(tol!)}% 안'
-            : '$phase 허용 오차 넘음 — ${fails.length}점이 ±${_fmt(tol!)}% 밖',
+            ? '$_phase 합격: ${s.measured.length}점 모두 ±${_fmt(tol!)}% 이내'
+            : '$_phase 불합격: ${fails.length}점 허용오차 초과',
         warn: fails.isNotEmpty,
         lines: [
-          '가장 큰 오차: ${_fmt(_points[worst.$1])}% 점',
+          if (s.pass == null) '허용오차를 넣으면 합격·불합격을 판정합니다.',
+          '최대 오차: ${_fmt(_points[worst.$1])}% 점',
           if (fails.isNotEmpty)
-            '넘은 점: ${fails.map((i) => '${_fmt(_points[i])}%').join(', ')}',
+            '불합격 점: ${fails.map((i) => '${_fmt(_points[i])}%').join(', ')}',
+          if (advise.isNotEmpty)
+            '조정 권장: ${advise.map((i) => '${_fmt(_points[i])}%').join(', ')} 점이 허용오차의 50%(조정 한계)를 넘습니다.',
           if (other != null && !other.isEmpty) _otherLine(other),
           _kind == ReadKind.ma
-              ? '오차 % = (읽은 mA − 이론 mA) ÷ 16mA × 100'
-              : '오차 % = (지시값 − 넣은 값) ÷ 측정 범위 × 100',
+              ? '오차 % = (측정값 − 이론값) ÷ 16mA × 100'
+              : '오차 % = (지시값 − 이론값) ÷ 스팬 × 100',
         ],
       );
     }
@@ -462,54 +627,16 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
-            '불러온 기록: ${ed.tag.isEmpty ? '(태그 없음)' : ed.tag} · ${_day(ed.date)}',
+            '불러온 기록: ${ed.tag.isEmpty ? '(태그 없음)' : ed.tag} · ${calDay(ed.date)}',
             style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
           ),
         ),
-      ..._rangeFields('sc'),
+      _settingsHeader(),
+      if (_settingsOpen) ..._calSettings(),
       _chips(
-        '읽은 값',
-        'mA: 계기 출력 전류를 교정기·멀티미터로 잽니다(전송기 점검). '
-            '지시값: DCS·지시계·현장 게이지에 보이는 값입니다(루프 전체 점검). '
-            '지시값으로 넣으면 그 값에서 지금 흐르는 mA를 역산해 보여 줍니다.',
-        [
-          calcChip(
-            'sc_kind_ma',
-            'mA',
-            _kind == ReadKind.ma,
-            () => setState(() => _kind = ReadKind.ma),
-          ),
-          calcChip(
-            'sc_kind_pv',
-            '지시값',
-            _kind == ReadKind.pv,
-            () => setState(() => _kind = ReadKind.pv),
-          ),
-        ],
-      ),
-      calcField(
-        'sc_tol',
-        '허용 오차 (± 스팬 %)',
-        _tol,
-        '계기 정확도(데이터시트)나 발주처·교정 절차서가 정한 허용 오차입니다. '
-            '예: ±0.5%면 0.5. 비우면 오차만 보이고 판정은 하지 않습니다.',
-      ),
-      Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (final t in const ['0.1', '0.25', '0.5', '1'])
-              calcChip('sc_tol_$t', '±$t%', _tol.text.trim() == t, () {
-                setState(() => _tol.text = t);
-              }),
-          ],
-        ),
-      ),
-      _chips(
-        '점검',
-        '조정 전(As Found): 손대기 전에 잰 값. 조정 후(As Left): 제로·스팬을 맞춘 뒤 다시 잰 값. '
+        '구분',
+        '조정 전(As Found): 조정하기 전 측정값입니다.\n'
+            '조정 후(As Left): 영점·스팬을 조정한 뒤 다시 측정한 값입니다.\n'
             '조정하지 않았으면 조정 전만 넣으십시오. 성적서에 둘 다 적힙니다.',
         [
           calcChip(
@@ -526,20 +653,15 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
           ),
         ],
       ),
+      if (s != null && !s.isEmpty) _miniSummary(s),
       if (range != null && s != null)
         for (var i = 0; i < _points.length; i++)
           _calRow(i, range.$1, range.$2, s.points[i]),
       Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          calcToggle('sc_new', '새 점검', _newCheck),
-          calcToggle('sc_clear', '읽은 값 지우기', () {
-            setState(() {
-              for (final c in [..._reading, ..._applied]) {
-                c.clear();
-              }
-            });
-          }),
+          calcToggle('sc_new', '새로 시작', _confirmNewCheck),
+          calcToggle('sc_clear', '이 표 지우기', _confirmClearPhase),
         ],
       ),
       const SizedBox(height: 4),
@@ -593,10 +715,132 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     ]);
   }
 
+  /// 설정(범위·출력 특성·측정 방법·허용오차)을 한 줄로 보이고 접고 펴기.
+  Widget _settingsHeader() => Container(
+    key: const Key('sc_settings'),
+    margin: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.fromLTRB(14, 6, 4, 6),
+    decoration: BoxDecoration(
+      color: fc.surface,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: fc.line),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            _settingsLine(),
+            key: const Key('sc_settings_line'),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: fc.text,
+            ),
+          ),
+        ),
+        calcToggle(
+          'sc_settings_toggle',
+          _settingsOpen ? '접기' : '설정 바꾸기',
+          () => setState(() => _settingsOpen = !_settingsOpen),
+        ),
+      ],
+    ),
+  );
+
+  List<Widget> _calSettings() => [
+    ..._rangeFields('sc'),
+    _chips(
+      '측정 방법',
+      '전송기 출력(mA): 표준기로 공정값을 넣고 출력 mA를 측정합니다(전송기 교정).\n'
+          '루프 지시값: 표준기로 공정값을 넣고 DCS·지시계 값을 읽습니다(루프 점검). 지시값은 mA로 역산해 보여 줍니다.\n'
+          'mA 입력 → 지시값: 루프 교정기로 mA를 넣고 DCS 입력 카드·지시계·밸브 행정을 읽습니다.',
+      [
+        for (final k in ReadKind.values)
+          calcChip(
+            'sc_kind_${k.name}',
+            kindLabel(k),
+            _kind == k,
+            () => _changeKind(k),
+          ),
+      ],
+    ),
+    calcField(
+      'sc_tol',
+      '허용오차 (±%, 스팬)',
+      _tol,
+      '계기 정확도(데이터시트)나 교정 절차서의 허용오차입니다. 예: ±0.5%면 0.5. '
+          '비우면 판정하지 않습니다. 출력 mA로 측정하면 16mA 스팬, 지시값이면 측정 범위 스팬 기준입니다. '
+          '허용오차의 50%를 넘는 점은 조정을 권합니다(조정 한계).',
+    ),
+    Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final t in const ['0.1', '0.25', '0.5', '1'])
+            calcChip('sc_tol_$t', '±$t%', _tol.text.trim() == t, () {
+              setState(() => _tol.text = t);
+            }),
+        ],
+      ),
+    ),
+  ];
+
+  /// 측정 방법을 바꾸면 입력한 값의 뜻이 달라지므로 먼저 묻는다.
+  Future<void> _changeKind(ReadKind k) async {
+    if (k == _kind) return;
+    if (!_anyInput) {
+      setState(() => _kind = k);
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('측정 방법 바꾸기'),
+        content: const Text('측정 방법을 바꾸면 입력한 값의 뜻이 달라집니다. 입력한 값을 지우고 바꾸겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            key: const Key('sc_kind_ok'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('지우고 바꾸기'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() {
+      _clearAllInputs();
+      _kind = k;
+    });
+  }
+
+  Widget _miniSummary(CalSummary s) {
+    final w = s.worst!;
+    final bad = s.pass == false;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        '$_phase · 최대 오차 ${_signed(w.$2.errPct, 2)}%'
+        '${s.pass == null ? '' : ' · ${calVerdictText(s.pass)}'}',
+        key: const Key('sc_mini'),
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w800,
+          color: bad ? fc.danger : fc.brand,
+        ),
+      ),
+    );
+  }
+
   String _otherLine(CalSummary o) {
     final w = o.worst!;
-    return '${_phaseLeft ? '조정 전' : '조정 후'}: 가장 큰 오차 ${_signed(w.$2.errPct, 2)}%'
-        '${o.pass == null ? '' : ' · ${o.pass! ? '정상' : '넘음'}'}';
+    return '${_phaseLeft ? '조정 전' : '조정 후'}: 최대 오차 ${_signed(w.$2.errPct, 2)}%'
+        '${o.pass == null ? '' : ' · ${calVerdictText(o.pass)}'}';
   }
 
   List<CalEntry> _entries(bool left) {
@@ -617,27 +861,73 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     tolPct: _num(_tol),
   );
 
-  String _day(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  void _clearAllInputs() {
+    for (final c in [
+      ..._foundApplied,
+      ..._foundReading,
+      ..._leftApplied,
+      ..._leftReading,
+    ]) {
+      c.clear();
+    }
+  }
 
-  void _newCheck() {
+  Future<bool> _confirm(String title, String body, String okLabel) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(body),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            key: const Key('sc_confirm_ok'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(okLabel, style: TextStyle(color: fc.danger)),
+          ),
+        ],
+      ),
+    );
+    return ok == true && mounted;
+  }
+
+  Future<void> _confirmNewCheck() async {
+    if (!_anyInput && _editing == null) return;
+    if (!await _confirm(
+      '새로 시작',
+      '조정 전·후에 입력한 값을 모두 지우고 새로 시작하겠습니까? 저장한 기록은 지워지지 않습니다.',
+      '새로 시작',
+    )) {
+      return;
+    }
     setState(() {
-      for (final c in [
-        ..._foundApplied,
-        ..._foundReading,
-        ..._leftApplied,
-        ..._leftReading,
-      ]) {
-        c.clear();
-      }
+      _clearAllInputs();
       _phaseLeft = false;
       _editing = null;
     });
   }
 
-  void _snack(String t) => ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(t)));
+  Future<void> _confirmClearPhase() async {
+    if (![..._applied, ..._reading].any((c) => c.text.trim().isNotEmpty)) {
+      return;
+    }
+    if (!await _confirm('이 표 지우기', '$_phase 표에 입력한 값을 지우겠습니까?', '지우기')) {
+      return;
+    }
+    setState(() {
+      for (final c in [..._applied, ..._reading]) {
+        c.clear();
+      }
+    });
+  }
+
+  void _snack(String t, {SnackBarAction? action}) =>
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(t), action: action));
 
   Future<void> _saveSheet() async {
     final range = _range;
@@ -646,7 +936,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       return;
     }
     if (_summary(false, range).isEmpty && _summary(true, range).isEmpty) {
-      _snack('읽은 값을 한 점 이상 넣으십시오.');
+      _snack('측정값을 한 점 이상 넣으십시오.');
       return;
     }
     final ed = _editing;
@@ -666,28 +956,43 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     final now = DateTime.now();
     final (l, u) = range;
     final keep = !res.asNew && ed != null;
+    final tol = _num(_tol);
     final rec = CalRecord(
       id: keep ? ed.id : now.microsecondsSinceEpoch.toString(),
-      date: keep ? ed.date : now,
+      date: DateTime(
+        res.calDate.year,
+        res.calDate.month,
+        res.calDate.day,
+        now.hour,
+        now.minute,
+      ),
+      nextDue: res.nextDue,
       tag: res.tag,
       instrument: res.instrument,
       model: res.model,
       refStd: res.refStd,
       worker: res.worker,
+      ambient: res.ambient,
       memo: res.memo,
       lrv: l,
       urv: u,
       unit: _u,
       transfer: _transfer,
       kind: _kind,
-      tolPct: _num(_tol),
+      tolPct: tol != null && tol > 0 ? tol : null,
       found: _entries(false),
       left: _summary(true, range).isEmpty ? const [] : _entries(true),
     );
     await CalRecordStore.put(rec);
     if (!mounted) return;
     setState(() => _editing = rec);
-    _snack('${rec.tag} 기록을 저장했습니다.');
+    _snack(
+      '${rec.tag} 기록을 저장했습니다.',
+      action: SnackBarAction(
+        label: '성적서 보기',
+        onPressed: () => openCalRecordPdf(context, rec),
+      ),
+    );
   }
 
   Future<void> _openRecords() async {
@@ -712,14 +1017,22 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
         _leftReading[i].text = t(g.reading);
       }
       _phaseLeft = false;
+      _settingsOpen = false;
       _editing = r;
     });
     _snack('${r.tag} 기록을 불러왔습니다.');
   }
 
   Widget _calRow(int i, double l, double u, CalPoint? r) {
-    final nominal = pctToPv(_points[i], l, u);
-    final ideal = idealMa(_num(_applied[i]) ?? nominal, l, u, _transfer);
+    final nominal = nominalInput(_points[i], _kind, l, u);
+    final applied = _num(_applied[i]) ?? nominal;
+    final maIn = _kind == ReadKind.maIn;
+    final expectedText = switch (_kind) {
+      ReadKind.ma => '이론값 ${_fmt(idealMa(applied, l, u, _transfer))} mA',
+      ReadKind.pv =>
+        '이론값 ${_pv(applied)} · ${_fmt(idealMa(applied, l, u, _transfer))} mA',
+      ReadKind.maIn => '이론값 ${_pv(pvFromMa(applied, l, u, _transfer))}',
+    };
     final bad = r?.pass == false;
     return Container(
       key: Key('sc_row_$i'),
@@ -734,6 +1047,8 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
                 '${_fmt(_points[i])}%',
@@ -743,11 +1058,16 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
                   color: fc.text,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  '이론 ${_fmt(ideal)} mA',
-                  style: TextStyle(fontSize: 13, color: fc.textSub),
+                  expectedText,
+                  key: Key('sc_expected_$i'),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: fc.brand,
+                  ),
                 ),
               ),
             ],
@@ -757,7 +1077,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
               Expanded(
                 child: _smallField(
                   'sc_applied_$i',
-                  '넣은 값${_u.isEmpty ? '' : ' ($_u)'}',
+                  maIn ? '입력 (mA)' : '입력값${_u.isEmpty ? '' : ' ($_u)'}',
                   _applied[i],
                   _fmt(nominal),
                 ),
@@ -767,19 +1087,24 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
                 child: _smallField(
                   'sc_read_$i',
                   _kind == ReadKind.ma
-                      ? '읽은 mA'
-                      : '읽은 지시값${_u.isEmpty ? '' : ' ($_u)'}',
+                      ? '측정값 (mA)'
+                      : '지시값${_u.isEmpty ? '' : ' ($_u)'}',
                   _reading[i],
                   '',
+                  focus: _readFocus[i],
+                  last: i == _points.length - 1,
+                  onNext: i < _points.length - 1
+                      ? () => _readFocus[i + 1].requestFocus()
+                      : null,
                 ),
               ),
             ],
           ),
-          if (r != null && _kind == ReadKind.pv)
+          if (r != null && _kind != ReadKind.ma)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                '흐르는 전류(역산) ${_fmt(idealMa(r.reading, l, u, _transfer))} mA',
+                '환산 mA ${_fmt(idealMa(r.reading, l, u, _transfer))} (지시값 역산)',
                 key: Key('sc_flow_$i'),
                 style: TextStyle(
                   fontSize: 14,
@@ -792,11 +1117,11 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                // 판정을 앞에 — 줄 끝에서 "정상"이 두 줄로 끊기지 않게.
-                '${r.pass == null ? '' : (r.pass! ? '정상 · ' : '넘음 · ')}'
+                // 판정을 앞에: 줄 끝에서 판정 글자가 두 줄로 끊기지 않게.
+                '${r.pass == null ? '' : '${calVerdictText(r.pass)} · '}'
                 '오차 ${_signed(r.errPct, 2)}%'
                 '${r.errMa.isNaN ? '' : ' · ${_signed(r.errMa)} mA'}'
-                ' · ${_signed(r.errPv)}${_u.isEmpty ? '' : ' $_u'}',
+                '${r.errPv.isNaN ? '' : ' · ${_signed(r.errPv)}${_u.isEmpty ? '' : ' $_u'}'}',
                 key: Key('sc_err_$i'),
                 style: TextStyle(
                   fontSize: 14,
@@ -814,14 +1139,22 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     String key,
     String label,
     TextEditingController c,
-    String hint,
-  ) => TextField(
+    String hint, {
+    FocusNode? focus,
+    bool last = false,
+    VoidCallback? onNext,
+  }) => TextField(
     key: Key(key),
     controller: c,
+    focusNode: focus,
     keyboardType: const TextInputType.numberWithOptions(
       decimal: true,
       signed: true,
     ),
+    textInputAction: onNext != null
+        ? TextInputAction.next
+        : (last ? TextInputAction.done : null),
+    onSubmitted: onNext == null ? null : (_) => onNext(),
     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: fc.text),
     decoration: InputDecoration(
       isDense: true,
@@ -832,7 +1165,8 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     onChanged: (_) => setState(() {}),
   );
 
-  // ③ 루프 전압
+  // ─────────────── ③ 루프 전압 ───────────────
+
   Widget _loopTab() {
     final vs = _num(_supply);
     final vmin = _num(_minV);
@@ -845,41 +1179,55 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
             : wireLoopOhm(ohmPerKm: cuResistance(_wireSize, 20), lengthM: len));
     final hart = _num(_hartR) ?? 0;
     final barrier = _num(_barrierR) ?? 0;
+    final extra = _num(_extraV) ?? 0;
     final lc = vs == null || vmin == null
         ? null
-        : loopCheck(supplyV: vs, minV: vmin, ohms: [hart, barrier, wire]);
+        : loopCheck(
+            supplyV: vs,
+            minV: vmin,
+            ohms: [hart, barrier, wire],
+            checkMa: _checkMa,
+            extraV: extra,
+          );
+    final cm = _fmt(_checkMa, 2);
     return _page([
       calcField(
         'sl_supply',
         '전원 전압 (V)',
         _supply,
-        '루프 전원(DCS 카드·전원 장치) 전압입니다. 보통 24V DC.',
+        '루프 전원(DCS 카드·전원 장치) 전압입니다. 보통 24V DC입니다.',
       ),
       calcField(
         'sl_minv',
-        '계기 최소 전압 (V)',
+        '계기 최소 동작 전압 (V)',
         _minV,
-        '전송기가 동작하는 데 필요한 단자 전압의 최솟값입니다. 계기 데이터시트 "Power supply"에 적혀 있습니다. '
-            '예: Rosemount 3051(4-20mA HART) 10.5V. 계기마다 다르니 바꾸어 넣으십시오.',
+        '전송기가 동작하는 최소 단자 전압입니다. 데이터시트 "Power supply" 항목에 있습니다. '
+            '예: Rosemount 3051(4-20mA HART) 10.5V. 계기마다 다르니 확인해 넣으십시오.',
       ),
       calcField(
         'sl_hart',
         'HART·입력 저항 (Ω)',
         _hartR,
-        'DCS 입력 카드나 HART 통신용으로 루프에 든 저항입니다. HART 통신은 루프 저항 230Ω 이상이 필요해 보통 250Ω을 둡니다. '
+        'DCS 입력 카드나 HART 통신용 저항입니다. HART 통신에는 루프 저항 230Ω 이상이 필요해 보통 250Ω을 씁니다. '
             '카드 사양서의 입력 저항을 넣으십시오.',
       ),
       calcField(
         'sl_barrier',
         '배리어·절연기 (Ω)',
         _barrierR,
-        '방폭 배리어·신호 절연기가 있으면 사양서의 직렬 저항(또는 전압 강하 ÷ 20mA)을 넣습니다. 없으면 0.',
+        '방폭 배리어·신호 절연기의 직렬 저항입니다(사양서). 없으면 0.',
+      ),
+      calcField(
+        'sl_extra',
+        '지시계·기타 전압 강하 (V)',
+        _extraV,
+        '루프 지시계처럼 전류와 상관없이 전압을 먹는 기기의 전압 강하입니다(사양서). 없으면 0.',
       ),
       calcField(
         'sl_len',
-        '전선 길이 (m, 편도)',
+        '편도 길이 (m)',
         _wireLen,
-        '계기에서 판넬까지 한쪽 길이입니다. 왕복(두 가닥)으로 셉니다.',
+        '계기에서 판넬까지 편도 길이입니다. 왕복(두 가닥)으로 계산합니다.',
       ),
       _chips('전선 굵기', '계장 케이블 굵기입니다(IEC 60228 2종 구리, 20°C 저항).', [
         for (final s in _wireSizes)
@@ -892,31 +1240,52 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       ]),
       calcField(
         'sl_wire_r',
-        '또는 전선 저항 직접 (Ω, 왕복)',
+        '전선 저항 직접 입력 (Ω, 왕복)',
         _wireR,
-        '1.25sq처럼 위에 없는 굵기거나 재어 둔 값이 있으면 왕복 저항을 넣으십시오. 넣으면 길이·굵기보다 먼저 씁니다.',
+        '1.25sq처럼 목록에 없는 굵기이거나 실측값이 있으면 넣으십시오. 입력하면 길이·굵기 대신 이 값으로 계산합니다.',
       ),
-      const SizedBox(height: 12),
+      _chips(
+        '확인 전류',
+        '고장 신호(상한)까지 낼 수 있는지 확인할 전류입니다.\n'
+            '21mA: NAMUR NE43 고장 신호 하한.\n'
+            '21.75mA: Rosemount 3051 기본 고장 신호.\n'
+            '22.5mA: Rosemount NAMUR 설정.\n'
+            '23mA: Rosemount 3051 최대 루프 저항 식(43.5 × (전원 − 10.5)) 기준.\n'
+            '계기의 고장 신호 설정값을 고르십시오. 모르면 23mA가 안전합니다.',
+        [
+          for (final m in kLoopCheckMa)
+            calcChip(
+              'sl_cm_${_fmt(m, 2)}',
+              '${_fmt(m, 2)}mA',
+              _checkMa == m,
+              () => setState(() => _checkMa = m),
+            ),
+        ],
+      ),
+      const SizedBox(height: 4),
       if (lc == null)
-        calcResult(big: '—', caption: '전원 전압과 계기 최소 전압을 넣으십시오', lines: const [])
+        calcResult(
+          big: '—',
+          caption: '전원 전압과 계기 최소 동작 전압을 넣으십시오',
+          lines: const [],
+        )
       else
         calcResult(
           key: const Key('sl_result'),
-          big: '${_fmt(lc.volts21, 2)} V',
-          caption: lc.okAt21(vmin!)
-              ? '21mA일 때 계기 단자 전압 — 충분합니다'
+          big: '${_fmt(lc.voltsCheck, 2)} V',
+          caption: lc.okAtCheck(vmin!)
+              ? '${cm}mA 때 계기 단자 전압: 충분'
               : lc.okAt20(vmin)
-              ? '21mA일 때 계기 단자 전압 — 고장 신호를 끝까지 못 냅니다'
-              : '20mA도 못 냅니다 — 전압이 모자랍니다',
-          warn: !lc.okAt21(vmin),
+              ? '전압 부족: ${cm}mA 고장 신호를 낼 수 없습니다'
+              : '전압 부족: 20mA도 낼 수 없습니다',
+          warn: !lc.okAtCheck(vmin),
           lines: [
-            '루프 저항 합 ${_fmt(lc.totalOhm, 1)}Ω (전선 ${_fmt(wire, 1)}Ω)',
-            '20mA일 때 ${_fmt(lc.volts20, 2)} V (최소 ${_fmt(vmin)} V)',
-            '21mA까지 낼 수 있는 최대 루프 저항 ${_fmt(lc.maxOhm21, 0)}Ω',
+            '루프 총저항 ${_fmt(lc.totalOhm, 1)}Ω (전선 ${_fmt(wire, 1)}Ω)',
+            '20mA 때 단자 전압 ${_fmt(lc.volts20, 2)} V (최소 동작 전압 ${_fmt(vmin)} V)',
+            '최대 루프 저항 ${_fmt(lc.maxOhm, 0)}Ω (${cm}mA 기준)',
             if (lc.totalOhm < 230)
               'HART 통신을 하려면 루프 저항이 230Ω 이상이어야 합니다(보통 250Ω).',
-            '식: 단자 전압 = 전원 − 전류 × 루프 저항. 21mA는 NAMUR NE43 고장 신호(높음)의 시작.',
-            '제조사 식은 여유를 더 둡니다 — 예: Rosemount 3051 최대 루프 저항 = 43.5 × (전원 − 10.5), 약 23mA 기준.',
+            '식: 단자 전압 = 전원 − 전류 × 루프 저항 − 기타 전압 강하.',
           ],
         ),
     ]);
@@ -926,19 +1295,32 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
 /// 저장 창에서 돌려주는 값. [asNew]: 새 기록으로(아니면 불러온 기록을 고침).
 class _SaveResult {
   final bool asNew;
-  final String tag, instrument, model, refStd, worker, memo;
+  final DateTime calDate;
+  final DateTime? nextDue;
+  final String tag, instrument, model, refStd, worker, ambient, memo;
   const _SaveResult({
     required this.asNew,
+    required this.calDate,
+    required this.nextDue,
     required this.tag,
     required this.instrument,
     required this.model,
     required this.refStd,
     required this.worker,
+    required this.ambient,
     required this.memo,
   });
 }
 
-/// 교정 기록 저장 창(태그·계기·모델·기준기·작업자·메모). 입력 칸은 이 창이 만들고 치운다.
+/// 차기 교정일 고르기: 없음·6개월·1년·2년.
+const List<(String, int)> _dueChoices = [
+  ('없음', 0),
+  ('6개월', 6),
+  ('1년', 12),
+  ('2년', 24),
+];
+
+/// 교정 기록 저장 창. 입력 칸은 이 창이 만들고 치운다.
 class _CalSaveSheet extends StatefulWidget {
   final CalRecord? editing;
   final String worker;
@@ -961,12 +1343,34 @@ class _CalSaveSheetState extends State<_CalSaveSheet> {
   late final _model = TextEditingController(text: widget.editing?.model ?? '');
   late final _ref = TextEditingController(text: widget.refStd);
   late final _worker = TextEditingController(text: widget.worker);
+  late final _ambient = TextEditingController(
+    text: widget.editing?.ambient ?? '',
+  );
   late final _memo = TextEditingController(text: widget.editing?.memo ?? '');
+  late DateTime _calDate = widget.editing?.date ?? DateTime.now();
+  late int _dueMonths = _initialDue();
   bool _tagError = false;
+
+  int _initialDue() {
+    final e = widget.editing;
+    if (e?.nextDue == null) return 0;
+    final m =
+        (e!.nextDue!.year - e.date.year) * 12 +
+        (e.nextDue!.month - e.date.month);
+    return _dueChoices.any((c) => c.$2 == m) ? m : 0;
+  }
+
+  DateTime? get _nextDue => _dueMonths == 0
+      ? null
+      : DateTime(_calDate.year, _calDate.month + _dueMonths, _calDate.day);
+
+  /// 불러온 기록의 태그를 바꾸면 다른 계기로 보고 "새로 저장"을 기본으로.
+  bool get _tagChanged =>
+      widget.editing != null && _tag.text.trim() != widget.editing!.tag;
 
   @override
   void dispose() {
-    for (final c in [_tag, _inst, _model, _ref, _worker, _memo]) {
+    for (final c in [_tag, _inst, _model, _ref, _worker, _ambient, _memo]) {
       c.dispose();
     }
     super.dispose();
@@ -981,14 +1385,27 @@ class _CalSaveSheetState extends State<_CalSaveSheet> {
       context,
       _SaveResult(
         asNew: asNew,
+        calDate: _calDate,
+        nextDue: _nextDue,
         tag: _tag.text.trim(),
         instrument: _inst.text.trim(),
         model: _model.text.trim(),
         refStd: _ref.text.trim(),
         worker: _worker.text.trim(),
+        ambient: _ambient.text.trim(),
         memo: _memo.text.trim(),
       ),
     );
+  }
+
+  Future<void> _pickDate() async {
+    final d = await showDatePicker(
+      context: context,
+      initialDate: _calDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (d != null && mounted) setState(() => _calDate = d);
   }
 
   Widget _field(
@@ -998,12 +1415,14 @@ class _CalSaveSheetState extends State<_CalSaveSheet> {
     String? hint,
     bool error = false,
     int maxLines = 1,
+    ValueChanged<String>? onChanged,
   }) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
     child: TextField(
       key: Key(key),
       controller: c,
       maxLines: maxLines,
+      onChanged: onChanged,
       style: TextStyle(fontSize: 16, color: fc.text),
       decoration: InputDecoration(
         labelText: label,
@@ -1018,6 +1437,9 @@ class _CalSaveSheetState extends State<_CalSaveSheet> {
   @override
   Widget build(BuildContext context) {
     final ed = widget.editing;
+    // 새 기록이거나 태그를 바꿨으면 "새로 저장"이 기본 단추.
+    final primaryNew = ed == null || _tagChanged;
+    final due = _nextDue;
     return Padding(
       padding: EdgeInsets.fromLTRB(
         20,
@@ -1050,11 +1472,65 @@ class _CalSaveSheetState extends State<_CalSaveSheet> {
               _tag,
               hint: '예: PT-101',
               error: _tagError,
+              onChanged: (_) => setState(() {}),
             ),
             _field('cs_inst', '계기', _inst, hint: '예: 급수 펌프 토출 압력 전송기'),
             _field('cs_model', '제조사·모델', _model, hint: '예: Rosemount 3051'),
-            _field('cs_ref', '기준기', _ref, hint: '교정기 모델·교정 번호'),
+            _field('cs_ref', '표준기', _ref, hint: '모델·일련번호·교정 유효일'),
             _field('cs_worker', '작업자', _worker),
+            _field('cs_ambient', '주위 조건', _ambient, hint: '예: 23°C, 45%RH'),
+            Row(
+              children: [
+                Text(
+                  '교정일',
+                  style: TextStyle(fontWeight: FontWeight.w700, color: fc.text),
+                ),
+                const SizedBox(width: 8),
+                TextButton(
+                  key: const Key('cs_date'),
+                  onPressed: _pickDate,
+                  child: Text(
+                    calDay(_calDate),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Text(
+                  '차기 교정일',
+                  style: TextStyle(fontWeight: FontWeight.w700, color: fc.text),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  due == null ? '없음' : calDay(due),
+                  key: const Key('cs_due_text'),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: fc.brand,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final (label, m) in _dueChoices)
+                  ChoiceChip(
+                    key: Key('cs_due_$m'),
+                    label: Text(label),
+                    selected: _dueMonths == m,
+                    onSelected: (_) => setState(() => _dueMonths = m),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
             _field('cs_memo', '메모', _memo, maxLines: 2),
             const SizedBox(height: 4),
             Row(
@@ -1062,9 +1538,11 @@ class _CalSaveSheetState extends State<_CalSaveSheet> {
                 if (ed != null) ...[
                   Expanded(
                     child: OutlinedButton(
-                      key: const Key('cs_save_new'),
-                      onPressed: () => _done(true),
-                      child: const Text('새로 저장'),
+                      key: Key(
+                        primaryNew ? 'cs_save_overwrite' : 'cs_save_new',
+                      ),
+                      onPressed: () => _done(!primaryNew),
+                      child: Text(primaryNew ? '고쳐 저장' : '새로 저장'),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -1076,8 +1554,10 @@ class _CalSaveSheetState extends State<_CalSaveSheet> {
                       backgroundColor: fc.brand,
                       foregroundColor: fc.onBrand,
                     ),
-                    onPressed: () => _done(ed == null),
-                    child: Text(ed == null ? '저장' : '고쳐 저장'),
+                    onPressed: () => _done(primaryNew),
+                    child: Text(
+                      ed == null ? '저장' : (primaryNew ? '새로 저장' : '고쳐 저장'),
+                    ),
                   ),
                 ),
               ],

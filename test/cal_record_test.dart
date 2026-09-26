@@ -175,4 +175,88 @@ void main() {
       'cal_TT_7_8_20260906.pdf',
     );
   });
+  test('조정 한계: 허용오차 ±0.5%의 50%(0.25%)를 넘은 합격 점은 조정 권장', () {
+    final r = CalRecord(
+      id: 'a',
+      date: DateTime(2026, 9, 26),
+      tag: 'T',
+      lrv: 0,
+      urv: 10,
+      tolPct: 0.5,
+      found: const [
+        CalEntry(reading: 4.01), // +0.0625% 합격
+        CalEntry(reading: 8.05), // +0.3125% 합격이지만 조정 권장
+        CalEntry(reading: 12.1), // +0.625% 불합격
+      ],
+    );
+    expect(r.foundSummary.adjustAdvised, [1]);
+    expect(r.foundSummary.failed, [2]);
+    expect(calVerdictText(true), '합격');
+    expect(calVerdictText(false), '불합격');
+  });
+
+  test('mA 입력 방법: 입력값을 비우면 4·8·12mA가 들어간다', () {
+    final r = CalRecord(
+      id: 'b',
+      date: DateTime(2026, 9, 26),
+      tag: 'TI',
+      lrv: 0,
+      urv: 200,
+      kind: ReadKind.maIn,
+      found: const [CalEntry(), CalEntry(), CalEntry(reading: 101)],
+    );
+    final p = r.foundSummary.points[2]!;
+    expect(p.applied, 12);
+    expect(p.expected, closeTo(100, 1e-9));
+    expect(p.errPct, closeTo(0.5, 1e-9));
+  });
+
+  test('차기 교정일·주위 조건도 저장했다 읽으면 같다', () {
+    final r = CalRecord(
+      id: 'c',
+      date: DateTime(2026, 9, 26),
+      nextDue: DateTime(2027, 9, 26),
+      tag: 'X',
+      ambient: '23°C, 45%RH',
+      lrv: 0,
+      urv: 1,
+      found: const [],
+    );
+    final back = CalRecord.fromJson(
+      jsonDecode(jsonEncode(r.toJson())) as Map<String, dynamic>,
+    );
+    expect(back.nextDue, DateTime(2027, 9, 26));
+    expect(back.ambient, '23°C, 45%RH');
+    // 예전 기록(차기 교정일 칸 없음)도 읽힌다
+    final old = Map<String, dynamic>.from(r.toJson())
+      ..remove('nextDue')
+      ..remove('ambient');
+    expect(CalRecord.fromJson(old).nextDue, isNull);
+  });
+
+  test('CSV: BOM, 머리줄, 한 기록 한 줄, 쉼표 든 칸은 따옴표', () {
+    final csv = calRecordsCsv([
+      CalRecord(
+        id: 'd',
+        date: DateTime(2026, 9, 26),
+        nextDue: DateTime(2027, 9, 26),
+        tag: 'PT-101',
+        memo: '밸브 교체, 재점검',
+        lrv: 0,
+        urv: 10,
+        unit: 'bar',
+        tolPct: 0.5,
+        found: const [CalEntry(), CalEntry(), CalEntry(reading: 12.1)],
+        left: const [CalEntry(), CalEntry(), CalEntry(reading: 12.0)],
+      ),
+    ]);
+    expect(csv.startsWith('﻿태그 번호,'), isTrue);
+    final lines = csv.trim().split('\r\n');
+    expect(lines.length, 2);
+    expect(lines[1], startsWith('PT-101,,,2026-09-26,2027-09-26,0,10,bar,선형,'));
+    expect(lines[1], contains('"밸브 교체, 재점검"'));
+    expect(lines[1], contains(',0.625,불합격,0,합격,합격,'));
+    // 50% 점 조정 전: 입력값 5, 측정값 12.1, 오차 0.625
+    expect(lines[1], contains(',5,12.1,0.625,'));
+  });
 }

@@ -1,6 +1,11 @@
-// 저장한 교정 기록 목록(폰에만). 누르면 성적서 보기·계산기로 불러오기·지우기.
+// 저장한 교정 기록 목록(폰에만). 누르면 성적서 보기·계산기로 불러오기·지우기. CSV 내보내기(엑셀용).
 // 불러오기를 고르면 그 기록을 돌려주며 닫는다(Navigator.pop(record)).
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/theme/field_view.dart';
 import 'cal_record.dart';
@@ -45,11 +50,43 @@ class _CalRecordsPageState extends State<CalRecordsPage> {
             '저장한 교정 기록',
             style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
           ),
+          actions: [
+            if (_list?.isNotEmpty ?? false)
+              TextButton(
+                key: const Key('cr_csv'),
+                onPressed: _exportCsv,
+                child: const Text(
+                  'CSV 내보내기',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+          ],
         ),
         body: SafeArea(child: _body()),
       ),
     ),
   );
+
+  /// 엑셀에서 여는 CSV 파일을 만들어 공유 창을 연다(보내기는 사용자가 고른다).
+  Future<void> _exportCsv() async {
+    final l = _list;
+    if (l == null || l.isEmpty) return;
+    final d = DateTime.now();
+    final name =
+        'cal_records_${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}.csv';
+    try {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/$name');
+      await file.writeAsBytes(utf8.encode(calRecordsCsv(l)));
+      // ignore: deprecated_member_use
+      await Share.shareXFiles([XFile(file.path)], text: '교정 기록 ${l.length}건');
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('CSV 파일을 만들지 못했습니다.')));
+    }
+  }
 
   Widget _body() {
     final l = _list;
@@ -111,25 +148,24 @@ class _CalRecordsPageState extends State<CalRecordsPage> {
                       '${_date(r.date)}${r.worker.isEmpty ? '' : ' · ${r.worker}'}',
                       style: TextStyle(fontSize: 13, color: fc.textSub),
                     ),
+                    Text(
+                      r.adjusted
+                          ? '조정 전 ${calVerdictText(r.foundSummary.pass)} → 조정 후 ${calVerdictText(r.leftSummary.pass)}'
+                          : '조정 없음',
+                      key: Key('cr_phase_${r.id}'),
+                      style: TextStyle(fontSize: 13, color: fc.textSub),
+                    ),
                   ],
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    calVerdictText(pass),
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      color: color,
-                    ),
-                  ),
-                  Text(
-                    r.adjusted ? '조정함' : '조정 안 함',
-                    style: TextStyle(fontSize: 12, color: fc.textSub),
-                  ),
-                ],
+              const SizedBox(width: 8),
+              Text(
+                calVerdictText(pass),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: color,
+                ),
               ),
             ],
           ),
